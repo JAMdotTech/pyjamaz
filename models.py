@@ -83,7 +83,7 @@ class State:
     #graypaper-equation: 16
     #[NOTE: no state required as input in graypaper-equation: 16; no 'self' as function input?!?]
     #[TODO: input 1: Block.Header]
-    def state_transition_timeslot(header: Header):
+    def state_transition_16(header: Header):
         #self.timeslot += 1
         #[TODO: output 1: State.timeslot of transitioned state]
         pass
@@ -92,7 +92,7 @@ class State:
     #[NOTES: this function is an intermediate step and creates output that is used in graypaper-equation: 18]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: State.recent_blocks of current state]
-    def state_transition_recent_17(header: Header, i2: {}):
+    def state_transition_17(header: Header, i2: {}):
         #[TODO: output 1: State.recent_blocks of intermediate state]
         pass
 
