@@ -31,53 +31,150 @@ class Block:
         self.header = header
         self.extrinsic = extrinsic
 
+
 class State:
     #graypaper-equation: 15
     def __init__(self):
         #graypaper-reference: ALPHA
-        self.authorizers = {}
+        #[]
+        self.authorizers = {} #StateAuthorizers
 
         #graypaper-reference: BETA
-        self.recent_blocks = [{},{},{},{}]
+        self.recent_blocks = [{},{},{},{}] #StateRecentBlocks
 
         #graypaper-reference: GAMMA
-        self.safrole = {}
+        self.safrole = {} #StateSafrole
 
         #graypaper-reference: DELTA
-        self.services = {}
+        self.services = {} #StateServices
 
         #graypaper-reference: ETA
-        self.entropy = {}
+        self.entropy = {} #StateEntropy
 
         #graypaper-reference: IOTA
-        self.enqueued_validators = {}
+        self.enqueued_validators = {}  #StateEnqueuedValidators
 
         #graypaper-reference: KAPPA
-        self.validators = {}
+        self.validators = {} #StateValidators
 
         #graypaper-reference: LAMBDA
-        self.archived_validators = {}
+        self.archived_validators = {} #StateArchivedValidators
 
         #graypaper-reference: RHO
-        self.assurances = {}
+        self.assurances = {} #StateAssurances
 
         #graypaper-reference: TAU
-        self.timeslot = 1
+        self.timeslot = 1 #StateTimeslot
 
         #graypaper-reference: PHI
-        self.authorizers_queue = {}
+        self.authorizers_queue = {} #StateAuthorizersQueue
 
         #graypaper-reference: CHI
-        self.priviliged_services = {}
+        self.priviliged_services = {} #StatePriviligedServices
 
         #graypaper-reference: PSI
-        self.disputes = {}
+        self.disputes = {} #StateDisputes
 
     #graypaper-equation: 12
     #[TODO: input 1: State]
     #[TODO: input 2: Block]
     def state_transition(self, block: Block):
+        # specification of state transitions per step
+        # graypaper-equation: 16
+        # [TODO: input 1: Block.Header]
+        self.state_transition_16(block.header)
+
+        # graypaper-equation: 17
+        # [TODO: input 1: Block.Header]
+        # [TODO: input 2: State.recent_blocks of current state]
+        self.state_transition_17(block.header, self.recent_blocks)
+
+        # graypaper-equation: 18
+        #NOTE: 3rd argument is output op state_transition_17 (intermediate result)
+        # [TODO: input 1: Block.Header]
+        # [TODO: input 2: Block.Extrinsic.reports]
+        # [TODO: input 3: State.recent_blocks of intermediate state (result of graypaper-equation 17]
+        # [TODO: input 4: 'C'-object to be determined Beefy related ]
+        self.state_transition_18(block.header, block.extrinsic.reports, self.recent_blocks, {})
+
+        # graypaper-equation: 19
+        # [TODO: input 1: Block.Header]
+        # [TODO: input 2: Timeslot of current state]
+        # [TODO: input 3: Block.Extrinsic.tickets]
+        # [TODO: input 4: State.safrole of current state]
+        # [TODO: input 5: State.enqueued_validators of current state]
+        # [TODO: input 6: State.entropy of transitioned state]
+        # [TODO: input 7: State.validators of transitioned state]
+        self.state_transition_19(block.header, self.timeslot, block.extrinsic.tickets, self.safrole, self.enqueued_validators, self.entropy, self.validators)
+
+        # graypaper-equation: 20
+        # [TODO: input 1: Block.Header]
+        # [TODO: input 2: Timeslot of current state]
+        # [TODO: input 3: State.entropy of current state]
+        self.state_transition_20(block.header, self.timeslot, self.entropy)
+
+        # graypaper-equation: 21
+        # [TODO: input 1: Block.Header]
+        # [TODO: input 2: Timeslot of current state]
+        # [TODO: input 3: State.validators of current state]
+        # [TODO: input 4: State.safrole of current state]
+        # [TODO: input 5: State.disputes of transitioned state]
+        self.state_transition_21(block.header, self.timeslot, self.validators, self.safrole, self.disputes)
+
         #[TODO: output 1: State of transitioned state]
+        pass
+
+        # graypaper-equation: 22
+        # [TODO: input 1: Block.Header]
+        # [TODO: input 2: Timeslot of current state]
+        # [TODO: input 3: State.archived_validators of current state]
+        # [TODO: input 4: State.validators of current state]
+        self.state_transition_22(block.header, self.timeslot, self.archived_validators, self.validators)
+
+        # graypaper-equation: 23
+        # [TODO: input 1: Block.Extrinsic.judgements]
+        # [TODO: input 2: State.disputes of current state]
+        self.state_transition_23(block.extrinsic.judgements, self.disputes)
+
+        # graypaper-equation: 24
+        # [TODO: input 1: Block.Extrinsic.preimages]
+        # [TODO: input 2: State.services of current state]
+        # [TODO: input 3: Timeslot of transitioned state]
+        self.state_transition_24(block.extrinsic.preimages, self.services, self.timeslot)
+
+        # graypaper-equation: 25
+        # [TODO: input 1: Block.Extrinsic.judgements]
+        # [TODO: input 2: State.assurances of current state]
+        self.state_transition_25(block.extrinsic.judgements, self.assurances)
+
+        # graypaper-equation: 26
+        # [TODO: input 1: Block.Extrinsic.assurances]
+        # [TODO: input 2: State.assurances of first intermediate state of graypaper-equation: 25]
+        self.state_transition_26(block.extrinsic.assurances, self.assurances)
+
+        # graypaper-equation: 27
+        # [TODO: input 1: Block.Extrinsic.reports]
+        # [TODO: input 2: State.assurances of second intermediate state of graypaper-equation: 26]
+        # [TODO: input 3: State.validators of current state]
+        # [TODO: input 4: Timeslot of transitioned state]
+        self.state_transition_27(block.extrinsic.reports, self.assurances, self.validators, self.timeslot)
+
+        # graypaper-equation: 28
+        # [TODO: input 1: Block.Extrinsic.assurances]
+        # [TODO: input 2: State.assurances of transitioned state of graypaper-equation: 27]
+        # [TODO: input 3: State.services of intermediate state of graypaper-equation: 24]
+        # [TODO: input 4: State.priviliged_services current state]
+        # [TODO: input 5: State.enqueued_validators of current state]
+        # [TODO: input 6: State.authorizers_queue of current state]
+        self.state_transition_28(block.extrinsic.assurances, self.assurances, self.services, self.priviliged_services, self.enqueued_validators, self.authorizers_queue)
+
+        # graypaper-equation: 29
+        # [TODO: input 1: Block.Extrinsic.reports]
+        # [TODO: input 2: State.authorizers_queue of transitioned state]
+        # [TODO: input 3: State.authorizers of current state]
+        self.state_transition_29(block.extrinsic.reports, self.authorizers_queue, self.authorizers)
+
+        #[TODO: output 1: State of transitioned state; state is now updated!!]
         pass
 
     #graypaper-equation: 16
@@ -140,8 +237,8 @@ class State:
     #graypaper-equation: 22
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: Timeslot of current state]
-    #[TODO: input 4: State.archived_validators of current state]
-    #[TODO: input 3: State.validators of current state]
+    #[TODO: input 3: State.archived_validators of current state]
+    #[TODO: input 4: State.validators of current state]
     def state_transition_22(header: Header, i2: {}, i3: {}, i4: {}):
         #[TODO: output 1: State.archived_validators of transitioned state]
         pass
@@ -208,3 +305,94 @@ class State:
     def state_transition_29(i1: {}, i2: {}, i3: {}):
         #[TODO: output 1: State.authorizers of transitioned state]
         pass
+
+
+class StateAuthorizers:
+    #graypaper-reference: ALPHA
+    def __init__(self, state: State):
+        #definition
+        self.authorizers = {}
+
+
+class StateRecentBlocks:
+    #graypaper-reference: BETA
+    def __init__(self, state: State):
+        #definition
+        self.recent_blocks = [{},{},{},{}]
+
+
+class StateSafrole:
+    #graypaper-reference: GAMMA
+    def __init__(self, state: State):
+        #definition
+        self.safrole = {}
+
+
+class StateServices:
+    #graypaper-reference: DELTA
+    def __init__(self, state: State):
+        #definition
+        self.services = {}
+
+
+class StateEntropy:
+    #graypaper-reference: ETA
+    def __init__(self, state: State):
+        #definition
+        self.entropy = {}
+
+
+class StateEnqueuedValidators:
+    #graypaper-reference: IOTA
+    def __init__(self, state: State):
+        #definition
+        self.enqueued_validators = {}
+
+
+class StateValidators:
+    #graypaper-reference: KAPPA
+    def __init__(self, state: State):
+        #definition
+        self.validators = {}
+
+
+class StateArchivedValidators:
+    #graypaper-reference: LAMBDA
+    def __init__(self, state: State):
+        #definition
+        self.archived_validators = {}
+
+
+class StateAssurances:
+    #graypaper-reference: RHO
+    def __init__(self, state: State):
+        #definition
+        self.assurances = {}
+
+
+class StateTimeslot:
+    #graypaper-reference: TAU
+    def __init__(self, state: State):
+        #definition
+        self.timeslot = 1
+
+
+class StateAuthorizersQueue:
+    #graypaper-reference: PHI
+    def __init__(self, state: State):
+        #definition
+        self.authorizers_queue = {}
+
+
+class StatePriviligedServices:
+    #graypaper-reference: CHI
+    def __init__(self, state: State):
+        #definition
+        self.priviliged_services = {}
+
+
+class StateDisputes:
+    #graypaper-reference: PSI
+    def __init__(self, state: State):
+        #definition
+        self.disputes = {}
