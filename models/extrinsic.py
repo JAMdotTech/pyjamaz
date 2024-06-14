@@ -1,4 +1,17 @@
-class Extrinsic:
+from scalecodec.types import Struct, Vec, U16
+
+
+class Extrinsic(Struct):
+
+    def __init__(self):
+
+        super().__init__(
+            tickets=Vec(U16),
+            judgements=Vec(U16)
+        )
+
+
+class OldExtrinsic:
     #graypaper-equation: 14
     def __init__(self):
         # graypaper-equation: 71
