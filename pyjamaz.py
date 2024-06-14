@@ -1,6 +1,7 @@
 from constants import TIMESLOT_LENGTH
-from models import Extrinsic, Block
+from models.block import Block
 from models.header import Header
+from models.extrinsic import Extrinsic
 
 
 def main():
