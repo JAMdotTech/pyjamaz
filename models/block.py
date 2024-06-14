@@ -1,5 +1,4 @@
 from scalecodec.types import Struct
-
 from models.header import Header
 from models.extrinsic import Extrinsic
 

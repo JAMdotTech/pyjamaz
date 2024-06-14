@@ -5,9 +5,7 @@ from models.extrinsic import Extrinsic
 
 
 def main():
-    header = Header()
-    extrinsic = Extrinsic()
-    block = Block(header, extrinsic)
+    block = Block()
     print(f'Timeslot {TIMESLOT_LENGTH}')
 
 
