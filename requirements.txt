@@ -1,1 +1,1 @@
-
+scalecodec @ git+https://github.com/polkascan/py-scale-codec@az-v2

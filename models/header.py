@@ -1,4 +1,25 @@
-class Header:
+from scalecodec.types import H256, Tuple, Struct, U32, Option, Vec
+
+
+# class Entropy(H256):
+#     def example_extra_function_remove_me_hash(self):
+#         return '0x00000000000'
+
+
+class Header(Struct):
+
+    def __init__(self):
+
+        super().__init__(
+            parent_hash=H256,
+            prior_state_root=H256,
+            extrinsic_hash=H256,
+            timeslot=U32,
+            epoch=Option(Tuple(H256, H256, Vec(H256)))
+        )
+
+
+class OldHeader:
     #graypaper-equation: 36
     def __init__(self):
         #graypaper-equation: 37 | type is 32byte_hash (blake2b)

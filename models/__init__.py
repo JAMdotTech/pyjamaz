@@ -1,8 +1,19 @@
-from models import Header
+from scalecodec.types import Vec, Struct, U16
+
 from models.header import Header
 
 
-class Extrinsic:
+class Extrinsic(Struct):
+
+    def __init__(self):
+
+        super().__init__(
+            tickets=Vec(U16),
+            judgements=Vec(U16)
+        )
+
+
+class OldExtrinsic:
     #graypaper-equation: 14
     def __init__(self):
         # graypaper-equation: 71
@@ -62,7 +73,15 @@ class Extrinsic:
         # DEFINE FUNCTION THAT VERIFIES HASH OF EXTRINSIC(DATA)
 
 
-class Block:
+class Block(Struct):
+    def __init__(self):
+
+        super().__init__(
+            header=Header(),
+            extrinsic=Extrinsic()
+        )
+
+class OldBlock:
     #graypaper-equation: 13
     def __init__(self, header: Header, extrinsic: Extrinsic):
         self.header = header
