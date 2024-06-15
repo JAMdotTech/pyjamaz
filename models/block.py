@@ -4,12 +4,10 @@ from models.extrinsic import Extrinsic
 
 
 class Block(Struct):
-    def __init__(self):
-
-        super().__init__(
-            header=Header(),
-            extrinsic=Extrinsic()
-        )
+    arguments = {
+        'header': Header(),
+        'extrinsic': Extrinsic(),
+    }
 
 
 class OldBlock:

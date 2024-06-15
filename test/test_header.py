@@ -44,6 +44,7 @@ class TestHeader(unittest.TestCase):
 
         header = Header().new()
         header.deserialize(example_value)
+        header.test()
         scale_data = header.encode()
 
         self.assertEqual(

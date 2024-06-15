@@ -1,3 +1,4 @@
+from scalecodec.base import ScaleType
 from scalecodec.types import H256, Tuple, Struct, U32, Option, Vec
 
 
@@ -5,8 +6,21 @@ from scalecodec.types import H256, Tuple, Struct, U32, Option, Vec
 #     def example_extra_function_remove_me_hash(self):
 #         return '0x00000000000'
 
+class HeaderType(ScaleType):
+    def test(self):
+        print('ja')
+
 
 class Header(Struct):
+
+    scale_type_cls = HeaderType
+    arguments = {
+        'parent_hash': H256,
+        'prior_state_root': H256,
+        'extrinsic_hash': H256,
+        'timeslot': U32,
+        'epoch': Option(Tuple(H256, H256, Vec(H256)))
+    }
 
     def __init__(self):
 
