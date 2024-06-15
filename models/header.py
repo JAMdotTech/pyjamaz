@@ -22,16 +22,6 @@ class Header(Struct):
         'epoch': Option(Tuple(H256, H256, Vec(H256)))
     }
 
-    def __init__(self):
-
-        super().__init__(
-            parent_hash=H256,
-            prior_state_root=H256,
-            extrinsic_hash=H256,
-            timeslot=U32,
-            epoch=Option(Tuple(H256, H256, Vec(H256)))
-        )
-
 
 class OldHeader:
     #graypaper-equation: 36
