@@ -4,20 +4,12 @@ from models.extrinsic import Extrinsic
 
 
 class Block(Struct):
+    #GP-equation: 13
     arguments = {
         'header': Header(),
         'extrinsic': Extrinsic(),
     }
 
-
-class OldBlock:
-    #graypaper-equation: 13
-    def __init__(self, header: Header, extrinsic: Extrinsic):
-        self.header = header
-        self.extrinsic = extrinsic
-
-        # graypaper-equation: 13
-        # DEFINE FUNCTION THAT SERIALIZES BLOCK(DATA)
-
-        # graypaper-equation: 13
-        # DEFINE FUNCTION THAT UNSERIALIZES BLOCK(DATA)
+    #GP-equation: 14 | SCALETYPE-DEFINITION: "BLOCK"->"(HEADER,EXTRINSIC)"
+    #DEFINE FUNCTION THAT SERIALIZES BLOCK(DATA)
+    #DEFINE FUNCTION THAT UNSERIALIZES BLOCK(DATA)
