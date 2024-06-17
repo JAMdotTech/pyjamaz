@@ -7,3 +7,4 @@ class ExtrinsicJudgement(Struct):
         'work_report_hash': H256,
         'votes': Vec(Tuple(Bool,U16,H512))
     }
+

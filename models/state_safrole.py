@@ -1,11 +1,15 @@
-from models import Header
+from scalecodec.types import Struct, Tuple, Vec, H256, U8
+from models.header import Header
+from models.validator_keys import ValidatorKeys
 
 
-class StateSafrole:
-    #graypaper-reference: GAMMA
-    def __init__(self):
-        #definition
-        self = {}
+class StateSafrole(Struct):
+    #GP-reference: PSI | SCALETYPE-DEFINITION: "SAFROLE"->"(VALIDATORS,EPOCH_ROOT,SLOT_SEALER_SERIES,TICKETS)>" | "VALIDATORS"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details. | "EPOCH_ROOT"->"H1572864"  | "SLOT_SEALER_SERIES"->"ENUM<TICKETS,BS_KEYS>" | "TICKETS"->"VEC<TICKET>" | "TICKET"->"(TICKET_ID,ENTRY_IDX)" | "TICKET_ID"->"H256" | "ENTRY_IDX"->"U8"
+    #TODO: "EPOCH_ROOT"->"H1572864" (new type large hash)
+    #TODO: "SLOT_SEALER_SERIES"->"ENUM" (new type XOR)
+    arguments = {
+        'safrole': Tuple(Vec(ValidatorKeys()),H256,Enum(Vec(H256,U8),H256),Vec(H256,U8))
+    }
 
     #graypaper-equation: 19
     #[TODO: input 1: Block.Header]

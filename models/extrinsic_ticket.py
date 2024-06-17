@@ -7,3 +7,4 @@ class ExtrinsicTicket(Struct):
         'entry_idx': U8,
         'validity_proof': H512
     }
+

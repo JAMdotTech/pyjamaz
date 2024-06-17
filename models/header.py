@@ -2,14 +2,10 @@ from scalecodec.base import ScaleType
 from scalecodec.types import Struct, Tuple, Vec, Option, U8, U16, U32, H256, H512
 
 
-# class Entropy(H256):
-#     def example_extra_function_remove_me_hash(self):
-#         return '0x00000000000'
-
+#TODO: ARJAN UITLEGGEN WAT DIT BETEKENT. SNAP IK NIET.
 #class HeaderType(ScaleType):
 #    def test(self):
 #        print('ja')
-
 
 class Header(Struct):
     #GP-equation: 37 | SCALETYPE-DEFINITION: "PARENT_HASH"->"H256"
@@ -23,7 +19,7 @@ class Header(Struct):
     #GP-equation: 59 | SCALETYPE-DEFINITION: "VRF_SIGNATURE"->"H512"
     #GP-equation: 59? | SCALETYPE-DEFINITION: "BLOCK_SEAL"->"H512"
 
-    #scale_type_cls = HeaderType
+    #TODO: ARJAN UITLEGGEN WAT DIT BETEKENT. SNAP IK NIET.
     arguments = {
         'parent_hash': H256,
         'prior_state_root': H256,
@@ -43,3 +39,4 @@ class Header(Struct):
 
     #GP-equation: 37
     #DEFINE FUNCTION THAT HASHES HEADER(DATA)
+

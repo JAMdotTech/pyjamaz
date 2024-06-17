@@ -1,8 +1,12 @@
-class StateValidatorQueue:
-    #graypaper-reference: IOTA
-    def __init__(self):
-        #definition
-        self = []
+from scalecodec.types import Struct, Vec
+from models.validator_keys import ValidatorKeys
+
+
+class StateValidatorQueue(Struct):
+    #GP-reference: IOTA | SCALETYPE-DEFINITION: "VALIDATOR_QUEUE"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details.
+    arguments = {
+        'validator_queue': Vec(ValidatorKeys())
+    }
 
     #graypaper-equation: 28
     #[TODO: input 1: Block.Extrinsic.assurances]
@@ -14,3 +18,4 @@ class StateValidatorQueue:
     def state_transition(i1: {}, i2: {}, i3: {}, i4: {}, i5: {}, i6: {}):
         #[TODO: output 1: self of transitioned state]
         pass
+

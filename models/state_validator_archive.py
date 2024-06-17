@@ -1,11 +1,13 @@
-from models import Header
+from scalecodec.types import Struct, Vec
+from models.header import Header
+from models.validator_keys import ValidatorKeys
 
 
-class StateValidatorArchive:
-    #graypaper-reference: LAMBDA
-    def __init__(self):
-        #definition
-        self = []
+class StateValidatorArchive(Struct):
+    #GP-reference: LAMBDA | SCALETYPE-DEFINITION: "VALIDATOR_ARCHIVE"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details.
+    arguments = {
+        'validator_archive': Vec(ValidatorKeys())
+    }
 
     #graypaper-equation: 22
     #[TODO: input 1: Block.Header]

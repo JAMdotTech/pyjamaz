@@ -1,10 +1,7 @@
 import unittest
-
 from scalecodec.base import ScaleBytes
-
-from models import Block
-from models.header import Header
-
+from models.block import Block
+#from models.header import Header
 
 class TestBlock(unittest.TestCase):
     def test_block_scale_encode(self):

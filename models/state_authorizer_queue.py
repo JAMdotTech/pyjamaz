@@ -1,8 +1,11 @@
-class StateAuthorizerQueue:
-    #graypaper-reference: PHI
-    def __init__(self):
-        #definition
-        self = {}
+from scalecodec.types import Struct, Vec, H256
+
+
+class StateAuthorizerQueue(Struct):
+    #GP-reference: PHI | SCALETYPE-DEFINITION: "AUTHORIZER_QUEUE"->"VEC<AUTHORIZER>" | "AUTHORIZER"->"VEC<AUTHORIZATION>" | "AUTHORIZATION"->"H256" |
+    arguments = {
+        'authorizer_queue': Vec(Vec(H256))
+    }
 
     #graypaper-equation: 28
     #[TODO: input 1: Block.Extrinsic.assurances]

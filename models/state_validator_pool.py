@@ -1,13 +1,15 @@
-from models import Header
+from scalecodec.types import Struct, Vec
+from models.header import Header
+from models.validator_keys import ValidatorKeys
 
 
-class StateValidatorPool:
-    #graypaper-reference: KAPPA
-    def __init__(self):
-        #definition
-        self = []
+class StateValidatorPool(Struct):
+    #GP-reference: KAPPA | SCALETYPE-DEFINITION: "VALIDATOR_POOL"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details.
+    arguments = {
+        'validator_pool': Vec(ValidatorKeys())
+    }
 
-    #graypaper-equation: 21
+    #GP-equation: 21
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: Timeslot of current state]
     #[TODO: input 3: State.validator_pool of current state]

@@ -26,3 +26,4 @@ class Extrinsic(Struct):
 
     #GP-equation: 39
     #DEFINE FUNCTION THAT HASHES EXTRINSIC(DATA)
+

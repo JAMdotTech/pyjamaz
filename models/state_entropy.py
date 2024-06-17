@@ -1,11 +1,12 @@
-from models import Header
+from scalecodec.types import Struct, Vec, H256
+from models.header import Header
 
 
-class StateEntropy:
-    #graypaper-reference: ETA
-    def __init__(self):
-        #definition
-        self = []
+class StateEntropy(Struct):
+    #GP-reference: ETA | SCALETYPE-DEFINITION: "ENTROPY"->"VEC<ENTROPY_VALUE>" | "ENTROPY_VALUE"->"H256"
+    arguments = {
+        'entropy': Vec(H256)
+    }
 
     #graypaper-equation: 20
     #[TODO: input 1: Block.Header]

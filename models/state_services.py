@@ -12,6 +12,7 @@ class StateServices:
         #[TODO: output 1: self of intermediate state]
         pass
 
+
     #graypaper-equation: 28
     #[TODO: input 1: Block.Extrinsic.assurances]
     #[TODO: input 2: State.assurances of transitioned state of graypaper-equation: 27]

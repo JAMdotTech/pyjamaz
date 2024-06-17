@@ -1,5 +1,4 @@
 from scalecodec.types import Struct, Vec, Option, U16, U32, H512
-
 from models.work_report import WorkReport
 
 

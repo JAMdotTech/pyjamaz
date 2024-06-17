@@ -1,11 +1,11 @@
-from models.state import State
+from scalecodec.types import Struct, Tuple, U32
 
 
-class StatePriviligedServices:
-    #graypaper-reference: CHI
-    def __init__(self, state: State):
-        #definition
-        self = {}
+class StatePriviligedServices(Struct):
+    #GP-reference: CHI | SCALETYPE-DEFINITION: "PRIVILIGED_SERVICES"->"(MANAGER,MANAGER_AUTHORIZER_QUEUE,MANAGER_VALIDATOR_QUEUE)>" | "MANAGER"->"U32" | "MANAGER_AUTHORIZER_QUEUE"->"U32" | "MANAGER_VALIDATOR_QUEUE"->"U32"
+    arguments = {
+        'priviliged_services': Tuple(U32,U32,U32)
+    }
 
     #graypaper-equation: 28
     #[TODO: input 1: Block.Extrinsic.assurances]
@@ -17,3 +17,4 @@ class StatePriviligedServices:
     def state_transition(i1: {}, i2: {}, i3: {}, i4: {}, i5: {}, i6: {}):
         #[TODO: output 2: self transitioned state]
         pass
+

@@ -11,3 +11,4 @@ class WorkReport(Struct):
         #TODO Implement ENUM 'results': Vec(Tuple(U32,H256,H256,I64,"TODO:ENUM"))
         'results': Vec(Tuple(U32, H256, H256, I64, Bool))
     }
+

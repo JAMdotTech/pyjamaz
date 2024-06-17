@@ -1,11 +1,12 @@
-from models import Header
+from scalecodec.types import Struct, U32
+from models.header import Header
 
 
-class StateTimeslot:
-    #graypaper-reference: TAU
-    def __init__(self):
-        #definition
-        self = 1
+class StateTimeslot(Struct):
+    #GP-equation: 16 | SCALETYPE-DEFINITION: "TIMESLOT"->"U32"
+    arguments = {
+        'timeslot': U32
+    }
 
     #graypaper-equation: 16
     #[TODO: input 1: Header]
@@ -13,3 +14,4 @@ class StateTimeslot:
         #self += 1
         #[TODO: output 1: self of transitioned state]
         pass
+
