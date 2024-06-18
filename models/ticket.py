@@ -1,17 +1,18 @@
-from scalecodec.types import Struct, Vec
-
+from scalecodec.types import Struct, H256, U8
 from models.extrinsic import Extrinsic
 from models.state_assurances import StateAssurances
 from models.state_authorizer_queue import StateAuthorizerQueue
 from models.state_priviliged_services import StatePriviligedServices
 from models.state_services import StateServices
-from models.validator_keys import ValidatorKeys
+from models.state_validator_queue import StateValidatorQueue
 
 
-class StateValidatorQueue(Struct):
-    #GP-reference: IOTA | SCALETYPE-DEFINITION: "VALIDATOR_QUEUE"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details.
+class Ticket(Struct):
+    #GP-reference: C | SCALETYPE-DEFINITION: "TICKET"->"(TICKET_ID,ENTRY_IDX)" | "TICKET_ID"->"H256" | "ENTRY_IDX"->"U8"
+    #GP-equation: 49
     arguments = {
-        'state': Vec(ValidatorKeys())
+        'ticket_id': H256,
+        'entry_idx': U8
     }
 
     #graypaper-equation: 28
@@ -22,7 +23,6 @@ class StateValidatorQueue(Struct):
     #[TODO: input 4: StatePriviligedServices current state]
     #[TODO: input 5: StateValidatorQueue of current state]
     #[TODO: input 6: StateAuthorizersQueue of current state]
-    def state_transition(extrinsic: Extrinsic, state_assurances: StateAssurances, state_services: StateServices, state_priviliged_services: StatePriviligedServices, self, state_authorizer_queue: StateAuthorizerQueue):
-        #[TODO: output 1: self of transitioned state]
+    def state_transition(extrinsic: Extrinsic, state_assurances: StateAssurances, state_services: StateServices, state_priviliged_services: StatePriviligedServices, state_validator_queue: StateValidatorQueue, state_authorizer_queue: StateAuthorizerQueue):
+        #[TODO: output 1: new tickets (transitioned state?)]
         pass
-

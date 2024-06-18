@@ -5,7 +5,7 @@ from models.header import Header
 class StateTimeslot(Struct):
     #GP-equation: 16 | SCALETYPE-DEFINITION: "TIMESLOT"->"U32"
     arguments = {
-        'timeslot': U32
+        'state': U32
     }
 
     #graypaper-equation: 16

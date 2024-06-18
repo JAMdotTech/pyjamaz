@@ -1,5 +1,6 @@
 from scalecodec.base import ScaleType
 from scalecodec.types import Struct, Tuple, Vec, Option, U8, U16, U32, H256, H512
+#from models.ticket import Ticket
 
 
 #TODO: ARJAN UITLEGGEN WAT DIT BETEKENT. SNAP IK NIET.
@@ -27,6 +28,7 @@ class Header(Struct):
         'timeslot': U32,
         'epoch': Option(Tuple(H256, H256, Vec(H256))),
         'winning_tickets': Option(Vec(Tuple(H256,U8))),
+        #'winning_tickets': Option(Vec(Ticket())), (TODO vereenvouding model)
         'judgements': Vec(H256),
         'author_key_idx': U16,
         'vrf_signature': H512,
