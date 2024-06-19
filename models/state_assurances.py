@@ -1,14 +1,14 @@
-from scalecodec.types import Struct, Tuple, Vec, H256, U32
+from scalecodec.types import Struct, Vec
+from models.assurance import Assurance
 from models.extrinsic import Extrinsic
 from models.state_timeslot import StateTimeslot
 from models.state_validator_pool import StateValidatorPool
-from models.work_report import WorkReport
 
 
 class StateAssurances(Struct):
-    #GP-reference: RHO | SCALETYPE-DEFINITION: "ASSURANCES"->"VEC<ASSURANCE>" | "ASSURANCE"->"(WORK_REPORT,GUARANTORS,TIMESLOT)" | "WORK_REPORT"-> refer to class WorkReport for details. | "GUARANTORS"->"VEC<GUARANTOR>" | "TIMESLOT"->"U32"
+    #GP-reference: RHO | SCALETYPE-DEFINITION: "ASSURANCES"->"VEC<ASSURANCE>" -> refer to class Assurance for details.
     arguments = {
-        'state': Vec(Tuple(WorkReport(),Vec(H256),U32))
+        'state': Vec(Assurance())
     }
 
     #GP-equation: 25

@@ -1,14 +1,16 @@
-from scalecodec.types import Struct, Tuple, Vec, Option, U32, H256, I64, Bool, Bytes
+from scalecodec.types import Struct, Vec, H256, Bytes
+from models.refinement_context import RefinementContext
+from models.work_package import WorkPackage
+from models.work_result import WorkResult
 
 
 class WorkReport(Struct):
-    #GP-equation: 130 | "WORK_REPORT"->"(AUTHORIZERS_HASH,OUTPUT,REFINEMENT_CONTEXT,WORK_PACKAGE,RESULTS)" | "AUTHORIZERS_HASH"->"H256" | "OUTPUT"->"BLOB" | "REFINEMENT_CONTEXT"->"(ANCHOR_HEADER_HASH,ANCHOR_POSTERIOR_STATE_ROOT,POSTERIOR_BEEFY_ROOT,LOOKUP_ANCHOR_HEADER_HASH,LOOKUP_ANCHOR_TIMESLOT,OPTION<WORK_PACKAGE_HASH>)" | "ANCHOR_HEADER_HASH"->"H256" | "ANCHOR_POSTERIOR_STATE_ROOT"->"H256" | "POSTERIOR_BEEFY_ROOT"->"H256" | "LOOKUP_ANCHOR_HEADER_HASH"->"H256" | "LOOKUP_ANCHOR_TIMESLOT"->"U32" | "WORK_PACKAGE_HASH"->"H256" | "WORK_PACKAGE"->"(WORK_PACKAGE_HASH,WORK_PACKAGE_LENGTH,ERASURE_ROOT,SEGMENT_ROOT)" | "WORK_PACKAGE_HASH"->"H256" | "WORK_PACKAGE_LENGTH"->"U32" | "ERASURE_ROOT"->"H256" | "SEGMENT_ROOT"->"H256" | "RESULTS"->"VEC<RESULT>" | "RESULT"->"(SERVICE_IDX,CODE_HASH,PAYLOAD_HASH,GAS_PRIORIZATION_RATIO,ERROR)" | "SERVICE_IDX"->"U32" | "CODE_HASH"->"H256" | "PAYLOAD_HASH"->"H256" | "GAS_PRIORIZATION_RATIO"->"I64" | "ERROR"->"ENUM<OUT-OF-GAS,UNEXPECTED-TERMINATION,BAD,BIG>"
+    #GP-equation: 110 | "WORK_REPORT"->"(AUTHORIZERS_HASH,OUTPUT,REFINEMENT_CONTEXT,WORK_PACKAGE,RESULTS)" | "AUTHORIZERS_HASH"->"H256" | "OUTPUT"->"BLOB" | "REFINEMENT_CONTEXT"-> refer to class RefinementContext for details. | "WORK_PACKAGE"->  refer to class WorkPackage for details. | "WORK_RESULTS"->"VEC<WORK_RESULT>" | "RESULT"-> refer to class WorkResult for details.
     arguments = {
         'authorizers_hash': H256,
         'output': Bytes,
-        'refinement_context': Tuple(H256,H256,H256,H256,U32,Option(H256)),
-        'work_package': Tuple(H256,U32,H256,H256),
-        #TODO Implement ENUM 'results': Vec(Tuple(U32,H256,H256,I64,"TODO:ENUM"))
-        'results': Vec(Tuple(U32, H256, H256, I64, Bool))
+        'refinement_context': RefinementContext(),
+        'work_package': WorkPackage(),
+        'work_results': Vec(WorkResult())
     }
 

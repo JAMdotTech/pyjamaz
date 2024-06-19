@@ -1,12 +1,13 @@
-from scalecodec.types import Struct, Vec, Tuple, H256, Option
+from scalecodec.types import Struct, Vec
 from models.header import Header
 from models.extrinsic import Extrinsic
+from models.recent_block import RecentBlock
 
 
 class StateRecentBlocks(Struct):
-    #GP-reference: BETA | SCALETYPE-DEFINITION: "RECENT_BLOCKS"->"VEC<RECENT_BLOCK>" | "RECENT_BLOCK"->"(HEADER_HASH,ACCUMULATION_RESULTS,STATE_ROOT,WORK_REPORTS)" | "ACCUMULATION_RESULTS"->"OPTION<ACCUMULATION_RESULT>" | "ACCUMULATION_RESULT"->"H256" | "STATE_ROOT"->"H256" | "WORK_REPORTS"->"VEC<WORK_REPORT_HASH>" | "WORK_REPORT_HASH"->"H256"
+    #GP-reference: BETA | SCALETYPE-DEFINITION: "RECENT_BLOCKS"->"VEC<RECENT_BLOCK>" | "RECENT_BLOCK"-> refer to class RecentBlock for details.
     arguments = {
-        'state': Vec(Tuple(H256,Vec(Option(H256)),H256,Vec(H256)))
+        'state': Vec(RecentBlock())
     }
 
     #GP-equation: 17

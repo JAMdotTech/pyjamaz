@@ -1,6 +1,6 @@
-from scalecodec.base import ScaleType
 from scalecodec.types import Struct, Tuple, Vec, Option, U8, U16, U32, H256, H512
 #from models.ticket import Ticket
+#from models.ticket import Epoch
 
 
 #TODO: ARJAN UITLEGGEN WAT DIT BETEKENT. SNAP IK NIET.
@@ -14,7 +14,9 @@ class Header(Struct):
     #GP-equation: 39 | SCALETYPE-DEFINITION: "EXTRINSIC_HASH"->"H256"
     #GP-equation: 40 | SCALETYPE-DEFINITION: "TIMESLOT"->"U32"
     #GP-equation: 43,69 | SCALETYPE-DEFINITION: "EPOCH"->"OPTION<(ENTROPY,BS_KEYS)>" | "ENTROPY"->"H256" | "BS_KEYS"->"VEC<BS_KEY>" | "BS_KEY"->"H256"
+    #TODO SCALETYPE-DEFINITION: "EPOCH"-> refer to class Epoch for details.
     #GP-equation: 70,49 | SCALETYPE-DEFINITION: "WINNING_TICKETS_MARKER"->"OPTION<WINNING_TICKETS>" | "WINNING_TICKETS"->"VEC<WINNING_TICKET>" | "WINNING_TICKET"->"(TICKET_HASH,ENTRY_IDX)" | "TICKET_HASH"->"H256" | "ENTRY_IDX"->"U8"
+    #TODO SCALETYPE-DEFINITION: "WINNING_TICKETS"-> refer to class WinningTickets for details.
     #GP-equation: 101-108 | SCALETYPE-DEFINITION: "JUDGEMENT_MARKER"->"VEC<WORK_REPORT_HASH>" | "WORK_REPORT_HASH"->"H256"
     #GP-equation: 42 | SCALETYPE-DEFINITION: "AUTHOR_KEY_IDX"->"U16"
     #GP-equation: 59 | SCALETYPE-DEFINITION: "VRF_SIGNATURE"->"H512"
@@ -26,9 +28,10 @@ class Header(Struct):
         'prior_state_root': H256,
         'extrinsic_hash': H256,
         'timeslot': U32,
-        'epoch': Option(Tuple(H256, H256, Vec(H256))),
+        'epoch': Option(Tuple(H256, Vec(H256))),
+        #TODO: 'epoch': Option(Epoch()), (TODO vereenvouding model)
         'winning_tickets': Option(Vec(Tuple(H256,U8))),
-        #'winning_tickets': Option(Vec(Ticket())), (TODO vereenvouding model)
+        #TODO: 'winning_tickets': Option(Vec(Ticket())), (TODO vereenvouding model)
         'judgements': Vec(H256),
         'author_key_idx': U16,
         'vrf_signature': H512,
