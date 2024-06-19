@@ -10,6 +10,7 @@ from models.validator_keys import ValidatorKeys
 
 
 class StateSafrole(Struct):
+    #[TODO: consider new class/struct to make Tuple more explicit]
     #GP-reference: PSI | SCALETYPE-DEFINITION: "SAFROLE"->"(VALIDATORS,EPOCH_ROOT,SLOT_SEALER_SERIES,TICKETS)>" | "VALIDATORS"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details. | "EPOCH_ROOT"->"H1572864"  | "SLOT_SEALER_SERIES"->"ENUM<TICKETS,BS_KEYS>" | "TICKETS"->"VEC<TICKET>" | "TICKET"-> refer to class Ticket for details.
     #TODO: "EPOCH_ROOT"->"H1572864" (new type large hash)
     #TODO: "SLOT_SEALER_SERIES"->"ENUM" (new type XOR)
@@ -17,7 +18,7 @@ class StateSafrole(Struct):
         'state': Tuple(Vec(ValidatorKeys()),H256,Enum(Vec(Ticket()),H256),Vec(Ticket()))
     }
 
-    #graypaper-equation: 19
+    #GP-equation: 19
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: StateTimeslot of current state]

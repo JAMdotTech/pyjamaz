@@ -8,7 +8,7 @@ class StateTimeslot(Struct):
         'state': U32
     }
 
-    #graypaper-equation: 16
+    #GP-equation: 16
     #[TODO: input 1: Header]
     def state_transition(header: Header):
         #self += 1

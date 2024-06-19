@@ -9,7 +9,7 @@ class StateRecentBlocks(Struct):
         'state': Vec(Tuple(H256,Vec(Option(H256)),H256,Vec(H256)))
     }
 
-    #graypaper-equation: 17
+    #GP-equation: 17
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: StateRecentBlocks of current state]
@@ -17,7 +17,7 @@ class StateRecentBlocks(Struct):
         #[TODO: output 1: self of intermediate state]
         pass
 
-    #graypaper-equation: 18
+    #GP-equation: 18
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: Block.Extrinsic.reports]

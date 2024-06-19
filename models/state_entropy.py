@@ -9,7 +9,7 @@ class StateEntropy(Struct):
         'state': Vec(H256)
     }
 
-    #graypaper-equation: 20
+    #GP-equation: 20
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: StateTimeslot of current state]

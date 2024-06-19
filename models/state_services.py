@@ -15,17 +15,24 @@ class StateServices(Struct):
         'state': Vec(ServiceAccount())
     }
 
-    #graypaper-equation: 24
+    #GP-equation: 24
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.preimages]
     #[TODO: input 2: StateServices of current state]
     #[TODO: input 3: StateTimeslot of transitioned state]
-    def state_transition_intermediate1(extrinsic: Extrinsic, self, state_timeslot: StateTimeslot):
+    def state_transition_preimages(extrinsic: Extrinsic, self, state_timeslot: StateTimeslot):
         #[TODO: output 1: self of intermediate state]
         pass
 
+    #GP-reference: I.4.2
+    #[TODO: check inconsistency GP-I.4.2 mentions function, whereas GP-4.2.1 does not mention function]
+    #[TODO: input: Unknown]
+    def state_transition_accumulation(self):
+        #[TODO: output: unknown]
+        pass
 
-    #graypaper-equation: 28
+
+    #GP-equation: 28
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.assurances]
     #[TODO: input 2: StateAssurances of transitioned state of graypaper-equation: 27]

@@ -11,7 +11,7 @@ class StateValidatorArchive(Struct):
         'state': Vec(ValidatorKeys())
     }
 
-    #graypaper-equation: 22
+    #GP-equation: 22
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: StateTimeslot of current state]

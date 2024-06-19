@@ -7,12 +7,16 @@ from models.state_validator_queue import StateValidatorQueue
 
 
 class StatePriviligedServices(Struct):
+    #[TODO: consider new class/struct to make Tuple more explicit]
     #GP-reference: CHI | SCALETYPE-DEFINITION: "PRIVILIGED_SERVICES"->"(MANAGER,MANAGER_AUTHORIZER_QUEUE,MANAGER_VALIDATOR_QUEUE)>" | "MANAGER"->"U32" | "MANAGER_AUTHORIZER_QUEUE"->"U32" | "MANAGER_VALIDATOR_QUEUE"->"U32"
+    #TODO: MANAGER: Empower-Service (GP-I.4.2)
+    #TODO: MANAGER_AUTHORIZER_QUEUE: Designate-Service (GP-I.4.2)
+    #TODO: MANAGER_VALIDATOR_QUEUE: Assign-Service (GP-I.4.2)
     arguments = {
         'state': Tuple(U32,U32,U32)
     }
 
-    #graypaper-equation: 28
+    #GP-equation: 28
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.assurances]
     #[TODO: input 2: StateAssurances of transitioned state of graypaper-equation: 27]

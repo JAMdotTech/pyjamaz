@@ -9,7 +9,7 @@ class StateAuthorizerPool(Struct):
         'state': Vec(Vec(H256))
     }
 
-    #graypaper-equation: 29
+    #GP-equation: 29
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.reports]
     #[TODO: input 2: StateAuthorizerQueue of transitioned state]

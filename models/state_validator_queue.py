@@ -14,7 +14,7 @@ class StateValidatorQueue(Struct):
         'state': Vec(ValidatorKeys())
     }
 
-    #graypaper-equation: 28
+    #GP-equation: 28
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.assurances]
     #[TODO: input 2: StateAssurances of transitioned state of graypaper-equation: 27]
