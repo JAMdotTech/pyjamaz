@@ -3,7 +3,7 @@ from models.extrinsic import Extrinsic
 from models.service_account import ServiceAccount
 from models.state_assurances import StateAssurances
 from models.state_authorizer_queue import StateAuthorizerQueue
-from models.state_priviliged_services import StatePriviligedServices
+from models.state_privileged_services import StatePriviligedServices
 from models.state_timeslot import StateTimeslot
 from models.state_validator_queue import StateValidatorQueue
 

@@ -1,16 +1,16 @@
 from scalecodec.types import Struct
 from models.extrinsic import Extrinsic
-from models.priviliged_services import PriviligedServices
+from models.privileged_services import PrivilegedServices
 from models.state_assurances import StateAssurances
 from models.state_authorizer_queue import StateAuthorizerQueue
 from models.state_services import StateServices
 from models.state_validator_queue import StateValidatorQueue
 
 
-class StatePriviligedServices(Struct):
-    #GP-reference: CHI | SCALETYPE-DEFINITION: "PRIVILIGED_SERVICES"-> refer to class PriviligedServices for details.
+class StatePrivilegedServices(Struct):
+    #GP-reference: CHI | SCALETYPE-DEFINITION: "PRIVILEGED_SERVICES"-> refer to class PrivilegedServices for details.
     arguments = {
-        'state': PriviligedServices()
+        'state': PrivilegedServices()
     }
 
     #GP-equation: 28
