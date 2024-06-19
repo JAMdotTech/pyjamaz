@@ -5,9 +5,9 @@ from models.validator_keys import ValidatorKeys
 
 
 class StateDisputes(Struct):
-    #GP-reference: PSI | SCALETYPE-DEFINITION: "DISPUTES"->"(ALLOW_SET,BAN_SET,PUNISH_SET,VALIDATORS_PRIOR_EPOCH)>" | "ALLOW_SET"->"VEC<WORK_REPORT_HASH>" | "WORK_REPORT_HASH"->"H256" | "BAN_SET"->"VEC<WORK_REPORT_HASH>" | "PUNISH_SET"->"VEC<BS_KEY>" | "BS_KEY"->"H256" | "VALIDATORS_PRIOR_EPOCH"-> refer to class WorkReport for details.
+    #GP-reference: PSI | SCALETYPE-DEFINITION: "DISPUTES"->"(ALLOW_SET,BAN_SET,PUNISH_SET,VALIDATORS_PRIOR_EPOCH)>" | "ALLOW_SET"->"VEC<WORK_REPORT_HASH>" | "WORK_REPORT_HASH"->"H256" | "BAN_SET"->"VEC<WORK_REPORT_HASH>" | "PUNISH_SET"->"VEC<BS_KEY>" | "BS_KEY"->"H256" | "VALIDATORS_PRIOR_EPOCH"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS"-> refer to class ValidatorKeys for details.
     arguments = {
-        'state': Tuple(Vec(H256),Vec(H256),Vec(H256),ValidatorKeys())
+        'state': Tuple(Vec(H256),Vec(H256),Vec(H256),Vec(ValidatorKeys()))
     }
 
     #graypaper-equation: 23
