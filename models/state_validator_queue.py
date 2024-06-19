@@ -9,7 +9,7 @@ from models.validator_keys import ValidatorKeys
 
 
 class StateValidatorQueue(Struct):
-    #GP-reference: IOTA | SCALETYPE-DEFINITION: "VALIDATOR_QUEUE"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details.
+    #GP-reference: IOTA | SCALETYPE-DEFINITION: "VALIDATOR_QUEUE"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     arguments = {
         'state': Vec(ValidatorKeys())
     }

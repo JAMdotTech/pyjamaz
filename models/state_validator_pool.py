@@ -7,7 +7,7 @@ from models.validator_keys import ValidatorKeys
 
 
 class StateValidatorPool(Struct):
-    #GP-reference: KAPPA | SCALETYPE-DEFINITION: "VALIDATOR_POOL"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details.
+    #GP-reference: KAPPA | SCALETYPE-DEFINITION: "VALIDATOR_POOL"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     arguments = {
         'state': Vec(ValidatorKeys())
     }

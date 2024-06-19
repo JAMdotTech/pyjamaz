@@ -1,4 +1,6 @@
+from scalecodec.types import Struct, Vec
 from models.extrinsic import Extrinsic
+from models.service_account import ServiceAccount
 from models.state_assurances import StateAssurances
 from models.state_authorizer_queue import StateAuthorizerQueue
 from models.state_priviliged_services import StatePriviligedServices
@@ -6,11 +8,12 @@ from models.state_timeslot import StateTimeslot
 from models.state_validator_queue import StateValidatorQueue
 
 
-class StateServices:
-    #graypaper-reference: DELTA
-    def __init__(self):
-        #definition
-        self = []
+class StateServices(Struct):
+    #GP-reference: DELTA | SCALETYPE-DEFINITION: "SERVICES"->"VEC<SERVICE_ACCOUNT>" | "SERVICE_ACCOUNT refer to class ServiceAccount for details.
+    arguments = {
+        #TODO: INDEX OF SERVICE ACCOUNT state[1] = ServiceAccount is ServiceAccount of index 1
+        'state': Vec(ServiceAccount())
+    }
 
     #graypaper-equation: 24
     #[Volgorde input parameters SELF eerst conventie?]
@@ -33,3 +36,5 @@ class StateServices:
     def state_transition(extrinsic: Extrinsic, state_assurances: StateAssurances, self, state_priviliged_services: StatePriviligedServices, state_validator_queue: StateValidatorQueue, state_authorizer_queue: StateAuthorizerQueue):
         #[TODO: output 1: self of transitioned state]
         pass
+
+
