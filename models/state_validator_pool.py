@@ -8,11 +8,12 @@ from models.validator_keys import ValidatorKeys
 
 class StateValidatorPool(Struct):
     #GP-reference: KAPPA | SCALETYPE-DEFINITION: "VALIDATOR_POOL"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
+    #GP-equation: 50
     arguments = {
         'state': Vec(ValidatorKeys())
     }
 
-    #GP-equation: 21
+    #GP-equation: 21,56
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: StateTimeslot of current state]

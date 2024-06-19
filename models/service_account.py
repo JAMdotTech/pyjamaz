@@ -2,7 +2,7 @@ from scalecodec.types import Struct, Vec, Bytes, U32, H256, U64, I64
 
 
 class ServiceAccount(Struct):
-    #GP-reference: DELTA | SCALETYPE-DEFINITION: "SERVICE_ACCOUNT"->"()" | "SERVICE_ACCOUNT refer to class ServiceAccount for details.
+    #GP-equation: 87 | SCALETYPE-DEFINITION: "SERVICE_ACCOUNT"->"()" | "SERVICE_ACCOUNT refer to class ServiceAccount for details.
     #TODO Uitleg Arjan SCALE: hoe definiteren VEC/list van precies aantal elementen? Let op niet van toepassing op dit object. Algemene vraag.
     #TODO: INDEX OF STORAGE DICTIONARY: storage_dictionary[HASH] = storage_item for storage_hash HASH
     #TODO: INDEX OF PREIMAGE DICTIONARY: preimage_dictionary[HASH] = preimage for storage_hash HASH

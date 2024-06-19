@@ -6,6 +6,7 @@ from models.recent_block import RecentBlock
 
 class StateRecentBlocks(Struct):
     #GP-reference: BETA | SCALETYPE-DEFINITION: "RECENT_BLOCKS"->"VEC<RECENT_BLOCK>" | "RECENT_BLOCK"-> refer to class RecentBlock for details.
+    #GP-equation: 79
     arguments = {
         'state': Vec(RecentBlock())
     }
@@ -18,7 +19,7 @@ class StateRecentBlocks(Struct):
         #[TODO: output 1: self of intermediate state]
         pass
 
-    #GP-equation: 18
+    #GP-equation: 18,80,81
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: Block.Extrinsic.reports]

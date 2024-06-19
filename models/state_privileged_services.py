@@ -9,11 +9,12 @@ from models.state_validator_queue import StateValidatorQueue
 
 class StatePrivilegedServices(Struct):
     #GP-reference: CHI | SCALETYPE-DEFINITION: "PRIVILEGED_SERVICES"-> refer to class PrivilegedServices for details.
+    #GP-equation: 93
     arguments = {
         'state': PrivilegedServices()
     }
 
-    #GP-equation: 28
+    #GP-equation: 28, 159
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.assurances]
     #[TODO: input 2: StateAssurances of transitioned state of graypaper-equation: 27]

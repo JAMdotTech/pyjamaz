@@ -10,11 +10,12 @@ from models.state_validator_queue import StateValidatorQueue
 
 class StateSafrole(Struct):
     #GP-reference: PSI | SCALETYPE-DEFINITION: "SAFROLE"-> refer to class Safrole for details.
+    #GP-equation: 46
     arguments = {
         'state': Safrole()
     }
 
-    #GP-equation: 19
+    #GP-equation: 19,56
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: StateTimeslot of current state]

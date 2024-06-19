@@ -1,5 +1,4 @@
 from scalecodec.types import Struct, Vec
-
 from models.extrinsic import Extrinsic
 from models.state_assurances import StateAssurances
 from models.state_authorizer_queue import StateAuthorizerQueue
@@ -10,11 +9,13 @@ from models.validator_keys import ValidatorKeys
 
 class StateValidatorQueue(Struct):
     #GP-reference: IOTA | SCALETYPE-DEFINITION: "VALIDATOR_QUEUE"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
+    #GP-equation: 50
     arguments = {
         'state': Vec(ValidatorKeys())
     }
 
     #GP-equation: 28
+    #TODO: Check: changed by manager service PrivilegedService?
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.assurances]
     #[TODO: input 2: StateAssurances of transitioned state of graypaper-equation: 27]

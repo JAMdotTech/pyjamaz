@@ -4,7 +4,7 @@ from models.validator_keys import ValidatorKeys
 
 
 class Safrole(Struct):
-    #GP-reference: PSI | SCALETYPE-DEFINITION: "SAFROLE"->"(VALIDATORS,EPOCH_ROOT,SLOT_SEALER_SERIES,TICKETS)>" | "VALIDATORS"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details. | "EPOCH_ROOT"->"H1572864"  | "SLOT_SEALER_SERIES"->"ENUM<TICKETS,BS_KEYS>" | "TICKETS"->"VEC<TICKET>" | "TICKET"-> refer to class Ticket for details.
+    #GP-equation: 46 | SCALETYPE-DEFINITION: "SAFROLE"->"(VALIDATORS,EPOCH_ROOT,SLOT_SEALER_SERIES,TICKETS)>" | "VALIDATORS"->"VEC<VALIDATOR_KEYS>" | refer to class ValidatorKeys for details. | "EPOCH_ROOT"->"H1572864"  | "SLOT_SEALER_SERIES"->"ENUM<TICKETS,BS_KEYS>" | "TICKETS"->"VEC<TICKET>" | "TICKET"-> refer to class Ticket for details.
     #TODO: "EPOCH_ROOT"->"H1572864" (new type large hash)
     #TODO: "SLOT_SEALER_SERIES"->"ENUM" (new type XOR)
     arguments = {

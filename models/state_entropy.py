@@ -5,11 +5,12 @@ from models.state_timeslot import StateTimeslot
 
 class StateEntropy(Struct):
     #GP-reference: ETA | SCALETYPE-DEFINITION: "ENTROPY"->"VEC<ENTROPY_VALUE>" | "ENTROPY_VALUE"->"H256"
+    #GP-equation: 63
     arguments = {
         'state': Vec(H256)
     }
 
-    #GP-equation: 20
+    #GP-equation: 20,64,65
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: StateTimeslot of current state]

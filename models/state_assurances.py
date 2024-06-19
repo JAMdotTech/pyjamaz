@@ -7,6 +7,7 @@ from models.state_validator_pool import StateValidatorPool
 
 class StateAssurances(Struct):
     #GP-reference: RHO | SCALETYPE-DEFINITION: "ASSURANCES"->"VEC<ASSURANCE>" -> refer to class Assurance for details.
+    #GP-equation: 109
     arguments = {
         'state': Vec(Assurance())
     }

@@ -10,6 +10,7 @@ from models.state_validator_queue import StateValidatorQueue
 
 class StateServices(Struct):
     #GP-reference: DELTA | SCALETYPE-DEFINITION: "SERVICES"->"VEC<SERVICE_ACCOUNT>" | "SERVICE_ACCOUNT refer to class ServiceAccount for details.
+    #GP-equation: 86
     arguments = {
         #TODO: INDEX OF SERVICE ACCOUNT state[1] = ServiceAccount is ServiceAccount of index 1
         'state': Vec(ServiceAccount())

@@ -7,11 +7,12 @@ from models.validator_keys import ValidatorKeys
 
 class StateValidatorArchive(Struct):
     #GP-reference: LAMBDA | SCALETYPE-DEFINITION: "VALIDATOR_ARCHIVE"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
+    #GP-equation: 50
     arguments = {
         'state': Vec(ValidatorKeys())
     }
 
-    #GP-equation: 22
+    #GP-equation: 22,56
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: StateTimeslot of current state]

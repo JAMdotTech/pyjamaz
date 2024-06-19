@@ -5,6 +5,7 @@ from models.extrinsic import Extrinsic
 
 class StateDisputes(Struct):
     #GP-reference: PSI | SCALETYPE-DEFINITION: "DISPUTES"-> refer to class Disputes for details.
+    #GP-equation: 94
     arguments = {
         'state': Disputes()
     }

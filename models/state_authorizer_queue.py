@@ -9,11 +9,13 @@ from models.state_validator_queue import StateValidatorQueue
 
 class StateAuthorizerQueue(Struct):
     #GP-reference: PHI | SCALETYPE-DEFINITION: "AUTHORIZER_QUEUE"->"VEC<AUTHORIZER>" | "AUTHORIZER"->"VEC<AUTHORIZATION>" | "AUTHORIZATION"->"H256" |
+    #GP-equation: 82
     arguments = {
         'state': Vec(Vec(H256))
     }
 
-    #GP-equation: 28
+    #GP-equation: 28,83,84
+    #TODO: Check: changed by manager service PrivilegedService?
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.assurances]
     #[TODO: input 2: StateAssurances of transitioned state of graypaper-equation: 27]
