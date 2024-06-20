@@ -10,7 +10,7 @@ class StateValidatorPool(Struct):
     #GP-reference: KAPPA | SCALETYPE-DEFINITION: "VALIDATOR_POOL"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     #GP-equation: 50 | SCALETYPE-DEFINITION: "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     arguments = {
-        'validator_pool': Vec(ValidatorKeys())
+        'validator_pool': Vec(ValidatorKeys()) #TODO Constant(V): VALIDATORS=1023; size of list is exactly VALIDATORS=1023 Needs to be more strict. Possible Array(ValidatorKeys(),1023)
     }
 
     #GP-equation: 21,56

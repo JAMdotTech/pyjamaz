@@ -16,10 +16,10 @@ class StateSafrole(Struct):
     #GP-reference: GAMMA_s,48,49 | SCALETYPE-DEFINITION: "SLOT_SEALER_SERIES"->"ENUM<TICKETS,BS_KEYS>"
     #GP-reference: GAMMA_a,48,49 | SCALETYPE-DEFINITION: "TICKETS"->"VEC<TICKET>" | "TICKET"-> refer to class Ticket for details
     arguments = {
-        'validators': Vec(ValidatorKeys()),
+        'validators': Vec(ValidatorKeys()),#TODO: Consider creating a class ValidatorKeySets [Vec(ValidatorKeys())]; simplifies strictness
         'epoch_root': Array(U8,196608),
-        'slot_sealer_series': Enum(tickets=Vec(Ticket()), bs_keys=Vec(H256)),
-        'tickets': Vec(Ticket())
+        'slot_sealer_series': Enum(tickets=Vec(Ticket()), bs_keys=Vec(H256)), #TODO: Consider creating a class Tickets [Vec(Ticket())]; simplifies strictness
+        'tickets': Vec(Ticket()) #TODO: Consider creating a class Tickets [Vec(Ticket())]; simplifies strictness
     }
 
     #GP-equation: 19,56

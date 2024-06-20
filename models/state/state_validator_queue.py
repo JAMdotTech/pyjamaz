@@ -11,7 +11,7 @@ class StateValidatorQueue(Struct):
     #GP-reference: IOTA | SCALETYPE-DEFINITION: "VALIDATOR_QUEUE"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     #GP-equation: 50 | SCALETYPE-DEFINITION: "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     arguments = {
-        'validator_queue': Vec(ValidatorKeys())
+        'validator_queue': Vec(ValidatorKeys()) #TODO Constant(V): VALIDATORS=1023; size of list is exactly VALIDATORS=1023 Needs to be more strict. Possible Array(ValidatorKeys(),1023)
     }
 
     #GP-equation: 28

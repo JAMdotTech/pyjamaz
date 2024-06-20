@@ -12,6 +12,9 @@ class StateAuthorizerQueue(Struct):
     #GP-equation: 82
     arguments = {
         'authorizer_queue': Vec(Vec(H256))
+        #TODO Constant(C): CORES=341; size of list is exactly CORES=341 Needs to be more strict. Possible Array(Vec(H256),341)
+        #TODO Constant(Q): SIZE_AUTHORIZERS_QUEUE=80; size of list is exactly (probably, but check) SIZE_AUTHORIZERS_QUEUE=80 Needs to be more strict. Possible Array(H256,80)
+
     }
 
     #GP-equation: 28,83,84

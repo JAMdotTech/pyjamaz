@@ -9,6 +9,8 @@ class StateAuthorizerPool(Struct):
     #GP-equation: 82
     arguments = {
         'authorizer_pool': Vec(Vec(H256))
+        #TODO Constant(C): CORES=341; size of list is exactly CORES=341 Needs to be more strict. Possible Array(Vec(H256),341)
+        #TODO Constant(O): SIZE_AUTHORIZERS_POOL=8; size of list is max (probably, but check) SIZE_AUTHORIZERS_POOL=8 Needs to be more strict. Not possible Array(H256,8)
     }
 
     #GP-equation: 29,83,84

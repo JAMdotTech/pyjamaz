@@ -9,7 +9,7 @@ class StateValidatorArchive(Struct):
     #GP-reference: LAMBDA | SCALETYPE-DEFINITION: "VALIDATOR_ARCHIVE"->"VEC<VALIDATOR_KEYS>"
     #GP-equation: 50 | SCALETYPE-DEFINITION: "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     arguments = {
-        'validator_archive': Vec(ValidatorKeys())
+        'validator_archive': Vec(ValidatorKeys()) #TODO Constant(V): VALIDATORS=1023; size of list is exactly VALIDATORS=1023 Needs to be more strict. Possible Array(ValidatorKeys(),1023)
     }
 
     #GP-equation: 22,56
