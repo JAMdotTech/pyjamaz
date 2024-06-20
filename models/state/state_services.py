@@ -3,7 +3,7 @@ from models.block.extrinsic import Extrinsic
 from models.other.service_account import ServiceAccount
 from models.state.state_assurances import StateAssurances
 from models.state.state_authorizer_queue import StateAuthorizerQueue
-from models.state.state_privileged_services import StatePriviligedServices
+from models.state.state_privileged_services import StatePrivilegedServices
 from models.state.state_timeslot import StateTimeslot
 from models.state.state_validator_queue import StateValidatorQueue
 
@@ -38,10 +38,10 @@ class StateServices(Struct):
     #[TODO: input 1: Block.Extrinsic.assurances]
     #[TODO: input 2: StateAssurances of transitioned state of graypaper-equation: 27]
     #[TODO: input 3: StateServices of intermediate state of graypaper-equation: 24]
-    #[TODO: input 4: StatePriviligedServices current state]
+    #[TODO: input 4: StatePrivilegedServices current state]
     #[TODO: input 5: StateValidatorQueue of current state]
     #[TODO: input 6: StateAuthorizerQueue of current state]
-    def state_transition(extrinsic: Extrinsic, state_assurances: StateAssurances, self, state_priviliged_services: StatePriviligedServices, state_validator_queue: StateValidatorQueue, state_authorizer_queue: StateAuthorizerQueue):
+    def state_transition(extrinsic: Extrinsic, state_assurances: StateAssurances, self, state_privileged_services: StatePrivilegedServices, state_validator_queue: StateValidatorQueue, state_authorizer_queue: StateAuthorizerQueue):
         #[TODO: output 1: self of transitioned state]
         pass
 

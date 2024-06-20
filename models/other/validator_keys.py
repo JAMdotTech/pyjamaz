@@ -1,4 +1,4 @@
-from scalecodec.types import Struct, H256
+from scalecodec.types import Struct, H256, U8, Array
 
 
 class ValidatorKeys(Struct):
@@ -6,7 +6,7 @@ class ValidatorKeys(Struct):
     arguments = {
         'bs_key': H256,
         'ed25519_key': H256,
-        'bls_key': H256, #TODO: 144ByteKey
-        'metadata': H256 #TODO: 128ByteData
+        'bls_key': Array(U8,144),
+        'metadata': Array(U8,128)
     }
 

@@ -1,5 +1,5 @@
 from scalecodec.types import Struct
-from models.block import Block
+from models.block.block import Block
 from models.state.state_authorizer_pool import StateAuthorizerPool
 from models.state.state_recent_blocks import StateRecentBlocks
 from models.state.state_safrole import StateSafrole

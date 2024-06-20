@@ -1,9 +1,9 @@
-from scalecodec.types import Struct, Tuple, Vec, Option, U8, U16, U32, H256, H512
-#from models.ticket import Ticket
-#from models.ticket import Epoch
+from scalecodec.types import Struct, Vec, Option, U16, U32, H256, H512
+from models.other.ticket import Ticket
+from models.other.epoch import Epoch
 
 
-#TODO: ARJAN UITLEGGEN WAT DIT BETEKENT. SNAP IK NIET.
+#TODO: ARJAN EXPLAIN, REMOVE?
 #class HeaderType(ScaleType):
 #    def test(self):
 #        print('ja')
@@ -13,25 +13,20 @@ class Header(Struct):
     #GP-equation: 41 | SCALETYPE-DEFINITION: "PRIOR_STATE_ROOT"->"H256"
     #GP-equation: 39 | SCALETYPE-DEFINITION: "EXTRINSIC_HASH"->"H256"
     #GP-equation: 40 | SCALETYPE-DEFINITION: "TIMESLOT"->"U32"
-    #GP-equation: 43,69 | SCALETYPE-DEFINITION: "EPOCH"->"OPTION<(ENTROPY,BS_KEYS)>" | "ENTROPY"->"H256" | "BS_KEYS"->"VEC<BS_KEY>" | "BS_KEY"->"H256"
-    #TODO SCALETYPE-DEFINITION: "EPOCH"-> refer to class Epoch for details.
-    #GP-equation: 70,49 | SCALETYPE-DEFINITION: "WINNING_TICKETS_MARKER"->"OPTION<WINNING_TICKETS>" | "WINNING_TICKETS"->"VEC<WINNING_TICKET>" | "WINNING_TICKET"->"(TICKET_HASH,ENTRY_IDX)" | "TICKET_HASH"->"H256" | "ENTRY_IDX"->"U8"
-    #TODO SCALETYPE-DEFINITION: "WINNING_TICKETS"-> refer to class WinningTickets for details.
+    #GP-equation: 43,69 | SCALETYPE-DEFINITION: "EPOCH"-> refer to class Epoch for details.
+    #GP-equation: 70,49 | SCALETYPE-DEFINITION: "WINNING_TICKETS"-> refer to class WinningTickets for details.
     #GP-equation: 101-108 | SCALETYPE-DEFINITION: "JUDGEMENT_MARKER"->"VEC<WORK_REPORT_HASH>" | "WORK_REPORT_HASH"->"H256"
     #GP-equation: 42 | SCALETYPE-DEFINITION: "AUTHOR_KEY_IDX"->"U16"
     #GP-equation: 59 | SCALETYPE-DEFINITION: "VRF_SIGNATURE"->"H512"
     #GP-equation: 59? | SCALETYPE-DEFINITION: "BLOCK_SEAL"->"H512"
 
-    #TODO: ARJAN UITLEGGEN WAT DIT BETEKENT. SNAP IK NIET.
     arguments = {
         'parent_hash': H256,
         'prior_state_root': H256,
         'extrinsic_hash': H256,
         'timeslot': U32,
-        'epoch': Option(Tuple(H256, Vec(H256))),
-        #TODO: 'epoch': Option(Epoch()), (TODO vereenvouding model)
-        'winning_tickets': Option(Vec(Tuple(H256,U8))),
-        #TODO: 'winning_tickets': Option(Vec(Ticket())), (TODO vereenvouding model)
+        'epoch': Option(Epoch()),
+        'winning_tickets': Option(Vec(Ticket())),
         'judgements': Vec(H256),
         'author_key_idx': U16,
         'vrf_signature': H512,

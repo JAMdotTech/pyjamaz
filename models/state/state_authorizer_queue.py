@@ -1,8 +1,7 @@
 from scalecodec.types import Struct, Vec, H256
-
 from models.block.extrinsic import Extrinsic
 from models.state.state_assurances import StateAssurances
-from models.state.state_privileged_services import StatePriviligedServices
+from models.state.state_privileged_services import StatePrivilegedServices
 from models.state.state_services import StateServices
 from models.state.state_validator_queue import StateValidatorQueue
 
@@ -23,7 +22,7 @@ class StateAuthorizerQueue(Struct):
     #[TODO: input 4: StatePriviligedServices current state]
     #[TODO: input 5: StateValidatorQueue of current state]
     #[TODO: input 6: StateAuthorizerQueue of current state]
-    def state_transition(extrinsic: Extrinsic, state_assurances: StateAssurances, state_services: StateServices, state_priviliged_services: StatePriviligedServices, state_validator_queue: StateValidatorQueue, self):
+    def state_transition(extrinsic: Extrinsic, state_assurances: StateAssurances, state_services: StateServices, state_privileged_services: StatePrivilegedServices, state_validator_queue: StateValidatorQueue, self):
         #[TODO: output 4: self of transitioned state]
         pass
 
