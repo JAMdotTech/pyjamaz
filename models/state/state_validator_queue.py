@@ -11,7 +11,7 @@ class StateValidatorQueue(Struct):
     #GP-reference: IOTA | SCALETYPE-DEFINITION: "VALIDATOR_QUEUE"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     #GP-equation: 50 | SCALETYPE-DEFINITION: "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     arguments = {
-        'state': Vec(ValidatorKeys())
+        'validator_queue': Vec(ValidatorKeys())
     }
 
     #GP-equation: 28

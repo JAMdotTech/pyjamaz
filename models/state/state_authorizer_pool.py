@@ -8,7 +8,7 @@ class StateAuthorizerPool(Struct):
     #TODO: create separate classes for authorizer_pool and authorizer (used by both StateAuthorizerPool and StateAuthorizerQueue)
     #GP-equation: 82
     arguments = {
-        'state': Vec(Vec(H256))
+        'authorizer_pool': Vec(Vec(H256))
     }
 
     #GP-equation: 29,83,84

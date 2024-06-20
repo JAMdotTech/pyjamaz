@@ -9,7 +9,7 @@ class StateValidatorArchive(Struct):
     #GP-reference: LAMBDA | SCALETYPE-DEFINITION: "VALIDATOR_ARCHIVE"->"VEC<VALIDATOR_KEYS>"
     #GP-equation: 50 | SCALETYPE-DEFINITION: "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     arguments = {
-        'state': Vec(ValidatorKeys())
+        'validator_archive': Vec(ValidatorKeys())
     }
 
     #GP-equation: 22,56

@@ -13,7 +13,7 @@ class StateServices(Struct):
     #GP-equation: 86
     arguments = {
         #TODO: INDEX OF SERVICE ACCOUNT state[1] = ServiceAccount is ServiceAccount of index 1
-        'state': Vec(ServiceAccount())
+        'services': Vec(ServiceAccount())
     }
 
     #GP-equation: 24

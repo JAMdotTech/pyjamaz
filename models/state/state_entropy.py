@@ -7,7 +7,7 @@ class StateEntropy(Struct):
     #GP-reference: ETA | SCALETYPE-DEFINITION: "ENTROPY"->"VEC<ENTROPY_VALUE>" | "ENTROPY_VALUE"->"H256"
     #GP-equation: 63
     arguments = {
-        'state': Array(H256,4)
+        'entropy': Array(H256,4)
     }
 
     #GP-equation: 20,64,65

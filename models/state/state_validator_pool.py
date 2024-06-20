@@ -10,7 +10,7 @@ class StateValidatorPool(Struct):
     #GP-reference: KAPPA | SCALETYPE-DEFINITION: "VALIDATOR_POOL"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     #GP-equation: 50 | SCALETYPE-DEFINITION: "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     arguments = {
-        'state': Vec(ValidatorKeys())
+        'validator_pool': Vec(ValidatorKeys())
     }
 
     #GP-equation: 21,56

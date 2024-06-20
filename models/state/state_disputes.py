@@ -1,13 +1,19 @@
-from scalecodec.types import Struct
-from models.other.disputes import Disputes
+from scalecodec.types import Struct, Vec, H256
 from models.block.extrinsic import Extrinsic
+from models.other.validator_keys import ValidatorKeys
 
 
 class StateDisputes(Struct):
-    #GP-reference: PSI | SCALETYPE-DEFINITION: "DISPUTES"-> refer to class Disputes for details.
-    #GP-equation: 94
+    #GP-equation: PSI,94 | SCALETYPE-DEFINITION: "DISPUTES"->"(ALLOW_SET,BAN_SET,PUNISH_SET,VALIDATORS_PRIOR_EPOCH)>"
+    #GP-reference: 94,PSI-a | SCALETYPE-DEFINITION: "ALLOW_SET"->"VEC<WORK_REPORT_HASH>" | "WORK_REPORT_HASH"->"H256"
+    #GP-reference: 94,PSI-b | SCALETYPE-DEFINITION: "BAN_SET"->"VEC<WORK_REPORT_HASH>"
+    #GP-reference: 94,PSI-p | SCALETYPE-DEFINITION: "PUNISH_SET"->"VEC<BS_KEY>" | "BS_KEY"->"H256"
+    #GP-reference: 94,PSI-k,50 | SCALETYPE-DEFINITION: "VALIDATORS_PRIOR_EPOCH"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS"-> refer to class ValidatorKeys for details.
     arguments = {
-        'state': Disputes()
+        'allow_set': Vec(H256),
+        'ban_set': Vec(H256),
+        'punish_set': Vec(H256),
+        'validators_prior_epoch': Vec(ValidatorKeys())
     }
 
     #GP-equation: 23
@@ -17,5 +23,4 @@ class StateDisputes(Struct):
     def state_transition(extrinsic: Extrinsic, self):
         #[TODO: output 1: self of transitioned state]
         pass
-
 

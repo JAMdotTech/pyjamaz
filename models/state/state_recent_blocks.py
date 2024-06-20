@@ -1,4 +1,4 @@
-from scalecodec.types import Struct, Vec
+from scalecodec.types import Struct, Array
 from models.block.header import Header
 from models.block.extrinsic import Extrinsic
 from models.other.recent_block import RecentBlock
@@ -8,7 +8,7 @@ class StateRecentBlocks(Struct):
     #GP-reference: BETA | SCALETYPE-DEFINITION: "RECENT_BLOCKS"->"VEC<RECENT_BLOCK>" | "RECENT_BLOCK"-> refer to class RecentBlock for details.
     #GP-equation: 79
     arguments = {
-        'state': Vec(RecentBlock())
+        'recent_blocks': Array(RecentBlock(),8)
     }
 
     #GP-equation: 17
