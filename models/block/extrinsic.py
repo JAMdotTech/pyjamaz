@@ -1,9 +1,9 @@
 from scalecodec.types import Struct, Vec
-from models.extrinsic_ticket import ExtrinsicTicket
-from models.extrinsic_judgement import ExtrinsicJudgement
-from models.extrinsic_preimage import ExtrinsicPreimage
-from models.extrinsic_assurance import ExtrinsicAssurance
-from models.extrinsic_guarantee import ExtrinsicGuarantee
+from models.block.extrinsic_ticket import ExtrinsicTicket
+from models.block.extrinsic_judgement import ExtrinsicJudgement
+from models.block.extrinsic_preimage import ExtrinsicPreimage
+from models.block.extrinsic_assurance import ExtrinsicAssurance
+from models.block.extrinsic_guarantee import ExtrinsicGuarantee
 
 
 class Extrinsic(Struct):

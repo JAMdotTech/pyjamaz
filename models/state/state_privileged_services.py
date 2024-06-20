@@ -1,10 +1,10 @@
 from scalecodec.types import Struct
-from models.extrinsic import Extrinsic
-from models.privileged_services import PrivilegedServices
-from models.state_assurances import StateAssurances
-from models.state_authorizer_queue import StateAuthorizerQueue
-from models.state_services import StateServices
-from models.state_validator_queue import StateValidatorQueue
+from models.block.extrinsic import Extrinsic
+from models.other.privileged_services import PrivilegedServices
+from models.state.state_assurances import StateAssurances
+from models.state.state_authorizer_queue import StateAuthorizerQueue
+from models.state.state_services import StateServices
+from models.state.state_validator_queue import StateValidatorQueue
 
 
 class StatePrivilegedServices(Struct):

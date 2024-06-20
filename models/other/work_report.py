@@ -1,7 +1,7 @@
 from scalecodec.types import Struct, Vec, H256, Bytes
-from models.refinement_context import RefinementContext
-from models.work_package import WorkPackage
-from models.work_result import WorkResult
+from models.other.refinement_context import RefinementContext
+from models.other.work_package import WorkPackage
+from models.other.work_result import WorkResult
 
 
 class WorkReport(Struct):

@@ -1,18 +1,18 @@
-from scalecodec.types import Struct, Tuple
+from scalecodec.types import Struct
 from models.block import Block
-from models.state_authorizer_pool import StateAuthorizerPool
-from models.state_recent_blocks import StateRecentBlocks
-from models.state_safrole import StateSafrole
-from models.state_services import StateServices
-from models.state_entropy import StateEntropy
-from models.state_validator_queue import StateValidatorQueue
-from models.state_validator_pool import StateValidatorPool
-from models.state_validator_archive import StateValidatorArchive
-from models.state_assurances import StateAssurances
-from models.state_timeslot import StateTimeslot
-from models.state_authorizer_queue import StateAuthorizerQueue
-from models.state_privileged_services import StatePrivilegedServices
-from models.state_disputes import StateDisputes
+from models.state.state_authorizer_pool import StateAuthorizerPool
+from models.state.state_recent_blocks import StateRecentBlocks
+from models.state.state_safrole import StateSafrole
+from models.state.state_services import StateServices
+from models.state.state_entropy import StateEntropy
+from models.state.state_validator_queue import StateValidatorQueue
+from models.state.state_validator_pool import StateValidatorPool
+from models.state.state_validator_archive import StateValidatorArchive
+from models.state.state_assurances import StateAssurances
+from models.state.state_timeslot import StateTimeslot
+from models.state.state_authorizer_queue import StateAuthorizerQueue
+from models.state.state_privileged_services import StatePrivilegedServices
+from models.state.state_disputes import StateDisputes
 
 
 class State(Struct):

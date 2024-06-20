@@ -1,6 +1,6 @@
 import unittest
 from scalecodec.base import ScaleBytes
-from models.header import Header
+from models.block.header import Header
 
 
 class TestHeader(unittest.TestCase):

@@ -1,6 +1,6 @@
 from scalecodec.types import Struct, Vec, H256
-from models.header import Header
-from models.state_timeslot import StateTimeslot
+from models.block.header import Header
+from models.state.state_timeslot import StateTimeslot
 
 
 class StateEntropy(Struct):

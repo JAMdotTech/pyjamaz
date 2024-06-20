@@ -1,9 +1,9 @@
 from scalecodec.types import Struct, Vec
-from models.header import Header
-from models.state_disputes import StateDisputes
-from models.state_safrole import StateSafrole
-from models.state_timeslot import StateTimeslot
-from models.validator_keys import ValidatorKeys
+from models.block.header import Header
+from models.state.state_disputes import StateDisputes
+from models.state.state_safrole import StateSafrole
+from models.state.state_timeslot import StateTimeslot
+from models.other.validator_keys import ValidatorKeys
 
 
 class StateValidatorPool(Struct):

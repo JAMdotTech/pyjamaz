@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, Vec, Option, U16, U32, H512
-from models.work_report import WorkReport
+from models.other.work_report import WorkReport
 
 
 class ExtrinsicGuarantee(Struct):

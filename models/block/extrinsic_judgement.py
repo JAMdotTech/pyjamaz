@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, Vec, H256
-from models.judgement_vote import JudgementVote
+from models.other.judgement_vote import JudgementVote
 
 
 class ExtrinsicJudgement(Struct):

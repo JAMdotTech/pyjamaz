@@ -1,6 +1,6 @@
 from scalecodec.types import Struct, Vec, H256
-from models.extrinsic import Extrinsic
-from models.state_authorizer_queue import StateAuthorizerQueue
+from models.block.extrinsic import Extrinsic
+from models.state.state_authorizer_queue import StateAuthorizerQueue
 
 
 class StateAuthorizerPool(Struct):

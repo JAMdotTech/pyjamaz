@@ -3,8 +3,6 @@ import ed25519_zebra
 from constants import TIMESLOT_LENGTH
 from hashing import create_blake2b_hash
 from models.block import Block
-from models.header import Header
-from models.extrinsic import Extrinsic
 
 
 def main():

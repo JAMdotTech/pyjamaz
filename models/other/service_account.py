@@ -9,8 +9,8 @@ class ServiceAccount(Struct):
     #TODO: INDEX OF STATUS DICTIONARY: status_dictionary[HASH][LENGTH] = status for storage_hash HASH
 
     arguments = {
-        'storage_dictionary': Vec(Bytes),
-        'preimage_dictionary': Vec(Bytes),
+        'storage_dictionary': Bytes,
+        'preimage_dictionary': Bytes,
         'status_dictionary': Vec(U32),
         'code_hash': H256,
         'balance': U64,

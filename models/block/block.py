@@ -1,6 +1,6 @@
 from scalecodec.types import Struct
-from models.header import Header
-from models.extrinsic import Extrinsic
+from models.block.header import Header
+from models.block.extrinsic import Extrinsic
 
 
 class Block(Struct):

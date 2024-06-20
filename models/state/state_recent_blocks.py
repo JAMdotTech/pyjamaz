@@ -1,7 +1,7 @@
 from scalecodec.types import Struct, Vec
-from models.header import Header
-from models.extrinsic import Extrinsic
-from models.recent_block import RecentBlock
+from models.block.header import Header
+from models.block.extrinsic import Extrinsic
+from models.other.recent_block import RecentBlock
 
 
 class StateRecentBlocks(Struct):

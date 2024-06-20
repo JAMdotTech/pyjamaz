@@ -1,11 +1,11 @@
 from scalecodec.types import Struct
-from models.header import Header
-from models.extrinsic import Extrinsic
-from models.safrole import Safrole
-from models.state_entropy import StateEntropy
-from models.state_timeslot import StateTimeslot
-from models.state_validator_pool import StateValidatorPool
-from models.state_validator_queue import StateValidatorQueue
+from models.block.header import Header
+from models.block.extrinsic import Extrinsic
+from models.other.safrole import Safrole
+from models.state.state_entropy import StateEntropy
+from models.state.state_timeslot import StateTimeslot
+from models.state.state_validator_pool import StateValidatorPool
+from models.state.state_validator_queue import StateValidatorQueue
 
 
 class StateSafrole(Struct):

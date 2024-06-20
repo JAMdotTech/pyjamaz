@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, Vec, H256, U32
-from models.work_report import WorkReport
+from models.other.work_report import WorkReport
 
 
 class Assurance(Struct):

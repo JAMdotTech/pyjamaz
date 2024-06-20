@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, Vec, H256
-from models.validator_keys import ValidatorKeys
+from models.other.validator_keys import ValidatorKeys
 
 
 class Disputes(Struct):

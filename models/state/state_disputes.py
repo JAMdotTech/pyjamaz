@@ -1,6 +1,6 @@
 from scalecodec.types import Struct
-from models.disputes import Disputes
-from models.extrinsic import Extrinsic
+from models.other.disputes import Disputes
+from models.block.extrinsic import Extrinsic
 
 
 class StateDisputes(Struct):

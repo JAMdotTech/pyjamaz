@@ -1,10 +1,10 @@
 from scalecodec.types import Struct, Vec, H256
 
-from models.extrinsic import Extrinsic
-from models.state_assurances import StateAssurances
-from models.state_privileged_services import StatePriviligedServices
-from models.state_services import StateServices
-from models.state_validator_queue import StateValidatorQueue
+from models.block.extrinsic import Extrinsic
+from models.state.state_assurances import StateAssurances
+from models.state.state_privileged_services import StatePriviligedServices
+from models.state.state_services import StateServices
+from models.state.state_validator_queue import StateValidatorQueue
 
 
 class StateAuthorizerQueue(Struct):

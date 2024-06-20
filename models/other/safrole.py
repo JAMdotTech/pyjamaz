@@ -1,6 +1,6 @@
 from scalecodec.types import Struct, Vec, H256
-from models.ticket import Ticket
-from models.validator_keys import ValidatorKeys
+from models.other.ticket import Ticket
+from models.other.validator_keys import ValidatorKeys
 
 
 class Safrole(Struct):

@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, U32
-from models.header import Header
+from models.block.header import Header
 
 
 class StateTimeslot(Struct):
