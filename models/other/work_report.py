@@ -1,6 +1,6 @@
 from scalecodec.types import Struct, Vec, H256, Bytes
 from models.other.refinement_context import RefinementContext
-from models.other.work_package import WorkPackage
+from models.other.work_package_specification import WorkPackageSpecification
 from models.other.work_result import WorkResult
 
 
@@ -15,7 +15,7 @@ class WorkReport(Struct):
         'authorizers_hash': H256,
         'output': Bytes,
         'refinement_context': RefinementContext(),
-        'work_package': WorkPackage(),
-        'work_results': Vec(WorkResult())
+        'work_package': WorkPackageSpecification(),
+        'work_results': Vec(WorkResult()) #TODO Constant(I): MAXIMUM_WORK_ITEMS=4; Minimum size of list 1, maximum size of list is I(4) per GP-equation: 110; Needs to be more strict; How to solve?
     }
 

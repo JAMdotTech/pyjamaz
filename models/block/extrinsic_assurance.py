@@ -1,4 +1,4 @@
-from scalecodec.types import Struct, U16, H256, H512, Bool
+from scalecodec.types import Struct, U32, H256, H512, Bool
 
 
 class ExtrinsicAssurance(Struct):
@@ -10,7 +10,7 @@ class ExtrinsicAssurance(Struct):
     arguments = {
         'work_report_hash': H256,
         'is_available': Bool,
-        'validator_idx': U16,
+        'validator_idx': U32, #TODO: Type implicit, but derived from Hk in GP-equation 272
         'signature': H512
     }
 

@@ -24,3 +24,18 @@ class StateDisputes(Struct):
         #[TODO: output 1: self of transitioned state]
         pass
 
+    # GP-equation: 281,(C5)
+    def storage_serialize(self):
+        #TODO: serialize([COMPLICATED; self with first 3 individual parts ordered])
+        #TODO ATTENTION: ordering is required per GP-equation: 281
+        pass
+
+    #TODO: Generalize by introducing the StateKeyConstructor function (C) | GP-reference 280
+    def storage_persist(self):
+        #TODO: insert/update_kvdb(key:blake2b(0x05|5),value:serialize([COMPLICATED; self with first 3 individual parts ordered]))
+        pass
+
+    def storage_get(self):
+        #TODO: set self = select_kvdb(key:blake2b(0x05|5))
+        pass
+

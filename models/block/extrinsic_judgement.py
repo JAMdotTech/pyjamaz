@@ -8,6 +8,6 @@ class ExtrinsicJudgement(Struct):
     #GP-reference: 96,97 | SCALETYPE-DEFINITION: "VOTES"->"VEC<VOTE>" | "VOTE"-> refer to class JudgementVote for details.
     arguments = {
         'work_report_hash': H256,
-        'votes': Vec(JudgementVote())
+        'votes': Vec(JudgementVote()) #TODO Constant(V): VALIDATORS=1023; size of list is exactly (2*VALIDATORS)/3+1=683 Needs to be more strict. Possible Array(JudgementVote(),683); Round()|Floor()?
     }
 

@@ -7,6 +7,6 @@ class ExtrinsicPreimage(Struct):
     #GP-reference: 148,Y | SCALETYPE-DEFINITION: "DATA"->"BYTES"
     arguments = {
         'service_idx': U32,
-        'data': Bytes
+        'data': Bytes #TODO: verify assumption that BLOB is encoded as Bytes (variable length)
     }
 

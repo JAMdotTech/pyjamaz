@@ -15,6 +15,6 @@ class RefinementContext(Struct):
         'posterior_beefy_root': H256,
         'lookup_header_hash': H256,
         'lookup_timeslot': U32,
-        'work_package_hash': Option(H256)
+        'work_package_hash': Option(H256) #TODO: simply optional; nothing special
     }
 

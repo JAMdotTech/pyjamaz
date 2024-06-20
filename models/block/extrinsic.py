@@ -13,7 +13,7 @@ class Extrinsic(Struct):
     #GP-equation: 116-120 | SCALETYPE-DEFINITION: "ASSURANCES"->"VEC<ASSURANCE>" | refer to class ExtrinsicAssurance for details.
     #GP-equation: 130 | SCALETYPE-DEFINITION: "GUARANTEES"->"VEC<GUARANTEE>" | refer to class ExtrinsicGuarantee for details.
     arguments = {
-        'tickets': Vec(ExtrinsicTicket()),
+        'tickets': Vec(ExtrinsicTicket()), #TODO Constant(K): MAXIMUM_EXTRINSIC_TICKETS=16; Needs to be more strict; How to solve?
         'judgements': Vec(ExtrinsicJudgement()),
         'preimages': Vec(ExtrinsicPreimage()),
         'assurances': Vec(ExtrinsicAssurance()),

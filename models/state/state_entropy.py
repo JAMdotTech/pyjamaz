@@ -19,3 +19,17 @@ class StateEntropy(Struct):
         #[TODO: output 1: self of transitioned state]
         pass
 
+    # GP-equation: 281,(C6)
+    def storage_serialize(self):
+        #TODO: serialize(self)
+        pass
+
+    #TODO: Generalize by introducing the StateKeyConstructor function (C) | GP-reference 280
+    def storage_persist(self):
+        #TODO: insert/update_kvdb(key:blake2b(0x06|6),value:serialize(self))
+        pass
+
+    def storage_get(self):
+        #TODO: set self = select_kvdb(key:blake2b(0x06|6))
+        pass
+

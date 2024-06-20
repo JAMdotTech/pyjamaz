@@ -19,3 +19,19 @@ class StateAuthorizerPool(Struct):
     def state_transition(extrinsic: Extrinsic, state_authorizer_queue: StateAuthorizerQueue, self):
         #[TODO: output 1: self of transitioned state]
         pass
+
+    # GP-equation: 281,(C1)
+    def storage_serialize(self):
+        #TODO: serialize(self)
+        #TODO ATTENTION: ordering is required per GP-equation: 281
+        pass
+
+    #TODO: Generalize by introducing the StateKeyConstructor function (C) | GP-reference 280
+    def storage_persist(self):
+        #TODO: insert/update_kvdb(key:blake2b(0x01|1),value:serialize(self))
+        pass
+
+    def storage_get(self):
+        #TODO: set self = select_kvdb(key:blake2b(0x01|1))
+        pass
+

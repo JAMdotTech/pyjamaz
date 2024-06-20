@@ -1,4 +1,4 @@
-from scalecodec.types import Struct, Vec, Option, U16, U32, H256, H512
+from scalecodec.types import Struct, Vec, Option, U32, H256, H512
 from models.other.ticket import Ticket
 from models.other.epoch import Epoch
 
@@ -16,7 +16,7 @@ class Header(Struct):
     #GP-equation: 43,69 | SCALETYPE-DEFINITION: "EPOCH"-> refer to class Epoch for details.
     #GP-equation: 70,49 | SCALETYPE-DEFINITION: "WINNING_TICKETS"-> refer to class WinningTickets for details.
     #GP-equation: 101-108 | SCALETYPE-DEFINITION: "JUDGEMENT_MARKER"->"VEC<WORK_REPORT_HASH>" | "WORK_REPORT_HASH"->"H256"
-    #GP-equation: 42 | SCALETYPE-DEFINITION: "AUTHOR_KEY_IDX"->"U16"
+    #GP-equation: 42 | SCALETYPE-DEFINITION: "AUTHOR_KEY_IDX"->"U32" #Type implicit, but derived from Hk in GP-equation 272
     #GP-equation: 59 | SCALETYPE-DEFINITION: "VRF_SIGNATURE"->"H512"
     #GP-equation: 59 | SCALETYPE-DEFINITION: "BLOCK_SEAL"->"H512"
 
@@ -25,10 +25,10 @@ class Header(Struct):
         'prior_state_root': H256,
         'extrinsic_hash': H256,
         'timeslot': U32,
-        'epoch': Option(Epoch()),
-        'winning_tickets': Option(Vec(Ticket())),
-        'judgements': Vec(H256),
-        'author_key_idx': U16,
+        'epoch': Option(Epoch()), #TODO: only in first block of new epoch
+        'winning_tickets': Option(Vec(Ticket())), #TODO: only in first block after submission period for tickets and ticket accumulator is saturated
+        'judgements': Vec(H256), #TODO: Complicated, needs research
+        'author_key_idx': U32, #TODO: Type implicit, but derived from Hk in GP-equation 272
         'vrf_signature': H512,
         'block_seal': H512
     }

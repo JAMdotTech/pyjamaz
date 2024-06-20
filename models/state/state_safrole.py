@@ -35,3 +35,18 @@ class StateSafrole(Struct):
         #[TODO: output 1: self of transitioned state]
         pass
 
+    # GP-equation: 281,(C4)
+    def storage_serialize(self):
+        #TODO: serialize(self.1, self.2, IF_ELSE_BOOL, self.3, self.4)
+        #TODO ATTENTION: ordering is required per GP-equation: 281
+        pass
+
+    #TODO: Generalize by introducing the StateKeyConstructor function (C) | GP-reference 280
+    def storage_persist(self):
+        #TODO: insert/update_kvdb(key:blake2b(0x04|4),value:serialize(self.1, self.2, IF_ELSE_BOOL, self.3, self.4))
+        pass
+
+    def storage_get(self):
+        #TODO: set self = select_kvdb(key:blake2b(0x04|4))
+        pass
+

@@ -13,6 +13,6 @@ class WorkResult(Struct):
         'code_hash': H256,
         'payload_hash': H256,
         'gas_prioritization_ratio': I64,
-        'result': Enum(output=Bytes,out_of_gas=Bool,panic=Bool,bad=Bool,big=Bool)
+        'result': Enum(output=Bytes,out_of_gas=Bool,panic=Bool,bad=Bool,big=Bool) #TODO: fixed values?!
     }
 
