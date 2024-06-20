@@ -2,10 +2,10 @@ from scalecodec.types import Struct, U32
 
 
 class PrivilegedServices(Struct):
-    #GP-equation: 93 | SCALETYPE-DEFINITION: "PRIVILEGED_SERVICES"->"(MANAGER,MANAGER_AUTHORIZER_QUEUE,MANAGER_VALIDATOR_QUEUE)>" | "MANAGER"->"U32" | "MANAGER_AUTHORIZER_QUEUE"->"U32" | "MANAGER_VALIDATOR_QUEUE"->"U32"
-    #TODO: MANAGER: Empower-Service (GP-I.4.2)
-    #TODO: MANAGER_AUTHORIZER_QUEUE: Designate-Service (GP-I.4.2)
-    #TODO: MANAGER_VALIDATOR_QUEUE: Assign-Service (GP-I.4.2)
+    #GP-equation: 93 | SCALETYPE-DEFINITION: "PRIVILEGED_SERVICES"->"(MANAGER,MANAGER_AUTHORIZER_QUEUE,MANAGER_VALIDATOR_QUEUE)>"
+    #GP-reference: 93,CHI-m,I.4.2 | SCALETYPE-DEFINITION: "MANAGER"->"U32"
+    #GP-reference: 93,CHI-a,I.4.2 | SCALETYPE-DEFINITION: "MANAGER_AUTHORIZER_QUEUE"->"U32"
+    #GP-reference: 93,CHI-v,I.4.2 | SCALETYPE-DEFINITION: "MANAGER_VALIDATOR_QUEUE"->"U32"
     arguments = {
         'service_empower': U32,
         'service_designate_authorizers': U32,

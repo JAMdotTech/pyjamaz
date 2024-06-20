@@ -1,4 +1,4 @@
-from scalecodec.types import Struct, Vec, H256
+from scalecodec.types import Struct, H256, Array
 from models.block.header import Header
 from models.state.state_timeslot import StateTimeslot
 
@@ -7,7 +7,7 @@ class StateEntropy(Struct):
     #GP-reference: ETA | SCALETYPE-DEFINITION: "ENTROPY"->"VEC<ENTROPY_VALUE>" | "ENTROPY_VALUE"->"H256"
     #GP-equation: 63
     arguments = {
-        'state': Vec(H256)
+        'state': Array(H256,4)
     }
 
     #GP-equation: 20,64,65

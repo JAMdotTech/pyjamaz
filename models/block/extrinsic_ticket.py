@@ -2,7 +2,9 @@ from scalecodec.types import Struct, U8, H512
 
 
 class ExtrinsicTicket(Struct):
-    #GP-equation: 71 | SCALETYPE-DEFINITION: "TICKET"->"(ENTRY_IDX,VALIDITY_PROOF)" | "ENTRY_IDX"->"U8" | "VALIDITY_PROOF"->"H512"
+    #GP-equation: 71 | SCALETYPE-DEFINITION: "TICKET"->"(ENTRY_IDX,VALIDITY_PROOF)"
+    #GP-reference: 71,r | SCALETYPE-DEFINITION: "ENTRY_IDX"->"U8"
+    #GP-reference: 71,p | SCALETYPE-DEFINITION: "VALIDITY_PROOF"->"H512"
     arguments = {
         'entry_idx': U8,
         'validity_proof': H512

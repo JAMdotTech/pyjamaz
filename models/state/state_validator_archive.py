@@ -6,8 +6,8 @@ from models.other.validator_keys import ValidatorKeys
 
 
 class StateValidatorArchive(Struct):
-    #GP-reference: LAMBDA | SCALETYPE-DEFINITION: "VALIDATOR_ARCHIVE"->"VEC<VALIDATOR_KEYS>" | "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
-    #GP-equation: 50
+    #GP-reference: LAMBDA | SCALETYPE-DEFINITION: "VALIDATOR_ARCHIVE"->"VEC<VALIDATOR_KEYS>"
+    #GP-equation: 50 | SCALETYPE-DEFINITION: "VALIDATOR_KEYS" refer to class ValidatorKeys for details.
     arguments = {
         'state': Vec(ValidatorKeys())
     }

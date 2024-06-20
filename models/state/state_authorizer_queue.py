@@ -7,7 +7,8 @@ from models.state.state_validator_queue import StateValidatorQueue
 
 
 class StateAuthorizerQueue(Struct):
-    #GP-reference: PHI | SCALETYPE-DEFINITION: "AUTHORIZER_QUEUE"->"VEC<AUTHORIZER>" | "AUTHORIZER"->"VEC<AUTHORIZATION>" | "AUTHORIZATION"->"H256" |
+    #GP-reference: PHI | SCALETYPE-DEFINITION: "AUTHORIZER_QUEUE"->"VEC<AUTHORIZER>" | "AUTHORIZER"->"VEC<AUTHORIZATION>" | "AUTHORIZATION"->"H256"
+    #TODO: create separate classes for authorizer_pool and authorizer (used by both StateAuthorizerPool and StateAuthorizerQueue)
     #GP-equation: 82
     arguments = {
         'state': Vec(Vec(H256))

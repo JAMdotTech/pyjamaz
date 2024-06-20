@@ -18,7 +18,7 @@ class Header(Struct):
     #GP-equation: 101-108 | SCALETYPE-DEFINITION: "JUDGEMENT_MARKER"->"VEC<WORK_REPORT_HASH>" | "WORK_REPORT_HASH"->"H256"
     #GP-equation: 42 | SCALETYPE-DEFINITION: "AUTHOR_KEY_IDX"->"U16"
     #GP-equation: 59 | SCALETYPE-DEFINITION: "VRF_SIGNATURE"->"H512"
-    #GP-equation: 59? | SCALETYPE-DEFINITION: "BLOCK_SEAL"->"H512"
+    #GP-equation: 59 | SCALETYPE-DEFINITION: "BLOCK_SEAL"->"H512"
 
     arguments = {
         'parent_hash': H256,

@@ -5,7 +5,12 @@ from models.other.work_result import WorkResult
 
 
 class WorkReport(Struct):
-    #GP-equation: 110 | "WORK_REPORT"->"(AUTHORIZERS_HASH,OUTPUT,REFINEMENT_CONTEXT,WORK_PACKAGE,RESULTS)" | "AUTHORIZERS_HASH"->"H256" | "OUTPUT"->"BYTES" | "REFINEMENT_CONTEXT"-> refer to class RefinementContext for details. | "WORK_PACKAGE"->  refer to class WorkPackage for details. | "WORK_RESULTS"->"VEC<WORK_RESULT>" | "RESULT"-> refer to class WorkResult for details.
+    #GP-equation: 130,110,W | "WORK_REPORT"->"(AUTHORIZERS_HASH,OUTPUT,REFINEMENT_CONTEXT,WORK_PACKAGE,RESULTS)"
+    #GP-reference: - | SCALETYPE-DEFINITION: "AUTHORIZERS_HASH"->"H256"
+    #GP-reference: - | SCALETYPE-DEFINITION: "OUTPUT"->"BYTES"
+    #GP-reference: - | SCALETYPE-DEFINITION: "REFINEMENT_CONTEXT"-> refer to class RefinementContext for details.
+    #GP-reference: - | SCALETYPE-DEFINITION: "WORK_PACKAGE"->  refer to class WorkPackage for details.
+    #GP-reference: - | SCALETYPE-DEFINITION: "WORK_RESULTS"->"VEC<WORK_RESULT>" | "RESULT"-> refer to class WorkResult for details.
     arguments = {
         'authorizers_hash': H256,
         'output': Bytes,
