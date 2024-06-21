@@ -1,4 +1,4 @@
-from scalecodec.types import Struct, Array
+from scalecodec.types import Struct, Array, Vec
 from models.block.header import Header
 from models.block.extrinsic import Extrinsic
 from models.other.recent_block import RecentBlock
@@ -25,7 +25,7 @@ class StateRecentBlocks(Struct):
     #[TODO: input 2: Block.Extrinsic.reports]
     #[TODO: input 3: StateRecentBlocks of intermediate state (result of graypaper-equation 17]
     #[TODO: input 4: 'C'-object to be determined Beefy related ]
-    def state_transition(header: Header, extrinsic: Extrinsic, self, i4: {}):
+    def state_transition(header: Header, judgements: Vec, self, i4: {}):
         #[TODO: output 1: self of transitioned state]
         pass
 

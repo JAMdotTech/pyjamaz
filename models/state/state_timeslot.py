@@ -10,7 +10,9 @@ class StateTimeslot(Struct):
 
     #GP-equation: 16,44
     #[TODO: input 1: Header]
-    def state_transition(header: Header):
+
+    #input = headertype en niet Header
+    def state_transition(self, header: Header):
         #self += 1
         #[TODO: output 1: self of transitioned state]
         pass

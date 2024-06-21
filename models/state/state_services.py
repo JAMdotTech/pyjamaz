@@ -12,7 +12,7 @@ class StateServices(Struct):
     #GP-reference: DELTA | SCALETYPE-DEFINITION: "SERVICES"->"VEC<SERVICE_ACCOUNT>" | "SERVICE_ACCOUNT refer to class ServiceAccount for details.
     #GP-equation: 86
     arguments = {
-        #TODO: INDEX OF SERVICE ACCOUNT state[1] = ServiceAccount is ServiceAccount of index 1
+        #TODO: INDEX OF SERVICE ACCOUNT services[i] = ServiceAccount is ServiceAccount of index 1
         'services': Vec(ServiceAccount())
     }
 

@@ -1,12 +1,12 @@
+from scalecodec.base import ScaleType
 from scalecodec.types import Struct, Vec, Option, U32, H256, H512
 from models.other.ticket import Ticket
 from models.other.epoch import Epoch
 
 
-#TODO: ARJAN EXPLAIN, REMOVE?
-#class HeaderType(ScaleType):
-#    def test(self):
-#        print('ja')
+class HeaderObject(ScaleType):
+    def test(self):
+        print('ja')
 
 class Header(Struct):
     #GP-equation: 37 | SCALETYPE-DEFINITION: "PARENT_HASH"->"H256"
@@ -20,6 +20,7 @@ class Header(Struct):
     #GP-equation: 59 | SCALETYPE-DEFINITION: "VRF_SIGNATURE"->"H512"
     #GP-equation: 59 | SCALETYPE-DEFINITION: "BLOCK_SEAL"->"H512"
 
+    scale_type_cls = HeaderObject
     arguments = {
         'parent_hash': H256,
         'prior_state_root': H256,
