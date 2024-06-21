@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, H256, Array
-from models.block.header import Header
+from models.block.block import Header
 from models.state.state_timeslot import StateTimeslot
 
 

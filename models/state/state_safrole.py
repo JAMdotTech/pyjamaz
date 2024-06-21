@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, Vec, U8, Array, Enum, H256
-from models.block.header import Header
+from models.block.block import Header
 from models.block.extrinsic import Extrinsic
 from models.other.ticket import Ticket
 from models.other.validator_keys import ValidatorKeys

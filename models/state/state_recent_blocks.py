@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, Array, Vec
-from models.block.header import Header
+from models.block.block import Header
 from models.block.extrinsic import Extrinsic
 from models.other.recent_block import RecentBlock
 
