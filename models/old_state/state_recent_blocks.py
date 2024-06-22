@@ -13,19 +13,19 @@ class StateRecentBlocks(Struct):
     #GP-equation: 17
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
-    #[TODO: input 2: StateRecentBlocks of current state]
+    #[TODO: input 2: StateRecentBlocks of current old_state]
     def state_transition_intermediate(header: Header, self):
-        #[TODO: output 1: self of intermediate state]
+        #[TODO: output 1: self of intermediate old_state]
         pass
 
     #GP-equation: 18,80,81
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
     #[TODO: input 2: Block.Extrinsic.reports]
-    #[TODO: input 3: StateRecentBlocks of intermediate state (result of graypaper-equation 17]
+    #[TODO: input 3: StateRecentBlocks of intermediate old_state (result of graypaper-equation 17]
     #[TODO: input 4: 'C'-object to be determined Beefy related ]
     def state_transition(header: Header, judgements: Vec, self, i4: {}):
-        #[TODO: output 1: self of transitioned state]
+        #[TODO: output 1: self of transitioned old_state]
         pass
 
     # GP-equation: 281,(C3)

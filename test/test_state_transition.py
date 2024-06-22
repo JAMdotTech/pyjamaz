@@ -1,7 +1,7 @@
 import unittest
 
 from models import Validator, Header, Extrinsic, Block
-from models.state.state import State
+from models.state import State
 
 
 class TestStateTransition(unittest.TestCase):

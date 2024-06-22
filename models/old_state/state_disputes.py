@@ -19,9 +19,9 @@ class StateDisputes(Struct):
     #GP-equation: 23
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.judgements]
-    #[TODO: input 2: StateDisputes of current state]
+    #[TODO: input 2: StateDisputes of current old_state]
     def state_transition(extrinsic: Extrinsic, self):
-        #[TODO: output 1: self of transitioned state]
+        #[TODO: output 1: self of transitioned old_state]
         pass
 
     # GP-equation: 281,(C5)

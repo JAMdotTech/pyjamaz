@@ -1,6 +1,6 @@
 from scalecodec.types import Struct, H256, Array
 from models.block import Header
-from models.state.state_timeslot import StateTimeslot
+from models.state import Timeslot
 
 
 class StateEntropy(Struct):
@@ -13,9 +13,9 @@ class StateEntropy(Struct):
     #GP-equation: 20,64,65
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
-    #[TODO: input 2: StateTimeslot of current state]
+    #[TODO: input 2: Timeslot of current state]
     #[TODO: input 3: StateEntropy of current state]
-    def state_transition(header: Header, state_timeslot: StateTimeslot, self):
+    def state_transition(header: Header, state_timeslot: Timeslot, self):
         #[TODO: output 1: self of transitioned state]
         pass
 

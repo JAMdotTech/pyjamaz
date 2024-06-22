@@ -1,8 +1,8 @@
 from scalecodec.types import Struct, Vec
 from models.block import Header
-from models.state.state_disputes import StateDisputes
-from models.state.state_safrole import StateSafrole
-from models.state.state_timeslot import StateTimeslot
+from models.old_state.state_disputes import StateDisputes
+from models.old_state.state_safrole import StateSafrole
+from models.state import Timeslot
 from models.other.validator_keys import ValidatorKeys
 
 
@@ -20,7 +20,7 @@ class StateValidatorPool(Struct):
     #[TODO: input 3: StateValidatorPool of current state]
     #[TODO: input 4: StateSafrole of current state]
     #[TODO: input 5: StateDisputes of transitioned state]
-    def state_transition(header: Header, state_timeslot: StateTimeslot(), self, state_safrole: StateSafrole(), state_disputes: StateDisputes()):
+    def state_transition(header: Header, timeslot: Timeslot(), self, state_safrole: StateSafrole(), state_disputes: StateDisputes()):
         #[TODO: output 1: self of transitioned state]
         pass
 

@@ -2,10 +2,10 @@ from scalecodec.types import Struct, Vec, U8, Array, Enum, H256
 from models.block import Header, Extrinsic
 from models.common import Ticket
 from models.other.validator_keys import ValidatorKeys
-from models.state.state_entropy import StateEntropy
-from models.state.state_timeslot import StateTimeslot
-from models.state.state_validator_pool import StateValidatorPool
-from models.state.state_validator_queue import StateValidatorQueue
+from models.old_state.state_entropy import StateEntropy
+from models.state import Timeslot
+from models.old_state.state_validator_pool import StateValidatorPool
+from models.old_state.state_validator_queue import StateValidatorQueue
 
 
 class StateSafrole(Struct):
@@ -24,14 +24,14 @@ class StateSafrole(Struct):
     #GP-equation: 19,56
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Header]
-    #[TODO: input 2: StateTimeslot of current state]
+    #[TODO: input 2: Timeslot of current state]
     #[TODO: input 3: Block.Extrinsic.tickets]
     #[TODO: input 4: StateSafrole of current state]
     #[TODO: input 5: StateValidatorQueue of current state]
     #[TODO: input 6: StateEntropy of transitioned state]
     #[TODO: input 7: StateValidatorPool of transitioned state]
-    def state_transition(header: Header, state_timeslot: StateTimeslot, extrinsic: Extrinsic, self, state_validator_queue: StateValidatorQueue, state_validator_entropy: StateEntropy, state_validator_pool: StateValidatorPool):
-        #[TODO: output 1: self of transitioned state]
+    def state_transition(header: Header, state_timeslot: Timeslot, extrinsic: Extrinsic, self, state_validator_queue: StateValidatorQueue, state_validator_entropy: StateEntropy, state_validator_pool: StateValidatorPool):
+        #[TODO: output 1: self of transitioned old_state]
         pass
 
     # GP-equation: 281,(C4)

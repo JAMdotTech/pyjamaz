@@ -1,9 +1,9 @@
 from scalecodec.types import Struct, Vec, H256
 from models.block import Extrinsic
-from models.state.state_assurances import StateAssurances
-from models.state.state_privileged_services import StatePrivilegedServices
-from models.state.state_services import StateServices
-from models.state.state_validator_queue import StateValidatorQueue
+from models.old_state.state_assurances import StateAssurances
+from models.old_state.state_privileged_services import StatePrivilegedServices
+from models.old_state.state_services import StateServices
+from models.old_state.state_validator_queue import StateValidatorQueue
 
 
 class StateAuthorizerQueue(Struct):
@@ -21,13 +21,13 @@ class StateAuthorizerQueue(Struct):
     #TODO: Check: changed by manager service PrivilegedService?
     #[Volgorde input parameters SELF eerst conventie?]
     #[TODO: input 1: Block.Extrinsic.assurances]
-    #[TODO: input 2: StateAssurances of transitioned state of graypaper-equation: 27]
-    #[TODO: input 3: StateServices of intermediate state of graypaper-equation: 24]
-    #[TODO: input 4: StatePriviligedServices current state]
-    #[TODO: input 5: StateValidatorQueue of current state]
-    #[TODO: input 6: StateAuthorizerQueue of current state]
+    #[TODO: input 2: StateAssurances of transitioned old_state of graypaper-equation: 27]
+    #[TODO: input 3: StateServices of intermediate old_state of graypaper-equation: 24]
+    #[TODO: input 4: StatePriviligedServices current old_state]
+    #[TODO: input 5: StateValidatorQueue of current old_state]
+    #[TODO: input 6: StateAuthorizerQueue of current old_state]
     def state_transition(extrinsic: Extrinsic, state_assurances: StateAssurances, state_services: StateServices, state_privileged_services: StatePrivilegedServices, state_validator_queue: StateValidatorQueue, self):
-        #[TODO: output 4: self of transitioned state]
+        #[TODO: output 4: self of transitioned old_state]
         pass
 
     # GP-equation: 281,(C2)
