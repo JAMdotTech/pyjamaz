@@ -1,6 +1,6 @@
 from scalecodec.types import Struct, Vec
 from models.other.assurance import Assurance
-from models.block.extrinsic import Extrinsic
+from models.block import Extrinsic
 from models.state.state_timeslot import StateTimeslot
 from models.state.state_validator_pool import StateValidatorPool
 

@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, Vec
-from models.block.block import Header
+from models.block import Header
 from models.state.state_disputes import StateDisputes
 from models.state.state_safrole import StateSafrole
 from models.state.state_timeslot import StateTimeslot

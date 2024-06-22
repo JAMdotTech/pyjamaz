@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, Vec
-from models.block.block import Header
+from models.block import Header
 from models.state.state_timeslot import StateTimeslot
 from models.state.state_validator_pool import StateValidatorPool
 from models.other.validator_keys import ValidatorKeys

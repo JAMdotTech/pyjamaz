@@ -1,7 +1,6 @@
 from scalecodec.types import Struct, Vec, U8, Array, Enum, H256
-from models.block.block import Header
-from models.block.extrinsic import Extrinsic
-from models.other.ticket import Ticket
+from models.block import Header, Extrinsic
+from models.common import Ticket
 from models.other.validator_keys import ValidatorKeys
 from models.state.state_entropy import StateEntropy
 from models.state.state_timeslot import StateTimeslot

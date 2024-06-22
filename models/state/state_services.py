@@ -1,5 +1,5 @@
 from scalecodec.types import Struct, Vec
-from models.block.extrinsic import Extrinsic
+from models.block import Extrinsic
 from models.other.service_account import ServiceAccount
 from models.state.state_assurances import StateAssurances
 from models.state.state_authorizer_queue import StateAuthorizerQueue
