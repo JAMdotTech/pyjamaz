@@ -1,7 +1,40 @@
+from constants import VALIDATOR_COUNT,MAXIMUM_EXTRINSIC_TICKETS
 from scalecodec.base import ScaleType, ScaleBytes
 from scalecodec.types import Struct, H256, U32, Option, Vec, H512, U8, Bool, VecType, Compact, Bytes
 
 from models.common import Ticket, WorkReport
+
+
+class BsKeys(Vec):
+    def __init__(self):
+        super().__init__(self)
+        self.scale_type_cls = VecType
+        self.type_def = H256
+
+    def decode(self, data: ScaleBytes) -> list:
+        # Decode length of Vec
+        length = Compact().decode(data)
+        # TODO: Check with Arjan: VALIDATOR_COUNT=1023; size of list is exactly 1023
+        # TODO: Round()|Floor()?
+        length_constraint = VALIDATOR_COUNT # GP-ref:43,69,k
+        if length != length_constraint:
+            # TODO: How to deal with error messages?
+            raise ValueError('size of BsKeys list should be: {length_constraint}')
+        value = []
+
+        for _ in range(0, length):
+            obj = self.type_def.new()
+            obj.decode(data)
+
+            value.append(obj)
+
+        return value
+
+    # TODO: ENCODE VALIDATION SIMILAR TO DECODE VALIDATION
+    # def encode(self, data: ScaleBytes) -> list:
+
+    # TODO: VALIDATE FUNCTION
+    # def validate (self, data: ScaleBytes) -> list:
 
 
 class EpochObject(ScaleType):
@@ -14,8 +47,8 @@ class Epoch(Struct):
     scale_type_cls = EpochObject
     arguments = {
         'entropy': H256, # GP-ref:ETA-1
-        # TODO Constant(V): VALIDATORS=1023; size of list is exactly VALIDATORS=1023 Needs to be more strict. Possible Array(H256,1023)
-        'bs_keys': Vec(H256) # GP-ref:k
+        'bs_keys': BsKeys() # GP-ref:k; Additional type-constraints apply
+        #'bs_keys': Vec(H256)  # GP-ref:k
     }
 
 
@@ -41,11 +74,42 @@ class Header(Struct):
         'winning_tickets': Option(Vec(Ticket())), # GP-ref:70,49
         # TODO: Complicated, needs research
         'judgements': Vec(H256), # GP-ref:101-108
-        # TODO: Type author_key_idx implicit, but derived from Hk in GP-ref:272
-        'author_key_idx': U32, # GP-ref:42
+        'author_key_idx': U32, # GP-ref:42; type derived from Hk in GP-ref:272
         'vrf_signature': H512, # GP-ref:59
         'block_seal': H512 # GP-ref:59
     }
+
+
+class ExtrinsicTickets(Vec):
+    def __init__(self):
+        super().__init__(self)
+        self.scale_type_cls = VecType
+        self.type_def = ExtrinsicTicket()
+
+    def decode(self, data: ScaleBytes) -> list:
+        # Decode length of Vec
+        length = Compact().decode(data)
+        # TODO: Check with Arjan: MAXIMUM_EXTRINSIC_TICKETS=8; size of list is between 0 and 8
+        # TODO: Round()|Floor()?
+        length_constraint = MAXIMUM_EXTRINSIC_TICKETS # GP-ref:71
+        if length > length_constraint:
+            # TODO: How to deal with error messages?
+            raise ValueError('size of ExtrinsicTickets list should be not greater than: {length_constraint}')
+        value = []
+
+        for _ in range(0, length):
+            obj = self.type_def.new()
+            obj.decode(data)
+
+            value.append(obj)
+
+        return value
+
+    # TODO: ENCODE VALIDATION SIMILAR TO DECODE VALIDATION
+    # def encode(self, data: ScaleBytes) -> list:
+
+    # TODO: VALIDATE FUNCTION
+    # def validate (self, data: ScaleBytes) -> list:
 
 
 class ExtrinsicTicketObject(ScaleType):
@@ -72,28 +136,28 @@ class JudgementVote(Struct):
     # GP-ref:96,97
     scale_type_cls = JudgementVoteObject
     arguments = {
-        'is_valid': Bool, # GP-ref:X
-        # TODO: Type implicit, but derived from Hk in GP-equation 272
-        'validator_idx': U32, # GP-ref:Nv
-        'signature': H512 # GP-ref:-
+        'is_valid': Bool, # GP-ref:96,97
+        'validator_idx': U32, # GP-ref:Nv; type derived from Hk in GP-ref:272
+        # TODO: all signatures must be valid in terms of one of the two validator key-sets. Key-sets may not be mixed. Solve in JudgementVotes
+        'signature': H512 # GP-ref:96
     }
 
 
 class JudgementVotes(Vec):
-    #In deze class kunnen we data validatie afdwingen van een standaard vec
-    #TODO Constant(V): VALIDATORS=1023; size of list is exactly (2*VALIDATORS)/3+1=683 Needs to be more strict. Possible Array(JudgementVote(),683); Round()|Floor()?
     def __init__(self):
-        super().__init__()
+        super().__init__(self)
         self.scale_type_cls = VecType
         self.type_def = JudgementVote()
 
     def decode(self, data: ScaleBytes) -> list:
-        # deze functie dwingt validatie af
-
         # Decode length of Vec
         length = Compact().decode(data)
-        if length != 683: # vervangen door constant
-            raise ValueError('size of list should be 683')
+        # TODO: Check with Arjan: VALIDATORS=1023; size of list is exactly (2*VALIDATORS)/3+1=683
+        # TODO: Round()|Floor()?
+        length_constraint = ((2*VALIDATOR_COUNT)/3)+1 # GP-ref:96
+        if length != length_constraint:
+            # TODO: How to deal with error messages?
+            raise ValueError('size of JudgementVotes list should be: {length_constraint}')
         value = []
 
         for _ in range(0, length):
@@ -105,7 +169,10 @@ class JudgementVotes(Vec):
         return value
 
     # TODO: ENCODE VALIDATION SIMILAR TO DECODE VALIDATION
-    # def endecode(self, data: ScaleBytes) -> list:
+    # def encode(self, data: ScaleBytes) -> list:
+
+    # TODO: VALIDATE FUNCTION
+    # def validate (self, data: ScaleBytes) -> list:
 
 
 class ExtrinsicJudgementObject(ScaleType):
@@ -118,9 +185,7 @@ class ExtrinsicJudgement(Struct):
     scale_type_cls = ExtrinsicJudgementObject
     arguments = {
         'work_report_hash': H256, # GP-ref:96,99,H
-        # TODO: Constant(V): VALIDATORS=1023; size of list is exactly (2*VALIDATORS)/3+1=683 Needs to be more strict. Possible Array(JudgementVote(),683); Round()|Floor()?
-        # TODO: proof-of-concept in class JudgementVotes()
-        'votes': JudgementVotes() # GP-ref:96,97
+        'votes': JudgementVotes() # GP-ref:96,97; Additional type-constraints apply
     }
 
 
@@ -134,7 +199,6 @@ class ExtrinsicPreimage(Struct):
     scale_type_cls = ExtrinsicPreimageObject
     arguments = {
         'service_idx': U32, # GP-reference:148,Ns
-        # TODO: verify assumption that BLOB is encoded as Bytes (variable length)
         'data': Bytes # GP-ref:148,Y
     }
 
@@ -150,10 +214,54 @@ class ExtrinsicAssurance(Struct):
     arguments = {
         'work_report_hash': H256, # GP-ref:116-120,a
         'is_available': Bool, # GP-ref:116-120,f
-        # TODO: validator_idx type implicit, but derived from Hk in GP-equation 272
-        'validator_idx': U32, # GP-ref:116-120,v
+        'validator_idx': U32, # GP-ref:116-120,v; type derived from Hk in GP-ref:272
         'signature': H512 # GP-ref:116-120,s
     }
+
+
+class CredentialObject(ScaleType):
+    def test(self):
+        pass
+
+
+class Credential(Struct):
+    # GP-ref:130,Eg
+    scale_type_cls = CredentialObject
+    arguments = {
+        'signature': H512, # GP-ref:130,a,132,133
+        'validator_idx': U32, # GP-ref:130,a,132,133; type derived from Hk in GP-ref:272
+    }
+
+
+class Credentials(Vec):
+    def __init__(self):
+        super().__init__(self)
+        self.scale_type_cls = VecType
+        self.type_def = Credential()
+
+    def decode(self, data: ScaleBytes) -> list:
+        # Decode length of Vec
+        length = Compact().decode(data)
+        # TODO: Check with Arjan: fixed value=3; size of list is >= 2 (2 or 3) (NO CONSTANT FOR THIS!!)
+        length_constraint = 2 # GP-ref:130,131,132,133
+        if length >= length_constraint:
+            # TODO: How to deal with error messages?
+            raise ValueError('size of Credentials list should be greater or equal to: {length_constraint}')
+        value = []
+
+        for _ in range(0, length):
+            obj = self.type_def.new()
+            obj.decode(data)
+
+            value.append(obj)
+
+        return value
+
+    # TODO: ENCODE VALIDATION SIMILAR TO DECODE VALIDATION
+    # def encode(self, data: ScaleBytes) -> list:
+
+    # TODO: VALIDATE FUNCTION
+    # def validate (self, data: ScaleBytes) -> list:
 
 
 class ExtrinsicGuaranteeObject(ScaleType):
@@ -165,12 +273,12 @@ class ExtrinsicGuarantee(Struct):
     # GP-ref:130,Eg
     scale_type_cls = ExtrinsicGuaranteeObject
     arguments = {
-        # TODO: core_idx type implicit, but treated similar to validator_idx as derived from Hk in GP-ref:272
-        'core_idx': U32, # GP-ref:130,c
+        'core_idx': U32, # GP-ref:130,c; type similar to validator_idx, thus derived from Hk in GP-ref:272
         'work_report': WorkReport(), # GP-ref:130,110,W
         'timeslot': U32, # GP-ref:130,t
-        # TODO: FixedValue (not a constant): 3 (assume core-size; validators/authorizer); Only 3rd value allowed None; Needs to be more strict;
-        'credential': Vec(Option(H512)) # GP-ref:130,a
+        'credential': Credentials()  # GP-ref:130,a,132,133; Additional type-constraints apply
+        # 'credential': Vec(Credential())  # GP-ref:130,a,132,133
+        # 'credential': Vec(Tuple(H512,U32))  # GP-ref:130,a,132,133
     }
 
 
@@ -185,8 +293,8 @@ class Extrinsic(Struct):
     # GP-ref:14
     scale_type_cls = ExtrinsicObject
     arguments = {
-        # TODO: Constant(K): MAXIMUM_EXTRINSIC_TICKETS=16; Needs to be more strict; How to solve?
-        'tickets': Vec(ExtrinsicTicket()), # GP-ref:71
+        'tickets': ExtrinsicTickets(), # GP-ref:71; Additional type-constraints apply
+        # 'tickets': Vec(ExtrinsicTicket()), # GP-ref:71
         'judgements': Vec(ExtrinsicJudgement()), # GP-ref:96
         'preimages': Vec(ExtrinsicPreimage()), # GP-ref:148
         'assurances': Vec(ExtrinsicAssurance()), # GP-ref:116-120
