@@ -1,5 +1,5 @@
 from scalecodec.base import ScaleType
-from scalecodec.types import Struct, H256, U8, Bytes, Vec, U32, Option, I64, Enum, Bool
+from scalecodec.types import Struct, H256, U8, Bytes, Vec, U32, Option, I64, Enum, Bool, Array
 
 
 class TicketObject(ScaleType):
@@ -87,3 +87,18 @@ class WorkReport(Struct):
         'work_results': Vec(WorkResult()) # GP-reference:-
     }
 
+
+class ValidatorKeysObject(ScaleType):
+    def test(self):
+        pass
+
+
+class ValidatorKeys(Struct):
+    # GP-ref:50,51,K
+    scale_type_cls = ValidatorKeysObject
+    arguments = {
+        'bs_key': H256, # GP-ref:52,vb
+        'ed25519_key': H256, # GP-ref:53,ve
+        'bls_key': Array(U8,144), # GP-ref:54,vBLS
+        'metadata': Array(U8,128) # GP-ref:55,vm
+    }

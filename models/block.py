@@ -1,5 +1,6 @@
 from scalecodec.base import ScaleType, ScaleBytes
 from scalecodec.types import Struct, H256, U32, Option, Vec, H512, U8, Bool, VecType, Compact, Bytes
+
 from models.common import Ticket, WorkReport
 
 
