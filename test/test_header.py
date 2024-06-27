@@ -46,7 +46,7 @@ class TestHeader(unittest.TestCase):
             'block_seal': '0x50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
 
         }
-        self.assertDictEqual(example_value,header.value_serialized)
+        self.assertDictEqual(example_value, header.value_serialized)
 
 
 if __name__ == '__main__':

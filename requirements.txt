@@ -1,2 +1,3 @@
 scalecodec @ git+https://github.com/polkascan/py-scale-codec@az-v2
 py-ed25519-zebra-bindings>=1.0,<2
+click~=8.1
