@@ -1,4 +1,4 @@
-from constants import VALIDATOR_COUNT,MAXIMUM_EXTRINSIC_TICKETS
+from graypaper_constants import VALIDATOR_COUNT,MAXIMUM_EXTRINSIC_TICKETS
 from scalecodec.base import ScaleType, ScaleBytes
 from scalecodec.types import Struct, H256, U32, Option, Vec, H512, U8, Bool, VecType, Compact, Bytes
 

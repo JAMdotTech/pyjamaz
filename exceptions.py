@@ -1,0 +1,2 @@
+class StateComponentNotFound(ValueError):
+    pass

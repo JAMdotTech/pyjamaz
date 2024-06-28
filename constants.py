@@ -1,36 +1,29 @@
-#GP-reference: I.4.4
-PERIOD = 8 #A
-MINIMUM_BALANCE_ITEM = 10 #BI
-MINIMUM_BALANCE_OCTET = 1 #BL
-MINIMUM_BALANCE_SERVICE = 100 #BS
-CORE_COUNT = 341 #C
-PREIMAGE_EXPUNGE_TIMESLOTS = 28800 #D
-EPOCH_TIMESLOTS = 600 #E
-AUDIT_BIAS_FACTOR = 2 #F
-GAS_ACCUMULATION = None #GA
-GAS_INVOKE = None #GI
-GAS_REFINE = None #GR
-HISTORY = 8 #H
-MAXIMUM_WORK_ITEMS = 4 #I
-MAXIMUM_EXTRINSIC_TICKETS = 16 #K
-MAXIMUM_AGE_LOOKUP_ANCHOR = 14400 #L
-TRANSFER_MEMO_SIZE = 128 #M
-TICKET_ENTRIES = 2 #N
-MAXIMIM_AUTHORIZATION_POOL_ITEMS = 8 #O
-SLOT_PERIOD = 6 #P
-MAXIMUM_AUTHORIZATION_QUEUE_ITEMS = 80 #Q
-ROTATION_PERIOD_CORE = 10 #R
-MAXIMUM_SIZE_SERVICE_CODE = 4000000 #S
-UNAVAILABLE_WORK_REPLACEMENT_PERIOD = 5 #U
-VALIDATOR_COUNT = 1023 #V
-SIZE_ERASURE_CODED_PIECES = 648 #WC
-MAXIMUM_ENTRIES_WORK_PACKAGE_MANIFEST = 2^11 #WM
-MAXIMUM_SIZE_ENCODED_WORK_PACKAGE = 12*2^20 #WP
-MAXIMUM_SIZE_ENCODED_WORK_REPORT = 96*2^10 #WR
-SIZE_EXPORTED_SEGMENT_PIECES = 6 #WS
-#XX		X
-TICKET_SUBMISSION_END_SLOT = 500 #Y
-PVM_DYNAMIC_ALIGNMENT_FACTOR = 4 #ZA
-PVM_INPUT_DATA_SIZE = 2^24 #ZI
-PVM_PAGE_SIZE = 2^14 #ZP
-PVM_SEGMENT_SIZE = 2^16 #ZQ
+from hashlib import blake2b
+
+WELL_KNOWN_STORAGE_KEYS = {
+    # Authorizer pool
+    1: b'\xee\x15Z\xce\x9c@) t\xcbj\xff\x8c\x9c\xcd\xd2s\xc8\x16H\xff\x11I\xef6\xbc\xean\xbb\x8a>%',
+    # Authorizer queue
+    2: b'\xbb0\xa4,\x1eb\xf0\xaf\xda_\nN\x8aV/z\x13\xa2L\xea\x00\xee\x81\x91{\x86\xb8\x9e\x80\x13\x14\xaa',
+    # Recent blocks
+    3: b'\xe8\x8b\xd7W\xad[\x9b\xed\xf3r\xd8\xd3\xf0\xcfl\x96*F\x9d\xb6\x1a&_d\x18\xe1\xff\xed\x86\xda)\xec',
+    # Safrole
+    4: b'd"\x061OSK)\xad)}\x82D\n_\x9f!\x0e0\xca\\\xed\x80ZX|\xa4\x02\xde\x92sB',
+    # Disputes
+    5: b'\xfb=c\\|\xb5s\xd1\xb9\xe9\xbf\xf4\xa6J\xb4\xf2Q\x90\xd2\x9bo\xd8\xdb\x94\xc6\x05\xa2\x18\xa2?\xa9\xad',
+    # Entropy
+    6: b'\xbf\xa7&\xc3\xc1I\x16[\x10\x8eo\xf5P\xcb\x1a\x1cO\x0f\xdc.\x9f&\xa9\xa1oH\xba\xbes\xb6\x00\xce',
+    # Validator queue
+    7: b'\x87>O\xe9\xe4\x1e\x92I\x11\xbb\xa3\xecS\xffG\x82\xef\xc8\xc0\xf2D\xfbu\xc8y\xf8\xa42\x8d\x01B\xca',
+    # Validator pool
+    8: b'\xfa\xdd!\x80\xbdk\x1c\xfas\xa6~x\x92\xd8xR\x1e\xf6\x99\x18\x99P@\xfb\x86ad}2\x1e\x0cU',
+    # Validator archive
+    9: b'\xf5\xc8\x90T\x17\x93\xf3{\xfe\xef\xc6\xed\xfa8A-\xe0\x05\xf5\xac\x94\xf0\xf1\xeb\xfb\x8bU\xdf \xe6\xf6T',
+    # Assurances
+    10: b'[K\x01\xa4\xa3\x89.\xa3u\x17\x93\xdaW\xf0r\xae\x08\xee\xc6\x94\xdd\xcd\xa8r#\x9f\xc8#\x9eK\xcd\x1b',
+    # Timeslot
+    11: b"D\xe9\xe1\xdf\xd3\x1eL\x8c\x8e\x05\xd6\xdbv\x91'\x90\xae\x9b/\x98\x94c\xf5\x9fp\x9c\xdd=\xf796u",
+    # Privileged services
+    12: b'^\x9d\x8b\xacWn\x86\x04\xe7\xc3R`%\xbc\x14o_\xa1x\x17>:U\x92\xd1"h{\xd7\x85\xb5 '
+}
+
