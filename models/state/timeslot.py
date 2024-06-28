@@ -1,27 +1,40 @@
 from scalecodec.base import ScaleType, ScaleBytes
 from scalecodec.types import Struct, U32
 
-from models.block import Header, HeaderObject
+from models.block import HeaderObject
 
 
 class TimeslotObject(ScaleType):
     #GP-ref:16,44
     def state_transition(self, header: HeaderObject):
-        # TODO: input 1: self (strictly not needed according to GP-ref:16)
-        # TODO: input 2: Header
-        # TODO: output 1: transitioned state
+        """
+        GP-ref:16,44 Defines STF for Timeslot
+
+        :param self: input 1: self (strictly not needed according to GP-ref:16
+        :param header: Header
+        :return: transitioned state for Timeslot
+        """
         self.value['timeslot'] = header.value['timeslot']
 
-   # TODO: with Arjan get/serialize/deserialize this subsection of the state
     def storage_serialize(self) -> bytes:
-        # TODO: Generalize by introducing the StateKeyConstructor function (C) | # GP-ref:280
-        # TODO: key: blake2b(0x11|11) # GP-ref: 281,(C11)
-        # TODO: value: [define how to serialize] # GP-ref:281,(C11)
+        """
+        GP-ref:280,281,C(11) SCALE-encodes / serializes Timeslot state
+
+        :param self:
+        :return: SCALE-encoded / serialized Timeslot state
+        """
         timeslot = U32.new()
         scale_bytes = timeslot.encode(self.value['timeslot'])
         return scale_bytes.data
 
     def storage_deserialize(self, data: bytes):
+        """
+        GP-ref:280,281,C(11) SCALE-decodes / deserializes Timeslot state
+
+        :param self:
+        :param data:
+        :return: SCALE-decoded / deserialized Timeslot state
+        """
         timeslot = U32.new().decode(ScaleBytes(data))
         self.value['timeslot'] = timeslot
 

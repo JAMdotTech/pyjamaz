@@ -1,41 +1,58 @@
-from scalecodec.base import ScaleType
-from scalecodec.types import Struct, Vec, Array, U8, Enum, H256
+from scalecodec.base import ScaleType, ScaleBytes
+from scalecodec.types import Struct, Vec, Array, U8, Enum, H256, U32
 
-from models.block import Header
+from models.block import HeaderObject
 from models.common import Ticket, ValidatorKeys
-from models.state.entropy import Entropy
-from models.state.timeslot import Timeslot
-from models.state.validator_pool import ValidatorPool
-from models.state.validator_queue import ValidatorQueue
+from models.state.entropy import EntropyObject
+from models.state.timeslot import TimeslotObject
+from models.state.validator_pool import ValidatorPoolObject
+from models.state.validator_queue import ValidatorQueueObject
 
 
 class SafroleObject(ScaleType):
     # GP-ref:19,56
-    def state_transition(self, header: Header, timeslot: Timeslot, extrinsic_tickets: Vec, validator_queue: ValidatorQueue, validator_entropy: Entropy, validator_pool: ValidatorPool):
-        # TODO: input 1: Safrole of current state (self)
-        # TODO: input 2: Block.Header
-        # TODO: input 3: Timeslot of current state
-        # TODO: input 4: Block.Extrinsic.tickets
-        # TODO: input 5: ValidatorQueue of current state
-        # TODO: input 6: Entropy of transitioned state
-        # TODO: input 7: ValidatorPool of transitioned state
-        # TODO: output 1: self of transitioned state
-        pass
+    def state_transition(self, header: HeaderObject, timeslot: TimeslotObject, extrinsic_tickets: Vec, validator_queue: ValidatorQueueObject, validator_entropy: EntropyObject, validator_pool: ValidatorPoolObject):
+        """
+        GP-ref:19,56 Defines STF for Safrole
 
-   # TODO: with Arjan get/serialize/deserialize this subsection of the state
-    def storage_serialize(self):
-        # TODO: Generalize by introducing the StateKeyConstructor function (C) | # GP-ref:280
-        # TODO: key: blake2b(0x04|4) # GP-ref: 281,(C4)
-        # TODO: value: [define how to serialize] # GP-ref:281,(C4)
-        pass
+        :param self: Safrole of current state (self)
+        :param header: Header
+        :param timeslot: Timeslot pre-state
+        :param extrinsic_tickets: Block.Extrinsic.tickets
+        :param validator_queue: ValidatorQueue pre-state
+        :param validator_entropy: Entropy post-state
+        :param validator_pool: ValidatorPool post-state
+        :return: Safrole post-state
+        """
 
-    def storage_persist(self):
-        # TODO: insert/update_kvdb(key: blake2b(0x04|4), value: serialize(self))
-        pass
+        # Todo: actual sequence of logic for state transition function
+        # self.value['timeslot'] = header.value['timeslot']
 
-    def storage_get(self):
-        # TODO: set self = select_kvdb(key: blake2b(0x04|4))
-        pass
+    def storage_serialize(self) -> bytes:
+        """
+        GP-ref:280,281,C(11) SCALE-encodes / serializes Safrole state
+
+        :param self:
+        :return: SCALE-encoded / serialized Safrole state
+        """
+
+        # TODO: Strict & explicit encoding for Safrole object
+        safrole = U32.new()
+        # TODO: How to concatenate inputs?
+        scale_bytes = safrole.encode(self.value['validators'],self.value['epoch_root'],self.value['slot_sealer_series'],self.value['tickets'])
+        return scale_bytes.data
+
+    def storage_deserialize(self, data: bytes):
+        """
+        GP-ref:280,281,C(4) SCALE-decodes / deserializes Safrole state
+
+        :param self:
+        :param data:
+        :return: SCALE-decoded / deserialized Safrole state
+        """
+        # TODO: decode and map to Safrole Object
+        # timeslot = U32.new().decode(ScaleBytes(data))
+        # self.value['timeslot'] = timeslot
 
 
 class Safrole(Struct):
