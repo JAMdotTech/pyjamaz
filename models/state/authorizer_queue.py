@@ -8,6 +8,10 @@ from models.state.validator_queue import ValidatorQueue
 
 
 class AuthorizerQueueObject(ScaleType):
+    """
+    Creates a new `AuthorizerQueue` object. AuthorizerQueue is an isolated subsection of State.
+    GP-ref: 28,83,84
+    """
     # GP-ref:28,83,84
     # TODO: Check, should be changed by manager service of PrivilegedServices
     def state_transition(self, extrinsic_assurances: Vec, assurances: Assurances, services: Services, privileged_services: PrivilegedServices, validator_queue: ValidatorQueue):

@@ -5,6 +5,10 @@ from models.state.authorizer_queue import AuthorizerQueue
 
 
 class AuthorizerPoolObject(ScaleType):
+    """
+    Creates a new `AuthorizerQueue` object. AuthorizerQueue is an isolated subsection of State.
+    GP-ref: 28,83,84
+    """
     def state_transition(self, extrinsic_guarantees: Vec, authorizer_queue: AuthorizerQueue):
         # GP-ref:29,83,84
         # TODO: input 1: AuthorizerPool of current state (self)

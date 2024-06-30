@@ -6,7 +6,10 @@ from models.state.timeslot import Timeslot
 
 
 class EntropyObject(ScaleType):
-    # GP-ref:20,64,65
+    """
+    Creates a new `Entropy` object. Entropy is an isolated subsection of State.
+    GP-ref: 20,64,65
+    """
     def state_transition(self, header: Header, timeslot: Timeslot):
         # TODO: input 1: Entropy of current state (self)
         # TODO: input 2: Block.Header

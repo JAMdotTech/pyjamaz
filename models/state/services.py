@@ -9,6 +9,10 @@ from models.state.validator_queue import ValidatorQueue
 
 
 class ServiceAccountObject(ScaleType):
+    """
+    Creates a new `ServiceAccount` object. ServiceAccount is a single instance of a Service which in turn is an isolated subsection of State.
+    GP-ref: ??
+    """
     # TODO: Assistance Arjan with Python Dict
     def get_storage_item(self):
         # TODO: input 1: storage_item_hash (H256)
@@ -51,7 +55,10 @@ class ServiceAccount(Struct):
 
 
 class ServicesObject(ScaleType):
-    # GP-ref:24
+    """
+    Creates a new `Services` object. Services is an isolated subsection of State.
+    GP-ref: 24
+    """
     def state_transition_preimages(self, extrinsic_preimages: Vec, timeslot: Timeslot):
         # TODO: input 1: Services of current state (self)
         # TODO: input 2: Block.Extrinsic.preimages

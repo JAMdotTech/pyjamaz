@@ -22,7 +22,10 @@ class RecentBlock(Struct):
 
 
 class RecentBlocksObject(ScaleType):
-    # GP-ref:17
+    """
+    Creates a new `RecentBlocks` object. RecentBlocks is an isolated subsection of State.
+    GP-ref: 17
+    """
     def state_transition_intermediate(self, header: Header):
         # TODO: input 1: RecentBlocks of current state (self)
         # TODO: input 2: Block.Header

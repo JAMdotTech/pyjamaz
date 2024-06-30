@@ -18,6 +18,10 @@ from models.state.validator_queue import ValidatorQueue
 
 
 class StateObject(ScaleType):
+    """
+    Creates a new `State` object.
+    GP-ref: 16
+    """
     #GP-ref:16
     def state_transition(self, block: Block):
         # TODO: sequence of siloed state transitions based on dependencies

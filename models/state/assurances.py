@@ -23,6 +23,10 @@ class Assurance(Struct):
 
 
 class AssurancesObject(ScaleType):
+    """
+    Creates a new `Assurances` object. Assurances is an isolated subsection of State.
+    GP-ref: 25
+    """
     # GP-ref:25
     # NOTES: this function is a first intermediate step and creates output that is used in GP-ref:26
     def state_transition_judgements(self, extrinsic_judgements: Vec):

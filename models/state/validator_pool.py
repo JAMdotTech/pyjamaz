@@ -1,38 +1,56 @@
-from scalecodec.base import ScaleType
+from scalecodec.base import ScaleType, ScaleBytes
 from scalecodec.types import Struct, Vec
 
-from models.block import Header
-from models.state.disputes import Disputes
-from models.state.safrole import Safrole
+from models.block import HeaderObject
+from models.state.disputes import DisputesObject
+from models.state.safrole import SafroleObject
 from models.common import ValidatorKeys
-from models.state.timeslot import Timeslot
+from models.state.timeslot import TimeslotObject
 
 
 class ValidatorPoolObject(ScaleType):
-    # GP-ref:21,56
-    def state_transition(self, header: Header, timeslot: Timeslot(), safrole: Safrole(), disputes: Disputes()):
-        # TODO: input 1: ValidatorPool of current state
-        # TODO: input 2: Block.Header
-        # TODO: input 3: Timeslot of current state
-        # TODO: input 4: StateSafrole of current state
-        # TODO: input 5: StateDisputes of transitioned state
-        # TODO: output 1: self of transitioned state
+    """
+    Creates a new `ValidatorPool` object. ValidatorPool is an isolated subsection of State.
+    GP-ref: 21,56
+    """
+    def state_transition(self, header: HeaderObject, timeslot: TimeslotObject, safrole: SafroleObject, disputes: DisputesObject):
+        """
+        GP-ref: 21,56 Defines STF for ValidatorPool
+
+        :param self: ValidatorPoolObject of current state
+        :param header: HeaderObject
+        :param timeslot: TimeslotObject of current state
+        :param safrole: SafroleObject of current state
+        :param disputes: Disputes of transitioned state
+        :return: ValidatorPoolObject of transitioned state
+        """
+        # TODO: actual state transition logic goes here
+        # self.value['validator_pool'] = XXX
         pass
 
-   # TODO: with Arjan get/serialize/deserialize this subsection of the state
-    def storage_serialize(self):
-        # TODO: Generalize by introducing the StateKeyConstructor function (C) | # GP-ref:280
-        # TODO: key: blake2b(0x08|8) # GP-ref: 281,(C8)
-        # TODO: value: [define how to serialize] # GP-ref:281,(C8)
-        pass
+    def storage_serialize(self) -> bytes:
+        """
+        GP-ref:280,281,C(8) SCALE-encodes / serializes ValidatorPool state
 
-    def storage_persist(self):
-        # TODO: persist
-        pass
+        :param self:
+        :return: SCALE-encoded / serialized ValidatorPool state
+        """
+        # TODO with Arjan; simple serialization of validator_pool list
+        validator_pool = Vec.new()
+        scale_bytes = validator_pool.encode(self.value['validator_pool'])
+        return scale_bytes.data
 
-    def storage_get(self):
-        # TODO: key:blake2b(0x08|8)
-        pass
+    def storage_deserialize(self, data: bytes):
+        """
+        GP-ref:280,281,C(8) SCALE-decodes / deserializes ValidatorPool state
+
+        :param self:
+        :param data:
+        :return: SCALE-decoded / deserialized ValidatorPool state
+        """
+        # TODO with Arjan; simple deserialization of validator_pool list
+        validator_pool = ValidatorPool.new().decode(ScaleBytes(data))
+        self.value['validator_pool'] = validator_pool
 
 
 class ValidatorPool(Struct):

@@ -1,36 +1,54 @@
-from scalecodec.base import ScaleType
+from scalecodec.base import ScaleType, ScaleBytes
 from scalecodec.types import Struct, Vec
 
-from models.block import Header
+from models.block import HeaderObject
 from models.common import ValidatorKeys
-from models.state.timeslot import Timeslot
-from models.state.validator_pool import ValidatorPool
+from models.state.timeslot import Timeslot, TimeslotObject
+from models.state.validator_pool import ValidatorPool, ValidatorPoolObject
 
 
 class ValidatorArchiveObject(ScaleType):
-    # GP-ref:22,56
-    def state_transition(self, header: Header, timeslot: Timeslot(), validator_pool: ValidatorPool()):
-        # TODO: input 1: ValidatorArchive of current state (self)
-        # TODO: input 2: Block.Header
-        # TODO: input 3: Timeslot of current state
-        # TODO: input 4: ValidatorPool of current state
-        # TODO: output 1: self of transitioned state
+    """
+    Creates a new `ValidatorArchive` object. ValidatorArchive is an isolated subsection of State.
+    GP-ref: 22,56
+    """
+    def state_transition(self, header: HeaderObject, timeslot: TimeslotObject, validator_pool: ValidatorPoolObject):
+        """
+        GP-ref: 22,56 Defines STF for ValidatorArchive
+
+        :param self: ValidatorArchive of current state (self)
+        :param header: HeaderObject
+        :param timeslot: TimeslotObject of current state
+        :param validator_pool: ValidatorPool of current state
+        :return: ValidatorArchiveObject of transitioned state
+        """
+        # TODO: actual state transition logic goes here
+        # self.value['validator_archive'] = XXX
         pass
 
-   # TODO: with Arjan get/serialize/deserialize this subsection of the state
-    def storage_serialize(self):
-        # TODO: Generalize by introducing the StateKeyConstructor function (C) | # GP-ref:280
-        # TODO: key: blake2b(0x09|9) # GP-ref: 281,(C9)
-        # TODO: value: [define how to serialize] # GP-ref:281,(C9)
-        pass
+    def storage_serialize(self) -> bytes:
+        """
+        GP-ref:280,281,C(9) SCALE-encodes / serializes ValidatorArchive state
 
-    def storage_persist(self):
-        # TODO: persist
-        pass
+        :param self:
+        :return: SCALE-encoded / serialized ValidatorArchive state
+        """
+        # TODO with Arjan; simple serialization of validator_archive list
+        validator_archive = Vec.new()
+        scale_bytes = validator_archive.encode(self.value['validator_archive'])
+        return scale_bytes.data
 
-    def storage_get(self):
-        # TODO: key:blake2b(0x09|9)
-        pass
+    def storage_deserialize(self, data: bytes):
+        """
+        GP-ref:280,281,C(9) SCALE-decodes / deserializes ValidatorArchive state
+
+        :param self:
+        :param data:
+        :return: SCALE-decoded / deserialized ValidatorArchive state
+        """
+        # TODO with Arjan; simple deserialization of validator_archive list
+        validator_archive = ValidatorArchive.new().decode(ScaleBytes(data))
+        self.value['validator_archive'] = validator_archive
 
 
 class ValidatorArchive(Struct):

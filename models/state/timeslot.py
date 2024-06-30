@@ -5,10 +5,13 @@ from models.block import HeaderObject
 
 
 class TimeslotObject(ScaleType):
-    #GP-ref:16,44
+    """
+    Creates a new `Timeslot` object. Timeslot is an isolated subsection of State.
+    GP-ref: 16,44
+    """
     def state_transition(self, header: HeaderObject):
         """
-        GP-ref:16,44 Defines STF for Timeslot
+        GP-ref: 16,44 Defines STF for Timeslot
 
         :param self: input 1: self (strictly not needed according to GP-ref:16
         :param header: Header

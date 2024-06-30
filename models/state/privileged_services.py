@@ -8,7 +8,10 @@ from models.state.validator_queue import ValidatorQueue
 
 
 class PrivilegedServicesObject(ScaleType):
-    # GP-ref:28,159
+    """
+    Creates a new `PrivilegedServices` object. PrivilegedServices is an isolated subsection of State.
+    GP-ref: 28,159
+    """
     def state_transition(self, extrinsic_assurances: Vec, assurances: Assurances, services: Services, validator_queue: ValidatorQueue, authorizer_queue: AuthorizerQueue):
         # TODO: input 1: Privileged_services current state (self)
         # TODO: input 2: Block.Extrinsic.assurances

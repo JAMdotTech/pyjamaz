@@ -1,41 +1,58 @@
-from scalecodec.base import ScaleType
+from scalecodec.base import ScaleType, ScaleBytes
 from scalecodec.types import Struct, Vec
 
-from models.state.assurances import Assurances
-from models.state.privileged_services import PrivilegedServices
-from models.state.services import Services
+from models.state.assurances import Assurances, AssurancesObject
+from models.state.privileged_services import PrivilegedServices, PrivilegedServicesObject
+from models.state.services import Services, ServicesObject
 from models.common import ValidatorKeys
-from models.state.authorizer_queue import AuthorizerQueue
+from models.state.authorizer_queue import AuthorizerQueueObject
 
 
 class ValidatorQueueObject(ScaleType):
-    # GP-ref:28
-    # TODO: Check, should be changed by manager service of PrivilegedServices
+    """
+    Creates a new `ValidatorQueue` object. ValidatorQueue is an isolated subsection of State.
+    GP-ref: 28
+    """
+    def state_transition(self, extrinsic_assurances: Vec, assurances: AssurancesObject, services: ServicesObject, privileged_services: PrivilegedServicesObject, authorizer_queue: AuthorizerQueueObject):
+        """
+        GP-ref: 28 Defines STF for ValidatorQueue
 
-    def state_transition(self, extrinsic_assurances: Vec, assurances: Assurances, services: Services, privileged_services: PrivilegedServices, authorizer_queue: AuthorizerQueue):
-        # TODO: input 1: ValidatorQueue of current state (self)
-        # TODO: input 2: Block.Extrinsic.assurances
-        # TODO: input 3: Assurances of transitioned state of # GP-ref:27
-        # TODO: input 4: Services of intermediate state of # GP-ref:24
-        # TODO: input 5: PrivilegedServices current state
-        # TODO: input 6: AuthorizersQueue of current state
-        # TODO: output 1: self of transitioned state
+        :param self: ValidatorQueueObject of current state (self)
+        :param extrinsic_assurances: Block.Extrinsic.assurances
+        :param assurances: AssurancesObject of transitioned state of GP-ref:27
+        :param services: ServicesObject of intermediate state of GP-ref:24
+        :param privileged_services: PrivilegedServicesObject current state
+        :param authorizer_queue: AuthorizersQueueObject of current state
+        :return: ValidatorArchiveObject of transitioned state
+        """
+        # TODO: actual state transition logic goes here
+        # TODO: Check, should be changed by manager service of PrivilegedServices
+        # self.value['validator_queue'] = XXX
         pass
 
-   # TODO: with Arjan get/serialize/deserialize this subsection of the state
-    def storage_serialize(self):
-        # TODO: Generalize by introducing the StateKeyConstructor function (C) | # GP-ref:280
-        # TODO: key: blake2b(0x07|7) # GP-ref:281,(C7)
-        # TODO: value: [define how to serialize] # GP-ref:281,(C7)
-        pass
+    def storage_serialize(self) -> bytes:
+        """
+        GP-ref:280,281,C(7) SCALE-encodes / serializes ValidatorQueue state
 
-    def storage_persist(self):
-        # TODO: persist
-        pass
+        :param self:
+        :return: SCALE-encoded / serialized ValidatorQueue state
+        """
+        # TODO with Arjan; simple serialization of validator_queue list
+        validator_queue = Vec.new()
+        scale_bytes = validator_queue.encode(self.value['validator_queue'])
+        return scale_bytes.data
 
-    def storage_get(self):
-        # TODO: key:blake2b(0x07|7)
-        pass
+    def storage_deserialize(self, data: bytes):
+        """
+        GP-ref:280,281,C(7) SCALE-decodes / deserializes ValidatorQueue state
+
+        :param self:
+        :param data:
+        :return: SCALE-decoded / deserialized ValidatorQueue state
+        """
+        # TODO with Arjan; simple deserialization of validator_queue list
+        validator_queue = ValidatorQueue.new().decode(ScaleBytes(data))
+        self.value['validator_queue'] = validator_queue
 
 
 class ValidatorQueue(Struct):

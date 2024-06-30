@@ -5,6 +5,10 @@ from models.common import ValidatorKeys
 
 
 class DisputesObject(ScaleType):
+    """
+    Creates a new `Disputes` object. Disputes is an isolated subsection of State.
+    GP-ref: 23
+    """
     # GP-ref:23
     def state_transition(self, extrinsic_judgements: Vec):
         # TODO: input 1: Disputes of current state (self)

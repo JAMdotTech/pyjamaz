@@ -10,6 +10,11 @@ from models.state.validator_queue import ValidatorQueueObject
 
 
 class SafroleObject(ScaleType):
+    """
+    Creates a new `Timeslot` object. Timeslot is an isolated subsection of State.
+    GP-ref: 16,44
+    """
+
     # GP-ref:19,56
     def state_transition(self, header: HeaderObject, timeslot: TimeslotObject, extrinsic_tickets: Vec, validator_queue: ValidatorQueueObject, validator_entropy: EntropyObject, validator_pool: ValidatorPoolObject):
         """
