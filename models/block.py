@@ -53,11 +53,45 @@ class Epoch(Struct):
 
 
 class HeaderObject(ScaleType):
-    def test(self):
+    """
+    Creates a new `Header` object.
+    GP-ref: 36
+    """
+    def serialize(self) -> bytes:
+        """
+        GP-ref: 36,271,272 SCALE-encodes / serializes Header
+
+        :param self:
+        :return: SCALE-encoded / serialized Header
+        """
+        # timeslot = U32.new()
+        # scale_bytes = timeslot.encode(self.value['timeslot'])
+        # return scale_bytes.data
         pass
-    # TODO: DEFINE FUNCTION THAT SERIALIZES HEADER(DATA)
-    # TODO: DEFINE FUNCTION THAT UNSERIALIZES HEADER(DATA)
-    # TODO: GP-ref:37: DEFINE FUNCTION THAT HASHES HEADER(DATA)
+
+    def deserialize(self, data: bytes):
+        """
+        GP-ref: 36,271,272 SCALE-decodes / deserializes Header
+
+        :param self:
+        :param data:
+        :return: SCALE-decoded / deserialized Header
+        """
+        # timeslot = U32.new().decode(ScaleBytes(data))
+        # self.value['timeslot'] = timeslot
+        pass
+
+    def hash(self, data: bytes):
+        """
+        GP-ref: 37 Blake2b Hash Header
+
+        :param self:
+        :param data:
+        :return: Blake2b Hash Header
+        """
+        # timeslot = U32.new().decode(ScaleBytes(data))
+        # self.value['timeslot'] = timeslot
+        pass
 
 
 class Header(Struct):
@@ -283,11 +317,46 @@ class ExtrinsicGuarantee(Struct):
 
 
 class ExtrinsicObject(ScaleType):
-    def test(self):
+    """
+    Creates a new `Extrinsic` object.
+    GP-ref: 14
+    """
+    def serialize(self) -> bytes:
+        """
+        GP-ref: 14,270 SCALE-encodes / serializes Extrinsic
+
+        :param self:
+        :return: SCALE-encoded / serialized Extrinsic
+        """
+        # timeslot = U32.new()
+        # scale_bytes = timeslot.encode(self.value['timeslot'])
+        # return scale_bytes.data
         pass
-    # TODO: DEFINE FUNCTION THAT SERIALIZES EXTRINSIC(DATA)
-    # TODO: DEFINE FUNCTION THAT UNSERIALIZES EXTRINSIC(DATA)
-    # TODO: GP-ref:39: DEFINE FUNCTION THAT HASHES EXTRINSIC(DATA)
+
+    def deserialize(self, data: bytes):
+        """
+        GP-ref: 14,270 SCALE-decodes / deserializes Extrinsic
+
+        :param self:
+        :param data:
+        :return: SCALE-decoded / deserialized Extrinsic
+        """
+        # timeslot = U32.new().decode(ScaleBytes(data))
+        # self.value['timeslot'] = timeslot
+        pass
+
+    def hash(self, data: bytes):
+        """
+        GP-ref: 39 Blake2b Hash Extrinsic
+
+        :param self:
+        :param data:
+        :return: Blake2b Hash Extrinsic
+        """
+        # timeslot = U32.new().decode(ScaleBytes(data))
+        # self.value['timeslot'] = timeslot
+        pass
+
 
 class Extrinsic(Struct):
     # GP-ref:14
@@ -303,11 +372,33 @@ class Extrinsic(Struct):
 
 
 class BlockObject(ScaleType):
-    def test(self):
+    """
+    Creates a new `Block` object.
+    GP-ref: 13
+    """
+    def serialize(self) -> bytes:
+        """
+        GP-ref: 13,270 SCALE-encodes / serializes Block
+
+        :param self:
+        :return: SCALE-encoded / serialized Block
+        """
+        # timeslot = U32.new()
+        # scale_bytes = timeslot.encode(self.value['timeslot'])
+        # return scale_bytes.data
         pass
-    # TODO: DEFINE FUNCTION THAT SERIALIZES BLOCK(DATA)
-    # TODO: DEFINE FUNCTION THAT UNSERIALIZES BLOCK(DATA)
-    # TODO: GP-ref:??: DEFINE FUNCTION THAT HASHES BLOCK(DATA)
+
+    def deserialize(self, data: bytes):
+        """
+        GP-ref: 13,270 SCALE-decodes / deserializes Block
+
+        :param self:
+        :param data:
+        :return: SCALE-decoded / deserialized Block
+        """
+        # timeslot = U32.new().decode(ScaleBytes(data))
+        # self.value['timeslot'] = timeslot
+        pass
 
 
 class Block(Struct):
