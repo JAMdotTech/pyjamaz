@@ -8,11 +8,11 @@ class TestCLI(unittest.TestCase):
         self.runner = CliRunner()
 
     def test_import_block_cmd(self):
-        result = self.runner.invoke(main, ['import_block', '{"block": "data"}'])
+        result = self.runner.invoke(main, ['import-block-cmd', '{"block": "data"}'])
         self.assertIn("Block imported successfully.", result.output)
 
     def test_init_state(self):
-        result = self.runner.invoke(main, ['init_state'])
+        result = self.runner.invoke(main, ['init-state'])
         self.assertIn("State initialized.", result.output)
 
     def test_transition(self):

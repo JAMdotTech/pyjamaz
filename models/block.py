@@ -57,29 +57,32 @@ class HeaderObject(ScaleType):
     Creates a new `Header` object.
     GP-ref: 36
     """
-    def serialize(self) -> bytes:
-        """
-        GP-ref: 36,271,272 SCALE-encodes / serializes Header
 
-        :param self:
-        :return: SCALE-encoded / serialized Header
-        """
-        # timeslot = U32.new()
-        # scale_bytes = timeslot.encode(self.value['timeslot'])
-        # return scale_bytes.data
-        pass
-
-    def deserialize(self, data: bytes):
-        """
-        GP-ref: 36,271,272 SCALE-decodes / deserializes Header
-
-        :param self:
-        :param data:
-        :return: SCALE-decoded / deserialized Header
-        """
-        # timeslot = U32.new().decode(ScaleBytes(data))
-        # self.value['timeslot'] = timeslot
-        pass
+    pass
+    # TODO @emiel tijdelijk uitgezet omdat deze methods overschrijft wat unit tests doet falen, waarschijnlijk wil je encode overschrijven
+    # def serialize(self) -> bytes:
+    #     """
+    #     GP-ref: 36,271,272 SCALE-encodes / serializes Header
+    #
+    #     :param self:
+    #     :return: SCALE-encoded / serialized Header
+    #     """
+    #     # timeslot = U32.new()
+    #     # scale_bytes = timeslot.encode(self.value['timeslot'])
+    #     # return scale_bytes.data
+    #     pass
+    #
+    # def deserialize(self, data: bytes):
+    #     """
+    #     GP-ref: 36,271,272 SCALE-decodes / deserializes Header
+    #
+    #     :param self:
+    #     :param data:
+    #     :return: SCALE-decoded / deserialized Header
+    #     """
+    #     # timeslot = U32.new().decode(ScaleBytes(data))
+    #     # self.value['timeslot'] = timeslot
+    #     pass
 
     def hash(self, data: bytes):
         """

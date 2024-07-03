@@ -31,8 +31,7 @@ class TestBlock(unittest.TestCase):
         }
 
         block = Block().new()
-        block.deserialize(example_value)
-        scale_data = block.encode()
+        scale_data = block.encode(example_value)
 
         self.assertEqual(
             #TODO: Data klopt niet (meer)
