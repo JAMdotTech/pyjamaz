@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyjamaz"
-version = "0.1.0"
 description = "Python JAM implementation"
 readme = "README.md"
 
@@ -18,16 +17,18 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent"
 ]
-dynamic = ["dependencies"]
+dynamic = ["dependencies", "version"]
 
 [project.urls]
 Homepage = "https://github.com/JAMdotTech/pyjamaz"
 
 [project.scripts]
-pyjamaz = "client.cli:main"
+pyjamaz = "pyjamaz.cli:main"
 
 [tool.setuptools.dynamic]
+version = {attr = "pyjamaz.__version__"}
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
 where = ["."]
+exclude = ["contrib", "docs", "tests", "test"]

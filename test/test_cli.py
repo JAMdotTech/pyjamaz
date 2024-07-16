@@ -1,6 +1,6 @@
 import unittest
 from click.testing import CliRunner
-from client.cli import main
+from pyjamaz.cli import main
 
 
 class TestCLI(unittest.TestCase):

@@ -1,5 +1,5 @@
-from constants import WELL_KNOWN_STORAGE_KEYS
-from exceptions import StateComponentNotFound
+from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
+from pyjamaz.exceptions import StateComponentNotFound
 
 
 def initialize_state():

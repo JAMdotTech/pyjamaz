@@ -1,6 +1,6 @@
 import unittest
 from scalecodec.base import ScaleBytes
-from models.block import Block
+from pyjamaz.models.block import Block
 
 
 #from models.header import Header

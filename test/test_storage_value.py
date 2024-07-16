@@ -1,8 +1,8 @@
 import unittest
 
-from client.storage import JSONStorage
-from constants import WELL_KNOWN_STORAGE_KEYS
-from models.state.timeslot import Timeslot
+from pyjamaz.storage import JSONStorage
+from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
+from pyjamaz.models.state.timeslot import Timeslot
 
 
 class TestStorageValue(unittest.TestCase):

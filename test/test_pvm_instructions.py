@@ -4,7 +4,7 @@ import unittest
 
 from parameterized import parameterized
 
-from pvm import PVM
+from pyjamaz.pvm import PVM
 
 
 def load_test_vectors(directory):

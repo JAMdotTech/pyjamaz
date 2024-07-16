@@ -1,6 +1,6 @@
 import unittest
 
-from signing import Keypair
+from pyjamaz.signing import Keypair
 
 
 class TestKeypair(unittest.TestCase):

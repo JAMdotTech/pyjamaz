@@ -1,7 +1,6 @@
-import hashlib
 import unittest
 
-from hashing import create_blake2b_256_hash, create_blake2b_128_hash, create_blake2b_64_hash, create_keccak_256_hash
+from pyjamaz.hashing import create_blake2b_256_hash, create_blake2b_128_hash, create_blake2b_64_hash, create_keccak_256_hash
 
 
 class TestHashingFunction(unittest.TestCase):

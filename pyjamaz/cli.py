@@ -1,6 +1,6 @@
 import click
-from client.block import import_block
-from client.state import initialize_state, transition_state
+from pyjamaz.block import import_block
+from pyjamaz.state import initialize_state, transition_state
 
 
 @click.group()
