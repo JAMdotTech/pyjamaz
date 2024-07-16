@@ -2,10 +2,10 @@ name: Run unit tests
 
 on:
   push:
-    branches: [main, develop, proof-of-concept]
+    branches: [main, develop]
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [main, develop, proof-of-concept]
+    branches: [main, develop]
 
 jobs:
   build:

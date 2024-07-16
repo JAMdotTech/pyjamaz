@@ -5,7 +5,7 @@ from client.state import initialize_state, transition_state
 
 @click.group()
 def main():
-    """Jam Client CLI"""
+    """Python Jam Client"""
     pass
 
 
