@@ -19,6 +19,17 @@ classifiers = [
 ]
 dynamic = ["dependencies", "version"]
 
+[project.optional-dependencies]
+dev = [
+    "coverage==5.3",
+    "pytest>=6.1.2",
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocs-autorefs",
+    "mkdocstrings",
+    "mkdocstrings[python]"
+]
+
 [project.urls]
 Homepage = "https://github.com/JAMdotTech/pyjamaz"
 

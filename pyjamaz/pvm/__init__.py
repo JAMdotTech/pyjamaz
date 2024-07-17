@@ -1,5 +1,9 @@
 class PVM:
+
     def __init__(self):
+        """
+        Stub implementation of the PVM
+        """
         self.regs = []
         self.pc = 0
         self.gas = 0
@@ -8,6 +12,19 @@ class PVM:
         self.program = []
 
     def initialize(self, initial_regs, initial_pc, initial_gas):
+        """
+        Initializes the PVM
+
+        Parameters
+        ----------
+        initial_regs
+        initial_pc
+        initial_gas
+
+        Returns
+        -------
+
+        """
         self.regs = initial_regs[:]
         self.pc = initial_pc
         self.gas = initial_gas
