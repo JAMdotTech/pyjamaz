@@ -53,25 +53,31 @@ class SafroleProtocol:
         if not self.tickets_in_order(input_tickets):
             return Output(err=CustomErrorCode.bad_ticket_order)
 
-        # Add tickets to ticket accumulator
+        # Add tickets to ticket accumulator and sort: GP-0.3.2-ref:78
         self.state.gamma_a += input_tickets
+        self.state.gamma_a = sorted(self.state.gamma_a, key=lambda t: t.id)
 
         # Update state based on the new input
         self.state.tau = input_data.slot
-        eta_0 = blake2b_256_hash(self.state.eta[0] + input_data.entropy)   # GP-0.3.2-ref:67
-        self.state.eta = [eta_0] + self.state.eta[1:]  # GP-0.3.2-ref:68 TODO epoch transition
 
         # Create output markers if conditions are met
         epoch_mark = None
         tickets_mark = None
 
-        if len(self.state.gamma_a) >= self.epoch_length:
+        eta_0 = blake2b_256_hash(self.state.eta[0] + input_data.entropy)  # GP-0.3.2-ref:67
+
+        if self.state.tau >= self.epoch_length:
+            # Epoch change
             epoch_mark = EpochMark(
-                entropy=self.state.eta[2],
-                validators=[validator.bandersnatch for validator in self.state.kappa]
+                entropy=self.state.eta[0],
+                validators=[validator.bandersnatch for validator in self.state.iota]
             )
 
-            tickets_mark = self.state.gamma_a[:self.epoch_length]
+            tickets_mark = None  # TODO self.state.gamma_a[:self.epoch_length] ?
+
+            self.state.eta = [eta_0] + self.state.eta[:3]  # GP-0.3.2-ref:68
+        else:
+            self.state.eta = [eta_0] + self.state.eta[1:]  # GP-0.3.2-ref:68
 
         output_marks = OutputMarks(epoch_mark=epoch_mark, tickets_mark=tickets_mark)
 

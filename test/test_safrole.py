@@ -1,6 +1,7 @@
 import json
 import os
 import unittest
+from copy import deepcopy
 from dataclasses import dataclass
 from os import path
 from typing import List, Optional
@@ -61,7 +62,7 @@ class TestSafroleVector(unittest.TestCase):
             validators_count = 1023
             epoch_length = 600
 
-        safrole = SafroleProtocol(self.ring_data, test_case.pre_state, validators_count, epoch_length)
+        safrole = SafroleProtocol(self.ring_data, deepcopy(test_case.pre_state), validators_count, epoch_length)
         output = safrole.process_input(test_case.input)
 
         self.assertEqual(test_case.output, output, f'{name}: output does not match')
