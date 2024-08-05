@@ -15,7 +15,7 @@ class SafroleProtocol:
 
     def process_input(self, input_data: Input) -> 'Output':
         if input_data.slot <= self.state.tau:
-            return Output(err=CustomErrorCode.BAD_SLOT)
+            return Output(err=CustomErrorCode.bad_slot)
 
         ring_public_keys = [v.bandersnatch for v in self.state.gamma_k]
 
@@ -25,7 +25,7 @@ class SafroleProtocol:
         for idx, extrinsic in enumerate(input_data.extrinsic):
 
             if extrinsic.attempt not in [0, 1]:
-                return Output(err=CustomErrorCode.BAD_TICKET_ATTEMPT)
+                return Output(err=CustomErrorCode.bad_ticket_attempt)
 
             # GP-0.3.2-ref:60
             vrf_input_data = b"jam_ticket_seal"  # GP-0.3.2-ref:65
@@ -39,19 +39,19 @@ class SafroleProtocol:
                     self.ring_data, ring_public_keys, vrf_input_data, aux_data, extrinsic.signature
                 )
             except ValueError as e:
-                return Output(err=CustomErrorCode.BAD_TICKET_PROOF)
+                return Output(err=CustomErrorCode.bad_ticket_proof)
 
             ticket = TicketBody(id=ring_vrf_output, attempt=extrinsic.attempt)
 
             # Check if ticket already existst
             if ticket in self.state.gamma_a:
-                return Output(err=CustomErrorCode.DUPLICATE_TICKET)
+                return Output(err=CustomErrorCode.duplicate_ticket)
             else:
                 input_tickets.append(ticket)
 
         # Check if tickets are in order: GP-0.3.2-ref:80
         if not self.tickets_in_order(input_tickets):
-            return Output(err=CustomErrorCode.BAD_TICKET_ORDER)
+            return Output(err=CustomErrorCode.bad_ticket_order)
 
         # Add tickets to ticket accumulator
         self.state.gamma_a += input_tickets
