@@ -6,7 +6,7 @@ from dataclasses import is_dataclass
 from typing import Type, TypeVar, Union
 
 from scalecodec.base import ScaleTypeDef, ScaleType, ScaleBytes
-from scalecodec.types import Struct, Bytes, Option, Vec, H256, U8, Enum, EnumType
+from scalecodec.types import Struct, Bytes, Option, Vec, H256, U8, Enum, EnumType, U32
 
 T = TypeVar('T')
 
@@ -124,7 +124,7 @@ class SerializableMixin:
                             else:
                                 actual_type = [arg for arg in args if arg is not type(None)][0]
                         else:
-                            print(field.name)
+                            # print(field.name)
                             continue
 
                 if typing.get_origin(actual_type) is list:
@@ -220,7 +220,7 @@ class SerializableMixin:
         elif actual_type is bytes:
             scale_def = H256
         elif actual_type is int:
-            scale_def = U8
+            scale_def = U32
 
         elif issubclass(actual_type, enum.Enum):
             variants = {status.name: None for status in actual_type}

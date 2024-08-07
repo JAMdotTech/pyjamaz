@@ -1,9 +1,11 @@
+from copy import deepcopy
 from typing import List
 
 from bandersnatch_vrfs import ring_vrf_verify
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.safrole.types import CustomErrorCode, TicketBody, EpochMark, OutputMarks, State, Output, Input
+from pyjamaz.safrole.types import CustomErrorCode, TicketBody, EpochMark, OutputMarks, State, Output, Input, \
+    SlotSealerSeries
 
 
 class SafroleProtocol:
@@ -14,6 +16,7 @@ class SafroleProtocol:
         self.epoch_length = epoch_length
 
     def process_input(self, input_data: Input) -> 'Output':
+
         if input_data.slot <= self.state.tau:
             return Output(err=CustomErrorCode.bad_slot)
 
@@ -43,7 +46,7 @@ class SafroleProtocol:
 
             ticket = TicketBody(id=ring_vrf_output, attempt=extrinsic.attempt)
 
-            # Check if ticket already existst
+            # Check if ticket already exists
             if ticket in self.state.gamma_a:
                 return Output(err=CustomErrorCode.duplicate_ticket)
             else:
@@ -52,6 +55,10 @@ class SafroleProtocol:
         # Check if tickets are in order: GP-0.3.2-ref:80
         if not self.tickets_in_order(input_tickets):
             return Output(err=CustomErrorCode.bad_ticket_order)
+
+        # Check if tickets limits are reached
+        if len(input_tickets) > self.epoch_length:
+            return Output(err=CustomErrorCode.unexpected_ticket)
 
         # Add tickets to ticket accumulator and sort: GP-0.3.2-ref:78
         self.state.gamma_a += input_tickets
@@ -68,14 +75,29 @@ class SafroleProtocol:
 
         if self.state.tau >= self.epoch_length:
             # Epoch change
+
+            epoch_validator_keys = [validator.bandersnatch for validator in self.state.iota]
+
             epoch_mark = EpochMark(
                 entropy=self.state.eta[0],
-                validators=[validator.bandersnatch for validator in self.state.iota]
+                validators=epoch_validator_keys
             )
 
             tickets_mark = None  # TODO self.state.gamma_a[:self.epoch_length] ?
 
             self.state.eta = [eta_0] + self.state.eta[:3]  # GP-0.3.2-ref:68
+
+            # Update prior epoch validators
+            self.state.lambda_ = deepcopy(self.state.kappa)
+            # Update Validator keys and metadata currently active.
+            self.state.kappa = deepcopy(self.state.gamma_k)
+            # Update Validator keys for the following epoch.
+            self.state.gamma_k = deepcopy(self.state.iota)
+            # Clear ticket accumulator
+            self.state.gamma_a = []
+            # TODO: Update Sealing-key series of the current epoch.
+            #self.state.gamma_s = SlotSealerSeries(keys=epoch_validator_keys)
+
         else:
             self.state.eta = [eta_0] + self.state.eta[1:]  # GP-0.3.2-ref:68
 

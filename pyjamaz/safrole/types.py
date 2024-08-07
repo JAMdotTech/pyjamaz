@@ -5,7 +5,7 @@ from typing import List, Optional, Type, Union
 from pyjamaz.mixins import SerializableMixin, T
 from scalecodec.base import ScaleTypeDef, ScaleType
 from scalecodec.exceptions import ScaleSerializeException
-from scalecodec.types import Struct, Option, Bytes, Array, U8 as ScaleU8, Vec, H256, Enum as ScaleEnum
+from scalecodec.types import Struct, Option, Bytes, Array, U8 as ScaleU8, U32 as ScaleU32, Vec, H256, Enum as ScaleEnum
 
 U8 = int  # INTEGER (0..255)
 U32 = int  # INTEGER (0..4294967295)
@@ -121,6 +121,10 @@ class TicketEnvelope(SerializableMixin):
     attempt: U8  # U8
     signature: ByteArray784  # SEQUENCE (SIZE(784)) OF U8
 
+    @classmethod
+    def scale_type_def(cls):
+        return Struct(attempt=ScaleU8, signature=Array(ScaleU8, 784))
+
     def __post_init__(self):
         # Validate that attempt is a valid U8 integer
         if not isinstance(self.attempt, int) or not (0 <= self.attempt <= 255):
@@ -164,6 +168,10 @@ class Input(SerializableMixin):
     slot: U32  # Current slot. U32
     entropy: OpaqueHash  # Per block entropy (originated from block entropy source VRF). OpaqueHash
     extrinsic: List[TicketEnvelope]  # Safrole extrinsic. SEQUENCE (SIZE(0..16)) OF TicketEnvelope
+
+    @classmethod
+    def scale_type_def(cls):
+        return Struct(slot=ScaleU32, entropy=H256, extrinsic=Vec(TicketEnvelope.scale_type_def()))
 
 
 @dataclass
