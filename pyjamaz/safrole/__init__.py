@@ -30,7 +30,7 @@ class SafroleProtocol:
             # GP-0.3.2-ref:60
             vrf_input_data = b"jam_ticket_seal"  # GP-0.3.2-ref:65
             vrf_input_data += self.state.eta[2]
-            vrf_input_data += int.to_bytes(extrinsic.attempt, length=1)
+            vrf_input_data += int.to_bytes(extrinsic.attempt, byteorder='little', length=1)
 
             aux_data = b''  # TODO
 
