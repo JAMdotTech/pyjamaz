@@ -97,8 +97,8 @@ class SafroleProtocol:
         eta_0 = blake2b_256_hash(self.state.eta[0] + input_data.entropy)  # GP-0.3.2-ref:67
 
         if self.ticket_end_slot <= self.state.tau < self.epoch_length and not self._ticket_mark_sent:
-            # Ticket mark
-            if len(self.state.gamma_a) > 0:
+            # Ticket mark only when accumulator is saturated # GP-0.3.2-ref:67
+            if len(self.state.gamma_a) == self.epoch_length:
                 tickets_mark = deepcopy(self.state.gamma_a)
                 self._ticket_mark_sent = True
 
