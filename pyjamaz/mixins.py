@@ -44,28 +44,7 @@ class SerializableMixin:
 
         scale_type = self.scale_type_def().new()
 
-        def clean_dict_keys(d: dict) -> dict:
-            """
-            Recursively clean dictionary keys by removing trailing underscores.
-            """
-            cleaned_dict = {}
-            for key, value in d.items():
-                # Remove trailing underscore from the key
-                new_key = key.rstrip('_')
-
-                # Recursively process nested dictionaries
-                if isinstance(value, dict):
-                    cleaned_dict[new_key] = clean_dict_keys(value)
-                # Recursively process lists containing dictionaries
-                elif isinstance(value, list):
-                    cleaned_dict[new_key] = [clean_dict_keys(item) if isinstance(item, dict) else item for item in
-                                             value]
-                else:
-                    cleaned_dict[new_key] = value
-
-            return cleaned_dict
-
-        value = {}  # clean_dict_keys(dataclasses.asdict(self))
+        value = {}
         for field in dataclasses.fields(self):
 
             actual_type = field.type
@@ -192,8 +171,11 @@ class SerializableMixin:
 
     @classmethod
     def dataclass_field_to_scale_typ_def(cls, field) -> ScaleTypeDef:
-        # Check if the field type is an instance of Optional
 
+        if 'scale' in field.metadata:
+            return field.metadata['scale']
+
+        # Check if the field type is an instance of Optional
         actual_type = field.type
         wrap_option = False
         wrap_vec = False
@@ -218,16 +200,16 @@ class SerializableMixin:
                 raise ValueError(f"Cannot serialize dataclass {field.type.__class__}")
 
         elif actual_type is bytes:
-            scale_def = H256
+            raise ValueError("bytes is ambiguous; specify SCALE type def in metadata e.g. {'scale': H256}")
         elif actual_type is int:
-            scale_def = U32
+            raise ValueError("int is ambiguous; specify SCALE type def in metadata e.g. {'scale': U32}")
 
         elif issubclass(actual_type, enum.Enum):
             variants = {status.name: None for status in actual_type}
             scale_def = Enum(**variants)
 
         else:
-            raise NotImplementedError(f"Cannot convert {actual_type} to ScaleTypeDef")
+            raise ValueError(f"Cannot convert {actual_type} to ScaleTypeDef")
 
         if wrap_vec:
             scale_def = Vec(scale_def)

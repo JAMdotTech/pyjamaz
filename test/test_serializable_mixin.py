@@ -10,6 +10,7 @@ from parameterized import parameterized
 from pyjamaz.mixins import SerializableMixin
 from pyjamaz.safrole.types import (SlotSealerSeries, ValidatorData, TicketEnvelope, Input, EpochMark,
                                    TicketBody, State, Output, OutputMarks, CustomErrorCode)
+from scalecodec.base import ScaleBytes
 
 
 @dataclass
@@ -189,6 +190,8 @@ def get_test_vector_files(directories: list, file_filter: Optional[str] = None):
 
 class TestMixinJSON(unittest.TestCase):
 
+    maxDiff = None
+
     @staticmethod
     def load_test_vector_data(directory, test_vector_file):
         test_vector_file = path.join(
@@ -197,14 +200,35 @@ class TestMixinJSON(unittest.TestCase):
         with open(test_vector_file) as f:
             return json.load(f)
 
+    @staticmethod
+    def load_test_vector_scale(directory, test_vector_file) -> bytes:
+        test_vector_file = test_vector_file.replace('.json', '.scale')
+
+        test_vector_file = path.join(
+            path.dirname(path.abspath(__file__)), 'fixtures', 'safrole', directory, f'{test_vector_file}'
+        )
+        with open(test_vector_file, 'rb') as f:
+            return f.read()
+
     @parameterized.expand(get_test_vector_files(['tiny'], file_filter=''))
     def test_serialize_mixin(self, name, directory, test_file):
         test_vector = self.load_test_vector_data(directory, test_file)
 
         test_case = Testcase.deserialize(test_vector)
 
-        self.assertEqual(test_case, json_to_testcase(test_vector), "SerializeMixin deserialize does not match")
-        self.assertDictEqual(test_case.serialize(), test_vector, "SerializeMixin serialize does not match")
+        self.assertEqual(test_case, json_to_testcase(test_vector), "SerializeMixin.deserialize does not match")
+        self.assertDictEqual(test_case.serialize(), test_vector, "SerializeMixin.serialize does not match")
+
+        scale_bytes = self.load_test_vector_scale(directory, test_file)
+
+        self.assertEqual(
+            f'0x{scale_bytes.hex()}',
+            test_case.to_scale_bytes().to_hex(),
+            "SerializeMixin.to_scale_bytes does not match"
+        )
+
+        test_case = Testcase.from_scale_bytes(ScaleBytes(scale_bytes))
+        self.assertEqual(test_case.to_scale_bytes().to_bytes(), scale_bytes, "SerializeMixin.from_scale_bytes does not match")
 
 
 if __name__ == '__main__':

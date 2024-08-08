@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Optional, Type, Union
 
 from pyjamaz.mixins import SerializableMixin, T
+from pyjamaz.safrole.constants import EPOCH_LENGTH, VALIDATORS_COUNT
 from scalecodec.base import ScaleTypeDef, ScaleType
 from scalecodec.exceptions import ScaleSerializeException
 from scalecodec.types import Struct, Option, Bytes, Array, U8 as ScaleU8, U32 as ScaleU32, Vec, H256, Enum as ScaleEnum
@@ -45,8 +46,8 @@ class CustomErrorCode(SerializableMixin, Enum):
 
 @dataclass
 class TicketBody(SerializableMixin):
-    id: OpaqueHash  # OpaqueHash
-    attempt: U8     # U8
+    id: OpaqueHash = field(metadata={'scale': H256})  # OpaqueHash
+    attempt: U8 = field(metadata={'scale': ScaleU8})   # U8
 
 
 TicketsBodies = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
@@ -60,8 +61,8 @@ class SlotSealerSeries(SerializableMixin):
     @classmethod
     def scale_type_def(cls):
         return ScaleEnum(
-            tickets=Vec(TicketBody.scale_type_def()),
-            keys=Vec(H256)
+            tickets=Array(TicketBody.scale_type_def(), EPOCH_LENGTH),
+            keys=Array(H256, EPOCH_LENGTH)
         )
 
     def serialize(self) -> Union[str, int, float, bool, dict, list]:
@@ -75,21 +76,11 @@ class SlotSealerSeries(SerializableMixin):
 
 @dataclass
 class ValidatorData(SerializableMixin):
-    bandersnatch: BandersnatchKey  # Use forward references if these types are not yet defined in the current scope.
-    ed25519: Ed25519Key
-    bls: BlsKey
-    metadata: ByteArray128
+    bandersnatch: BandersnatchKey = field(metadata={'scale': H256})
+    ed25519: Ed25519Key = field(metadata={'scale': H256})
+    bls: BlsKey = field(metadata={'scale': Array(ScaleU8, 144)})
+    metadata: ByteArray128 = field(metadata={'scale': Array(ScaleU8, 128)})
 
-    @classmethod
-    def scale_type_def(cls):
-        return Struct(
-            bandersnatch=H256,
-            ed25519=H256,
-            bls=Array(ScaleU8, 144),
-            metadata=Array(ScaleU8, 128),
-        )
-
-    # _scale_type_def = ValidatorKeys()
     #
     # def to_scale_type(self) -> 'ValidatorKeysObject':
     #     # Create a new instance of the scale type using the scale_type_def metadata.
@@ -118,12 +109,8 @@ ValidatorsData = List[ValidatorData]  # SEQUENCE (SIZE(validators-count)) OF Val
 
 @dataclass
 class TicketEnvelope(SerializableMixin):
-    attempt: U8  # U8
-    signature: ByteArray784  # SEQUENCE (SIZE(784)) OF U8
-
-    @classmethod
-    def scale_type_def(cls):
-        return Struct(attempt=ScaleU8, signature=Array(ScaleU8, 784))
+    attempt: U8 = field(metadata={'scale': ScaleU8})
+    signature: ByteArray784 = field(metadata={'scale': Array(ScaleU8, 784)})
 
     def __post_init__(self):
         # Validate that attempt is a valid U8 integer
@@ -131,14 +118,14 @@ class TicketEnvelope(SerializableMixin):
             raise ValueError("Attempt must be an integer between 0 and 255")
 
         # Validate that signature is a valid ByteArray784
-        if not isinstance(self.signature, bytes) or len(self.signature) != 784:
+        if not isinstance(self.signature, (bytes, bytearray)) or len(self.signature) != 784:
             raise ValueError("Signature must be a bytes object of length 784")
 
 
 @dataclass
 class EpochMark(SerializableMixin):
-    entropy: OpaqueHash  # OpaqueHash
-    validators: List[BandersnatchKey]  # SEQUENCE (SIZE(validators-count)) OF BandersnatchKey
+    entropy: OpaqueHash = field(metadata={'scale': H256})
+    validators: List[BandersnatchKey] = field(metadata={'scale': Array(H256, VALIDATORS_COUNT)})
 
 
 TicketsMark = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
@@ -147,26 +134,26 @@ TicketsMark = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
 @dataclass
 class OutputMarks(SerializableMixin):
     epoch_mark: Optional[EpochMark] = None  # New epoch signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = None  # Tickets signal. OPTIONAL
+    tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'scale': Option(Array(TicketBody.scale_type_def(), EPOCH_LENGTH))})  # Tickets signal. OPTIONAL
 
 
 @dataclass
 class State(SerializableMixin):
-    tau: U32  # Most recent block's timeslot.
-    eta: List[OpaqueHash]  # SEQUENCE (SIZE(4)) OF OpaqueHash
-    lambda_: ValidatorsData  # Validator keys and metadata which were active in the prior epoch.
-    kappa: ValidatorsData  # Validator keys and metadata currently active.
-    gamma_k: ValidatorsData  # Validator keys for the following epoch.
-    iota: ValidatorsData  # Validator keys and metadata to be drawn from next.
-    gamma_a: TicketsBodies  # Sealing-key contest ticket accumulator. SEQUENCE (SIZE(0..epoch-length)) OF TicketBody
+    tau: U32 = field(metadata={'scale': ScaleU32})                # Most recent block's timeslot.
+    eta: List[OpaqueHash] = field(metadata={'scale': Array(H256, 4)})  # SEQUENCE (SIZE(4)) OF OpaqueHash
+    lambda_: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATORS_COUNT)}) # Validator keys and metadata which were active in the prior epoch.
+    kappa: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATORS_COUNT)}) # Validator keys and metadata currently active.
+    gamma_k: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATORS_COUNT)})  # Validator keys for the following epoch.
+    iota: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATORS_COUNT)})  # Validator keys and metadata to be drawn from next.
+    gamma_a: TicketsBodies = field(metadata={'scale': Vec(TicketBody.scale_type_def())})  # Sealing-key contest ticket accumulator.
     gamma_s: SlotSealerSeries  # Sealing-key series of the current epoch.
-    gamma_z: ByteArray144  # Bandersnatch ring commitment. SEQUENCE (SIZE(144)) OF U8
+    gamma_z: ByteArray144 = field(metadata={'scale': Array(ScaleU8, 144)})  # Bandersnatch ring commitment.
 
 
 @dataclass
 class Input(SerializableMixin):
-    slot: U32  # Current slot. U32
-    entropy: OpaqueHash  # Per block entropy (originated from block entropy source VRF). OpaqueHash
+    slot: U32 = field(metadata={'scale': ScaleU32})  # Current slot. U32
+    entropy: OpaqueHash = field(metadata={'scale': H256}) # Per block entropy (originated from block entropy source VRF)
     extrinsic: List[TicketEnvelope]  # Safrole extrinsic. SEQUENCE (SIZE(0..16)) OF TicketEnvelope
 
     @classmethod
@@ -183,9 +170,8 @@ class Output(SerializableMixin):
     def scale_type_def(cls):
 
         return ScaleEnum(
-            ok=Option(OutputMarks.scale_type_def()),
+            ok=OutputMarks.scale_type_def(),
             err=CustomErrorCode.scale_type_def()
-            # err=Option(ScaleEnum(**{status.name: None for status in CustomErrorCode}))
         )
 
     def to_scale_type(self) -> ScaleType:
@@ -195,10 +181,6 @@ class Output(SerializableMixin):
 
     @classmethod
     def deserialize(cls: Type[T], data: Union[str, int, float, bool, dict, list]) -> T:
-
-        # # Because of Enum, remove if Err is None
-        # if data['err'] is None:
-        #     del data['err']
 
         return super().deserialize(data)
 
