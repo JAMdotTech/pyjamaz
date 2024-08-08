@@ -1,4 +1,5 @@
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import List
 
 from bandersnatch_vrfs import ring_vrf_verify
@@ -8,61 +9,83 @@ from pyjamaz.safrole.types import CustomErrorCode, TicketBody, EpochMark, Output
     SlotSealerSeries
 
 
+@dataclass
+class SafroleConfig:
+    ring_data: bytes
+    validators_count: int
+    epoch_length: int
+    ticket_end_slot: int
+
+    def __post_init__(self):
+        if self.ticket_end_slot >= self.epoch_length:
+            raise ValueError("ticket_end_slot must be less than epoch_length")
+
+
 class SafroleProtocol:
-    def __init__(self, ring_data: bytes, initial_state: State, validators_count: int, epoch_length: int):
-        self.ring_data = ring_data
+    def __init__(self, initial_state: State, config: SafroleConfig):
+        self.ring_data = config.ring_data
         self.state = initial_state
-        self.validators_count = validators_count
-        self.epoch_length = epoch_length
+        self.validators_count = config.validators_count
+        self.epoch_length = config.epoch_length
+        self.ticket_end_slot = config.ticket_end_slot
+
+        self._ticket_mark_sent = False
+
+    def calculate_epoch_and_slot_index(self, slot_index: int) -> tuple[int, int]:
+        epoch_index = slot_index // self.epoch_length
+        slot_phase_index = slot_index % self.epoch_length
+        return epoch_index, slot_phase_index
 
     def process_input(self, input_data: Input) -> 'Output':
 
+        # Check input conditions
         if input_data.slot <= self.state.tau:
             return Output(err=CustomErrorCode.bad_slot)
 
-        ring_public_keys = [v.bandersnatch for v in self.state.gamma_k]
+        if len(input_data.extrinsic) > 0:
+            if input_data.slot >= self.ticket_end_slot:
+                # Don't accept tickets after TICKET_SUBMISSION_END_SLOT: GP-0.3.2:paragraph6.7
+                return Output(err=CustomErrorCode.unexpected_ticket)
 
-        input_tickets = []
+            ring_public_keys = [v.bandersnatch for v in self.state.gamma_k]
 
-        # Validate extrinsic
-        for idx, extrinsic in enumerate(input_data.extrinsic):
+            input_tickets = []
 
-            if extrinsic.attempt not in [0, 1]:
-                return Output(err=CustomErrorCode.bad_ticket_attempt)
+            # Validate extrinsic
+            for idx, extrinsic in enumerate(input_data.extrinsic):
 
-            # GP-0.3.2-ref:60
-            vrf_input_data = b"jam_ticket_seal"  # GP-0.3.2-ref:65
-            vrf_input_data += self.state.eta[2]
-            vrf_input_data += int.to_bytes(extrinsic.attempt, byteorder='little', length=1)
+                if extrinsic.attempt not in [0, 1]:
+                    return Output(err=CustomErrorCode.bad_ticket_attempt)
 
-            aux_data = b''  # TODO
+                # GP-0.3.2-ref:60
+                vrf_input_data = b"jam_ticket_seal"  # GP-0.3.2-ref:65
+                vrf_input_data += self.state.eta[2]
+                vrf_input_data += int.to_bytes(extrinsic.attempt, byteorder='little', length=1)
 
-            try:
-                ring_vrf_output = ring_vrf_verify(
-                    self.ring_data, ring_public_keys, vrf_input_data, aux_data, extrinsic.signature
-                )
-            except ValueError as e:
-                return Output(err=CustomErrorCode.bad_ticket_proof)
+                aux_data = b''  # TODO
 
-            ticket = TicketBody(id=ring_vrf_output, attempt=extrinsic.attempt)
+                try:
+                    ring_vrf_output = ring_vrf_verify(
+                        self.ring_data, ring_public_keys, vrf_input_data, aux_data, extrinsic.signature
+                    )
+                except ValueError as e:
+                    return Output(err=CustomErrorCode.bad_ticket_proof)
 
-            # Check if ticket already exists
-            if ticket in self.state.gamma_a:
-                return Output(err=CustomErrorCode.duplicate_ticket)
-            else:
-                input_tickets.append(ticket)
+                ticket = TicketBody(id=ring_vrf_output, attempt=extrinsic.attempt)
 
-        # Check if tickets are in order: GP-0.3.2-ref:80
-        if not self.tickets_in_order(input_tickets):
-            return Output(err=CustomErrorCode.bad_ticket_order)
+                # Check if ticket already exists
+                if ticket in self.state.gamma_a:
+                    return Output(err=CustomErrorCode.duplicate_ticket)
+                else:
+                    input_tickets.append(ticket)
 
-        # Check if tickets limits are reached
-        if len(input_tickets) > self.epoch_length:
-            return Output(err=CustomErrorCode.unexpected_ticket)
+            # Check if tickets are in order: GP-0.3.2-ref:80
+            if not self.tickets_in_order(input_tickets):
+                return Output(err=CustomErrorCode.bad_ticket_order)
 
-        # Add tickets to ticket accumulator and sort: GP-0.3.2-ref:78
-        self.state.gamma_a += input_tickets
-        self.state.gamma_a = sorted(self.state.gamma_a, key=lambda t: t.id)
+            # Add tickets to ticket accumulator, sort and limit: GP-0.3.2-ref:78,79
+            self.state.gamma_a += input_tickets
+            self.state.gamma_a = sorted(self.state.gamma_a, key=lambda t: t.id)[:self.epoch_length]
 
         # Update state based on the new input
         self.state.tau = input_data.slot
@@ -73,6 +96,12 @@ class SafroleProtocol:
 
         eta_0 = blake2b_256_hash(self.state.eta[0] + input_data.entropy)  # GP-0.3.2-ref:67
 
+        if self.ticket_end_slot <= self.state.tau < self.epoch_length and not self._ticket_mark_sent:
+            # Ticket mark
+            if len(self.state.gamma_a) > 0:
+                tickets_mark = deepcopy(self.state.gamma_a)
+                self._ticket_mark_sent = True
+
         if self.state.tau >= self.epoch_length:
             # Epoch change
 
@@ -82,8 +111,6 @@ class SafroleProtocol:
                 entropy=self.state.eta[0],
                 validators=epoch_validator_keys
             )
-
-            tickets_mark = None  # TODO self.state.gamma_a[:self.epoch_length] ?
 
             self.state.eta = [eta_0] + self.state.eta[:3]  # GP-0.3.2-ref:68
 
@@ -97,6 +124,9 @@ class SafroleProtocol:
             self.state.gamma_a = []
             # TODO: Update Sealing-key series of the current epoch.
             #self.state.gamma_s = SlotSealerSeries(keys=epoch_validator_keys)
+
+            # Reset flags
+            self._ticket_mark_sent = False
 
         else:
             self.state.eta = [eta_0] + self.state.eta[1:]  # GP-0.3.2-ref:68

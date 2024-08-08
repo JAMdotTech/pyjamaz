@@ -4,12 +4,12 @@ import unittest
 from copy import deepcopy
 from dataclasses import dataclass
 from os import path
-from typing import List, Optional
+from typing import Optional
 
 from parameterized import parameterized
 
 from pyjamaz.mixins import SerializableMixin
-from pyjamaz.safrole import SafroleProtocol
+from pyjamaz.safrole import SafroleProtocol, SafroleConfig
 from pyjamaz.safrole.types import (State, Output, Input)
 
 
@@ -58,11 +58,20 @@ class TestSafroleVector(unittest.TestCase):
         if directory == 'tiny':
             validators_count = 6
             epoch_length = 12
+            ticket_end_slot = 10
         else:
             validators_count = 1023
             epoch_length = 600
+            ticket_end_slot = 500
 
-        safrole = SafroleProtocol(self.ring_data, deepcopy(test_case.pre_state), validators_count, epoch_length)
+        config = SafroleConfig(
+            ring_data=self.ring_data,
+            validators_count=validators_count,
+            epoch_length=epoch_length,
+            ticket_end_slot=ticket_end_slot
+        )
+
+        safrole = SafroleProtocol(deepcopy(test_case.pre_state), config)
         output = safrole.process_input(test_case.input)
 
         self.assertEqual(test_case.output, output, f'{name}: output does not match')
