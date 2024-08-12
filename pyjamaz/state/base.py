@@ -1,22 +1,51 @@
+import typing
+from typing import List
+
 from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound
 
+if typing.TYPE_CHECKING:
+    from pyjamaz.types.state import JamState
+    from pyjamaz.models.block import Block
 
-def initialize_state():
-    # Simulate state initialization logic
-    pass
+
+class State:
+    def allow_read(self) -> List['StateManager']:
+        pass
+
+    def allow_write(self) -> List['StateManager']:
+        pass
+
+    def __setattr__(self, key, value):
+        super().__setattr__(key, value)
+
+    def retrieve(self):
+        """
+        Retrieve from Storage TODO
+        Returns
+        -------
+
+        """
+        pass
+
+    def store(self):
+        pass
 
 
-def transition_state(block_data):
-    # Simulate state transition logic using block data
-    try:
-        # Here we would apply the block to the current state
-        # For now, we'll just simulate success
-        return True
-    except Exception as e:
-        # Handle errors
-        return False
+class StateManager:
 
+    def __init__(self, current_state: 'JamState', pre_state: 'JamState'):
+        self.state = current_state
+        self.pre_state = pre_state
+
+    def state_transition(self, block: 'Block'):
+        pass
+
+    def is_epoch_change(self):
+        return self.state.timeslot.epoch_number() != self.pre_state.timeslot.epoch_number()
+
+
+# TODO process
 
 def state_key_constructor_component(state_component_id: int) -> bytes:
     """
@@ -51,4 +80,3 @@ def state_key_constructor_service_item(service_account_id: int, service_account_
     :return:
     """
     return bytes([s, i, h])
-

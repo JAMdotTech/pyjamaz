@@ -1,12 +1,11 @@
 import dataclasses
 import enum
 import json
-import typing
 from dataclasses import is_dataclass
 from typing import Type, TypeVar, Union
-
+import typing
 from scalecodec.base import ScaleTypeDef, ScaleType, ScaleBytes
-from scalecodec.types import Struct, Bytes, Option, Vec, H256, U8, Enum, EnumType, U32
+from scalecodec.types import Struct, Option, Vec, Enum
 
 T = TypeVar('T')
 

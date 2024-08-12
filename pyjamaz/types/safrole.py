@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Union, Type
 
+from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT
 from pyjamaz.mixins import SerializableMixin, T
-from pyjamaz.safrole.constants import EPOCH_LENGTH, VALIDATORS_COUNT
 from scalecodec.base import ScaleTypeDef, ScaleType
 from scalecodec.exceptions import ScaleSerializeException
-from scalecodec.types import Struct, Option, Bytes, Array, U8 as ScaleU8, U32 as ScaleU32, Vec, H256, Enum as ScaleEnum
+from scalecodec.types import Enum as ScaleEnum, H256, U8 as ScaleU8, Array, Option, U32 as ScaleU32, Vec, Struct
 
 U8 = int  # INTEGER (0..255)
 U32 = int  # INTEGER (0..4294967295)
@@ -61,8 +61,8 @@ class SlotSealerSeries(SerializableMixin):
     @classmethod
     def scale_type_def(cls):
         return ScaleEnum(
-            tickets=Array(TicketBody.scale_type_def(), EPOCH_LENGTH),
-            keys=Array(H256, EPOCH_LENGTH)
+            tickets=Array(TicketBody.scale_type_def(), EPOCH_TIMESLOTS),
+            keys=Array(H256, EPOCH_TIMESLOTS)
         )
 
     def serialize(self) -> Union[str, int, float, bool, dict, list]:
@@ -125,7 +125,7 @@ class TicketEnvelope(SerializableMixin):
 @dataclass
 class EpochMark(SerializableMixin):
     entropy: OpaqueHash = field(metadata={'scale': H256})
-    validators: List[BandersnatchKey] = field(metadata={'scale': Array(H256, VALIDATORS_COUNT)})
+    validators: List[BandersnatchKey] = field(metadata={'scale': Array(H256, VALIDATOR_COUNT)})
 
 
 TicketsMark = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
@@ -134,17 +134,17 @@ TicketsMark = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
 @dataclass
 class OutputMarks(SerializableMixin):
     epoch_mark: Optional[EpochMark] = None  # New epoch signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'scale': Option(Array(TicketBody.scale_type_def(), EPOCH_LENGTH))})  # Tickets signal. OPTIONAL
+    tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'scale': Option(Array(TicketBody.scale_type_def(), EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
 
 
 @dataclass
 class State(SerializableMixin):
     tau: U32 = field(metadata={'scale': ScaleU32})                # Most recent block's timeslot.
     eta: List[OpaqueHash] = field(metadata={'scale': Array(H256, 4)})  # SEQUENCE (SIZE(4)) OF OpaqueHash
-    lambda_: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATORS_COUNT)}) # Validator keys and metadata which were active in the prior epoch.
-    kappa: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATORS_COUNT)}) # Validator keys and metadata currently active.
-    gamma_k: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATORS_COUNT)})  # Validator keys for the following epoch.
-    iota: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATORS_COUNT)})  # Validator keys and metadata to be drawn from next.
+    lambda_: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATOR_COUNT)}) # Validator keys and metadata which were active in the prior epoch.
+    kappa: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATOR_COUNT)}) # Validator keys and metadata currently active.
+    gamma_k: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATOR_COUNT)})  # Validator keys for the following epoch.
+    iota: ValidatorsData = field(metadata={'scale': Array(ValidatorData.scale_type_def(), VALIDATOR_COUNT)})  # Validator keys and metadata to be drawn from next.
     gamma_a: TicketsBodies = field(metadata={'scale': Vec(TicketBody.scale_type_def())})  # Sealing-key contest ticket accumulator.
     gamma_s: SlotSealerSeries  # Sealing-key series of the current epoch.
     gamma_z: ByteArray144 = field(metadata={'scale': Array(ScaleU8, 144)})  # Bandersnatch ring commitment.
@@ -189,4 +189,3 @@ class Output(SerializableMixin):
             return {'err': self.err.serialize()}
         else:
             return {'ok': self.ok.serialize()}
-

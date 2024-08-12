@@ -8,8 +8,8 @@ from typing import Optional
 from parameterized import parameterized
 
 from pyjamaz.mixins import SerializableMixin
-from pyjamaz.safrole.types import (SlotSealerSeries, ValidatorData, TicketEnvelope, Input, EpochMark,
-                                   TicketBody, State, Output, OutputMarks, CustomErrorCode)
+from pyjamaz.types.safrole import CustomErrorCode, TicketBody, SlotSealerSeries, ValidatorData, TicketEnvelope, \
+    EpochMark, OutputMarks, State, Input, Output
 from scalecodec.base import ScaleBytes
 
 
@@ -44,7 +44,15 @@ class TestSerializableMixin(unittest.TestCase):
         self.assertEqual({'err': 'duplicate_ticket'}, value)
 
     def test_dataclass_to_scale_type(self):
-        output = Output(ok=OutputMarks(epoch_mark=EpochMark(entropy=bytes(32), validators=[bytes(32), bytes(32)]), tickets_mark=None))
+        output = Output(
+            ok=OutputMarks(
+                epoch_mark=EpochMark(
+                    entropy=bytes(32),
+                    validators=[bytes(32), bytes(32), bytes(32), bytes(32), bytes(32), bytes(32)]
+                ),
+                tickets_mark=None
+            )
+        )
         scale_type = output.to_scale_type()
         output2 = Output.from_scale_type(scale_type)
         self.assertEqual(output, output2)
