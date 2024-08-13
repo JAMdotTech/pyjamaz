@@ -46,7 +46,7 @@ class StateManager:
         return self.state.timeslot.epoch_number() != self.pre_state.timeslot.epoch_number()
 
 
-# TODO process
+# TODO implement
 
 def state_key_constructor_component(state_component_id: int) -> bytes:
     """
@@ -61,23 +61,23 @@ def state_key_constructor_component(state_component_id: int) -> bytes:
         raise StateComponentNotFound(f"State component ID {state_component_id} not found")
 
 
-def state_key_constructor_service(state_component_id: int, service_account_id: int) -> bytes:
-    """
-    GP-ref:280,281 Generates storage keys for individual service
-
-    :param state_component_id:
-    :param service_account_id:
-    :return:
-    """
-    return bytes([s, i, h])
-
-
-def state_key_constructor_service_item(service_account_id: int, service_account_key: bytes) -> bytes:
-    """
-    GP-ref:280,281 Generates storage keys for items within an individual service
-
-    :param service_account_id:
-    :param service_account_key:
-    :return:
-    """
-    return bytes([s, i, h])
+# def state_key_constructor_service(state_component_id: int, service_account_id: int) -> bytes:
+#     """
+#     GP-ref:280,281 Generates storage keys for individual service
+#
+#     :param state_component_id:
+#     :param service_account_id:
+#     :return:
+#     """
+#     return bytes([s, i, h])
+#
+#
+# def state_key_constructor_service_item(service_account_id: int, service_account_key: bytes) -> bytes:
+#     """
+#     GP-ref:280,281 Generates storage keys for items within an individual service
+#
+#     :param service_account_id:
+#     :param service_account_key:
+#     :return:
+#     """
+#     return bytes([s, i, h])
