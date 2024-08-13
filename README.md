@@ -1,4 +1,22 @@
 # pyJAMaz
+a Python implementation of the [JAM protocol](https://graypaper.com/).
+
+## Install from source
+
+```bash
+pip install .
+```
+
+## Using the CLI
+
+### Import blocks
+Initialize a new pyJAMaz app with provided initial state and import blocks from given folder.
+
+Output will be a dump of the final state
+
+```bash
+pyjamaz import-blocks ./test/fixtures/cli/initial-state.json ./test/fixtures/cli/block_data > final_state.json
+```
 
 ## Run documentation
 
@@ -6,12 +24,4 @@
 pip install ".[dev]"
 mkdocs serve
 ```
-
-## Components
-- [ ] https://github.com/aiortc/aioquic?tab=readme-ov-file
-- [ ] https://github.com/olivmath/merkly
-- [ ] https://github.com/polkascan/py-ed25519-bindings
-- [ ] https://github.com/polkascan/py-scale-codec/tree/az-v2 (V2)
-- [ ] https://github.com/asanso/Bandersnatch/ (reference implementation)
-- [ ] https://github.com/openstack/pyeclib
 

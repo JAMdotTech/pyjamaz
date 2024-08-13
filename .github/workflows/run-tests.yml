@@ -13,15 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Install cffi and virtualenv
+      run: pip install cffi virtualenv
+    - name: Install RUST toolchain
+      uses: actions-rs/toolchain@v1
+      id: rustup
+      with:
+        profile: minimal
+        toolchain: nightly
+        override: true
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip

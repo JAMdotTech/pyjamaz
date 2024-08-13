@@ -1,6 +1,25 @@
+import json
+import os
+from os import path
+
 import click
-from pyjamaz.block import import_block
-from pyjamaz.state import initialize_state, transition_state
+
+from pyjamaz.app import PyjamazApp, AppConfig
+from pyjamaz.types.block import Block
+from pyjamaz.types.state import JamState
+
+
+def initialize_app(initial_state: JamState) -> PyjamazApp:
+    data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
+    with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
+        ring_data = fp.read()
+
+    # Initialize app
+    config = AppConfig(
+        ring_data=ring_data
+    )
+
+    return PyjamazApp(initial_state=initial_state, config=config)
 
 
 @click.group()
@@ -10,32 +29,26 @@ def main():
 
 
 @main.command()
-@click.argument('block_data')
-def import_block_cmd(block_data):
-    """Import a block"""
-    success = import_block(block_data)
-    if success:
-        click.echo("Block imported successfully.")
-    else:
-        click.echo("Failed to import block.")
+@click.argument('initial-state-json')
+@click.argument('block-dir')
+def import_blocks(initial_state_json, block_dir):
+    """Import block data from a folder"""
 
+    with open(path.join(os.getcwd(), initial_state_json), 'r') as fp:
+        state_data = json.load(fp)
 
-@main.command()
-def init_state():
-    """Initialize the state"""
-    initialize_state()
-    click.echo("State initialized.")
+    jam_state = JamState.deserialize(state_data)
+    app = initialize_app(jam_state)
 
+    # Process blocks
+    for filename in sorted(os.listdir(block_dir)):
+        if filename.endswith('.json'):
+            with open(os.path.join(block_dir, filename)) as f:
+                block_data = json.load(f)
+            block = Block.deserialize(block_data)
+            app.process_block(block)
 
-@main.command()
-@click.argument('block_data')
-def transition(block_data):
-    """Transition state with a block"""
-    success = transition_state(block_data)
-    if success:
-        click.echo("State transitioned successfully.")
-    else:
-        click.echo("State transition failed.")
+    click.echo(json.dumps(app.state.serialize(), indent=2))
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@ from typing import Union
 from Crypto.Hash import keccak
 
 
-def create_blake2b_256_hash(data: Union[str, bytes]) -> bytes:
+def blake2b_256_hash(data: Union[str, bytes]) -> bytes:
     """
     Creates a Blake-SHA256 hash using the given data.
 
@@ -20,7 +20,7 @@ def create_blake2b_256_hash(data: Union[str, bytes]) -> bytes:
     return blake2b(data, digest_size=32).digest()
 
 
-def create_blake2b_128_hash(data: Union[str, bytes]) -> bytes:
+def blake2b_128_hash(data: Union[str, bytes]) -> bytes:
     """
     Creates a Blake-SHA128 hash using the given data.
 
@@ -37,7 +37,7 @@ def create_blake2b_128_hash(data: Union[str, bytes]) -> bytes:
     return blake2b(data, digest_size=16).digest()
 
 
-def create_blake2b_64_hash(data: Union[str, bytes]) -> bytes:
+def blake2b_64_hash(data: Union[str, bytes]) -> bytes:
     """
     Creates a Blake-SHA64 hash using the given data.
     Parameters
@@ -53,7 +53,7 @@ def create_blake2b_64_hash(data: Union[str, bytes]) -> bytes:
     return blake2b(data, digest_size=8).digest()
 
 
-def create_keccak_256_hash(data: Union[str, bytes]) -> bytes:
+def keccak_256_hash(data: Union[str, bytes]) -> bytes:
     """
     Creates a Keccak-SHA256 hash using the given data.
 
