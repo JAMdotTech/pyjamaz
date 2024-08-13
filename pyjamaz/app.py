@@ -7,7 +7,7 @@ from pyjamaz.state.base import StateManager
 from pyjamaz.state.exceptions import StateTransitionError
 
 from pyjamaz.state.managers import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool
-from pyjamaz.types.block import Block, Header
+from pyjamaz.types.block import Block
 from pyjamaz.types.state import JamState
 
 
@@ -22,12 +22,15 @@ class PyjamazApp:
         self.state = initial_state
         self.config = config
 
+        # Order defined by overall state transition dependency graph GP-0.3.2-eq16-30
+        # Todo: strictly define input parameters for STFs. What data is allowed to be used to determine posterior state
+        #  of state component.
         self.state_managers: List[StateManager] = [
-            Timeslot(self.state, self.state),
-            Entropy(self.state, self.state),
-            ValidatorArchive(self.state, self.state),
-            ValidatorPool(self.state, self.state),
-            Safrole(self.state, self.state, self.config.ring_data),
+            Timeslot(current_state=self.state, pre_state=self.state),
+            Entropy(current_state=self.state, pre_state=self.state),
+            ValidatorArchive(current_state=self.state, pre_state=self.state),
+            ValidatorPool(current_state=self.state, pre_state=self.state),
+            Safrole(current_state=self.state, pre_state=self.state, ring_data=self.config.ring_data),
         ]
 
     def process_block(self, block: Block) -> List[Output]:
@@ -38,8 +41,11 @@ class PyjamazApp:
         for state_manager in self.state_managers:
             # Set copy of state as transaction buffer
             state_manager.state = post_state
+            state_manager.post_state = post_state
+
             try:
                 output: Output = state_manager.state_transition(block)
+
                 if output is not None:
                     result.append(output)
             except StateTransitionError as e:

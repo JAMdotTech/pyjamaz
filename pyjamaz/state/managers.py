@@ -11,7 +11,7 @@ from pyjamaz.state.base import StateManager
 from pyjamaz.state.exceptions import StateTransitionError
 from pyjamaz.types.block import Header, Block
 from pyjamaz.types.state import TimeslotState, EntropyState, JamState, ValidatorPoolState, SafroleState
-from pyjamaz.utils import reorder_list_outside_in
+from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
 class Timeslot(StateManager):
@@ -37,16 +37,16 @@ class ValidatorPool(StateManager):
 
     def state_transition(self, block: Block):
         if self.is_epoch_change():
-            # Update Validator keys and metadata currently active.
-            self.state.validator_pool.validators = deepcopy(self.state.safrole.validators)
+            # Update Validator keys and metadata currently active. GP-0.3.2-eq:58
+            self.state.validator_pool.validators = deepcopy(self.pre_state.safrole.validators)
 
 
 class ValidatorArchive(StateManager):
 
     def state_transition(self, block: Block):
         if self.is_epoch_change():
-            # Update prior epoch validators
-            self.state.validator_archive.validators = deepcopy(self.state.validator_pool.validators)
+            # Update prior epoch validators   GP-0.3.2-eq:58
+            self.state.validator_archive.validators = deepcopy(self.pre_state.validator_pool.validators)
 
 
 class Safrole(StateManager):
@@ -60,7 +60,7 @@ class Safrole(StateManager):
 
         # GP-0.3.2-ref:74
         vrf_input_data = b"jam_ticket_seal"  # GP-0.3.2-ref:65
-        vrf_input_data += self.state.entropy.entropy[2]
+        vrf_input_data += self.post_state.entropy.entropy[2]
         vrf_input_data += int.to_bytes(ticket_data.attempt, byteorder='little', length=1)
 
         aux_data = b''
@@ -75,10 +75,22 @@ class Safrole(StateManager):
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
     def state_transition(self, block: Block) -> Output:
-        if len(block.extrinsic.tickets) > 0:
-            if self.state.timeslot.slot_phase_index() >= gp_const.TICKET_SUBMISSION_END_SLOT:
-                # Don't accept tickets after TICKET_SUBMISSION_END_SLOT: GP-0.3.2:paragraph6.7
+
+        # GP-0.3.2-ref:75
+        if self.post_state.timeslot.slot_phase_index() < gp_const.TICKET_SUBMISSION_END_SLOT:
+            # Min 0, max 16 tickets
+            if len(block.extrinsic.tickets) > gp_const.MAXIMUM_EXTRINSIC_TICKETS:  # contant_K=16
+                raise StateTransitionError(CustomErrorCode.too_many_tickets)
+        else:
+            if len(block.extrinsic.tickets) > 0:
+                # Don't accept tickets after TICKET_SUBMISSION_END_SLOT:
                 raise StateTransitionError(CustomErrorCode.unexpected_ticket)
+
+        if len(block.extrinsic.tickets) > 0:
+
+            # Check for duplicate ticket_data; GP-0.3.2-eq:77
+            if list_has_duplicates(block.extrinsic.tickets):
+                raise StateTransitionError(CustomErrorCode.duplicate_ticket)
 
             ring_public_keys = [v.bandersnatch for v in self.state.safrole.validators]
 
@@ -91,11 +103,12 @@ class Safrole(StateManager):
 
                 # Check if ticket already exists
                 if ticket in self.state.safrole.ticket_accumulator:
+                    # GP-0.3.2-eq:78
                     raise StateTransitionError(CustomErrorCode.duplicate_ticket)
                 else:
                     input_tickets.append(ticket)
 
-            # Check if tickets are in order: GP-0.3.2-ref:80
+            # Check if tickets are in order: GP-0.3.2-ref:77
             if not self.tickets_in_order(input_tickets):
                 raise StateTransitionError(CustomErrorCode.bad_ticket_order)
 
@@ -109,7 +122,8 @@ class Safrole(StateManager):
         epoch_mark = None
         tickets_mark = None
 
-        if not self.is_epoch_change() and self.state.timeslot.slot_phase_index() >= gp_const.TICKET_SUBMISSION_END_SLOT:
+        if (not self.is_epoch_change() and
+                self.post_state.timeslot.slot_phase_index() >= gp_const.TICKET_SUBMISSION_END_SLOT):
             # Ticket mark only when accumulator is saturated # GP-0.3.2-ref:67
             if len(self.state.safrole.ticket_accumulator) == gp_const.EPOCH_TIMESLOTS:
                 tickets_mark = reorder_list_outside_in(deepcopy(self.state.safrole.ticket_accumulator))  # GP-0.3.2-ref:70
@@ -117,19 +131,20 @@ class Safrole(StateManager):
         if self.is_epoch_change():
             # Epoch change
 
-            epoch_validator_keys = [validator.bandersnatch for validator in self.state.validator_queue.validators]
+            epoch_validator_keys = [validator.bandersnatch for validator in self.post_state.validator_queue.validators]
 
             # Clear tickets mark
             tickets_mark = None
 
             # Create epoch mark
             epoch_mark = EpochMark(
-                entropy=self.state.entropy.entropy[1],
+                entropy=self.post_state.entropy.entropy[1],
                 validators=epoch_validator_keys
             )
 
-            # Update Validator keys for the following epoch.
-            self.state.safrole.validators = deepcopy(self.state.validator_queue.validators)
+            # Update Validator keys for the following epoch. # GP-0.3.2-eq:58
+            # TODO: apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.3.2-eq:59
+            self.state.safrole.validators = deepcopy(self.pre_state.validator_queue.validators)
 
             # Update Sealing-key series of the current epoch.
             if self.enact_fallback_method():
@@ -137,11 +152,11 @@ class Safrole(StateManager):
                 validators = []
                 for n in range(gp_const.EPOCH_TIMESLOTS):
                     blake_hash = blake2b_256_hash(
-                        self.state.entropy.entropy[2] + int.to_bytes(n, length=4, byteorder='little')
+                        self.post_state.entropy.entropy[2] + int.to_bytes(n, length=4, byteorder='little')
                     )
                     validator_idx = int.from_bytes(
-                        blake_hash[:4], byteorder='little') % len(self.state.validator_pool.validators)
-                    validators.append(self.state.validator_pool.validators[validator_idx].bandersnatch)
+                        blake_hash[:4], byteorder='little') % len(self.post_state.validator_pool.validators)
+                    validators.append(self.post_state.validator_pool.validators[validator_idx].bandersnatch)
 
                 self.state.safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
             else:
@@ -150,7 +165,7 @@ class Safrole(StateManager):
                     tickets=reorder_list_outside_in(deepcopy(self.state.safrole.ticket_accumulator))
                 )
 
-            # Update ring commitment
+            # Update ring commitment using O(); GP-0.3.2-eq:58
             self.state.safrole.ring_commitment = ring_commitment(
                 self.ring_data, [v.bandersnatch for v in self.state.safrole.validators]
             )
@@ -169,7 +184,7 @@ class Safrole(StateManager):
                 # No Ticket marker generated
                 or self.pre_state.timeslot.slot_phase_index() < gp_const.TICKET_SUBMISSION_END_SLOT
                 # Whole epoch is skipped
-                or self.state.timeslot.epoch_number() - self.pre_state.timeslot.epoch_number() > 1
+                or self.post_state.timeslot.epoch_number() - self.pre_state.timeslot.epoch_number() > 1
         )
 
     @staticmethod

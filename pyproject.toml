@@ -43,3 +43,7 @@ dependencies = {file = ["requirements.txt"]}
 [tool.setuptools.packages.find]
 where = ["."]
 exclude = ["contrib", "docs", "tests", "test"]
+
+[tool.setuptools.package-data]
+pyjamaz = ["data/*"]
+

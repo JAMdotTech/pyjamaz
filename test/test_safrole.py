@@ -41,7 +41,7 @@ class TestSafroleVector(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Set up ring data
-        data_dir = path.join(path.dirname(path.abspath(__file__)), '..', 'data')
+        data_dir = path.join(path.dirname(path.abspath(__file__)), '..', 'pyjamaz', 'data')
         with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
             cls.ring_data = fp.read()
 

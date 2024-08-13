@@ -29,6 +29,7 @@ class CustomErrorCode(SerializableMixin, Enum):
     bad_ticket_attempt = 4  # Invalid ticket attempt value.
     reserved = 5  # Reserved
     duplicate_ticket = 6  # Found a ticket duplicate.
+    too_many_tickets = 7  # Found amount of tickets > K
 
     @classmethod
     def scale_type_def(cls) -> ScaleTypeDef:

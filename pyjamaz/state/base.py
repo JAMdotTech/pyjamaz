@@ -37,9 +37,10 @@ class StateManager:
     def __init__(self, current_state: 'JamState', pre_state: 'JamState'):
         self.state = current_state
         self.pre_state = pre_state
+        self.post_state = None
 
     def state_transition(self, block: 'Block'):
-        pass
+        raise NotImplementedError
 
     def is_epoch_change(self):
         return self.state.timeslot.epoch_number() != self.pre_state.timeslot.epoch_number()
