@@ -12,20 +12,25 @@ class VarInt29(ScaleTypeDef):
 
     def decode(self, data: ScaleBytes) -> int:
 
-        encoded = bytes(data.data)
-        prefix = encoded[0]
-        remainder = encoded[1:]
-        length = len(encoded)
+        prefix = int.from_bytes(data.get_next_bytes(1), byteorder='little')
 
-        if length == 1:  # Handles case for `value < 2**7`
+        if prefix < 128:  # Handles case for `value < 2**7`
             return prefix
 
-        elif 1 < length < 4:  # Handles case for `2**7 <= value < 2**21`
+        if 192 <= prefix < 224:
+            length = 2
+        elif 224 <= prefix < 255:
+            length = 3
+        else:
+            length = 4
+
+        if 1 < length < 4:  # Handles case for `2**7 <= value < 2**21`
             value_part = prefix - (2 ** 8 - 2 ** (8 - length))
-            value = (value_part * 2 ** (8 * (length - 1))) + int.from_bytes(remainder, byteorder='little')
+            remainder = int.from_bytes(data.get_next_bytes(length - 1), byteorder='little')
+            value = (prefix * 2 ** (8 * (length ))) + remainder
         elif length == 4:  # Handles case for `2**21 <= value < 2**29`
             value_part = prefix - (2 ** 8 - 2 ** 5)
-            value = (value_part * 2 ** 24) + int.from_bytes(remainder, byteorder='little')
+            value = (value_part * 2 ** 24) + int.from_bytes(data.get_next_bytes(length - 1), byteorder='little')
         else:
             raise ScaleDecodeException("Unsupported length")
 
@@ -52,7 +57,7 @@ class VarInt29(ScaleTypeDef):
         length = int(math.log2(value) // 7) + 1
 
         if 2**7 <= value < 2**21:
-            prefix = (2 ** 8 - 2 ** (8 - length)) + (value // 2 ** (8 * (length - 1)))
+            prefix = (2 ** 8 - 2 ** (8 - length)) + (value // 2 ** (8 * length))
             remainder = (value % 2 ** (8 * (length - 1))).to_bytes(length - 1, byteorder='little')
 
         elif 2**21 <= value < 2**29:
@@ -122,8 +127,8 @@ class VarInt64(ScaleTypeDef):
 
         length = int(math.log2(value) // 7) + 1
 
-        if 2**7 <= value < 2**21:
-            prefix = (2 ** 8 - 2 ** (8 - length)) + (value // 2 ** (8 * (length - 1)))
+        if 2 ** 7 <= value < 2 ** 21:
+            prefix = (2 ** 8 - 2 ** (8 - length)) + (value // 2 ** (8 * length))
             remainder = (value % 2 ** (8 * (length - 1))).to_bytes(length - 1, byteorder='little')
 
         elif 2**21 <= value < 2**64:
