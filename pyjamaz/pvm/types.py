@@ -8,9 +8,9 @@ from scalecodec.types import U8, Array, SignedInteger, Vec, U32
 
 @dataclass
 class Program(SerializableMixin):
-    jump_table: List[int] = field(metadata={'scale': Vec(U32)})
-    code: bytes = field(metadata={'scale': Vec(U8)})
-    checksum: int = field(metadata={'scale': U8})
+    jump_table: List[int]
+    code: bytes
+    checksum: int
 
     @classmethod
     def deserialize(cls, data: Union[bytes, list]) -> 'Program':
