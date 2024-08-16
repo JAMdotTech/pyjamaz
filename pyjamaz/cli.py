@@ -5,6 +5,7 @@ from os import path
 import click
 
 from pyjamaz.app import PyjamazApp, AppConfig
+from pyjamaz.storage import RocksDBStorage
 from pyjamaz.types.block import Block
 from pyjamaz.types.state import JamState
 
@@ -16,10 +17,13 @@ def initialize_app(initial_state: JamState) -> PyjamazApp:
 
     # Initialize app
     config = AppConfig(
-        ring_data=ring_data
+        ring_data=ring_data,
+        storage_engine=RocksDBStorage(path.join(os.getcwd(), 'data', 'db'))
     )
 
-    return PyjamazApp(initial_state=initial_state, config=config)
+    app = PyjamazApp(config=config)
+    app.init_state(initial_state)
+    return app
 
 
 @click.group()
@@ -48,7 +52,7 @@ def import_blocks(initial_state_json, block_dir):
             block = Block.deserialize(block_data)
             app.process_block(block)
 
-    click.echo(json.dumps(app.state.serialize(), indent=2))
+            click.echo("Processed block {}".format(filename))
 
 
 if __name__ == '__main__':

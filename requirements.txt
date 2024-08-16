@@ -7,4 +7,5 @@ pycryptodome>=3.11.0,<4
 py-bip39-bindings>=0.1.9,<1
 
 scalecodec @ git+https://github.com/polkascan/py-scale-codec@v2
-git+https://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@github.com/JAMdotTech/py-bandersnatch-vrfs.git@main#egg=bandersnatch-vrfs
+bandersnatch-vrfs @ git+https://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@github.com/JAMdotTech/py-bandersnatch-vrfs.git
+rocksdb3 @ git+https://github.com/arjanz/rocksdb3

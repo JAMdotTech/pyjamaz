@@ -3,10 +3,14 @@ from typing import List
 
 from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound
+from pyjamaz.storage import StorageInterface
 
 if typing.TYPE_CHECKING:
     from pyjamaz.types.state import JamState
     from pyjamaz.models.block import Block
+
+
+T = typing.TypeVar('T')
 
 
 class State:
@@ -32,22 +36,6 @@ class State:
         pass
 
 
-class StateManager:
-
-    def __init__(self, current_state: 'JamState', pre_state: 'JamState'):
-        self.state = current_state
-        self.pre_state = pre_state
-        self.post_state = None
-
-    def state_transition(self, block: 'Block'):
-        raise NotImplementedError
-
-    def is_epoch_change(self):
-        return self.state.timeslot.epoch_number() != self.pre_state.timeslot.epoch_number()
-
-
-# TODO implement
-
 def state_key_constructor_component(state_component_id: int) -> bytes:
     """
     GP-ref:280,281 Only wellknown storage keys
@@ -59,6 +47,39 @@ def state_key_constructor_component(state_component_id: int) -> bytes:
         return WELL_KNOWN_STORAGE_KEYS[state_component_id]
     except IndexError:
         raise StateComponentNotFound(f"State component ID {state_component_id} not found")
+
+
+class StateManager:
+
+    component_id: int
+
+    def __init__(self, storage_engine: StorageInterface, app, **kwargs):
+        self.storage_engine = storage_engine
+        # TODO make nicer (tm) e.g. StateComponentManager
+        self.app = app
+        # self.state = self.retrieve()
+        self.pre_state = None
+        self.post_state = None
+
+    def get_state_component(self, component_id: typing.Type[T]) -> T:
+        return self.app.state_managers[component_id]
+
+    def state_transition(self, block: 'Block'):
+        raise NotImplementedError
+
+    def retrieve(self):
+        return self.storage_engine.retrieve(WELL_KNOWN_STORAGE_KEYS[self.component_id])
+
+    def store(self, data: bytes):
+        self.storage_engine.store(state_key_constructor_component(self.component_id), data)
+
+    def store_state(self):
+        data = self.post_state.to_scale_bytes().to_bytes()
+        self.store(data)
+
+    def retrieve_state(self):
+        raise NotImplementedError
+
 
 
 # def state_key_constructor_service(state_component_id: int, service_account_id: int) -> bytes:
