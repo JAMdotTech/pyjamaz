@@ -3,7 +3,6 @@ import enum
 import json
 import math
 from dataclasses import is_dataclass
-from types import NoneType
 from typing import Type, TypeVar, Union
 import typing
 
@@ -314,7 +313,7 @@ class Serializable:
                 return scale_bytes.get_next_bytes(length)
             elif is_dataclass(field_type):
                 return field_type.from_scale_bytes(scale_bytes)
-            elif field_type is NoneType:
+            elif field_type is type(None):
                 return None
             else:
                 raise NotImplementedError("unsupported type")
@@ -378,7 +377,7 @@ class Serializable:
                 return ScaleBytes(value)
             elif is_dataclass(field_type) or type(field_type) is enum.EnumType:
                 return value.to_scale_bytes()
-            elif field_type is NoneType:
+            elif field_type is type(None):
                 return ScaleBytes(bytes())
             else:
                 raise NotImplementedError("unsupported type")

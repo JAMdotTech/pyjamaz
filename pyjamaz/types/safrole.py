@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from types import NoneType
 from typing import List, Optional, Union, Type
 
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT
