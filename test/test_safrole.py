@@ -10,9 +10,9 @@ from parameterized import parameterized
 
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.app import AppConfig, PyjamazApp
-from pyjamaz.mixins import SerializableMixin
-from pyjamaz.state.managers import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
-from pyjamaz.storage import JSONStorage, RocksDBStorage
+from pyjamaz.serialization import Serializable
+from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
+from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
 from pyjamaz.types.safrole import State, Input, Output
 from pyjamaz.types.block import Block, Header, Extrinsic
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
@@ -20,7 +20,7 @@ from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleSt
 
 
 @dataclass
-class Testcase(SerializableMixin):
+class Testcase(Serializable):
     input: Input  # Input.
     pre_state: State  # Pre-execution state.
     output: Output  # Output.
@@ -47,10 +47,13 @@ class TestSafroleVector(unittest.TestCase):
         with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
             cls.ring_data = fp.read()
 
+        storage_dir = path.join(path.dirname(path.abspath(__file__)), '..', 'data')
+
         cls.config = AppConfig(
             ring_data=cls.ring_data,
-            storage_engine=RocksDBStorage("../data/db")
-            # storage_engine=JSONStorage("../data/storage.json")
+            # storage_engine=RocksDBStorage(path.join(storage_dir, "db"))
+            storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
+            # storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
         )
 
     @staticmethod
@@ -65,7 +68,7 @@ class TestSafroleVector(unittest.TestCase):
     def test_vector(self, name, directory, test_file):
 
         test_vector = self.load_test_vector_data(directory, test_file)
-        test_case = Testcase.deserialize(test_vector)
+        test_case = Testcase.from_json(test_vector)
 
         # TODO make type factory to bootstrap state SCALE types with correct constants
         # if directory == 'tiny':

@@ -5,18 +5,18 @@ from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.serialization import ScaleBytes
 from pyjamaz.types.safrole import CustomErrorCode, TicketBody, SlotSealerSeries, EpochMark, OutputMarks, Output
 
-from pyjamaz.state.base import StateManager
+from pyjamaz.state.base import StateComponent
 from pyjamaz.state.exceptions import StateTransitionError
-from pyjamaz.types.block import Header, Block
-from pyjamaz.types.state import TimeslotState, EntropyState, JamState, ValidatorPoolState, SafroleState, \
+from pyjamaz.types.block import Block
+from pyjamaz.types.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
-from scalecodec.base import ScaleBytes
 
 
-class Timeslot(StateManager):
+class Timeslot(StateComponent):
     component_id = 11
 
     def state_transition(self, block: Block):
@@ -34,7 +34,7 @@ class Timeslot(StateManager):
         return TimeslotState.from_scale_bytes(ScaleBytes(value))
 
 
-class Entropy(StateManager):
+class Entropy(StateComponent):
     component_id = 6
 
     def state_transition(self, block: Block):
@@ -53,7 +53,7 @@ class Entropy(StateManager):
         return EntropyState.from_scale_bytes(ScaleBytes(value))
 
 
-class ValidatorQueue(StateManager):
+class ValidatorQueue(StateComponent):
     component_id = 7
 
     def state_transition(self, block: Block):
@@ -64,7 +64,7 @@ class ValidatorQueue(StateManager):
         return ValidatorQueueState.from_scale_bytes(ScaleBytes(value))
 
 
-class ValidatorPool(StateManager):
+class ValidatorPool(StateComponent):
     component_id = 8
 
     def state_transition(self, block: Block):
@@ -77,7 +77,7 @@ class ValidatorPool(StateManager):
         return ValidatorPoolState.from_scale_bytes(ScaleBytes(value))
 
 
-class ValidatorArchive(StateManager):
+class ValidatorArchive(StateComponent):
     component_id = 9
 
     def state_transition(self, block: Block):
@@ -90,7 +90,7 @@ class ValidatorArchive(StateManager):
         return ValidatorArchiveState.from_scale_bytes(ScaleBytes(value))
 
 
-class Safrole(StateManager):
+class Safrole(StateComponent):
 
     component_id = 4
 

@@ -1,6 +1,15 @@
 import json
+import os
 
-import rocksdb3
+try:
+    import rocksdb3
+except ImportError:
+    rocksdb3 = None
+
+try:
+    import plyvel
+except ImportError:
+    plyvel = None
 
 
 class StorageInterface:
@@ -25,6 +34,12 @@ class JSONStorage(StorageInterface):
     def __init__(self, json_file: str):
         super().__init__()
         self.json_file = json_file
+
+        if not os.path.exists(self.json_file):
+            # Create the file
+            with open(self.json_file, 'w') as file:
+                file.write("{}")
+
         with open(self.json_file, 'r') as f:
             storage = json.load(f)
 
@@ -42,6 +57,10 @@ class JSONStorage(StorageInterface):
 
 class RocksDBTransaction:
     def __init__(self, db):
+
+        if rocksdb3 is None:
+            raise ImportError('rocksdb3 not installed')
+
         self.db = db
         self.write_batch = None
 
@@ -61,6 +80,9 @@ class RocksDBTransaction:
 class RocksDBStorage(StorageInterface):
 
     def __init__(self, db_file: str):
+        if rocksdb3 is None:
+            raise ImportError('rocksdb3 not installed')
+
         super().__init__()
         self.db = rocksdb3.open_default(db_file)
 
@@ -77,17 +99,20 @@ class RocksDBStorage(StorageInterface):
         return RocksDBTransaction(self.db)
 
 
-# class InMemoryStorage(StorageInterface):
-#
-#     def __init__(self, state: 'JamState'):
-#         super().__init__()
-#         self.state = state
-#
-#     def store(self, key: bytes, value: bytes):
-#         self.storage[key] = value
-#         with open(self.json_file, 'w') as f:
-#             serialized_storage = {f'0x{k.hex()}': f'0x{v.hex()}' for k, v in self.storage.items()}
-#             json.dump(serialized_storage, f, indent=2)
-#
-#     def retrieve(self, key: bytes) -> bytes:
-#         return self.storage[key]
+class LevelDBStorage(StorageInterface):
+
+    def __init__(self, db_file: str):
+        if plyvel is None:
+            raise ImportError('rocksdb3 not installed')
+
+        super().__init__()
+        self.db = plyvel.DB(db_file, create_if_missing=True)
+
+    def store(self, key: bytes, value: bytes):
+        self.db.put(key, value)
+
+    def retrieve(self, key: bytes) -> bytes:
+        return self.db.get(key)
+
+    def close(self):
+        self.db.close()

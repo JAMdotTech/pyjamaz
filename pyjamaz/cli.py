@@ -5,7 +5,7 @@ from os import path
 import click
 
 from pyjamaz.app import PyjamazApp, AppConfig
-from pyjamaz.storage import RocksDBStorage
+from pyjamaz.storage import JSONStorage, LevelDBStorage
 from pyjamaz.types.block import Block
 from pyjamaz.types.state import JamState
 
@@ -18,7 +18,8 @@ def initialize_app(initial_state: JamState) -> PyjamazApp:
     # Initialize app
     config = AppConfig(
         ring_data=ring_data,
-        storage_engine=RocksDBStorage(path.join(os.getcwd(), 'data', 'db'))
+        # storage_engine=JSONStorage(path.join(os.getcwd(), 'data', 'storage.json'))
+        storage_engine=LevelDBStorage(path.join(os.getcwd(), 'data', 'db'))
     )
 
     app = PyjamazApp(config=config)
@@ -41,7 +42,7 @@ def import_blocks(initial_state_json, block_dir):
     with open(path.join(os.getcwd(), initial_state_json), 'r') as fp:
         state_data = json.load(fp)
 
-    jam_state = JamState.deserialize(state_data)
+    jam_state = JamState.from_json(state_data)
     app = initialize_app(jam_state)
 
     # Process blocks
@@ -49,10 +50,12 @@ def import_blocks(initial_state_json, block_dir):
         if filename.endswith('.json'):
             with open(os.path.join(block_dir, filename)) as f:
                 block_data = json.load(f)
-            block = Block.deserialize(block_data)
+            block = Block.from_json(block_data)
             app.process_block(block)
 
             click.echo("Processed block {}".format(filename))
+
+    click.echo('Import completed.')
 
 
 if __name__ == '__main__':

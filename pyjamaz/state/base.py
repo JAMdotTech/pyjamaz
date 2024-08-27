@@ -1,39 +1,20 @@
-import typing
-from typing import List
+from typing import List, Union, TYPE_CHECKING, TypeVar, Dict, Type
 
 from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound
 from pyjamaz.storage import StorageInterface
 
-if typing.TYPE_CHECKING:
-    from pyjamaz.types.state import JamState
+if TYPE_CHECKING:
     from pyjamaz.models.block import Block
 
 
-T = typing.TypeVar('T')
+T = TypeVar('T')
 
 
 class State:
-    def allow_read(self) -> List['StateManager']:
-        pass
-
-    def allow_write(self) -> List['StateManager']:
-        pass
 
     def __setattr__(self, key, value):
         super().__setattr__(key, value)
-
-    def retrieve(self):
-        """
-        Retrieve from Storage TODO
-        Returns
-        -------
-
-        """
-        pass
-
-    def store(self):
-        pass
 
 
 def state_key_constructor_component(state_component_id: int) -> bytes:
@@ -51,18 +32,40 @@ def state_key_constructor_component(state_component_id: int) -> bytes:
 
 class StateManager:
 
+    def __init__(self, storage_engine: StorageInterface):
+        self.storage_engine = storage_engine
+        self.state_components: Dict[Union[int, Type['StateComponent']] , StateComponent] = {}
+
+    def add(self, state_component: Type['StateComponent'], **args):
+        obj = state_component(
+            self.storage_engine, self, **args
+        )
+        self.state_components[state_component.component_id] = obj
+        self.state_components[state_component] = obj
+
+    def get(self, state_component_id: Union[Type['StateComponent'], int]) -> 'StateComponent':
+        try:
+            return self.state_components[state_component_id]
+        except KeyError:
+            raise StateComponentNotFound(f"State component ID {state_component_id} not found")
+
+    def __iter__(self):
+        return iter(self.state_components.values())
+
+
+class StateComponent:
+
     component_id: int
 
-    def __init__(self, storage_engine: StorageInterface, app, **kwargs):
+    def __init__(self, storage_engine: StorageInterface, state_manager: StateManager, **kwargs):
         self.storage_engine = storage_engine
-        # TODO make nicer (tm) e.g. StateComponentManager
-        self.app = app
-        # self.state = self.retrieve()
+        self.state_manager = state_manager
+
         self.pre_state = None
         self.post_state = None
 
-    def get_state_component(self, component_id: typing.Type[T]) -> T:
-        return self.app.state_managers[component_id]
+    def get_state_component(self, state_component: Type[T]) -> T:
+        return self.state_manager.get(state_component.component_id)
 
     def state_transition(self, block: 'Block'):
         raise NotImplementedError
