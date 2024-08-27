@@ -9,9 +9,7 @@ from pyjamaz.state.exceptions import StateTransitionError
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue
 from pyjamaz.types.block import Block
-from pyjamaz.types.state import JamState, TimeslotState, ValidatorQueueState, EntropyState, SafroleState, \
-    ValidatorPoolState, ValidatorArchiveState
-from scalecodec.base import ScaleBytes
+from pyjamaz.types.state import JamState
 
 T = TypeVar('T')
 
