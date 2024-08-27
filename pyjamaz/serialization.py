@@ -252,7 +252,7 @@ class Serializable:
                 return value
             elif field_type is bytes:
                 return bytes.fromhex(value[2:])
-            elif type(field_type) is enum.EnumType:
+            elif issubclass(field_type, enum.Enum):
                 return field_type[value]
             elif is_dataclass(field_type):
                 return field_type.from_json(value)
@@ -375,7 +375,7 @@ class Serializable:
 
             elif field_type is bytes:
                 return ScaleBytes(value)
-            elif is_dataclass(field_type) or type(field_type) is enum.EnumType:
+            elif is_dataclass(field_type) or issubclass(field_type, enum.Enum):
                 return value.to_scale_bytes()
             elif field_type is type(None):
                 return ScaleBytes(bytes())
