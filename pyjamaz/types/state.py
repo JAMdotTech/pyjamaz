@@ -2,7 +2,8 @@ from dataclasses import dataclass, field
 from typing import List
 
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT
-from pyjamaz.types.safrole import TicketBody, SlotSealerSeries, ValidatorData
+from pyjamaz.types.safrole import TicketBody, SlotSealerSeries
+from pyjamaz.types.common import ValidatorData
 
 from pyjamaz.serialization import Serializable
 from pyjamaz.state.base import State

@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 from typing import List, Type, TypeVar
 
-from pyjamaz.storage import JSONStorage, StorageInterface
-from pyjamaz.types.safrole import Output
+from pyjamaz.storage import StorageInterface
+from pyjamaz.types.safrole import OutputMarks
 from pyjamaz.state.base import StateManager, StateComponent
-from pyjamaz.state.exceptions import StateTransitionError
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue
 from pyjamaz.types.block import Block
@@ -35,10 +34,8 @@ class PyjamazApp:
         self.state_components.add(Safrole, ring_data=self.config.ring_data)
         self.state_components.add(ValidatorQueue)
 
-        # self.storage_state = self.retrieve_state_from_storage()
-
     def get_state(self, state_manager: Type[StateComponent]):
-        return self.state_components.get(state_manager.component_id).retrieve_state()
+        return self.state_components.get(state_manager).retrieve_state()
 
     def init_state(self, state: JamState):
         self.state_components.get(Timeslot).pre_state = state.timeslot
@@ -65,28 +62,24 @@ class PyjamazApp:
         self.state_components.get(ValidatorQueue).post_state = state.validator_queue
         self.state_components.get(ValidatorQueue).store_state()
 
-    def process_block(self, block: Block) -> List[Output]:
+    def state_transition(self, block: Block) -> OutputMarks:
 
-        result = []
-
-        # with self.storage_engine.transaction as tx_buffer:
+        output_marks = OutputMarks()
 
         for state_component in self.state_components:
-            # Set copy of state as transaction buffer
-            state_component.pre_state = state_component.retrieve_state()
-            state_component.post_state = state_component.retrieve_state()
+            # Set copy of state in memory TODO how to manage this for services?
 
-            try:
-                # TODO use transaction and set so store function will use this
-                output: Output = state_component.state_transition(block)
+            state_component.initialize(
+                pre_state=state_component.retrieve_state(),
+                post_state=state_component.retrieve_state(),
+                output_marks=output_marks
+            )
 
-                if output is not None:
-                    result.append(output)
-            except StateTransitionError as e:
-                return [Output(err=e.custom_error_code)]
+            state_component.state_transition(block)
 
-        # All state managers succesful, commit state changes
-        for state_component in self.state_components:
-            state_component.store_state()
+        # All state transitions succesful, commit state changes
+        with self.storage_engine.transaction() as transaction:
+            for state_component in self.state_components:
+                state_component.store_state(transaction)
 
-        return result
+        return output_marks

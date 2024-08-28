@@ -1,24 +1,13 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Union, Type
+from typing import List, Optional
 
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT
-from pyjamaz.serialization import Serializable, T
-
-U8 = int  # INTEGER (0..255)
-U32 = int  # INTEGER (0..4294967295)
-ByteArray32 = bytes  # SEQUENCE (SIZE(32)) OF U8
-ByteArray128 = bytes
-ByteArray144 = bytes
-ByteArray784 = bytes
-OpaqueHash = ByteArray32
-Ed25519Key = ByteArray32
-BlsKey = ByteArray144  # SEQUENCE (SIZE(144)) OF U8
-BandersnatchKey = ByteArray32
-EpochKeys = List[BandersnatchKey]  # SEQUENCE (SIZE(epoch-length)) OF BandersnatchKey
+from pyjamaz.serialization import Serializable
+from pyjamaz.types.common import ValidatorsData, OpaqueHash, U8, BandersnatchKey, ByteArray784, U32, ByteArray144
 
 
-class CustomErrorCode(Serializable, Enum):
+class SafroleErrorCode(Serializable, Enum):
     bad_slot = 0  # Timeslot value must be strictly monotonic.
     unexpected_ticket = 1  # Received a ticket while in epoch's tail.
     bad_ticket_order = 2  # Tickets must be sorted.
@@ -46,17 +35,6 @@ class SlotSealerSeries(Serializable):
     def __post_init__(self):
         if self.tickets is None and self.keys is None:
             raise ValueError("Either tickets or keys must be set")
-
-
-@dataclass
-class ValidatorData(Serializable):
-    bandersnatch: BandersnatchKey = field(metadata={'length': 32})
-    ed25519: Ed25519Key = field(metadata={'length': 32})
-    bls: BlsKey = field(metadata={'length': 144})
-    metadata: ByteArray128 = field(metadata={'length': 128})
-
-
-ValidatorsData = List[ValidatorData]  # SEQUENCE (SIZE(validators-count)) OF ValidatorData
 
 
 @dataclass
@@ -90,7 +68,7 @@ class OutputMarks(Serializable):
 
 
 @dataclass
-class State(Serializable):
+class SafroleTestState(Serializable):
     tau: U32 = field(metadata={'length': 4})                # Most recent block's timeslot.
     eta: List[OpaqueHash] = field(metadata={'length': 32, 'size': 4})  # SEQUENCE (SIZE(4)) OF OpaqueHash
     lambda_: ValidatorsData = field(metadata={'name': 'lambda', 'size': VALIDATOR_COUNT}) # Validator keys and metadata which were active in the prior epoch.
@@ -103,16 +81,16 @@ class State(Serializable):
 
 
 @dataclass
-class Input(Serializable):
+class SafroleInput(Serializable):
     slot: U32 = field(metadata={'length': 4})  # Current slot. U32
     entropy: OpaqueHash = field(metadata={'length': 32})  # Per block entropy (originated from block entropy source VRF)
     extrinsic: List[TicketEnvelope] = field(metadata={'size': 'extrinsic'})  # Safrole extrinsic. SEQUENCE (SIZE(0..16)) OF TicketEnvelope
 
 
 @dataclass
-class Output(Serializable):
+class SafroleOutput(Serializable):
     ok: Optional[OutputMarks] = None  # Markers
-    err: Optional[CustomErrorCode] = None  # Error code (not specified in the Graypaper)
+    err: Optional[SafroleErrorCode] = None  # Error code (not specified in the Graypaper)
 
     def to_json(self) -> dict:
         if self.err is not None:

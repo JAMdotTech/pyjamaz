@@ -12,6 +12,22 @@ except ImportError:
     plyvel = None
 
 
+class TransactionRolledBack(Exception):
+    pass
+
+
+class Transaction:
+
+    def store(self, key: bytes, value: bytes):
+        raise NotImplementedError()
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
 class StorageInterface:
     def __init__(self):
         pass
@@ -22,11 +38,23 @@ class StorageInterface:
     def retrieve(self, key):
         raise NotImplementedError
 
+    def transaction(self):
+        raise NotImplementedError
+
+
+class JSONTransaction(Transaction):
+    def __init__(self, json_storage: 'JSONStorage'):
+
+        self.json_storage = json_storage
+
     def __enter__(self):
-        pass
+        return self
+
+    def store(self, key: bytes, value: bytes):
+        self.json_storage.store(key, value)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        return
 
 
 class JSONStorage(StorageInterface):
@@ -54,8 +82,11 @@ class JSONStorage(StorageInterface):
     def retrieve(self, key: bytes) -> bytes:
         return self.storage.get(key)
 
+    def transaction(self) -> JSONTransaction:
+        return JSONTransaction(self)
 
-class RocksDBTransaction:
+
+class RocksDBTransaction(Transaction):
     def __init__(self, db):
 
         if rocksdb3 is None:
@@ -74,7 +105,8 @@ class RocksDBTransaction:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is None:
             self.db.write(self.write_batch)
-            # raise TransactionRolledBack()
+        else:
+            raise TransactionRolledBack(exc_val)
 
 
 class RocksDBStorage(StorageInterface):
@@ -95,15 +127,38 @@ class RocksDBStorage(StorageInterface):
     def close(self):
         del self.db
 
-    def transaction(self):
+    def transaction(self) -> RocksDBTransaction:
         return RocksDBTransaction(self.db)
+
+
+class LevelDBTransaction(Transaction):
+    def __init__(self, db):
+
+        if plyvel is None:
+            raise ImportError('plyvel not installed')
+
+        self.db = db
+        self.write_batch = None
+
+    def __enter__(self):
+        self.write_batch = self.db.write_batch(transaction=True)
+        return self
+
+    def store(self, key: bytes, value: bytes):
+        self.write_batch.put(key, value)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            self.write_batch.write()
+        else:
+            raise TransactionRolledBack(exc_val)
 
 
 class LevelDBStorage(StorageInterface):
 
     def __init__(self, db_file: str):
         if plyvel is None:
-            raise ImportError('rocksdb3 not installed')
+            raise ImportError('plyvel not installed')
 
         super().__init__()
         self.db = plyvel.DB(db_file, create_if_missing=True)
@@ -116,3 +171,6 @@ class LevelDBStorage(StorageInterface):
 
     def close(self):
         self.db.close()
+
+    def transaction(self) -> LevelDBTransaction:
+        return LevelDBTransaction(self.db)

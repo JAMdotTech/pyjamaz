@@ -12,8 +12,9 @@ import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.serialization import Serializable
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
+from pyjamaz.state.exceptions import StateTransitionError
 from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
-from pyjamaz.types.safrole import State, Input, Output
+from pyjamaz.types.safrole import SafroleTestState, SafroleInput, SafroleOutput
 from pyjamaz.types.block import Block, Header, Extrinsic
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState
@@ -21,10 +22,10 @@ from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleSt
 
 @dataclass
 class Testcase(Serializable):
-    input: Input  # Input.
-    pre_state: State  # Pre-execution state.
-    output: Output  # Output.
-    post_state: State  # Post-execution state.
+    input: SafroleInput  # Input.
+    pre_state: SafroleTestState  # Pre-execution state.
+    output: SafroleOutput  # Output.
+    post_state: SafroleTestState  # Post-execution state.
 
 
 def get_test_vector_files(directories: list, file_filter: Optional[str] = None):
@@ -52,8 +53,8 @@ class TestSafroleVector(unittest.TestCase):
         cls.config = AppConfig(
             ring_data=cls.ring_data,
             # storage_engine=RocksDBStorage(path.join(storage_dir, "db"))
-            storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
-            # storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
+            # storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
+            storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
         )
 
     @staticmethod
@@ -123,8 +124,11 @@ class TestSafroleVector(unittest.TestCase):
         app.init_state(jam_state)
 
         # Process block
-        result = app.process_block(block)
-        output = result[0]
+        try:
+            output_marks = app.state_transition(block)
+            output = SafroleOutput(ok=output_marks)
+        except StateTransitionError as e:
+            output = SafroleOutput(err=e.custom_error_code)
 
         self.assertEqual(test_case.output, output, f'{name}: output does not match')
         self.assertEqual(test_case.post_state.tau, app.get_state(Timeslot).number, f'{name}:tau does not match')
