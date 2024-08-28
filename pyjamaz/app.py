@@ -1,58 +1,85 @@
-from copy import deepcopy
 from dataclasses import dataclass
-from typing import List
+from typing import List, Type, TypeVar
 
-from pyjamaz.types.safrole import Output
-from pyjamaz.state.base import StateManager
-from pyjamaz.state.exceptions import StateTransitionError
+from pyjamaz.storage import StorageInterface
+from pyjamaz.types.safrole import OutputMarks
+from pyjamaz.state.base import StateManager, StateComponent
 
-from pyjamaz.state.managers import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool
+from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue
 from pyjamaz.types.block import Block
 from pyjamaz.types.state import JamState
+
+T = TypeVar('T')
 
 
 @dataclass
 class AppConfig:
     ring_data: bytes
+    storage_engine: StorageInterface
 
 
 class PyjamazApp:
-    def __init__(self, initial_state: JamState, config: AppConfig):
-        self.prev_state = initial_state
-        self.state = initial_state
+    def __init__(self, config: AppConfig):
         self.config = config
 
+        self.storage_engine = config.storage_engine
+
         # Order defined by overall state transition dependency graph GP-0.3.2-eq16-30
-        # Todo: strictly define input parameters for STFs. What data is allowed to be used to determine posterior state
-        #  of state component.
-        self.state_managers: List[StateManager] = [
-            Timeslot(current_state=self.state, pre_state=self.state),
-            Entropy(current_state=self.state, pre_state=self.state),
-            ValidatorArchive(current_state=self.state, pre_state=self.state),
-            ValidatorPool(current_state=self.state, pre_state=self.state),
-            Safrole(current_state=self.state, pre_state=self.state, ring_data=self.config.ring_data),
-        ]
+        self.state_components = StateManager(self.storage_engine)
 
-    def process_block(self, block: Block) -> List[Output]:
+        self.state_components.add(Timeslot)
+        self.state_components.add(Entropy)
+        self.state_components.add(ValidatorArchive)
+        self.state_components.add(ValidatorPool)
+        self.state_components.add(Safrole, ring_data=self.config.ring_data)
+        self.state_components.add(ValidatorQueue)
 
-        post_state = deepcopy(self.state)
+    def get_state(self, state_manager: Type[StateComponent]):
+        return self.state_components.get(state_manager).retrieve_state()
 
-        result = []
-        for state_manager in self.state_managers:
-            # Set copy of state as transaction buffer
-            state_manager.state = post_state
-            state_manager.post_state = post_state
+    def init_state(self, state: JamState):
+        self.state_components.get(Timeslot).pre_state = state.timeslot
+        self.state_components.get(Timeslot).post_state = state.timeslot
+        self.state_components.get(Timeslot).store_state()
 
-            try:
-                output: Output = state_manager.state_transition(block)
+        self.state_components.get(Entropy).pre_state = state.entropy
+        self.state_components.get(Entropy).post_state = state.entropy
+        self.state_components.get(Entropy).store_state()
 
-                if output is not None:
-                    result.append(output)
-            except StateTransitionError as e:
-                return [Output(err=e.custom_error_code)]
+        self.state_components.get(ValidatorArchive).pre_state = state.validator_archive
+        self.state_components.get(ValidatorArchive).post_state = state.validator_archive
+        self.state_components.get(ValidatorArchive).store_state()
 
-        # All state managers succesful, commit state changes
-        self.prev_state = self.state
-        self.state = post_state
+        self.state_components.get(ValidatorPool).pre_state = state.validator_pool
+        self.state_components.get(ValidatorPool).post_state = state.validator_pool
+        self.state_components.get(ValidatorPool).store_state()
 
-        return result
+        self.state_components.get(Safrole).pre_state = state.safrole
+        self.state_components.get(Safrole).post_state = state.safrole
+        self.state_components.get(Safrole).store_state()
+
+        self.state_components.get(ValidatorQueue).pre_state = state.validator_queue
+        self.state_components.get(ValidatorQueue).post_state = state.validator_queue
+        self.state_components.get(ValidatorQueue).store_state()
+
+    def state_transition(self, block: Block) -> OutputMarks:
+
+        output_marks = OutputMarks()
+
+        for state_component in self.state_components:
+            # Set copy of state in memory TODO how to manage this for services?
+
+            state_component.initialize(
+                pre_state=state_component.retrieve_state(),
+                post_state=state_component.retrieve_state(),
+                output_marks=output_marks
+            )
+
+            state_component.state_transition(block)
+
+        # All state transitions succesful, commit state changes
+        with self.storage_engine.transaction() as transaction:
+            for state_component in self.state_components:
+                state_component.store_state(transaction)
+
+        return output_marks

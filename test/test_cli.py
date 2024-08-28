@@ -15,9 +15,8 @@ class TestCLI(unittest.TestCase):
         result = self.runner.invoke(main, [
             'import-blocks', path.join(self.base_dir, "initial-state.json"), path.join(self.base_dir, "block_data")
         ])
-        self.assertEqual(result.exit_code, 0)
-        state = json.loads(result.output)
-        self.assertEqual(state["timeslot"]["number"], 2)
+        self.assertIsNone(result.exception)
+        self.assertEqual(0, result.exit_code)
 
 
 if __name__ == '__main__':

@@ -16,5 +16,5 @@ pip install pyjamaz
 
 ```bash
 
-pyjamaz import --initial-state=./state.json --block-folder=./blocks
+pyjamaz import-blocks ./initial-state.json ./blocks/
 ```

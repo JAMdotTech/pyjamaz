@@ -3,23 +3,22 @@ from typing import List
 
 from pyjamaz.types.safrole import TicketEnvelope
 
-from pyjamaz.mixins import SerializableMixin
+from pyjamaz.serialization import Serializable
 from pyjamaz.state.base import State
-from scalecodec.types import U32, Vec, H512, H256
 
 
 @dataclass
-class Header(SerializableMixin, State):
-    timeslot: int = field(metadata={'scale': U32})  # Block's timeslot
-    vrf_signature: bytes = field(metadata={'scale': H256})  # entropy-yielding VRF signature
+class Header(Serializable, State):
+    timeslot: int = field(metadata={'length': 4})  # Block's timeslot
+    vrf_signature: bytes = field(metadata={'length': 32})  # entropy-yielding VRF signature
 
 
 @dataclass
-class Extrinsic(SerializableMixin, State):
-    tickets: List[TicketEnvelope] = field(metadata={'scale': Vec(TicketEnvelope.scale_type_def())})
+class Extrinsic(Serializable, State):
+    tickets: List[TicketEnvelope] = field(metadata={})
 
 
 @dataclass
-class Block(SerializableMixin, State):
+class Block(Serializable, State):
     header: Header
     extrinsic: Extrinsic
