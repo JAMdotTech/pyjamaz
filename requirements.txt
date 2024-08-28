@@ -8,3 +8,5 @@ py-bip39-bindings>=0.1.9,<1
 plyvel-ci ~=1.5.1
 
 bandersnatch-vrfs @ git+https://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@github.com/JAMdotTech/py-bandersnatch-vrfs.git
+
+numpy~=2.0.1

@@ -1,15 +1,22 @@
+import numpy as np
+
+from .opcodes import Opcode as op, OpcodeScheme, InstructionType
+
+
 class PVM:
 
-    def __init__(self):
+    def __init__(self, program, mem_size=4000):
         """
         Stub implementation of the PVM
         """
-        self.regs = []
-        self.pc = 0
-        self.gas = 0
-        self.memory = []
-        self.status = "trap"
-        self.program = []
+        self.reg = np.zeros(16, dtype=np.int32)
+        self.pc = np.uint32(0)
+        self.gas = np.uint32(0)
+        self.mem = np.zeros(mem_size, dtype=np.uint8)
+        # TODO: self.status = "trap"
+        # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
+        self.code = np.array(program.code, dtype=np.uint8)
+        self.program_size = len(self.code)
 
     def initialize(self, initial_regs, initial_pc, initial_gas):
         """
@@ -25,95 +32,55 @@ class PVM:
         -------
 
         """
-        self.regs = initial_regs[:]
-        self.pc = initial_pc
-        self.gas = initial_gas
+        self.reg = np.array(initial_regs, dtype=np.int32)
+        self.pc = np.uint32(initial_pc)
+        self.gas = np.uint32(initial_gas)
 
-    def fetch(self):
-        if self.pc + 2 >= len(self.program):
-            return None, None
+    """
+    def write_i32(s, x, addr):
+        for i in range(4): s.mem[addr + i] = (x >> (8 * i)) & 0xff
 
-        instruction_length = self.program[self.pc]
+    def read_i32(s, addr):
+        #TODO: kunnen we niet niet altijd uitgaan van bytes in mem? -> gezien de input?
+        byte0 = s.mem[addr + 0] & 0xFF
+        byte1 = s.mem[addr + 1] & 0xFF
+        byte2 = s.mem[addr + 2] & 0xFF
+        byte3 = s.mem[addr + 3] & 0xFF
+        return (byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0    
+    """
 
-        new_pc = self.pc + instruction_length
-        output = self.program[self.pc + 1], self.program[self.pc + 2: self.pc + 3 + instruction_length]
-        self.pc = new_pc
-        return output
+    def invoke(self):
 
-    def decode(self, opcode):
-        if opcode == 8:
-            return "ADD"
-        if opcode == 8:
-            return "ADD"
-        elif opcode == 9:
-            return "SUB"
-        elif opcode == 10:
-            return "MUL"
-        elif opcode == 11:
-            return "DIV"
-        elif opcode == 12:
-            return "MOD"
-        elif opcode == 13:
-            return "AND"
-        elif opcode == 14:
-            return "OR"
-        elif opcode == 15:
-            return "XOR"
-        elif opcode == 16:
-            return "NOT"
-        elif opcode == 17:
-            return "SHL"
-        elif opcode == 18:
-            return "SHR"
-        elif opcode == 19:
-            return "LOAD"
-        elif opcode == 20:
-            return "STORE"
-        return "UNKNOWN"
+        while self.pc < self.program_size and self.gas > 0:
 
-    def execute(self, instruction):
-        if instruction == "ADD":
-            self.regs[9] = self.regs[7] + self.regs[8]
-            self.gas -= 2
-        if instruction == "ADD":
-            self.regs[9] = self.regs[7] + self.regs[8]
-        elif instruction == "SUB":
-            self.regs[9] = self.regs[7] - self.regs[8]
-        elif instruction == "MUL":
-            self.regs[9] = self.regs[7] * self.regs[8]
-        elif instruction == "DIV":
-            self.regs[9] = self.regs[7] // self.regs[8]
-        elif instruction == "MOD":
-            self.regs[9] = self.regs[7] % self.regs[8]
-        elif instruction == "AND":
-            self.regs[9] = self.regs[7] & self.regs[8]
-        elif instruction == "OR":
-            self.regs[9] = self.regs[7] | self.regs[8]
-        elif instruction == "XOR":
-            self.regs[9] = self.regs[7] ^ self.regs[8]
-        elif instruction == "NOT":
-            self.regs[9] = ~self.regs[7]
-        elif instruction == "SHL":
-            self.regs[9] = self.regs[7] << self.regs[8]
-        elif instruction == "SHR":
-            self.regs[9] = self.regs[7] >> self.regs[8]
-        elif instruction == "LOAD":
-            self.regs[9] = self.memory[self.regs[7]]
-        elif instruction == "STORE":
-            self.memory[self.regs[7]] = self.regs[8]
-        else:
-            raise Exception("Unknown instruction")
+            opcode = self.code[self.pc]
+            inst_type = OpcodeScheme[opcode]
 
-    def run(self, program):
-        scale_encoded = program[0]
-        dyn_jump_table = program[1]
+            match inst_type:
+                case InstructionType.reg_reg_reg:
 
-        self.program = program[2:]
+                    r_a = self.code[self.pc + 1] % 16
+                    r_b = self.code[self.pc + 1] // 16
+                    r_d = self.code[self.pc + 2]
+                    self.pc += 3
 
-        while self.gas > 0:
-            opcode, _ = self.fetch()
-            if opcode is None:
-                break
-            instruction = self.decode(opcode)
-            self.execute(instruction)
+                    match opcode:
+                        # TODO: lookup voor gas usage
+                        case op.add.value:
+                            self.gas -= 2
+                            self.reg[r_d] = self.reg[r_a] + self.reg[r_b]
+                        case op.sub.value:
+                            self.gas -= 2
+                            self.reg[r_d] = self.reg[r_a] - self.reg[r_b]
+                        case op._or.value:
+                            self.gas -= 2
+                            self.reg[r_d] = self.reg[r_a] | self.reg[r_b]
 
+                        case _:
+                            raise Exception(f"Invalid opcode: {opcode} for instruction type {inst_type}")
+                case _:
+                    raise Exception(f"Invalid instruction type: {inst_type}")
+
+
+
+        self.status = "trap"
