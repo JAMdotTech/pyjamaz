@@ -6,6 +6,7 @@ from parameterized import parameterized
 
 from pyjamaz.pvm import PVM
 from pyjamaz.pvm.types import PVMProgram
+from pyjamaz.serialization import JamBytes
 
 
 def load_test_vectors(directory):
@@ -22,7 +23,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
     @parameterized.expand(load_test_vectors('./fixtures/pvm/programs2'))
     def test_instruction(self, name, test_vector):
 
-        pvm = PVM(PVMProgram.deserialize(test_vector["program"]))
+        pvm_data = PVMProgram.from_scale_bytes(JamBytes(bytes(test_vector["program"])))
+        pvm = PVM(pvm_data)
         pvm.initialize(
             test_vector["initial-regs"],
             test_vector["initial-pc"],
