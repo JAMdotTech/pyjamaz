@@ -5,8 +5,8 @@ from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.serialization import ScaleBytes
-from pyjamaz.types.safrole import CustomErrorCode, TicketBody, SlotSealerSeries, EpochMark, OutputMarks, Output
+from pyjamaz.serialization import JamBytes
+from pyjamaz.types.safrole import SafroleErrorCode, TicketBody, SlotSealerSeries, EpochMark, OutputMarks, SafroleOutput
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.state.exceptions import StateTransitionError
@@ -22,7 +22,7 @@ class Timeslot(StateComponent):
     def state_transition(self, block: Block):
 
         if block.header.timeslot <= self.pre_state.number:
-            raise StateTransitionError(CustomErrorCode.bad_slot)
+            raise StateTransitionError(SafroleErrorCode.bad_slot)
 
         self.post_state.number = block.header.timeslot
 
@@ -31,7 +31,7 @@ class Timeslot(StateComponent):
 
     def retrieve_state(self) -> TimeslotState:
         value = self.retrieve()
-        return TimeslotState.from_scale_bytes(ScaleBytes(value))
+        return TimeslotState.from_scale_bytes(JamBytes(value))
 
 
 class Entropy(StateComponent):
@@ -50,7 +50,7 @@ class Entropy(StateComponent):
 
     def retrieve_state(self) -> EntropyState:
         value = self.retrieve()
-        return EntropyState.from_scale_bytes(ScaleBytes(value))
+        return EntropyState.from_scale_bytes(JamBytes(value))
 
 
 class ValidatorQueue(StateComponent):
@@ -61,7 +61,7 @@ class ValidatorQueue(StateComponent):
 
     def retrieve_state(self) -> ValidatorQueueState:
         value = self.retrieve()
-        return ValidatorQueueState.from_scale_bytes(ScaleBytes(value))
+        return ValidatorQueueState.from_scale_bytes(JamBytes(value))
 
 
 class ValidatorPool(StateComponent):
@@ -74,7 +74,7 @@ class ValidatorPool(StateComponent):
 
     def retrieve_state(self) -> ValidatorPoolState:
         value = self.retrieve()
-        return ValidatorPoolState.from_scale_bytes(ScaleBytes(value))
+        return ValidatorPoolState.from_scale_bytes(JamBytes(value))
 
 
 class ValidatorArchive(StateComponent):
@@ -87,7 +87,7 @@ class ValidatorArchive(StateComponent):
 
     def retrieve_state(self) -> ValidatorArchiveState:
         value = self.retrieve()
-        return ValidatorArchiveState.from_scale_bytes(ScaleBytes(value))
+        return ValidatorArchiveState.from_scale_bytes(JamBytes(value))
 
 
 class Safrole(StateComponent):
@@ -100,7 +100,7 @@ class Safrole(StateComponent):
 
     def create_ticket_body(self, ticket_data, ring_public_keys) -> TicketBody:
         if ticket_data.attempt not in [0, 1]:
-            raise StateTransitionError(CustomErrorCode.bad_ticket_attempt)
+            raise StateTransitionError(SafroleErrorCode.bad_ticket_attempt)
 
         # GP-0.3.2-ref:74
         vrf_input_data = b"jam_ticket_seal"  # GP-0.3.2-ref:65
@@ -114,27 +114,27 @@ class Safrole(StateComponent):
                 self.ring_data, ring_public_keys, vrf_input_data, aux_data, ticket_data.signature
             )
         except ValueError as e:
-            raise StateTransitionError(CustomErrorCode.bad_ticket_proof)
+            raise StateTransitionError(SafroleErrorCode.bad_ticket_proof)
 
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
-    def state_transition(self, block: Block) -> Output:
+    def state_transition(self, block: Block):
 
         # GP-0.3.2-ref:75
         if self.get_state_component(Timeslot).post_state.slot_phase_index() < gp_const.TICKET_SUBMISSION_END_SLOT:
             # Min 0, max 16 tickets
             if len(block.extrinsic.tickets) > gp_const.MAXIMUM_EXTRINSIC_TICKETS:  # contant_K=16
-                raise StateTransitionError(CustomErrorCode.too_many_tickets)
+                raise StateTransitionError(SafroleErrorCode.too_many_tickets)
         else:
             if len(block.extrinsic.tickets) > 0:
                 # Don't accept tickets after TICKET_SUBMISSION_END_SLOT:
-                raise StateTransitionError(CustomErrorCode.unexpected_ticket)
+                raise StateTransitionError(SafroleErrorCode.unexpected_ticket)
 
         if len(block.extrinsic.tickets) > 0:
 
             # Check for duplicate ticket_data; GP-0.3.2-eq:77
             if list_has_duplicates(block.extrinsic.tickets):
-                raise StateTransitionError(CustomErrorCode.duplicate_ticket)
+                raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
 
             ring_public_keys = [v.bandersnatch for v in self.post_state.validators]
 
@@ -148,13 +148,13 @@ class Safrole(StateComponent):
                 # Check if ticket already exists
                 if ticket in self.post_state.ticket_accumulator:
                     # GP-0.3.2-eq:78
-                    raise StateTransitionError(CustomErrorCode.duplicate_ticket)
+                    raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                 else:
                     input_tickets.append(ticket)
 
             # Check if tickets are in order: GP-0.3.2-ref:77
             if not self.tickets_in_order(input_tickets):
-                raise StateTransitionError(CustomErrorCode.bad_ticket_order)
+                raise StateTransitionError(SafroleErrorCode.bad_ticket_order)
 
             # Add tickets to ticket accumulator, sort and limit: GP-0.3.2-ref:78,79
             self.post_state.ticket_accumulator += input_tickets
@@ -219,9 +219,8 @@ class Safrole(StateComponent):
             # Clear ticket accumulator
             self.post_state.ticket_accumulator = []
 
-        output_marks = OutputMarks(epoch_mark=epoch_mark, tickets_mark=tickets_mark)
-
-        return Output(ok=output_marks)
+        self.output_marks.epoch_mark = epoch_mark
+        self.output_marks.tickets_mark = tickets_mark
 
     def enact_fallback_method(self) -> bool:
         return (
@@ -240,4 +239,4 @@ class Safrole(StateComponent):
 
     def retrieve_state(self) -> SafroleState:
         value = self.retrieve()
-        return SafroleState.from_scale_bytes(ScaleBytes(value))
+        return SafroleState.from_scale_bytes(JamBytes(value))

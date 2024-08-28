@@ -18,7 +18,7 @@ class SerializationException(Exception):
     pass
 
 
-class ScaleBytes:
+class JamBytes:
     """
     Representation of SCALE encoded Bytes.
     """
@@ -99,7 +99,7 @@ class ScaleBytes:
         self.offset = 0
 
     def copy(self):
-        return ScaleBytes(self.data)
+        return JamBytes(self.data)
 
     def __str__(self):
         return "0x{}".format(self.data.hex())
@@ -121,8 +121,8 @@ class ScaleBytes:
 
     def __add__(self, data):
 
-        if type(data) is ScaleBytes:
-            return ScaleBytes(self.data + data.data)
+        if type(data) is JamBytes:
+            return JamBytes(self.data + data.data)
 
         if type(data) is bytes:
             data = bytearray(data)
@@ -130,7 +130,7 @@ class ScaleBytes:
             data = bytearray.fromhex(data[2:])
 
         if type(data) is bytearray:
-            return ScaleBytes(self.data + data)
+            return JamBytes(self.data + data)
 
     def __bytes__(self):
         return self.to_bytes()
@@ -155,12 +155,12 @@ class UInt:
     """
 
     @classmethod
-    def from_scale_bytes(cls, scale_bytes: ScaleBytes, length: int) -> int:
+    def from_scale_bytes(cls, scale_bytes: JamBytes, length: int) -> int:
         return int.from_bytes(scale_bytes.get_next_bytes(length), byteorder='little', signed=False)
 
     @classmethod
-    def to_scale_bytes(cls, value: int, length: int) -> ScaleBytes:
-        return ScaleBytes(int(value).to_bytes(length=length, byteorder='little'))
+    def to_scale_bytes(cls, value: int, length: int) -> JamBytes:
+        return JamBytes(int(value).to_bytes(length=length, byteorder='little'))
 
 
 class VarInt64:
@@ -169,7 +169,7 @@ class VarInt64:
     """
 
     @classmethod
-    def from_scale_bytes(cls, data: ScaleBytes) -> int:
+    def from_scale_bytes(cls, data: JamBytes) -> int:
 
         prefix = int.from_bytes(data.get_next_bytes(1), byteorder='little')
 
@@ -205,7 +205,7 @@ class VarInt64:
         return value
 
     @classmethod
-    def to_scale_bytes(cls, value: int) -> ScaleBytes:
+    def to_scale_bytes(cls, value: int) -> JamBytes:
         """
         Serializes a natural number x using a variable-length prefix with up to 4 bytes.
 
@@ -221,7 +221,7 @@ class VarInt64:
             raise SerializationException("Cannot encode negative value")
 
         if value < 2**7:
-            return ScaleBytes(bytes([value]))
+            return JamBytes(bytes([value]))
 
         length = math.ceil(value.bit_length() / 7) - 1
 
@@ -236,7 +236,7 @@ class VarInt64:
         else:
             raise SerializationException("Number too large for 64-bit variable-length encoding")
 
-        return ScaleBytes(bytes([prefix]) + remainder)
+        return JamBytes(bytes([prefix]) + remainder)
 
 
 class Serializable:
@@ -287,7 +287,7 @@ class Serializable:
         return cls(**field_values)
 
     @classmethod
-    def from_scale_bytes(cls: Type[T], scale_bytes: ScaleBytes) -> T:
+    def from_scale_bytes(cls: Type[T], scale_bytes: JamBytes) -> T:
         field_values = {}
 
         def extract_field(orig_field, field_type):
@@ -356,8 +356,8 @@ class Serializable:
 
         return cls(**field_values)
 
-    def to_scale_bytes(self) -> ScaleBytes:
-        def convert_field(orig_field, field_type, value) -> ScaleBytes:
+    def to_scale_bytes(self) -> JamBytes:
+        def convert_field(orig_field, field_type, value) -> JamBytes:
             if field_type is str:
                 return value.encode('utf-8')
             elif field_type is int:
@@ -374,19 +374,19 @@ class Serializable:
                     return UInt.to_scale_bytes(value, length)
 
             elif field_type is bytes:
-                return ScaleBytes(value)
+                return JamBytes(value)
             elif is_dataclass(field_type) or issubclass(field_type, enum.Enum):
                 return value.to_scale_bytes()
             elif field_type is type(None):
-                return ScaleBytes(bytes())
+                return JamBytes(bytes())
             else:
                 raise NotImplementedError("unsupported type")
 
         if issubclass(self.__class__, enum.Enum):
-            return ScaleBytes(bytes([self.value]))
+            return JamBytes(bytes([self.value]))
         elif is_dataclass(self):
 
-            data = ScaleBytes(bytearray())
+            data = JamBytes(bytearray())
             for field in dataclasses.fields(self):
 
                 actual_type = field.type
@@ -401,10 +401,10 @@ class Serializable:
                     if type(None) in args:
                         actual_type = [arg for arg in args if arg is not type(None)][0]
                         if field_value is None:
-                            data += ScaleBytes(bytes([0]))
+                            data += JamBytes(bytes([0]))
                             continue
                         else:
-                            data += ScaleBytes(bytes([1]))
+                            data += JamBytes(bytes([1]))
 
                 if typing.get_origin(actual_type) is list:
                     if type(field.metadata.get('size')) is str:

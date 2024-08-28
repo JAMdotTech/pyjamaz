@@ -51,7 +51,7 @@ def import_blocks(initial_state_json, block_dir):
             with open(os.path.join(block_dir, filename)) as f:
                 block_data = json.load(f)
             block = Block.from_json(block_data)
-            app.process_block(block)
+            app.state_transition(block)
 
             click.echo("Processed block {}".format(filename))
 
