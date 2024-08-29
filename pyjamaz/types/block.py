@@ -2,10 +2,8 @@ from dataclasses import dataclass, field
 from typing import List
 
 from pyjamaz.types.safrole import TicketEnvelope
-
 from pyjamaz.serialization import Serializable
 from pyjamaz.state.base import State
-
 
 
 @dataclass
@@ -36,20 +34,20 @@ class Header(Serializable, State):
 @dataclass
 class Extrinsic(Serializable, State):
     # TODO: complete extrinsic type definition
-    tickets: List[TicketEnvelope] = field(metadata={}) # GP-0.3.6-eq:14,60 (E_t) | Manages selection of validators for permissioning of block authoring
+    tickets: List[TicketEnvelope] = field(metadata={}) # GP-0.3.6-eq:14 (E_t) | Manages selection of validators for permissioning of block authoring
 
     # # TODO: suggestion for type definition of extrinsic below
-    # tickets: List[TicketEnvelope] = field(metadata={}) # GP-0.3.6-eq:14,60 (E_t) | Manages selection of validators for permissioning of block authoring
+    # tickets: List[TicketEnvelope] = field(metadata={}) # GP-0.3.6-eq:14 (E_t) | Manages selection of validators for permissioning of block authoring
     # # TODO: add placeholder dataclass for Judgement
     # # TODO: consider renaming judgement(s) to dispute(s)
-    # judgements: List[Judgement] = field(metadata={}) # GP-0.3.6-eq:14,60 (E_d) | Votes by validators on disputes
+    # judgements: List[Judgement] = field(metadata={}) # GP-0.3.6-eq:14 (E_d) | Votes by validators on disputes
     # # TODO: add placeholder dataclass for Preimage
-    # preimages: List[Preimage] = field(metadata={}) # GP-0.3.6-eq:14,60 (E_p) | Static data presently being requested to be available for workloads to be able to fetch on demand
+    # preimages: List[Preimage] = field(metadata={}) # GP-0.3.6-eq:14 (E_p) | Static data presently being requested to be available for workloads to be able to fetch on demand
     # # TODO: add placeholder dataclass for Assurance
     # # TODO: consider renaming availability to assurances
-    # availability: List[Assurance] = field(metadata={}) # GP-0.3.6-eq:14,60 (E_a) | Assurances by each validator concerning which of the input data of workloads they have correctly received and are storing locally
+    # availability: List[Assurance] = field(metadata={}) # GP-0.3.6-eq:14 (E_a) | Assurances by each validator concerning which of the input data of workloads they have correctly received and are storing locally
     # # TODO: add placeholder dataclass for Report
-    # reports: List[Report] = field(metadata={}) # GP-0.3.6-eq:14,60 (E_g) | Reports of newly completed workloads whose accuracy is guaranteed by specific validators
+    # reports: List[Report] = field(metadata={}) # GP-0.3.6-eq:14 (E_g) | Reports of newly completed workloads whose accuracy is guaranteed by specific validators
 
 
 @dataclass
