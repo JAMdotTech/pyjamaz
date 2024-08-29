@@ -65,22 +65,22 @@ class JamState(Serializable, State):
     validator_pool: ValidatorPoolState  # GP-0.3.6-eq:15 (kappa|κ) | State with validators of current epoch
     validator_archive: ValidatorArchiveState  # GP-0.3.6-eq:15 (lambda|λ) | State with validators of previous epoch
 
-    # TODO: suggestion for additional type definitions of state below
-    # TODO: question: impact of order? preferred order is the order in the grapypaper (alpha, beta, etc)
-    # TODO: add placeholder dataclass for AuthorizerPoolState
-    authorizer_pool: AuthorizerPoolState  # GP-0.3.6-eq:15 (alpha|α) | State with authorizers of current epoch
-    # TODO: add placeholder dataclass for AuthorizerQueueState
-    authorizer_queue: AuthorizerQueueState  # GP-0.3.6-eq:15 (phi|φ) | State with authorizers of future epoch
-    # TODO: add placeholder dataclass for RecentHistoryState
-    recent_history: RecentHistoryState  # GP-0.3.6-eq:15 (beta|β) | State with recent history
-    # TODO: add placeholder dataclass for Services
-    services: ServicesState  # GP-0.3.6-eq:15 (delta|δ) | State with services
-    # TODO: add placeholder dataclass for Assurances
-    assurances: AssurancesState  # GP-0.3.6-eq:15 (rho|ρ) | State with assurances
-    # TODO: add placeholder dataclass for Disputes
-    Disputes: DisputesState  # GP-0.3.6-eq:15 (psi|ψ) | State with disputes
-    # TODO: add placeholder dataclass for PrivilegedServices
-    privileged_services: PrivilegedServicesState  # GP-0.3.6-eq:15 (chi|χ) | State with privileged services
-    # TODO: add placeholder dataclass for Statistics
-    statistics: StatisticsState  # GP-0.3.6-eq:15 (pi|π) | State with statistics
+    # # TODO: suggestion for additional type definitions of state below
+    # # TODO: question: impact of order? preferred order is the order in the grapypaper (alpha, beta, etc)
+    # # TODO: add placeholder dataclass for AuthorizerPoolState
+    # authorizer_pool: AuthorizerPoolState  # GP-0.3.6-eq:15 (alpha|α) | State with authorizers of current epoch
+    # # TODO: add placeholder dataclass for AuthorizerQueueState
+    # authorizer_queue: AuthorizerQueueState  # GP-0.3.6-eq:15 (phi|φ) | State with authorizers of future epoch
+    # # TODO: add placeholder dataclass for RecentHistoryState
+    # recent_history: RecentHistoryState  # GP-0.3.6-eq:15 (beta|β) | State with recent history
+    # # TODO: add placeholder dataclass for Services
+    # services: ServicesState  # GP-0.3.6-eq:15 (delta|δ) | State with services
+    # # TODO: add placeholder dataclass for Assurances
+    # assurances: AssurancesState  # GP-0.3.6-eq:15 (rho|ρ) | State with assurances
+    # # TODO: add placeholder dataclass for Disputes
+    # Disputes: DisputesState  # GP-0.3.6-eq:15 (psi|ψ) | State with disputes
+    # # TODO: add placeholder dataclass for PrivilegedServices
+    # privileged_services: PrivilegedServicesState  # GP-0.3.6-eq:15 (chi|χ) | State with privileged services
+    # # TODO: add placeholder dataclass for Statistics
+    # statistics: StatisticsState  # GP-0.3.6-eq:15 (pi|π) | State with statistics
 
