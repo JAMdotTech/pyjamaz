@@ -19,20 +19,23 @@ class SafroleErrorCode(Serializable, Enum):
 
 
 @dataclass
-class TicketBody(Serializable):
-    id: OpaqueHash = field(metadata={'length': 32})  # OpaqueHash
-    attempt: U8 = field(metadata={'length': 1})   # U8
+class TicketBody(Serializable):  # GP-0.3.6-eq:50 (blackboard_C) | # Single ticket
+    id: OpaqueHash = field(metadata={'length': 32})  # GP-0.3.6-eq:50 (bold_y) | # OpaqueHash
+    attempt: U8 = field(metadata={'length': 1})  # GP-0.3.6-eq:50 (italic_r) | # U8
 
-
+# TODO: explain next line
 TicketsBodies = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
 
 
 @dataclass
-class SlotSealerSeries(Serializable):
-    tickets: Optional[List[TicketBody]] = field(default=None, metadata={'size': EPOCH_TIMESLOTS})  # Optional list of TicketBody instances
-    keys: Optional[List[BandersnatchKey]] = field(default=None, metadata={'size': EPOCH_TIMESLOTS, 'length': 32})  # Optional list of BandersnatchKey instances
+class SlotSealerSeries(Serializable):  # GP-0.3.6-eq:49 (gamma_s|γ_s) | Slot-sealer series (ENUM structure)
+    # TODO: where does Graypaper state this is an optional list; let's discuss?
+    tickets: Optional[List[TicketBody]] = field(default=None, metadata={'size': EPOCH_TIMESLOTS})  # GP-0.3.6-eq:49 (blackboard_C,constant_E) | ?Optional? list of exactly 600 TicketBody instances
+    # TODO: where does Graypaper state this is an optional list; let's discuss?
+    keys: Optional[List[BandersnatchKey]] = field(default=None, metadata={'size': EPOCH_TIMESLOTS, 'length': 32})  # GP-0.3.6-eq:49 (blackboard_H_B,constant_E) | ?Optional? list of exactly 600 BandersnatchKey instances
 
     def __post_init__(self):
+        # TODO: BUG use XOR. Both at the same time is not allowed
         if self.tickets is None and self.keys is None:
             raise ValueError("Either tickets or keys must be set")
 
