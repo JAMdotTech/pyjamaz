@@ -38,19 +38,16 @@ class SafroleState(Serializable):
 
 @dataclass
 class ValidatorQueueState(Serializable, State):
-    # TODO: Force list size to 1023 (constant_K)
     validators: List[ValidatorData] = field(metadata={'size': VALIDATOR_COUNT})  # GP-0.3.6-eq:51 (iota|ι,constant_V) | List of exactly 1023 validators (data includes keys and metadata) to be drawn from next once per epoch
 
 
 @dataclass
 class ValidatorPoolState(Serializable, State):
-    # TODO: Force list size to 1023 (constant_K)
     validators: List[ValidatorData] = field(metadata={'size': VALIDATOR_COUNT})  # GP-0.3.6-eq:51 (kappa|κ,constant_V) | List of exactly 1023 validators (data includes keys and metadata) active in current epoch
 
 
 @dataclass
 class ValidatorArchiveState(Serializable, State):
-    # TODO: Force list size to 1023 (constant_K)
     validators: List[ValidatorData] = field(metadata={'size': VALIDATOR_COUNT})  # GP-0.3.6-eq:51 (lambda|λ,constant_V) | List of exactly 1023 validators (data includes keys and metadata) which were active in the prior epoch
 
 
