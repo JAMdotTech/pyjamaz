@@ -380,7 +380,7 @@ class Serializable:
             elif field_type is type(None):
                 return JamBytes(bytes())
             else:
-                raise NotImplementedError("unsupported type")
+                raise NotImplementedError(f"unsupported type '{field_type}")
 
         if issubclass(self.__class__, enum.Enum):
             return JamBytes(bytes([self.value]))

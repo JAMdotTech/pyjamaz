@@ -114,6 +114,7 @@ class TestSafroleVector(unittest.TestCase):
 
         block = Block(
             header=Header(
+                hash=bytes(32),
                 parent_hash=bytes(32),
                 parent_state_root=bytes(32),
                 extrinsic_root=bytes(32),
@@ -127,7 +128,8 @@ class TestSafroleVector(unittest.TestCase):
             ),
             extrinsic=Extrinsic(
                 tickets=test_case_input.extrinsic,
-                work_report_hashes=[]
+                work_report_hashes=[],
+                accumulate_root=bytes(32)
             )
         )
 

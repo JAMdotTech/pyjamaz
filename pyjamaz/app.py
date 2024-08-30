@@ -28,7 +28,7 @@ class PyjamazApp:
         self.state_components = StateManager(self.storage_engine)
 
         self.state_components.add(Timeslot)
-        self.state_components.add(BlocksHistory)
+        # self.state_components.add(BlocksHistory)
         self.state_components.add(Entropy)
         self.state_components.add(ValidatorArchive)
         self.state_components.add(ValidatorPool)
@@ -43,9 +43,9 @@ class PyjamazApp:
         self.state_components.get(Timeslot).post_state = state.timeslot
         self.state_components.get(Timeslot).store_state()
 
-        self.state_components.get(BlocksHistory).pre_state = state.blocks_history
-        self.state_components.get(BlocksHistory).post_state = state.blocks_history
-        self.state_components.get(BlocksHistory).store_state()
+        # self.state_components.get(BlocksHistory).pre_state = state.blocks_history
+        # self.state_components.get(BlocksHistory).post_state = state.blocks_history
+        # self.state_components.get(BlocksHistory).store_state()
 
         self.state_components.get(Entropy).pre_state = state.entropy
         self.state_components.get(Entropy).post_state = state.entropy
