@@ -4,7 +4,7 @@ from typing import List
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 
 import pyjamaz.graypaper_constants as gp_const
-from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.hashing import blake2b_256_hash, keccak_256_hash
 from pyjamaz.serialization import JamBytes
 from pyjamaz.types.common import BlockInfo, Mmr
 from pyjamaz.types.safrole import SafroleErrorCode, SlotSealerSeries, SafroleOutput
@@ -254,8 +254,12 @@ class BlocksHistory(StateComponent):
         if len(self.pre_state.blocks) > 0:
             self.post_state.blocks[-1].state_root = block.header.parent_state_root
 
-        # TODO implement MMR according to GP
-        peaks = [block.extrinsic.accumulate_root]
+            # TODO implement MMR according to GP
+            prev_peaks = b''.join(item if item is not None else b'\x00' for item in reversed(self.post_state.blocks[-1].mmr.peaks))
+            peaks = [None,  keccak_256_hash(prev_peaks + block.extrinsic.accumulate_root)]
+
+        else:
+            peaks = [block.extrinsic.accumulate_root]
 
         recent_block = BlockInfo(
             header_hash=block.header.hash,
