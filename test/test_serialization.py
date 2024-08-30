@@ -3,7 +3,8 @@ from dataclasses import dataclass, field
 from typing import List
 
 from pyjamaz.serialization import Serializable, JamBytes, VarInt64, SerializationException
-from pyjamaz.types.safrole import SafroleErrorCode, OutputMarks, SafroleOutput
+from pyjamaz.types.safrole import SafroleErrorCode, SafroleOutput
+from pyjamaz.types.block import OutputMarks
 from pyjamaz.types.common import ValidatorData
 
 
@@ -20,7 +21,7 @@ class Program(Serializable):
 class TestProgramSerialization(unittest.TestCase):
 
     def test_from_bytes(self):
-        program = Program.from_scale_bytes(JamBytes(bytes([0, 0, 3, 8, 135, 9, 249])))
+        program = Program.from_jam_bytes(JamBytes(bytes([0, 0, 3, 8, 135, 9, 249])))
         self.assertEqual(program.jump_table_entry_count, 0)
         self.assertEqual(bytes([8, 135, 9]), program.code)
 
@@ -33,9 +34,9 @@ class TestProgramSerialization(unittest.TestCase):
             'jump_table_entry_count': 3,
             'jump_table_entry_size': 2
         })
-        scale_bytes = program.to_scale_bytes()
+        scale_bytes = program.to_jam_bytes()
         self.assertEqual('0x030203010002000300088709f9', scale_bytes.to_hex())
-        self.assertEqual(program, Program.from_scale_bytes(scale_bytes))
+        self.assertEqual(program, Program.from_jam_bytes(scale_bytes))
 
 
 class TestSerialization(unittest.TestCase):
@@ -60,7 +61,7 @@ class TestSerialization(unittest.TestCase):
 
         self.assertEqual({'err': 'duplicate_ticket'}, value)
 
-        data = output.to_scale_bytes()
+        data = output.to_jam_bytes()
         self.assertEqual('0x000106', data.to_hex())
 
     def test_deserialize(self):
@@ -79,9 +80,9 @@ class TestSerialization(unittest.TestCase):
 
     def test_from_to_scale_bytes(self):
 
-        scale_data = self.test_obj.to_scale_bytes()
+        scale_data = self.test_obj.to_jam_bytes()
 
-        validator_obj = ValidatorData.from_scale_bytes(scale_data)
+        validator_obj = ValidatorData.from_jam_bytes(scale_data)
 
         self.assertEqual(self.test_obj, validator_obj)
 

@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT
-from pyjamaz.types.safrole import TicketBody, SlotSealerSeries
-from pyjamaz.types.common import ValidatorData
+from pyjamaz.types.safrole import SlotSealerSeries
+from pyjamaz.types.block import TicketBody
+from pyjamaz.types.common import ValidatorData, BlockInfo
 
 from pyjamaz.serialization import Serializable
 from pyjamaz.state.base import State
@@ -18,6 +19,11 @@ class TimeslotState(Serializable, State):
 
     def slot_phase_index(self) -> int:
         return self.number % EPOCH_TIMESLOTS
+
+
+@dataclass
+class BlocksHistoryState(Serializable, State):
+    blocks: List[BlockInfo] = field(metadata={'size': 'blocks'})
 
 
 @dataclass
@@ -50,12 +56,13 @@ class ValidatorArchiveState(Serializable, State):
 
 @dataclass
 class JamState(Serializable, State):
-    timeslot: TimeslotState
-    entropy: EntropyState
-    safrole: SafroleState
-    validator_queue: ValidatorQueueState
-    validator_pool: ValidatorPoolState
-    validator_archive: ValidatorArchiveState
+    blocks_history: Optional[BlocksHistoryState]
+    timeslot: Optional[TimeslotState]
+    entropy: Optional[EntropyState]
+    safrole: Optional[SafroleState]
+    validator_queue: Optional[ValidatorQueueState]
+    validator_pool: Optional[ValidatorPoolState]
+    validator_archive: Optional[ValidatorArchiveState]
 
 
 

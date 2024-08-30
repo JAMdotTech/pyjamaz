@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from typing import List, Type, TypeVar
+from typing import Type, TypeVar
 
 from pyjamaz.storage import StorageInterface
-from pyjamaz.types.safrole import OutputMarks
 from pyjamaz.state.base import StateManager, StateComponent
 
-from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue
-from pyjamaz.types.block import Block
+from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
+    BlocksHistory
+from pyjamaz.types.block import Block, OutputMarks
 from pyjamaz.types.state import JamState
 
 T = TypeVar('T')
@@ -28,6 +28,7 @@ class PyjamazApp:
         self.state_components = StateManager(self.storage_engine)
 
         self.state_components.add(Timeslot)
+        self.state_components.add(BlocksHistory)
         self.state_components.add(Entropy)
         self.state_components.add(ValidatorArchive)
         self.state_components.add(ValidatorPool)
@@ -41,6 +42,10 @@ class PyjamazApp:
         self.state_components.get(Timeslot).pre_state = state.timeslot
         self.state_components.get(Timeslot).post_state = state.timeslot
         self.state_components.get(Timeslot).store_state()
+
+        self.state_components.get(BlocksHistory).pre_state = state.blocks_history
+        self.state_components.get(BlocksHistory).post_state = state.blocks_history
+        self.state_components.get(BlocksHistory).store_state()
 
         self.state_components.get(Entropy).pre_state = state.entropy
         self.state_components.get(Entropy).post_state = state.entropy
@@ -62,24 +67,13 @@ class PyjamazApp:
         self.state_components.get(ValidatorQueue).post_state = state.validator_queue
         self.state_components.get(ValidatorQueue).store_state()
 
-    def state_transition(self, block: Block) -> OutputMarks:
+    def validate_block(self, block: Block):
+        pass
 
-        output_marks = OutputMarks()
+    def process_block(self, block: Block) -> OutputMarks:
 
-        for state_component in self.state_components:
-            # Set copy of state in memory TODO how to manage this for services?
+        self.validate_block(block)
 
-            state_component.initialize(
-                pre_state=state_component.retrieve_state(),
-                post_state=state_component.retrieve_state(),
-                output_marks=output_marks
-            )
-
-            state_component.state_transition(block)
-
-        # All state transitions succesful, commit state changes
-        with self.storage_engine.transaction() as transaction:
-            for state_component in self.state_components:
-                state_component.store_state(transaction)
+        output_marks = self.state_components.state_transition(block)
 
         return output_marks

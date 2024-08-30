@@ -17,7 +17,7 @@ from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
 from pyjamaz.types.safrole import SafroleTestState, SafroleInput, SafroleOutput
 from pyjamaz.types.block import Block, Header, Extrinsic
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
-    ValidatorPoolState, ValidatorArchiveState
+    ValidatorPoolState, ValidatorArchiveState, BlocksHistoryState
 
 
 @dataclass
@@ -53,8 +53,8 @@ class TestSafroleVector(unittest.TestCase):
         cls.config = AppConfig(
             ring_data=cls.ring_data,
             # storage_engine=RocksDBStorage(path.join(storage_dir, "db"))
-            # storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
-            storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
+            storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
+            # storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
         )
 
     @staticmethod
@@ -83,6 +83,9 @@ class TestSafroleVector(unittest.TestCase):
 
         # Build initial state
         jam_state = JamState(
+            blocks_history=BlocksHistoryState(
+                blocks=[]
+            ),
             timeslot=TimeslotState(
                 number=test_case.pre_state.tau
             ),
@@ -111,11 +114,20 @@ class TestSafroleVector(unittest.TestCase):
 
         block = Block(
             header=Header(
+                parent_hash=bytes(32),
+                parent_state_root=bytes(32),
+                extrinsic_root=bytes(32),
                 timeslot=test_case_input.slot,
-                vrf_signature=test_case_input.entropy
+                epoch_marker=None,
+                tickets_marker=None,
+                offenders_marker=[],
+                block_author_index=0,
+                vrf_signature=test_case_input.entropy,
+                block_seal=bytes(32)
             ),
             extrinsic=Extrinsic(
-                tickets=test_case_input.extrinsic
+                tickets=test_case_input.extrinsic,
+                work_report_hashes=[]
             )
         )
 
@@ -125,7 +137,7 @@ class TestSafroleVector(unittest.TestCase):
 
         # Process block
         try:
-            output_marks = app.state_transition(block)
+            output_marks = app.process_block(block)
             output = SafroleOutput(ok=output_marks)
         except StateTransitionError as e:
             output = SafroleOutput(err=e.custom_error_code)
