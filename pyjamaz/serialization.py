@@ -287,7 +287,7 @@ class Serializable:
         return cls(**field_values)
 
     @classmethod
-    def from_scale_bytes(cls: Type[T], scale_bytes: JamBytes) -> T:
+    def from_jam_bytes(cls: Type[T], scale_bytes: JamBytes) -> T:
         field_values = {}
 
         def extract_field(orig_field, field_type):
@@ -312,7 +312,7 @@ class Serializable:
                     length = field_values[length.name]
                 return scale_bytes.get_next_bytes(length)
             elif is_dataclass(field_type):
-                return field_type.from_scale_bytes(scale_bytes)
+                return field_type.from_jam_bytes(scale_bytes)
             elif field_type is type(None):
                 return None
             else:
@@ -356,7 +356,7 @@ class Serializable:
 
         return cls(**field_values)
 
-    def to_scale_bytes(self) -> JamBytes:
+    def to_jam_bytes(self) -> JamBytes:
         def convert_field(orig_field, field_type, value) -> JamBytes:
             if field_type is str:
                 return value.encode('utf-8')
@@ -376,7 +376,7 @@ class Serializable:
             elif field_type is bytes:
                 return JamBytes(value)
             elif is_dataclass(field_type) or issubclass(field_type, enum.Enum):
-                return value.to_scale_bytes()
+                return value.to_jam_bytes()
             elif field_type is type(None):
                 return JamBytes(bytes())
             else:
@@ -406,7 +406,7 @@ class Serializable:
                         else:
                             data += JamBytes(bytes([1]))
 
-                if typing.get_origin(actual_type) is list:
+                if actual_type is list or typing.get_origin(actual_type) is list:
                     if type(field.metadata.get('size')) is str:
                         # Add Vec length data
                         data += VarInt64.to_scale_bytes(len(field_value))
@@ -431,7 +431,7 @@ class Serializable:
                 return value
             elif field_type is bytes:
                 return f'0x{value.hex()}'
-            elif type(field_type) is enum.EnumType:
+            elif issubclass(field_type, enum.Enum):
                 return field_type[value]
             elif is_dataclass(field_type):
                 return field_type.to_json(value)
