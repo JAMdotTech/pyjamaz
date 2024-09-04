@@ -2,7 +2,7 @@ import json
 import unittest
 from os import path
 
-from pyjamaz.types.block import Header, OutputMarks
+from pyjamaz.types.block import Header, OutputMarks, Extrinsic
 from pyjamaz.types.safrole import SafroleOutput, SafroleErrorCode
 
 
@@ -31,6 +31,38 @@ class TestCodec(unittest.TestCase):
                 jam_data = f.read()
 
             self.assertEqual(jam_data.hex(), header.to_jam_bytes().to_bytes().hex())
+
+    def test_extrinsic(self):
+        with open(path.join(self.test_vector_dir, f'extrinsic.json')) as f:
+            test_vector = json.load(f)
+
+        # translate fields
+        # test_vector['timeslot'] = test_vector.pop('slot')
+        # test_vector['epoch_marker'] = test_vector.pop('epoch_mark')
+        # test_vector['tickets_marker'] = test_vector.pop('tickets_mark')
+        # test_vector['offenders_marker'] = test_vector.pop('offenders_mark')
+
+        extrinsic = Extrinsic.from_json(test_vector)
+        value = extrinsic.serialize()
+        # self.assertDictEqual(test_vector, value)
+
+        # with open(path.join(self.test_vector_dir, f'extrinsic.bin'), "rb") as f:
+        #    jam_data = f.read()
+
+        # self.assertEqual(jam_data.hex(), extrinsic.to_jam_bytes().to_bytes().hex())
+
+    def test_extrinsic_guarantees(self):
+        with open(path.join(self.test_vector_dir, f'extrinsic_guarantees.json')) as f:
+            test_vector = json.load(f)
+
+        extrinsic = Extrinsic.from_json(test_vector)
+        value = extrinsic.serialize()
+        # self.assertDictEqual(test_vector, value)
+
+        # with open(path.join(self.test_vector_dir, f'extrinsic_tickets.bin'), "rb") as f:
+        #    jam_data = f.read()
+
+        # self.assertEqual(jam_data.hex(), extrinsic.to_jam_bytes().to_bytes().hex())
 
     def test_enum(self):
         value = SafroleErrorCode.duplicate_ticket.serialize()
