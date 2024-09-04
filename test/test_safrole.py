@@ -2,15 +2,15 @@ import json
 import os
 import unittest
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from os import path
 from typing import Optional
 
 from parameterized import parameterized
 
 import pyjamaz.graypaper_constants as gp_const
+from jamcodec.mixins import Serializable
 from pyjamaz.app import AppConfig, PyjamazApp
-from pyjamaz.serialization import Serializable
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.state.exceptions import StateTransitionError
 from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
@@ -22,10 +22,10 @@ from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleSt
 
 @dataclass
 class Testcase(Serializable):
-    input: SafroleInput  # Input.
-    pre_state: SafroleTestState  # Pre-execution state.
-    output: SafroleOutput  # Output.
-    post_state: SafroleTestState  # Post-execution state.
+    input: SafroleInput = field(metadata={'codec': SafroleInput.to_codec_def()})  # Input.
+    pre_state: SafroleTestState = field(metadata={'codec': SafroleTestState.to_codec_def()})  # Pre-execution state.
+    output: SafroleOutput = field(metadata={'codec': SafroleOutput.to_codec_def()})  # Output.
+    post_state: SafroleTestState = field(metadata={'codec': SafroleTestState.to_codec_def()})  # Post-execution state.
 
 
 def get_test_vector_files(directories: list, file_filter: Optional[str] = None):
@@ -69,8 +69,11 @@ class TestSafroleVector(unittest.TestCase):
     def test_vector(self, name, directory, test_file):
 
         test_vector = self.load_test_vector_data(directory, test_file)
-        test_case = Testcase.from_json(test_vector)
 
+        test_vector['pre_state']['lambda_'] = test_vector['pre_state'].pop('lambda')
+        test_vector['post_state']['lambda_'] = test_vector['post_state'].pop('lambda')
+
+        test_case = Testcase.from_json(test_vector)
         # TODO make type factory to bootstrap state SCALE types with correct constants
         # if directory == 'tiny':
         #     gp_const.VALIDATOR_COUNT = 6
@@ -111,11 +114,21 @@ class TestSafroleVector(unittest.TestCase):
 
         block = Block(
             header=Header(
+                parent=bytes(32),
+                parent_state_root=bytes(32),
+                extrinsic_hash=bytes(32),
                 timeslot=test_case_input.slot,
-                vrf_signature=test_case_input.entropy
+                epoch_marker=None,
+                tickets_marker=None,
+                offenders_marker=[],
+                author_index=0,
+                entropy_source=test_case_input.entropy,
+                seal=bytes(96)
             ),
             extrinsic=Extrinsic(
-                tickets=test_case_input.extrinsic
+                tickets=test_case_input.extrinsic,
+                work_report_hashes=None,
+                accumulate_root=None
             )
         )
 

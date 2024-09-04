@@ -4,13 +4,13 @@ from typing import List
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 
 import pyjamaz.graypaper_constants as gp_const
+from jamcodec.base import JamBytes
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.serialization import JamBytes
-from pyjamaz.types.safrole import SafroleErrorCode, TicketBody, SlotSealerSeries, EpochMark, OutputMarks, SafroleOutput
+from pyjamaz.types.safrole import SafroleErrorCode, TicketBody, SlotSealerSeries
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.state.exceptions import StateTransitionError
-from pyjamaz.types.block import Block
+from pyjamaz.types.block import Block, EpochMark
 from pyjamaz.types.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
@@ -31,7 +31,7 @@ class Timeslot(StateComponent):
 
     def retrieve_state(self) -> TimeslotState:
         value = self.retrieve()
-        return TimeslotState.from_scale_bytes(JamBytes(value))
+        return TimeslotState.from_jam_bytes(JamBytes(value))
 
 
 class Entropy(StateComponent):
@@ -42,7 +42,7 @@ class Entropy(StateComponent):
         self.pre_state = self.retrieve_state()
         self.post_state = self.retrieve_state()
 
-        eta_0 = blake2b_256_hash(self.pre_state.entropy[0] + block.header.vrf_signature)  # GP-0.3.2-ref:67
+        eta_0 = blake2b_256_hash(self.pre_state.entropy[0] + block.header.entropy_source)  # GP-0.3.2-ref:67
         if self.get_state_component(Timeslot).is_epoch_change():
             self.post_state.entropy = [eta_0] + self.pre_state.entropy[:3]  # GP-0.3.2-ref:68
         else:
@@ -50,7 +50,7 @@ class Entropy(StateComponent):
 
     def retrieve_state(self) -> EntropyState:
         value = self.retrieve()
-        return EntropyState.from_scale_bytes(JamBytes(value))
+        return EntropyState.from_jam_bytes(JamBytes(value))
 
 
 class ValidatorQueue(StateComponent):
@@ -61,7 +61,7 @@ class ValidatorQueue(StateComponent):
 
     def retrieve_state(self) -> ValidatorQueueState:
         value = self.retrieve()
-        return ValidatorQueueState.from_scale_bytes(JamBytes(value))
+        return ValidatorQueueState.from_jam_bytes(JamBytes(value))
 
 
 class ValidatorPool(StateComponent):
@@ -74,7 +74,7 @@ class ValidatorPool(StateComponent):
 
     def retrieve_state(self) -> ValidatorPoolState:
         value = self.retrieve()
-        return ValidatorPoolState.from_scale_bytes(JamBytes(value))
+        return ValidatorPoolState.from_jam_bytes(JamBytes(value))
 
 
 class ValidatorArchive(StateComponent):
@@ -87,7 +87,7 @@ class ValidatorArchive(StateComponent):
 
     def retrieve_state(self) -> ValidatorArchiveState:
         value = self.retrieve()
-        return ValidatorArchiveState.from_scale_bytes(JamBytes(value))
+        return ValidatorArchiveState.from_jam_bytes(JamBytes(value))
 
 
 class Safrole(StateComponent):
@@ -239,4 +239,4 @@ class Safrole(StateComponent):
 
     def retrieve_state(self) -> SafroleState:
         value = self.retrieve()
-        return SafroleState.from_scale_bytes(JamBytes(value))
+        return SafroleState.from_jam_bytes(JamBytes(value))
