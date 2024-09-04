@@ -27,7 +27,7 @@ class TestCodec(unittest.TestCase):
             value = header.serialize()
             self.assertDictEqual(test_vector, value)
 
-            with open(f'./fixtures/codec/header_{n}.bin', "rb") as f:
+            with open(path.join(self.test_vector_dir, f'header_{n}.bin'), "rb") as f:
                 jam_data = f.read()
 
             self.assertEqual(jam_data.hex(), header.to_jam_bytes().to_bytes().hex())
