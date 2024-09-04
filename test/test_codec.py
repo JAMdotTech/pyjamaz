@@ -1,14 +1,20 @@
 import json
 import unittest
+from os import path
 
 from pyjamaz.types.block import Header, OutputMarks
 from pyjamaz.types.safrole import SafroleOutput, SafroleErrorCode
 
 
 class TestCodec(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.test_vector_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec')
+
     def test_header(self):
         for n in [0, 1]:
-            with open(f'./fixtures/codec/header_{n}.json') as f:
+            with open(path.join(self.test_vector_dir, f'header_{n}.json')) as f:
                 test_vector = json.load(f)
 
             # translate fields
