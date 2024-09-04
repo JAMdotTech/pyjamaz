@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from math import floor
 from typing import List, Optional
 
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Enum, Null
@@ -84,8 +85,8 @@ class Verdict(Serializable):
     """
     target: bytes = field(metadata={'codec': H256})
     age: int = field(metadata={'codec': U32})
-    # Todo: change array size to use constants: 1+((VALIDATOR_COUNT/CORE_COUNT)*2)
-    votes: List[Judgement] = field(metadata={'codec': Array(Judgement.to_codec_def(), 5)})
+    # Todo: change array size to use constants: 1+(floor(VALIDATOR_COUNT/3)*2)
+    votes: List[Judgement] = field(metadata={'codec': Array(Judgement.to_codec_def(), 1+(floor(VALIDATOR_COUNT/3)*2))})
 
 @dataclass
 class Culprit(Serializable):
