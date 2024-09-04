@@ -5,7 +5,7 @@ from os import path
 from jamcodec.types import Vec
 
 from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, Disputes, RefinementContext, WorkReport, \
-    WorkResult, Guarantee, Preimage, TicketEnvelope
+    WorkResult, Guarantee, Preimage, TicketEnvelope, Block
 from pyjamaz.types.safrole import SafroleOutput, SafroleErrorCode
 
 
@@ -30,7 +30,25 @@ class TestCodec(unittest.TestCase):
         self.assertEqual(jam_data.hex(), assurances.to_jam_bytes().to_bytes().hex())
 
     def test_block(self):
-        pass
+        with open(path.join(self.test_vector_dir, f'block.json')) as f:
+            test_vector = json.load(f)
+
+        # translate fields
+        # Todo: Explain how do translations on nested dataclasses
+        test_vector['timeslot'] = test_vector.pop('slot')
+        test_vector['epoch_marker'] = test_vector.pop('epoch_mark')
+        test_vector['tickets_marker'] = test_vector.pop('tickets_mark')
+        test_vector['offenders_marker'] = test_vector.pop('offenders_mark')
+
+        block = Block.from_json(test_vector)
+        value = block.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_dir, f'block.bin'), "rb") as f:
+           jam_data = f.read()
+
+        self.assertEqual(jam_data.hex(), block.to_jam_bytes().to_bytes().hex())
+
 
     def test_disputes_extrinsic(self):
         with open(path.join(self.test_vector_dir, f'disputes_extrinsic.json')) as f:
