@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Enum, Null
-from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS
+from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.types.common import OpaqueHash, BandersnatchKey, ByteArray784
 
@@ -84,7 +84,8 @@ class Verdict(Serializable):
     """
     target: bytes = field(metadata={'codec': H256})
     age: int = field(metadata={'codec': U32})
-    votes: List[Judgement] = field(metadata={'codec': Vec(Judgement.to_codec_def())})
+    # Todo: change array size to use constants: 1+((VALIDATOR_COUNT/CORE_COUNT)*2)
+    votes: List[Judgement] = field(metadata={'codec': Array(Judgement.to_codec_def(), 5)})
 
 @dataclass
 class Culprit(Serializable):

@@ -2,7 +2,9 @@ import json
 import unittest
 from os import path
 
-from pyjamaz.types.block import Header, OutputMarks, Extrinsic
+from jamcodec.types import Vec
+
+from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, Disputes
 from pyjamaz.types.safrole import SafroleOutput, SafroleErrorCode
 
 
@@ -51,18 +53,35 @@ class TestCodec(unittest.TestCase):
 
         # self.assertEqual(jam_data.hex(), extrinsic.to_jam_bytes().to_bytes().hex())
 
-    def test_extrinsic_guarantees(self):
-        with open(path.join(self.test_vector_dir, f'extrinsic_guarantees.json')) as f:
+    def test_disputes_extrinsic(self):
+        with open(path.join(self.test_vector_dir, f'disputes_extrinsic.json')) as f:
             test_vector = json.load(f)
 
-        extrinsic = Extrinsic.from_json(test_vector)
-        value = extrinsic.serialize()
-        # self.assertDictEqual(test_vector, value)
+        # translate fields
+        # None
 
-        # with open(path.join(self.test_vector_dir, f'extrinsic_tickets.bin'), "rb") as f:
-        #    jam_data = f.read()
+        disputes_extrinsic = Disputes.from_json(test_vector)
+        value = disputes_extrinsic.serialize()
+        self.assertDictEqual(test_vector, value)
 
-        # self.assertEqual(jam_data.hex(), extrinsic.to_jam_bytes().to_bytes().hex())
+        with open(path.join(self.test_vector_dir, f'disputes_extrinsic.bin'), "rb") as f:
+           jam_data = f.read()
+
+        self.assertEqual(jam_data.hex(), disputes_extrinsic.to_jam_bytes().to_bytes().hex())
+
+    def test_assurances_extrinsic(self):
+        with open(path.join(self.test_vector_dir, f'assurances_extrinsic.json')) as f:
+            test_vector = json.load(f)
+
+        # Todo: Explain how to import a list of Assurance from JSON
+        assurances = Vec(Assurance).from_json(test_vector)
+        value = assurances.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_dir, f'assurances_extrinsic.bin'), "rb") as f:
+           jam_data = f.read()
+
+        self.assertEqual(jam_data.hex(), assurances.to_jam_bytes().to_bytes().hex())
 
     def test_enum(self):
         value = SafroleErrorCode.duplicate_ticket.serialize()
