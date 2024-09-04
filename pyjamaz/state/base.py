@@ -107,7 +107,7 @@ class StateComponent:
             self.storage_engine.store(state_key_constructor_component(self.component_id), data)
 
     def store_state(self, transaction: Transaction = None):
-        data = self.post_state.to_scale_bytes().to_bytes()
+        data = self.post_state.to_jam_bytes().to_bytes()
         self.store(data, transaction)
 
     def retrieve_state(self):

@@ -1,10 +1,9 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
-from pyjamaz.serialization import Serializable
+from jamcodec.mixins import Serializable
+from jamcodec.types import H256, Array, U8
 
-U8 = int  # INTEGER (0..255)
-U32 = int  # INTEGER (0..4294967295)
 ByteArray32 = bytes  # SEQUENCE (SIZE(32)) OF U8
 ByteArray128 = bytes
 ByteArray144 = bytes
@@ -18,10 +17,10 @@ EpochKeys = List[BandersnatchKey]  # SEQUENCE (SIZE(epoch-length)) OF Bandersnat
 
 @dataclass
 class ValidatorData(Serializable):
-    bandersnatch: BandersnatchKey = field(metadata={'length': 32})
-    ed25519: Ed25519Key = field(metadata={'length': 32})
-    bls: BlsKey = field(metadata={'length': 144})
-    metadata: ByteArray128 = field(metadata={'length': 128})
+    bandersnatch: BandersnatchKey = field(metadata={'codec': H256})
+    ed25519: Ed25519Key = field(metadata={'codec': H256})
+    bls: BlsKey = field(metadata={'codec': Array(U8, 144)})
+    metadata: ByteArray128 = field(metadata={'codec': Array(U8, 128)})
 
 
 ValidatorsData = List[ValidatorData]  # SEQUENCE (SIZE(validators-count)) OF ValidatorData
