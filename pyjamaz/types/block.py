@@ -656,13 +656,10 @@ class WorkPackage(Serializable):
     ----------
     authorization: Bytes
         GP-0.3.6-eq:174 (j) |
-        xxx
+        Authorization token blob
     auth_code_host: U32
         GP-0.3.6-eq:174 (h) |
-        The index of a service to which it relates
-    code_hash: H256
-        GP-0.3.6-eq:174 (c) |
-        The hash of the code  of the service at the time of being reported
+        Index of the service which hosts the authorization code
     # TODO: deviation from GP-0.3.6-eq:174 in which c & bold_p are separated. This impacts the structure of JSON (not JAM-codec)
     authorizer: Authorizer
         GP-0.3.6-eq:174 (c & bold_p) |
@@ -680,5 +677,4 @@ class WorkPackage(Serializable):
     authorizer: Authorizer = field(metadata={'codec': Authorizer.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
     items: List[WorkItem] = field(metadata={'codec': Vec(WorkItem.to_codec_def())})
-
 
