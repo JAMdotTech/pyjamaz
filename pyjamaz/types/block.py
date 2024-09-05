@@ -246,31 +246,12 @@ class WorkExecResult(Serializable):
         Code oversize error
     """
     ok: Bytes = field(default=None, metadata={'codec': Bytes})
-    # TODO: find a way to parse null from JSON
-    out_of_gas: Null = field(default=None, metadata={'codec': Null})
-    panic: Null = field(default=None, metadata={'codec': Null})
-    bad_code: Null = field(default=None, metadata={'codec': Null})
-    code_oversize: Null = field(default=None, metadata={'codec': Null})
+    out_of_gas: None = field(default=None, metadata={'codec': Null})
+    panic: None = field(default=None, metadata={'codec': Null})
+    bad_code: None = field(default=None, metadata={'codec': Null})
+    code_oversize: None = field(default=None, metadata={'codec': Null})
 
-    _codec_type_def = Enum(
-        ok=Bytes,
-        out_of_gas=Null,
-        panic=Null,
-        bad_code=Null,
-        code_oversize=Null
-    )
-
-    # def serialize(self) -> dict:
-    #     if self.ok is not None:
-    #         return {'ok': self.ok.serialize()}
-    #     elif self.out_of_gas is not None:
-    #         return {'out_of_gas': self.out_of_gas.serialize()}
-    #     elif self.panic is not None:
-    #         return {'panic': self.panic.serialize()}
-    #     elif self.bad_code is not None:
-    #         return {'bad_code': self.bad_code.serialize()}
-    #     elif self.code_oversize is not None:
-    #         return {'code_oversize': self.code_oversize.serialize()}
+    _codec_enum = True
 
 
 @dataclass

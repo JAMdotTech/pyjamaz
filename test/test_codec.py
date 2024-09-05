@@ -75,18 +75,18 @@ class TestCodec(unittest.TestCase):
 
         extrinsic = Extrinsic.from_json(test_vector)
         value = extrinsic.serialize()
-        # self.assertDictEqual(test_vector, value)
+        self.assertDictEqual(test_vector, value)
 
-        # with open(path.join(self.test_vector_dir, f'extrinsic.bin'), "rb") as f:
-        #    jam_data = f.read()
+        with open(path.join(self.test_vector_dir, f'extrinsic.bin'), "rb") as f:
+           jam_data = f.read()
 
-        # self.assertEqual(jam_data.hex(), extrinsic.to_jam_bytes().to_bytes().hex())
+        self.assertEqual(jam_data.hex(), extrinsic.to_jam_bytes().to_bytes().hex())
 
     def test_guarantees_extrinsic(self):
         with open(path.join(self.test_vector_dir, f'guarantees_extrinsic.json')) as f:
             test_vector = json.load(f)
 
-        guarantees = [Assurance.from_json(item) for item in test_vector]
+        guarantees = [Guarantee.from_json(item) for item in test_vector]
         value = [guarantee.serialize() for guarantee in guarantees]
         self.assertListEqual(test_vector, value)
 
