@@ -26,8 +26,9 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_dir, f'assurances_extrinsic.bin'), "rb") as f:
            jam_data = f.read()
 
-        # Todo: hulp nodig
-        self.assertEqual(jam_data.hex(), assurances.to_jam_bytes().to_bytes().hex())
+        assurances_obj = Vec(Assurance.to_codec_def()).new()
+        data = assurances_obj.encode([a.serialize() for a in assurances])
+        self.assertEqual(jam_data.hex(), data.to_bytes().hex())
 
     def test_block(self):
         with open(path.join(self.test_vector_dir, f'block.json')) as f:
@@ -92,8 +93,10 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_dir, f'guarantees_extrinsic.bin'), "rb") as f:
            jam_data = f.read()
 
-        # Todo: hulp nodig
-        self.assertEqual(jam_data.hex(), guarantees.to_jam_bytes().to_bytes().hex())
+        guarantees_obj = Vec(Guarantee.to_codec_def()).new()
+        data = guarantees_obj.encode([g.serialize() for g in guarantees])
+        self.assertEqual(jam_data.hex(), data.to_bytes().hex())
+
 
     def test_header(self):
         for n in [0, 1]:
@@ -119,7 +122,6 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_dir, f'preimages_extrinsic.json')) as f:
             test_vector = json.load(f)
 
-        # Todo: Explain how to import a list of Preimage from JSON
         preimages = [Preimage.from_json(item) for item in test_vector]
         value = [preimage.serialize() for preimage in preimages]
         self.assertListEqual(test_vector, value)
@@ -127,8 +129,9 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_dir, f'preimages_extrinsic.bin'), "rb") as f:
            jam_data = f.read()
 
-        # Todo: hulp nodig
-        self.assertEqual(jam_data.hex(), preimages.to_jam_bytes().to_bytes().hex())
+        preimages_obj = Vec(Preimage.to_codec_def()).new()
+        data = preimages_obj.encode([p.serialize() for p in preimages])
+        self.assertEqual(jam_data.hex(), data.to_bytes().hex())
 
     def test_refine_context(self):
         with open(path.join(self.test_vector_dir, f'refine_context.json')) as f:
@@ -157,8 +160,9 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_dir, f'tickets_extrinsic.bin'), "rb") as f:
            jam_data = f.read()
 
-        # Todo: hulp nodig
-        self.assertEqual(jam_data.hex(), tickets.to_jam_bytes().to_bytes().hex())
+        tickets_obj = Vec(TicketEnvelope.to_codec_def()).new()
+        data = tickets_obj.encode([t.serialize() for t in tickets])
+        self.assertEqual(jam_data.hex(), data.to_bytes().hex())
 
     def test_work_item(self):
         with open(path.join(self.test_vector_dir, f'work_item.json')) as f:
