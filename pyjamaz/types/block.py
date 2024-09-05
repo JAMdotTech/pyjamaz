@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from math import floor
 from typing import List, Optional
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Enum, Null
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Enum, Null, I64
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.types.common import OpaqueHash, BandersnatchKey, ByteArray784
@@ -281,7 +281,7 @@ class WorkResult(Serializable):
 
     Attributes
     ----------
-    service: H256
+    service: U32
         GP-0.3.6-eq:121 (s) |
         The index of a service whose state is to be altered and thus whose refine code was already executed
     code_hash: H256
@@ -553,3 +553,132 @@ class Block(Serializable):
     """
     header: Header = field(metadata={'codec': Header.to_codec_def()})
     extrinsic: Extrinsic = field(metadata={'codec': Extrinsic.to_codec_def()})
+
+@dataclass
+class WorkItemExtrinsic(Serializable):
+    """
+    GP-0.3.6-eq:175 (x) | A sequence of blob hashes and lengths
+
+    Attributes
+    ----------
+    hash: H256
+        GP-0.3.6-eq:175 (blackboard_H) |
+        Blob hashes (Todo: check for possible typo in GP)
+    len: U16
+        GP-0.3.6-eq:175 (blackboard_N type derived from encoding appendix) |
+        A validator index
+    """
+    hash: bytes = field(metadata={'codec': H256})
+    len: int = field(metadata={'codec': U32})
+
+
+@dataclass
+class ImportSegment(Serializable):
+    """
+    GP-0.3.6-eq:175 (i) | Imported data segments consisting of the root of the segment tree and the index into it
+
+    Attributes
+    ----------
+    tree_root: H256
+        GP-0.3.6-eq:175 (blackboard_H) |
+        Root of the segment tree
+    index: U16
+        GP-0.3.6-eq:175 (blackboard_N type derived from encoding appendix) |
+        Index into the segment tree
+    """
+    tree_root: bytes = field(metadata={'codec': H256})
+    # Todo: BIN-data seems outdated and needs to be updated with new version
+    index: int = field(metadata={'codec': U16})
+
+
+@dataclass
+class WorkItem(Serializable):
+    """
+    GP-0.3.6-eq:175 (blackboard_I) | Work item.
+
+    Attributes
+    ----------
+    service: U32
+        GP-0.3.6-eq:175 (s) |
+        The index of a service to which it relates
+    code_hash: H256
+        GP-0.3.6-eq:175 (c) |
+        The hash of the code  of the service at the time of being reported
+    payload: Bytes
+        GP-0.3.6-eq:175 (y) |
+        A payload blob
+    gas_limit: U64
+        GP-0.3.6-eq:175 (g) |
+        The gas limit
+    import_segments: U16
+        GP-0.3.6-eq:175 (i) |
+        Imported data segments
+    extrinsic: H256
+        GP-0.3.6-eq:175 (x) |
+        A sequence of blob hashes and lengths
+    export_count: U16
+        GP-0.3.6-eq:175 (e) |
+        The number of data segements exported by this work itemot
+    """
+    service: int = field(metadata={'codec': U32})
+    code_hash: bytes = field(metadata={'codec': H256})
+    payload: bytes = field(metadata={'codec': Bytes})
+    gas_limit: int = field(metadata={'codec': U64})
+    import_segments: List[ImportSegment] = field(metadata={'codec': Vec(ImportSegment.to_codec_def())})
+    extrinsic: List[WorkItemExtrinsic] = field(metadata={'codec': Vec(WorkItemExtrinsic.to_codec_def())})
+    export_count: int = field(metadata={'codec': U16})
+
+
+@dataclass
+class Authorizer(Serializable):
+    """
+    GP-0.3.6-eq:174 (c & bold_p) | A tuple of the authorization code hash and the parameterization blob
+
+    Attributes
+    ----------
+    code_hash: H256
+        GP-0.3.6-eq:174 (c) |
+        The authorization code hash
+    params: Bytes
+        GP-0.3.6-eq:174 (bold_p) |
+        A parameterization blob
+    """
+    code_hash: bytes = field(metadata={'codec': H256})
+    params: bytes = field(metadata={'codec': Bytes})
+
+
+@dataclass
+class WorkPackage(Serializable):
+    """
+    GP-0.3.6-eq:174 (blackboard_P) | Work package.
+
+    Attributes
+    ----------
+    authorization: Bytes
+        GP-0.3.6-eq:174 (j) |
+        xxx
+    auth_code_host: U32
+        GP-0.3.6-eq:174 (h) |
+        The index of a service to which it relates
+    code_hash: H256
+        GP-0.3.6-eq:174 (c) |
+        The hash of the code  of the service at the time of being reported
+    # TODO: deviation from GP-0.3.6-eq:174 in which c & bold_p are separated. This impacts the structure of JSON (not JAM-codec)
+    authorizer: Authorizer
+        GP-0.3.6-eq:174 (c & bold_p) |
+        A tuple of the authorization code hash and the parameterization blob
+    context: RefinementContext
+        GP-0.3.6-eq:174 (x) |
+        The refinement context
+    items: Vec(WorkItem)
+        GP-0.3.6-eq:174 (bold_w) |
+        A sequence of work items
+    """
+    authorization: bytes = field(metadata={'codec': Bytes})
+    auth_code_host: int = field(metadata={'codec': U32})
+    # TODO: deviation from GP-0.3.6-eq:174 in which c & bold_p are separated. This impacts the structure of JSON (not JAM-codec)
+    authorizer: Authorizer = field(metadata={'codec': Authorizer.to_codec_def()})
+    context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
+    items: List[WorkItem] = field(metadata={'codec': Vec(WorkItem.to_codec_def())})
+
+

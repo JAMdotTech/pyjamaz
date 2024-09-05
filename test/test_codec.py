@@ -5,7 +5,7 @@ from os import path
 from jamcodec.types import Vec
 
 from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, Disputes, RefinementContext, WorkReport, \
-    WorkResult, Guarantee, Preimage, TicketEnvelope, Block
+    WorkResult, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
 from pyjamaz.types.safrole import SafroleOutput, SafroleErrorCode
 
 
@@ -161,12 +161,36 @@ class TestCodec(unittest.TestCase):
         self.assertEqual(jam_data.hex(), tickets.to_jam_bytes().to_bytes().hex())
 
     def test_work_item(self):
-        # Todo: type definition
-        pass
+        with open(path.join(self.test_vector_dir, f'work_item.json')) as f:
+            test_vector = json.load(f)
+
+        # translate fields
+        # None
+
+        work_item = WorkItem.from_json(test_vector)
+        value = work_item.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_dir, f'work_item.bin'), "rb") as f:
+           jam_data = f.read()
+
+        self.assertEqual(jam_data.hex(), work_item.to_jam_bytes().to_bytes().hex())
 
     def test_work_package(self):
-        # Todo: type definition
-        pass
+        with open(path.join(self.test_vector_dir, f'work_package.json')) as f:
+            test_vector = json.load(f)
+
+        # translate fields
+        # None
+
+        work_package = WorkPackage.from_json(test_vector)
+        value = work_package.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_dir, f'work_package.bin'), "rb") as f:
+           jam_data = f.read()
+
+        self.assertEqual(jam_data.hex(), work_package.to_jam_bytes().to_bytes().hex())
 
     def test_work_report(self):
         with open(path.join(self.test_vector_dir, f'work_report.json')) as f:
