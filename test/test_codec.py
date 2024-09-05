@@ -19,14 +19,14 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_dir, f'assurances_extrinsic.json')) as f:
             test_vector = json.load(f)
 
-        # Todo: Explain how to import a list of Assurance from JSON
-        assurances = Vec(Assurance).from_json(test_vector)
-        value = assurances.serialize()
-        self.assertDictEqual(test_vector, value)
+        assurances = [Assurance.from_json(item) for item in test_vector]
+        value = [assurance.serialize() for assurance in assurances]
+        self.assertListEqual(test_vector, value)
 
         with open(path.join(self.test_vector_dir, f'assurances_extrinsic.bin'), "rb") as f:
            jam_data = f.read()
 
+        # Todo: hulp nodig
         self.assertEqual(jam_data.hex(), assurances.to_jam_bytes().to_bytes().hex())
 
     def test_block(self):
@@ -34,11 +34,10 @@ class TestCodec(unittest.TestCase):
             test_vector = json.load(f)
 
         # translate fields
-        # Todo: Explain how do translations on nested dataclasses
-        test_vector['timeslot'] = test_vector.pop('slot')
-        test_vector['epoch_marker'] = test_vector.pop('epoch_mark')
-        test_vector['tickets_marker'] = test_vector.pop('tickets_mark')
-        test_vector['offenders_marker'] = test_vector.pop('offenders_mark')
+        test_vector['header']['timeslot'] = test_vector['header'].pop('slot')
+        test_vector['header']['epoch_marker'] = test_vector['header'].pop('epoch_mark')
+        test_vector['header']['tickets_marker'] = test_vector['header'].pop('tickets_mark')
+        test_vector['header']['offenders_marker'] = test_vector['header'].pop('offenders_mark')
 
         block = Block.from_json(test_vector)
         value = block.serialize()
@@ -72,10 +71,6 @@ class TestCodec(unittest.TestCase):
             test_vector = json.load(f)
 
         # translate fields
-        # test_vector['timeslot'] = test_vector.pop('slot')
-        # test_vector['epoch_marker'] = test_vector.pop('epoch_mark')
-        # test_vector['tickets_marker'] = test_vector.pop('tickets_mark')
-        # test_vector['offenders_marker'] = test_vector.pop('offenders_mark')
 
         extrinsic = Extrinsic.from_json(test_vector)
         value = extrinsic.serialize()
@@ -90,14 +85,14 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_dir, f'guarantees_extrinsic.json')) as f:
             test_vector = json.load(f)
 
-        # Todo: Explain how to import a list of Guarantee from JSON
-        guarantees = Vec(Guarantee).from_json(test_vector)
-        value = guarantees.serialize()
-        self.assertDictEqual(test_vector, value)
+        guarantees = [Assurance.from_json(item) for item in test_vector]
+        value = [guarantee.serialize() for guarantee in guarantees]
+        self.assertListEqual(test_vector, value)
 
         with open(path.join(self.test_vector_dir, f'guarantees_extrinsic.bin'), "rb") as f:
            jam_data = f.read()
 
+        # Todo: hulp nodig
         self.assertEqual(jam_data.hex(), guarantees.to_jam_bytes().to_bytes().hex())
 
     def test_header(self):
@@ -125,13 +120,14 @@ class TestCodec(unittest.TestCase):
             test_vector = json.load(f)
 
         # Todo: Explain how to import a list of Preimage from JSON
-        preimages = Vec(Preimage).from_json(test_vector)
-        value = preimages.serialize()
-        self.assertDictEqual(test_vector, value)
+        preimages = [Preimage.from_json(item) for item in test_vector]
+        value = [preimage.serialize() for preimage in preimages]
+        self.assertListEqual(test_vector, value)
 
         with open(path.join(self.test_vector_dir, f'preimages_extrinsic.bin'), "rb") as f:
            jam_data = f.read()
 
+        # Todo: hulp nodig
         self.assertEqual(jam_data.hex(), preimages.to_jam_bytes().to_bytes().hex())
 
     def test_refine_context(self):
@@ -154,14 +150,14 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_dir, f'tickets_extrinsic.json')) as f:
             test_vector = json.load(f)
 
-        # Todo: Explain how to import a list of TicketEnvelope from JSON
-        tickets = Vec(TicketEnvelope).from_json(test_vector)
-        value = tickets.serialize()
-        self.assertDictEqual(test_vector, value)
+        tickets = [TicketEnvelope.from_json(item) for item in test_vector]
+        value = [ticket.serialize() for ticket in tickets]
+        self.assertListEqual(test_vector, value)
 
         with open(path.join(self.test_vector_dir, f'tickets_extrinsic.bin'), "rb") as f:
            jam_data = f.read()
 
+        # Todo: hulp nodig
         self.assertEqual(jam_data.hex(), tickets.to_jam_bytes().to_bytes().hex())
 
     def test_work_item(self):
