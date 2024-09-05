@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from math import floor
 from typing import List, Optional
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Enum, Null, I64
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Enum, Null, I64, BitVec
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.types.common import OpaqueHash, BandersnatchKey, ByteArray784
@@ -204,7 +204,7 @@ class Assurance(Serializable):
     anchor: H256
         GP-0.3.6-eq:123 (a) |
         Anchor to the parent_hash of the block
-    bitfield: 1 Byte (incorrect for full-test-vectors)
+    bitfield: BitVec
         GP-0.3.6-eq:123 (f) |
         A sequence of binary values (bitstring) one per core.
     validator_index: U16
@@ -216,7 +216,7 @@ class Assurance(Serializable):
     """
     anchor: bytes = field(metadata={'codec': H256})
     # Todo: check GP section 3.7.3 for boolean bitstring representation and check JAM-codec support
-    bitfield: bytes = field(metadata={'codec': Array(U8, 1)})
+    bitfield: bytes = field(metadata={'codec': BitVec()})
     validator_index: int = field(metadata={'codec': U16})
     signature: bytes = field(metadata={'codec': H512})
 
@@ -563,7 +563,7 @@ class WorkItemExtrinsic(Serializable):
     ----------
     hash: H256
         GP-0.3.6-eq:175 (blackboard_H) |
-        Blob hashes (Todo: check for possible typo in GP)
+        Blob hashes
     len: U16
         GP-0.3.6-eq:175 (blackboard_N type derived from encoding appendix) |
         A validator index
@@ -587,7 +587,6 @@ class ImportSegment(Serializable):
         Index into the segment tree
     """
     tree_root: bytes = field(metadata={'codec': H256})
-    # Todo: BIN-data seems outdated and needs to be updated with new version
     index: int = field(metadata={'codec': U16})
 
 
