@@ -16,6 +16,12 @@ def load_test_vectors(directory):
             with open(os.path.join(directory, filename)) as f:
                 test_vector = json.load(f)
                 test_vectors.append((filename, test_vector))
+
+    # filename = "inst_load_u8.json"
+    # with open(os.path.join(directory, filename)) as f:
+    #     test_vector = json.load(f)
+    #     test_vectors = [(filename, test_vector)]
+
     return test_vectors
 
 
@@ -23,19 +29,31 @@ class TestPolkaVMInstructions(unittest.TestCase):
     @parameterized.expand(load_test_vectors('./fixtures/pvm/programs2'))
     def test_instruction(self, name, test_vector):
 
+        mem_size = 0
+        if test_vector["expected-memory"]:
+            mem_size = len(test_vector["expected-memory"][0]["contents"])
+
         pvm_data = PVMProgram.from_scale_bytes(JamBytes(bytes(test_vector["program"])))
-        pvm = PVM(pvm_data)
+        pvm = PVM(pvm_data, mem_size=mem_size)
+
         pvm.initialize(
             test_vector["initial-regs"],
             test_vector["initial-pc"],
             test_vector["initial-gas"],
+            test_vector["initial-page-map"],
+            test_vector["initial-memory"],
         )
         pvm.invoke()
 
-        self.assertEqual(pvm.status, test_vector["expected-status"], f"Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
-        self.assertEqual(pvm.reg.tolist(), test_vector["expected-regs"], f"Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg.tolist()}")
-        self.assertEqual(pvm.pc, test_vector["expected-pc"], f"Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
-        self.assertEqual(pvm.gas, test_vector["expected-gas"], f"Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
+        # Note: fix to get identical memory as test vectors (ignore empy bytes)
+        #pvm.mem = pvm.mem[pvm.mem != 0].tolist()
+
+        self.assertEqual(test_vector["expected-status"], pvm.status, f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
+        self.assertEqual(test_vector["expected-regs"], pvm.reg.tolist(), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg.tolist()}")
+        self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
+        self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
+        if test_vector["expected-memory"]:
+            self.assertEqual(test_vector["expected-memory"][0]["contents"], pvm.mem.tolist(), f"{name}:\n Expected mem: {test_vector['expected-memory'][0]['contents']}, but got: {pvm.mem.tolist()}")
 
 
 if __name__ == '__main__':
