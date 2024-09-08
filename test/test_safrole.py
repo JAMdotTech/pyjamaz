@@ -125,10 +125,14 @@ class TestSafroleVector(unittest.TestCase):
                 entropy_source=test_case_input.entropy,
                 seal=bytes(96)
             ),
-            extrinsic=Extrinsic(
+            extrinsic = Extrinsic(
                 tickets=test_case_input.extrinsic,
-                work_report_hashes=None,
-                accumulate_root=None
+                # work_report_hashes=None,
+                # accumulate_root=None
+                disputes=[],
+                preimages=[],
+                assurances=[],
+                guarantees=[]
             )
         )
 
