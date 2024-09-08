@@ -216,7 +216,10 @@ class Assurance(Serializable):
     """
     anchor: bytes = field(metadata={'codec': H256})
     # Todo: check GP section 3.7.3 for boolean bitstring representation and check JAM-codec support
-    bitfield: bytes = field(metadata={'codec': BitVec()})
+    # Todo: Interpret as a bitstring with a bitmask of length constant_C (number of cores). E.g. C=2 (tiny) C=341 (full)
+    # Todo: Change BitVec() or metadata to input bitmask length
+    # Todo: Allow to read/interpret hex value from JSON
+    bitfield: List[Bool] = field(metadata={'codec': BitVec()})
     validator_index: int = field(metadata={'codec': U16})
     signature: bytes = field(metadata={'codec': H512})
 
