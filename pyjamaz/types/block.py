@@ -2,8 +2,7 @@ from dataclasses import dataclass, field
 from math import floor
 from typing import List, Optional
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Enum, Null, I64, BitVec, \
-    BitArray
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Null, BitArray
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.types.common import OpaqueHash, BandersnatchKey, ByteArray784
@@ -11,13 +10,17 @@ from pyjamaz.types.common import OpaqueHash, BandersnatchKey, ByteArray784
 from jamcodec.mixins import Serializable
 
 
+# TODO: move and annotate Marker DataClasses
+
 @dataclass
+# Todo: (Re)move, annotate, reference-GP
 class TicketBody(Serializable):
-    id: OpaqueHash = field(metadata={'codec': H256})  # OpaqueHash
-    attempt: int = field(metadata={'codec': U8})   # U8
+    id: OpaqueHash = field(metadata={'codec': H256}) # OpaqueHash
+    attempt: int = field(metadata={'codec': U8}) # U8
 
 
 @dataclass
+# Todo: (Re)move, annotate, reference-GP
 class EpochMark(Serializable):
     entropy: OpaqueHash = field(metadata={'codec': H256})
     validators: List[BandersnatchKey] = field(metadata={'codec': Array(H256, VALIDATOR_COUNT)})
@@ -50,11 +53,12 @@ class TicketEnvelope(Serializable):
         if not isinstance(self.signature, (bytes, bytearray)) or len(self.signature) != 784:
             raise ValueError("Signature must be a bytes object of length 784")
 
-
+# Todo: (Re)move, annotate, reference-GP
 TicketsMark = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
 
 
 @dataclass
+# Todo: (Re)move, annotate, reference-GP
 class OutputMarks(Serializable):
     epoch_mark: Optional[EpochMark] = field(default=None, metadata={'codec': Option(EpochMark.to_codec_def())})   # New epoch signal. OPTIONAL
     tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
@@ -245,6 +249,7 @@ class WorkExecResult(Serializable):
         GP-0.3.6-eq:121 (BIG) |
         Code oversize error
     """
+    # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-ovesize) don't match
     ok: Bytes = field(default=None, metadata={'codec': Bytes})
     out_of_gas: None = field(default=None, metadata={'codec': Null})
     panic: None = field(default=None, metadata={'codec': Null})
