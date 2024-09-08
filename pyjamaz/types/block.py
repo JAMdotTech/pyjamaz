@@ -2,8 +2,9 @@ from dataclasses import dataclass, field
 from math import floor
 from typing import List, Optional
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Enum, Null, I64, BitVec
-from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Enum, Null, I64, BitVec, \
+    BitArray
+from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.types.common import OpaqueHash, BandersnatchKey, ByteArray784
 
@@ -204,7 +205,7 @@ class Assurance(Serializable):
     anchor: H256
         GP-0.3.6-eq:123 (a) |
         Anchor to the parent_hash of the block
-    bitfield: BitVec
+    bitfield: BitArray(constant_C)
         GP-0.3.6-eq:123 (f) |
         A sequence of binary values (bitstring) one per core.
     validator_index: U16
@@ -215,11 +216,7 @@ class Assurance(Serializable):
         A Ed25519 signature corresponding to the validator index
     """
     anchor: bytes = field(metadata={'codec': H256})
-    # Todo: check GP section 3.7.3 for boolean bitstring representation and check JAM-codec support
-    # Todo: Interpret as a bitstring with a bitmask of length constant_C (number of cores). E.g. C=2 (tiny) C=341 (full)
-    # Todo: Change BitVec() or metadata to input bitmask length
-    # Todo: Allow to read/interpret hex value from JSON
-    bitfield: List[Bool] = field(metadata={'codec': BitVec()})
+    bitfield: List[bool] = field(metadata={'codec': BitArray(CORE_COUNT)})
     validator_index: int = field(metadata={'codec': U16})
     signature: bytes = field(metadata={'codec': H512})
 
