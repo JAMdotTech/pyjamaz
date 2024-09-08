@@ -129,7 +129,7 @@ class TestSafroleVector(unittest.TestCase):
                 tickets=test_case_input.extrinsic,
                 # work_report_hashes=None,
                 # accumulate_root=None
-                disputes=[],
+                disputes={[],[],[]},
                 preimages=[],
                 assurances=[],
                 guarantees=[]
