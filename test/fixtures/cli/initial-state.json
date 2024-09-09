@@ -233,7 +233,9 @@
     "placeholder": 0
   },
   "privileged_services": {
-    "placeholder": 0
+    "empower_service": 0,
+    "assign_service": 0,
+    "designate_service": 0
   },
   "disputes": {
       "good_set": [],

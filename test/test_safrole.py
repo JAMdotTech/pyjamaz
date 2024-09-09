@@ -115,7 +115,11 @@ class TestSafroleVector(unittest.TestCase):
             services=ServicesState(placeholder=0),
             assurances=AssurancesState(placeholder=0),
             authorizer_queue=AuthorizerQueueState(placeholder=0),
-            privileged_services=PrivilegedServicesState(placeholder=0),
+            privileged_services=PrivilegedServicesState(
+                empower_service=0,
+                assign_service=0,
+                designate_service=0
+            ),
             disputes=DisputesState(
                 good_set=[],
                 bad_set=[],

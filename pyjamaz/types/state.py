@@ -231,8 +231,28 @@ class AuthorizerQueueState(Serializable):
 
 @dataclass
 class PrivilegedServicesState(Serializable):
-    # Todo: placeholder attribute -> remove/replace
-    placeholder: int = field(metadata={'codec': U32})
+    """
+    GP-0.3.6-eq:95 (greek_CHI | χ) | The PrivilegedServices partition of the overall state.
+
+    Attributes
+    ----------
+
+    empower_service: U32
+        GP-0.3.6-eq:95 (greek_CHI_m | χ_m) |
+        The service index of the empower service. I.e. the service that allows state transitions of PrivilegedServices
+        (greek_CHI | χ).
+    assign_service: U32
+        GP-0.3.6-eq:95 (greek_CHI_a | χ_a) |
+        The service index of the assign service. I.e. the service that allows state transitions of AuthorizerQueue
+        (greek_PHI | φ)
+    designate_service: U32
+        GP-0.3.6-eq:95 (greek_CHI_v | χ_v) |
+        The service index of the designate service. I.e. the service that allows state transitions of ValidatorQueue
+        (greek_IOTA | ι)
+    """
+    empower_service: int = field(metadata={'codec': U32})
+    assign_service: int = field(metadata={'codec': U32})
+    designate_service: int = field(metadata={'codec': U32})
 
 
 @dataclass
