@@ -116,7 +116,12 @@ class TestSafroleVector(unittest.TestCase):
             assurances=AssurancesState(placeholder=0),
             authorizer_queue=AuthorizerQueueState(placeholder=0),
             privileged_services=PrivilegedServicesState(placeholder=0),
-            disputes=DisputesState(placeholder=0),
+            disputes=DisputesState(
+                good_set=[],
+                bad_set=[],
+                wonky_set=[],
+                offenders=[]
+            ),
             statistics=StatisticsState(placeholder=0),
         )
 

@@ -237,8 +237,26 @@ class PrivilegedServicesState(Serializable):
 
 @dataclass
 class DisputesState(Serializable):
-    # Todo: placeholder attribute -> remove/replace
-    placeholder: int = field(metadata={'codec': U32})
+    """
+    GP-0.3.6-eq:96 (greek_PSI | ψ) | A collection of judgements of validators over the validity of work reports.
+
+    Attributes
+    ----------
+
+    good_set: Vec(H256)
+        GP-0.3.6-eq:111,97,98 (greek_PSI_g | ψ_g) | A collection of work reports hashes with a good verdict.
+    bad_set: Vec(H256)
+        GP-0.3.6-eq:112,97,98 (greek_PSI_b | ψ_b) | A collection of work reports hashes with a bad verdict.
+    wonky_set: Vec(H256)
+        GP-0.3.6-eq:113,97,98 (greek_PSI_w | ψ_w) | A collection of work reports hashes with a wonky verdict.
+    offenders: Vec(H256)
+        GP-0.3.6-eq:114,100,101 (greek_PSI_o | ψ_o) | A collection Edwards 25519 keys for validators found guilty of
+        offending.
+    """
+    good_set: List[bytes] = field(metadata={'codec': Vec(H256)})
+    bad_set: List[bytes] = field(metadata={'codec': Vec(H256)})
+    wonky_set: List[bytes] = field(metadata={'codec': Vec(H256)})
+    offenders: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -290,10 +308,10 @@ class JamState(Serializable, State):
         GP-0.3.6-eq:15 (greek_PHI | φ) |
         AuthorizerQueue partition of the overall state
     privileged_services: PrivilegedServicesState
-        GP-0.3.6-eq:15 ({PSI} | χ) |
+        GP-0.3.6-eq:15 (greek_CHI | χ) |
         PrivilegedServices partition of the overall state
     disputes: DisputesState
-        GP-0.3.6-eq:15 (greek_CHI | ψ) |
+        GP-0.3.6-eq:15 (greek_PSI | ψ) |
         Disputes partition of the overall state
     statistics: StatisticsState
         GP-0.3.6-eq:15 (greek_PI | π) |

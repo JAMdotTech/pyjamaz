@@ -236,7 +236,10 @@
     "placeholder": 0
   },
   "disputes": {
-    "placeholder": 0
+      "good_set": [],
+      "bad_set": [],
+      "wonky_set": [],
+      "offenders": []
   },
   "statistics": {
     "placeholder": 0
