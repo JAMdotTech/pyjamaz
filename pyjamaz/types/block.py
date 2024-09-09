@@ -12,6 +12,7 @@ from jamcodec.mixins import Serializable
 
 # TODO: move and annotate Marker DataClasses
 
+
 @dataclass
 # Todo: (Re)move, annotate, reference-GP
 class TicketBody(Serializable):
@@ -63,6 +64,7 @@ class OutputMarks(Serializable):
     epoch_mark: Optional[EpochMark] = field(default=None, metadata={'codec': Option(EpochMark.to_codec_def())})   # New epoch signal. OPTIONAL
     tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
 
+
 @dataclass
 class Judgement(Serializable):
     """
@@ -83,6 +85,7 @@ class Judgement(Serializable):
     vote: bool = field(metadata={'codec': Bool()})
     index: int = field(metadata={'codec': U16})
     signature: bytes =  field(metadata={'codec': H512})
+
 
 @dataclass
 class Verdict(Serializable):
@@ -107,6 +110,7 @@ class Verdict(Serializable):
     # Todo: change array size to use constants: 1+(floor(VALIDATOR_COUNT/3)*2)
     votes: List[Judgement] = field(metadata={'codec': Array(Judgement.to_codec_def(), 1+(floor(VALIDATOR_COUNT/3)*2))})
 
+
 @dataclass
 class Culprit(Serializable):
     """
@@ -128,6 +132,7 @@ class Culprit(Serializable):
     target: bytes = field(metadata={'codec': H256})
     key: bytes = field(metadata={'codec': H256})
     signature: bytes = field(metadata={'codec': H512})
+
 
 @dataclass
 class Fault(Serializable):
@@ -156,6 +161,7 @@ class Fault(Serializable):
     key: bytes = field(metadata={'codec': H256})
     signature: bytes = field(metadata={'codec': H512})
 
+
 @dataclass
 class Disputes(Serializable):
     """
@@ -180,6 +186,7 @@ class Disputes(Serializable):
     culprits: List[Culprit] = field(metadata={'codec': Vec(Culprit.to_codec_def())})
     faults: List[Fault] = field(metadata={'codec': Vec(Fault.to_codec_def())})
 
+
 @dataclass
 class Preimage(Serializable):
     """
@@ -197,6 +204,7 @@ class Preimage(Serializable):
     """
     requester: int = field(metadata={'codec': U32})
     blob: bytes = field(metadata={'codec': Bytes})
+
 
 @dataclass
 class Assurance(Serializable):
@@ -487,6 +495,7 @@ class Header(Serializable):
     # def generate_author_bandersnatch_key(self) -> bytes:
     #    pass
 
+
 @dataclass
 class Extrinsic(Serializable):
     """
@@ -539,6 +548,7 @@ class Block(Serializable):
     """
     header: Header = field(metadata={'codec': Header.to_codec_def()})
     extrinsic: Extrinsic = field(metadata={'codec': Extrinsic.to_codec_def()})
+
 
 @dataclass
 class WorkItemExtrinsic(Serializable):

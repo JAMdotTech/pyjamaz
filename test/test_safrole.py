@@ -15,7 +15,7 @@ from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, Valida
 from pyjamaz.state.exceptions import StateTransitionError
 from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
 from pyjamaz.types.safrole import SafroleTestState, SafroleInput, SafroleOutput
-from pyjamaz.types.block import Block, Header, Extrinsic
+from pyjamaz.types.block import Block, Header, Extrinsic, Disputes
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState
 
@@ -129,7 +129,7 @@ class TestSafroleVector(unittest.TestCase):
                 tickets=test_case_input.extrinsic,
                 # work_report_hashes=None,
                 # accumulate_root=None
-                disputes={None,None,None},
+                disputes=Disputes(verdicts=[], culprits=[], faults=[]),
                 preimages=[],
                 assurances=[],
                 guarantees=[]
