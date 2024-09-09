@@ -149,7 +149,7 @@ class AuthorizerPoolState(Serializable):
 @dataclass
 class Mmr(Serializable):
     """
-    GP-0.3.6-eq:302 (bold_b) | Accumulation result Merkle Mountain Range.
+    GP-0.3.6-eq:302 (bold_b) | A Merkle Mountain Range.
 
     Attributes
     ----------
@@ -196,7 +196,7 @@ class RecentHistoryState(Serializable):
     Attributes
     ----------
 
-    recent_history: Array(RecentBlock,constant_H)
+    recent_history: Vec(RecentBlock)
         GP-0.3.6-eq:80 (greek_BETA | β) | A collection of items in the RecentHistory partition of the overall state of
         up to constant_H (8) items.
     """
