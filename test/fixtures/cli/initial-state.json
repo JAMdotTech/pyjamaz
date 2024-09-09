@@ -220,8 +220,8 @@
   "authorizer_pool": {
     "placeholder": 0
   },
-  "recent_blocks": {
-    "placeholder": 0
+  "recent_history": {
+    "recent_history": []
   },
   "services": {
     "placeholder": 0
