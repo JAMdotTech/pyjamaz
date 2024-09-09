@@ -76,17 +76,45 @@ class SafroleState(Serializable):
 
 @dataclass
 class ValidatorQueueState(Serializable, State):
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})  # Validator keys and metadata to be drawn from next. # GP-ref:IOTA,50
+    """
+    GP-0.3.6-eq:51 (greek_IOTA | ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
+
+    Attributes
+    ----------
+
+    validators: Array(ValidatorData,constant_V)
+        GP-0.3.6-eq:51 (greek_IOTA | ι) | A fixed size set of validator keys and metadata to be drawn from next by the
+        Safrole protocol.
+    """
+    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
 
 @dataclass
 class ValidatorPoolState(Serializable, State):
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})  # Validator keys and metadata currently active. # GP-ref:KAPPA,50
+    """
+    GP-0.3.6-eq:51 (greek_KAPPA | κ) | Keys and metadata for validators of the current epoch.
+
+    Attributes
+    ----------
+
+    validators: Array(ValidatorData,constant_V)
+        GP-0.3.6-eq:51 (greek_KAPPA | κ) | A fixed size set of keys and metadata for validators of the current epoch.
+    """
+    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
 
 @dataclass
 class ValidatorArchiveState(Serializable, State):
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})  # Validator keys and metadata which were active in the prior epoch. # GP-ref: LAMBDA,50
+    """
+    GP-0.3.6-eq:51 (greek_LAMBDA | λ) | Keys and metadata for validators of the previous epoch.
+
+    Attributes
+    ----------
+
+    validators: Array(ValidatorData,constant_V)
+        GP-0.3.6-eq:51 (greek_LAMBDA | λ) | A fixed size set of keys and metadata for validators of the previous epoch.
+    """
+    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
 
 @dataclass
