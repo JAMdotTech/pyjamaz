@@ -258,7 +258,7 @@ class WorkExecResult(Serializable):
         Code oversize error
     """
     # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-ovesize) don't match
-    ok: Bytes = field(default=None, metadata={'codec': Bytes})
+    ok: bytes = field(default=None, metadata={'codec': Bytes})
     out_of_gas: None = field(default=None, metadata={'codec': Null})
     panic: None = field(default=None, metadata={'codec': Null})
     bad_code: None = field(default=None, metadata={'codec': Null})
