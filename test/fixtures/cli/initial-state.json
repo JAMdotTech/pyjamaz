@@ -216,5 +216,29 @@
         "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       }
     ]
+  },
+  "authorizer_pool": {
+    "placeholder": 0
+  },
+  "recent_blocks": {
+    "placeholder": 0
+  },
+  "services": {
+    "placeholder": 0
+  },
+  "assurances": {
+    "placeholder": 0
+  },
+  "authorizer_queue": {
+    "placeholder": 0
+  },
+  "privileged_services": {
+    "placeholder": 0
+  },
+  "disputes": {
+    "placeholder": 0
+  },
+  "statistics": {
+    "placeholder": 0
   }
 }
