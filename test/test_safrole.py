@@ -17,7 +17,7 @@ from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
 from pyjamaz.types.safrole import SafroleTestState, SafroleInput, SafroleOutput
 from pyjamaz.types.block import Block, Header, Extrinsic, Disputes
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
-    ValidatorPoolState, ValidatorArchiveState, AuthorizerPoolState, RecentBlocksState, ServicesState, AssurancesState, \
+    ValidatorPoolState, ValidatorArchiveState, AuthorizerPoolState, RecentHistoryState, ServicesState, AssurancesState, \
     AuthorizerQueueState, PrivilegedServicesState, DisputesState, StatisticsState
 
 
@@ -109,7 +109,9 @@ class TestSafroleVector(unittest.TestCase):
                 validators=test_case.pre_state.lambda_
             ),
             authorizer_pool=AuthorizerPoolState(placeholder=0),
-            recent_blocks=RecentBlocksState(placeholder=0),
+            recent_history=RecentHistoryState(
+                recent_history=[]
+            ),
             services=ServicesState(placeholder=0),
             assurances=AssurancesState(placeholder=0),
             authorizer_queue=AuthorizerQueueState(placeholder=0),

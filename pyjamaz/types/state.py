@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8
-from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT
+from jamcodec.types import U32, Array, H256, Vec, U8, Option
+from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, HISTORY
 from pyjamaz.types.safrole import TicketBody, SlotSealerSeries
 from pyjamaz.types.common import ValidatorData
 
@@ -147,9 +147,68 @@ class AuthorizerPoolState(Serializable):
 
 
 @dataclass
-class RecentBlocksState(Serializable):
-    # Todo: placeholder attribute -> remove/replace
-    placeholder: int = field(metadata={'codec': U32})
+class Mmr(Serializable):
+    """
+    GP-0.3.6-eq:302 (bold_b) | Accumulation result Merkle Mountain Range.
+
+    Attributes
+    ----------
+
+    peaks: Vec(Option(H256))
+        GP-0.3.6-eq:302 (bold_b) | A collection of optional peaks in a Merkle Mountain Range
+    """
+    peaks: List[Optional[H256]] = field(metadata={'codec': Vec(Option(H256))})
+
+
+@dataclass
+class RecentBlock(Serializable):
+    """
+    GP-0.3.6-eq:80 (greek_BETA | β) | A single item in the RecentHistory partition of the overall state.
+
+    Attributes
+    ----------
+
+    header_hash: H256
+        GP-0.3.6-eq:80 (h, blackboard_H) | Header hash of the recent block.
+    mmr: Mmr
+        GP-0.3.6-eq:80 (b) | Accumulation result Merkle Mountain Range of the recent block.
+    state_root: H256
+        GP-0.3.6-eq:80 (s, blackboard_H) | State root of the recent block.
+    reported: Vec(H256)
+        GP-0.3.6-eq:80 (p) | A collection of hashes for each work-report made into the MMR, limited to the number of
+        cores (constant_c=341)
+    """
+    header_hash: bytes = field(metadata={'codec': H256})
+    mmr: Mmr = field(metadata={'codec': Mmr.to_codec_def()})
+    state_root: bytes = field(metadata={'codec': H256})
+    reported: List[H256] = field(metadata={'codec': Vec(H256)})
+
+    def __post_init__(self):
+        # Todo: 'reported' attribute is allowed to have up to constant_C (CORES=341) items.
+        pass
+
+
+@dataclass
+class RecentHistoryState(Serializable):
+    """
+    GP-0.3.6-eq:80 (greek_BETA | β) | RecentHistory partition of the overall state
+
+    Attributes
+    ----------
+
+    recent_history: Array(RecentBlock,constant_H)
+        GP-0.3.6-eq:80 (greek_BETA | β) | A collection of items in the RecentHistory partition of the overall state of
+        up to constant_H (8) items.
+    """
+    recent_history: List[RecentBlock] = field(metadata={'codec': Vec(RecentBlock.to_codec_def())})
+
+    def __post_init__(self):
+        # Todo: RecentHistory is allowed to have up to constant_H (HISTORY) items
+        # Todo: Arjan this is a Vec (variable size) since it contains less than 8 items for the first 8
+        #  blocks after genesis, so for the first 8 blocks it should have TAU entries and from block 9 and onwards it
+        #  should have exactly constant_H (8) entries.
+        #  GP-0.3.6-eq-289-C(3) states encoding is a Vec (i.e. has length definition)
+        pass
 
 
 @dataclass
@@ -200,9 +259,9 @@ class JamState(Serializable, State):
     authorizer_pool: AuthorizerPoolState
         GP-0.3.6-eq:15 (greek_ALPHA | α) |
         AuthorizerPool partition of the overall state
-    recent_blocks: RecentBlocksState
+    recent_history: RecentHistoryState
         GP-0.3.6-eq:15 (greek_BETA | β) |
-        RecentBlocks partition of the overall state
+        RecentHistory partition of the overall state
     safrole: SafroleState
         GP-0.3.6-eq:15 (greek_GAMMA | γ) |
         Safrole partition of the overall state
@@ -241,7 +300,7 @@ class JamState(Serializable, State):
         Statistics partition of the overall state
     """
     authorizer_pool: AuthorizerPoolState = field(metadata={'codec': AuthorizerPoolState.to_codec_def()})
-    recent_blocks: RecentBlocksState = field(metadata={'codec': RecentBlocksState.to_codec_def()})
+    recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
     safrole: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     entropy: EntropyState = field(metadata={'codec': EntropyState.to_codec_def()})
