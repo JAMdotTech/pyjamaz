@@ -157,7 +157,7 @@ class Mmr(Serializable):
     peaks: Vec(Option(H256))
         GP-0.3.6-eq:302 (bold_b) | A collection of optional peaks in a Merkle Mountain Range
     """
-    peaks: List[Optional[H256]] = field(metadata={'codec': Vec(Option(H256))})
+    peaks: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
 
 
 @dataclass
@@ -181,7 +181,7 @@ class RecentBlock(Serializable):
     header_hash: bytes = field(metadata={'codec': H256})
     mmr: Mmr = field(metadata={'codec': Mmr.to_codec_def()})
     state_root: bytes = field(metadata={'codec': H256})
-    reported: List[H256] = field(metadata={'codec': Vec(H256)})
+    reported: List[bytes] = field(metadata={'codec': Vec(H256)})
 
     def __post_init__(self):
         # Todo: 'reported' attribute is allowed to have up to constant_C (CORES=341) items.
