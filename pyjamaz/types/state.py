@@ -68,10 +68,29 @@ class EntropyState(Serializable, State):
 
 @dataclass
 class SafroleState(Serializable):
-    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})  # Validator keys for the following epoch. # GP-ref:GAMMA_k,50
-    ticket_accumulator: List[TicketBody] = field(metadata={'codec': Vec(TicketBody.to_codec_def())})  # Sealing-key contest ticket accumulator.
-    slot_sealer_series: SlotSealerSeries = field(metadata={'codec': SlotSealerSeries.to_codec_def()}) # Sealing-key series of the current epoch.
-    ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})  # Bandersnatch ring commitment.
+    """
+    GP-0.3.6-eq:47 (greek_GAMMA | γ) | Safrole partition of the overall state.
+
+    Attributes
+    ----------
+
+    validators: Array(ValidatorData,constant_V)
+        GP-0.3.6-eq:51 (greek_GAMMA_k | γ_k) | A fixed size set of keys and metadata for validators of the next epoch.
+    ticket_accumulator: TicketBody
+        GP-0.3.6-eq:49 (greek_GAMMA_a | γ_a) | Sealing-key contest ticket accumulator.
+    slot_sealer_series: SlotSealerSeries
+        GP-0.3.6-eq:49 (greek_GAMMA_s | γ_s) | Sealing-key series of the current epoch.
+    ring_commitment: Array(U8,144)
+        GP-0.3.6-eq:48 (greek_GAMMA_z | γ_z) | Bandersnatch ring commitment.
+    """
+    # Todo: reorder attributes to match order in GP: (γ_k, γ_z, γ_s, γ_a)
+    # Todo: review and annotate: ValidatorData
+    validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
+    # Todo: review and annotate: TicketBody
+    ticket_accumulator: List[TicketBody] = field(metadata={'codec': Vec(TicketBody.to_codec_def())})
+    # Todo: review and annotate: SlotSealerSeries
+    slot_sealer_series: SlotSealerSeries = field(metadata={'codec': SlotSealerSeries.to_codec_def()})
+    ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})
 
 
 @dataclass
@@ -86,6 +105,7 @@ class ValidatorQueueState(Serializable, State):
         GP-0.3.6-eq:51 (greek_IOTA | ι) | A fixed size set of validator keys and metadata to be drawn from next by the
         Safrole protocol.
     """
+    # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
 
@@ -100,6 +120,7 @@ class ValidatorPoolState(Serializable, State):
     validators: Array(ValidatorData,constant_V)
         GP-0.3.6-eq:51 (greek_KAPPA | κ) | A fixed size set of keys and metadata for validators of the current epoch.
     """
+    # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
 
@@ -114,6 +135,7 @@ class ValidatorArchiveState(Serializable, State):
     validators: Array(ValidatorData,constant_V)
         GP-0.3.6-eq:51 (greek_LAMBDA | λ) | A fixed size set of keys and metadata for validators of the previous epoch.
     """
+    # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
 
