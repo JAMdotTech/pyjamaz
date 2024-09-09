@@ -12,12 +12,41 @@ from pyjamaz.state.base import State
 
 @dataclass
 class TimeslotState(Serializable, State):
-    number: int = field(metadata={'codec': U32})  # Most recent block's timeslot; GP-ref:TAU
+    """
+    GP-0.3.6-eq:45 (greek_TAU | τ) | The most recent block's slot index, combined with helper functions
+
+    Attributes
+    ----------
+
+    number: U32
+        GP-0.3.6-eq:45 (greek_TAU | τ) |
+        The most recent block's slot index
+    """
+    # Todo: consider renaming number to timeslot
+    number: int = field(metadata={'codec': U32})
 
     def epoch_number(self) -> int:
+        """
+        GP-0.3.6-eq:46 (e) | Function that returns the epoch index
+
+        Returns
+        -------
+        number: int
+            Epoch index of the timeslot
+
+        """
         return self.number // EPOCH_TIMESLOTS
 
     def slot_phase_index(self) -> int:
+        """
+        GP-0.3.6-eq:46 (m) | Function that returns the phase index into the epoch of the timeslot
+
+        Returns
+        -------
+        number: int
+            Phase index into the epoch of the timeslot
+
+        """
         return self.number % EPOCH_TIMESLOTS
 
 
@@ -100,7 +129,7 @@ class StatisticsState(Serializable):
 @dataclass
 class JamState(Serializable, State):
     """
-    GP-0.3.6-eq:15 (SIGMA | ) | Logically partitioned state into several largely independent segments which can help
+    GP-0.3.6-eq:15 (greek_SIGMA | σ) | Logically partitioned state into several largely independent segments which can help
     both visual clutter within the protocol description and provide formality over elements of computation which may be
     simultaneously calculated (i.e. parallelized).
 
@@ -163,7 +192,4 @@ class JamState(Serializable, State):
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
     disputes: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
-
-
-
 
