@@ -17,8 +17,9 @@ from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
 from pyjamaz.types.safrole import SafroleTestState, SafroleInput, SafroleOutput
 from pyjamaz.types.block import Block, Header, Extrinsic, Disputes
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
-    ValidatorPoolState, ValidatorArchiveState, AuthorizerPoolState, RecentHistoryState, ServicesState, AssurancesState, \
-    AuthorizerQueueState, PrivilegedServicesState, DisputesState, StatisticsState
+    ValidatorPoolState, ValidatorArchiveState, RecentHistoryState, ServicesState, AssurancesState, \
+    PrivilegedServicesState, DisputesState, StatisticsState, AuthorizerPoolsState, \
+    AuthorizerQueuesState
 
 
 @dataclass
@@ -108,13 +109,23 @@ class TestSafroleVector(unittest.TestCase):
             validator_archive=ValidatorArchiveState(
                 validators=test_case.pre_state.lambda_
             ),
-            authorizer_pool=AuthorizerPoolState(placeholder=0),
+            authorizer_pools=AuthorizerPoolsState(
+                authorizer_pools=[
+                    [],
+                    []
+                ]
+            ),
             recent_history=RecentHistoryState(
                 recent_history=[]
             ),
             services=ServicesState(placeholder=0),
             assurances=AssurancesState(placeholder=0),
-            authorizer_queue=AuthorizerQueueState(placeholder=0),
+            authorizer_queues=AuthorizerQueuesState(
+                authorizer_queues=[
+                    [], # Todo: should contain exactly constant_Q=80 items
+                    [] # Todo: should contain exactly constant_Q=80 items
+                ]
+            ),
             privileged_services=PrivilegedServicesState(
                 empower_service=0,
                 assign_service=0,

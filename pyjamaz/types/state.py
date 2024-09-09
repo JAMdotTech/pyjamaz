@@ -3,7 +3,8 @@ from typing import List, Optional
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option
-from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, HISTORY
+from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, HISTORY, CORE_COUNT, \
+    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
 from pyjamaz.types.safrole import TicketBody, SlotSealerSeries
 from pyjamaz.types.common import ValidatorData
 
@@ -140,10 +141,24 @@ class ValidatorArchiveState(Serializable, State):
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
 
+
 @dataclass
-class AuthorizerPoolState(Serializable):
-    # Todo: placeholder attribute -> remove/replace
-    placeholder: int = field(metadata={'codec': U32})
+class AuthorizerPoolsState(Serializable):
+    """
+    GP-0.3.6-eq:84 (greek_ALPHA | α) | A collections of pools of authorizations for all cores.
+
+    Attributes
+    ----------
+
+    authorizer_pools: Array(Vec(H256),constant_C)
+        GP-0.3.6-eq:84 (greek_ALPHA | α) | A collections of pools of authorizations for all cores.
+    """
+    authorizer_pools: List[List[bytes]] = field(metadata={'codec': Array(Vec(H256), CORE_COUNT)})
+
+    def __post_init__(self):
+        # Todo: 'vec' within array attribute is allowed to have up to constant_O (MAXIMIM_AUTHORIZATION_POOL_ITEMS=8)
+        # items.
+        pass
 
 
 @dataclass
@@ -224,9 +239,17 @@ class AssurancesState(Serializable):
 
 
 @dataclass
-class AuthorizerQueueState(Serializable):
-    # Todo: placeholder attribute -> remove/replace
-    placeholder: int = field(metadata={'codec': U32})
+class AuthorizerQueuesState(Serializable):
+    """
+    GP-0.3.6-eq:84 (greek_PHI | φ) | A collections of queues of authorizations for all cores.
+
+    Attributes
+    ----------
+
+    authorizer_queues: Array(Array(H256,constant_Q),constant_C)
+        GP-0.3.6-eq:84 (greek_PHI | φ) | A collections of queues of authorizations for all cores.
+    """
+    authorizer_queues: List[List[bytes]] = field(metadata={'codec': Array(Array(H256,MAXIMUM_AUTHORIZATION_QUEUE_ITEMS), CORE_COUNT)})
 
 
 @dataclass
@@ -294,7 +317,7 @@ class JamState(Serializable, State):
 
     Attributes
     ----------
-    authorizer_pool: AuthorizerPoolState
+    authorizer_pools: AuthorizerPoolsState
         GP-0.3.6-eq:15 (greek_ALPHA | α) |
         AuthorizerPool partition of the overall state
     recent_history: RecentHistoryState
@@ -324,7 +347,7 @@ class JamState(Serializable, State):
     timeslot: TimeslotState
         GP-0.3.6-eq:15 (greek_TAU | τ) |
         Timeslot partition of the overall state
-    authorizer_queue: AuthorizerQueueState
+    authorizer_queues: AuthorizerQueuesState
         GP-0.3.6-eq:15 (greek_PHI | φ) |
         AuthorizerQueue partition of the overall state
     privileged_services: PrivilegedServicesState
@@ -337,7 +360,7 @@ class JamState(Serializable, State):
         GP-0.3.6-eq:15 (greek_PI | π) |
         Statistics partition of the overall state
     """
-    authorizer_pool: AuthorizerPoolState = field(metadata={'codec': AuthorizerPoolState.to_codec_def()})
+    authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
     safrole: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
@@ -347,7 +370,7 @@ class JamState(Serializable, State):
     validator_archive: ValidatorArchiveState = field(metadata={'codec': ValidatorArchiveState.to_codec_def()})
     assurances: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
     timeslot: TimeslotState = field(metadata={'codec': TimeslotState.to_codec_def()})
-    authorizer_queue: AuthorizerQueueState = field(metadata={'codec': AuthorizerQueueState.to_codec_def()})
+    authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
     disputes: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
