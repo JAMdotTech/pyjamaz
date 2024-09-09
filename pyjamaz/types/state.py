@@ -94,6 +94,7 @@ class SafroleState(Serializable):
 
 
 @dataclass
+# Todo: @arjan explain why 'State' is used here and not in class SafroleState(Serializable):
 class ValidatorQueueState(Serializable, State):
     """
     GP-0.3.6-eq:51 (greek_IOTA | ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
