@@ -52,7 +52,18 @@ class TimeslotState(Serializable, State):
 
 @dataclass
 class EntropyState(Serializable, State):
-    entropy: List[bytes] = field(metadata={'codec': Array(H256, 4)})  # GP-ref:ETA
+    """
+    GP-0.3.6-eq:65 (greek_ETA | η) | Entropy partition of the overall state.
+
+    Attributes
+    ----------
+
+    entropy: Array(H256,4)
+        GP-0.3.6-eq:65 (greek_ETA | η) | η[0] serves as an entropy accumulator during the current epoch. η[1], η[2],
+        η[3] retain three historical values of the accumulator at the point of each of the three most recently ended
+        epochs respectively.
+    """
+    entropy: List[bytes] = field(metadata={'codec': Array(H256, 4)})
 
 
 @dataclass
