@@ -8,8 +8,8 @@ from typing import Optional
 
 from parameterized import parameterized
 
-import pyjamaz.graypaper_constants as gp_const
 from jamcodec.mixins import Serializable
+from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT
 from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.state.exceptions import StateTransitionError
@@ -19,7 +19,7 @@ from pyjamaz.types.block import Block, Header, Extrinsic, Disputes
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState, RecentHistoryState, ServicesState, AssurancesState, \
     PrivilegedServicesState, DisputesState, StatisticsState, AuthorizerPoolsState, \
-    AuthorizerQueuesState
+    AuthorizerQueuesState, Statistic
 
 
 @dataclass
@@ -127,8 +127,7 @@ class TestSafroleVector(unittest.TestCase):
             ),
             authorizer_queues=AuthorizerQueuesState(
                 authorizer_queues=[
-                    [], # Todo: should contain exactly constant_Q=80 items
-                    [] # Todo: should contain exactly constant_Q=80 items
+                    [[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
                 ]
             ),
             privileged_services=PrivilegedServicesState(
@@ -144,8 +143,14 @@ class TestSafroleVector(unittest.TestCase):
             ),
             statistics=StatisticsState(
                 statistics=[
-                    [], # Todo: should contain exactly constant_V=6 items
-                    [] # Todo: should contain exactly constant_V=6 items
+                    [
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0)
+                    ] * 2
                 ]
             ),
         )

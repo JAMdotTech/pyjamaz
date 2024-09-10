@@ -332,7 +332,7 @@ class DisputesState(Serializable):
 @dataclass
 class Statistic(Serializable):
     """
-    GP-0.3.6-eq:169 (greek_PI[V][0] | π[V][0]) | A set of cumulative metrics for a single validator in a single epochs.
+    GP-0.3.6-eq:169 (greek_PI[0][V] | π[0][V]) | A set of cumulative metrics for a single validator in a single epochs.
 
     Attributes
     ----------
