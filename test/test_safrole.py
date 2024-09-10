@@ -8,8 +8,8 @@ from typing import Optional
 
 from parameterized import parameterized
 
-import pyjamaz.graypaper_constants as gp_const
 from jamcodec.mixins import Serializable
+from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT
 from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.state.exceptions import StateTransitionError
@@ -17,7 +17,9 @@ from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
 from pyjamaz.types.safrole import SafroleTestState, SafroleInput, SafroleOutput
 from pyjamaz.types.block import Block, Header, Extrinsic, Disputes
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
-    ValidatorPoolState, ValidatorArchiveState
+    ValidatorPoolState, ValidatorArchiveState, RecentHistoryState, ServicesState, AssurancesState, \
+    PrivilegedServicesState, DisputesState, StatisticsState, AuthorizerPoolsState, \
+    AuthorizerQueuesState, Statistic
 
 
 @dataclass
@@ -106,7 +108,51 @@ class TestSafroleVector(unittest.TestCase):
             ),
             validator_archive=ValidatorArchiveState(
                 validators=test_case.pre_state.lambda_
-            )
+            ),
+            authorizer_pools=AuthorizerPoolsState(
+                authorizer_pools=[
+                    [],
+                    []
+                ]
+            ),
+            recent_history=RecentHistoryState(
+                recent_history=[]
+            ),
+            services=ServicesState(placeholder=0),
+            assurances=AssurancesState(
+                assurances=[
+                    None,
+                    None
+                ]
+            ),
+            authorizer_queues=AuthorizerQueuesState(
+                authorizer_queues=[
+                    [[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
+                ]
+            ),
+            privileged_services=PrivilegedServicesState(
+                empower_service=0,
+                assign_service=0,
+                designate_service=0
+            ),
+            disputes=DisputesState(
+                good_set=[],
+                bad_set=[],
+                wonky_set=[],
+                offenders=[]
+            ),
+            statistics=StatisticsState(
+                statistics=[
+                    [
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0)
+                    ] * 2
+                ]
+            ),
         )
 
         # Convert test case input to block
