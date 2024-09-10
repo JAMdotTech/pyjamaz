@@ -415,6 +415,9 @@
       "offenders": []
   },
   "statistics": {
-    "placeholder": 0
+    "statistics": [
+      [0,0,0,0,0,0],
+      [0,0,0,0,0,0]
+    ]
   }
 }

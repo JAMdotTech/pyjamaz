@@ -229,7 +229,7 @@ class RecentHistoryState(Serializable):
 
 @dataclass
 class ServicesState(Serializable):
-    # Todo: placeholder attribute -> remove/replace
+    # Todo: Dict Data Structure
     placeholder: int = field(metadata={'codec': U32})
 
 
@@ -330,9 +330,46 @@ class DisputesState(Serializable):
 
 
 @dataclass
+class Statistic(Serializable):
+    """
+    GP-0.3.6-eq:169 (greek_PI[V][0] | π[V][0]) | A set of cumulative metrics for a single validator in a single epochs.
+
+    Attributes
+    ----------
+
+    blocks: U32
+        GP-0.3.6-eq:169 (b) | The number of blocks produced by the validator.
+    tickets: U32
+        GP-0.3.6-eq:169 (t) | The number of tickets introduced by the validator.
+    preimages: U32
+        GP-0.3.6-eq:169 (p) | The number of preimages introduced by the validator.
+    preimage_bytes: U32
+        GP-0.3.6-eq:169 (d) | The number of total number of bytes across all preimages introduced by the validator.
+    guarantees: U32
+        GP-0.3.6-eq:169 (g) | The number of reports guaranteed by the validator.
+    assurances: U32
+        GP-0.3.6-eq:169 (a) | The number of availability assurances made by the validator.
+    """
+    blocks: int = field(metadata={'codec': U32})
+    tickets: int = field(metadata={'codec': U32})
+    preimages: int = field(metadata={'codec': U32})
+    preimage_bytes: int = field(metadata={'codec': U32})
+    guarantees: int = field(metadata={'codec': U32})
+    assurances: int = field(metadata={'codec': U32})
+
+
+@dataclass
 class StatisticsState(Serializable):
-    # Todo: placeholder attribute -> remove/replace
-    placeholder: int = field(metadata={'codec': U32})
+    """
+    GP-0.3.6-eq:169 (greek_PI | π) | A collections of statistics for all validators for two epochs.
+
+    Attributes
+    ----------
+
+    statistics: Array(Array(H256,constant_Q),constant_C)
+        GP-0.3.6-eq:169 (greek_PI | π) | A collections of statistics for all validators for two epochs.
+    """
+    statistics: List[List[Statistic]] = field(metadata={'codec': Array(Array(Statistic.to_codec_def(),VALIDATOR_COUNT), 2)})
 
 
 @dataclass

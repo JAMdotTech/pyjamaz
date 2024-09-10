@@ -142,7 +142,12 @@ class TestSafroleVector(unittest.TestCase):
                 wonky_set=[],
                 offenders=[]
             ),
-            statistics=StatisticsState(placeholder=0),
+            statistics=StatisticsState(
+                statistics=[
+                    [0,0,0,0,0,0],
+                    [0,0,0,0,0,0]
+                ]
+            ),
         )
 
         # Convert test case input to block
