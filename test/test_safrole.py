@@ -144,8 +144,8 @@ class TestSafroleVector(unittest.TestCase):
             ),
             statistics=StatisticsState(
                 statistics=[
-                    [0,0,0,0,0,0],
-                    [0,0,0,0,0,0]
+                    [], # Todo: should contain exactly constant_V=6 items
+                    [] # Todo: should contain exactly constant_V=6 items
                 ]
             ),
         )
