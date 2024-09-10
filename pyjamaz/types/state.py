@@ -5,6 +5,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, HISTORY, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
+from pyjamaz.types.block import WorkReport
 from pyjamaz.types.safrole import TicketBody, SlotSealerSeries
 from pyjamaz.types.common import ValidatorData
 
@@ -233,9 +234,35 @@ class ServicesState(Serializable):
 
 
 @dataclass
+class Assurance(Serializable):
+    """
+    GP-0.3.6-eq:116 (greek_RHO[c] | ρ[c]) | An assurance for a single core.
+
+    Attributes
+    ----------
+    work_report: WorkReport
+        GP-0.3.6-eq:116 (w) |
+        A work report
+    timeslot: U32
+        GP-0.3.6-eq:116 (t) |
+        A timeslot
+    """
+    # Todo: Move WorkReport and related dataclasses from Block to Common section.
+    work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
+    timeslot: int = field(metadata={'codec': U32})
+
+
+@dataclass
 class AssurancesState(Serializable):
-    # Todo: placeholder attribute -> remove/replace
-    placeholder: int = field(metadata={'codec': U32})
+    """
+    GP-0.3.6-eq:116 (greek_RHO | ρ) | Assurances partition of the overall state.
+
+    Attributes
+    ----------
+    assurances: Vec(Option(Assurance))
+        GP-0.3.6-eq:116 (greek_RHO | ρ) | A collection of optional assurances per core.
+    """
+    assurances: List[Optional[Assurance]] = field(metadata={'codec': Array(Option(Assurance.to_codec_def()), CORE_COUNT)})
 
 
 @dataclass

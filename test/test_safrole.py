@@ -119,7 +119,12 @@ class TestSafroleVector(unittest.TestCase):
                 recent_history=[]
             ),
             services=ServicesState(placeholder=0),
-            assurances=AssurancesState(placeholder=0),
+            assurances=AssurancesState(
+                assurances=[
+                    None,
+                    None
+                ]
+            ),
             authorizer_queues=AuthorizerQueuesState(
                 authorizer_queues=[
                     [], # Todo: should contain exactly constant_Q=80 items

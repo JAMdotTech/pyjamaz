@@ -230,7 +230,10 @@
     "placeholder": 0
   },
   "assurances": {
-    "placeholder": 0
+    "assurances": [
+      null,
+      null
+    ]
   },
   "authorizer_queues": {
     "authorizer_queues": [
