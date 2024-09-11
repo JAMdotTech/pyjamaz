@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Null
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, HISTORY, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
 from pyjamaz.types.block import WorkReport
@@ -228,9 +228,65 @@ class RecentHistoryState(Serializable):
 
 
 @dataclass
+class ServiceAccount(Serializable):
+    """
+    GP-0.3.6-eq:89 (blackboard_A) | A service account
+
+    Attributes
+    ----------
+    code_hash: H256
+        GP-0.3.6-eq:89 (c) | Hash of the service account's code
+    balance: U64
+        GP-0.3.6-eq:89 (b) | Balance of a service account
+    gas_limit_accumulate: U64
+        GP-0.3.6-eq:89 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
+    gas_limit_on_transfer: U64
+        GP-0.3.6-eq:89 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
+    footprint_storage_items: U64
+        GP-0.3.6-eq:94 (a_l) | Storage footprint of the service account. The number of items in storage.
+    footprint_storage_bytes: U32
+        GP-0.3.6-eq:94 (a_i) | Storage footprint of the service account. The total number of bytes used in storage.
+    storage_items: Dict(H256,Bytes)
+        GP-0.3.6-eq:89 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
+    preimages: Dict(H256,Bytes)
+        GP-0.3.6-eq:89 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
+    preimage_availability: Dict(Tuple(H256,U32),Bytes)
+        GP-0.3.6-eq:89 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
+    """
+    # Remark: Only the following field need to be serialized/deserialized
+    code_hash: bytes = field(metadata={'codec': H256})
+    balance: int = field(metadata={'codec': U64})
+    gas_limit_accumulate: int = field(metadata={'codec': U64})
+    gas_limit_on_transfer: int = field(metadata={'codec': U64})
+    footprint_storage_items: int = field(metadata={'codec': U64})
+    footprint_storage_bytes: int = field(metadata={'codec': U32})
+
+    # Remark: The following field should NOT BE serialized/deserialized
+    # Todo: Dict data structure for storage_items
+    # storage_items: dict = field(metadata={'codec': Dict(H256,Bytes)})
+    # Todo: Dict data structure for preimages
+    # preimages: dict = field(metadata={'codec': Dict(H256,Bytes)})
+    # Todo: Dict data structure for preimage_availability
+    # preimage_availability: dict = field(metadata={'codec': Dict(Tuple(H256, U32),Vec(U32))})
+
+
+@dataclass
 class ServicesState(Serializable):
-    # Todo: Dict Data Structure
-    placeholder: int = field(metadata={'codec': U32})
+    """
+    GP-0.3.6-eq:88 (greek_DELTA | δ) | Services partition of the overall state.
+
+    Attributes
+    ----------
+    services: Dict(U32,ServiceAccount)
+        GP-0.3.6-eq:88,87 (greek_DELTA | δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account
+        data for a service account index.
+    """
+    # Remark: The following field should NOT BE serialized/deserialized
+    # Todo: Dict data structure for services
+    # services: dict = field(metadata={'codec': Dict(U32,ServiceAccount.to_codec_def())})
+
+    #placeholder attribute
+    services: None = field(metadata={'codec': Null})
 
 
 @dataclass
