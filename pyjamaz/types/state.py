@@ -261,7 +261,6 @@ class ServiceAccount(Serializable):
     footprint_storage_items: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U32})
 
-    # Remark: The following field should NOT BE serialized/deserialized
     # Todo: Dict data structure for storage_items
     # storage_items: dict = field(metadata={'codec': Dict(H256,Bytes)})
     # Todo: Dict data structure for preimages
@@ -281,7 +280,6 @@ class ServicesState(Serializable):
         GP-0.3.6-eq:88,87 (greek_DELTA | δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account
         data for a service account index.
     """
-    # Remark: The following field should NOT BE serialized/deserialized
     # Todo: Dict data structure for services
     # services: dict = field(metadata={'codec': Dict(U32,ServiceAccount.to_codec_def())})
 
