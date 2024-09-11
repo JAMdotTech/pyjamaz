@@ -9,7 +9,7 @@ from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, Dispu
 from pyjamaz.types.safrole import SafroleOutput, SafroleErrorCode
 from pyjamaz.types.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
-    ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState
+    ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount
 
 
 class TestCodec(unittest.TestCase):
