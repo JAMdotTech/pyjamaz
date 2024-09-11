@@ -59,6 +59,8 @@ nav:
   - Type Definition:
       - Block Types: reference/types_blocks.md
       - State Types: reference/types_state.md
+  - State Components:
+      - State Components: reference/state_components.md
   - Function Reference:
       - PVM: reference/pvm.md
       - Signing: reference/signing.md

@@ -17,16 +17,35 @@ from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
 class Timeslot(StateComponent):
+    # Todo: arjan explain component_id / input for the storage key constructor function, correct?
     component_id = 11
 
     def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:45 (greek_TAU_prime | τ') | State transition function for the state's timeslot.
 
+        Parameters
+        ----------
+        block: Block
+            Technically only requires header: Header as per GP-0.3.6-eq:16 (greek_TAU_prime | τ')
+
+        Returns
+        -------
+        """
         if block.header.timeslot <= self.pre_state.number:
             raise StateTransitionError(SafroleErrorCode.bad_slot)
 
         self.post_state.number = block.header.timeslot
 
     def is_epoch_change(self):
+        """
+        GP-0.3.6-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+
+        Returns
+        -------
+        bool
+            `True` when epoch has changed, `False` otherwise.
+        """
         return self.post_state.epoch_number() != self.pre_state.epoch_number()
 
     def retrieve_state(self) -> TimeslotState:
@@ -38,15 +57,32 @@ class Entropy(StateComponent):
     component_id = 6
 
     def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:66,67 (greek_ETA_prime | η') | State transition function for the state's entropy.
+
+        Parameters
+        ----------
+        block: Block
+            Technically requires header: Header, current_timeslot: Timeslot and current_entropy: Entropy as per
+            GP-0.3.6-eq:20 (greek_TAU_prime | τ').
+
+        Returns
+        -------
+        """
         # Todo generic prepare outside of function
         self.pre_state = self.retrieve_state()
         self.post_state = self.retrieve_state()
 
-        eta_0 = blake2b_256_hash(self.pre_state.entropy[0] + block.header.entropy_source)  # GP-0.3.2-ref:67
+        # GP-0.3.6-eq:66 (greek_ETA_prime[0] | η'[0]) | State transition for first index of the entropy.
+        eta_0 = blake2b_256_hash(self.pre_state.entropy[0] + block.header.entropy_source)
+
+        # GP-0.3.6-eq:67 (greek_ETA_prime[1-3] | η'[1-3]) | State transition for last three indices of the entropy.
+        # State transition happen on epoch change.
         if self.get_state_component(Timeslot).is_epoch_change():
-            self.post_state.entropy = [eta_0] + self.pre_state.entropy[:3]  # GP-0.3.2-ref:68
+            # GP-0.3.6-eq:67 (`e > e'`) | When epoch changes
+            self.post_state.entropy = [eta_0] + self.pre_state.entropy[:3]
         else:
-            self.post_state.entropy = [eta_0] + self.pre_state.entropy[1:]  # GP-0.3.2-ref:68
+            self.post_state.entropy = [eta_0] + self.pre_state.entropy[1:]
 
     def retrieve_state(self) -> EntropyState:
         value = self.retrieve()
@@ -56,7 +92,12 @@ class Entropy(StateComponent):
 class ValidatorQueue(StateComponent):
     component_id = 7
 
+    # Todo: remove function | STF for the validator queue, is delegated to a privileged service.
     def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:N/A (greek_IOTA_prime | ι') | State transition function for the state's validator queue, is
+        delegated to a privileged service. Therefore, this function should be removed.
+        """
         pass
 
     def retrieve_state(self) -> ValidatorQueueState:
@@ -68,8 +109,20 @@ class ValidatorPool(StateComponent):
     component_id = 8
 
     def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:57 (greek_KAPPA_prime | κ') | State transition function for the state's current validator set.
+        Occurs on epoch change.
+
+        Parameters
+        ----------
+        block: Block
+            Technically requires header: Header, current_timeslot: Timeslot, current_validator_pool: ValidatorPool,
+            current_safrole: Safrole and posterior_verdicts: Verdicts as per GP-0.3.6-eq:21 (greek_KAPPA_prime | κ').
+
+        Returns
+        -------
+        """
         if self.get_state_component(Timeslot).is_epoch_change():
-            # Update Validator keys and metadata currently active. GP-0.3.2-eq:58
             self.post_state.validators = self.get_state_component(Safrole).pre_state.validators
 
     def retrieve_state(self) -> ValidatorPoolState:
@@ -81,6 +134,19 @@ class ValidatorArchive(StateComponent):
     component_id = 9
 
     def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:57 (greek_LAMBDA_prime | λ') | State transition function for the state's archived validator set.
+        Occurs on epoch change.
+
+        Parameters
+        ----------
+        block: Block
+            Technically requires header: Header, current_timeslot: Timeslot, current_validator_archive:
+            ValidatorArchive, current_validator_pool: ValidatorPool as per GP-0.3.6-eq:22 (greek_LAMBDA_prime | λ').
+
+        Returns
+        -------
+        """
         if self.get_state_component(Timeslot).is_epoch_change():
             # Update prior epoch validators   GP-0.3.2-eq:58
             self.post_state.validators = self.get_state_component(ValidatorPool).pre_state.validators
@@ -119,6 +185,19 @@ class Safrole(StateComponent):
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
     def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:57,59,60 (greek_GAMMA_prime | γ') | State transition function for the state's Safrole data.
+
+        Parameters
+        ----------
+        block: Block
+            Technically requires header: Header, current_timeslot: Timeslot, extrinsic_tickets: TicketsEnvelop,
+            current_safrole: Safrole, current_validator_queue: ValidatorQueue, posterior_entropy: Entropy and
+            posterior_validator_pool: ValidatorPool as per GP-0.3.6-eq:19 (greek_KAPPA_prime | γ').
+
+        Returns
+        -------
+        """
 
         # GP-0.3.2-ref:75
         if self.get_state_component(Timeslot).post_state.slot_phase_index() < gp_const.TICKET_SUBMISSION_END_SLOT:
