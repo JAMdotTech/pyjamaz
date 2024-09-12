@@ -478,7 +478,7 @@ class Assurances(StateComponent):
 
     def state_transition_disputes(self, block: Block):
         """
-        GP-0.3.6-eq:XX (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state's assurances that
+        GP-0.3.6-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state's assurances that
         processes disputes.
 
         Parameters
@@ -501,7 +501,7 @@ class Assurances(StateComponent):
 
     def state_transition_assurances(self, block: Block):
         """
-        GP-0.3.6-eq:XX (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's assurances
+        GP-0.3.6-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's assurances
         that processes assurances.
 
         Parameters
@@ -511,9 +511,9 @@ class Assurances(StateComponent):
             Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
             the STFs utilize data external to the STF.
         # extrinsic_assurances: Vec(Assurance)
-            Input parameter 1 | GP-0.3.6-eq:27 (bold_E_A)
-        # post_assurances_state_assurances: Assurances
-            Input parameter 2 | GP-0.3.6-eq:27 (greek_RHO_dagger | ρ†)
+            Input parameter 1 | GP-0.3.6-eq:26 (bold_E_A)
+        # post_disputes_state_assurances: Assurances
+            Input parameter 2 | GP-0.3.6-eq:26 (greek_RHO_dagger | ρ†)
 
         Returns
         -------
@@ -522,9 +522,9 @@ class Assurances(StateComponent):
         """
         pass
 
-    def state_transition(self, block: Block):
+    def state_transition_guarantees(self, block: Block):
         """
-        GP-0.3.6-eq:XX (greek_RHO_prime | ρ') | State transition function for the state's assurances.
+        GP-0.3.6-eq:152 (greek_RHO_prime | ρ') | State transition function for the state's assurances.
 
         Parameters
         ----------
@@ -539,7 +539,7 @@ class Assurances(StateComponent):
         # pre_state_validator_pool: ValidatorPool
             Input parameter 3 | GP-0.3.6-eq:27 (greek_KAPPA | κ)
         # post_state_timeslot: Timeslot
-            Input parameter 3 | GP-0.3.6-eq:27 (greek_TAU_prime | τ')
+            Input parameter 4 | GP-0.3.6-eq:27 (greek_TAU_prime | τ')
 
         Returns
         -------
@@ -568,8 +568,26 @@ class PrivilegedServices(StateComponent):
 class Disputes(StateComponent):
     component_id = 5
 
-    # Todo: later
     def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:111,112,113,114 (greek_PSI_prime | ψ') | State transition function for the state's disputes.
+
+        Parameters
+        ----------
+        block: Block
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # extrinsic_disputes: Disputes
+            Input parameter 1 | GP-0.3.6-eq:23 (bold_E_D)
+        # pre_state_disputes: DisputesState # Todo: collision DisputesExtrinsic & DisputesState (rename one of both?!)
+            Input parameter 2 | GP-0.3.6-eq:23 (greek_PSI | ψ)
+
+        Returns
+        -------
+        post_state_disputes: Disputes
+            Posterior state of Disputes (greek_PSI_prime | ψ')
+        """
         pass
 
     def retrieve_state(self) -> DisputesState:
@@ -580,8 +598,38 @@ class Disputes(StateComponent):
 class Statistics(StateComponent):
     component_id = 13
 
-    # Todo: later
     def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:171,172 (greek_PI_prime | π') | State transition function for the state's statistics.
+
+        Parameters
+        ----------
+        block: Block
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # extrinsic_guarantees: Vec(Guarantee)
+            Input parameter 1 | GP-0.3.6-eq:30 (bold_E_G)
+        # extrinsic_preimages: Vec(Preimage)
+            Input parameter 2 | GP-0.3.6-eq:30 (bold_E_P)
+        # extrinsic_assurances: Vec(Assurance)
+            Input parameter 3 | GP-0.3.6-eq:30 (bold_E_A)
+        # extrinsic_tickets: Vec(TicketEnvelope)
+            Input parameter 4 | GP-0.3.6-eq:30 (bold_E_T)
+        # pre_state_timeslot: Timeslot
+            Input parameter 5 | GP-0.3.6-eq:30 (greek_TAU | τ)
+        # post_state_timeslot: Timeslot
+            Input parameter 6 | GP-0.3.6-eq:30 (greek_TAU_prime | τ')
+        # pre_state_statistics: Statistics
+            Input parameter 7 | GP-0.3.6-eq:30 (greek_PI | π)
+        # header: Header
+            Input parameter 8 | GP-0.3.6-eq:30 (bold_H)
+
+        Returns
+        -------
+        post_state_statistics: Statistics
+            Posterior state of Statistics (greek_PI_prime | π')
+        """
         pass
 
     def retrieve_state(self) -> StatisticsState:
