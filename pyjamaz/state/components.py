@@ -12,12 +12,12 @@ from pyjamaz.state.base import StateComponent
 from pyjamaz.state.exceptions import StateTransitionError
 from pyjamaz.types.block import Block, EpochMark
 from pyjamaz.types.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
-    ValidatorQueueState, ValidatorArchiveState
+    ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
+    AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
 class Timeslot(StateComponent):
-    # Todo: arjan explain component_id / input for the storage key constructor function, correct?
     component_id = 11
 
     def state_transition(self, block: Block):
@@ -27,10 +27,16 @@ class Timeslot(StateComponent):
         Parameters
         ----------
         block: Block
-            Technically only requires header: Header as per GP-0.3.6-eq:16 (greek_TAU_prime | τ')
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # header: Header
+            Input parameter 1 | GP-0.3.6-eq:16 (bold_H)
 
         Returns
         -------
+        post_state_timeslot: Timeslot
+            Posterior state of Timeslot (greek_TAU_prime | τ')
         """
         if block.header.timeslot <= self.pre_state.number:
             raise StateTransitionError(SafroleErrorCode.bad_slot)
@@ -63,11 +69,20 @@ class Entropy(StateComponent):
         Parameters
         ----------
         block: Block
-            Technically requires header: Header, current_timeslot: Timeslot and current_entropy: Entropy as per
-            GP-0.3.6-eq:20 (greek_TAU_prime | τ').
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # header: Header
+            Input parameter 1 | GP-0.3.6-eq:20 (bold_H)
+        # pre_state_timeslot: Timeslot
+            Input parameter 2 | GP-0.3.6-eq:20 (greek_TAU | τ)
+        # pre_state_entropy: Entropy
+            Input parameter 3 | GP-0.3.6-eq:20 (greek_ETA | η)
 
         Returns
         -------
+        post_state_entropy: Entropy
+            Posterior state of Entropy (greek_ETA_prime | η')
         """
         # Todo generic prepare outside of function
         self.pre_state = self.retrieve_state()
@@ -94,10 +109,6 @@ class ValidatorQueue(StateComponent):
 
     # Todo: remove function | STF for the validator queue, is delegated to a privileged service.
     def state_transition(self, block: Block):
-        """
-        GP-0.3.6-eq:N/A (greek_IOTA_prime | ι') | State transition function for the state's validator queue, is
-        delegated to a privileged service. Therefore, this function should be removed.
-        """
         pass
 
     def retrieve_state(self) -> ValidatorQueueState:
@@ -116,11 +127,24 @@ class ValidatorPool(StateComponent):
         Parameters
         ----------
         block: Block
-            Technically requires header: Header, current_timeslot: Timeslot, current_validator_pool: ValidatorPool,
-            current_safrole: Safrole and posterior_verdicts: Verdicts as per GP-0.3.6-eq:21 (greek_KAPPA_prime | κ').
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # header: Header
+            Input parameter 1 | GP-0.3.6-eq:21 (bold_H)
+        # pre_state_timeslot: Timeslot
+            Input parameter 2 | GP-0.3.6-eq:21 (greek_TAU | τ)
+        # pre_state_validator_pool: ValidatorPool
+            Input parameter 3 | GP-0.3.6-eq:21 (greek_KAPPA | κ)
+        # pre_state_safrole: Safrole
+            Input parameter 4 | GP-0.3.6-eq:21 (greek_GAMMA | η)
+        # post_state_disputes: Disputes
+            Input parameter 5 | GP-0.3.6-eq:21 (greek_PSI | ψ)
 
         Returns
         -------
+        post_state_validator_pool: ValidatorPool
+            Posterior state of ValidatorPool (greek_KAPPA_prime | κ')
         """
         if self.get_state_component(Timeslot).is_epoch_change():
             self.post_state.validators = self.get_state_component(Safrole).pre_state.validators
@@ -141,11 +165,22 @@ class ValidatorArchive(StateComponent):
         Parameters
         ----------
         block: Block
-            Technically requires header: Header, current_timeslot: Timeslot, current_validator_archive:
-            ValidatorArchive, current_validator_pool: ValidatorPool as per GP-0.3.6-eq:22 (greek_LAMBDA_prime | λ').
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # header: Header
+            Input parameter 1 | GP-0.3.6-eq:22 (bold_H)
+        # pre_state_timeslot: Timeslot
+            Input parameter 2 | GP-0.3.6-eq:22 (greek_TAU | τ)
+        # pre_state_validator_archive: ValidatorArchive
+            Input parameter 3 | GP-0.3.6-eq:22 (greek_LAMBDA | λ)
+        # pre_state_validator_pool: ValidatorPool
+            Input parameter 4 | GP-0.3.6-eq:22 (greek_KAPPA | κ)
 
         Returns
         -------
+        post_state_validator_archive: ValidatorArchive
+            Posterior state of ValidatorArchive (greek_LAMBDA_prime | λ')
         """
         if self.get_state_component(Timeslot).is_epoch_change():
             # Update prior epoch validators   GP-0.3.2-eq:58
@@ -191,12 +226,28 @@ class Safrole(StateComponent):
         Parameters
         ----------
         block: Block
-            Technically requires header: Header, current_timeslot: Timeslot, extrinsic_tickets: TicketsEnvelop,
-            current_safrole: Safrole, current_validator_queue: ValidatorQueue, posterior_entropy: Entropy and
-            posterior_validator_pool: ValidatorPool as per GP-0.3.6-eq:19 (greek_KAPPA_prime | γ').
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # header: Header
+            Input parameter 1 | GP-0.3.6-eq:19 (bold_H)
+        # pre_state_timeslot: Timeslot
+            Input parameter 2 | GP-0.3.6-eq:19 (greek_TAU | τ)
+        # extrinsic_tickets: Vec(TicketsEnvelope)
+            Input parameter 3 | GP-0.3.6-eq:19 (bold_E_T)
+        # pre_state_safrole: Safrole
+            Input parameter 4 | GP-0.3.6-eq:19 (greek_GAMMA | γ)
+        # pre_state_validator_queue: ValidatorQueue
+            Input parameter 5| GP-0.3.6-eq:19 (greek_IOTA | ι)
+        # post_state_entropy: Entropy
+            Input parameter 6 | GP-0.3.6-eq:19 (greek_ETA_prime | η')
+        # post_state_validator_pool: ValidatorPool
+            Input parameter 7 | GP-0.3.6-eq:19 (greek_KAPPA_prime | κ')
 
         Returns
         -------
+        post_state_safrole: Safrole
+            Posterior state of Safrole (greek_GAMMA_prime | γ')
         """
 
         # GP-0.3.2-ref:75
@@ -319,3 +370,233 @@ class Safrole(StateComponent):
     def retrieve_state(self) -> SafroleState:
         value = self.retrieve()
         return SafroleState.from_jam_bytes(JamBytes(value))
+
+
+class AuthorizerQueues(StateComponent):
+    component_id = 2
+
+    # Todo: remove function | STF for the authorizer queues, is delegated to a privileged service.
+    def state_transition(self, block: Block):
+        pass
+
+    def retrieve_state(self) -> AuthorizerQueuesState:
+        value = self.retrieve()
+        return AuthorizerQueuesState.from_jam_bytes(JamBytes(value))
+
+
+class AuthorizerPools(StateComponent):
+    component_id = 1
+
+    def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:85,86 (greek_ALPHA_prime | α') | State transition function for the state's authorizer pools.
+
+        Parameters
+        ----------
+        block: Block
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # extrinsic_guarantees: Vec(Guarantee)
+            Input parameter 1 | GP-0.3.6-eq:29 (bold_E_G)
+        # post_state_authorizer_queues: AuthorizerQueues
+            Input parameter 2 | GP-0.3.6-eq:29 (greek_PHI_prime | φ')
+        # pre_state_authorizer_pools: AuthorizerPools
+            Input parameter 3 | GP-0.3.6-eq:29 (greek_ALPHA | α)
+
+        Returns
+        -------
+        post_state_authorizer_pools: AuthorizerPools
+            Posterior state of AuthorizerPools (greek_ALPHA_prime | α')
+        """
+        pass
+
+    def retrieve_state(self) -> AuthorizerPoolsState:
+        value = self.retrieve()
+        return AuthorizerPoolsState.from_jam_bytes(JamBytes(value))
+
+
+class RecentHistory(StateComponent):
+    component_id = 3
+
+    def state_transition_intermediate(self, block: Block):
+        """
+        GP-0.3.6-eq:81 (greek_BETA_dagger | β†) | Intermediate state transition function for the state's recent history.
+
+        Parameters
+        ----------
+        block: Block
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # header: Header
+            Input parameter 1 | GP-0.3.6-eq:17 (bold_H)
+        # pre_state_recent_history: RecentHistory
+            Input parameter 2 | GP-0.3.6-eq:17 (greek_BETA | β)
+
+        Returns
+        -------
+        intermediate_state_recent_history: RecentHistory
+            Intermediate state of RecentHistory (greek_BETA_dagger | β†)
+        """
+        pass
+
+    def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:83 (greek_BETA_prime | β') | State transition function for the state's recent history.
+
+        Parameters
+        ----------
+        block: Block
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # header: Header
+            Input parameter 1 | GP-0.3.6-eq:18 (bold_H)
+        # extrinsic_guarantees: Vec(Guarantee)
+            Input parameter 2 | GP-0.3.6-eq:18 (bold_E_G)
+        # intermediate_state_recent_history: RecentHistory
+            Input parameter 3 | GP-0.3.6-eq:18 (greek_BETA_dagger | β†)
+        # TODO: Create Dataclass for BeefyCommitmentMap GP-0.3.6-eq:163
+        # beefy_commitment_map: BeefyCommitmentMap
+            Input parameter 4 | GP-0.3.6-eq:18 (bold_C)
+
+        Returns
+        -------
+        post_state_recent_history: RecentHistory
+            Posterior state of RecentHistory (greek_BETA_prime | β')
+        """
+        pass
+
+    def retrieve_state(self) -> RecentHistoryState:
+        value = self.retrieve()
+        return RecentHistoryState.from_jam_bytes(JamBytes(value))
+
+
+class Assurances(StateComponent):
+    component_id = 10
+
+    def state_transition_disputes(self, block: Block):
+        """
+        GP-0.3.6-eq:XX (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state's assurances that
+        processes disputes.
+
+        Parameters
+        ----------
+        block: Block
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # extrinsic_disputes: Disputes
+            Input parameter 1 | GP-0.3.6-eq:25 (bold_E_D)
+        # pre_state_assurances: Assurances
+            Input parameter 2 | GP-0.3.6-eq:25 (greek_RHO | ρ)
+
+        Returns
+        -------
+        post_disputes_state_assurances: Assurances
+            Intermediate state after processing disputes of Assurances (greek_RHO_dagger | ρ†)
+        """
+        pass
+
+    def state_transition_assurances(self, block: Block):
+        """
+        GP-0.3.6-eq:XX (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's assurances
+        that processes assurances.
+
+        Parameters
+        ----------
+        block: Block
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # extrinsic_assurances: Vec(Assurance)
+            Input parameter 1 | GP-0.3.6-eq:27 (bold_E_A)
+        # post_assurances_state_assurances: Assurances
+            Input parameter 2 | GP-0.3.6-eq:27 (greek_RHO_dagger | ρ†)
+
+        Returns
+        -------
+        post_assurances_state_assurances: Assurances
+            Posterior state of Assurances (greek_RHO_doubledagger | ρ‡)
+        """
+        pass
+
+    def state_transition(self, block: Block):
+        """
+        GP-0.3.6-eq:XX (greek_RHO_prime | ρ') | State transition function for the state's assurances.
+
+        Parameters
+        ----------
+        block: Block
+            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
+            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
+            the STFs utilize data external to the STF.
+        # extrinsic_guarantees: Vec(Guarantee)
+            Input parameter 1 | GP-0.3.6-eq:27 (bold_E_G)
+        # post_assurances_state_assurances: Assurances
+            Input parameter 2 | GP-0.3.6-eq:27 (greek_RHO_doubledagger | ρ‡)
+        # pre_state_validator_pool: ValidatorPool
+            Input parameter 3 | GP-0.3.6-eq:27 (greek_KAPPA | κ)
+        # post_state_timeslot: Timeslot
+            Input parameter 3 | GP-0.3.6-eq:27 (greek_TAU_prime | τ')
+
+        Returns
+        -------
+        post_state_assurances: Assurances
+            Posterior state of Assurances (greek_RHO_prime | ρ')
+        """
+        pass
+
+    def retrieve_state(self) -> AssurancesState:
+        value = self.retrieve()
+        return AssurancesState.from_jam_bytes(JamBytes(value))
+
+
+class PrivilegedServices(StateComponent):
+    component_id = 12
+
+    # Todo: remove function | STF for the privileged services, is delegated to a privileged service.
+    def state_transition(self, block: Block):
+        pass
+
+    def retrieve_state(self) -> PrivilegedServicesState:
+        value = self.retrieve()
+        return PrivilegedServicesState.from_jam_bytes(JamBytes(value))
+
+
+class Disputes(StateComponent):
+    component_id = 5
+
+    # Todo: later
+    def state_transition(self, block: Block):
+        pass
+
+    def retrieve_state(self) -> DisputesState:
+        value = self.retrieve()
+        return DisputesState.from_jam_bytes(JamBytes(value))
+
+
+class Statistics(StateComponent):
+    component_id = 13
+
+    # Todo: later
+    def state_transition(self, block: Block):
+        pass
+
+    def retrieve_state(self) -> StatisticsState:
+        value = self.retrieve()
+        return StatisticsState.from_jam_bytes(JamBytes(value))
+
+
+class Services(StateComponent):
+    # component_id = 255
+
+    # Todo: later
+    def state_transition(self, block: Block):
+        pass
+
+    def retrieve_state(self) -> ServicesState:
+        value = self.retrieve()
+        return ServicesState.from_jam_bytes(JamBytes(value))
+
