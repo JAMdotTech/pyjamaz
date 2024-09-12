@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple as PyTuple
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Null
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Null, Map, Bytes, Tuple
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, HISTORY, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
 from pyjamaz.types.block import WorkReport
@@ -260,13 +260,9 @@ class ServiceAccount(Serializable):
     gas_limit_on_transfer: int = field(metadata={'codec': U64})
     footprint_storage_items: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U32})
-
-    # Todo: Dict data structure for storage_items
-    # storage_items: dict = field(metadata={'codec': Dict(H256,Bytes)})
-    # Todo: Dict data structure for preimages
-    # preimages: dict = field(metadata={'codec': Dict(H256,Bytes)})
-    # Todo: Dict data structure for preimage_availability
-    # preimage_availability: dict = field(metadata={'codec': Dict(Tuple(H256, U32),Vec(U32))})
+    storage_items: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
+    preimages: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
+    preimage_availability: Dict[PyTuple[bytes, int], List[int]] = field(metadata={'codec': Map(Tuple(H256, U32), Vec(U32))})
 
 
 @dataclass
@@ -280,11 +276,7 @@ class ServicesState(Serializable):
         GP-0.3.6-eq:88,87 (greek_DELTA | δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account
         data for a service account index.
     """
-    # Todo: Dict data structure for services
-    # services: dict = field(metadata={'codec': Dict(U32,ServiceAccount.to_codec_def())})
-
-    #placeholder attribute
-    services: None = field(metadata={'codec': Null})
+    services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
 
 
 @dataclass

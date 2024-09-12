@@ -120,10 +120,9 @@ class TestCodec(unittest.TestCase):
         with open(path.join(self.test_vector_jdt_dir, f'state_service_account.json')) as f:
             test_vector = json.load(f)
 
-        # Todo: wait for solution: https://github.com/JAMdotTech/py-jam-codec/issues/3
-        #state = ServiceAccount.from_json(test_vector)
-        #value = state.serialize()
-        #self.assertDictEqual(test_vector, value)
+        state = ServiceAccount.from_json(test_vector)
+        value = state.serialize()
+        self.assertDictEqual(test_vector, value)
 
         #with open(path.join(self.test_vector_jdt_dir, f'state_service_account.bin'), "rb") as f:
         #   jam_data = f.read()
