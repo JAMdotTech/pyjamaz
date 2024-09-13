@@ -35,8 +35,8 @@ class Timeslot(StateComponent):
 
         Returns
         -------
-        post_state_timeslot: Timeslot
-            Posterior state of Timeslot (greek_TAU_prime | τ')
+        post_state_timeslot: TimeslotState
+            Posterior state of TimeslotState (greek_TAU_prime | τ')
         """
         if block.header.timeslot <= self.pre_state.number:
             raise StateTransitionError(SafroleErrorCode.bad_slot)
@@ -74,15 +74,15 @@ class Entropy(StateComponent):
             the STFs utilize data external to the STF.
         # header: Header
             Input parameter 1 | GP-0.3.6-eq:20 (bold_H)
-        # pre_state_timeslot: Timeslot
+        # pre_state_timeslot: TimeslotState
             Input parameter 2 | GP-0.3.6-eq:20 (greek_TAU | τ)
-        # pre_state_entropy: Entropy
+        # pre_state_entropy: EntropyState
             Input parameter 3 | GP-0.3.6-eq:20 (greek_ETA | η)
 
         Returns
         -------
-        post_state_entropy: Entropy
-            Posterior state of Entropy (greek_ETA_prime | η')
+        post_state_entropy: EntropyState
+            Posterior state of EntropyState (greek_ETA_prime | η')
         """
         # Todo generic prepare outside of function
         self.pre_state = self.retrieve_state()
@@ -132,19 +132,19 @@ class ValidatorPool(StateComponent):
             the STFs utilize data external to the STF.
         # header: Header
             Input parameter 1 | GP-0.3.6-eq:21 (bold_H)
-        # pre_state_timeslot: Timeslot
+        # pre_state_timeslot: TimeslotState
             Input parameter 2 | GP-0.3.6-eq:21 (greek_TAU | τ)
-        # pre_state_validator_pool: ValidatorPool
+        # pre_state_validator_pool: ValidatorPoolState
             Input parameter 3 | GP-0.3.6-eq:21 (greek_KAPPA | κ)
-        # pre_state_safrole: Safrole
+        # pre_state_safrole: SafroleState
             Input parameter 4 | GP-0.3.6-eq:21 (greek_GAMMA | η)
-        # post_state_disputes: Disputes
-            Input parameter 5 | GP-0.3.6-eq:21 (greek_PSI | ψ)
+        # post_state_disputes: DisputesState
+            Input parameter 5 | GP-0.3.6-eq:21 (greek_PSI_prime | ψ')
 
         Returns
         -------
-        post_state_validator_pool: ValidatorPool
-            Posterior state of ValidatorPool (greek_KAPPA_prime | κ')
+        post_state_validator_pool: ValidatorPoolState
+            Posterior state of ValidatorPoolState (greek_KAPPA_prime | κ')
         """
         if self.get_state_component(Timeslot).is_epoch_change():
             self.post_state.validators = self.get_state_component(Safrole).pre_state.validators
@@ -170,17 +170,17 @@ class ValidatorArchive(StateComponent):
             the STFs utilize data external to the STF.
         # header: Header
             Input parameter 1 | GP-0.3.6-eq:22 (bold_H)
-        # pre_state_timeslot: Timeslot
+        # pre_state_timeslot: TimeslotState
             Input parameter 2 | GP-0.3.6-eq:22 (greek_TAU | τ)
-        # pre_state_validator_archive: ValidatorArchive
+        # pre_state_validator_archive: ValidatorArchiveState
             Input parameter 3 | GP-0.3.6-eq:22 (greek_LAMBDA | λ)
-        # pre_state_validator_pool: ValidatorPool
+        # pre_state_validator_pool: ValidatorPoolState
             Input parameter 4 | GP-0.3.6-eq:22 (greek_KAPPA | κ)
 
         Returns
         -------
-        post_state_validator_archive: ValidatorArchive
-            Posterior state of ValidatorArchive (greek_LAMBDA_prime | λ')
+        post_state_validator_archive: ValidatorArchiveState
+            Posterior state of ValidatorArchiveState (greek_LAMBDA_prime | λ')
         """
         if self.get_state_component(Timeslot).is_epoch_change():
             # Update prior epoch validators   GP-0.3.2-eq:58
@@ -231,23 +231,23 @@ class Safrole(StateComponent):
             the STFs utilize data external to the STF.
         # header: Header
             Input parameter 1 | GP-0.3.6-eq:19 (bold_H)
-        # pre_state_timeslot: Timeslot
+        # pre_state_timeslot: TimeslotState
             Input parameter 2 | GP-0.3.6-eq:19 (greek_TAU | τ)
         # extrinsic_tickets: Vec(TicketsEnvelope)
             Input parameter 3 | GP-0.3.6-eq:19 (bold_E_T)
-        # pre_state_safrole: Safrole
+        # pre_state_safrole: SafroleState
             Input parameter 4 | GP-0.3.6-eq:19 (greek_GAMMA | γ)
-        # pre_state_validator_queue: ValidatorQueue
+        # pre_state_validator_queue: ValidatorQueueState
             Input parameter 5| GP-0.3.6-eq:19 (greek_IOTA | ι)
-        # post_state_entropy: Entropy
+        # post_state_entropy: EntropyState
             Input parameter 6 | GP-0.3.6-eq:19 (greek_ETA_prime | η')
-        # post_state_validator_pool: ValidatorPool
+        # post_state_validator_pool: ValidatorPoolState
             Input parameter 7 | GP-0.3.6-eq:19 (greek_KAPPA_prime | κ')
 
         Returns
         -------
-        post_state_safrole: Safrole
-            Posterior state of Safrole (greek_GAMMA_prime | γ')
+        post_state_safrole: SafroleState
+            Posterior state of SafroleState (greek_GAMMA_prime | γ')
         """
 
         # GP-0.3.2-ref:75
@@ -399,15 +399,15 @@ class AuthorizerPools(StateComponent):
             the STFs utilize data external to the STF.
         # extrinsic_guarantees: Vec(Guarantee)
             Input parameter 1 | GP-0.3.6-eq:29 (bold_E_G)
-        # post_state_authorizer_queues: AuthorizerQueues
+        # post_state_authorizer_queues: AuthorizerQueuesState
             Input parameter 2 | GP-0.3.6-eq:29 (greek_PHI_prime | φ')
-        # pre_state_authorizer_pools: AuthorizerPools
+        # pre_state_authorizer_pools: AuthorizerPoolsState
             Input parameter 3 | GP-0.3.6-eq:29 (greek_ALPHA | α)
 
         Returns
         -------
-        post_state_authorizer_pools: AuthorizerPools
-            Posterior state of AuthorizerPools (greek_ALPHA_prime | α')
+        post_state_authorizer_pools: AuthorizerPoolsState
+            Posterior state of AuthorizerPoolsState (greek_ALPHA_prime | α')
         """
         pass
 
@@ -431,13 +431,13 @@ class RecentHistory(StateComponent):
             the STFs utilize data external to the STF.
         # header: Header
             Input parameter 1 | GP-0.3.6-eq:17 (bold_H)
-        # pre_state_recent_history: RecentHistory
+        # pre_state_recent_history: RecentHistoryState
             Input parameter 2 | GP-0.3.6-eq:17 (greek_BETA | β)
 
         Returns
         -------
-        intermediate_state_recent_history: RecentHistory
-            Intermediate state of RecentHistory (greek_BETA_dagger | β†)
+        intermediate_state_recent_history: RecentHistoryState
+            Intermediate state of RecentHistoryState (greek_BETA_dagger | β†)
         """
         pass
 
@@ -455,7 +455,7 @@ class RecentHistory(StateComponent):
             Input parameter 1 | GP-0.3.6-eq:18 (bold_H)
         # extrinsic_guarantees: Vec(Guarantee)
             Input parameter 2 | GP-0.3.6-eq:18 (bold_E_G)
-        # intermediate_state_recent_history: RecentHistory
+        # intermediate_state_recent_history: RecentHistoryState
             Input parameter 3 | GP-0.3.6-eq:18 (greek_BETA_dagger | β†)
         # TODO: Create Dataclass for BeefyCommitmentMap GP-0.3.6-eq:163
         # beefy_commitment_map: BeefyCommitmentMap
@@ -463,8 +463,8 @@ class RecentHistory(StateComponent):
 
         Returns
         -------
-        post_state_recent_history: RecentHistory
-            Posterior state of RecentHistory (greek_BETA_prime | β')
+        post_state_recent_history: RecentHistoryState
+            Posterior state of RecentHistoryState (greek_BETA_prime | β')
         """
         pass
 
@@ -489,13 +489,13 @@ class Assurances(StateComponent):
             the STFs utilize data external to the STF.
         # extrinsic_disputes: Disputes
             Input parameter 1 | GP-0.3.6-eq:25 (bold_E_D)
-        # pre_state_assurances: Assurances
+        # pre_state_assurances: AssurancesState
             Input parameter 2 | GP-0.3.6-eq:25 (greek_RHO | ρ)
 
         Returns
         -------
-        post_disputes_state_assurances: Assurances
-            Intermediate state after processing disputes of Assurances (greek_RHO_dagger | ρ†)
+        post_disputes_state_assurances: AssurancesState
+            Intermediate state after processing disputes of AssurancesState (greek_RHO_dagger | ρ†)
         """
         pass
 
@@ -512,13 +512,13 @@ class Assurances(StateComponent):
             the STFs utilize data external to the STF.
         # extrinsic_assurances: Vec(Assurance)
             Input parameter 1 | GP-0.3.6-eq:26 (bold_E_A)
-        # post_disputes_state_assurances: Assurances
+        # post_disputes_state_assurances: AssurancesState
             Input parameter 2 | GP-0.3.6-eq:26 (greek_RHO_dagger | ρ†)
 
         Returns
         -------
-        post_assurances_state_assurances: Assurances
-            Posterior state of Assurances (greek_RHO_doubledagger | ρ‡)
+        post_assurances_state_assurances: AssurancesState
+            Posterior state of AssurancesState (greek_RHO_doubledagger | ρ‡)
         """
         pass
 
@@ -534,17 +534,17 @@ class Assurances(StateComponent):
             the STFs utilize data external to the STF.
         # extrinsic_guarantees: Vec(Guarantee)
             Input parameter 1 | GP-0.3.6-eq:27 (bold_E_G)
-        # post_assurances_state_assurances: Assurances
+        # post_assurances_state_assurances: AssurancesState
             Input parameter 2 | GP-0.3.6-eq:27 (greek_RHO_doubledagger | ρ‡)
-        # pre_state_validator_pool: ValidatorPool
+        # pre_state_validator_pool: ValidatorPoolState
             Input parameter 3 | GP-0.3.6-eq:27 (greek_KAPPA | κ)
-        # post_state_timeslot: Timeslot
+        # post_state_timeslot: TimeslotState
             Input parameter 4 | GP-0.3.6-eq:27 (greek_TAU_prime | τ')
 
         Returns
         -------
-        post_state_assurances: Assurances
-            Posterior state of Assurances (greek_RHO_prime | ρ')
+        post_state_assurances: AssurancesState
+            Posterior state of AssurancesState (greek_RHO_prime | ρ')
         """
         pass
 
@@ -580,13 +580,13 @@ class Disputes(StateComponent):
             the STFs utilize data external to the STF.
         # extrinsic_disputes: Disputes
             Input parameter 1 | GP-0.3.6-eq:23 (bold_E_D)
-        # pre_state_disputes: DisputesState # Todo: collision DisputesExtrinsic & DisputesState (rename one of both?!)
+        # pre_state_disputes: DisputesState
             Input parameter 2 | GP-0.3.6-eq:23 (greek_PSI | ψ)
 
         Returns
         -------
         post_state_disputes: Disputes
-            Posterior state of Disputes (greek_PSI_prime | ψ')
+            Posterior state of DisputesState (greek_PSI_prime | ψ')
         """
         pass
 
@@ -616,19 +616,19 @@ class Statistics(StateComponent):
             Input parameter 3 | GP-0.3.6-eq:30 (bold_E_A)
         # extrinsic_tickets: Vec(TicketEnvelope)
             Input parameter 4 | GP-0.3.6-eq:30 (bold_E_T)
-        # pre_state_timeslot: Timeslot
+        # pre_state_timeslot: TimeslotState
             Input parameter 5 | GP-0.3.6-eq:30 (greek_TAU | τ)
-        # post_state_timeslot: Timeslot
+        # post_state_timeslot: TimeslotState
             Input parameter 6 | GP-0.3.6-eq:30 (greek_TAU_prime | τ')
-        # pre_state_statistics: Statistics
+        # pre_state_statistics: StatisticsState
             Input parameter 7 | GP-0.3.6-eq:30 (greek_PI | π)
         # header: Header
             Input parameter 8 | GP-0.3.6-eq:30 (bold_H)
 
         Returns
         -------
-        post_state_statistics: Statistics
-            Posterior state of Statistics (greek_PI_prime | π')
+        post_state_statistics: StatisticsState
+            Posterior state of StatisticsState (greek_PI_prime | π')
         """
         pass
 
