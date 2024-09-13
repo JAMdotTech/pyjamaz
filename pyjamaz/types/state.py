@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Tuple as PyTuple
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Null, Map, Bytes, Tuple
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Null, Map, Bytes, Tuple, StringDef
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, HISTORY, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
 from pyjamaz.types.block import WorkReport
@@ -262,7 +262,10 @@ class ServiceAccount(Serializable):
     footprint_storage_bytes: int = field(metadata={'codec': U32})
     storage_items: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
     preimages: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
-    preimage_availability: Dict[PyTuple[bytes, int], List[int]] = field(metadata={'codec': Map(Tuple(H256, U32), Vec(U32))})
+    # Todo: GP states the Dict has a tuple as key. Needs to be resolved when getter function for preimage_availability
+    #  gets implemented or when kv-db storage gets implemented.
+    #preimage_availability: Dict[PyTuple[bytes, int], List[int]] = field(metadata={'codec': Map(Tuple(H256, U32), Vec(U32))})
+    preimage_availability: Dict[bytes, List[int]] = field(metadata={'codec': Map(Array(U8, 36), Vec(U32))})
 
 
 @dataclass
@@ -276,7 +279,12 @@ class ServicesState(Serializable):
         GP-0.3.6-eq:88,87 (greek_DELTA | δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account
         data for a service account index.
     """
-    services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
+    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
+    # services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
+
+    # Todo: Workaround for lack of support for int value dict-keys in JSON.
+    # services: Dict[bytes, ServiceAccount] = field(metadata={'codec': Map(Array(U8,1), ServiceAccount.to_codec_def())})
+    services: Dict[str, ServiceAccount] = field(metadata={'codec': Map(StringDef(U32), ServiceAccount.to_codec_def())})
 
 
 @dataclass
