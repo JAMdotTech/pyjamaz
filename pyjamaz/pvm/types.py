@@ -14,7 +14,7 @@ class PVMProgram(Serializable):
     code_length: int = field(metadata={'length': 'varint'})
     jump_table: List[int] = field(metadata={'size': jump_table_entry_count, 'length': jump_table_entry_size})
     code: bytes = field(metadata={'length': code_length})
-    checksum: int = field(metadata={'length': 1})
+    bitmask: bytes = field(metadata={'length': 'remaining'})
 
 #TODO: scalecodec / serializers strictly typed & performant maken met numpy: https://stackoverflow.com/a/38155077
 # @dataclass

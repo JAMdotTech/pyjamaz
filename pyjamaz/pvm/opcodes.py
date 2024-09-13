@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+# Instruction argument length bitmask
+BITMASK_MAX = 24
 
 class InstructionType(Enum):
     """
@@ -168,15 +170,17 @@ OpcodeScheme = {
     # Instructions with args: reg, imm, offset
     op.load_imm_and_jump.value                                : it.reg_imm_offset, #X
     op.branch_eq_imm.value                                    : it.reg_imm_offset, #riscv:beq
-    op.branch_not_eq_imm.value                                : it.reg_imm_offset,
-    op.branch_less_unsigned_imm.value                         : it.reg_imm_offset,
-    op.branch_less_signed_imm.value                           : it.reg_imm_offset,
-    op.branch_greater_or_equal_unsigned_imm.value             : it.reg_imm_offset,
-    op.branch_greater_or_equal_signed_imm.value               : it.reg_imm_offset,
-    op.branch_less_or_equal_signed_imm.value                  : it.reg_imm_offset,
-    op.branch_less_or_equal_unsigned_imm.value                : it.reg_imm_offset,
-    op.branch_greater_signed_imm.value                        : it.reg_imm_offset,
-    op.branch_greater_unsigned_imm.value                      : it.reg_imm_offset,
+    op.branch_not_eq_imm.value                                : it.reg_imm_offset, #riscv:bne
+
+    op.branch_less_unsigned_imm.value                         : it.reg_imm_offset, #riscv:bltu
+    op.branch_greater_or_equal_unsigned_imm.value             : it.reg_imm_offset, #riscv:
+    op.branch_less_or_equal_unsigned_imm.value                : it.reg_imm_offset, #riscv:
+    op.branch_greater_unsigned_imm.value                      : it.reg_imm_offset, #riscv:
+
+    op.branch_less_signed_imm.value                           : it.reg_imm_offset, #riscv:
+    op.branch_greater_or_equal_signed_imm.value               : it.reg_imm_offset, #riscv:
+    op.branch_less_or_equal_signed_imm.value                  : it.reg_imm_offset, #riscv:
+    op.branch_greater_signed_imm.value                        : it.reg_imm_offset, #riscv:
 
     # Instructions with args: reg, imm, imm
     op.store_imm_indirect_u8.value                            : it.reg_imm_imm, #X

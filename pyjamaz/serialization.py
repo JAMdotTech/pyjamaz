@@ -308,7 +308,9 @@ class Serializable:
 
             elif field_type is bytes:
                 length = orig_field.metadata.get('length')
-                if type(length) is dataclasses.Field:
+                if length == 'remaining':
+                    return scale_bytes.get_remaining_bytes()
+                elif type(length) is dataclasses.Field:
                     length = field_values[length.name]
                 return scale_bytes.get_next_bytes(length)
             elif is_dataclass(field_type):
