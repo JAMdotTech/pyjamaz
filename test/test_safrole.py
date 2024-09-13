@@ -118,7 +118,9 @@ class TestSafroleVector(unittest.TestCase):
             recent_history=RecentHistoryState(
                 recent_history=[]
             ),
-            services=ServicesState(placeholder=0),
+            services=ServicesState(
+                services=None
+            ),
             assurances=AssurancesState(
                 assurances=[
                     None,
