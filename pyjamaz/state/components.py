@@ -1,10 +1,11 @@
-from copy import deepcopy
+from copy import deepcopy, copy
 from typing import List
 
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.hashing import blake2b_256_hash, keccak_256_hash
+from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.serialization import JamBytes
 from pyjamaz.types.common import BlockInfo, Mmr
 from pyjamaz.types.safrole import SafroleErrorCode, SlotSealerSeries, SafroleOutput
@@ -253,18 +254,18 @@ class BlocksHistory(StateComponent):
 
         if len(self.pre_state.blocks) > 0:
             self.post_state.blocks[-1].state_root = block.header.parent_state_root
-
-            # TODO implement MMR according to GP
-            prev_peaks = b''.join(item if item is not None else b'\x00' for item in reversed(self.post_state.blocks[-1].mmr.peaks))
-            peaks = [None,  keccak_256_hash(prev_peaks + block.extrinsic.accumulate_root)]
-
+            mmr_peaks = copy(self.post_state.blocks[-1].mmr.peaks)
         else:
-            peaks = [block.extrinsic.accumulate_root]
+            mmr_peaks = []
+
+        # Extend MMR
+        mmr = MerkleMountainRange(mmr_peaks)
+        mmr.insert(block.extrinsic.accumulate_root)
 
         recent_block = BlockInfo(
             header_hash=block.header.hash,
             mmr=Mmr(
-                peaks=peaks
+                peaks=mmr.peaks
             ),
             state_root=bytes(32),
             reported=block.extrinsic.work_report_hashes
