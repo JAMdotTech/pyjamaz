@@ -5,26 +5,18 @@ from .opcodes import Opcode as op, OpcodeScheme, InstructionType, BITMASK_MAX
 
 #gp_0.3.6_eq_223
 def sign_extend(x,n):
-    # Calculate the term (2^32 - 2^(8*n))
     term = (2 ** 32 - 2 ** (8 * n))
-
-    # Calculate the floor division part: floor(x / 2^(8*n - 1))
     factor = x // (2 ** (8 * n - 1))
-
-    # Return the transformed x
     return x + factor * term
 
 
 def transform_signed(a, n):
-    # Define the boundary as 2^(8n-1)
     boundary = 2 ** (8 * n - 1)
-
-    # If 'a' is smaller than the boundary, return 'a' unchanged
     if a < boundary:
         return a
-    # Otherwise, return 'a - 2^(8n)'
     else:
         return a - 2 ** (8 * n)
+
 
 class PVM:
 
@@ -36,83 +28,49 @@ class PVM:
         # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
         self.rom = np.array(program.code, dtype=np.uint8)
         self.program_size = len(self.rom)
-
-        bl = len(program.bitmask)
-        pb = program.bitmask
-
-        #TODO: helper functie van maken -> ook te testen
-        self.inst_bitmask = [np.uint8(pb[x]) for x in range(bl)]
-        self.inst_pos = {0:0}
+        self.inst_bitmask = program.opcode_bitmask
+        self.inst_pos = {0: 0}
         self.inst_len = []
-
-        op_idx = 0
-        op_mask = self.inst_bitmask
-        op_byte_idx = 0
-        # Note: initieel starten op bit index 1 (pos 0 zal namelijk altijd 1 zijn == 1e opcode)
-        op_bit_idx = 1
-
-        # Verwerk de instructie bitmask om skip lengtes te bepalen voor de PVM
-        while op_byte_idx < len(op_mask):
-            op_len = 0
-            op_args = 0
-
-            # Note: wellicht willen we deze later als numpy typen definieeren, dus voor nu hier alvast gedefinieerd
-            bit = 0
-
-            # blijf zoeken zolang we geen "aan" bit (nieuwe opcode) tegen komen in de bitmask
-            while bit == 0:
-                bit_idx = op_bit_idx % 8
-                # Note: zorg dat we deze waarde ook echt als een unsigned byte value behandelen
-                byt = op_mask[op_byte_idx]
-                # Mask op de bit die we gaan checken
-                bit = byt & (1 << bit_idx)
-                # Als dit 0 is, betekend dit dat in het programma te maken hebben met een opcode argument
-                if bit == 0:
-                    op_args += 1
-                    op_len += 1
-
-                op_bit_idx += 1
-
-                # Als we een meer dan 8 bits hebben behandeld, dan gaan we naar de volgende byte
-                if op_bit_idx % 8 == 0:
-                    op_byte_idx += 1
-                    if op_byte_idx > len(op_mask)-1:
-                        # Als de laatste bit van ons mask 0 is, zijn we klaar!
-                        bit = 1
-
-            self.inst_len.append(op_args)
-            op_idx += 1
-            self.inst_pos[op_bit_idx - 1] = op_idx
-
-            #print(f"added instruction {len(self.inst_len) - 1} (byte {op_bit_idx-1} == opcode {self.inst_pos[op_bit_idx-1]}) with args {op_args} (next byte: {op_bit_idx - 1})")
-
-        #TODO: temp sanity checks:
-        # if op_bit_idx != len(self.rom):
-        #     raise Exception("Opcode bitmask matched niet met aantal program bytes")
-        # total_bits = 0
-        # for k in range(len(self.inst_len)):
-        #     total_bits += (self.inst_len[k] + 1)
-        # if total_bits != len(self.rom):
-        #     raise Exception("Opcode bitmask matched niet met aantal program bytes")
-
         self.trap = 0   #TODO: lookup maken voor mogelijke trap exit codes
 
+    def create_instruction_lookup(self):
+        self.inst_pos = {0: 0}
+        self.inst_len = []
+
+        inst_nr = 0
+        inst_bitmask = self.inst_bitmask
+        inst_bitmask_idx = 1
+
+        # Note: In the exceptional case we only have 1 instruction (trap or fallthrough), we add it manually and be done
+        if len(inst_bitmask) == 1:
+            self.inst_len.append(0)
+            return
+
+        # Parse instruction bitmask and create a opcode offset and instruction length lookup
+        while inst_bitmask_idx < len(inst_bitmask):
+            inst_args = 0
+
+            # Note: wellicht willen we deze later als numpy typen definieeren, dus voor nu hier alvast gedefinieerd
+            is_opcode = False
+
+            while not is_opcode:
+
+                is_opcode = inst_bitmask[inst_bitmask_idx]
+                if not is_opcode:
+                    inst_args += 1
+
+                inst_bitmask_idx += 1
+
+                if inst_bitmask_idx > len(inst_bitmask) - 1:
+                    is_opcode = True
+
+            self.inst_len.append(inst_args)
+            inst_nr += 1
+            self.inst_pos[inst_bitmask_idx - 1] = inst_nr
+            # print(f"added instruction {len(self.inst_len) - 1} (byte {op_bit_idx-1} == opcode {self.inst_pos[op_bit_idx-1]}) with args {op_args} (next byte: {op_bit_idx - 1})")
+
+
     def initialize(self, initial_regs, initial_pc, initial_gas, initial_page_map, initial_memory):
-        """
-        Initializes the PVM
-
-        Parameters
-        ----------
-        initial_regs
-        initial_pc
-        initial_gas
-        initial_page_map
-        initial_memory
-
-        Returns
-        -------
-
-        """
         self.reg = np.array(initial_regs, dtype=np.uint32)
         self.pc = np.uint32(initial_pc)
         self.gas = np.uint32(initial_gas)
@@ -124,6 +82,8 @@ class PVM:
             for block_idx, mem_block in enumerate(initial_memory):
                 for idx, byt in enumerate(mem_block["contents"]):
                     self.mem[initial_page_map[block_idx]["address"] - mem_block["address"] + idx] = np.uint8(byt)
+
+        self.create_instruction_lookup()
 
 
     # TODO: typings

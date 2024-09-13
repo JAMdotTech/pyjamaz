@@ -2,11 +2,11 @@ import json
 import os
 import unittest
 
+from jamcodec.base import JamBytes
 from parameterized import parameterized
 
 from pyjamaz.pvm import PVM
 from pyjamaz.pvm.types import PVMProgram
-from pyjamaz.serialization import JamBytes
 
 
 def load_test_vectors(directory):
@@ -17,13 +17,14 @@ def load_test_vectors(directory):
                 test_vector = json.load(f)
                 test_vectors.append((filename, test_vector))
 
+    filename = "inst_trap.json"
     #filename = "inst_store_u8_trap_read_only.json"
     #filename = "inst_load_u8.json"
     #filename = "inst_load_imm.json"
     #filename = "inst_add_imm.json"
     #filename = "inst_branch_eq_imm_ok.json"
     #filename = "inst_sub_imm.json"
-    # filename = "inst_branch_less_unsigned_imm_nok.json"
+    #filename = "inst_branch_less_unsigned_imm_nok.json"
     # with open(os.path.join(directory, filename)) as f:
     #     test_vector = json.load(f)
     #     test_vectors = [(filename, test_vector)]
@@ -39,7 +40,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
         if test_vector["expected-memory"]:
             mem_size = len(test_vector["expected-memory"][0]["contents"])
 
-        pvm_data = PVMProgram.from_scale_bytes(JamBytes(bytes(test_vector["program"])))
+        pvm_data = PVMProgram.from_jam_bytes(JamBytes(bytes(test_vector["program"])))
         pvm = PVM(pvm_data, mem_size=mem_size)
 
         pvm.initialize(
