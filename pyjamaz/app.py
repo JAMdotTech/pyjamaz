@@ -5,7 +5,7 @@ from pyjamaz.storage import StorageInterface
 from pyjamaz.state.base import StateManager, StateComponent
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
-    BlocksHistory
+    RecentHistory
 from pyjamaz.types.block import Block, OutputMarks
 from pyjamaz.types.state import JamState
 
@@ -43,9 +43,9 @@ class PyjamazApp:
         self.state_components.get(Timeslot).post_state = state.timeslot
         self.state_components.get(Timeslot).store_state()
 
-        # self.state_components.get(BlocksHistory).pre_state = state.blocks_history
-        # self.state_components.get(BlocksHistory).post_state = state.blocks_history
-        # self.state_components.get(BlocksHistory).store_state()
+        # self.state_components.get(RecentHistory).pre_state = state.recent_history
+        # self.state_components.get(RecentHistory).post_state = state.recent_history
+        # self.state_components.get(RecentHistory).store_state()
 
         self.state_components.get(Entropy).pre_state = state.entropy
         self.state_components.get(Entropy).post_state = state.entropy

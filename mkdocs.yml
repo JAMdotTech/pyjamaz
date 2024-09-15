@@ -56,6 +56,11 @@ extra:
 
 nav:
   - Overview: index.md
+  - Type Definition:
+      - Block Types: reference/types_blocks.md
+      - State Types: reference/types_state.md
+  - State Transition Functions:
+      - State Transition Functions: reference/state_transition.md
   - Function Reference:
       - PVM: reference/pvm.md
       - Signing: reference/signing.md

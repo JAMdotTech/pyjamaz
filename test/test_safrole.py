@@ -2,30 +2,32 @@ import json
 import os
 import unittest
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from os import path
 from typing import Optional
 
 from parameterized import parameterized
 
-import pyjamaz.graypaper_constants as gp_const
+from jamcodec.mixins import Serializable
+from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT
 from pyjamaz.app import AppConfig, PyjamazApp
-from pyjamaz.serialization import Serializable
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.state.exceptions import StateTransitionError
 from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
 from pyjamaz.types.safrole import SafroleTestState, SafroleInput, SafroleOutput
-from pyjamaz.types.block import Block, Header, Extrinsic
+from pyjamaz.types.block import Block, Header, Extrinsic, Disputes
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
-    ValidatorPoolState, ValidatorArchiveState, BlocksHistoryState
+    ValidatorPoolState, ValidatorArchiveState, RecentHistoryState, ServicesState, AssurancesState, \
+    PrivilegedServicesState, DisputesState, StatisticsState, AuthorizerPoolsState, \
+    AuthorizerQueuesState, Statistic
 
 
 @dataclass
 class Testcase(Serializable):
-    input: SafroleInput  # Input.
-    pre_state: SafroleTestState  # Pre-execution state.
-    output: SafroleOutput  # Output.
-    post_state: SafroleTestState  # Post-execution state.
+    input: SafroleInput = field(metadata={'codec': SafroleInput.to_codec_def()})  # Input.
+    pre_state: SafroleTestState = field(metadata={'codec': SafroleTestState.to_codec_def()})  # Pre-execution state.
+    output: SafroleOutput = field(metadata={'codec': SafroleOutput.to_codec_def()})  # Output.
+    post_state: SafroleTestState = field(metadata={'codec': SafroleTestState.to_codec_def()})  # Post-execution state.
 
 
 def get_test_vector_files(directories: list, file_filter: Optional[str] = None):
@@ -69,6 +71,10 @@ class TestSafroleVector(unittest.TestCase):
     def test_vector(self, name, directory, test_file):
 
         test_vector = self.load_test_vector_data(directory, test_file)
+
+        test_vector['pre_state']['lambda_'] = test_vector['pre_state'].pop('lambda')
+        test_vector['post_state']['lambda_'] = test_vector['post_state'].pop('lambda')
+
         test_case = Testcase.from_json(test_vector)
 
         # TODO make type factory to bootstrap state SCALE types with correct constants
@@ -83,9 +89,6 @@ class TestSafroleVector(unittest.TestCase):
 
         # Build initial state
         jam_state = JamState(
-            blocks_history=BlocksHistoryState(
-                blocks=[]
-            ),
             timeslot=TimeslotState(
                 number=test_case.pre_state.tau
             ),
@@ -106,7 +109,51 @@ class TestSafroleVector(unittest.TestCase):
             ),
             validator_archive=ValidatorArchiveState(
                 validators=test_case.pre_state.lambda_
-            )
+            ),
+            authorizer_pools=AuthorizerPoolsState(
+                authorizer_pools=[
+                    [],
+                    []
+                ]
+            ),
+            recent_history=RecentHistoryState(
+                recent_history=[]
+            ),
+            services=ServicesState(placeholder=0),
+            assurances=AssurancesState(
+                assurances=[
+                    None,
+                    None
+                ]
+            ),
+            authorizer_queues=AuthorizerQueuesState(
+                authorizer_queues=[
+                    [[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
+                ]
+            ),
+            privileged_services=PrivilegedServicesState(
+                empower_service=0,
+                assign_service=0,
+                designate_service=0
+            ),
+            disputes=DisputesState(
+                good_set=[],
+                bad_set=[],
+                wonky_set=[],
+                offenders=[]
+            ),
+            statistics=StatisticsState(
+                statistics=[
+                    [
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0)
+                    ] * 2
+                ]
+            ),
         )
 
         # Convert test case input to block
@@ -114,22 +161,25 @@ class TestSafroleVector(unittest.TestCase):
 
         block = Block(
             header=Header(
-                hash=bytes(32),
-                parent_hash=bytes(32),
+                parent=bytes(32),
                 parent_state_root=bytes(32),
-                extrinsic_root=bytes(32),
+                extrinsic_hash=bytes(32),
                 timeslot=test_case_input.slot,
                 epoch_marker=None,
                 tickets_marker=None,
                 offenders_marker=[],
-                block_author_index=0,
-                vrf_signature=test_case_input.entropy,
-                block_seal=bytes(32)
+                author_index=0,
+                entropy_source=test_case_input.entropy,
+                seal=bytes(96)
             ),
             extrinsic=Extrinsic(
                 tickets=test_case_input.extrinsic,
-                work_report_hashes=[],
-                accumulate_root=bytes(32)
+                # work_report_hashes=None,
+                # accumulate_root=None
+                disputes=Disputes(verdicts=[], culprits=[], faults=[]),
+                preimages=[],
+                assurances=[],
+                guarantees=[]
             )
         )
 

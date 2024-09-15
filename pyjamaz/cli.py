@@ -18,8 +18,8 @@ def initialize_app(initial_state: JamState) -> PyjamazApp:
     # Initialize app
     config = AppConfig(
         ring_data=ring_data,
-        # storage_engine=JSONStorage(path.join(os.getcwd(), 'data', 'storage.json'))
-        storage_engine=LevelDBStorage(path.join(os.getcwd(), 'data', 'db'))
+        # storage_engine=JSONStorage(path.join(data_dir, 'storage.json'))
+        storage_engine=LevelDBStorage(path.join(data_dir, 'db'))
     )
 
     app = PyjamazApp(config=config)
