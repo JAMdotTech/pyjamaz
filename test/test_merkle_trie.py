@@ -1,12 +1,14 @@
 import json
 import unittest
+from os import path
 
 from pyjamaz.merkle import MerkleTree
 
 
 class TestMerkleTrie(unittest.TestCase):
     def test_json_testvectors(self):
-        with open('./fixtures/trie.json') as f:
+
+        with open(path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'trie.json')) as f:
             test_vector = json.load(f)
 
         for item in test_vector:
