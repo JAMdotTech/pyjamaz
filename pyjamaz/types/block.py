@@ -488,6 +488,9 @@ class Header(Serializable):
     entropy_source: bytes = field(metadata={'codec': Array(U8, 96)})
     seal: bytes = field(metadata={'codec': Array(U8, 96)})
 
+    # TODO recent-history seems to need this, how to handle with this
+    # hash: bytes = field(default=None, metadata={'codec': H256})
+
     def generate_header_hash(self) -> bytes:
         return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
@@ -527,8 +530,8 @@ class Extrinsic(Serializable):
     guarantees: List[Guarantee] = field(metadata={'codec': Vec(Guarantee.to_codec_def())})
 
     # TODO TEMP unclear, move when Extrinsic is fully defined
-    #work_report_hashes: Optional[List[bytes]] = field(metadata={'codec': Option(Vec(H256))})
-    #accumulate_root: Optional[bytes] = field(metadata={'codec': Option(H256)})
+    # work_report_hashes: Optional[List[bytes]] = field(metadata={'codec': Option(Vec(H256))})
+    # accumulate_root: Optional[bytes] = field(metadata={'codec': Option(H256)})
 
 
 @dataclass

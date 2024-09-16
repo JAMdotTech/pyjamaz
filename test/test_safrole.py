@@ -55,8 +55,8 @@ class TestSafroleVector(unittest.TestCase):
         cls.config = AppConfig(
             ring_data=cls.ring_data,
             # storage_engine=RocksDBStorage(path.join(storage_dir, "db"))
-            # storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
-            storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
+            storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
+            # storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
         )
 
     @staticmethod
@@ -76,6 +76,7 @@ class TestSafroleVector(unittest.TestCase):
         test_vector['post_state']['lambda_'] = test_vector['post_state'].pop('lambda')
 
         test_case = Testcase.from_json(test_vector)
+
         # TODO make type factory to bootstrap state SCALE types with correct constants
         # if directory == 'tiny':
         #     gp_const.VALIDATOR_COUNT = 6
@@ -173,7 +174,7 @@ class TestSafroleVector(unittest.TestCase):
                 entropy_source=test_case_input.entropy,
                 seal=bytes(96)
             ),
-            extrinsic = Extrinsic(
+            extrinsic=Extrinsic(
                 tickets=test_case_input.extrinsic,
                 # work_report_hashes=None,
                 # accumulate_root=None
@@ -190,7 +191,7 @@ class TestSafroleVector(unittest.TestCase):
 
         # Process block
         try:
-            output_marks = app.state_transition(block)
+            output_marks = app.process_block(block)
             output = SafroleOutput(ok=output_marks)
         except StateTransitionError as e:
             output = SafroleOutput(err=e.custom_error_code)

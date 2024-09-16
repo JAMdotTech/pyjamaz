@@ -1,13 +1,10 @@
+from copy import deepcopy
 from typing import List, Union, TYPE_CHECKING, TypeVar, Dict, Type, Optional
 
 from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound
 from pyjamaz.storage import StorageInterface, Transaction
-from pyjamaz.types.safrole import OutputMarks
-
-if TYPE_CHECKING:
-    from pyjamaz.types.block import Block
-
+from pyjamaz.types.block import Block, OutputMarks
 
 T = TypeVar('T')
 
@@ -16,19 +13,6 @@ class State:
 
     def __setattr__(self, key, value):
         super().__setattr__(key, value)
-
-
-def state_key_constructor_component(state_component_id: int) -> bytes:
-    """
-    GP-ref:280,281 Only wellknown storage keys
-
-    :param state_component_id:
-    :return:
-    """
-    try:
-        return WELL_KNOWN_STORAGE_KEYS[state_component_id]
-    except IndexError:
-        raise StateComponentNotFound(f"State component ID {state_component_id} not found")
 
 
 class StateManager:
@@ -40,7 +24,7 @@ class StateManager:
 
     def add(self, state_component: Type['StateComponent'], **args):
         obj = state_component(
-            self.storage_engine, self, **args
+            self, **args
         )
         self.state_components_by_id[state_component.component_id] = obj
         self.state_components[state_component] = obj
@@ -57,23 +41,41 @@ class StateManager:
         except KeyError:
             raise StateComponentNotFound(f"State component ID {state_component_id} not found")
 
-    def __iter__(self):
-        return iter(self.state_components.values())
+    def state_transition(self, block: 'Block') -> 'OutputMarks':
+        # TODO output is candidate Block?
+        output_marks = OutputMarks()
+
+        for state_component in self.state_components.values():
+            # Set copy of state in memory TODO how to manage this for services?
+
+            state_component.initialize(
+                pre_state=state_component.retrieve_state(),
+                output_marks=output_marks
+            )
+
+            state_component.state_transition(block)
+
+        # All state transitions succesful, commit state changes
+        with self.storage_engine.transaction() as transaction:
+            for state_component in self.state_components.values():
+                state_component.store_state(transaction)
+
+        return output_marks
 
 
 class StateComponent:
 
     component_id: int
 
-    def __init__(self, storage_engine: StorageInterface, state_manager: StateManager, **kwargs):
-        self.storage_engine = storage_engine
+    def __init__(self, state_manager: StateManager, **kwargs):
+        self.storage_engine = state_manager.storage_engine
         self.state_manager = state_manager
 
         self.pre_state = None
         self.post_state = None
-        self.output_marks: Optional[OutputMarks] = None
+        self.output_marks: Optional['OutputMarks'] = None
 
-    def initialize(self, pre_state: State, post_state: State, output_marks: OutputMarks):
+    def initialize(self, pre_state: Optional[State], output_marks: 'OutputMarks'):
         """
         Sets all required variable to perform a state transition
 
@@ -88,7 +90,7 @@ class StateComponent:
 
         """
         self.pre_state = pre_state
-        self.post_state = post_state
+        self.post_state = deepcopy(pre_state)
         self.output_marks = output_marks
 
     def get_state_component(self, state_component: Type[T]) -> T:
@@ -97,14 +99,23 @@ class StateComponent:
     def state_transition(self, block: 'Block'):
         raise NotImplementedError
 
+    def _state_key_constructor_component(self) -> bytes:
+        """
+        GP-ref:280,281 Only wellknown storage keys
+        """
+        try:
+            return WELL_KNOWN_STORAGE_KEYS[self.component_id]
+        except IndexError:
+            raise StateComponentNotFound(f"State component ID {self.component_id} not found")
+
     def retrieve(self):
-        return self.storage_engine.retrieve(WELL_KNOWN_STORAGE_KEYS[self.component_id])
+        return self.storage_engine.retrieve(self._state_key_constructor_component())
 
     def store(self, data: bytes, transaction: Transaction = None):
         if transaction is not None:
-            transaction.store(state_key_constructor_component(self.component_id), data)
+            transaction.store(self._state_key_constructor_component(), data)
         else:
-            self.storage_engine.store(state_key_constructor_component(self.component_id), data)
+            self.storage_engine.store(self._state_key_constructor_component(), data)
 
     def store_state(self, transaction: Transaction = None):
         data = self.post_state.to_jam_bytes().to_bytes()

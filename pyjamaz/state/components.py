@@ -1,4 +1,4 @@
-from copy import deepcopy
+from copy import deepcopy, copy
 from typing import List
 
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
@@ -6,14 +6,15 @@ from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.types.safrole import SafroleErrorCode, TicketBody, SlotSealerSeries
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.state.exceptions import StateTransitionError
-from pyjamaz.types.block import Block, EpochMark
+from pyjamaz.types.block import Block, TicketBody, EpochMark, OutputMarks
 from pyjamaz.types.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
-    AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState
+    AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -195,8 +196,8 @@ class Safrole(StateComponent):
 
     component_id = 4
 
-    def __init__(self, storage_engine, app, ring_data: bytes):
-        super().__init__(storage_engine, app)
+    def __init__(self, state_manager, ring_data: bytes):
+        super().__init__(state_manager)
         self.ring_data = ring_data
 
     def create_ticket_body(self, ticket_data, ring_public_keys) -> TicketBody:
@@ -466,7 +467,35 @@ class RecentHistory(StateComponent):
         post_state_recent_history: RecentHistoryState
             Posterior state of RecentHistoryState (greek_BETA_prime | β')
         """
-        pass
+
+        # No more work reports than number of cores GP-0.3.6-ref:80
+        if block.extrinsic.work_report_hashes and len(block.extrinsic.work_report_hashes) > gp_const.CORE_COUNT:
+            raise StateTransitionError(f"Work reports must be less than number of cores ({gp_const.CORE_COUNT})")
+
+        if len(self.pre_state.recent_history) > 0:
+            self.post_state.recent_history[-1].state_root = block.header.parent_state_root
+            mmr_peaks = copy(self.post_state.recent_history[-1].mmr.peaks)
+        else:
+            mmr_peaks = []
+
+        # Extend MMR
+        mmr = MerkleMountainRange(mmr_peaks)
+        mmr.insert(block.extrinsic.accumulate_root)
+
+        recent_block = RecentBlock(
+            header_hash=block.header.hash,
+            mmr=Mmr(
+                peaks=mmr.peaks
+            ),
+            state_root=bytes(32),
+            reported=block.extrinsic.work_report_hashes
+        )
+
+        self.post_state.recent_history.append(recent_block)
+
+        if len(self.post_state.recent_history) > gp_const.HISTORY:
+            # Limit reached, delete first (oldest) item in block history
+            self.post_state.recent_history.pop(0)
 
     def retrieve_state(self) -> RecentHistoryState:
         value = self.retrieve()
@@ -647,4 +676,3 @@ class Services(StateComponent):
     def retrieve_state(self) -> ServicesState:
         value = self.retrieve()
         return ServicesState.from_jam_bytes(JamBytes(value))
-

@@ -142,7 +142,6 @@ class ValidatorArchiveState(Serializable, State):
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
 
-
 @dataclass
 class AuthorizerPoolsState(Serializable):
     """
