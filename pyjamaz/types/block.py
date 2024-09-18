@@ -348,17 +348,17 @@ class WorkPackageSpec(Serializable):
     len: U16
         GP-0.3.6-eq:120 (l) |
         The work bundle length
-    root: H256
+    erasure_root: H256
         GP-0.3.6-eq:120 (u) |
         The erasure-root
-    segments: H256
+    exports_root: H256
         GP-0.3.6-eq:120 (e) |
         The segment root
     """
     hash: bytes = field(metadata={'codec': H256})
     len: int = field(metadata={'codec': U32})
-    root: bytes = field(metadata={'codec': H256})
-    segments: bytes = field(metadata={'codec': H256})
+    erasure_root: bytes = field(metadata={'codec': H256})
+    exports_root: bytes = field(metadata={'codec': H256})
 
 
 @dataclass
