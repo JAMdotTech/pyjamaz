@@ -2,6 +2,8 @@ import json
 import os
 import unittest
 
+from os import path
+
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
@@ -10,6 +12,7 @@ from pyjamaz.pvm.types import PVMProgram
 
 
 def load_test_vectors(directory):
+    directory = path.join(path.dirname(path.abspath(__file__)), directory)
     test_vectors = []
     if directory.endswith('.json'):
         #filename = "inst_jump.json"
@@ -27,7 +30,7 @@ def load_test_vectors(directory):
 
 
 class TestPolkaVMInstructions(unittest.TestCase):
-    @parameterized.expand(load_test_vectors('./fixtures/pvm/programs'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
     def test_instruction(self, name, test_vector):
 
         mem_size = 0
