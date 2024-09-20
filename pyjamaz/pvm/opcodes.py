@@ -1,5 +1,4 @@
 from enum import Enum
-from dataclasses import dataclass
 
 import numpy as np
 
@@ -201,30 +200,30 @@ OpcodeScheme = {
     op.xor_imm.value                                          : it.reg_reg_imm, #riscv:xori
     op.or_imm.value                                           : it.reg_reg_imm, #riscv:ori
     op.mul_imm.value                                          : it.reg_reg_imm, #riscv:muli
-    op.mul_upper_signed_signed_imm.value                      : it.reg_reg_imm,
-    op.mul_upper_unsigned_unsigned_imm.value                  : it.reg_reg_imm,
-    op.set_less_than_unsigned_imm.value                       : it.reg_reg_imm,
-    op.set_less_than_signed_imm.value                         : it.reg_reg_imm,
+    op.mul_upper_signed_signed_imm.value                      : it.reg_reg_imm, #X
+    op.mul_upper_unsigned_unsigned_imm.value                  : it.reg_reg_imm, #X
+    op.set_less_than_unsigned_imm.value                       : it.reg_reg_imm, #riscv:
+    op.set_less_than_signed_imm.value                         : it.reg_reg_imm, #riscv:
     op.shift_logical_left_imm.value                           : it.reg_reg_imm, #riscv:
     op.shift_logical_right_imm.value                          : it.reg_reg_imm, #riscv:
     op.shift_arithmetic_right_imm.value                       : it.reg_reg_imm, #riscv:
-    op.negate_and_add_imm.value                               : it.reg_reg_imm,
-    op.set_greater_than_unsigned_imm.value                    : it.reg_reg_imm,
-    op.set_greater_than_signed_imm.value                      : it.reg_reg_imm,
-    op.shift_logical_right_imm_alt.value                      : it.reg_reg_imm,
-    op.shift_arithmetic_right_imm_alt.value                   : it.reg_reg_imm,
-    op.shift_logical_left_imm_alt.value                       : it.reg_reg_imm,
+    op.negate_and_add_imm.value                               : it.reg_reg_imm, #riscv:
+    op.set_greater_than_unsigned_imm.value                    : it.reg_reg_imm, #riscv:
+    op.set_greater_than_signed_imm.value                      : it.reg_reg_imm, #riscv:
+    op.shift_logical_right_imm_alt.value                      : it.reg_reg_imm, #riscv:
+    op.shift_arithmetic_right_imm_alt.value                   : it.reg_reg_imm, #riscv:
+    op.shift_logical_left_imm_alt.value                       : it.reg_reg_imm, #riscv:
 
-    op.cmov_if_zero_imm.value                                 : it.reg_reg_imm,
-    op.cmov_if_not_zero_imm.value                             : it.reg_reg_imm,
+    op.cmov_if_zero_imm.value                                 : it.reg_reg_imm, #riscv:
+    op.cmov_if_not_zero_imm.value                             : it.reg_reg_imm, #riscv:
 
     # Instructions with args: reg, reg, offset
-    op.branch_eq.value                                        : it.reg_reg_offset,
-    op.branch_not_eq.value                                    : it.reg_reg_offset,
-    op.branch_less_unsigned.value                             : it.reg_reg_offset,
-    op.branch_less_signed.value                               : it.reg_reg_offset,
-    op.branch_greater_or_equal_unsigned.value                 : it.reg_reg_offset,
-    op.branch_greater_or_equal_signed.value                   : it.reg_reg_offset,
+    op.branch_eq.value                                        : it.reg_reg_offset,  #riscv:
+    op.branch_not_eq.value                                    : it.reg_reg_offset,  #riscv:
+    op.branch_less_unsigned.value                             : it.reg_reg_offset,  #riscv:
+    op.branch_less_signed.value                               : it.reg_reg_offset,  #riscv:
+    op.branch_greater_or_equal_unsigned.value                 : it.reg_reg_offset,  #riscv:
+    op.branch_greater_or_equal_signed.value                   : it.reg_reg_offset,  #riscv:
 
     # Instructions with args: reg, reg, reg
     op.add.value                                              : it.reg_reg_reg, #riscv:add
@@ -261,8 +260,8 @@ OpcodeScheme = {
     op.store_imm_u32.value                                    : it.imm_imm,
 
     # Instructions with args: reg, reg
-    op.move_reg.value                                         : it.reg_reg,
-    op.sbrk.value                                             : it.reg_reg,
+    op.move_reg.value                                         : it.reg_reg, #riscv:
+    op.sbrk.value                                             : it.reg_reg, #X
 
     # Instructions with args: reg, reg, imm, im:
     op.load_imm_and_jump_indirect.value                       : it.reg_reg_imm_imm,

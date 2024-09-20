@@ -11,29 +11,23 @@ from pyjamaz.pvm.types import PVMProgram
 
 def load_test_vectors(directory):
     test_vectors = []
-    for filename in os.listdir(directory):
-        if filename.endswith('.json'):
-            with open(os.path.join(directory, filename)) as f:
-                test_vector = json.load(f)
-                test_vectors.append((filename, test_vector))
-
-    filename = "inst_trap.json"
-    #filename = "inst_store_u8_trap_read_only.json"
-    #filename = "inst_load_u8.json"
-    #filename = "inst_load_imm.json"
-    #filename = "inst_add_imm.json"
-    #filename = "inst_branch_eq_imm_ok.json"
-    #filename = "inst_sub_imm.json"
-    #filename = "inst_branch_less_unsigned_imm_nok.json"
-    # with open(os.path.join(directory, filename)) as f:
-    #     test_vector = json.load(f)
-    #     test_vectors = [(filename, test_vector)]
+    if directory.endswith('.json'):
+        #filename = "inst_jump.json"
+        with open(directory) as f:
+            test_vector = json.load(f)
+            test_vectors = [(directory, test_vector)]
+    else:
+        for filename in os.listdir(directory):
+            if filename.endswith('.json'):
+                with open(os.path.join(directory, filename)) as f:
+                    test_vector = json.load(f)
+                    test_vectors.append((filename, test_vector))
 
     return test_vectors
 
 
 class TestPolkaVMInstructions(unittest.TestCase):
-    @parameterized.expand(load_test_vectors('./fixtures/pvm/programs2'))
+    @parameterized.expand(load_test_vectors('./fixtures/pvm/programs'))
     def test_instruction(self, name, test_vector):
 
         mem_size = 0
@@ -41,8 +35,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
             mem_size = len(test_vector["expected-memory"][0]["contents"])
 
         pvm_data = PVMProgram.from_jam_bytes(JamBytes(bytes(test_vector["program"])))
+        #TODO: initialize mag naar instantiatie ==> gelijk ook de invoke
         pvm = PVM(pvm_data, mem_size=mem_size)
-
         pvm.initialize(
             test_vector["initial-regs"],
             test_vector["initial-pc"],
@@ -51,9 +45,6 @@ class TestPolkaVMInstructions(unittest.TestCase):
             test_vector["initial-memory"],
         )
         pvm.invoke()
-
-        # Note: fix to get identical memory as test vectors (ignore empy bytes)
-        #pvm.mem = pvm.mem[pvm.mem != 0].tolist()
 
         #self.assertEqual(test_vector["expected-status"], pvm.status, f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
         self.assertEqual(test_vector["expected-regs"], pvm.reg.tolist(), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg.tolist()}")

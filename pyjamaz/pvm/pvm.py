@@ -1,21 +1,68 @@
+from enum import Enum
+from math import floor
+
 import numpy as np
 
 from .opcodes import Opcode as op, OpcodeScheme, InstructionType, BITMASK_MAX
 
 
+class ExitCondition(Enum):
+    none:int    = 0
+    trap:int    = 1
+    halt:int    = 2
+
+
+ExitConditionMap = {
+    0: "none",
+    1: "trap",
+    2: "halt"
+}
+
+
 #gp_0.3.6_eq_223
-def sign_extend(x,n):
+# def sign_extend(x,n):
+#     term = (2 ** 32 - 2 ** (8 * n))
+#     factor = x // (2 ** (8 * n - 1))
+#     return x + factor * term
+def pvm_X(x, n):
+    # TODO: cast naar python int -> port naar numpy
+    n = int(n)
+    # Ensure x is within the range of 2^(8*n)
+    assert 0 <= x < 2 ** (8 * int(n)), "x must be in the range of 0 to 2^(8*n) - 1"
+
+    # Calculate the term (2^32 - 2^(8*n))
     term = (2 ** 32 - 2 ** (8 * n))
+
+    # Calculate the floor division part: floor(x / 2^(8*n - 1))
     factor = x // (2 ** (8 * n - 1))
+
+    # Return the transformed x
     return x + factor * term
 
 
-def transform_signed(a, n):
-    boundary = 2 ** (8 * n - 1)
+def pvm_Zn(a, n):
+    """
+    Transform a from the range [0, 2^(8n)) to the signed range [-2^(8n-1), 2^(8n-1) - 1].
+    """
+    # TODO: cast naar python int -> port naar numpy
+    a = int(a)
+    n = int(n)
+
+    boundary = 2 ** (8 * n - 1)  # This is 2^(8n-1), the boundary between positive and negative numbers.
+    max_value = 2 ** (8 * n)-1  # This is 2^(8n), the maximum value in the n-bit space.
+
+    # If 'a' is less than the boundary, return 'a' unchanged, otherwise subtract 2^(8n).
     if a < boundary:
         return a
     else:
-        return a - 2 ** (8 * n)
+        return a - max_value
+
+def pvm_Zn_inv(a, n):
+    """
+    Transform a from the range [0, 2^(8n)) to the signed range [-2^(8n-1), 2^(8n-1) - 1].
+    """
+    # TODO: cast naar python int -> port naar numpy
+    return ((2**(8*n)) + a) % (2**(8*n))
 
 
 class PVM:
@@ -23,7 +70,7 @@ class PVM:
     def __init__(self, program, mem_size=4096):
         self.reg = np.zeros(13, dtype=np.uint32)
         self.pc = np.uint32(0)
-        self.gas = np.uint32(0)
+        self.gas = np.uint64(0)
         self.mem = np.zeros(mem_size, dtype=np.uint8)
         # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
         self.rom = np.array(program.code, dtype=np.uint8)
@@ -31,7 +78,7 @@ class PVM:
         self.inst_bitmask = program.opcode_bitmask
         self.inst_pos = {0: 0}
         self.inst_len = []
-        self.trap = 0   #TODO: lookup maken voor mogelijke trap exit codes
+        self.status = ExitCondition.none.value
 
     def create_instruction_lookup(self):
         self.inst_pos = {0: 0}
@@ -139,8 +186,9 @@ class PVM:
     #TODO: typings
     def read_mem(s, addr):
         mapped_addr = addr - s.mem_offset
+        #TODO: dergelijke gevallen meer generiek opvangen
         if mapped_addr >= len(s.mem):
-            s.trap = 1
+            s.status = 1
             return 0
         return s.mem[mapped_addr]
 
@@ -149,13 +197,14 @@ class PVM:
         self.pc = 0
         skip_len = 0
 
-        while self.trap == 0 and self.gas > 0:
+        while self.status == 0 and self.gas > 0:
 
             self.gas -= 1
             self.pc += skip_len
 
+            #gp_0.3.6-eq:215
             if self.pc >= self.program_size:
-                self.trap = 1
+                self.status = 1
                 break
 
             inst_index = self.inst_pos[self.pc]
@@ -163,14 +212,14 @@ class PVM:
             inst_type = OpcodeScheme[opcode]
             skip_len = self.inst_len[inst_index] + 1
 
-            #TODO:!!!!!!!!!!!!!!!!allo op. instructies prefixen met i_ en dan de GP benaming voor de operator!!!!
+            #TODO: alle op. instructies prefixen met i_ en dan de GP benaming voor de operator!!!! intructie typen en opcodes in volgorde van GP maken
             match inst_type:
 
                 case InstructionType.none:
 
                     match opcode:
                         case op.trap.value:
-                            self.trap = 1
+                            self.status = ExitCondition.trap.value
                         case op.fallthrough.value:
                             pass
 
@@ -178,14 +227,19 @@ class PVM:
                     r_a = self.rom[self.pc + 1] % 16
                     #w_a = self.reg[r_a]
                     l_x = min(4, max(0, skip_len - 2) )
-                    v_x = sign_extend(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    #TODO: dergelijke gevallen meer generiek opvangen
+                    if l_x == 0:
+                        self.status = ExitCondition.halt.value
+                        continue
+
+                    v_x = pvm_X(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     # Note: in case of an immediate, we dont have to check memory access
                     if opcode != op.load_imm.value:
                         mapped_addr = v_x - self.mem_offset
                         if mapped_addr >= len(self.mem):
                             #TODO:!!!!!!!!!!!!!!!!!!!dit moet ook netter kunnen
-                            self.trap = 1
+                            self.status = ExitCondition.trap.value
                             self.gas -= 1
                             continue
 
@@ -211,13 +265,16 @@ class PVM:
                         #     self.pc += 2 # note: we read 2 mem byte
 
                         case op.store_u8.value:
+                            #TODO: out of bounds check
                             self.mem[mapped_addr] = np.uint8(self.reg[r_a] & 0xFF)
 
                         case op.store_u16.value:
+                            # TODO: out of bounds check
                             self.mem[mapped_addr + 0] = np.uint8(self.reg[r_a] & 0xFF)
                             self.mem[mapped_addr + 1] = np.uint8((self.reg[r_a] & 0xFF00) >> 8)
 
                         case op.store_u32.value:
+                            # TODO: out of bounds check
                             self.mem[mapped_addr + 0] = np.uint8(self.reg[r_a] & 0xFF)
                             self.mem[mapped_addr + 1] = np.uint8((self.reg[r_a] & 0xFF00) >> 8)
                             self.mem[mapped_addr + 2] = np.uint8((self.reg[r_a] & 0xFF0000) >> 16)
@@ -227,14 +284,16 @@ class PVM:
                             raise Exception(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
 
                 case InstructionType.reg_imm_offset:
+                    # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = self.rom[self.pc + 1] % 16
                     w_a = self.reg[r_a]
+                    # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
                     l_x = min(4, (self.rom[self.pc + 1] // 16) % 8)
-                    v_x = self.read_uint(self.rom, self.pc + 2, l_x)
-                    l_y = skip_len - l_x - 2
-                    # TODO: mag ook negatief zijn? zie gp_3.0.6_eq_219&220
-                    # impl helper func Z_l_y
-                    v_y = transform_signed(self.read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
+                    # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
+                    v_x = pvm_X(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
+
+                    l_y = min(4, max(0, skip_len - l_x - 1))
+                    v_y = pvm_Zn(self.read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     match opcode:
                         #TODO:NO_TEST: case op.load_imm_and_jump.value:
@@ -264,19 +323,19 @@ class PVM:
                                 skip_len = v_y
 
                         case op.branch_less_signed_imm.value:
-                            if transform_signed(w_a, 4) < transform_signed(v_x, 4):
+                            if pvm_Zn(w_a, 4) < pvm_Zn(v_x, 4):
                                 skip_len = v_y
 
                         case op.branch_greater_or_equal_signed_imm.value:
-                            if transform_signed(w_a, 4) >= transform_signed(v_x, 4):
+                            if pvm_Zn(w_a, 4) >= pvm_Zn(v_x, 4):
                                 skip_len = v_y
 
                         case op.branch_less_or_equal_signed_imm.value:
-                            if transform_signed(w_a, 4) <= transform_signed(v_x, 4):
+                            if pvm_Zn(w_a, 4) <= pvm_Zn(v_x, 4):
                                 skip_len = v_y
 
                         case op.branch_greater_signed_imm.value:
-                            if transform_signed(w_a, 4) > transform_signed(v_x, 4):
+                            if pvm_Zn(w_a, 4) > pvm_Zn(v_x, 4):
                                 skip_len = v_y
 
                         case _:
@@ -284,15 +343,41 @@ class PVM:
 
                 #TODO:NO_TEST: case InstructionType.reg_imm_imm:
 
+                case InstructionType.offset:
+
+                    l_x = min(4, max(0, skip_len) )
+                    v_x = pvm_Zn(self.read_uint(self.rom, self.pc + 1, l_x), l_x)
+
+                    match opcode:
+                        case op.jump.value:
+                            skip_len = v_x
+
+                        #TODO: NO_TEST: case op.sbrk.value:
+
+                        case _:
+                            raise Exception(f"Invalid offset opcode: {opcode} for instruction type {inst_type}")
+
+                case InstructionType.reg_reg:
+
+                    r_d = min(12, self.rom[self.pc + 1] % 16)
+                    r_a = min(12, self.rom[self.pc + 1] // 16)
+
+                    match opcode:
+                        case op.move_reg.value:
+                            self.reg[r_d] = self.reg[r_a]
+
+                        #TODO: NOTEST: case op.sbrk.value:
+
+                        case _:
+                            raise Exception(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
+
                 case InstructionType.reg_reg_imm:
 
                     r_a = min(12, self.rom[self.pc + 1] % 16)
                     r_b = min(12, self.rom[self.pc + 1] // 16)
                     w_b = self.reg[r_b]
                     l_x = min(4, max(0, skip_len - 2) )
-                    v_x = sign_extend(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
-
-                    #TODO:!!!!!!!!!!!!! check de overflow flags
+                    v_x = pvm_X(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     match opcode:
 
@@ -304,26 +389,35 @@ class PVM:
                         #TODO:NO_TEST: case op.load_indirect_u16.value: it.reg_reg_imm,
                         #TODO:NO_TEST: case op.load_indirect_i16.value: it.reg_reg_imm,
                         #TODO:NO_TEST: case op.load_indirect_u32.value: it.reg_reg_imm,
+                        #op.mul_upper_signed_signed_imm.value
+                        #op.mul_upper_unsigned_unsigned_imm.value                  : it.reg_reg_imm,
 
+                        #TODO: implementeer volgens gp
                         case op.add_imm.value:
                             self.reg[r_a] = (w_b + v_x) #% 2**31
 
+                        # TODO: implementeer volgens gp
                         case op.and_imm.value:
                             self.reg[r_a] = w_b & v_x
 
+                        # TODO: implementeer volgens gp
                         case op.xor_imm.value:
                             self.reg[r_a] = w_b ^ v_x
 
+                        # TODO: implementeer volgens gp
                         case op.or_imm.value:
                             self.reg[r_a] = w_b | v_x
 
+                        # TODO: implementeer volgens gp
                         case op.mul_imm.value:
                             #TODO: check op overflow? alle add/mul/div ops?
                             self.reg[r_a] = w_b * v_x
 
+                        # TODO: implementeer volgens gp
                         case op.shift_arithmetic_right_imm.value:
                             self.reg[r_a] = np.int32(w_b) >> v_x
 
+                        # TODO: implementeer volgens gp
                         case op.shift_logical_right_imm.value:
                             self.reg[r_a] = w_b >> v_x
 
@@ -332,21 +426,83 @@ class PVM:
                         #     self.reg[r_d] = np.int32(self.reg[r_a]) << imm
 
                         case op.shift_logical_left_imm.value:
-                            self.reg[r_a] = (w_b * (2**v_x % 32)) % 2**31
+                            # TODO: cast naar python int -> port naar numpy
+                            self.reg[r_a] = (int(w_b) * (2**int(v_x) % 32)) % 2**32
+
+                        case op.shift_logical_left_imm_alt.value:
+                            # TODO: cast naar python int -> port naar numpy
+                            self.reg[r_a] = int(v_x) * (2 ** (int(w_b) % 32)) % 2**32
 
                         case op.shift_arithmetic_right_imm_alt.value:
-                            self.reg[r_a] = w_b >> v_x #np.int32(w_b) >> v_x
+                            # TODO: cast naar python int -> port naar numpy
+                            self.reg[r_a] = pvm_Zn_inv(floor(pvm_Zn(v_x, 4) / (2 ** (int(w_b) % 32))), 4)
 
                         case op.shift_logical_right_imm_alt.value:
-                            self.reg[r_a] = w_b >> v_x
+                            #TODO: cast naar python int -> port naar numpy
+                            self.reg[r_a] = floor(v_x / (2 ** (int(w_b % 32))))
 
+                        case op.set_less_than_unsigned_imm.value:
+                            self.reg[r_a] = w_b < v_x and 1 or 0
+
+                        case op.set_less_than_signed_imm.value:
+                            self.reg[r_a] = pvm_Zn(w_b, 4) < pvm_Zn(v_x, 4) and 1 or 0
+
+                        case op.negate_and_add_imm.value:
+                            #TODO: cast naar python int -> port naar numpy
+                            self.reg[r_a] = (int(v_x) + 2**32 - int(w_b)) % 2**32
+
+                        case op.set_greater_than_unsigned_imm.value:
+                            self.reg[r_a] = w_b > v_x and 1 or 0
+
+                        case op.set_greater_than_signed_imm.value:
+                            self.reg[r_a] = pvm_Zn(w_b, 4) > pvm_Zn(v_x, 4) and 1 or 0
+
+                        case op.cmov_if_zero_imm.value:
+                            if w_b == 0:
+                                self.reg[r_a] = v_x
+
+                        case op.cmov_if_not_zero_imm.value:
+                            if w_b != 0:
+                                self.reg[r_a] = v_x
+
+                case InstructionType.reg_reg_offset:
+                    r_a = min(12, self.rom[self.pc + 1] % 16)
+                    r_b = min(12, self.rom[self.pc + 1] // 16)
+                    l_x = min(4, max(0, skip_len - 2) )
+                    w_a = self.reg[r_a]
+                    w_b = self.reg[r_b]
+                    v_x = pvm_Zn(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
+
+                    match opcode:
+                        case op.branch_eq.value:
+                            if w_a == w_b:
+                                skip_len = v_x
+
+                        case op.branch_not_eq.value:
+                            if w_a != w_b:
+                                skip_len = v_x
+
+                        case op.branch_less_unsigned.value:
+                            if w_a < w_b:
+                                skip_len = v_x
+
+                        case op.branch_less_signed.value:
+                            if pvm_Zn(w_a, 4) < pvm_Zn(w_b, 4):
+                                skip_len = v_x
+
+                        case op.branch_greater_or_equal_unsigned.value:
+                            if w_a >= w_b:
+                                skip_len = v_x
+
+                        case op.branch_greater_or_equal_signed.value:
+                            if pvm_Zn(w_a, 4) >= pvm_Zn(w_b, 4):
+                                skip_len = v_x
 
                 case InstructionType.reg_reg_reg:
 
                     r_a = self.rom[self.pc + 1] % 16
                     r_b = self.rom[self.pc + 1] // 16
                     r_d = self.rom[self.pc + 2]
-                    #self.pc += 3 # note: we read 1 opcode byte plus three instruction bytes (zero based index)
 
                     match opcode:
                         case op.add.value:
@@ -378,8 +534,6 @@ class PVM:
 
                         case op.set_less_than_signed.value:
                             self.reg[r_d] = np.int32(self.reg[r_a]) < np.int32(self.reg[r_b])
-                        # Shift (note: 0x1f ensures that only the 5 LSBs are used as shift-amount)
-                        # (For rv64, we would use the 6 LSBs, so 0x3f)
 
                         case op.shift_logical_left.value:
                             self.reg[r_d] = self.reg[r_a] << (self.reg[r_b] & 0x1f)
