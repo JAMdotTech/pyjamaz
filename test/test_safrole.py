@@ -128,7 +128,7 @@ class TestSafroleVector(unittest.TestCase):
             recent_history=RecentHistoryState(
                 recent_history=[]
             ),
-            services=ServicesState(placeholder=0),
+            services=ServicesState(services={}),
             assurances=AssurancesState(
                 assurances=[
                     None,
@@ -183,8 +183,6 @@ class TestSafroleVector(unittest.TestCase):
             ),
             extrinsic=Extrinsic(
                 tickets=test_case_input.extrinsic,
-                # work_report_hashes=None,
-                # accumulate_root=None
                 disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
                 preimages=[],
                 assurances=[],

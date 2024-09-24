@@ -70,8 +70,8 @@ class TestBlockHistory(unittest.TestCase):
                             package_spec=WorkPackageSpec(
                                 hash=bytes.fromhex(w[2:]),
                                 len=0,
-                                root=bytes(32),
-                                segments=bytes(32),
+                                erasure_root=bytes(32),
+                                exports_root=bytes(32),
                             ),
                             context=None,
                             core_index=0,
