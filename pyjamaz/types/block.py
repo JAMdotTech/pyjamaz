@@ -163,7 +163,7 @@ class Fault(Serializable):
 
 
 @dataclass
-class Disputes(Serializable):
+class ExtrinsicDisputes(Serializable):
     """
     GP-0.3.6-eq:97 (bold_E_D) | judgements by validators on disputes
 
@@ -510,7 +510,7 @@ class Extrinsic(Serializable):
     tickets: Vec(TicketEnvelope)
         GP-0.3.6-eq:73 (bold_E_T) |
         Manages selection of validators for permissioning of block authoring
-    disputes: Disputes
+    disputes: ExtrinsicDisputes
         GP-0.3.6-eq:97 (bold_E_D) |
         Votes by validators on disputes
     preimages: Vec(Preimage)
@@ -524,7 +524,7 @@ class Extrinsic(Serializable):
         Reports of newly completed workloads whose accuracy is guaranteed by specific validators
     """
     tickets: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})
-    disputes: Disputes = field(metadata={'codec': Disputes.to_codec_def()})
+    disputes: ExtrinsicDisputes = field(metadata={'codec': ExtrinsicDisputes.to_codec_def()})
     preimages: List[Preimage] = field(metadata={'codec': Vec(Preimage.to_codec_def())})
     assurances: List[Assurance] = field(metadata={'codec': Vec(Assurance.to_codec_def())})
     guarantees: List[Guarantee] = field(metadata={'codec': Vec(Guarantee.to_codec_def())})

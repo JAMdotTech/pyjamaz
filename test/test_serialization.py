@@ -5,7 +5,8 @@ from typing import List, Type, Union
 from jamcodec.base import JamBytes, JamCodecType
 from jamcodec.mixins import Serializable, T
 from jamcodec.types import VarInt64, U8, Array, BitArray, UnsignedInteger
-from pyjamaz.types.safrole import SafroleErrorCode, OutputMarks, SafroleOutput
+from pyjamaz.types.block import OutputMarks
+from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput
 from pyjamaz.types.common import ValidatorData
 
 
@@ -16,7 +17,7 @@ class Program(Serializable):
     code_length: int = field(metadata={'codec': VarInt64})
     jump_table: List[int] = field(metadata={'codec': Array(U8, 0)})
     code: bytes = field(metadata={'codec': Array(U8, 0)})
-    opcode_bitmask: List[bool] = field(metadata={'codec': BitArray(0)})
+    opcode_bitmask: List[bool] = field(metadata={'codec': BitArray(0, strict_decoding=False)})
 
     @classmethod
     def from_jam_bytes(cls, scale_bytes: JamBytes) -> 'Program':
@@ -26,7 +27,7 @@ class Program(Serializable):
 
         jump_table = Array(UnsignedInteger(jump_table_entry_size * 8), jump_table_entry_count).decode(scale_bytes)
         code = Array(U8, code_length).decode(scale_bytes)
-        opcode_bitmask = BitArray(code_length).decode(scale_bytes)
+        opcode_bitmask = BitArray(code_length, strict_decoding=False).decode(scale_bytes)
 
         return cls(
             jump_table_entry_count=jump_table_entry_count,

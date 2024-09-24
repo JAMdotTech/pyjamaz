@@ -1,10 +1,10 @@
 from copy import deepcopy
-from typing import List, Union, TYPE_CHECKING, TypeVar, Dict, Type, Optional
+from typing import TypeVar
 
+import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound
 from pyjamaz.storage import StorageInterface, Transaction
-from pyjamaz.types.block import Block, OutputMarks
 
 T = TypeVar('T')
 
@@ -15,88 +15,32 @@ class State:
         super().__setattr__(key, value)
 
 
-class StateManager:
-
-    def __init__(self, storage_engine: StorageInterface):
-        self.storage_engine = storage_engine
-        self.state_components: Dict[Type['StateComponent'], StateComponent] = {}
-        self.state_components_by_id: Dict[int, StateComponent] = {}
-
-    def add(self, state_component: Type['StateComponent'], **args):
-        obj = state_component(
-            self, **args
-        )
-        self.state_components_by_id[state_component.component_id] = obj
-        self.state_components[state_component] = obj
-
-    def get(self, state_component: Type['StateComponent']) -> 'StateComponent':
-        try:
-            return self.state_components[state_component]
-        except KeyError:
-            raise StateComponentNotFound(f"State component {state_component} not found")
-
-    def get_by_id(self, state_component_id: int) -> 'StateComponent':
-        try:
-            return self.state_components_by_id[state_component_id]
-        except KeyError:
-            raise StateComponentNotFound(f"State component ID {state_component_id} not found")
-
-    def state_transition(self, block: 'Block') -> 'OutputMarks':
-        # TODO output is candidate Block?
-        output_marks = OutputMarks()
-
-        for state_component in self.state_components.values():
-            # Set copy of state in memory TODO how to manage this for services?
-
-            state_component.initialize(
-                pre_state=state_component.retrieve_state(),
-                output_marks=output_marks
-            )
-
-            state_component.state_transition(block)
-
-        # All state transitions succesful, commit state changes
-        with self.storage_engine.transaction() as transaction:
-            for state_component in self.state_components.values():
-                state_component.store_state(transaction)
-
-        return output_marks
-
-
 class StateComponent:
 
     component_id: int
 
-    def __init__(self, state_manager: StateManager, **kwargs):
-        self.storage_engine = state_manager.storage_engine
-        self.state_manager = state_manager
+    def __init__(self, storage_engine: StorageInterface, **kwargs):
 
         self.pre_state = None
         self.post_state = None
-        self.output_marks: Optional['OutputMarks'] = None
+        self.storage_engine = storage_engine
 
-    def initialize(self, pre_state: Optional[State], output_marks: 'OutputMarks'):
+    def initialize(self):
         """
         Sets all required variable to perform a state transition
 
         Parameters
         ----------
         pre_state
-        post_state
-        output_marks
 
         Returns
         -------
 
         """
-        self.pre_state = pre_state
-        self.post_state = deepcopy(pre_state)
-        self.output_marks = output_marks
+        self.pre_state = self.retrieve_state()
+        self.post_state = deepcopy(self.pre_state)
 
-    def get_state_component(self, state_component: Type[T]) -> T:
-        return self.state_manager.get_by_id(state_component.component_id)
-
-    def state_transition(self, block: 'Block'):
+    def state_transition(self, *args):
         raise NotImplementedError
 
     def _state_key_constructor_component(self) -> bytes:
@@ -124,7 +68,35 @@ class StateComponent:
     def retrieve_state(self):
         raise NotImplementedError
 
+    @staticmethod
+    def is_epoch_change(pre_slotnumber: int, post_slotnumber: int) -> bool:
+        return pre_slotnumber // gp_const.EPOCH_TIMESLOTS != post_slotnumber // gp_const.EPOCH_TIMESLOTS
 
+    @staticmethod
+    def slot_phase_index(slot_number: int) -> int:
+        """
+        GP-0.3.6-eq:46 (m) | Function that returns the phase index into the epoch of the timeslot
+
+        Returns
+        -------
+        number: int
+            Phase index into the epoch of the timeslot
+
+        """
+        return slot_number % gp_const.EPOCH_TIMESLOTS
+
+    @staticmethod
+    def epoch_number(slot_number: int) -> int:
+        """
+        GP-0.3.6-eq:46 (e) | Function that returns the epoch index
+
+        Returns
+        -------
+        number: int
+            Epoch index of the timeslot
+
+        """
+        return slot_number // gp_const.EPOCH_TIMESLOTS
 
 # def state_key_constructor_service(state_component_id: int, service_account_id: int) -> bytes:
 #     """
