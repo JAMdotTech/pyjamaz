@@ -76,6 +76,7 @@ nav:
       - Disputes (ψ): stfs/psi.md
       - Statistics (π): stfs/pi.md
   - Graypaper References:
+      - Summary: graypaper/summary.md
       - 1. Introduction: graypaper/section_01.md
       - 2. Previous Work & Present Trends: graypaper/section_02.md
       - 3. Notational Conventions: graypaper/section_03.md
