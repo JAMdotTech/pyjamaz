@@ -2,6 +2,7 @@ from enum import Enum
 from math import floor
 
 import numpy as np
+import numpy.typing as npt
 
 from .exceptions import (
     UIntValueError,
@@ -89,9 +90,7 @@ class PVM:
 
         self.create_instruction_lookup()
 
-
-    # TODO: typings
-    def read_uint(s, source, addr, l):
+    def read_uint(self, source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
         if l == 1:
             return np.uint32(source[addr + 0])
         elif l == 2:
@@ -112,8 +111,8 @@ class PVM:
         else:
             raise UIntValueError(f"Invalid uint length: {l}")
 
-    # TODO: typings
-    def read_i16(s, source, addr):
+    # TODO: KLOPT DIE CAST NAAR np.int32 wel??????
+    def read_i16(self, source: npt.NDArray[np.uint8], addr: np.uint32) -> np.uint32:
         byte0 = np.uint16(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         return np.int32((byte1 << 8) + byte0)

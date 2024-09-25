@@ -11,4 +11,4 @@ bandersnatch-vrfs @ git+https://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@github.
 jamcodec @ git+https://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@github.com/JAMdotTech/py-jam-codec.git
 
 #numpy~=2.0.1
-numpy~=1.24.4
+numpy=1.21
