@@ -4,12 +4,12 @@ from os import path
 
 from jamcodec.types import Vec
 
-from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, Disputes, RefinementContext, WorkReport, \
+from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, ExtrinsicDisputes, RefinementContext, WorkReport, \
     WorkResult, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
-from pyjamaz.types.safrole import SafroleOutput, SafroleErrorCode
+from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput
 from pyjamaz.types.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
-    ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState
+    ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState
 
 
 class TestCodec(unittest.TestCase):
@@ -116,9 +116,30 @@ class TestCodec(unittest.TestCase):
            jam_data = f.read()
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 
+    def test_jdt_state_service_account(self):
+        with open(path.join(self.test_vector_jdt_dir, f'state_service_account.json')) as f:
+            test_vector = json.load(f)
+
+        state = ServiceAccount.from_json(test_vector)
+        value = state.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_jdt_dir, f'state_service_account.bin'), "rb") as f:
+           jam_data = f.read()
+        self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
+        pass
+
     def test_jdt_state_services(self):
-        #with open(path.join(self.test_vector_jdt_dir, f'state_validator_queue.bin'), 'wb') as f:
-        #    f.write(state.to_jam_bytes().data)
+        with open(path.join(self.test_vector_jdt_dir, f'state_services.json')) as f:
+            test_vector = json.load(f)
+
+        state = ServicesState.from_json(test_vector)
+        value = state.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_jdt_dir, f'state_services.bin'), "rb") as f:
+           jam_data = f.read()
+        self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
         pass
 
     def test_jdt_state_statistics(self):
@@ -223,7 +244,7 @@ class TestCodec(unittest.TestCase):
         # translate fields
         # None
 
-        disputes_extrinsic = Disputes.from_json(test_vector)
+        disputes_extrinsic = ExtrinsicDisputes.from_json(test_vector)
         value = disputes_extrinsic.serialize()
         self.assertDictEqual(test_vector, value)
 

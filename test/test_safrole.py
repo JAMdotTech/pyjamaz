@@ -4,22 +4,31 @@ import unittest
 from copy import deepcopy
 from dataclasses import dataclass, field
 from os import path
-from typing import Optional
+from typing import Optional, List
 
 from parameterized import parameterized
 
 from jamcodec.mixins import Serializable
+from jamcodec.types import U32, H256, Vec
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT
 from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.state.exceptions import StateTransitionError
 from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
-from pyjamaz.types.safrole import SafroleTestState, SafroleInput, SafroleOutput
-from pyjamaz.types.block import Block, Header, Extrinsic, Disputes
+from pyjamaz.types.safrole import SafroleTestState
+from pyjamaz.types.stf_output import SafroleOutput
+from pyjamaz.types.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState, RecentHistoryState, ServicesState, AssurancesState, \
     PrivilegedServicesState, DisputesState, StatisticsState, AuthorizerPoolsState, \
     AuthorizerQueuesState, Statistic
+
+
+@dataclass
+class SafroleInput(Serializable):
+    slot: int = field(metadata={'codec': U32})  # Current slot. U32
+    entropy: bytes = field(metadata={'codec': H256})  # Per block entropy (originated from block entropy source VRF)
+    extrinsic: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})  # Safrole extrinsic. SEQUENCE (SIZE(0..16)) OF TicketEnvelope
 
 
 @dataclass
@@ -55,8 +64,8 @@ class TestSafroleVector(unittest.TestCase):
         cls.config = AppConfig(
             ring_data=cls.ring_data,
             # storage_engine=RocksDBStorage(path.join(storage_dir, "db"))
-            # storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
-            storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
+            storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
+            # storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
         )
 
     @staticmethod
@@ -76,6 +85,7 @@ class TestSafroleVector(unittest.TestCase):
         test_vector['post_state']['lambda_'] = test_vector['post_state'].pop('lambda')
 
         test_case = Testcase.from_json(test_vector)
+
         # TODO make type factory to bootstrap state SCALE types with correct constants
         # if directory == 'tiny':
         #     gp_const.VALIDATOR_COUNT = 6
@@ -118,7 +128,7 @@ class TestSafroleVector(unittest.TestCase):
             recent_history=RecentHistoryState(
                 recent_history=[]
             ),
-            services=ServicesState(placeholder=0),
+            services=ServicesState(services={}),
             assurances=AssurancesState(
                 assurances=[
                     None,
@@ -171,11 +181,9 @@ class TestSafroleVector(unittest.TestCase):
                 entropy_source=test_case_input.entropy,
                 seal=bytes(96)
             ),
-            extrinsic = Extrinsic(
+            extrinsic=Extrinsic(
                 tickets=test_case_input.extrinsic,
-                # work_report_hashes=None,
-                # accumulate_root=None
-                disputes=Disputes(verdicts=[], culprits=[], faults=[]),
+                disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
                 preimages=[],
                 assurances=[],
                 guarantees=[]
@@ -188,8 +196,7 @@ class TestSafroleVector(unittest.TestCase):
 
         # Process block
         try:
-            output_marks = app.state_transition(block)
-            output = SafroleOutput(ok=output_marks)
+            output = app.process_block(block).safrole
         except StateTransitionError as e:
             output = SafroleOutput(err=e.custom_error_code)
 

@@ -163,7 +163,7 @@ class Fault(Serializable):
 
 
 @dataclass
-class Disputes(Serializable):
+class ExtrinsicDisputes(Serializable):
     """
     GP-0.3.6-eq:97 (bold_E_D) | judgements by validators on disputes
 
@@ -348,17 +348,17 @@ class WorkPackageSpec(Serializable):
     len: U16
         GP-0.3.6-eq:120 (l) |
         The work bundle length
-    root: H256
+    erasure_root: H256
         GP-0.3.6-eq:120 (u) |
         The erasure-root
-    segments: H256
+    exports_root: H256
         GP-0.3.6-eq:120 (e) |
         The segment root
     """
     hash: bytes = field(metadata={'codec': H256})
     len: int = field(metadata={'codec': U32})
-    root: bytes = field(metadata={'codec': H256})
-    segments: bytes = field(metadata={'codec': H256})
+    erasure_root: bytes = field(metadata={'codec': H256})
+    exports_root: bytes = field(metadata={'codec': H256})
 
 
 @dataclass
@@ -488,8 +488,31 @@ class Header(Serializable):
     entropy_source: bytes = field(metadata={'codec': Array(U8, 96)})
     seal: bytes = field(metadata={'codec': Array(U8, 96)})
 
-    def generate_header_hash(self) -> bytes:
-        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
+    # TODO recent-history seems to need this, how to handle with this
+    # hash: bytes = field(default=None, metadata={'codec': H256})
+
+    @property
+    def hash(self) -> bytes:
+        """
+        Generates a hash of the header.
+        TODO check with GP
+
+        Returns
+        -------
+        bytes
+        """
+        if getattr(self, '_hash', None) is not None:
+            return getattr(self, '_hash')
+
+        data = self.to_jam_bytes().to_bytes()
+        if self.seal is not None:
+            data = data[:-96]
+
+        return blake2b_256_hash(data)
+
+    @hash.setter
+    def hash(self, value: bytes) -> None:
+        setattr(self, '_hash', value)
 
     # Todo: new function for derived author_key from validator set; GP-0.3.6-eq:43 (bold_H_a)
     # def generate_author_bandersnatch_key(self) -> bytes:
@@ -507,7 +530,7 @@ class Extrinsic(Serializable):
     tickets: Vec(TicketEnvelope)
         GP-0.3.6-eq:73 (bold_E_T) |
         Manages selection of validators for permissioning of block authoring
-    disputes: Disputes
+    disputes: ExtrinsicDisputes
         GP-0.3.6-eq:97 (bold_E_D) |
         Votes by validators on disputes
     preimages: Vec(Preimage)
@@ -521,14 +544,14 @@ class Extrinsic(Serializable):
         Reports of newly completed workloads whose accuracy is guaranteed by specific validators
     """
     tickets: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})
-    disputes: Disputes = field(metadata={'codec': Disputes.to_codec_def()})
+    disputes: ExtrinsicDisputes = field(metadata={'codec': ExtrinsicDisputes.to_codec_def()})
     preimages: List[Preimage] = field(metadata={'codec': Vec(Preimage.to_codec_def())})
     assurances: List[Assurance] = field(metadata={'codec': Vec(Assurance.to_codec_def())})
     guarantees: List[Guarantee] = field(metadata={'codec': Vec(Guarantee.to_codec_def())})
 
     # TODO TEMP unclear, move when Extrinsic is fully defined
-    #work_report_hashes: Optional[List[bytes]] = field(metadata={'codec': Option(Vec(H256))})
-    #accumulate_root: Optional[bytes] = field(metadata={'codec': Option(H256)})
+    # work_report_hashes: Optional[List[bytes]] = field(metadata={'codec': Option(Vec(H256))})
+    # accumulate_root: Optional[bytes] = field(metadata={'codec': Option(H256)})
 
 
 @dataclass

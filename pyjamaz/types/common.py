@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, Array, U8
+from jamcodec.types import H256, Array, U8, Vec
 
 ByteArray32 = bytes  # SEQUENCE (SIZE(32)) OF U8
 ByteArray128 = bytes

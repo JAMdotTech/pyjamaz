@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple as PyTuple
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Null, Map, Bytes, Tuple, StringDef
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, HISTORY, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
 from pyjamaz.types.block import WorkReport
@@ -142,7 +142,6 @@ class ValidatorArchiveState(Serializable, State):
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
 
-
 @dataclass
 class AuthorizerPoolsState(Serializable):
     """
@@ -228,9 +227,63 @@ class RecentHistoryState(Serializable):
 
 
 @dataclass
+class ServiceAccount(Serializable):
+    """
+    GP-0.3.6-eq:89 (blackboard_A) | A service account
+
+    Attributes
+    ----------
+    code_hash: H256
+        GP-0.3.6-eq:89 (c) | Hash of the service account's code
+    balance: U64
+        GP-0.3.6-eq:89 (b) | Balance of a service account
+    gas_limit_accumulate: U64
+        GP-0.3.6-eq:89 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
+    gas_limit_on_transfer: U64
+        GP-0.3.6-eq:89 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
+    footprint_storage_items: U64
+        GP-0.3.6-eq:94 (a_l) | Storage footprint of the service account. The number of items in storage.
+    footprint_storage_bytes: U32
+        GP-0.3.6-eq:94 (a_i) | Storage footprint of the service account. The total number of bytes used in storage.
+    storage_items: Dict(H256,Bytes)
+        GP-0.3.6-eq:89 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
+    preimages: Dict(H256,Bytes)
+        GP-0.3.6-eq:89 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
+    preimage_availability: Dict(Tuple(H256,U32),Bytes)
+        GP-0.3.6-eq:89 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
+    """
+    # Remark: Only the following field need to be serialized/deserialized
+    code_hash: bytes = field(metadata={'codec': H256})
+    balance: int = field(metadata={'codec': U64})
+    gas_limit_accumulate: int = field(metadata={'codec': U64})
+    gas_limit_on_transfer: int = field(metadata={'codec': U64})
+    footprint_storage_items: int = field(metadata={'codec': U64})
+    footprint_storage_bytes: int = field(metadata={'codec': U32})
+    storage_items: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
+    preimages: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
+    # Todo: GP states the Dict has a tuple as key. Needs to be resolved when getter function for preimage_availability
+    #  gets implemented or when kv-db storage gets implemented.
+    #preimage_availability: Dict[PyTuple[bytes, int], List[int]] = field(metadata={'codec': Map(Tuple(H256, U32), Vec(U32))})
+    preimage_availability: Dict[bytes, List[int]] = field(metadata={'codec': Map(Array(U8, 36), Vec(U32))})
+
+
+@dataclass
 class ServicesState(Serializable):
-    # Todo: Dict Data Structure
-    placeholder: int = field(metadata={'codec': U32})
+    """
+    GP-0.3.6-eq:88 (greek_DELTA | δ) | Services partition of the overall state.
+
+    Attributes
+    ----------
+    services: Dict(U32,ServiceAccount)
+        GP-0.3.6-eq:88,87 (greek_DELTA | δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account
+        data for a service account index.
+    """
+    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
+    # services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
+
+    # Todo: Workaround for lack of support for int value dict-keys in JSON.
+    # services: Dict[bytes, ServiceAccount] = field(metadata={'codec': Map(Array(U8,1), ServiceAccount.to_codec_def())})
+    services: Dict[str, ServiceAccount] = field(metadata={'codec': Map(StringDef(U32), ServiceAccount.to_codec_def())})
 
 
 @dataclass
