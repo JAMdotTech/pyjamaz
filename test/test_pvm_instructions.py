@@ -8,6 +8,7 @@ from jamcodec.base import JamBytes
 from parameterized import parameterized
 
 from pyjamaz.pvm import PVM
+from pyjamaz.pvm.constants import ExitCondition
 from pyjamaz.pvm.types import PVMProgram
 
 
@@ -30,7 +31,7 @@ def load_test_vectors(directory):
 
 
 class TestPolkaVMInstructions(unittest.TestCase):
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
     def test_instruction(self, name, test_vector):
 
         mem_size = 0
@@ -49,7 +50,16 @@ class TestPolkaVMInstructions(unittest.TestCase):
         )
         pvm.invoke()
 
-        #self.assertEqual(test_vector["expected-status"], pvm.status, f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
+        ExitConditionMap = {
+            ExitCondition.none.value: "none",
+            ExitCondition.trap.value: "trap",
+            ExitCondition.halt.value: "halt"
+        }
+
+        #C#HECK RETIRN CODE/REGISTERS -> een checl maken op
+        #https://github.com/w3f/jamtestvectors/blob/e285daabbd96f4b1b7b9e2b2703e85a8c72190f5/pvm/README.md#pvm-test-vectors-version-01
+        self.assertEqual(test_vector["expected-status"], ExitConditionMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
+
         self.assertEqual(test_vector["expected-regs"], pvm.reg.tolist(), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg.tolist()}")
         self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
         self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")

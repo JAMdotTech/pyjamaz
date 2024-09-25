@@ -3,66 +3,23 @@ from math import floor
 
 import numpy as np
 
-from .opcodes import Opcode as op, OpcodeScheme, InstructionType, BITMASK_MAX
+from .exceptions import (
+    UIntValueError,
+    InvalidOpcode
+)
 
+from .utils import (
+    pvm_Zn,
+    pvm_X,
+    pvm_Zn_inv
+)
 
-class ExitCondition(Enum):
-    none:int    = 0
-    trap:int    = 1
-    halt:int    = 2
-
-
-ExitConditionMap = {
-    0: "none",
-    1: "trap",
-    2: "halt"
-}
-
-
-#gp_0.3.6_eq_223
-# def sign_extend(x,n):
-#     term = (2 ** 32 - 2 ** (8 * n))
-#     factor = x // (2 ** (8 * n - 1))
-#     return x + factor * term
-def pvm_X(x, n):
-    # TODO: cast naar python int -> port naar numpy
-    n = int(n)
-    # Ensure x is within the range of 2^(8*n)
-    assert 0 <= x < 2 ** (8 * int(n)), "x must be in the range of 0 to 2^(8*n) - 1"
-
-    # Calculate the term (2^32 - 2^(8*n))
-    term = (2 ** 32 - 2 ** (8 * n))
-
-    # Calculate the floor division part: floor(x / 2^(8*n - 1))
-    factor = x // (2 ** (8 * n - 1))
-
-    # Return the transformed x
-    return x + factor * term
-
-
-def pvm_Zn(a, n):
-    """
-    Transform a from the range [0, 2^(8n)) to the signed range [-2^(8n-1), 2^(8n-1) - 1].
-    """
-    # TODO: cast naar python int -> port naar numpy
-    a = int(a)
-    n = int(n)
-
-    boundary = 2 ** (8 * n - 1)  # This is 2^(8n-1), the boundary between positive and negative numbers.
-    max_value = 2 ** (8 * n)-1  # This is 2^(8n), the maximum value in the n-bit space.
-
-    # If 'a' is less than the boundary, return 'a' unchanged, otherwise subtract 2^(8n).
-    if a < boundary:
-        return a
-    else:
-        return a - max_value
-
-def pvm_Zn_inv(a, n):
-    """
-    Transform a from the range [0, 2^(8n)) to the signed range [-2^(8n-1), 2^(8n-1) - 1].
-    """
-    # TODO: cast naar python int -> port naar numpy
-    return ((2**(8*n)) + a) % (2**(8*n))
+from .constants import (
+    Opcode as op,
+    OpcodeScheme,
+    InstructionType,
+    ExitCondition
+)
 
 
 class PVM:
@@ -153,7 +110,7 @@ class PVM:
             byte3 = np.uint32(source[addr + 3])
             return np.uint32((byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0)
         else:
-            raise Exception(f"Invalid uint length: {l}")
+            raise UIntValueError(f"Invalid uint length: {l}")
 
     # TODO: typings
     def read_i16(s, source, addr):
@@ -197,14 +154,14 @@ class PVM:
         self.pc = 0
         skip_len = 0
 
-        while self.status == 0 and self.gas > 0:
+        while self.status == ExitCondition.none.value and self.gas > 0:
 
             self.gas -= 1
             self.pc += skip_len
 
             #gp_0.3.6-eq:215
             if self.pc >= self.program_size:
-                self.status = 1
+                self.status = ExitCondition.trap.value
                 break
 
             inst_index = self.inst_pos[self.pc]
@@ -214,6 +171,12 @@ class PVM:
 
             #TODO: alle op. instructies prefixen met i_ en dan de GP benaming voor de operator!!!! intructie typen en opcodes in volgorde van GP maken
             match inst_type:
+
+                # TODO:NO_TEST: case InstructionType.offset:
+                # TODO:NO_TEST: case InstructionType.imm:
+                # TODO:NO_TEST: case InstructionType.reg_imm_imm:
+                # TODO:NO_TEST: case InstructionType.imm_imm:
+                # TODO:NO_TEST: case InstructionType.reg_reg_imm_imm:
 
                 case InstructionType.none:
 
@@ -227,24 +190,31 @@ class PVM:
                     r_a = self.rom[self.pc + 1] % 16
                     #w_a = self.reg[r_a]
                     l_x = min(4, max(0, skip_len - 2) )
-                    #TODO: dergelijke gevallen meer generiek opvangen
-                    if l_x == 0:
-                        self.status = ExitCondition.halt.value
-                        continue
-
-                    v_x = pvm_X(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    # #TODO: dergelijke gevallen meer generiek opvangen
+                    v_x = 0
+                    if l_x > 0:
+                        v_x = pvm_X(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     # Note: in case of an immediate, we dont have to check memory access
-                    if opcode != op.load_imm.value:
+                    # TODO:!!!!!!!!!!!!!!!!!!!dit moet ook netter kunnen
+                    if opcode != op.load_imm.value and opcode != op.jump_indirect.value:
                         mapped_addr = v_x - self.mem_offset
                         if mapped_addr >= len(self.mem):
-                            #TODO:!!!!!!!!!!!!!!!!!!!dit moet ook netter kunnen
                             self.status = ExitCondition.trap.value
                             self.gas -= 1
                             continue
 
                     match opcode:
-                        #case op.jump_indirect.value:   #TODO:NO_TEST
+                        case op.jump_indirect.value:
+                            #GP.226
+                            if self.reg[0] == 0xffff0000:
+                                self.status = ExitCondition.halt.value
+                            elif l_x == 0:
+                                self.status = ExitCondition.trap.value
+                                self.pc = 0
+
+                            #TODO:NO_TEST
+                            pass
 
                         case op.load_imm.value:
                             self.reg[r_a] = v_x
@@ -264,6 +234,8 @@ class PVM:
                         #     self.reg[r_a] = self.read_uint16(self.mem, imm)
                         #     self.pc += 2 # note: we read 2 mem byte
 
+                        #TODO:NO_TEST: case op.load_u32.value:
+
                         case op.store_u8.value:
                             #TODO: out of bounds check
                             self.mem[mapped_addr] = np.uint8(self.reg[r_a] & 0xFF)
@@ -281,7 +253,7 @@ class PVM:
                             self.mem[mapped_addr + 3] = np.uint8((self.reg[r_a] & 0xFF000000) >> 24)
 
                         case _:
-                            raise Exception(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
+                            raise InvalidOpcode(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
 
                 case InstructionType.reg_imm_offset:
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
@@ -339,9 +311,7 @@ class PVM:
                                 skip_len = v_y
 
                         case _:
-                            raise Exception(f"Invalid reg_imm_offset opcode: {opcode} for instruction type {inst_type}")
-
-                #TODO:NO_TEST: case InstructionType.reg_imm_imm:
+                            raise InvalidOpcode(f"Invalid reg_imm_offset opcode: {opcode} for instruction type {inst_type}")
 
                 case InstructionType.offset:
 
@@ -352,10 +322,8 @@ class PVM:
                         case op.jump.value:
                             skip_len = v_x
 
-                        #TODO: NO_TEST: case op.sbrk.value:
-
                         case _:
-                            raise Exception(f"Invalid offset opcode: {opcode} for instruction type {inst_type}")
+                            raise InvalidOpcode(f"Invalid offset opcode: {opcode} for instruction type {inst_type}")
 
                 case InstructionType.reg_reg:
 
@@ -369,7 +337,7 @@ class PVM:
                         #TODO: NOTEST: case op.sbrk.value:
 
                         case _:
-                            raise Exception(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
+                            raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
                 case InstructionType.reg_reg_imm:
 
@@ -589,6 +557,6 @@ class PVM:
                         #case op.cmov_if_not_zero.value: #TODO:NO_TEST
 
                         case _:
-                            raise Exception(f"Invalid reg_reg_reg opcode: {opcode} for instruction type {inst_type}")
+                            raise InvalidOpcode(f"Invalid reg_reg_reg opcode: {opcode} for instruction type {inst_type}")
                 case _:
-                    raise Exception(f"Invalid instruction type: {inst_type}")
+                    raise InvalidOpcode(f"Invalid instruction type: {inst_type}")

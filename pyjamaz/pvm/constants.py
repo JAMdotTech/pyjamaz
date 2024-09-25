@@ -2,8 +2,12 @@ from enum import Enum
 
 import numpy as np
 
-# Instruction argument length bitmask
-BITMASK_MAX = 24
+
+class ExitCondition(Enum):
+    none:int    = 0
+    trap:int    = 1
+    halt:int    = 2
+
 
 class InstructionType(Enum):
     """
@@ -249,20 +253,20 @@ OpcodeScheme = {
     op.cmov_if_not_zero.value                                 : it.reg_reg_reg, #X
 
     # Instructions with args: offset
-    op.jump.value                                             : it.offset,
+    op.jump.value                                             : it.offset,      #X
 
     # Instructions with args: imm
-    op.ecalli.value                                           : it.imm,
+    op.ecalli.value                                           : it.imm,         #X
 
-    # Instructions with args: imm, imm
-    op.store_imm_u8.value                                     : it.imm_imm,
-    op.store_imm_u16.value                                    : it.imm_imm,
-    op.store_imm_u32.value                                    : it.imm_imm,
+    # Instructions with args: imm_imm
+    op.store_imm_u8.value                                     : it.imm_imm,     #X
+    op.store_imm_u16.value                                    : it.imm_imm,     #X
+    op.store_imm_u32.value                                    : it.imm_imm,     #X
 
     # Instructions with args: reg, reg
     op.move_reg.value                                         : it.reg_reg, #riscv:
     op.sbrk.value                                             : it.reg_reg, #X
 
     # Instructions with args: reg, reg, imm, im:
-    op.load_imm_and_jump_indirect.value                       : it.reg_reg_imm_imm,
+    op.load_imm_and_jump_indirect.value                       : it.reg_reg_imm_imm,     #X
 }
