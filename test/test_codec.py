@@ -4,9 +4,9 @@ from os import path
 
 from jamcodec.types import Vec
 
-from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, Disputes, RefinementContext, WorkReport, \
+from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, ExtrinsicDisputes, RefinementContext, WorkReport, \
     WorkResult, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
-from pyjamaz.types.safrole import SafroleOutput, SafroleErrorCode
+from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput
 from pyjamaz.types.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
     ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState
@@ -244,7 +244,7 @@ class TestCodec(unittest.TestCase):
         # translate fields
         # None
 
-        disputes_extrinsic = Disputes.from_json(test_vector)
+        disputes_extrinsic = ExtrinsicDisputes.from_json(test_vector)
         value = disputes_extrinsic.serialize()
         self.assertDictEqual(test_vector, value)
 
