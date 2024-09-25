@@ -1,15 +1,15 @@
 import json
 import os
 import unittest
+from copy import deepcopy
 from os import path
 from typing import Optional
 
 from parameterized import parameterized
 
-from pyjamaz.state.base import StateManager
 from pyjamaz.state.components import RecentHistory
 from pyjamaz.storage import JSONStorage
-from pyjamaz.types.block import Block, Header, Extrinsic, OutputMarks, Disputes
+from pyjamaz.types.block import Block, Header, Extrinsic, ExtrinsicDisputes, Guarantee, WorkReport, WorkPackageSpec
 from pyjamaz.types.state import RecentHistoryState
 
 
@@ -46,44 +46,55 @@ class TestBlockHistory(unittest.TestCase):
 
         test_vector = self.load_test_vector_data(test_file)
 
-        block = Block(
-            header=Header(
-                parent=bytes(32),
-                parent_state_root=bytes.fromhex(test_vector["input"]["parent_state_root"][2:]),
-                extrinsic_hash=bytes(32),
-                timeslot=0,
-                epoch_marker=None,
-                tickets_marker=None,
-                offenders_marker=[],
-                author_index=0,
-                entropy_source=bytes(32),
-                seal=bytes(32)
-            ),
-            extrinsic=Extrinsic(
-                tickets=[],
-                disputes=Disputes(verdicts=[], culprits=[], faults=[]),
-                preimages=[],
-                assurances=[],
-                guarantees=[]
-            )
+        header = Header(
+            parent=bytes(32),
+            parent_state_root=bytes.fromhex(test_vector["input"]["parent_state_root"][2:]),
+            extrinsic_hash=bytes(32),
+            timeslot=0,
+            epoch_marker=None,
+            tickets_marker=None,
+            offenders_marker=[],
+            author_index=0,
+            entropy_source=bytes(96),
+            seal=bytes(96)
         )
 
-        # TODO discuss: Set test case specific value until refactor with specific input/output per state component
-        block.header.hash = bytes.fromhex(test_vector["input"]["header_hash"][2:])
-        block.extrinsic.work_report_hashes = [bytes.fromhex(w[2:]) for w in test_vector["input"]["work_packages"]]
-        block.extrinsic.accumulate_root = bytes.fromhex(test_vector["input"]["accumulate_root"][2:])
+        header.hash = bytes.fromhex(test_vector["input"]["header_hash"][2:])
+
+        extrinsic_guarantees = [
+            Guarantee(
+                report=WorkReport(
+                    package_spec=WorkPackageSpec(
+                        hash=bytes.fromhex(w[2:]),
+                        len=0,
+                        erasure_root=bytes(32),
+                        exports_root=bytes(32),
+                    ),
+                    context=None,
+                    core_index=0,
+                    authorizer_hash=bytes(32),
+                    auth_output=bytes(),
+                    results=[]),
+                slot=0,
+                signatures=[]
+            ) for w in test_vector["input"]["work_packages"]
+        ]
+
+        # TODO How to determine this from extrinsic? Merkle root of WorkPackageSpec.roots?
+        accumulate_root = bytes.fromhex(test_vector["input"]["accumulate_root"][2:])
 
         pre_state = RecentHistoryState.from_json({'recent_history': test_vector["pre_state"]["beta"]})
 
-        state_manager = StateManager(self.storage_engine)
-        blocks_history = RecentHistory(state_manager)
+        blocks_history = RecentHistory(self.storage_engine)
+        blocks_history.pre_state = pre_state
+        blocks_history.post_state = deepcopy(pre_state)
 
-        blocks_history.initialize(
-            pre_state=pre_state,
-            output_marks=OutputMarks()
+        intermediate_state_recent_history = blocks_history.state_transition_intermediate(header)
+
+        blocks_history.state_transition(
+            header=header, extrinsic_guarantees=extrinsic_guarantees,
+            intermediate_state_recent_history=intermediate_state_recent_history, accumulate_root=accumulate_root
         )
-
-        blocks_history.state_transition(block)
 
         self.assertEqual(
             len(blocks_history.post_state.recent_history),
