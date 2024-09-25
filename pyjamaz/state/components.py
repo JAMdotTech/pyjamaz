@@ -24,14 +24,16 @@ from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 class Timeslot(StateComponent):
     component_id = 11
 
-    def state_transition(self, header: Header):
+    def state_transition(self: TimeslotState, header: Header):
         """
         GP-0.3.6-eq:45 (greek_TAU_prime | τ') | State transition function for the state's timeslot.
 
         Parameters
         ----------
+        self: TimeslotState
+            Input parameter 1 | GP-0.3.6-eq:16 (greek_TAU | τ)
         header: Header
-            Input parameter 1 | GP-0.3.6-eq:16 (bold_H)
+            Input parameter 2 | GP-0.3.6-eq:16 (bold_H)
 
         Returns
         -------
@@ -589,20 +591,20 @@ class PrivilegedServices(StateComponent):
 class Disputes(StateComponent):
     component_id = 5
 
-    def state_transition(self, extrinsic_disputes: ExtrinsicDisputes):
+    def state_transition(self: DisputesState, extrinsic_disputes: ExtrinsicDisputes):
         """
         GP-0.3.6-eq:111,112,113,114 (greek_PSI_prime | ψ') | State transition function for the state's disputes.
 
         Parameters
         ----------
+        self: DisputesState
+            Input parameter 1 | GP-0.3.6-eq:23 (greek_PSI | ψ)
         extrinsic_disputes: ExtrinsicDisputes
-            Input parameter 1 | GP-0.3.6-eq:23 (bold_E_D)
-        # pre_state_disputes: DisputesState
-            Input parameter 2 | GP-0.3.6-eq:23 (greek_PSI | ψ)
+            Input parameter 2 | GP-0.3.6-eq:23 (bold_E_D)
 
         Returns
         -------
-        post_state_disputes: ExtrinsicDisputes
+        post_state_disputes: DisputesState
             Posterior state of DisputesState (greek_PSI_prime | ψ')
         """
         pass
