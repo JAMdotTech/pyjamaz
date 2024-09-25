@@ -412,7 +412,7 @@ class AuthorizerPools(StateComponent):
 class RecentHistory(StateComponent):
     component_id = 3
 
-    def state_transition_intermediate(self, header: Header):
+    def state_transition_intermediate(self, header: Header) -> RecentHistoryState:
         """
         GP-0.3.6-eq:81 (greek_BETA_dagger | β†) | Intermediate state transition function for the state's recent history.
 
@@ -428,7 +428,12 @@ class RecentHistory(StateComponent):
         intermediate_state_recent_history: RecentHistoryState
             Intermediate state of RecentHistoryState (greek_BETA_dagger | β†)
         """
-        pass
+        intermediate_state = deepcopy(self.pre_state)
+
+        if len(self.pre_state.recent_history) > 0:
+            self.post_state.recent_history[-1].state_root = header.parent_state_root
+
+        return intermediate_state
 
     def state_transition(self, header: Header, extrinsic_guarantees: List[Guarantee],
                          intermediate_state_recent_history: RecentHistoryState,
@@ -461,7 +466,6 @@ class RecentHistory(StateComponent):
             raise StateTransitionError(f"Work reports must be less than number of cores ({gp_const.CORE_COUNT})")
 
         if len(self.pre_state.recent_history) > 0:
-            self.post_state.recent_history[-1].state_root = header.parent_state_root
             mmr_peaks = copy(self.post_state.recent_history[-1].mmr.peaks)
         else:
             mmr_peaks = []

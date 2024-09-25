@@ -491,8 +491,28 @@ class Header(Serializable):
     # TODO recent-history seems to need this, how to handle with this
     # hash: bytes = field(default=None, metadata={'codec': H256})
 
-    def generate_header_hash(self) -> bytes:
-        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
+    @property
+    def hash(self) -> bytes:
+        """
+        Generates a hash of the header.
+        TODO check with GP
+
+        Returns
+        -------
+        bytes
+        """
+        if getattr(self, '_hash', None) is not None:
+            return getattr(self, '_hash')
+
+        data = self.to_jam_bytes().to_bytes()
+        if self.seal is not None:
+            data = data[:-96]
+
+        return blake2b_256_hash(data)
+
+    @hash.setter
+    def hash(self, value: bytes) -> None:
+        setattr(self, '_hash', value)
 
     # Todo: new function for derived author_key from validator set; GP-0.3.6-eq:43 (bold_H_a)
     # def generate_author_bandersnatch_key(self) -> bytes:

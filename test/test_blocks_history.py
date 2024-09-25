@@ -46,45 +46,39 @@ class TestBlockHistory(unittest.TestCase):
 
         test_vector = self.load_test_vector_data(test_file)
 
-        block = Block(
-            header=Header(
-                parent=bytes(32),
-                parent_state_root=bytes.fromhex(test_vector["input"]["parent_state_root"][2:]),
-                extrinsic_hash=bytes(32),
-                timeslot=0,
-                epoch_marker=None,
-                tickets_marker=None,
-                offenders_marker=[],
-                author_index=0,
-                entropy_source=bytes(32),
-                seal=bytes(32)
-            ),
-            extrinsic=Extrinsic(
-                tickets=[],
-                disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
-                preimages=[],
-                assurances=[],
-                guarantees=[
-                    Guarantee(
-                        report=WorkReport(
-                            package_spec=WorkPackageSpec(
-                                hash=bytes.fromhex(w[2:]),
-                                len=0,
-                                erasure_root=bytes(32),
-                                exports_root=bytes(32),
-                            ),
-                            context=None,
-                            core_index=0,
-                            authorizer_hash=bytes(32),
-                            auth_output=bytes(),
-                            results=[]),
-                        slot=0,
-                        signatures=[]
-                    ) for w in test_vector["input"]["work_packages"]]
-            )
+        header = Header(
+            parent=bytes(32),
+            parent_state_root=bytes.fromhex(test_vector["input"]["parent_state_root"][2:]),
+            extrinsic_hash=bytes(32),
+            timeslot=0,
+            epoch_marker=None,
+            tickets_marker=None,
+            offenders_marker=[],
+            author_index=0,
+            entropy_source=bytes(96),
+            seal=bytes(96)
         )
 
-        block.header.hash = bytes.fromhex(test_vector["input"]["header_hash"][2:])
+        header.hash = bytes.fromhex(test_vector["input"]["header_hash"][2:])
+
+        extrinsic_guarantees = [
+            Guarantee(
+                report=WorkReport(
+                    package_spec=WorkPackageSpec(
+                        hash=bytes.fromhex(w[2:]),
+                        len=0,
+                        erasure_root=bytes(32),
+                        exports_root=bytes(32),
+                    ),
+                    context=None,
+                    core_index=0,
+                    authorizer_hash=bytes(32),
+                    auth_output=bytes(),
+                    results=[]),
+                slot=0,
+                signatures=[]
+            ) for w in test_vector["input"]["work_packages"]
+        ]
 
         # TODO How to determine this from extrinsic? Merkle root of WorkPackageSpec.roots?
         accumulate_root = bytes.fromhex(test_vector["input"]["accumulate_root"][2:])
@@ -95,9 +89,11 @@ class TestBlockHistory(unittest.TestCase):
         blocks_history.pre_state = pre_state
         blocks_history.post_state = deepcopy(pre_state)
 
+        intermediate_state_recent_history = blocks_history.state_transition_intermediate(header)
+
         blocks_history.state_transition(
-            header=block.header, extrinsic_guarantees=block.extrinsic.guarantees,
-            intermediate_state_recent_history=None, accumulate_root=accumulate_root
+            header=header, extrinsic_guarantees=extrinsic_guarantees,
+            intermediate_state_recent_history=intermediate_state_recent_history, accumulate_root=accumulate_root
         )
 
         self.assertEqual(
