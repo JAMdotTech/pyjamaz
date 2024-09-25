@@ -24,16 +24,14 @@ from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 class Timeslot(StateComponent):
     component_id = 11
 
-    def state_transition(self: TimeslotState, header: Header):
+    def state_transition(self, header: Header):
         """
         GP-0.3.6-eq:45 (greek_TAU_prime | τ') | State transition function for the state's timeslot.
 
         Parameters
         ----------
-        self: TimeslotState
-            Input parameter 1 | GP-0.3.6-eq:16 (greek_TAU | τ)
         header: Header
-            Input parameter 2 | GP-0.3.6-eq:16 (bold_H)
+            Input parameter 1 | GP-0.3.6-eq:16 (bold_H)
 
         Returns
         -------
