@@ -91,19 +91,6 @@ class TestSerialization(unittest.TestCase):
 
         self.test_obj = ValidatorData.from_json(data)
 
-    def test_dataclass_serialization(self):
-        output = SafroleOutput(ok=OutputMarks(epoch_mark=None, tickets_mark=None))
-        value = output.to_json()
-        self.assertEqual({'ok': {'epoch_mark': None, 'tickets_mark': None}}, value)
-
-        output = SafroleOutput(err=SafroleErrorCode.duplicate_ticket)
-        value = output.to_json()
-
-        self.assertEqual({'err': 'duplicate_ticket'}, value)
-
-        data = output.to_jam_bytes()
-        self.assertEqual('0x0106', data.to_hex())
-
     def test_deserialize(self):
 
         data = {

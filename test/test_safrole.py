@@ -9,20 +9,69 @@ from typing import Optional, List
 from parameterized import parameterized
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, H256, Vec
-from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT
+from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum
+from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS
 from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.state.exceptions import StateTransitionError
 from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
-from pyjamaz.types.safrole import SafroleTestState
-from pyjamaz.types.stf_output import SafroleOutput
-from pyjamaz.types.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
+from pyjamaz.types.common import OpaqueHash, ValidatorsData, ValidatorData, ByteArray144
+from pyjamaz.types.stf_output import SafroleOutput, SafroleErrorCode
+from pyjamaz.types.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, TicketBody, OutputMarks, \
+    EpochMark, TicketsMark
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState, RecentHistoryState, ServicesState, AssurancesState, \
     PrivilegedServicesState, DisputesState, StatisticsState, AuthorizerPoolsState, \
-    AuthorizerQueuesState, Statistic
+    AuthorizerQueuesState, Statistic, SlotSealerSeries
 
+
+@dataclass
+class SafroleTestState(Serializable):
+    # Most recent block's timeslot.
+    tau: int = field(metadata={'codec': U32})
+    # SEQUENCE (SIZE(4)) OF OpaqueHash
+    eta: List[OpaqueHash] = field(metadata={'codec': Array(H256, 4)})
+    lambda_: ValidatorsData = field(
+        metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
+        )  # Validator keys and metadata which were active in the prior epoch.
+    kappa: ValidatorsData = field(
+        metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
+        )  # Validator keys and metadata currently active.
+    gamma_k: ValidatorsData = field(
+        metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
+        )  # Validator keys for the following epoch.
+    iota: ValidatorsData = field(
+        metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
+        )  # Validator keys and metadata to be drawn from next.
+    gamma_a: List[TicketBody] = field(
+        metadata={'codec': Vec(TicketBody.to_codec_def())}
+        )  # Sealing-key contest ticket accumulator.
+    gamma_s: SlotSealerSeries = field(
+        metadata={'codec': SlotSealerSeries.to_codec_def()})  # Sealing-key series of the current epoch.
+    gamma_z: ByteArray144 = field(metadata={'codec': Array(U8, 144)})  # Bandersnatch ring commitment.
+
+
+@dataclass
+# Todo: (Re)move, annotate, reference-GP
+class SafroleOutputMarks(Serializable):
+    epoch_mark: Optional[EpochMark] = field(default=None, metadata={'codec': Option(EpochMark.to_codec_def())})   # New epoch signal. OPTIONAL
+    tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
+
+@dataclass
+class SafroleTestOutput(Serializable):
+    ok: Optional[SafroleOutputMarks] = field(default=None, metadata={'codec': Option(SafroleOutputMarks.to_codec_def())})  # Markers
+    err: Optional[SafroleErrorCode] = field(default=None, metadata={'codec': Option(SafroleErrorCode.to_codec_def())})  # Error code (not specified in the Graypaper)
+
+    _codec_type_def = Enum(
+        ok=SafroleOutputMarks.to_codec_def(),
+        err=SafroleErrorCode.to_codec_def()
+    )
+
+    def serialize(self) -> dict:
+        if self.err is not None:
+            return {'err': self.err.serialize()}
+        else:
+            return {'ok': self.ok.serialize()}
 
 @dataclass
 class SafroleInput(Serializable):
@@ -35,7 +84,7 @@ class SafroleInput(Serializable):
 class Testcase(Serializable):
     input: SafroleInput = field(metadata={'codec': SafroleInput.to_codec_def()})  # Input.
     pre_state: SafroleTestState = field(metadata={'codec': SafroleTestState.to_codec_def()})  # Pre-execution state.
-    output: SafroleOutput = field(metadata={'codec': SafroleOutput.to_codec_def()})  # Output.
+    output: SafroleTestOutput = field(metadata={'codec': SafroleTestOutput.to_codec_def()})  # Output.
     post_state: SafroleTestState = field(metadata={'codec': SafroleTestState.to_codec_def()})  # Post-execution state.
 
 
@@ -196,9 +245,14 @@ class TestSafroleVector(unittest.TestCase):
 
         # Process block
         try:
-            output = app.process_block(block).safrole
+            output = app.process_block(block)
+            output = SafroleTestOutput(
+                ok=SafroleOutputMarks(
+                    epoch_mark=output.output_marks.epoch_mark, tickets_mark=output.output_marks.tickets_mark
+                )
+            )
         except StateTransitionError as e:
-            output = SafroleOutput(err=e.custom_error_code)
+            output = SafroleTestOutput(err=e.custom_error_code)
 
         self.assertEqual(test_case.output, output, f'{name}: output does not match')
         self.assertEqual(test_case.post_state.tau, app.get_state(Timeslot).number, f'{name}:tau does not match')
