@@ -1,18 +1,18 @@
-from enum import Enum
 from math import floor
+from typing import Any, List, Dict
 
 import numpy as np
 import numpy.typing as npt
 
-from .exceptions import (
-    UIntValueError,
-    InvalidOpcode
-)
+
+from .exceptions import InvalidOpcode
+from .types import PVMProgram
 
 from .utils import (
     pvm_Zn,
     pvm_X,
-    pvm_Zn_inv
+    pvm_Zn_inv,
+    read_uint
 )
 
 from .constants import (
@@ -25,20 +25,23 @@ from .constants import (
 
 class PVM:
 
-    def __init__(self, program, mem_size=4096):
+    def __init__(self, program: PVMProgram, mem_size: np.uint32 = 4096):
         self.reg = np.zeros(13, dtype=np.uint32)
-        self.pc = np.uint32(0)
-        self.gas = np.uint64(0)
-        self.mem = np.zeros(mem_size, dtype=np.uint8)
+        self.pc:np.uint32 = np.uint32(0)
+        self.gas:np.uint64 = np.uint64(0)
+        self.mem:npt.NDArray[np.uint8] = np.zeros(mem_size, dtype=np.uint8)
         # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
-        self.rom = np.array(program.code, dtype=np.uint8)
-        self.program_size = len(self.rom)
-        self.inst_bitmask = program.opcode_bitmask
-        self.inst_pos = {0: 0}
-        self.inst_len = []
+        self.rom:npt.NDArray[np.uint8] = np.array(program.code, dtype=np.uint8)
+        self.program_size: np.uint64 = np.uint64(len(self.rom))
+        self.inst_bitmask: List[bool] = program.opcode_bitmask
+        self.inst_pos: Dict[int,int] = {0: 0}
+        self.inst_len: List[int] = []
         self.status = ExitCondition.none.value
 
     def create_instruction_lookup(self):
+        """
+        Create lookups for byte_pos -> instruction_nr and instruction_nr->instruction_length
+        """
         self.inst_pos = {0: 0}
         self.inst_len = []
 
@@ -55,7 +58,6 @@ class PVM:
         while inst_bitmask_idx < len(inst_bitmask):
             inst_args = 0
 
-            # Note: wellicht willen we deze later als numpy typen definieeren, dus voor nu hier alvast gedefinieerd
             is_opcode = False
 
             while not is_opcode:
@@ -75,7 +77,14 @@ class PVM:
             # print(f"added instruction {len(self.inst_len) - 1} (byte {op_bit_idx-1} == opcode {self.inst_pos[op_bit_idx-1]}) with args {op_args} (next byte: {op_bit_idx - 1})")
 
 
-    def initialize(self, initial_regs, initial_pc, initial_gas, initial_page_map, initial_memory):
+    def initialize(
+            self,
+            initial_regs:list[int],
+            initial_pc:int,
+            initial_gas:int,
+            initial_page_map:list[Any],
+            initial_memory:list[Any]
+    ):
         self.reg = np.array(initial_regs, dtype=np.uint32)
         self.pc = np.uint32(initial_pc)
         self.gas = np.uint32(initial_gas)
@@ -90,68 +99,11 @@ class PVM:
 
         self.create_instruction_lookup()
 
-    def read_uint(self, source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
-        if l == 1:
-            return np.uint32(source[addr + 0])
-        elif l == 2:
-            byte0 = np.uint8(source[addr + 0])
-            byte1 = np.uint16(source[addr + 1])
-            return np.uint32((byte1 << 8) + byte0)
-        elif l == 3:
-            byte0 = np.uint8(source[addr + 0])
-            byte1 = np.uint16(source[addr + 1])
-            byte2 = np.uint32(source[addr + 2])
-            return np.uint32((byte2 << 16) + (byte1 << 8) + byte0)
-        elif l == 4:
-            byte0 = np.uint8(source[addr + 0])
-            byte1 = np.uint16(source[addr + 1])
-            byte2 = np.uint32(source[addr + 2])
-            byte3 = np.uint32(source[addr + 3])
-            return np.uint32((byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0)
-        else:
-            raise UIntValueError(f"Invalid uint length: {l}")
-
-    # TODO: KLOPT DIE CAST NAAR np.int32 wel??????
-    def read_i16(self, source: npt.NDArray[np.uint8], addr: np.uint32) -> np.uint32:
-        byte0 = np.uint16(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        return np.int32((byte1 << 8) + byte0)
-
-    # TODO: typings
-    def read_u16(s, source, addr):
-        byte0 = np.uint16(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        return (byte1 << 8) + byte0
-
-    #TODO: typings
-    def read_i32(s, source, addr):
-        byte0 = np.uint32(source[addr + 0])
-        byte1 = np.uint32(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        byte3 = np.uint32(source[addr + 3])
-        return np.int32((byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0)
-
-    #TODO: typings
-    def read_u32(s, source, addr):
-        byte0 = np.uint32(source[addr + 0])
-        byte1 = np.uint32(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        byte3 = np.uint32(source[addr + 3])
-        return (byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0
-
-    #TODO: typings
-    def read_mem(s, addr):
-        mapped_addr = addr - s.mem_offset
-        #TODO: dergelijke gevallen meer generiek opvangen
-        if mapped_addr >= len(s.mem):
-            s.status = 1
-            return 0
-        return s.mem[mapped_addr]
 
     def invoke(self):
 
         self.pc = 0
-        skip_len = 0
+        skip_len:int = 0
 
         while self.status == ExitCondition.none.value and self.gas > 0:
 
@@ -189,13 +141,11 @@ class PVM:
                     r_a = self.rom[self.pc + 1] % 16
                     #w_a = self.reg[r_a]
                     l_x = min(4, max(0, skip_len - 2) )
-                    # #TODO: dergelijke gevallen meer generiek opvangen
                     v_x = 0
                     if l_x > 0:
-                        v_x = pvm_X(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
+                        v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     # Note: in case of an immediate, we dont have to check memory access
-                    # TODO:!!!!!!!!!!!!!!!!!!!dit moet ook netter kunnen
                     if opcode != op.load_imm.value and opcode != op.jump_indirect.value:
                         mapped_addr = v_x - self.mem_offset
                         if mapped_addr >= len(self.mem):
@@ -230,7 +180,7 @@ class PVM:
                         #     self.pc += 2 # note: we read 2 mem byte
 
                         #TODO:NO_TEST: case op.load_u16.value:
-                        #     self.reg[r_a] = self.read_uint16(self.mem, imm)
+                        #     self.reg[r_a] = read_uint16(self.mem, imm)
                         #     self.pc += 2 # note: we read 2 mem byte
 
                         #TODO:NO_TEST: case op.load_u32.value:
@@ -261,10 +211,10 @@ class PVM:
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
                     l_x = min(4, (self.rom[self.pc + 1] // 16) % 8)
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
-                    v_x = pvm_X(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     l_y = min(4, max(0, skip_len - l_x - 1))
-                    v_y = pvm_Zn(self.read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
+                    v_y = pvm_Zn(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     match opcode:
                         #TODO:NO_TEST: case op.load_imm_and_jump.value:
@@ -315,7 +265,7 @@ class PVM:
                 case InstructionType.offset:
 
                     l_x = min(4, max(0, skip_len) )
-                    v_x = pvm_Zn(self.read_uint(self.rom, self.pc + 1, l_x), l_x)
+                    v_x = pvm_Zn(read_uint(self.rom, self.pc + 1, l_x), l_x)
 
                     match opcode:
                         case op.jump.value:
@@ -344,7 +294,7 @@ class PVM:
                     r_b = min(12, self.rom[self.pc + 1] // 16)
                     w_b = self.reg[r_b]
                     l_x = min(4, max(0, skip_len - 2) )
-                    v_x = pvm_X(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     match opcode:
 
@@ -356,28 +306,26 @@ class PVM:
                         #TODO:NO_TEST: case op.load_indirect_u16.value: it.reg_reg_imm,
                         #TODO:NO_TEST: case op.load_indirect_i16.value: it.reg_reg_imm,
                         #TODO:NO_TEST: case op.load_indirect_u32.value: it.reg_reg_imm,
-                        #op.mul_upper_signed_signed_imm.value
-                        #op.mul_upper_unsigned_unsigned_imm.value                  : it.reg_reg_imm,
+                        #TODO:NO_TEST: op.mul_upper_signed_signed_imm.value
+                        #TODO:NO_TEST: op.mul_upper_unsigned_unsigned_imm.value
 
-                        #TODO: implementeer volgens gp
                         case op.add_imm.value:
-                            self.reg[r_a] = (w_b + v_x) #% 2**31
+                            self.reg[r_a] = (w_b + v_x) % 2**31
 
-                        # TODO: implementeer volgens gp
                         case op.and_imm.value:
+                            # Note: Bn is implicit
                             self.reg[r_a] = w_b & v_x
 
-                        # TODO: implementeer volgens gp
                         case op.xor_imm.value:
+                            # Note: Bn is implicit
                             self.reg[r_a] = w_b ^ v_x
 
-                        # TODO: implementeer volgens gp
                         case op.or_imm.value:
+                            # Note: Bn is implicit
                             self.reg[r_a] = w_b | v_x
 
-                        # TODO: implementeer volgens gp
                         case op.mul_imm.value:
-                            #TODO: check op overflow? alle add/mul/div ops?
+                            # Note: modulus is implicit (32bit overflow)
                             self.reg[r_a] = w_b * v_x
 
                         # TODO: implementeer volgens gp
@@ -438,7 +386,7 @@ class PVM:
                     l_x = min(4, max(0, skip_len - 2) )
                     w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
-                    v_x = pvm_Zn(self.read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    v_x = pvm_Zn(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     match opcode:
                         case op.branch_eq.value:

@@ -4,6 +4,8 @@ import unittest
 
 from os import path
 
+import numpy as np
+
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
@@ -16,7 +18,6 @@ def load_test_vectors(directory):
     directory = path.join(path.dirname(path.abspath(__file__)), directory)
     test_vectors = []
     if directory.endswith('.json'):
-        #filename = "inst_jump.json"
         with open(directory) as f:
             test_vector = json.load(f)
             test_vectors = [(directory, test_vector)]
@@ -31,8 +32,11 @@ def load_test_vectors(directory):
 
 
 class TestPolkaVMInstructions(unittest.TestCase):
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
     def test_instruction(self, name, test_vector):
+
+        # Set NumPy to ignore overflow warnings
+        np.seterr(over='ignore')
 
         mem_size = 0
         if test_vector["expected-memory"]:
@@ -56,10 +60,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
             ExitCondition.halt.value: "halt"
         }
 
-        #C#HECK RETIRN CODE/REGISTERS -> een checl maken op
-        #https://github.com/w3f/jamtestvectors/blob/e285daabbd96f4b1b7b9e2b2703e85a8c72190f5/pvm/README.md#pvm-test-vectors-version-01
         self.assertEqual(test_vector["expected-status"], ExitConditionMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
-
         self.assertEqual(test_vector["expected-regs"], pvm.reg.tolist(), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg.tolist()}")
         self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
         self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
