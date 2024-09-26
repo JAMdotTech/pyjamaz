@@ -5,6 +5,39 @@ from typing import Optional
 from jamcodec.mixins import Serializable
 from jamcodec.types import Option, Enum
 from pyjamaz.types.block import OutputMarks
+from pyjamaz.types.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
+    ValidatorArchiveState, RecentHistoryState
+
+
+@dataclass
+class TimeslotOutput(Serializable):
+    post_state: TimeslotState = field(metadata={'codec': TimeslotState.to_codec_def()})
+
+
+@dataclass
+class EntropyOutput(Serializable):
+    post_state: EntropyState = field(metadata={'codec': EntropyState.to_codec_def()})
+
+
+@dataclass
+class DisputesOutput(Serializable):
+    post_state: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
+    output_marks: OutputMarks = field(default=None, metadata={'codec': OutputMarks.to_codec_def()})
+
+
+@dataclass
+class ValidatorArchiveOutput(Serializable):
+    post_state: ValidatorArchiveState = field(metadata={'codec': ValidatorArchiveState.to_codec_def()})
+
+
+@dataclass
+class ValidatorPoolOutput(Serializable):
+    post_state: ValidatorPoolState = field(metadata={'codec': ValidatorPoolState.to_codec_def()})
+
+
+@dataclass
+class RecentHistoryOutput(Serializable):
+    post_state: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
 
 
 class SafroleErrorCode(Serializable, enum.Enum):
@@ -20,21 +53,13 @@ class SafroleErrorCode(Serializable, enum.Enum):
 
 @dataclass
 class SafroleOutput(Serializable):
-    ok: Optional[OutputMarks] = field(default=None, metadata={'codec': Option(OutputMarks.to_codec_def())})  # Markers
-    err: Optional[SafroleErrorCode] = field(default=None, metadata={'codec': Option(SafroleErrorCode.to_codec_def())})  # Error code (not specified in the Graypaper)
-
-    _codec_type_def = Enum(
-        ok=OutputMarks.to_codec_def(),
-        err=SafroleErrorCode.to_codec_def()
-    )
-
-    def serialize(self) -> dict:
-        if self.err is not None:
-            return {'err': self.err.serialize()}
-        else:
-            return {'ok': self.ok.serialize()}
+    post_state: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
+    output_marks: OutputMarks = field(default=None, metadata={'codec': OutputMarks.to_codec_def()})  # Markers
 
 
 @dataclass
 class STFOutput(Serializable):
-    safrole: SafroleOutput
+    output_marks: OutputMarks = field(
+        metadata={'codec': OutputMarks.to_codec_def()}
+    )
+

@@ -2,18 +2,17 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Tuple as PyTuple
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Null, Map, Bytes, Tuple, StringDef
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Null, Map, Bytes, Tuple, StringDef, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, HISTORY, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
-from pyjamaz.types.block import WorkReport
-from pyjamaz.types.safrole import TicketBody, SlotSealerSeries
-from pyjamaz.types.common import ValidatorData
+from pyjamaz.types.block import WorkReport, TicketBody
+from pyjamaz.types.common import ValidatorData, BandersnatchKey
 
 from pyjamaz.state.base import State
 
 
 @dataclass
-class TimeslotState(Serializable, State):
+class TimeslotState(State, Serializable):
     """
     GP-0.3.6-eq:45 (greek_TAU | τ) | The most recent block's slot index, combined with helper functions
 
@@ -53,7 +52,7 @@ class TimeslotState(Serializable, State):
 
 
 @dataclass
-class EntropyState(Serializable, State):
+class EntropyState(State, Serializable):
     """
     GP-0.3.6-eq:65 (greek_ETA | η) | Entropy partition of the overall state.
 
@@ -69,7 +68,22 @@ class EntropyState(Serializable, State):
 
 
 @dataclass
-class SafroleState(Serializable):
+class SlotSealerSeries(Serializable):
+    tickets: Optional[List[TicketBody]] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))})  # Optional list of TicketBody instances
+    keys: Optional[List[BandersnatchKey]] = field(default=None, metadata={'codec': Option(Array(H256, EPOCH_TIMESLOTS))})  # Optional list of BandersnatchKey instances
+
+    _codec_type_def = Enum(
+        tickets=Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS),
+        keys=Array(H256, EPOCH_TIMESLOTS)
+    )
+
+    def __post_init__(self):
+        if self.tickets is None and self.keys is None:
+            raise ValueError("Either tickets or keys must be set")
+
+
+@dataclass
+class SafroleState(State, Serializable):
     """
     GP-0.3.6-eq:47 (greek_GAMMA | γ) | Safrole partition of the overall state.
 
@@ -96,8 +110,7 @@ class SafroleState(Serializable):
 
 
 @dataclass
-# Todo: @arjan explain why 'State' is used here and not in class SafroleState(Serializable):
-class ValidatorQueueState(Serializable, State):
+class ValidatorQueueState(State, Serializable):
     """
     GP-0.3.6-eq:51 (greek_IOTA | ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
 
@@ -113,7 +126,7 @@ class ValidatorQueueState(Serializable, State):
 
 
 @dataclass
-class ValidatorPoolState(Serializable, State):
+class ValidatorPoolState(State, Serializable):
     """
     GP-0.3.6-eq:51 (greek_KAPPA | κ) | Keys and metadata for validators of the current epoch.
 
@@ -128,7 +141,7 @@ class ValidatorPoolState(Serializable, State):
 
 
 @dataclass
-class ValidatorArchiveState(Serializable, State):
+class ValidatorArchiveState(State, Serializable):
     """
     GP-0.3.6-eq:51 (greek_LAMBDA | λ) | Keys and metadata for validators of the previous epoch.
 
@@ -143,7 +156,7 @@ class ValidatorArchiveState(Serializable, State):
 
 
 @dataclass
-class AuthorizerPoolsState(Serializable):
+class AuthorizerPoolsState(State, Serializable):
     """
     GP-0.3.6-eq:84 (greek_ALPHA | α) | A collections of pools of authorizations for all cores.
 
@@ -204,7 +217,7 @@ class RecentBlock(Serializable):
 
 
 @dataclass
-class RecentHistoryState(Serializable):
+class RecentHistoryState(State, Serializable):
     """
     GP-0.3.6-eq:80 (greek_BETA | β) | RecentHistory partition of the overall state
 
@@ -268,7 +281,7 @@ class ServiceAccount(Serializable):
 
 
 @dataclass
-class ServicesState(Serializable):
+class ServicesState(State, Serializable):
     """
     GP-0.3.6-eq:88 (greek_DELTA | δ) | Services partition of the overall state.
 
@@ -306,7 +319,7 @@ class Assurance(Serializable):
 
 
 @dataclass
-class AssurancesState(Serializable):
+class AssurancesState(State, Serializable):
     """
     GP-0.3.6-eq:116 (greek_RHO | ρ) | Assurances partition of the overall state.
 
@@ -319,7 +332,7 @@ class AssurancesState(Serializable):
 
 
 @dataclass
-class AuthorizerQueuesState(Serializable):
+class AuthorizerQueuesState(State, Serializable):
     """
     GP-0.3.6-eq:84 (greek_PHI | φ) | A collections of queues of authorizations for all cores.
 
@@ -333,7 +346,7 @@ class AuthorizerQueuesState(Serializable):
 
 
 @dataclass
-class PrivilegedServicesState(Serializable):
+class PrivilegedServicesState(State, Serializable):
     """
     GP-0.3.6-eq:95 (greek_CHI | χ) | The PrivilegedServices partition of the overall state.
 
@@ -359,7 +372,7 @@ class PrivilegedServicesState(Serializable):
 
 
 @dataclass
-class DisputesState(Serializable):
+class DisputesState(State, Serializable):
     """
     GP-0.3.6-eq:96 (greek_PSI | ψ) | A collection of judgements of validators over the validity of work reports.
 
@@ -412,7 +425,7 @@ class Statistic(Serializable):
 
 
 @dataclass
-class StatisticsState(Serializable):
+class StatisticsState(State, Serializable):
     """
     GP-0.3.6-eq:169 (greek_PI | π) | A collections of statistics for all validators for two epochs.
 
@@ -426,7 +439,7 @@ class StatisticsState(Serializable):
 
 
 @dataclass
-class JamState(Serializable, State):
+class JamState(State, Serializable):
     """
     GP-0.3.6-eq:15 (greek_SIGMA | σ) | Logically partitioned state into several largely independent segments which can help
     both visual clutter within the protocol description and provide formality over elements of computation which may be
@@ -491,4 +504,3 @@ class JamState(Serializable, State):
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
     disputes: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
-

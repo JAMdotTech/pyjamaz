@@ -86,23 +86,26 @@ class TestBlockHistory(unittest.TestCase):
         pre_state = RecentHistoryState.from_json({'recent_history': test_vector["pre_state"]["beta"]})
 
         blocks_history = RecentHistory(self.storage_engine)
-        blocks_history.pre_state = pre_state
-        blocks_history.post_state = deepcopy(pre_state)
 
-        intermediate_state_recent_history = blocks_history.state_transition_intermediate(header)
+        intermediate_state_recent_history = blocks_history.state_transition_intermediate(
+            header=header,
+            pre_state_recent_history=pre_state
+        )
 
-        blocks_history.state_transition(
-            header=header, extrinsic_guarantees=extrinsic_guarantees,
-            intermediate_state_recent_history=intermediate_state_recent_history, accumulate_root=accumulate_root
+        output = blocks_history.state_transition(
+            header=header,
+            extrinsic_guarantees=extrinsic_guarantees,
+            intermediate_state_recent_history=intermediate_state_recent_history,
+            accumulate_root=accumulate_root
         )
 
         self.assertEqual(
-            len(blocks_history.post_state.recent_history),
+            len(output.post_state.recent_history),
             len(test_vector['post_state']['beta']),
             'Length of history does not match'
         )
 
-        for idx, block_info in enumerate(blocks_history.post_state.recent_history):
+        for idx, block_info in enumerate(output.post_state.recent_history):
             self.assertDictEqual(
                 block_info.to_json(), test_vector['post_state']['beta'][idx], f'block {idx} does not match'
             )
