@@ -105,6 +105,7 @@ nav:
       - G. Bandersnatch Ring VRF: graypaper/appendix_g.md
       - H. Erasure Coding: graypaper/appendix_h.md
       - I. Index of Notation: graypaper/appendix_i.md
+      - Graypaper Equations: graypaper/equations.md
   - Function Reference:
       - PVM: reference/pvm.md
       - Signing: reference/signing.md

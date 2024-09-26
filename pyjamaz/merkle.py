@@ -48,14 +48,12 @@ class MerkleTree:
 
 
 class MerkleMountainRange:
-    """
-           D
-         /   \
-        /     \
-       A       B       C
-      / \     / \     / \
-     1   2   3   4   5   6  7
-    """
+    #       D
+    #     /   \
+    #    /     \
+    #   A       B       C
+    #  / \     / \     / \
+    # 1   2   3   4   5   6  7
 
     def __init__(self, initial_peaks: List[Optional[bytes]]):
         self.peaks: List[Optional[bytes]] = initial_peaks
