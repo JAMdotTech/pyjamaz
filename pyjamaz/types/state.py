@@ -92,21 +92,20 @@ class SafroleState(State, Serializable):
 
     validators: Array(ValidatorData,constant_V)
         GP-0.3.6-eq:51 (greek_GAMMA_k | γ_k) | A fixed size set of keys and metadata for validators of the next epoch.
-    ticket_accumulator: TicketBody
-        GP-0.3.6-eq:49 (greek_GAMMA_a | γ_a) | Sealing-key contest ticket accumulator.
-    slot_sealer_series: SlotSealerSeries
-        GP-0.3.6-eq:49 (greek_GAMMA_s | γ_s) | Sealing-key series of the current epoch.
     ring_commitment: Array(U8,144)
         GP-0.3.6-eq:48 (greek_GAMMA_z | γ_z) | Bandersnatch ring commitment.
+    slot_sealer_series: SlotSealerSeries
+        GP-0.3.6-eq:49 (greek_GAMMA_s | γ_s) | Sealing-key series of the current epoch.
+    ticket_accumulator: TicketBody
+        GP-0.3.6-eq:49 (greek_GAMMA_a | γ_a) | Sealing-key contest ticket accumulator.
     """
-    # Todo: reorder attributes to match order in GP: (γ_k, γ_z, γ_s, γ_a)
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
-    # Todo: review and annotate: TicketBody
-    ticket_accumulator: List[TicketBody] = field(metadata={'codec': Vec(TicketBody.to_codec_def())})
+    ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})
     # Todo: review and annotate: SlotSealerSeries
     slot_sealer_series: SlotSealerSeries = field(metadata={'codec': SlotSealerSeries.to_codec_def()})
-    ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})
+    # Todo: review and annotate: TicketBody
+    ticket_accumulator: List[TicketBody] = field(metadata={'codec': Vec(TicketBody.to_codec_def())})
 
 
 @dataclass
