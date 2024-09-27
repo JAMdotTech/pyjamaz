@@ -99,7 +99,6 @@ class SafroleState(State, Serializable):
     ticket_accumulator: TicketBody
         GP-0.3.6-eq:49 (greek_GAMMA_a | γ_a) | Sealing-key contest ticket accumulator.
     """
-    # Todo: reorder attributes to match order in GP: (γ_k, γ_z, γ_s, γ_a)
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
     ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})
