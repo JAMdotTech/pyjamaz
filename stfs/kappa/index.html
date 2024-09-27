@@ -1089,7 +1089,14 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">112</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
 <span class="normal">113</span>
 <span class="normal">114</span>
 <span class="normal">115</span>
@@ -1121,11 +1128,20 @@
 <span class="normal">141</span>
 <span class="normal">142</span>
 <span class="normal">143</span>
-<span class="normal">144</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorPool</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorPool</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">8</span>
 
-    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span> <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">,</span>
-                         <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
+            <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
+            <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span>
+            <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">,</span>
+            <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        GP-0.3.6-eq:57 (greek_KAPPA_prime | κ&#39;) | State transition function for the state&#39;s current validator set.</span>
 <span class="sd">        Occurs on epoch change.</span>
@@ -1136,7 +1152,7 @@
 <span class="sd">            Input parameter 1 | GP-0.3.6-eq:21 (bold_H)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
 <span class="sd">            Input parameter 2 | GP-0.3.6-eq:21 (greek_TAU | τ)</span>
-<span class="sd">        # pre_state_validator_pool: ValidatorPoolState</span>
+<span class="sd">        pre_state_validator_pool: ValidatorPoolState</span>
 <span class="sd">            Input parameter 3 | GP-0.3.6-eq:21 (greek_KAPPA | κ)</span>
 <span class="sd">        pre_state_safrole: SafroleState</span>
 <span class="sd">            Input parameter 4 | GP-0.3.6-eq:21 (greek_GAMMA | η)</span>
@@ -1145,11 +1161,15 @@
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        post_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            Posterior state of ValidatorPoolState (greek_KAPPA_prime | κ&#39;)</span>
+<span class="sd">        ValidatorPoolOutput</span>
+<span class="sd">            Output containing posterior state of ValidatorPoolState (greek_KAPPA_prime | κ&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">post_state_validator_pool</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_pool</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">post_state</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_safrole</span><span class="o">.</span><span class="n">validators</span>
+            <span class="n">post_state_validator_pool</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_safrole</span><span class="o">.</span><span class="n">validators</span>
+
+        <span class="k">return</span> <span class="n">ValidatorPoolOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_pool</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
@@ -1173,7 +1193,7 @@
 
 
 <h2 id="pyjamaz.state.components.ValidatorPool.state_transition" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span> <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">,</span> <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span> <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span> <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">,</span> <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolOutput</span></code>
 
 <a href="#pyjamaz.state.components.ValidatorPool.state_transition" class="headerlink" title="Permanent link">&para;</a></h2>
 
@@ -1224,6 +1244,20 @@ Occurs on epoch change.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code>pre_state_validator_pool</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.ValidatorPoolState" href="../../types/types_state/#pyjamaz.types.state.ValidatorPoolState">ValidatorPoolState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 3 | GP-0.3.6-eq:21 (greek_KAPPA | κ)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code>pre_state_safrole</code></td>
             <td>
                   <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.SafroleState" href="../../types/types_state/#pyjamaz.types.state.SafroleState">SafroleState</a></code>
@@ -1259,18 +1293,18 @@ Occurs on epoch change.</p>
     <table>
       <thead>
         <tr>
-<th>Name</th>          <th>Type</th>
+          <th>Type</th>
           <th>Description</th>
         </tr>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>post_state_validator_pool</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.ValidatorPoolState" href="../../types/types_state/#pyjamaz.types.state.ValidatorPoolState">ValidatorPoolState</a></code>
+            <td>
+                  <code><span title="pyjamaz.types.stf_output.ValidatorPoolOutput">ValidatorPoolOutput</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Posterior state of ValidatorPoolState (greek_KAPPA_prime | κ')</p>
+                <p>Output containing posterior state of ValidatorPoolState (greek_KAPPA_prime | κ')</p>
               </div>
             </td>
           </tr>
@@ -1279,7 +1313,14 @@ Occurs on epoch change.</p>
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">115</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
 <span class="normal">116</span>
 <span class="normal">117</span>
 <span class="normal">118</span>
@@ -1304,8 +1345,17 @@ Occurs on epoch change.</p>
 <span class="normal">137</span>
 <span class="normal">138</span>
 <span class="normal">139</span>
-<span class="normal">140</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span> <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">,</span>
-                     <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span><span class="p">):</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
+        <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
+        <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span>
+        <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">,</span>
+        <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:57 (greek_KAPPA_prime | κ&#39;) | State transition function for the state&#39;s current validator set.</span>
 <span class="sd">    Occurs on epoch change.</span>
@@ -1316,7 +1366,7 @@ Occurs on epoch change.</p>
 <span class="sd">        Input parameter 1 | GP-0.3.6-eq:21 (bold_H)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
 <span class="sd">        Input parameter 2 | GP-0.3.6-eq:21 (greek_TAU | τ)</span>
-<span class="sd">    # pre_state_validator_pool: ValidatorPoolState</span>
+<span class="sd">    pre_state_validator_pool: ValidatorPoolState</span>
 <span class="sd">        Input parameter 3 | GP-0.3.6-eq:21 (greek_KAPPA | κ)</span>
 <span class="sd">    pre_state_safrole: SafroleState</span>
 <span class="sd">        Input parameter 4 | GP-0.3.6-eq:21 (greek_GAMMA | η)</span>
@@ -1325,11 +1375,15 @@ Occurs on epoch change.</p>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    post_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        Posterior state of ValidatorPoolState (greek_KAPPA_prime | κ&#39;)</span>
+<span class="sd">    ValidatorPoolOutput</span>
+<span class="sd">        Output containing posterior state of ValidatorPoolState (greek_KAPPA_prime | κ&#39;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">post_state_validator_pool</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_pool</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">post_state</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_safrole</span><span class="o">.</span><span class="n">validators</span>
+        <span class="n">post_state_validator_pool</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_safrole</span><span class="o">.</span><span class="n">validators</span>
+
+    <span class="k">return</span> <span class="n">ValidatorPoolOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_pool</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

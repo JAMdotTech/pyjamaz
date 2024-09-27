@@ -748,15 +748,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#pyjamaz.state.components.Timeslot.is_epoch_change" class="md-nav__link">
-    <span class="md-ellipsis">
-      is_epoch_change
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1053,15 +1044,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#pyjamaz.state.components.Timeslot.is_epoch_change" class="md-nav__link">
-    <span class="md-ellipsis">
-      is_epoch_change
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1107,8 +1089,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">24</span>
-<span class="normal">25</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">25</span>
 <span class="normal">26</span>
 <span class="normal">27</span>
 <span class="normal">28</span>
@@ -1130,22 +1111,10 @@
 <span class="normal">44</span>
 <span class="normal">45</span>
 <span class="normal">46</span>
-<span class="normal">47</span>
-<span class="normal">48</span>
-<span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
-<span class="normal">56</span>
-<span class="normal">57</span>
-<span class="normal">58</span>
-<span class="normal">59</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Timeslot</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">47</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Timeslot</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">11</span>
 
-    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeslotOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        GP-0.3.6-eq:45 (greek_TAU_prime | τ&#39;) | State transition function for the state&#39;s timeslot.</span>
 
@@ -1156,24 +1125,11 @@
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        post_state_timeslot: TimeslotState</span>
-<span class="sd">            Posterior state of TimeslotState (greek_TAU_prime | τ&#39;)</span>
+<span class="sd">        TimeslotOutput</span>
+<span class="sd">            Output containing posterior state of TimeslotState (greek_TAU_prime | τ&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_state</span><span class="o">.</span><span class="n">number</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">bad_slot</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">post_state</span><span class="o">.</span><span class="n">number</span> <span class="o">=</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span>
-
-    <span class="k">def</span> <span class="nf">is_epoch_change</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.6-general: `e!=e&#39; ? T, F` | Helper function that determines if the epoch has changed.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        bool</span>
-<span class="sd">            `True` when epoch has changed, `False` otherwise.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">post_state</span><span class="o">.</span><span class="n">epoch_number</span><span class="p">()</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_state</span><span class="o">.</span><span class="n">epoch_number</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">TimeslotOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">TimeslotState</span><span class="p">(</span><span class="n">number</span><span class="o">=</span><span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeslotState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
@@ -1197,7 +1153,7 @@
 
 
 <h2 id="pyjamaz.state.components.Timeslot.state_transition" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeslotOutput</span></code>
 
 <a href="#pyjamaz.state.components.Timeslot.state_transition" class="headerlink" title="Permanent link">&para;</a></h2>
 
@@ -1240,18 +1196,18 @@
     <table>
       <thead>
         <tr>
-<th>Name</th>          <th>Type</th>
+          <th>Type</th>
           <th>Description</th>
         </tr>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>post_state_timeslot</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.TimeslotState" href="../../types/types_state/#pyjamaz.types.state.TimeslotState">TimeslotState</a></code>
+            <td>
+                  <code><span title="pyjamaz.types.stf_output.TimeslotOutput">TimeslotOutput</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Posterior state of TimeslotState (greek_TAU_prime | τ')</p>
+                <p>Output containing posterior state of TimeslotState (greek_TAU_prime | τ')</p>
               </div>
             </td>
           </tr>
@@ -1260,8 +1216,7 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">27</span>
-<span class="normal">28</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">28</span>
 <span class="normal">29</span>
 <span class="normal">30</span>
 <span class="normal">31</span>
@@ -1276,8 +1231,7 @@
 <span class="normal">40</span>
 <span class="normal">41</span>
 <span class="normal">42</span>
-<span class="normal">43</span>
-<span class="normal">44</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">):</span>
+<span class="normal">43</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeslotOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:45 (greek_TAU_prime | τ&#39;) | State transition function for the state&#39;s timeslot.</span>
 
@@ -1288,76 +1242,11 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    post_state_timeslot: TimeslotState</span>
-<span class="sd">        Posterior state of TimeslotState (greek_TAU_prime | τ&#39;)</span>
+<span class="sd">    TimeslotOutput</span>
+<span class="sd">        Output containing posterior state of TimeslotState (greek_TAU_prime | τ&#39;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_state</span><span class="o">.</span><span class="n">number</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">bad_slot</span><span class="p">)</span>
 
-    <span class="bp">self</span><span class="o">.</span><span class="n">post_state</span><span class="o">.</span><span class="n">number</span> <span class="o">=</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="pyjamaz.state.components.Timeslot.is_epoch_change" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">is_epoch_change</span><span class="p">()</span></code>
-
-<a href="#pyjamaz.state.components.Timeslot.is_epoch_change" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents ">
-
-        <p>GP-0.3.6-general: <code>e!=e' ? T, F</code> | Helper function that determines if the epoch has changed.</p>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code>bool</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>True</code> when epoch has changed, <code>False</code> otherwise.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-            <details class="quote">
-              <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">46</span>
-<span class="normal">47</span>
-<span class="normal">48</span>
-<span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">is_epoch_change</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.6-general: `e!=e&#39; ? T, F` | Helper function that determines if the epoch has changed.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    bool</span>
-<span class="sd">        `True` when epoch has changed, `False` otherwise.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">post_state</span><span class="o">.</span><span class="n">epoch_number</span><span class="p">()</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_state</span><span class="o">.</span><span class="n">epoch_number</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">TimeslotOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">TimeslotState</span><span class="p">(</span><span class="n">number</span><span class="o">=</span><span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
