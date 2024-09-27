@@ -56,11 +56,56 @@ extra:
 
 nav:
   - Overview: index.md
-  - Type Definition:
-      - Block Types: reference/types_blocks.md
-      - State Types: reference/types_state.md
+  - Type Definitions:
+      - Block Types: types/types_blocks.md
+      - State Types: types/types_state.md
   - State Transition Functions:
-      - State Transition Functions: reference/state_transition.md
+      - Overall State (σ): stfs/sigma.md
+      - AuthorizerPools (α): stfs/alpha.md
+      - Recent History (β): stfs/beta.md
+      - Safrole (γ): stfs/gamma.md
+      - Services (δ): stfs/delta.md
+      - Entropy (η): stfs/eta.md
+      - Validator Queue (ι): stfs/iota.md
+      - Validator Pool (κ): stfs/kappa.md
+      - Validator Archive (λ): stfs/lambda.md
+      - Assurances (ρ): stfs/rho.md
+      - Timeslot (τ): stfs/tau.md
+      - Authorizer Queues (φ): stfs/phi.md
+      - Privileged Services (χ): stfs/chi.md
+      - Disputes (ψ): stfs/psi.md
+      - Statistics (π): stfs/pi.md
+  - Graypaper References:
+      - Summary: graypaper/summary.md
+      - 1. Introduction: graypaper/section_01.md
+      - 2. Previous Work & Present Trends: graypaper/section_02.md
+      - 3. Notational Conventions: graypaper/section_03.md
+      - 4. Overview: graypaper/section_04.md
+      - 5. The Header: graypaper/section_05.md
+      - 6. Block Production & Chain Growth : graypaper/section_06.md
+      - 7. Recent History: graypaper/section_07.md
+      - 8. Authorization: graypaper/section_08.md
+      - 9. Service Accounts: graypaper/section_09.md
+      - 10. Disputes, Verdicts & Judgements: graypaper/section_10.md
+      - 11. Reporting & Assurance: graypaper/section_11.md
+      - 12. Accumulation: graypaper/section_12.md
+      - 13. Validator Activity Statistics: graypaper/section_13.md
+      - 14. Work Packages & Work Reports: graypaper/section_14.md
+      - 15. Guaranteeing: graypaper/section_15.md
+      - 16. Availability Assurance: graypaper/section_16.md
+      - 17. Auditing & Judging: graypaper/section_17.md
+      - 18. Beefy Distribution: graypaper/section_18.md
+      - 19. Grandpa & The Best Chain: graypaper/section_19.md
+      - A. Polka Virtual Machine: graypaper/appendix_a.md
+      - B. Virtual Machine Invocations: graypaper/appendix_b.md
+      - C. Serialization Codec: graypaper/appendix_c.md
+      - D. State Merklization: graypaper/appendix_d.md
+      - E. General Merklization: graypaper/appendix_e.md
+      - F. Shuffling: graypaper/appendix_f.md
+      - G. Bandersnatch Ring VRF: graypaper/appendix_g.md
+      - H. Erasure Coding: graypaper/appendix_h.md
+      - I. Index of Notation: graypaper/appendix_i.md
+      - Graypaper Equations: graypaper/equations.md
   - Function Reference:
       - PVM: reference/pvm.md
       - Signing: reference/signing.md

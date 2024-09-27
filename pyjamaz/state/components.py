@@ -259,7 +259,7 @@ class Safrole(StateComponent):
         # GP-0.3.2-ref:75
         if self.slot_phase_index(header.timeslot) < gp_const.TICKET_SUBMISSION_END_SLOT:
             # Min 0, max 16 tickets
-            if len(extrinsic_tickets) > gp_const.MAXIMUM_EXTRINSIC_TICKETS:  # contant_K=16
+            if len(extrinsic_tickets) > gp_const.MAXIMUM_EXTRINSIC_TICKETS:  # constant_K=16
                 raise StateTransitionError(SafroleErrorCode.too_many_tickets)
         else:
             if len(extrinsic_tickets) > 0:
@@ -345,7 +345,7 @@ class Safrole(StateComponent):
 
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
             else:
-                # When ticket acculumator is saturated and ticket mark is generated # GP-0.3.2-ref:70
+                # When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:70
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(
                     tickets=reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 )
@@ -544,8 +544,8 @@ class Assurances(StateComponent):
 
     def state_transition_assurances(self, block: Block):
         """
-        GP-0.3.6-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's assurances
-        that processes assurances.
+        GP-0.3.6-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's
+        assurances that processes assurances.
 
         Parameters
         ----------
