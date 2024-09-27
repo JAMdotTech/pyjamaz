@@ -4,12 +4,13 @@ from os import path
 
 from jamcodec.types import Vec
 
-from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, ExtrinsicDisputes, RefinementContext, WorkReport, \
+from pyjamaz.types.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, RefinementContext, WorkReport, \
     WorkResult, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
-from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput
+from pyjamaz.types.stf_output import SafroleErrorCode
 from pyjamaz.types.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
     ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState
+from test.test_safrole import SafroleTestOutput, SafroleOutputMarks
 
 
 class TestCodec(unittest.TestCase):
@@ -425,11 +426,11 @@ class TestCodec(unittest.TestCase):
 
     def test_dataclass_enum(self):
 
-        output = SafroleOutput(ok=OutputMarks(epoch_mark=None, tickets_mark=None))
+        output = SafroleTestOutput(ok=SafroleOutputMarks(epoch_mark=None, tickets_mark=None))
         value = output.serialize()
         self.assertEqual({'ok': {'epoch_mark': None, 'tickets_mark': None}}, value)
 
-        output = SafroleOutput(err=SafroleErrorCode.duplicate_ticket)
+        output = SafroleTestOutput(err=SafroleErrorCode.duplicate_ticket)
         value = output.serialize()
 
         self.assertEqual({'err': 'duplicate_ticket'}, value)

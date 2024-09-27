@@ -2,6 +2,7 @@ from copy import deepcopy
 from typing import TypeVar
 
 import pyjamaz.graypaper_constants as gp_const
+from jamcodec.mixins import Serializable
 from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound
 from pyjamaz.storage import StorageInterface, Transaction
@@ -9,7 +10,7 @@ from pyjamaz.storage import StorageInterface, Transaction
 T = TypeVar('T')
 
 
-class State:
+class State(Serializable):
 
     def __setattr__(self, key, value):
         super().__setattr__(key, value)
@@ -21,8 +22,8 @@ class StateComponent:
 
     def __init__(self, storage_engine: StorageInterface, **kwargs):
 
-        self.pre_state = None
-        self.post_state = None
+        # self.pre_state = None
+        # self.post_state = None
         self.storage_engine = storage_engine
 
     def initialize(self):
@@ -37,8 +38,9 @@ class StateComponent:
         -------
 
         """
-        self.pre_state = self.retrieve_state()
-        self.post_state = deepcopy(self.pre_state)
+        # self.pre_state = self.retrieve_state()
+        # self.post_state = deepcopy(self.pre_state)
+        pass
 
     def state_transition(self, *args):
         raise NotImplementedError
@@ -61,8 +63,8 @@ class StateComponent:
         else:
             self.storage_engine.store(self._state_key_constructor_component(), data)
 
-    def store_state(self, transaction: Transaction = None):
-        data = self.post_state.to_jam_bytes().to_bytes()
+    def store_state(self, state: State, transaction: Transaction = None):
+        data = state.to_jam_bytes().to_bytes()
         self.store(data, transaction)
 
     def retrieve_state(self):
@@ -70,6 +72,14 @@ class StateComponent:
 
     @staticmethod
     def is_epoch_change(pre_slotnumber: int, post_slotnumber: int) -> bool:
+        """
+        GP-0.3.6-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+
+        Returns
+        -------
+        bool
+            `True` when epoch has changed, `False` otherwise.
+        """
         return pre_slotnumber // gp_const.EPOCH_TIMESLOTS != post_slotnumber // gp_const.EPOCH_TIMESLOTS
 
     @staticmethod
