@@ -7,8 +7,10 @@ from pyjamaz.pvm.exceptions import UIntValueError
 #gp_0.3.6_eq_223
 def pvm_X(x:np.uint32, n:np.uint8) -> np.uint32:
     """
-
+    Converts number into a signed number using the MSB
     """
+    x = int(x)
+    n = int(n)
     # Ensure x is within the range of 2^(8*n)
     assert 0 <= x < 2 ** (8 * int(n)), "x must be in the range of 0 to 2^(8*n) - 1"
 
@@ -24,8 +26,10 @@ def pvm_X(x:np.uint32, n:np.uint8) -> np.uint32:
 
 def pvm_Zn(a:np.uint32, n:np.uint8) -> np.int32:
     """
-    Transform a from the range [0, 2^(8n)) to the signed range [-2^(8n-1), 2^(8n-1) - 1].
+    Transform number a signed a from unsigned int (max uint32) [0, 2^(8n)) to a signed int (range [-2^(8n-1), 2^(8n-1) - 1]).
     """
+    a = int(a)
+    n = int(n)
     boundary = 2 ** (8 * n - 1)  # This is 2^(8n-1), the boundary between positive and negative numbers.
     max_value = 2 ** (8 * n)-1  # This is 2^(8n), the maximum value in the n-bit space.
 
@@ -40,6 +44,8 @@ def pvm_Zn_inv(a:np.int32, n:np.uint8):
     """
     Transform a from the signed range [-2^(8n-1), 2^(8n-1) - 1] to unsigned range [0, 2^(8n)).
     """
+    #a = int(a)
+    #n = int(n)
     return ((2**(8*n)) + a) % (2**(8*n))
 
 
