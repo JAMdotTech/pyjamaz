@@ -3,32 +3,33 @@ The aim of this section is to provide a detailed implementation reference on Gra
 This section has been updated to match Graypaper version 0.3.6. 
 
 ## 10.1. The State 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 96         |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 96         |   0% |             0% |          0% |            0% |
 
 ## 10.2. Extrinsic 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 97         |          |                       |        |
-| Equation 98         |          |                       |        |
-| Equation 99         |          |                       |        |
-| Equation 100        |          |                       |        |
-| Equation 101        |          |                       |        |
-| Equation 102        |          |                       |        |
-| Equation 103        |          |                       |        |
-| Equation 104        |          |                       |        |
-| Equation 105        |          |                       |        |
-| Equation 106        |          |                       |        |
-| Equation 107        |          |                       |        |
-| Equation 108        |          |                       |        |
-| Equation 109        |          |                       |        |
-| Equation 111        |          |                       |        |                       |
-| Equation 112        |          |                       |        |
-| Equation 113        |          |                       |        |
-| Equation 114        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 97         |   0% |             0% |          0% |            0% |
+| Equation 98         |   0% |             0% |          0% |            0% |
+| Equation 99         |   0% |             0% |          0% |            0% |
+| Equation 100        |   0% |             0% |          0% |            0% |
+| Equation 101        |   0% |             0% |          0% |            0% |
+| Equation 102        |   0% |             0% |          0% |            0% |
+| Equation 103        |   0% |             0% |          0% |            0% |
+| Equation 104        |   0% |             0% |          0% |            0% |
+| Equation 105        |   0% |             0% |          0% |            0% |
+| Equation 106        |   0% |             0% |          0% |            0% |
+| Equation 107        |   0% |             0% |          0% |            0% |
+| Equation 108        |   0% |             0% |          0% |            0% |
+| Equation 109        |   0% |             0% |          0% |            0% |
+| Equation 110        |   0% |             0% |          0% |            0% |
+| Equation 111        |   0% |             0% |          0% |            0% |
+| Equation 112        |   0% |             0% |          0% |            0% |
+| Equation 113        |   0% |             0% |          0% |            0% |
+| Equation 114        |   0% |             0% |          0% |            0% |
 
 ## 10.3. Header 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 115        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 115        |   0% |             0% |          0% |            0% |

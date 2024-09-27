@@ -3,8 +3,8 @@ The aim of this section is to provide a detailed implementation reference on Gra
 This section has been updated to match Graypaper version 0.3.6. 
 
 ## 8.2. Pool and Queue 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 84         |          |                       |        |
-| Equation 85         |          |                       |        |
-| Equation 86         |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 84         |   0% |             0% |          0% |            0% |
+| Equation 85         |   0% |             0% |          0% |            0% |
+| Equation 86         |   0% |             0% |          0% |            0% |

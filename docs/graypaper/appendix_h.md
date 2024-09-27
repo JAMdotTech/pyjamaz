@@ -3,24 +3,24 @@ The aim of this section is to provide a detailed implementation reference on Gra
 This section has been updated to match Graypaper version 0.3.6. 
 
 ## H.1. Blob Encoding and Recovery
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 311        |          |                       |        |
-| Equation 312        |          |                       |        |
-| Equation 313        |          |                       |        |
-| Equation 314        |          |                       |        |
-| Equation 315        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 311        |   0% |             0% |          0% |            0% |
+| Equation 312        |   0% |             0% |          0% |            0% |
+| Equation 313        |   0% |             0% |          0% |            0% |
+| Equation 314        |   0% |             0% |          0% |            0% |
+| Equation 315        |   0% |             0% |          0% |            0% |
 
 ## H.2. Code Word Representation
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 316        |          |                       |        |
-| Equation 317        |          |                       |        |
-| Equation 318        |          |                       |        |
-| Equation 319        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 316        |   0% |             0% |          0% |            0% |
+| Equation 317        |   0% |             0% |          0% |            0% |
+| Equation 318        |   0% |             0% |          0% |            0% |
+| Equation 319        |   0% |             0% |          0% |            0% |
 
 ## H.3. The Generator Polynomial
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 320        |          |                       |        |
-| Equation 321        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 320        |   0% |             0% |          0% |            0% |
+| Equation 321        |   0% |             0% |          0% |            0% |

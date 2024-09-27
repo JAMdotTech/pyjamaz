@@ -4,46 +4,46 @@ This section has been updated to match Graypaper version 0.3.6.
 
 ## C.1. Common Terms
 ### C.1.1. Trivial Encodings
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 267        |          |                       |        |
-| Equation 268        |          |                       |        |
-| Equation 269        |          |                       |        |
-| Equation 270        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 267        |   0% |             0% |          0% |            0% |
+| Equation 268        |   0% |             0% |          0% |            0% |
+| Equation 269        |   0% |             0% |          0% |            0% |
+| Equation 270        |   0% |             0% |          0% |            0% |
 
 ### C.1.2. Integer Encoding
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 271        |          |                       |        |
-| Equation 272        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 271        |   0% |             0% |          0% |            0% |
+| Equation 272        |   0% |             0% |          0% |            0% |
 
 ### C.1.3. Sequence Encoding
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 273        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 273        |   0% |             0% |          0% |            0% |
 
 ### C.1.4. Discriminator Encoding
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 274        |          |                       |        |
-| Equation 275        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 274        |   0% |             0% |          0% |            0% |
+| Equation 275        |   0% |             0% |          0% |            0% |
 
 ### C.1.5. Bit Sequence Encoding
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 276        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 276        |   0% |             0% |          0% |            0% |
 
 ## C.2. Block Serialization
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 277        |          |                       |        |
-| Equation 278        |          |                       |        |
-| Equation 279        |          |                       |        |
-| Equation 280        |          |                       |        |
-| Equation 281        |          |                       |        |
-| Equation 282        |          |                       |        |
-| Equation 283        |          |                       |        |
-| Equation 284        |          |                       |        |
-| Equation 285        |          |                       |        |
-| Equation 286        |          |                       |        |
-| Equation 287        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 277        |   0% |             0% |          0% |            0% |
+| Equation 278        |   0% |             0% |          0% |            0% |
+| Equation 279        |   0% |             0% |          0% |            0% |
+| Equation 280        |   0% |             0% |          0% |            0% |
+| Equation 281        |   0% |             0% |          0% |            0% |
+| Equation 282        |   0% |             0% |          0% |            0% |
+| Equation 283        |   0% |             0% |          0% |            0% |
+| Equation 284        |   0% |             0% |          0% |            0% |
+| Equation 285        |   0% |             0% |          0% |            0% |
+| Equation 286        |   0% |             0% |          0% |            0% |
+| Equation 287        |   0% |             0% |          0% |            0% |

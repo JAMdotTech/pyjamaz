@@ -2,25 +2,25 @@
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.  
 
 ## 3.2. Functions and Operators 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 1          |          |                       |        |
-| Equation 2          |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 1          |   0% |             0% |          0% |            0% |
+| Equation 2          |   0% |             0% |          0% |            0% |
 
 ## 3.5. Dictionaries 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 3          |          |                       |        |
-| Equation 4          |          |                       |        |
-| Equation 5          |          |                       |        |
-| Equation 6          |          |                       |        |
-| Equation 7          |          |                       |        |
-| Equation 8          |          |                       |        |
-| Equation 9          |          |                       |        |
-| Equation 10         |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 3          |   0% |             0% |          0% |            0% |
+| Equation 4          |   0% |             0% |          0% |            0% |
+| Equation 5          |   0% |             0% |          0% |            0% |
+| Equation 6          |   0% |             0% |          0% |            0% |
+| Equation 7          |   0% |             0% |          0% |            0% |
+| Equation 8          |   0% |             0% |          0% |            0% |
+| Equation 9          |   0% |             0% |          0% |            0% |
+| Equation 10         |   0% |             0% |          0% |            0% |
 
 ## 3.7. Sequences 
 ### 3.7.1. Construction 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 11         |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 11         |   0% |             0% |          0% |            0% |

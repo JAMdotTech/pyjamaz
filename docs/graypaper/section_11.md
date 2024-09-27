@@ -3,83 +3,83 @@ The aim of this section is to provide a detailed implementation reference on Gra
 This section has been updated to match Graypaper version 0.3.6. 
 
 ## 11.1. The State 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 116        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 116        |   0% |             0% |          0% |            0% |
 
 ### 11.1.1. Work Report 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 117        |          |                       |        |
-| Equation 118        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 117        |   0% |             0% |          0% |            0% |
+| Equation 118        |   0% |             0% |          0% |            0% |
 
 ### 11.1.2. Refinement Context 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 119        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 119        |   0% |             0% |          0% |            0% |
 
 ### 11.1.3. Availability 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 120        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 120        |   0% |             0% |          0% |            0% |
 
 ### 11.1.4. Work Result 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 121        |          |                       |        |
-| Equation 122        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 121        |   0% |             0% |          0% |            0% |
+| Equation 122        |   0% |             0% |          0% |            0% |
 
 ## 11.2. Package Availability Assurances 
 ### 11.2.1. The Assurances Extrinsic 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 123        |          |                       |        |
-| Equation 124        |          |                       |        |
-| Equation 125        |          |                       |        |
-| Equation 126        |          |                       |        |
-| Equation 127        |          |                       |        |
-| Equation 128        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 123        |   0% |             0% |          0% |            0% |
+| Equation 124        |   0% |             0% |          0% |            0% |
+| Equation 125        |   0% |             0% |          0% |            0% |
+| Equation 126        |   0% |             0% |          0% |            0% |
+| Equation 127        |   0% |             0% |          0% |            0% |
+| Equation 128        |   0% |             0% |          0% |            0% |
 
 ### 11.2.2. Available Reports 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 129        |          |                       |        |
-| Equation 130        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 129        |   0% |             0% |          0% |            0% |
+| Equation 130        |   0% |             0% |          0% |            0% |
 
 ## 11.3. Guarantor Assignments 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 131        |          |                       |        |
-| Equation 132        |          |                       |        |
-| Equation 133        |          |                       |        |
-| Equation 134        |          |                       |        |
-| Equation 135        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 131        |   0% |             0% |          0% |            0% |
+| Equation 132        |   0% |             0% |          0% |            0% |
+| Equation 133        |   0% |             0% |          0% |            0% |
+| Equation 134        |   0% |             0% |          0% |            0% |
+| Equation 135        |   0% |             0% |          0% |            0% |
 
 ## 11.4. Work Report Guarantees 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 136        |          |                       |        |
-| Equation 137        |          |                       |        |
-| Equation 138        |          |                       |        |
-| Equation 139        |          |                       |        |
-| Equation 140        |          |                       |        |
-| Equation 141        |          |                       |        |
-| Equation 142        |          |                       |        |
-| Equation 143        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 136        |   0% |             0% |          0% |            0% |
+| Equation 137        |   0% |             0% |          0% |            0% |
+| Equation 138        |   0% |             0% |          0% |            0% |
+| Equation 139        |   0% |             0% |          0% |            0% |
+| Equation 140        |   0% |             0% |          0% |            0% |
+| Equation 141        |   0% |             0% |          0% |            0% |
+| Equation 142        |   0% |             0% |          0% |            0% |
+| Equation 143        |   0% |             0% |          0% |            0% |
 
 ### 11.4.1. Contextual Validity of Reports 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 144        |          |                       |        |
-| Equation 145        |          |                       |        |
-| Equation 146        |          |                       |        |
-| Equation 147        |          |                       |        |
-| Equation 148        |          |                       |        |
-| Equation 149        |          |                       |        |
-| Equation 150        |          |                       |        |
-| Equation 151        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 144        |   0% |             0% |          0% |            0% |
+| Equation 145        |   0% |             0% |          0% |            0% |
+| Equation 146        |   0% |             0% |          0% |            0% |
+| Equation 147        |   0% |             0% |          0% |            0% |
+| Equation 148        |   0% |             0% |          0% |            0% |
+| Equation 149        |   0% |             0% |          0% |            0% |
+| Equation 150        |   0% |             0% |          0% |            0% |
+| Equation 151        |   0% |             0% |          0% |            0% |
 
 ## 11.5. Transitioning for Reports 
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 152        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 152        |   0% |             0% |          0% |            0% |

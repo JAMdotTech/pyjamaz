@@ -3,16 +3,16 @@ The aim of this section is to provide a detailed implementation reference on Gra
 This section has been updated to match Graypaper version 0.3.6. 
 
 ## D.1. Serialization
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 288        |          |                       |        |
-| Equation 289        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 288        |   0% |             0% |          0% |            0% |
+| Equation 289        |   0% |             0% |          0% |            0% |
 
 ## D.2. Merklization
 ### D.2.1. Node Encoding and Trie Identification
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 290        |          |                       |        |
-| Equation 291        |          |                       |        |
-| Equation 292        |          |                       |        |
-| Equation 293        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 290        |   0% |             0% |          0% |            0% |
+| Equation 291        |   0% |             0% |          0% |            0% |
+| Equation 292        |   0% |             0% |          0% |            0% |
+| Equation 293        |   0% |             0% |          0% |            0% |

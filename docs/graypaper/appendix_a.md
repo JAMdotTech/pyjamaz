@@ -3,113 +3,113 @@ The aim of this section is to provide a detailed implementation reference on Gra
 This section has been updated to match Graypaper version 0.3.6. 
 
 ## A.1. Basic Definition
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 213        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 213        |   0% |             0% |          0% |            0% |
 
 ## A.2. Instructions, Opcodes and Skip-distance
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 214        |          |                       |        |
-| Equation 215        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 214        |   0% |             0% |          0% |            0% |
+| Equation 215        |   0% |             0% |          0% |            0% |
 
 ## A.3. Basic Blocks and Termination Instructions
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 216        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 216        |   0% |             0% |          0% |            0% |
 
 ## A.4. Single-Step State Transition
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 217        |          |                       |        |
-| Equation 218        |          |                       |        |
-| Equation 219        |          |                       |        |
-| Equation 220        |          |                       |        |
-| Equation 221        |          |                       |        |
-| Equation 222        |          |                       |        |
-| Equation 223        |          |                       |        |
-| Equation 224        |          |                       |        |
-| Equation 225        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 217        |   0% |             0% |          0% |            0% |
+| Equation 218        |   0% |             0% |          0% |            0% |
+| Equation 219        |   0% |             0% |          0% |            0% |
+| Equation 220        |   0% |             0% |          0% |            0% |
+| Equation 221        |   0% |             0% |          0% |            0% |
+| Equation 222        |   0% |             0% |          0% |            0% |
+| Equation 223        |   0% |             0% |          0% |            0% |
+| Equation 224        |   0% |             0% |          0% |            0% |
+| Equation 225        |   0% |             0% |          0% |            0% |
 
 ## A.5. Instruction Tables
 ### A.5.1. Instructions without Arguments
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 226        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 226        |   0% |             0% |          0% |            0% |
 
 ### A.5.2. Instructions with Arguments of One Immediate
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 227        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 227        |   0% |             0% |          0% |            0% |
 
 ### A.5.3. Instructions with Arguments of Two Immediates
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 228        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 228        |   0% |             0% |          0% |            0% |
 
 ### A.5.4. Instructions with Arguments of One Offset
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 229        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 229        |   0% |             0% |          0% |            0% |
 
 ### A.5.5. Instructions with Arguments of One Register & One Immediate
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 230        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 230        |   0% |             0% |          0% |            0% |
 
 ### A.5.6. Instructions with Arguments of One Register & Two Immediates
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 231        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 231        |   0% |             0% |          0% |            0% |
 
 ### A.5.7. Instructions with Arguments of One Register, One Immediate & One Offset
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 232        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 232        |   0% |             0% |          0% |            0% |
 
 ### A.5.8. Instructions with Arguments of Two Registers
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 233        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 233        |   0% |             0% |          0% |            0% |
 
 ### A.5.9. Instructions with Arguments of Two Registers & One Immediate
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 234        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 234        |   0% |             0% |          0% |            0% |
 
 ### A.5.10. Instructions with Arguments of Two Registers & One Offset
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 235        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 235        |   0% |             0% |          0% |            0% |
 
 ### A.5.11. Instructions with Arguments of Two Registers & Two Immediates
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 236        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 236        |   0% |             0% |          0% |            0% |
 
 ### A.5.12. Instructions with Arguments of Three Registers
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 237        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 237        |   0% |             0% |          0% |            0% |
 
 ## A.6. Host Call Definition
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 238        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 238        |   0% |             0% |          0% |            0% |
 
 ## A.7. Standard Program Initialization
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 239        |          |                       |        |
-| Equation 240        |          |                       |        |
-| Equation 241        |          |                       |        |
-| Equation 242        |          |                       |        |
-| Equation 243        |          |                       |        |
-| Equation 244        |          |                       |        |
-| Equation 245        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 239        |   0% |             0% |          0% |            0% |
+| Equation 240        |   0% |             0% |          0% |            0% |
+| Equation 241        |   0% |             0% |          0% |            0% |
+| Equation 242        |   0% |             0% |          0% |            0% |
+| Equation 243        |   0% |             0% |          0% |            0% |
+| Equation 244        |   0% |             0% |          0% |            0% |
+| Equation 245        |   0% |             0% |          0% |            0% |
 
 ## A.8. Argument Invocation Definition
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 246        |          |                       |        |
-| Equation 247        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 246        |   0% |             0% |          0% |            0% |
+| Equation 247        |   0% |             0% |          0% |            0% |

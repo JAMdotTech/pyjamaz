@@ -3,24 +3,24 @@ The aim of this section is to provide a detailed implementation reference on Gra
 This section has been updated to match Graypaper version 0.3.6. 
 
 ## 17.3. Selection of Reports
-| Graypaper Reference | Category | Python Implementation | Status |
-|---------------------|----------|-----------------------|--------|
-| Equation 188        |          |                       |        |
-| Equation 189        |          |                       |        |
-| Equation 190        |          |                       |        |
-| Equation 191        |          |                       |        |
-| Equation 192        |          |                       |        |
-| Equation 193        |          |                       |        |
-| Equation 194        |          |                       |        |
-| Equation 195        |          |                       |        |
-| Equation 196        |          |                       |        |
-| Equation 197        |          |                       |        |
-| Equation 198        |          |                       |        |
-| Equation 199        |          |                       |        |
-| Equation 200        |          |                       |        |
-| Equation 201        |          |                       |        |
-| Equation 202        |          |                       |        |
-| Equation 203        |          |                       |        |
-| Equation 204        |          |                       |        |
-| Equation 205        |          |                       |        |
-| Equation 206        |          |                       |        |
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
+| Equation 188        |   0% |             0% |          0% |            0% |
+| Equation 189        |   0% |             0% |          0% |            0% |
+| Equation 190        |   0% |             0% |          0% |            0% |
+| Equation 191        |   0% |             0% |          0% |            0% |
+| Equation 192        |   0% |             0% |          0% |            0% |
+| Equation 193        |   0% |             0% |          0% |            0% |
+| Equation 194        |   0% |             0% |          0% |            0% |
+| Equation 195        |   0% |             0% |          0% |            0% |
+| Equation 196        |   0% |             0% |          0% |            0% |
+| Equation 197        |   0% |             0% |          0% |            0% |
+| Equation 198        |   0% |             0% |          0% |            0% |
+| Equation 199        |   0% |             0% |          0% |            0% |
+| Equation 200        |   0% |             0% |          0% |            0% |
+| Equation 201        |   0% |             0% |          0% |            0% |
+| Equation 202        |   0% |             0% |          0% |            0% |
+| Equation 203        |   0% |             0% |          0% |            0% |
+| Equation 204        |   0% |             0% |          0% |            0% |
+| Equation 205        |   0% |             0% |          0% |            0% |
+| Equation 206        |   0% |             0% |          0% |            0% |
