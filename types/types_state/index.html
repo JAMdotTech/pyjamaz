@@ -1636,13 +1636,13 @@ epochs respectively.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="pyjamaz.types.state.SafroleState.ticket_accumulator">ticket_accumulator</span></code></td>
+            <td><code><span title="pyjamaz.types.state.SafroleState.ring_commitment">ring_commitment</span></code></td>
             <td>
-                  <code><span title="pyjamaz.types.block.TicketBody">TicketBody</span></code>
+                  <code><span title="jamcodec.types.Array">Array</span>(<span title="jamcodec.types.U8">U8</span>, 144)</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.3.6-eq:49 (greek_GAMMA_a | γ_a) | Sealing-key contest ticket accumulator.</p>
+                <p>GP-0.3.6-eq:48 (greek_GAMMA_z | γ_z) | Bandersnatch ring commitment.</p>
               </div>
             </td>
           </tr>
@@ -1658,13 +1658,13 @@ epochs respectively.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="pyjamaz.types.state.SafroleState.ring_commitment">ring_commitment</span></code></td>
+            <td><code><span title="pyjamaz.types.state.SafroleState.ticket_accumulator">ticket_accumulator</span></code></td>
             <td>
-                  <code><span title="jamcodec.types.Array">Array</span>(<span title="jamcodec.types.U8">U8</span>, 144)</code>
+                  <code><span title="pyjamaz.types.block.TicketBody">TicketBody</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.3.6-eq:48 (greek_GAMMA_z | γ_z) | Bandersnatch ring commitment.</p>
+                <p>GP-0.3.6-eq:49 (greek_GAMMA_a | γ_a) | Sealing-key contest ticket accumulator.</p>
               </div>
             </td>
           </tr>
@@ -1696,8 +1696,7 @@ epochs respectively.</p>
 <span class="normal">105</span>
 <span class="normal">106</span>
 <span class="normal">107</span>
-<span class="normal">108</span>
-<span class="normal">109</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">108</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">SafroleState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:47 (greek_GAMMA | γ) | Safrole partition of the overall state.</span>
@@ -1707,21 +1706,20 @@ epochs respectively.</p>
 
 <span class="sd">    validators: Array(ValidatorData,constant_V)</span>
 <span class="sd">        GP-0.3.6-eq:51 (greek_GAMMA_k | γ_k) | A fixed size set of keys and metadata for validators of the next epoch.</span>
-<span class="sd">    ticket_accumulator: TicketBody</span>
-<span class="sd">        GP-0.3.6-eq:49 (greek_GAMMA_a | γ_a) | Sealing-key contest ticket accumulator.</span>
-<span class="sd">    slot_sealer_series: SlotSealerSeries</span>
-<span class="sd">        GP-0.3.6-eq:49 (greek_GAMMA_s | γ_s) | Sealing-key series of the current epoch.</span>
 <span class="sd">    ring_commitment: Array(U8,144)</span>
 <span class="sd">        GP-0.3.6-eq:48 (greek_GAMMA_z | γ_z) | Bandersnatch ring commitment.</span>
+<span class="sd">    slot_sealer_series: SlotSealerSeries</span>
+<span class="sd">        GP-0.3.6-eq:49 (greek_GAMMA_s | γ_s) | Sealing-key series of the current epoch.</span>
+<span class="sd">    ticket_accumulator: TicketBody</span>
+<span class="sd">        GP-0.3.6-eq:49 (greek_GAMMA_a | γ_a) | Sealing-key contest ticket accumulator.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Todo: reorder attributes to match order in GP: (γ_k, γ_z, γ_s, γ_a)</span>
     <span class="c1"># Todo: review and annotate: ValidatorData</span>
     <span class="n">validators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ValidatorData</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Array</span><span class="p">(</span><span class="n">ValidatorData</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">(),</span> <span class="n">VALIDATOR_COUNT</span><span class="p">)})</span>
-    <span class="c1"># Todo: review and annotate: TicketBody</span>
-    <span class="n">ticket_accumulator</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TicketBody</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Vec</span><span class="p">(</span><span class="n">TicketBody</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">())})</span>
+    <span class="n">ring_commitment</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Array</span><span class="p">(</span><span class="n">U8</span><span class="p">,</span> <span class="mi">144</span><span class="p">)})</span>
     <span class="c1"># Todo: review and annotate: SlotSealerSeries</span>
     <span class="n">slot_sealer_series</span><span class="p">:</span> <span class="n">SlotSealerSeries</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">SlotSealerSeries</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
-    <span class="n">ring_commitment</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Array</span><span class="p">(</span><span class="n">U8</span><span class="p">,</span> <span class="mi">144</span><span class="p">)})</span>
+    <span class="c1"># Todo: review and annotate: TicketBody</span>
+    <span class="n">ticket_accumulator</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TicketBody</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Vec</span><span class="p">(</span><span class="n">TicketBody</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">())})</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -1795,7 +1793,8 @@ Safrole protocol.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">112</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">111</span>
+<span class="normal">112</span>
 <span class="normal">113</span>
 <span class="normal">114</span>
 <span class="normal">115</span>
@@ -1807,8 +1806,7 @@ Safrole protocol.</p>
 <span class="normal">121</span>
 <span class="normal">122</span>
 <span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">124</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ValidatorQueueState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:51 (greek_IOTA | ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.</span>
@@ -1894,7 +1892,8 @@ Safrole protocol.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">128</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">127</span>
+<span class="normal">128</span>
 <span class="normal">129</span>
 <span class="normal">130</span>
 <span class="normal">131</span>
@@ -1905,8 +1904,7 @@ Safrole protocol.</p>
 <span class="normal">136</span>
 <span class="normal">137</span>
 <span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">139</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ValidatorPoolState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:51 (greek_KAPPA | κ) | Keys and metadata for validators of the current epoch.</span>
@@ -1991,7 +1989,8 @@ Safrole protocol.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">143</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">142</span>
+<span class="normal">143</span>
 <span class="normal">144</span>
 <span class="normal">145</span>
 <span class="normal">146</span>
@@ -2002,8 +2001,7 @@ Safrole protocol.</p>
 <span class="normal">151</span>
 <span class="normal">152</span>
 <span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">154</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ValidatorArchiveState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:51 (greek_LAMBDA | λ) | Keys and metadata for validators of the previous epoch.</span>
@@ -2088,7 +2086,8 @@ Safrole protocol.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">158</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">157</span>
+<span class="normal">158</span>
 <span class="normal">159</span>
 <span class="normal">160</span>
 <span class="normal">161</span>
@@ -2103,8 +2102,7 @@ Safrole protocol.</p>
 <span class="normal">170</span>
 <span class="normal">171</span>
 <span class="normal">172</span>
-<span class="normal">173</span>
-<span class="normal">174</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">173</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AuthorizerPoolsState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:84 (greek_ALPHA | α) | A collections of pools of authorizations for all cores.</span>
@@ -2193,7 +2191,8 @@ Safrole protocol.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">177</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">176</span>
+<span class="normal">177</span>
 <span class="normal">178</span>
 <span class="normal">179</span>
 <span class="normal">180</span>
@@ -2203,8 +2202,7 @@ Safrole protocol.</p>
 <span class="normal">184</span>
 <span class="normal">185</span>
 <span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">187</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">Mmr</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:302 (bold_b) | A Merkle Mountain Range.</span>
@@ -2322,7 +2320,8 @@ cores (constant_c=341)</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">191</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">190</span>
+<span class="normal">191</span>
 <span class="normal">192</span>
 <span class="normal">193</span>
 <span class="normal">194</span>
@@ -2346,8 +2345,7 @@ cores (constant_c=341)</p>
 <span class="normal">212</span>
 <span class="normal">213</span>
 <span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">215</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">RecentBlock</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:80 (greek_BETA | β) | A single item in the RecentHistory partition of the overall state.</span>
@@ -2446,7 +2444,8 @@ up to constant_H (8) items.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">219</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">218</span>
+<span class="normal">219</span>
 <span class="normal">220</span>
 <span class="normal">221</span>
 <span class="normal">222</span>
@@ -2465,8 +2464,7 @@ up to constant_H (8) items.</p>
 <span class="normal">235</span>
 <span class="normal">236</span>
 <span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">RecentHistoryState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:80 (greek_BETA | β) | RecentHistory partition of the overall state</span>
@@ -2647,7 +2645,8 @@ up to constant_H (8) items.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">242</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">241</span>
+<span class="normal">242</span>
 <span class="normal">243</span>
 <span class="normal">244</span>
 <span class="normal">245</span>
@@ -2684,8 +2683,7 @@ up to constant_H (8) items.</p>
 <span class="normal">276</span>
 <span class="normal">277</span>
 <span class="normal">278</span>
-<span class="normal">279</span>
-<span class="normal">280</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">279</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ServiceAccount</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:89 (blackboard_A) | A service account</span>
@@ -2797,7 +2795,8 @@ data for a service account index.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">283</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">282</span>
+<span class="normal">283</span>
 <span class="normal">284</span>
 <span class="normal">285</span>
 <span class="normal">286</span>
@@ -2812,8 +2811,7 @@ data for a service account index.</p>
 <span class="normal">295</span>
 <span class="normal">296</span>
 <span class="normal">297</span>
-<span class="normal">298</span>
-<span class="normal">299</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">298</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ServicesState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:88 (greek_DELTA | δ) | Services partition of the overall state.</span>
@@ -2915,7 +2913,8 @@ A timeslot</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">302</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">301</span>
+<span class="normal">302</span>
 <span class="normal">303</span>
 <span class="normal">304</span>
 <span class="normal">305</span>
@@ -2930,8 +2929,7 @@ A timeslot</p>
 <span class="normal">314</span>
 <span class="normal">315</span>
 <span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">317</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">Assurance</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:116 (greek_RHO[c] | ρ[c]) | An assurance for a single core.</span>
@@ -3020,7 +3018,8 @@ A timeslot</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">321</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">320</span>
+<span class="normal">321</span>
 <span class="normal">322</span>
 <span class="normal">323</span>
 <span class="normal">324</span>
@@ -3029,8 +3028,7 @@ A timeslot</p>
 <span class="normal">327</span>
 <span class="normal">328</span>
 <span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">330</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AssurancesState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:116 (greek_RHO | ρ) | Assurances partition of the overall state.</span>
@@ -3113,7 +3111,8 @@ A timeslot</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">334</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">333</span>
+<span class="normal">334</span>
 <span class="normal">335</span>
 <span class="normal">336</span>
 <span class="normal">337</span>
@@ -3123,8 +3122,7 @@ A timeslot</p>
 <span class="normal">341</span>
 <span class="normal">342</span>
 <span class="normal">343</span>
-<span class="normal">344</span>
-<span class="normal">345</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">344</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AuthorizerQueuesState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:84 (greek_PHI | φ) | A collections of queues of authorizations for all cores.</span>
@@ -3236,7 +3234,8 @@ The service index of the designate service. I.e. the service that allows state t
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">348</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">347</span>
+<span class="normal">348</span>
 <span class="normal">349</span>
 <span class="normal">350</span>
 <span class="normal">351</span>
@@ -3258,8 +3257,7 @@ The service index of the designate service. I.e. the service that allows state t
 <span class="normal">367</span>
 <span class="normal">368</span>
 <span class="normal">369</span>
-<span class="normal">370</span>
-<span class="normal">371</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">370</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">PrivilegedServicesState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:95 (greek_CHI | χ) | The PrivilegedServices partition of the overall state.</span>
@@ -3389,7 +3387,8 @@ offending.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">374</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">373</span>
+<span class="normal">374</span>
 <span class="normal">375</span>
 <span class="normal">376</span>
 <span class="normal">377</span>
@@ -3409,8 +3408,7 @@ offending.</p>
 <span class="normal">391</span>
 <span class="normal">392</span>
 <span class="normal">393</span>
-<span class="normal">394</span>
-<span class="normal">395</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">394</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">DisputesState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:96 (greek_PSI | ψ) | A collection of judgements of validators over the validity of work reports.</span>
@@ -3559,7 +3557,8 @@ offending.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">398</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">397</span>
+<span class="normal">398</span>
 <span class="normal">399</span>
 <span class="normal">400</span>
 <span class="normal">401</span>
@@ -3584,8 +3583,7 @@ offending.</p>
 <span class="normal">420</span>
 <span class="normal">421</span>
 <span class="normal">422</span>
-<span class="normal">423</span>
-<span class="normal">424</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">423</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">Statistic</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:169 (greek_PI[0][V] | π[0][V]) | A set of cumulative metrics for a single validator in a single epochs.</span>
@@ -3684,7 +3682,8 @@ offending.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">427</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">426</span>
+<span class="normal">427</span>
 <span class="normal">428</span>
 <span class="normal">429</span>
 <span class="normal">430</span>
@@ -3694,8 +3693,7 @@ offending.</p>
 <span class="normal">434</span>
 <span class="normal">435</span>
 <span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">437</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">StatisticsState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:169 (greek_PI | π) | A collections of statistics for all validators for two epochs.</span>
@@ -3938,7 +3936,8 @@ Statistics partition of the overall state</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">441</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">440</span>
+<span class="normal">441</span>
 <span class="normal">442</span>
 <span class="normal">443</span>
 <span class="normal">444</span>
@@ -4002,8 +4001,7 @@ Statistics partition of the overall state</p>
 <span class="normal">502</span>
 <span class="normal">503</span>
 <span class="normal">504</span>
-<span class="normal">505</span>
-<span class="normal">506</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">505</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">JamState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.6-eq:15 (greek_SIGMA | σ) | Logically partitioned state into several largely independent segments which can help</span>
