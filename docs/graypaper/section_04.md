@@ -1,6 +1,6 @@
 # 4. Overview
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.3.6. 
+This section has been updated to match Graypaper version 0.3.8. 
 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
@@ -16,6 +16,10 @@ This section has been updated to match Graypaper version 0.3.6.
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
 | Equation 15         |   0% |             0% |          0% |            0% |
+
+### 4.2.1. State Transition Dependency Graph 
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
 | Equation 16         |   0% |             0% |          0% |            0% |
 | Equation 17         |   0% |             0% |          0% |            0% |
 | Equation 18         |   0% |             0% |          0% |            0% |

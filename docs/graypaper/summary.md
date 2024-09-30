@@ -1,6 +1,6 @@
 # Summary: Graypaper Coverage
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.3.6. 
+This section has been updated to match Graypaper version 0.3.8. 
 
 | Graypaper Reference                          | #Equations |   Stub | Implementation | Conformance | Documentation |
 |----------------------------------------------|-----------:|-------:|---------------:|------------:|--------------:|
@@ -17,7 +17,7 @@ This section has been updated to match Graypaper version 0.3.6.
 | Section 11. Reporting and Assurance          |         37 |     0% |             0% |          0% |            0% |
 | Section 12. Accumulation                     |         16 |     0% |             0% |          0% |            0% |
 | Section 13. Validator Activity Statistics    |          4 |     0% |             0% |          0% |            0% |
-| Section 14. Work Packages and Work Reports   |         13 |     0% |             0% |          0% |            0% |
+| Section 14. Work Packages and Work Reports   |         14 |     0% |             0% |          0% |            0% |
 | Section 15. Guaranteeing                     |          2 |     0% |             0% |          0% |            0% |
 | Section 16. Availability Assurance           |          0 |     0% |             0% |          0% |            0% |
 | Section 17. Auditing and Judging             |         19 |     0% |             0% |          0% |            0% |
@@ -25,11 +25,11 @@ This section has been updated to match Graypaper version 0.3.6.
 | Section 19. Grandpa and the Best Chain       |          4 |     0% |             0% |          0% |            0% |
 | Appendix A. Polka Virtual Machine            |         35 |     0% |             0% |          0% |            0% |
 | Appendix B. Virtual Machine Invocation       |         19 |     0% |             0% |          0% |            0% |
-| Appendix C. Serialization Codec              |         21 |     0% |             0% |          0% |            0% |
+| Appendix C. Serialization Codec              |         22 |     0% |             0% |          0% |            0% |
 | Appendix D. State Merklization               |          6 |     0% |             0% |          0% |            0% |
 | Appendix E. General Merklization             |          9 |     0% |             0% |          0% |            0% |
 | Appendix F. Shuffling                        |          3 |     0% |             0% |          0% |            0% |
 | Appendix G. Bandersnatch Ring VRF            |          5 |     0% |             0% |          0% |            0% |
-| Appendix H. Erasure Coding                   |         11 |     0% |             0% |          0% |            0% |
+| Appendix H. Erasure Coding                   |         13 |     0% |             0% |          0% |            0% |
 | Appendix I. Index of Notation                |          0 |     0% |              - |           - |             - |
 | **Total**                                    |    **321** | **0%** |         **0%** |      **0%** |        **0%** |
