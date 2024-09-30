@@ -662,10 +662,12 @@ class Statistics(StateComponent):
             Input parameter 5 | GP-0.3.8-eq:30 (greek_TAU | τ)
         # post_state_timeslot: TimeslotState
             Input parameter 6 | GP-0.3.8-eq:30 (greek_TAU_prime | τ')
+        # post_state_validator_pool: ValidatorPoolState
+            Input parameter 7 | GP-0.3.8-eq:30 (greek_KAPPA_prime | κ')
         # pre_state_statistics: StatisticsState
-            Input parameter 7 | GP-0.3.8-eq:30 (greek_PI | π)
+            Input parameter 8 | GP-0.3.8-eq:30 (greek_PI | π)
         # header: Header
-            Input parameter 8 | GP-0.3.8-eq:30 (bold_H)
+            Input parameter 9 | GP-0.3.8-eq:30 (bold_H)
 
         Returns
         -------
