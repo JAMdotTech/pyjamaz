@@ -62,4 +62,3 @@ class STFOutput(Serializable):
     output_marks: OutputMarks = field(
         metadata={'codec': OutputMarks.to_codec_def()}
     )
-
