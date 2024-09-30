@@ -238,7 +238,7 @@ class RecentHistoryState(State, Serializable):
         # Todo: Arjan this is a Vec (variable size) since it contains less than 8 items for the first 8
         #  blocks after genesis, so for the first 8 blocks it should have TAU entries and from block 9 and onwards it
         #  should have exactly constant_H (8) entries.
-        #  GP-0.3.6-eq-289-C(3) states encoding is a Vec (i.e. has length definition)
+        #  GP-0.3.8-eq:291-C(3) states encoding is a Vec (i.e. has length definition)
         pass
 
 

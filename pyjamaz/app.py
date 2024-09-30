@@ -26,7 +26,6 @@ class PyjamazApp:
 
         self.storage_engine = config.storage_engine
 
-        # Order defined by overall state transition dependency graph GP-0.3.2-eq16-30
         self.state_manager = StateManager(self.storage_engine)
 
         self.state_manager.add(Timeslot)
@@ -76,20 +75,20 @@ class PyjamazApp:
         pre_state_validator_archive = validator_archive.retrieve_state()
         pre_state_validator_queue = validator_queue.retrieve_state()
 
-        # Timeslot STF GP-0.3.7-eq:16
+        # Timeslot STF GP-0.3.8-eq:16
         timeslot_output = timeslot.state_transition(header=block.header)
 
-        # Entropy STF GP-0.3.7-eq:20
+        # Entropy STF GP-0.3.8-eq:20
         entropy_output = entropy.state_transition(
             header=block.header, pre_state_timeslot=pre_state_timeslot, pre_state_entropy=pre_state_entropy
         )
 
-        # Disputes STF GP-0.3.7-eq:23
+        # Disputes STF GP-0.3.8-eq:23
         disputes_output = disputes.state_transition(
             extrinsic_disputes=block.extrinsic.disputes, pre_state_disputes=pre_state_disputes
         )
 
-        # Validator Pool STF GP-0.3.7-eq:21
+        # Validator Pool STF GP-0.3.8-eq:21
         validator_pool_output = validator_pool.state_transition(
             header=block.header,
             pre_state_timeslot=pre_state_timeslot,
@@ -98,14 +97,14 @@ class PyjamazApp:
             post_state_disputes=disputes_output.post_state
         )
 
-        # Validator Archive STF GP-0.3.7-eq:22
+        # Validator Archive STF GP-0.3.8-eq:22
         validator_archive_output = validator_archive.state_transition(
             header=block.header, pre_state_timeslot=pre_state_timeslot,
             pre_state_validator_archive=pre_state_validator_archive,
             pre_state_validator_pool=pre_state_validator_pool
         )
 
-        # Safrole STF GP-0.3.7-eq:19
+        # Safrole STF GP-0.3.8-eq:19
         safrole_output = safrole.state_transition(
             header=block.header, pre_state_timeslot=pre_state_timeslot, extrinsic_tickets=block.extrinsic.tickets,
             pre_state_safrole=pre_state_safrole,
@@ -113,7 +112,7 @@ class PyjamazApp:
             post_state_validator_pool=validator_pool_output.post_state
         )
 
-        # All state transitions succesful, commit state changes
+        # All state transitions successful, commit state changes
         with self.storage_engine.transaction() as transaction:
             timeslot.store_state(timeslot_output.post_state)
             # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root
