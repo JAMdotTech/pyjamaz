@@ -1,6 +1,6 @@
 # 12. Accumulation
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.3.6. 
+This section has been updated to match Graypaper version 0.3.8. 
 
 ## 12.1. The State 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
@@ -28,7 +28,15 @@ This section has been updated to match Graypaper version 0.3.6.
 | Equation 161        |   0% |             0% |          0% |            0% |
 | Equation 162        |   0% |             0% |          0% |            0% |
 | Equation 163        |   0% |             0% |          0% |            0% |
+
+### 12.4.1. Privileged Transitions 
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
 | Equation 164        |   0% |             0% |          0% |            0% |
+
+### 12.4.2. Service Account Transitions 
+| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
+|---------------------|-----:|---------------:|------------:|--------------:|
 | Equation 165        |   0% |             0% |          0% |            0% |
 | Equation 166        |   0% |             0% |          0% |            0% |
 | Equation 167        |   0% |             0% |          0% |            0% |

@@ -1,4 +1,4 @@
-#GP-reference: I.4.4
+#GP-0.3.8-section:I.4.4
 PERIOD = 8 #A
 MINIMUM_BALANCE_ITEM = 10 #BI
 MINIMUM_BALANCE_OCTET = 1 #BL

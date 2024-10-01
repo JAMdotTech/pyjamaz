@@ -1,6 +1,6 @@
 # 14. Work Packages and Work Reports
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.3.6. 
+This section has been updated to match Graypaper version 0.3.8. 
 
 ## 14.2. Segments and the Manifest
 ### 14.2.1. Segments, Imports and Exports
@@ -29,9 +29,10 @@ This section has been updated to match Graypaper version 0.3.6.
 |---------------------|-----:|---------------:|------------:|--------------:|
 | Equation 182        |   0% |             0% |          0% |            0% |
 | Equation 183        |   0% |             0% |          0% |            0% |
+| Equation 184        |   0% |             0% |          0% |            0% |
 
 ### 14.4.1. Availability Specifier
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 184        |   0% |             0% |          0% |            0% |
 | Equation 185        |   0% |             0% |          0% |            0% |
+| Equation 186        |   0% |             0% |          0% |            0% |

@@ -27,12 +27,12 @@ class Timeslot(StateComponent):
 
     def state_transition(self, header: Header) -> TimeslotOutput:
         """
-        GP-0.3.6-eq:45 (greek_TAU_prime | τ') | State transition function for the state's timeslot.
+        GP-0.3.8-eq:45 (greek_TAU_prime | τ') | State transition function for the state's timeslot.
 
         Parameters
         ----------
         header: Header
-            Input parameter 1 | GP-0.3.6-eq:16 (bold_H)
+            Input parameter 1 | GP-0.3.8-eq:16 (bold_H)
 
         Returns
         -------
@@ -53,16 +53,16 @@ class Entropy(StateComponent):
     def state_transition(self, header: Header, pre_state_timeslot: TimeslotState,
                          pre_state_entropy: EntropyState) -> EntropyOutput:
         """
-        GP-0.3.6-eq:66,67 (greek_ETA_prime | η') | State transition function for the state's entropy.
+        GP-0.3.8-eq:66,67 (greek_ETA_prime | η') | State transition function for the state's entropy.
 
         Parameters
         ----------
         header: Header
-            Input parameter 1 | GP-0.3.6-eq:20 (bold_H)
+            Input parameter 1 | GP-0.3.8-eq:20 (bold_H)
         pre_state_timeslot: TimeslotState
-            Input parameter 2 | GP-0.3.6-eq:20 (greek_TAU | τ)
+            Input parameter 2 | GP-0.3.8-eq:20 (greek_TAU | τ)
         pre_state_entropy: EntropyState
-            Input parameter 3 | GP-0.3.6-eq:20 (greek_ETA | η)
+            Input parameter 3 | GP-0.3.8-eq:20 (greek_ETA | η)
 
         Returns
         -------
@@ -72,13 +72,13 @@ class Entropy(StateComponent):
 
         post_state_entropy = deepcopy(pre_state_entropy)
 
-        # GP-0.3.6-eq:66 (greek_ETA_prime[0] | η'[0]) | State transition for first index of the entropy.
+        # GP-0.3.8-eq:66 (greek_ETA_prime[0] | η'[0]) | State transition for first index of the entropy.
         eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + header.entropy_source)
 
-        # GP-0.3.6-eq:67 (greek_ETA_prime[1-3] | η'[1-3]) | State transition for last three indices of the entropy.
+        # GP-0.3.8-eq:67 (greek_ETA_prime[1-3] | η'[1-3]) | State transition for last three indices of the entropy.
         # State transition happen on epoch change.
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
-            # GP-0.3.6-eq:67 (`e > e'`) | When epoch changes
+            # GP-0.3.8-eq:67 (`e > e'`) | When epoch changes
             post_state_entropy.entropy = [eta_0] + pre_state_entropy.entropy[:3]
         else:
             post_state_entropy.entropy = [eta_0] + pre_state_entropy.entropy[1:]
@@ -114,21 +114,21 @@ class ValidatorPool(StateComponent):
             post_state_disputes: DisputesState
     ) -> ValidatorPoolOutput:
         """
-        GP-0.3.6-eq:57 (greek_KAPPA_prime | κ') | State transition function for the state's current validator set.
+        GP-0.3.8-eq:57 (greek_KAPPA_prime | κ') | State transition function for the state's current validator set.
         Occurs on epoch change.
 
         Parameters
         ----------
         header: Header
-            Input parameter 1 | GP-0.3.6-eq:21 (bold_H)
+            Input parameter 1 | GP-0.3.8-eq:21 (bold_H)
         pre_state_timeslot: TimeslotState
-            Input parameter 2 | GP-0.3.6-eq:21 (greek_TAU | τ)
+            Input parameter 2 | GP-0.3.8-eq:21 (greek_TAU | τ)
         pre_state_validator_pool: ValidatorPoolState
-            Input parameter 3 | GP-0.3.6-eq:21 (greek_KAPPA | κ)
+            Input parameter 3 | GP-0.3.8-eq:21 (greek_KAPPA | κ)
         pre_state_safrole: SafroleState
-            Input parameter 4 | GP-0.3.6-eq:21 (greek_GAMMA | η)
+            Input parameter 4 | GP-0.3.8-eq:21 (greek_GAMMA | η)
         post_state_disputes: DisputesState
-            Input parameter 5 | GP-0.3.6-eq:21 (greek_PSI_prime | ψ')
+            Input parameter 5 | GP-0.3.8-eq:21 (greek_PSI_prime | ψ')
 
         Returns
         -------
@@ -156,19 +156,19 @@ class ValidatorArchive(StateComponent):
                          pre_state_validator_pool: ValidatorPoolState
     ) -> ValidatorArchiveOutput:
         """
-        GP-0.3.6-eq:57 (greek_LAMBDA_prime | λ') | State transition function for the state's archived validator set.
+        GP-0.3.8-eq:57 (greek_LAMBDA_prime | λ') | State transition function for the state's archived validator set.
         Occurs on epoch change.
 
         Parameters
         ----------
         header: Header
-            Input parameter 1 | GP-0.3.6-eq:22 (bold_H)
+            Input parameter 1 | GP-0.3.8-eq:22 (bold_H)
         pre_state_timeslot: TimeslotState
-            Input parameter 2 | GP-0.3.6-eq:22 (greek_TAU | τ)
+            Input parameter 2 | GP-0.3.8-eq:22 (greek_TAU | τ)
         pre_state_validator_archive: ValidatorArchiveState
-            Input parameter 3 | GP-0.3.6-eq:22 (greek_LAMBDA | λ)
+            Input parameter 3 | GP-0.3.8-eq:22 (greek_LAMBDA | λ)
         pre_state_validator_pool: ValidatorPoolState
-            Input parameter 4 | GP-0.3.6-eq:22 (greek_KAPPA | κ)
+            Input parameter 4 | GP-0.3.8-eq:22 (greek_KAPPA | κ)
 
         Returns
         -------
@@ -178,7 +178,7 @@ class ValidatorArchive(StateComponent):
         post_state_validator_archive = deepcopy(pre_state_validator_archive)
 
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
-            # Update prior epoch validators   GP-0.3.2-eq:58
+            # Update prior epoch validators   GP-0.3.8-eq:57
             post_state_validator_archive.validators = pre_state_validator_pool.validators
 
         return ValidatorArchiveOutput(post_state=post_state_validator_archive)
@@ -200,8 +200,8 @@ class Safrole(StateComponent):
         if ticket_data.attempt not in [0, 1]:
             raise StateTransitionError(SafroleErrorCode.bad_ticket_attempt)
 
-        # GP-0.3.2-ref:74
-        vrf_input_data = b"jam_ticket_seal"  # GP-0.3.2-ref:65
+        # GP-0.3.8-eq:75
+        vrf_input_data = b"jam_ticket_seal"  # GP-0.3.8-eq:64
         vrf_input_data += entropy
         vrf_input_data += int.to_bytes(ticket_data.attempt, byteorder='little', length=1)
 
@@ -226,24 +226,24 @@ class Safrole(StateComponent):
                          post_state_validator_pool: ValidatorPoolState
                          ) -> SafroleOutput:
         """
-        GP-0.3.6-eq:57,59,60 (greek_GAMMA_prime | γ') | State transition function for the state's Safrole data.
+        GP-0.3.8-eq:57,59,60 (greek_GAMMA_prime | γ') | State transition function for the state's Safrole data.
 
         Parameters
         ----------
         header: Header
-            Input parameter 1 | GP-0.3.6-eq:19 (bold_H)
+            Input parameter 1 | GP-0.3.8-eq:19 (bold_H)
         pre_state_timeslot: TimeslotState
-            Input parameter 2 | GP-0.3.6-eq:19 (greek_TAU | τ)
+            Input parameter 2 | GP-0.3.8-eq:19 (greek_TAU | τ)
         extrinsic_tickets: List[TicketEnvelope]
-            Input parameter 3 | GP-0.3.6-eq:19 (bold_E_T)
+            Input parameter 3 | GP-0.3.8-eq:19 (bold_E_T)
         pre_state_safrole: SafroleState
-            Input parameter 4 | GP-0.3.6-eq:19 (greek_GAMMA | γ)
+            Input parameter 4 | GP-0.3.8-eq:19 (greek_GAMMA | γ)
         pre_state_validator_queue: ValidatorQueueState
-            Input parameter 5| GP-0.3.6-eq:19 (greek_IOTA | ι)
+            Input parameter 5| GP-0.3.8-eq:19 (greek_IOTA | ι)
         post_state_entropy: EntropyState
-            Input parameter 6 | GP-0.3.6-eq:19 (greek_ETA_prime | η')
+            Input parameter 6 | GP-0.3.8-eq:19 (greek_ETA_prime | η')
         post_state_validator_pool: ValidatorPoolState
-            Input parameter 7 | GP-0.3.6-eq:19 (greek_KAPPA_prime | κ')
+            Input parameter 7 | GP-0.3.8-eq:19 (greek_KAPPA_prime | κ')
 
         Returns
         -------
@@ -256,7 +256,7 @@ class Safrole(StateComponent):
         if header.timeslot <= pre_state_timeslot.number:
             raise StateTransitionError(SafroleErrorCode.bad_slot)
 
-        # GP-0.3.2-ref:75
+        # GP-0.3.8-eq:74
         if self.slot_phase_index(header.timeslot) < gp_const.TICKET_SUBMISSION_END_SLOT:
             # Min 0, max 16 tickets
             if len(extrinsic_tickets) > gp_const.MAXIMUM_EXTRINSIC_TICKETS:  # constant_K=16
@@ -268,7 +268,7 @@ class Safrole(StateComponent):
 
         if len(extrinsic_tickets) > 0:
 
-            # Check for duplicate ticket_data; GP-0.3.2-eq:77
+            # Check for duplicate ticket_data; GP-0.3.8-eq:77
             if list_has_duplicates(extrinsic_tickets):
                 raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
 
@@ -283,16 +283,16 @@ class Safrole(StateComponent):
 
                 # Check if ticket already exists
                 if ticket in self.post_state_safrole.ticket_accumulator:
-                    # GP-0.3.2-eq:78
+                    # GP-0.3.8-eq:78
                     raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                 else:
                     input_tickets.append(ticket)
 
-            # Check if tickets are in order: GP-0.3.2-ref:77
+            # Check if tickets are in order: GP-0.3.8-eq:77
             if not self.tickets_in_order(input_tickets):
                 raise StateTransitionError(SafroleErrorCode.bad_ticket_order)
 
-            # Add tickets to ticket accumulator, sort and limit: GP-0.3.2-ref:78,79
+            # Add tickets to ticket accumulator, sort and limit: GP-0.3.8-eq:78,79
             self.post_state_safrole.ticket_accumulator += input_tickets
             self.post_state_safrole.ticket_accumulator = sorted(
                 self.post_state_safrole.ticket_accumulator, key=lambda t: t.id
@@ -304,7 +304,7 @@ class Safrole(StateComponent):
 
         if (not self.is_epoch_change(pre_state_timeslot.number, header.timeslot) and
                 self.slot_phase_index(header.timeslot) >= gp_const.TICKET_SUBMISSION_END_SLOT):
-            # Ticket mark only when accumulator is saturated # GP-0.3.2-ref:67
+            # Ticket mark only when accumulator is saturated # GP-0.3.8-eq:72
             if len(self.post_state_safrole.ticket_accumulator) == gp_const.EPOCH_TIMESLOTS:
                 tickets_mark = reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))  # GP-0.3.2-ref:70
 
@@ -324,13 +324,13 @@ class Safrole(StateComponent):
                 validators=epoch_validator_keys
             )
 
-            # Update Validator keys for the following epoch. # GP-0.3.2-eq:58
-            # TODO: apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.3.2-eq:59
+            # Update Validator keys for the following epoch. # GP-0.3.8-eq:57
+            # TODO: apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.3.8-eq:58
             self.post_state_safrole.validators = deepcopy(pre_state_validator_queue.validators)
 
             # Update Sealing-key series of the current epoch.
             if self.enact_fallback_method(pre_state_timeslot.number, header.timeslot):
-                # Determine fallback keys according to # GP-0.3.2-ref:71
+                # Determine fallback keys according to # GP-0.3.8-eq:70
                 validators = []
                 for n in range(gp_const.EPOCH_TIMESLOTS):
                     blake_hash = blake2b_256_hash(
@@ -345,12 +345,12 @@ class Safrole(StateComponent):
 
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
             else:
-                # When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:70
+                # When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:69
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(
                     tickets=reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 )
 
-            # Update ring commitment using O(); GP-0.3.2-eq:58
+            # Update ring commitment using O(); GP-0.3.8-eq:57
             self.post_state_safrole.ring_commitment = ring_commitment(
                 self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators]
             )
@@ -400,7 +400,7 @@ class AuthorizerPools(StateComponent):
 
     def state_transition(self, block: Block):
         """
-        GP-0.3.6-eq:85,86 (greek_ALPHA_prime | α') | State transition function for the state's authorizer pools.
+        GP-0.3.8-eq:85,86 (greek_ALPHA_prime | α') | State transition function for the state's authorizer pools.
 
         Parameters
         ----------
@@ -409,11 +409,11 @@ class AuthorizerPools(StateComponent):
             Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
             the STFs utilize data external to the STF.
         # extrinsic_guarantees: Vec(Guarantee)
-            Input parameter 1 | GP-0.3.6-eq:29 (bold_E_G)
+            Input parameter 1 | GP-0.3.8-eq:29 (bold_E_G)
         # post_state_authorizer_queues: AuthorizerQueuesState
-            Input parameter 2 | GP-0.3.6-eq:29 (greek_PHI_prime | φ')
+            Input parameter 2 | GP-0.3.8-eq:29 (greek_PHI_prime | φ')
         # pre_state_authorizer_pools: AuthorizerPoolsState
-            Input parameter 3 | GP-0.3.6-eq:29 (greek_ALPHA | α)
+            Input parameter 3 | GP-0.3.8-eq:29 (greek_ALPHA | α)
 
         Returns
         -------
@@ -433,14 +433,14 @@ class RecentHistory(StateComponent):
     def state_transition_intermediate(self, header: Header,
                                       pre_state_recent_history: RecentHistoryState) -> RecentHistoryState:
         """
-        GP-0.3.6-eq:81 (greek_BETA_dagger | β†) | Intermediate state transition function for the state's recent history.
+        GP-0.3.8-eq:81 (greek_BETA_dagger | β†) | Intermediate state transition function for the state's recent history.
 
         Parameters
         ----------
         header: Header
-            Input parameter 1 | GP-0.3.6-eq:17 (bold_H)
+            Input parameter 1 | GP-0.3.8-eq:17 (bold_H)
         pre_state_recent_history: RecentHistoryState
-            Input parameter 2 | GP-0.3.6-eq:17 (greek_BETA | β)
+            Input parameter 2 | GP-0.3.8-eq:17 (greek_BETA | β)
 
         Returns
         -------
@@ -458,19 +458,19 @@ class RecentHistory(StateComponent):
                          intermediate_state_recent_history: RecentHistoryState,
                          accumulate_root: bytes) -> RecentHistoryOutput:
         """
-        GP-0.3.6-eq:83 (greek_BETA_prime | β') | State transition function for the state's recent history.
+        GP-0.3.8-eq:83 (greek_BETA_prime | β') | State transition function for the state's recent history.
 
         Parameters
         ----------
         header: Header
-            Input parameter 1 | GP-0.3.6-eq:18 (bold_H)
+            Input parameter 1 | GP-0.3.8-eq:18 (bold_H)
         extrinsic_guarantees: List[Guarantee]
-            Input parameter 2 | GP-0.3.6-eq:18 (bold_E_G)
+            Input parameter 2 | GP-0.3.8-eq:18 (bold_E_G)
         intermediate_state_recent_history: RecentHistoryState
-            Input parameter 3 | GP-0.3.6-eq:18 (greek_BETA_dagger | β†)
-        # TODO: Create Dataclass for BeefyCommitmentMap GP-0.3.6-eq:163
+            Input parameter 3 | GP-0.3.8-eq:18 (greek_BETA_dagger | β†)
+        # TODO: Create Dataclass for BeefyCommitmentMap GP-0.3.8-eq:163
         beefy_commitment_map: BeefyCommitmentMap
-            Input parameter 4 | GP-0.3.6-eq:18 (bold_C)
+            Input parameter 4 | GP-0.3.8-eq:18 (bold_C)
 
         Returns
         -------
@@ -481,7 +481,7 @@ class RecentHistory(StateComponent):
 
         work_report_hashes = [g.report.package_spec.hash for g in extrinsic_guarantees]
 
-        # No more work reports than number of cores GP-0.3.6-ref:80
+        # No more work reports than number of cores GP-0.3.8-eq:80
         if work_report_hashes and len(work_report_hashes) > gp_const.CORE_COUNT:
             raise StateTransitionError(f"Work reports must be less than number of cores ({gp_const.CORE_COUNT})")
 
@@ -521,7 +521,7 @@ class Assurances(StateComponent):
 
     def state_transition_disputes(self, block: Block):
         """
-        GP-0.3.6-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state's assurances that
+        GP-0.3.8-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state's assurances that
         processes disputes.
 
         Parameters
@@ -531,9 +531,9 @@ class Assurances(StateComponent):
             Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
             the STFs utilize data external to the STF.
         # extrinsic_disputes: Disputes
-            Input parameter 1 | GP-0.3.6-eq:25 (bold_E_D)
+            Input parameter 1 | GP-0.3.8-eq:25 (bold_E_D)
         # pre_state_assurances: AssurancesState
-            Input parameter 2 | GP-0.3.6-eq:25 (greek_RHO | ρ)
+            Input parameter 2 | GP-0.3.8-eq:25 (greek_RHO | ρ)
 
         Returns
         -------
@@ -544,7 +544,7 @@ class Assurances(StateComponent):
 
     def state_transition_assurances(self, block: Block):
         """
-        GP-0.3.6-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's
+        GP-0.3.8-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's
         assurances that processes assurances.
 
         Parameters
@@ -554,9 +554,9 @@ class Assurances(StateComponent):
             Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
             the STFs utilize data external to the STF.
         # extrinsic_assurances: Vec(Assurance)
-            Input parameter 1 | GP-0.3.6-eq:26 (bold_E_A)
+            Input parameter 1 | GP-0.3.8-eq:26 (bold_E_A)
         # post_disputes_state_assurances: AssurancesState
-            Input parameter 2 | GP-0.3.6-eq:26 (greek_RHO_dagger | ρ†)
+            Input parameter 2 | GP-0.3.8-eq:26 (greek_RHO_dagger | ρ†)
 
         Returns
         -------
@@ -567,7 +567,7 @@ class Assurances(StateComponent):
 
     def state_transition_guarantees(self, block: Block):
         """
-        GP-0.3.6-eq:152 (greek_RHO_prime | ρ') | State transition function for the state's assurances.
+        GP-0.3.8-eq:152 (greek_RHO_prime | ρ') | State transition function for the state's assurances.
 
         Parameters
         ----------
@@ -576,13 +576,13 @@ class Assurances(StateComponent):
             Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
             the STFs utilize data external to the STF.
         # extrinsic_guarantees: Vec(Guarantee)
-            Input parameter 1 | GP-0.3.6-eq:27 (bold_E_G)
+            Input parameter 1 | GP-0.3.8-eq:27 (bold_E_G)
         # post_assurances_state_assurances: AssurancesState
-            Input parameter 2 | GP-0.3.6-eq:27 (greek_RHO_doubledagger | ρ‡)
+            Input parameter 2 | GP-0.3.8-eq:27 (greek_RHO_doubledagger | ρ‡)
         # pre_state_validator_pool: ValidatorPoolState
-            Input parameter 3 | GP-0.3.6-eq:27 (greek_KAPPA | κ)
+            Input parameter 3 | GP-0.3.8-eq:27 (greek_KAPPA | κ)
         # post_state_timeslot: TimeslotState
-            Input parameter 4 | GP-0.3.6-eq:27 (greek_TAU_prime | τ')
+            Input parameter 4 | GP-0.3.8-eq:27 (greek_TAU_prime | τ')
 
         Returns
         -------
@@ -614,14 +614,14 @@ class Disputes(StateComponent):
     def state_transition(self, extrinsic_disputes: ExtrinsicDisputes,
                          pre_state_disputes: DisputesState) -> DisputesOutput:
         """
-        GP-0.3.6-eq:111,112,113,114 (greek_PSI_prime | ψ') | State transition function for the state's disputes.
+        GP-0.3.8-eq:111,112,113,114 (greek_PSI_prime | ψ') | State transition function for the state's disputes.
 
         Parameters
         ----------
         extrinsic_disputes: ExtrinsicDisputes
-            Input parameter 1 | GP-0.3.6-eq:23 (bold_E_D)
+            Input parameter 1 | GP-0.3.8-eq:23 (bold_E_D)
         pre_state_disputes: DisputesState
-            Input parameter 2 | GP-0.3.6-eq:23 (greek_PSI | ψ)
+            Input parameter 2 | GP-0.3.8-eq:23 (greek_PSI | ψ)
 
         Returns
         -------
@@ -642,7 +642,7 @@ class Statistics(StateComponent):
 
     def state_transition(self, block: Block):
         """
-        GP-0.3.6-eq:171,172 (greek_PI_prime | π') | State transition function for the state's statistics.
+        GP-0.3.8-eq:171,172 (greek_PI_prime | π') | State transition function for the state's statistics.
 
         Parameters
         ----------
@@ -651,21 +651,23 @@ class Statistics(StateComponent):
             Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
             the STFs utilize data external to the STF.
         # extrinsic_guarantees: Vec(Guarantee)
-            Input parameter 1 | GP-0.3.6-eq:30 (bold_E_G)
+            Input parameter 1 | GP-0.3.8-eq:30 (bold_E_G)
         # extrinsic_preimages: Vec(Preimage)
-            Input parameter 2 | GP-0.3.6-eq:30 (bold_E_P)
+            Input parameter 2 | GP-0.3.8-eq:30 (bold_E_P)
         # extrinsic_assurances: Vec(Assurance)
-            Input parameter 3 | GP-0.3.6-eq:30 (bold_E_A)
+            Input parameter 3 | GP-0.3.8-eq:30 (bold_E_A)
         # extrinsic_tickets: Vec(TicketEnvelope)
-            Input parameter 4 | GP-0.3.6-eq:30 (bold_E_T)
+            Input parameter 4 | GP-0.3.8-eq:30 (bold_E_T)
         # pre_state_timeslot: TimeslotState
-            Input parameter 5 | GP-0.3.6-eq:30 (greek_TAU | τ)
+            Input parameter 5 | GP-0.3.8-eq:30 (greek_TAU | τ)
         # post_state_timeslot: TimeslotState
-            Input parameter 6 | GP-0.3.6-eq:30 (greek_TAU_prime | τ')
+            Input parameter 6 | GP-0.3.8-eq:30 (greek_TAU_prime | τ')
+        # post_state_validator_pool: ValidatorPoolState
+            Input parameter 7 | GP-0.3.8-eq:30 (greek_KAPPA_prime | κ')
         # pre_state_statistics: StatisticsState
-            Input parameter 7 | GP-0.3.6-eq:30 (greek_PI | π)
+            Input parameter 8 | GP-0.3.8-eq:30 (greek_PI | π)
         # header: Header
-            Input parameter 8 | GP-0.3.6-eq:30 (bold_H)
+            Input parameter 9 | GP-0.3.8-eq:30 (bold_H)
 
         Returns
         -------
