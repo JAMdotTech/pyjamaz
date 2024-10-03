@@ -1135,16 +1135,16 @@
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
                          <span class="n">pre_state_entropy</span><span class="p">:</span> <span class="n">EntropyState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EntropyOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.6-eq:66,67 (greek_ETA_prime | η&#39;) | State transition function for the state&#39;s entropy.</span>
+<span class="sd">        GP-0.3.8-eq:66,67 (greek_ETA_prime | η&#39;) | State transition function for the state&#39;s entropy.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            Input parameter 1 | GP-0.3.6-eq:20 (bold_H)</span>
+<span class="sd">            Input parameter 1 | GP-0.3.8-eq:20 (bold_H)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.6-eq:20 (greek_TAU | τ)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:20 (greek_TAU | τ)</span>
 <span class="sd">        pre_state_entropy: EntropyState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.6-eq:20 (greek_ETA | η)</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:20 (greek_ETA | η)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1154,13 +1154,13 @@
 
         <span class="n">post_state_entropy</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="p">)</span>
 
-        <span class="c1"># GP-0.3.6-eq:66 (greek_ETA_prime[0] | η&#39;[0]) | State transition for first index of the entropy.</span>
+        <span class="c1"># GP-0.3.8-eq:66 (greek_ETA_prime[0] | η&#39;[0]) | State transition for first index of the entropy.</span>
         <span class="n">eta_0</span> <span class="o">=</span> <span class="n">blake2b_256_hash</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">header</span><span class="o">.</span><span class="n">entropy_source</span><span class="p">)</span>
 
-        <span class="c1"># GP-0.3.6-eq:67 (greek_ETA_prime[1-3] | η&#39;[1-3]) | State transition for last three indices of the entropy.</span>
+        <span class="c1"># GP-0.3.8-eq:67 (greek_ETA_prime[1-3] | η&#39;[1-3]) | State transition for last three indices of the entropy.</span>
         <span class="c1"># State transition happen on epoch change.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-            <span class="c1"># GP-0.3.6-eq:67 (`e &gt; e&#39;`) | When epoch changes</span>
+            <span class="c1"># GP-0.3.8-eq:67 (`e &gt; e&#39;`) | When epoch changes</span>
             <span class="n">post_state_entropy</span><span class="o">.</span><span class="n">entropy</span> <span class="o">=</span> <span class="p">[</span><span class="n">eta_0</span><span class="p">]</span> <span class="o">+</span> <span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">post_state_entropy</span><span class="o">.</span><span class="n">entropy</span> <span class="o">=</span> <span class="p">[</span><span class="n">eta_0</span><span class="p">]</span> <span class="o">+</span> <span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
@@ -1196,7 +1196,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.6-eq:66,67 (greek_ETA_prime | η') | State transition function for the state's entropy.</p>
+        <p>GP-0.3.8-eq:66,67 (greek_ETA_prime | η') | State transition function for the state's entropy.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1217,7 +1217,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 1 | GP-0.3.6-eq:20 (bold_H)</p>
+                <p>Input parameter 1 | GP-0.3.8-eq:20 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1231,7 +1231,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.6-eq:20 (greek_TAU | τ)</p>
+                <p>Input parameter 2 | GP-0.3.8-eq:20 (greek_TAU | τ)</p>
               </div>
             </td>
             <td>
@@ -1245,7 +1245,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.6-eq:20 (greek_ETA | η)</p>
+                <p>Input parameter 3 | GP-0.3.8-eq:20 (greek_ETA | η)</p>
               </div>
             </td>
             <td>
@@ -1316,16 +1316,16 @@
 <span class="normal">86</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
                      <span class="n">pre_state_entropy</span><span class="p">:</span> <span class="n">EntropyState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EntropyOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.6-eq:66,67 (greek_ETA_prime | η&#39;) | State transition function for the state&#39;s entropy.</span>
+<span class="sd">    GP-0.3.8-eq:66,67 (greek_ETA_prime | η&#39;) | State transition function for the state&#39;s entropy.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        Input parameter 1 | GP-0.3.6-eq:20 (bold_H)</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:20 (bold_H)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.6-eq:20 (greek_TAU | τ)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:20 (greek_TAU | τ)</span>
 <span class="sd">    pre_state_entropy: EntropyState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.6-eq:20 (greek_ETA | η)</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:20 (greek_ETA | η)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1335,13 +1335,13 @@
 
     <span class="n">post_state_entropy</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="p">)</span>
 
-    <span class="c1"># GP-0.3.6-eq:66 (greek_ETA_prime[0] | η&#39;[0]) | State transition for first index of the entropy.</span>
+    <span class="c1"># GP-0.3.8-eq:66 (greek_ETA_prime[0] | η&#39;[0]) | State transition for first index of the entropy.</span>
     <span class="n">eta_0</span> <span class="o">=</span> <span class="n">blake2b_256_hash</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">header</span><span class="o">.</span><span class="n">entropy_source</span><span class="p">)</span>
 
-    <span class="c1"># GP-0.3.6-eq:67 (greek_ETA_prime[1-3] | η&#39;[1-3]) | State transition for last three indices of the entropy.</span>
+    <span class="c1"># GP-0.3.8-eq:67 (greek_ETA_prime[1-3] | η&#39;[1-3]) | State transition for last three indices of the entropy.</span>
     <span class="c1"># State transition happen on epoch change.</span>
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-        <span class="c1"># GP-0.3.6-eq:67 (`e &gt; e&#39;`) | When epoch changes</span>
+        <span class="c1"># GP-0.3.8-eq:67 (`e &gt; e&#39;`) | When epoch changes</span>
         <span class="n">post_state_entropy</span><span class="o">.</span><span class="n">entropy</span> <span class="o">=</span> <span class="p">[</span><span class="n">eta_0</span><span class="p">]</span> <span class="o">+</span> <span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">post_state_entropy</span><span class="o">.</span><span class="n">entropy</span> <span class="o">=</span> <span class="p">[</span><span class="n">eta_0</span><span class="p">]</span> <span class="o">+</span> <span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>

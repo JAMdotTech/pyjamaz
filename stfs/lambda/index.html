@@ -1136,19 +1136,19 @@
                          <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorArchiveOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.6-eq:57 (greek_LAMBDA_prime | λ&#39;) | State transition function for the state&#39;s archived validator set.</span>
+<span class="sd">        GP-0.3.8-eq:57 (greek_LAMBDA_prime | λ&#39;) | State transition function for the state&#39;s archived validator set.</span>
 <span class="sd">        Occurs on epoch change.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            Input parameter 1 | GP-0.3.6-eq:22 (bold_H)</span>
+<span class="sd">            Input parameter 1 | GP-0.3.8-eq:22 (bold_H)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.6-eq:22 (greek_TAU | τ)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:22 (greek_TAU | τ)</span>
 <span class="sd">        pre_state_validator_archive: ValidatorArchiveState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.6-eq:22 (greek_LAMBDA | λ)</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:22 (greek_LAMBDA | λ)</span>
 <span class="sd">        pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            Input parameter 4 | GP-0.3.6-eq:22 (greek_KAPPA | κ)</span>
+<span class="sd">            Input parameter 4 | GP-0.3.8-eq:22 (greek_KAPPA | κ)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1158,7 +1158,7 @@
         <span class="n">post_state_validator_archive</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_archive</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-            <span class="c1"># Update prior epoch validators   GP-0.3.2-eq:58</span>
+            <span class="c1"># Update prior epoch validators   GP-0.3.8-eq:57</span>
             <span class="n">post_state_validator_archive</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_validator_pool</span><span class="o">.</span><span class="n">validators</span>
 
         <span class="k">return</span> <span class="n">ValidatorArchiveOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_archive</span><span class="p">)</span>
@@ -1192,7 +1192,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.6-eq:57 (greek_LAMBDA_prime | λ') | State transition function for the state's archived validator set.
+        <p>GP-0.3.8-eq:57 (greek_LAMBDA_prime | λ') | State transition function for the state's archived validator set.
 Occurs on epoch change.</p>
 
 
@@ -1214,7 +1214,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 1 | GP-0.3.6-eq:22 (bold_H)</p>
+                <p>Input parameter 1 | GP-0.3.8-eq:22 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1228,7 +1228,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.6-eq:22 (greek_TAU | τ)</p>
+                <p>Input parameter 2 | GP-0.3.8-eq:22 (greek_TAU | τ)</p>
               </div>
             </td>
             <td>
@@ -1242,7 +1242,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.6-eq:22 (greek_LAMBDA | λ)</p>
+                <p>Input parameter 3 | GP-0.3.8-eq:22 (greek_LAMBDA | λ)</p>
               </div>
             </td>
             <td>
@@ -1256,7 +1256,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 4 | GP-0.3.6-eq:22 (greek_KAPPA | κ)</p>
+                <p>Input parameter 4 | GP-0.3.8-eq:22 (greek_KAPPA | κ)</p>
               </div>
             </td>
             <td>
@@ -1328,19 +1328,19 @@ Occurs on epoch change.</p>
                      <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorArchiveOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.6-eq:57 (greek_LAMBDA_prime | λ&#39;) | State transition function for the state&#39;s archived validator set.</span>
+<span class="sd">    GP-0.3.8-eq:57 (greek_LAMBDA_prime | λ&#39;) | State transition function for the state&#39;s archived validator set.</span>
 <span class="sd">    Occurs on epoch change.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        Input parameter 1 | GP-0.3.6-eq:22 (bold_H)</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:22 (bold_H)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.6-eq:22 (greek_TAU | τ)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:22 (greek_TAU | τ)</span>
 <span class="sd">    pre_state_validator_archive: ValidatorArchiveState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.6-eq:22 (greek_LAMBDA | λ)</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:22 (greek_LAMBDA | λ)</span>
 <span class="sd">    pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        Input parameter 4 | GP-0.3.6-eq:22 (greek_KAPPA | κ)</span>
+<span class="sd">        Input parameter 4 | GP-0.3.8-eq:22 (greek_KAPPA | κ)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1350,7 +1350,7 @@ Occurs on epoch change.</p>
     <span class="n">post_state_validator_archive</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_archive</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-        <span class="c1"># Update prior epoch validators   GP-0.3.2-eq:58</span>
+        <span class="c1"># Update prior epoch validators   GP-0.3.8-eq:57</span>
         <span class="n">post_state_validator_archive</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_validator_pool</span><span class="o">.</span><span class="n">validators</span>
 
     <span class="k">return</span> <span class="n">ValidatorArchiveOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_archive</span><span class="p">)</span>

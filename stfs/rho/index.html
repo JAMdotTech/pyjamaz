@@ -1207,7 +1207,7 @@
 
     <span class="k">def</span> <span class="nf">state_transition_disputes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.6-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state&#39;s assurances that</span>
+<span class="sd">        GP-0.3.8-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state&#39;s assurances that</span>
 <span class="sd">        processes disputes.</span>
 
 <span class="sd">        Parameters</span>
@@ -1217,9 +1217,9 @@
 <span class="sd">            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
 <span class="sd">            the STFs utilize data external to the STF.</span>
 <span class="sd">        # extrinsic_disputes: Disputes</span>
-<span class="sd">            Input parameter 1 | GP-0.3.6-eq:25 (bold_E_D)</span>
+<span class="sd">            Input parameter 1 | GP-0.3.8-eq:25 (bold_E_D)</span>
 <span class="sd">        # pre_state_assurances: AssurancesState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.6-eq:25 (greek_RHO | ρ)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:25 (greek_RHO | ρ)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1230,7 +1230,7 @@
 
     <span class="k">def</span> <span class="nf">state_transition_assurances</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.6-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state&#39;s</span>
+<span class="sd">        GP-0.3.8-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state&#39;s</span>
 <span class="sd">        assurances that processes assurances.</span>
 
 <span class="sd">        Parameters</span>
@@ -1240,9 +1240,9 @@
 <span class="sd">            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
 <span class="sd">            the STFs utilize data external to the STF.</span>
 <span class="sd">        # extrinsic_assurances: Vec(Assurance)</span>
-<span class="sd">            Input parameter 1 | GP-0.3.6-eq:26 (bold_E_A)</span>
+<span class="sd">            Input parameter 1 | GP-0.3.8-eq:26 (bold_E_A)</span>
 <span class="sd">        # post_disputes_state_assurances: AssurancesState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.6-eq:26 (greek_RHO_dagger | ρ†)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:26 (greek_RHO_dagger | ρ†)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1253,7 +1253,7 @@
 
     <span class="k">def</span> <span class="nf">state_transition_guarantees</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.6-eq:152 (greek_RHO_prime | ρ&#39;) | State transition function for the state&#39;s assurances.</span>
+<span class="sd">        GP-0.3.8-eq:152 (greek_RHO_prime | ρ&#39;) | State transition function for the state&#39;s assurances.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1262,13 +1262,13 @@
 <span class="sd">            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
 <span class="sd">            the STFs utilize data external to the STF.</span>
 <span class="sd">        # extrinsic_guarantees: Vec(Guarantee)</span>
-<span class="sd">            Input parameter 1 | GP-0.3.6-eq:27 (bold_E_G)</span>
+<span class="sd">            Input parameter 1 | GP-0.3.8-eq:27 (bold_E_G)</span>
 <span class="sd">        # post_assurances_state_assurances: AssurancesState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.6-eq:27 (greek_RHO_doubledagger | ρ‡)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:27 (greek_RHO_doubledagger | ρ‡)</span>
 <span class="sd">        # pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.6-eq:27 (greek_KAPPA | κ)</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:27 (greek_KAPPA | κ)</span>
 <span class="sd">        # post_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 4 | GP-0.3.6-eq:27 (greek_TAU_prime | τ&#39;)</span>
+<span class="sd">            Input parameter 4 | GP-0.3.8-eq:27 (greek_TAU_prime | τ&#39;)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1306,7 +1306,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.6-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state's assurances that
+        <p>GP-0.3.8-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state's assurances that
 processes disputes.</p>
 
 
@@ -1388,7 +1388,7 @@ the STFs utilize data external to the STF.</p>
 <span class="normal">542</span>
 <span class="normal">543</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_disputes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.6-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state&#39;s assurances that</span>
+<span class="sd">    GP-0.3.8-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state&#39;s assurances that</span>
 <span class="sd">    processes disputes.</span>
 
 <span class="sd">    Parameters</span>
@@ -1398,9 +1398,9 @@ the STFs utilize data external to the STF.</p>
 <span class="sd">        Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
 <span class="sd">        the STFs utilize data external to the STF.</span>
 <span class="sd">    # extrinsic_disputes: Disputes</span>
-<span class="sd">        Input parameter 1 | GP-0.3.6-eq:25 (bold_E_D)</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:25 (bold_E_D)</span>
 <span class="sd">    # pre_state_assurances: AssurancesState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.6-eq:25 (greek_RHO | ρ)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:25 (greek_RHO | ρ)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1425,7 +1425,7 @@ the STFs utilize data external to the STF.</p>
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.6-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's
+        <p>GP-0.3.8-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's
 assurances that processes assurances.</p>
 
 
@@ -1507,7 +1507,7 @@ the STFs utilize data external to the STF.</p>
 <span class="normal">565</span>
 <span class="normal">566</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_assurances</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.6-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state&#39;s</span>
+<span class="sd">    GP-0.3.8-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state&#39;s</span>
 <span class="sd">    assurances that processes assurances.</span>
 
 <span class="sd">    Parameters</span>
@@ -1517,9 +1517,9 @@ the STFs utilize data external to the STF.</p>
 <span class="sd">        Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
 <span class="sd">        the STFs utilize data external to the STF.</span>
 <span class="sd">    # extrinsic_assurances: Vec(Assurance)</span>
-<span class="sd">        Input parameter 1 | GP-0.3.6-eq:26 (bold_E_A)</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:26 (bold_E_A)</span>
 <span class="sd">    # post_disputes_state_assurances: AssurancesState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.6-eq:26 (greek_RHO_dagger | ρ†)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:26 (greek_RHO_dagger | ρ†)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1544,7 +1544,7 @@ the STFs utilize data external to the STF.</p>
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.6-eq:152 (greek_RHO_prime | ρ') | State transition function for the state's assurances.</p>
+        <p>GP-0.3.8-eq:152 (greek_RHO_prime | ρ') | State transition function for the state's assurances.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1628,7 +1628,7 @@ the STFs utilize data external to the STF.</p>
 <span class="normal">591</span>
 <span class="normal">592</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_guarantees</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.6-eq:152 (greek_RHO_prime | ρ&#39;) | State transition function for the state&#39;s assurances.</span>
+<span class="sd">    GP-0.3.8-eq:152 (greek_RHO_prime | ρ&#39;) | State transition function for the state&#39;s assurances.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1637,13 +1637,13 @@ the STFs utilize data external to the STF.</p>
 <span class="sd">        Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
 <span class="sd">        the STFs utilize data external to the STF.</span>
 <span class="sd">    # extrinsic_guarantees: Vec(Guarantee)</span>
-<span class="sd">        Input parameter 1 | GP-0.3.6-eq:27 (bold_E_G)</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:27 (bold_E_G)</span>
 <span class="sd">    # post_assurances_state_assurances: AssurancesState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.6-eq:27 (greek_RHO_doubledagger | ρ‡)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:27 (greek_RHO_doubledagger | ρ‡)</span>
 <span class="sd">    # pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.6-eq:27 (greek_KAPPA | κ)</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:27 (greek_KAPPA | κ)</span>
 <span class="sd">    # post_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 4 | GP-0.3.6-eq:27 (greek_TAU_prime | τ&#39;)</span>
+<span class="sd">        Input parameter 4 | GP-0.3.8-eq:27 (greek_TAU_prime | τ&#39;)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>

@@ -1293,8 +1293,8 @@
         <span class="k">if</span> <span class="n">ticket_data</span><span class="o">.</span><span class="n">attempt</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">bad_ticket_attempt</span><span class="p">)</span>
 
-        <span class="c1"># GP-0.3.2-ref:74</span>
-        <span class="n">vrf_input_data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;jam_ticket_seal&quot;</span>  <span class="c1"># GP-0.3.2-ref:65</span>
+        <span class="c1"># GP-0.3.8-eq:75</span>
+        <span class="n">vrf_input_data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;jam_ticket_seal&quot;</span>  <span class="c1"># GP-0.3.8-eq:64</span>
         <span class="n">vrf_input_data</span> <span class="o">+=</span> <span class="n">entropy</span>
         <span class="n">vrf_input_data</span> <span class="o">+=</span> <span class="nb">int</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="n">ticket_data</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;little&#39;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
@@ -1319,24 +1319,24 @@
                          <span class="n">post_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
                          <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SafroleOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.6-eq:57,59,60 (greek_GAMMA_prime | γ&#39;) | State transition function for the state&#39;s Safrole data.</span>
+<span class="sd">        GP-0.3.8-eq:57,59,60 (greek_GAMMA_prime | γ&#39;) | State transition function for the state&#39;s Safrole data.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            Input parameter 1 | GP-0.3.6-eq:19 (bold_H)</span>
+<span class="sd">            Input parameter 1 | GP-0.3.8-eq:19 (bold_H)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.6-eq:19 (greek_TAU | τ)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:19 (greek_TAU | τ)</span>
 <span class="sd">        extrinsic_tickets: List[TicketEnvelope]</span>
-<span class="sd">            Input parameter 3 | GP-0.3.6-eq:19 (bold_E_T)</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:19 (bold_E_T)</span>
 <span class="sd">        pre_state_safrole: SafroleState</span>
-<span class="sd">            Input parameter 4 | GP-0.3.6-eq:19 (greek_GAMMA | γ)</span>
+<span class="sd">            Input parameter 4 | GP-0.3.8-eq:19 (greek_GAMMA | γ)</span>
 <span class="sd">        pre_state_validator_queue: ValidatorQueueState</span>
-<span class="sd">            Input parameter 5| GP-0.3.6-eq:19 (greek_IOTA | ι)</span>
+<span class="sd">            Input parameter 5| GP-0.3.8-eq:19 (greek_IOTA | ι)</span>
 <span class="sd">        post_state_entropy: EntropyState</span>
-<span class="sd">            Input parameter 6 | GP-0.3.6-eq:19 (greek_ETA_prime | η&#39;)</span>
+<span class="sd">            Input parameter 6 | GP-0.3.8-eq:19 (greek_ETA_prime | η&#39;)</span>
 <span class="sd">        post_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            Input parameter 7 | GP-0.3.6-eq:19 (greek_KAPPA_prime | κ&#39;)</span>
+<span class="sd">            Input parameter 7 | GP-0.3.8-eq:19 (greek_KAPPA_prime | κ&#39;)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1349,7 +1349,7 @@
         <span class="k">if</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span> <span class="o">&lt;=</span> <span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">bad_slot</span><span class="p">)</span>
 
-        <span class="c1"># GP-0.3.2-ref:75</span>
+        <span class="c1"># GP-0.3.8-eq:74</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_phase_index</span><span class="p">(</span><span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">TICKET_SUBMISSION_END_SLOT</span><span class="p">:</span>
             <span class="c1"># Min 0, max 16 tickets</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">MAXIMUM_EXTRINSIC_TICKETS</span><span class="p">:</span>  <span class="c1"># constant_K=16</span>
@@ -1361,7 +1361,7 @@
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
 
-            <span class="c1"># Check for duplicate ticket_data; GP-0.3.2-eq:77</span>
+            <span class="c1"># Check for duplicate ticket_data; GP-0.3.8-eq:77</span>
             <span class="k">if</span> <span class="n">list_has_duplicates</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">duplicate_ticket</span><span class="p">)</span>
 
@@ -1376,16 +1376,16 @@
 
                 <span class="c1"># Check if ticket already exists</span>
                 <span class="k">if</span> <span class="n">ticket</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">:</span>
-                    <span class="c1"># GP-0.3.2-eq:78</span>
+                    <span class="c1"># GP-0.3.8-eq:78</span>
                     <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">duplicate_ticket</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">input_tickets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ticket</span><span class="p">)</span>
 
-            <span class="c1"># Check if tickets are in order: GP-0.3.2-ref:77</span>
+            <span class="c1"># Check if tickets are in order: GP-0.3.8-eq:77</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">tickets_in_order</span><span class="p">(</span><span class="n">input_tickets</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">bad_ticket_order</span><span class="p">)</span>
 
-            <span class="c1"># Add tickets to ticket accumulator, sort and limit: GP-0.3.2-ref:78,79</span>
+            <span class="c1"># Add tickets to ticket accumulator, sort and limit: GP-0.3.8-eq:78,79</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span> <span class="o">+=</span> <span class="n">input_tickets</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">id</span>
@@ -1397,7 +1397,7 @@
 
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">)</span> <span class="ow">and</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">slot_phase_index</span><span class="p">(</span><span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">TICKET_SUBMISSION_END_SLOT</span><span class="p">):</span>
-            <span class="c1"># Ticket mark only when accumulator is saturated # GP-0.3.2-ref:67</span>
+            <span class="c1"># Ticket mark only when accumulator is saturated # GP-0.3.8-eq:72</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">)</span> <span class="o">==</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">EPOCH_TIMESLOTS</span><span class="p">:</span>
                 <span class="n">tickets_mark</span> <span class="o">=</span> <span class="n">reorder_list_outside_in</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">))</span>  <span class="c1"># GP-0.3.2-ref:70</span>
 
@@ -1417,13 +1417,13 @@
                 <span class="n">validators</span><span class="o">=</span><span class="n">epoch_validator_keys</span>
             <span class="p">)</span>
 
-            <span class="c1"># Update Validator keys for the following epoch. # GP-0.3.2-eq:58</span>
-            <span class="c1"># TODO: apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.3.2-eq:59</span>
+            <span class="c1"># Update Validator keys for the following epoch. # GP-0.3.8-eq:57</span>
+            <span class="c1"># TODO: apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.3.8-eq:58</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_queue</span><span class="o">.</span><span class="n">validators</span><span class="p">)</span>
 
             <span class="c1"># Update Sealing-key series of the current epoch.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enact_fallback_method</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-                <span class="c1"># Determine fallback keys according to # GP-0.3.2-ref:71</span>
+                <span class="c1"># Determine fallback keys according to # GP-0.3.8-eq:70</span>
                 <span class="n">validators</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gp_const</span><span class="o">.</span><span class="n">EPOCH_TIMESLOTS</span><span class="p">):</span>
                     <span class="n">blake_hash</span> <span class="o">=</span> <span class="n">blake2b_256_hash</span><span class="p">(</span>
@@ -1438,12 +1438,12 @@
 
                 <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">slot_sealer_series</span> <span class="o">=</span> <span class="n">SlotSealerSeries</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="n">validators</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:70</span>
+                <span class="c1"># When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:69</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">slot_sealer_series</span> <span class="o">=</span> <span class="n">SlotSealerSeries</span><span class="p">(</span>
                     <span class="n">tickets</span><span class="o">=</span><span class="n">reorder_list_outside_in</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">))</span>
                 <span class="p">)</span>
 
-            <span class="c1"># Update ring commitment using O(); GP-0.3.2-eq:58</span>
+            <span class="c1"># Update ring commitment using O(); GP-0.3.8-eq:57</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ring_commitment</span> <span class="o">=</span> <span class="n">ring_commitment</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">ring_data</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="o">.</span><span class="n">bandersnatch</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">validators</span><span class="p">]</span>
             <span class="p">)</span>
@@ -1500,7 +1500,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.6-eq:57,59,60 (greek_GAMMA_prime | γ') | State transition function for the state's Safrole data.</p>
+        <p>GP-0.3.8-eq:57,59,60 (greek_GAMMA_prime | γ') | State transition function for the state's Safrole data.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1521,7 +1521,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 1 | GP-0.3.6-eq:19 (bold_H)</p>
+                <p>Input parameter 1 | GP-0.3.8-eq:19 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1535,7 +1535,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.6-eq:19 (greek_TAU | τ)</p>
+                <p>Input parameter 2 | GP-0.3.8-eq:19 (greek_TAU | τ)</p>
               </div>
             </td>
             <td>
@@ -1549,7 +1549,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.6-eq:19 (bold_E_T)</p>
+                <p>Input parameter 3 | GP-0.3.8-eq:19 (bold_E_T)</p>
               </div>
             </td>
             <td>
@@ -1563,7 +1563,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 4 | GP-0.3.6-eq:19 (greek_GAMMA | γ)</p>
+                <p>Input parameter 4 | GP-0.3.8-eq:19 (greek_GAMMA | γ)</p>
               </div>
             </td>
             <td>
@@ -1577,7 +1577,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 5| GP-0.3.6-eq:19 (greek_IOTA | ι)</p>
+                <p>Input parameter 5| GP-0.3.8-eq:19 (greek_IOTA | ι)</p>
               </div>
             </td>
             <td>
@@ -1591,7 +1591,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 6 | GP-0.3.6-eq:19 (greek_ETA_prime | η')</p>
+                <p>Input parameter 6 | GP-0.3.8-eq:19 (greek_ETA_prime | η')</p>
               </div>
             </td>
             <td>
@@ -1605,7 +1605,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 7 | GP-0.3.6-eq:19 (greek_KAPPA_prime | κ')</p>
+                <p>Input parameter 7 | GP-0.3.8-eq:19 (greek_KAPPA_prime | κ')</p>
               </div>
             </td>
             <td>
@@ -1795,24 +1795,24 @@
                      <span class="n">post_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
                      <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SafroleOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.6-eq:57,59,60 (greek_GAMMA_prime | γ&#39;) | State transition function for the state&#39;s Safrole data.</span>
+<span class="sd">    GP-0.3.8-eq:57,59,60 (greek_GAMMA_prime | γ&#39;) | State transition function for the state&#39;s Safrole data.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        Input parameter 1 | GP-0.3.6-eq:19 (bold_H)</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:19 (bold_H)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.6-eq:19 (greek_TAU | τ)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:19 (greek_TAU | τ)</span>
 <span class="sd">    extrinsic_tickets: List[TicketEnvelope]</span>
-<span class="sd">        Input parameter 3 | GP-0.3.6-eq:19 (bold_E_T)</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:19 (bold_E_T)</span>
 <span class="sd">    pre_state_safrole: SafroleState</span>
-<span class="sd">        Input parameter 4 | GP-0.3.6-eq:19 (greek_GAMMA | γ)</span>
+<span class="sd">        Input parameter 4 | GP-0.3.8-eq:19 (greek_GAMMA | γ)</span>
 <span class="sd">    pre_state_validator_queue: ValidatorQueueState</span>
-<span class="sd">        Input parameter 5| GP-0.3.6-eq:19 (greek_IOTA | ι)</span>
+<span class="sd">        Input parameter 5| GP-0.3.8-eq:19 (greek_IOTA | ι)</span>
 <span class="sd">    post_state_entropy: EntropyState</span>
-<span class="sd">        Input parameter 6 | GP-0.3.6-eq:19 (greek_ETA_prime | η&#39;)</span>
+<span class="sd">        Input parameter 6 | GP-0.3.8-eq:19 (greek_ETA_prime | η&#39;)</span>
 <span class="sd">    post_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        Input parameter 7 | GP-0.3.6-eq:19 (greek_KAPPA_prime | κ&#39;)</span>
+<span class="sd">        Input parameter 7 | GP-0.3.8-eq:19 (greek_KAPPA_prime | κ&#39;)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1825,7 +1825,7 @@
     <span class="k">if</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span> <span class="o">&lt;=</span> <span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">bad_slot</span><span class="p">)</span>
 
-    <span class="c1"># GP-0.3.2-ref:75</span>
+    <span class="c1"># GP-0.3.8-eq:74</span>
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_phase_index</span><span class="p">(</span><span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">TICKET_SUBMISSION_END_SLOT</span><span class="p">:</span>
         <span class="c1"># Min 0, max 16 tickets</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">MAXIMUM_EXTRINSIC_TICKETS</span><span class="p">:</span>  <span class="c1"># constant_K=16</span>
@@ -1837,7 +1837,7 @@
 
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
 
-        <span class="c1"># Check for duplicate ticket_data; GP-0.3.2-eq:77</span>
+        <span class="c1"># Check for duplicate ticket_data; GP-0.3.8-eq:77</span>
         <span class="k">if</span> <span class="n">list_has_duplicates</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">duplicate_ticket</span><span class="p">)</span>
 
@@ -1852,16 +1852,16 @@
 
             <span class="c1"># Check if ticket already exists</span>
             <span class="k">if</span> <span class="n">ticket</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">:</span>
-                <span class="c1"># GP-0.3.2-eq:78</span>
+                <span class="c1"># GP-0.3.8-eq:78</span>
                 <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">duplicate_ticket</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">input_tickets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ticket</span><span class="p">)</span>
 
-        <span class="c1"># Check if tickets are in order: GP-0.3.2-ref:77</span>
+        <span class="c1"># Check if tickets are in order: GP-0.3.8-eq:77</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">tickets_in_order</span><span class="p">(</span><span class="n">input_tickets</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">bad_ticket_order</span><span class="p">)</span>
 
-        <span class="c1"># Add tickets to ticket accumulator, sort and limit: GP-0.3.2-ref:78,79</span>
+        <span class="c1"># Add tickets to ticket accumulator, sort and limit: GP-0.3.8-eq:78,79</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span> <span class="o">+=</span> <span class="n">input_tickets</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">id</span>
@@ -1873,7 +1873,7 @@
 
     <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">)</span> <span class="ow">and</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">slot_phase_index</span><span class="p">(</span><span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">TICKET_SUBMISSION_END_SLOT</span><span class="p">):</span>
-        <span class="c1"># Ticket mark only when accumulator is saturated # GP-0.3.2-ref:67</span>
+        <span class="c1"># Ticket mark only when accumulator is saturated # GP-0.3.8-eq:72</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">)</span> <span class="o">==</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">EPOCH_TIMESLOTS</span><span class="p">:</span>
             <span class="n">tickets_mark</span> <span class="o">=</span> <span class="n">reorder_list_outside_in</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">))</span>  <span class="c1"># GP-0.3.2-ref:70</span>
 
@@ -1893,13 +1893,13 @@
             <span class="n">validators</span><span class="o">=</span><span class="n">epoch_validator_keys</span>
         <span class="p">)</span>
 
-        <span class="c1"># Update Validator keys for the following epoch. # GP-0.3.2-eq:58</span>
-        <span class="c1"># TODO: apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.3.2-eq:59</span>
+        <span class="c1"># Update Validator keys for the following epoch. # GP-0.3.8-eq:57</span>
+        <span class="c1"># TODO: apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.3.8-eq:58</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_queue</span><span class="o">.</span><span class="n">validators</span><span class="p">)</span>
 
         <span class="c1"># Update Sealing-key series of the current epoch.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enact_fallback_method</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-            <span class="c1"># Determine fallback keys according to # GP-0.3.2-ref:71</span>
+            <span class="c1"># Determine fallback keys according to # GP-0.3.8-eq:70</span>
             <span class="n">validators</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gp_const</span><span class="o">.</span><span class="n">EPOCH_TIMESLOTS</span><span class="p">):</span>
                 <span class="n">blake_hash</span> <span class="o">=</span> <span class="n">blake2b_256_hash</span><span class="p">(</span>
@@ -1914,12 +1914,12 @@
 
             <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">slot_sealer_series</span> <span class="o">=</span> <span class="n">SlotSealerSeries</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="n">validators</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:70</span>
+            <span class="c1"># When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:69</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">slot_sealer_series</span> <span class="o">=</span> <span class="n">SlotSealerSeries</span><span class="p">(</span>
                 <span class="n">tickets</span><span class="o">=</span><span class="n">reorder_list_outside_in</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">))</span>
             <span class="p">)</span>
 
-        <span class="c1"># Update ring commitment using O(); GP-0.3.2-eq:58</span>
+        <span class="c1"># Update ring commitment using O(); GP-0.3.8-eq:57</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ring_commitment</span> <span class="o">=</span> <span class="n">ring_commitment</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ring_data</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="o">.</span><span class="n">bandersnatch</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">validators</span><span class="p">]</span>
         <span class="p">)</span>
