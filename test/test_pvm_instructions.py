@@ -56,7 +56,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
 
         ExitConditionMap = {
             ExitCondition.none.value: "none",
-            ExitCondition.trap.value: "trap",
+            ExitCondition.panic.value: "trap",
             ExitCondition.halt.value: "halt"
         }
 
