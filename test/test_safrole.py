@@ -204,12 +204,54 @@ class TestSafroleVector(unittest.TestCase):
             statistics=StatisticsState(
                 statistics=[
                     [
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0)
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        )
                     ] * 2
                 ]
             ),

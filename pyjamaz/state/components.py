@@ -422,6 +422,7 @@ class AuthorizerPools(StateComponent):
 
     def state_transition(
             self,
+            header: Header,
             extrinsic_guarantees: List[Guarantee],
             post_state_authorizer_queues: AuthorizerQueuesState,
             pre_state_authorizer_pools: AuthorizerPoolsState
@@ -431,12 +432,14 @@ class AuthorizerPools(StateComponent):
 
         Parameters
         ----------
+        header: Header
+            Input parameter 1 | GP-0.3.8-eq:29 (bold_H)
         extrinsic_guarantees: List[Guarantee]
-            Input parameter 1 | GP-0.3.8-eq:29 (bold_E_G)
+            Input parameter 2 | GP-0.3.8-eq:29 (bold_E_G)
         post_state_authorizer_queues: AuthorizerQueuesState
-            Input parameter 2 | GP-0.3.8-eq:29 (φ')
+            Input parameter 3 | GP-0.3.8-eq:29 (φ')
         pre_state_authorizer_pools: AuthorizerPoolsState
-            Input parameter 3 | GP-0.3.8-eq:29 (α)
+            Input parameter 4 | GP-0.3.8-eq:29 (α)
 
         Returns
         -------
@@ -818,7 +821,7 @@ class Services(StateComponent):
         Returns
         -------
         ServicesOutput
-            Output containing: posterior state of ServicesState (δ')
+            Output containing: posterior state of ServicesState (δ') and BeefyCommitmentMap.
         """
         # Todo: properly set post_state_services by implementing STF
         post_state_services = intermediate_state_services_after_preimages

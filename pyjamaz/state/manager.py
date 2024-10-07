@@ -3,7 +3,7 @@ from typing import Dict, Type
 from pyjamaz.exceptions import StateComponentNotFound
 from pyjamaz.state.base import StateComponent, T
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorPool, ValidatorQueue, ValidatorArchive, \
-    RecentHistory, Disputes
+    RecentHistory, Disputes, Statistics, Services
 from pyjamaz.storage import StorageInterface
 from pyjamaz.types.block import Block
 from pyjamaz.types.stf_output import STFOutput
