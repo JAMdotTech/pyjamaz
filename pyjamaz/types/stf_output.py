@@ -6,7 +6,8 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import Option, Enum
 from pyjamaz.types.block import OutputMarks
 from pyjamaz.types.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
-    ValidatorArchiveState, RecentHistoryState
+    ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
+    BeefyCommitmentMap
 
 
 @dataclass
@@ -36,6 +37,11 @@ class ValidatorPoolOutput(Serializable):
 
 
 @dataclass
+class RecentHistoryIntermediateOutput(Serializable):
+    intermediate_state: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
+
+
+@dataclass
 class RecentHistoryOutput(Serializable):
     post_state: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
 
@@ -55,6 +61,42 @@ class SafroleErrorCode(Serializable, enum.Enum):
 class SafroleOutput(Serializable):
     post_state: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
     output_marks: OutputMarks = field(default=None, metadata={'codec': OutputMarks.to_codec_def()})  # Markers
+
+
+@dataclass
+class AuthorizerPoolsOutput(Serializable):
+    post_state: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
+
+
+@dataclass
+class AssurancesAfterDisputesOutput(Serializable):
+    intermediate_state_after_disputes: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+
+
+@dataclass
+class AssurancesAfterAssurancesOutput(Serializable):
+    intermediate_state_after_assurances: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+
+
+@dataclass
+class AssurancesAfterGuaranteesOutput(Serializable):
+    post_state: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+
+
+@dataclass
+class StatisticsOutput(Serializable):
+    post_state: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
+
+
+@dataclass
+class ServicesAfterPreimagesOutput(Serializable):
+    intermediate_state_after_preimages: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+
+
+@dataclass
+class ServicesOutput(Serializable):
+    post_state: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+    beefy_commitment_map: BeefyCommitmentMap = field(default=None, metadata={'codec': BeefyCommitmentMap.to_codec_def()})  # BeefyCommitmentMap
 
 
 @dataclass
