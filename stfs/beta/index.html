@@ -360,6 +360,8 @@
       
         
       
+        
+      
     
     
       
@@ -1107,34 +1109,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">430</span>
-<span class="normal">431</span>
-<span class="normal">432</span>
-<span class="normal">433</span>
-<span class="normal">434</span>
-<span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span>
-<span class="normal">443</span>
-<span class="normal">444</span>
-<span class="normal">445</span>
-<span class="normal">446</span>
-<span class="normal">447</span>
-<span class="normal">448</span>
-<span class="normal">449</span>
-<span class="normal">450</span>
-<span class="normal">451</span>
-<span class="normal">452</span>
-<span class="normal">453</span>
-<span class="normal">454</span>
-<span class="normal">455</span>
-<span class="normal">456</span>
-<span class="normal">457</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">457</span>
 <span class="normal">458</span>
 <span class="normal">459</span>
 <span class="normal">460</span>
@@ -1193,38 +1168,87 @@
 <span class="normal">513</span>
 <span class="normal">514</span>
 <span class="normal">515</span>
-<span class="normal">516</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">RecentHistory</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">516</span>
+<span class="normal">517</span>
+<span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span>
+<span class="normal">522</span>
+<span class="normal">523</span>
+<span class="normal">524</span>
+<span class="normal">525</span>
+<span class="normal">526</span>
+<span class="normal">527</span>
+<span class="normal">528</span>
+<span class="normal">529</span>
+<span class="normal">530</span>
+<span class="normal">531</span>
+<span class="normal">532</span>
+<span class="normal">533</span>
+<span class="normal">534</span>
+<span class="normal">535</span>
+<span class="normal">536</span>
+<span class="normal">537</span>
+<span class="normal">538</span>
+<span class="normal">539</span>
+<span class="normal">540</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span>
+<span class="normal">550</span>
+<span class="normal">551</span>
+<span class="normal">552</span>
+<span class="normal">553</span>
+<span class="normal">554</span>
+<span class="normal">555</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">RecentHistory</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">3</span>
 
-    <span class="k">def</span> <span class="nf">state_transition_intermediate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
-                                      <span class="n">pre_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryState</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">state_transition_intermediate</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
+            <span class="n">pre_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryIntermediateOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:81 (greek_BETA_dagger | β†) | Intermediate state transition function for the state&#39;s recent history.</span>
+<span class="sd">        GP-0.3.8-eq:81 (β†) | Intermediate state transition function for the state&#39;s recent history.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
 <span class="sd">            Input parameter 1 | GP-0.3.8-eq:17 (bold_H)</span>
 <span class="sd">        pre_state_recent_history: RecentHistoryState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:17 (greek_BETA | β)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:17 (β)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        intermediate_state_recent_history: RecentHistoryState</span>
-<span class="sd">            Intermediate state of RecentHistoryState (greek_BETA_dagger | β†)</span>
+<span class="sd">        RecentHistoryIntermediateOutput</span>
+<span class="sd">            Output containing: Intermediate state of RecentHistoryState (β†)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">intermediate_state_recent_history</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_recent_history</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pre_state_recent_history</span><span class="o">.</span><span class="n">recent_history</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">intermediate_state_recent_history</span><span class="o">.</span><span class="n">recent_history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">state_root</span> <span class="o">=</span> <span class="n">header</span><span class="o">.</span><span class="n">parent_state_root</span>
 
-        <span class="k">return</span> <span class="n">intermediate_state_recent_history</span>
+        <span class="c1"># return intermediate_state_recent_history</span>
+        <span class="k">return</span> <span class="n">RecentHistoryIntermediateOutput</span><span class="p">(</span>
+            <span class="n">intermediate_state</span><span class="o">=</span><span class="n">intermediate_state_recent_history</span>
+        <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
-                         <span class="n">intermediate_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="p">,</span>
-                         <span class="n">accumulate_root</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryOutput</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
+            <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
+            <span class="n">intermediate_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="p">,</span>
+            <span class="n">accumulate_root</span><span class="p">:</span> <span class="nb">bytes</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:83 (greek_BETA_prime | β&#39;) | State transition function for the state&#39;s recent history.</span>
+<span class="sd">        GP-0.3.8-eq:83 (β&#39;) | State transition function for the state&#39;s recent history.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1233,7 +1257,7 @@
 <span class="sd">        extrinsic_guarantees: List[Guarantee]</span>
 <span class="sd">            Input parameter 2 | GP-0.3.8-eq:18 (bold_E_G)</span>
 <span class="sd">        intermediate_state_recent_history: RecentHistoryState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.8-eq:18 (greek_BETA_dagger | β†)</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:18 (β†)</span>
 <span class="sd">        # TODO: Create Dataclass for BeefyCommitmentMap GP-0.3.8-eq:163</span>
 <span class="sd">        beefy_commitment_map: BeefyCommitmentMap</span>
 <span class="sd">            Input parameter 4 | GP-0.3.8-eq:18 (bold_C)</span>
@@ -1241,7 +1265,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        RecentHistoryOutput</span>
-<span class="sd">            Output containing posterior state of RecentHistoryState (greek_BETA_prime | β&#39;)</span>
+<span class="sd">            Output containing: Posterior state of RecentHistoryState (β&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">post_state_recent_history</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">intermediate_state_recent_history</span><span class="p">)</span>
 
@@ -1275,7 +1299,9 @@
             <span class="c1"># Limit reached, delete first (oldest) item in block history</span>
             <span class="n">post_state_recent_history</span><span class="o">.</span><span class="n">recent_history</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">RecentHistoryOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_recent_history</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">RecentHistoryOutput</span><span class="p">(</span>
+            <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_recent_history</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
@@ -1299,14 +1325,14 @@
 
 
 <h2 id="pyjamaz.state.components.RecentHistory.state_transition_intermediate" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">state_transition_intermediate</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryState</span></code>
+            <code class="highlight language-python"><span class="n">state_transition_intermediate</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryIntermediateOutput</span></code>
 
 <a href="#pyjamaz.state.components.RecentHistory.state_transition_intermediate" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:81 (greek_BETA_dagger | β†) | Intermediate state transition function for the state's recent history.</p>
+        <p>GP-0.3.8-eq:81 (β†) | Intermediate state transition function for the state's recent history.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1341,7 +1367,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.8-eq:17 (greek_BETA | β)</p>
+                <p>Input parameter 2 | GP-0.3.8-eq:17 (β)</p>
               </div>
             </td>
             <td>
@@ -1356,18 +1382,18 @@
     <table>
       <thead>
         <tr>
-<th>Name</th>          <th>Type</th>
+          <th>Type</th>
           <th>Description</th>
         </tr>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>intermediate_state_recent_history</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.RecentHistoryState" href="../../types/types_state/#pyjamaz.types.state.RecentHistoryState">RecentHistoryState</a></code>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.RecentHistoryIntermediateOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.RecentHistoryIntermediateOutput">RecentHistoryIntermediateOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Intermediate state of RecentHistoryState (greek_BETA_dagger | β†)</p>
+                <p>Output containing: Intermediate state of RecentHistoryState (β†)</p>
               </div>
             </td>
           </tr>
@@ -1376,51 +1402,63 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">433</span>
-<span class="normal">434</span>
-<span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span>
-<span class="normal">443</span>
-<span class="normal">444</span>
-<span class="normal">445</span>
-<span class="normal">446</span>
-<span class="normal">447</span>
-<span class="normal">448</span>
-<span class="normal">449</span>
-<span class="normal">450</span>
-<span class="normal">451</span>
-<span class="normal">452</span>
-<span class="normal">453</span>
-<span class="normal">454</span>
-<span class="normal">455</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_intermediate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
-                                  <span class="n">pre_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryState</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span>
+<span class="normal">469</span>
+<span class="normal">470</span>
+<span class="normal">471</span>
+<span class="normal">472</span>
+<span class="normal">473</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
+<span class="normal">482</span>
+<span class="normal">483</span>
+<span class="normal">484</span>
+<span class="normal">485</span>
+<span class="normal">486</span>
+<span class="normal">487</span>
+<span class="normal">488</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_intermediate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
+        <span class="n">pre_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryIntermediateOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:81 (greek_BETA_dagger | β†) | Intermediate state transition function for the state&#39;s recent history.</span>
+<span class="sd">    GP-0.3.8-eq:81 (β†) | Intermediate state transition function for the state&#39;s recent history.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
 <span class="sd">        Input parameter 1 | GP-0.3.8-eq:17 (bold_H)</span>
 <span class="sd">    pre_state_recent_history: RecentHistoryState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:17 (greek_BETA | β)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:17 (β)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    intermediate_state_recent_history: RecentHistoryState</span>
-<span class="sd">        Intermediate state of RecentHistoryState (greek_BETA_dagger | β†)</span>
+<span class="sd">    RecentHistoryIntermediateOutput</span>
+<span class="sd">        Output containing: Intermediate state of RecentHistoryState (β†)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">intermediate_state_recent_history</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_recent_history</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pre_state_recent_history</span><span class="o">.</span><span class="n">recent_history</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">intermediate_state_recent_history</span><span class="o">.</span><span class="n">recent_history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">state_root</span> <span class="o">=</span> <span class="n">header</span><span class="o">.</span><span class="n">parent_state_root</span>
 
-    <span class="k">return</span> <span class="n">intermediate_state_recent_history</span>
+    <span class="c1"># return intermediate_state_recent_history</span>
+    <span class="k">return</span> <span class="n">RecentHistoryIntermediateOutput</span><span class="p">(</span>
+        <span class="n">intermediate_state</span><span class="o">=</span><span class="n">intermediate_state_recent_history</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1438,7 +1476,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:83 (greek_BETA_prime | β') | State transition function for the state's recent history.</p>
+        <p>GP-0.3.8-eq:83 (β') | State transition function for the state's recent history.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1487,7 +1525,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.8-eq:18 (greek_BETA_dagger | β†)</p>
+                <p>Input parameter 3 | GP-0.3.8-eq:18 (β†)</p>
               </div>
             </td>
             <td>
@@ -1522,11 +1560,11 @@
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="pyjamaz.types.stf_output.RecentHistoryOutput">RecentHistoryOutput</span></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.RecentHistoryOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.RecentHistoryOutput">RecentHistoryOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Output containing posterior state of RecentHistoryState (greek_BETA_prime | β')</p>
+                <p>Output containing: Posterior state of RecentHistoryState (β')</p>
               </div>
             </td>
           </tr>
@@ -1535,40 +1573,7 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">457</span>
-<span class="normal">458</span>
-<span class="normal">459</span>
-<span class="normal">460</span>
-<span class="normal">461</span>
-<span class="normal">462</span>
-<span class="normal">463</span>
-<span class="normal">464</span>
-<span class="normal">465</span>
-<span class="normal">466</span>
-<span class="normal">467</span>
-<span class="normal">468</span>
-<span class="normal">469</span>
-<span class="normal">470</span>
-<span class="normal">471</span>
-<span class="normal">472</span>
-<span class="normal">473</span>
-<span class="normal">474</span>
-<span class="normal">475</span>
-<span class="normal">476</span>
-<span class="normal">477</span>
-<span class="normal">478</span>
-<span class="normal">479</span>
-<span class="normal">480</span>
-<span class="normal">481</span>
-<span class="normal">482</span>
-<span class="normal">483</span>
-<span class="normal">484</span>
-<span class="normal">485</span>
-<span class="normal">486</span>
-<span class="normal">487</span>
-<span class="normal">488</span>
-<span class="normal">489</span>
-<span class="normal">490</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">490</span>
 <span class="normal">491</span>
 <span class="normal">492</span>
 <span class="normal">493</span>
@@ -1590,11 +1595,54 @@
 <span class="normal">509</span>
 <span class="normal">510</span>
 <span class="normal">511</span>
-<span class="normal">512</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
-                     <span class="n">intermediate_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="p">,</span>
-                     <span class="n">accumulate_root</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryOutput</span><span class="p">:</span>
+<span class="normal">512</span>
+<span class="normal">513</span>
+<span class="normal">514</span>
+<span class="normal">515</span>
+<span class="normal">516</span>
+<span class="normal">517</span>
+<span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span>
+<span class="normal">522</span>
+<span class="normal">523</span>
+<span class="normal">524</span>
+<span class="normal">525</span>
+<span class="normal">526</span>
+<span class="normal">527</span>
+<span class="normal">528</span>
+<span class="normal">529</span>
+<span class="normal">530</span>
+<span class="normal">531</span>
+<span class="normal">532</span>
+<span class="normal">533</span>
+<span class="normal">534</span>
+<span class="normal">535</span>
+<span class="normal">536</span>
+<span class="normal">537</span>
+<span class="normal">538</span>
+<span class="normal">539</span>
+<span class="normal">540</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span>
+<span class="normal">550</span>
+<span class="normal">551</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
+        <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
+        <span class="n">intermediate_state_recent_history</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="p">,</span>
+        <span class="n">accumulate_root</span><span class="p">:</span> <span class="nb">bytes</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecentHistoryOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:83 (greek_BETA_prime | β&#39;) | State transition function for the state&#39;s recent history.</span>
+<span class="sd">    GP-0.3.8-eq:83 (β&#39;) | State transition function for the state&#39;s recent history.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1603,7 +1651,7 @@
 <span class="sd">    extrinsic_guarantees: List[Guarantee]</span>
 <span class="sd">        Input parameter 2 | GP-0.3.8-eq:18 (bold_E_G)</span>
 <span class="sd">    intermediate_state_recent_history: RecentHistoryState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.8-eq:18 (greek_BETA_dagger | β†)</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:18 (β†)</span>
 <span class="sd">    # TODO: Create Dataclass for BeefyCommitmentMap GP-0.3.8-eq:163</span>
 <span class="sd">    beefy_commitment_map: BeefyCommitmentMap</span>
 <span class="sd">        Input parameter 4 | GP-0.3.8-eq:18 (bold_C)</span>
@@ -1611,7 +1659,7 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    RecentHistoryOutput</span>
-<span class="sd">        Output containing posterior state of RecentHistoryState (greek_BETA_prime | β&#39;)</span>
+<span class="sd">        Output containing: Posterior state of RecentHistoryState (β&#39;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state_recent_history</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">intermediate_state_recent_history</span><span class="p">)</span>
 
@@ -1645,7 +1693,9 @@
         <span class="c1"># Limit reached, delete first (oldest) item in block history</span>
         <span class="n">post_state_recent_history</span><span class="o">.</span><span class="n">recent_history</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">RecentHistoryOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_recent_history</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">RecentHistoryOutput</span><span class="p">(</span>
+        <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_recent_history</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

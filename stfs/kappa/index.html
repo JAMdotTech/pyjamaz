@@ -360,6 +360,8 @@
       
         
       
+        
+      
     
     
       
@@ -1089,22 +1091,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">105</span>
-<span class="normal">106</span>
-<span class="normal">107</span>
-<span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">120</span>
 <span class="normal">121</span>
 <span class="normal">122</span>
 <span class="normal">123</span>
@@ -1131,7 +1118,23 @@
 <span class="normal">144</span>
 <span class="normal">145</span>
 <span class="normal">146</span>
-<span class="normal">147</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorPool</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorPool</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">8</span>
 
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
@@ -1143,33 +1146,34 @@
             <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:57 (greek_KAPPA_prime | κ&#39;) | State transition function for the state&#39;s current validator set.</span>
-<span class="sd">        Occurs on epoch change.</span>
+<span class="sd">        GP-0.3.8-eq:57 (κ&#39;) | State transition function for the state&#39;s current validator set. Occurs on epoch change.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
 <span class="sd">            Input parameter 1 | GP-0.3.8-eq:21 (bold_H)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:21 (greek_TAU | τ)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:21 (τ)</span>
 <span class="sd">        pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.8-eq:21 (greek_KAPPA | κ)</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:21 (κ)</span>
 <span class="sd">        pre_state_safrole: SafroleState</span>
-<span class="sd">            Input parameter 4 | GP-0.3.8-eq:21 (greek_GAMMA | η)</span>
+<span class="sd">            Input parameter 4 | GP-0.3.8-eq:21 (η)</span>
 <span class="sd">        post_state_disputes: DisputesState</span>
-<span class="sd">            Input parameter 5 | GP-0.3.8-eq:21 (greek_PSI_prime | ψ&#39;)</span>
+<span class="sd">            Input parameter 5 | GP-0.3.8-eq:21 (ψ&#39;)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        ValidatorPoolOutput</span>
-<span class="sd">            Output containing posterior state of ValidatorPoolState (greek_KAPPA_prime | κ&#39;)</span>
+<span class="sd">            Output containing: posterior state of ValidatorPoolState (κ&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">post_state_validator_pool</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_pool</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
             <span class="n">post_state_validator_pool</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_safrole</span><span class="o">.</span><span class="n">validators</span>
 
-        <span class="k">return</span> <span class="n">ValidatorPoolOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_pool</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ValidatorPoolOutput</span><span class="p">(</span>
+            <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_pool</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
@@ -1200,8 +1204,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:57 (greek_KAPPA_prime | κ') | State transition function for the state's current validator set.
-Occurs on epoch change.</p>
+        <p>GP-0.3.8-eq:57 (κ') | State transition function for the state's current validator set. Occurs on epoch change.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1236,7 +1239,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.8-eq:21 (greek_TAU | τ)</p>
+                <p>Input parameter 2 | GP-0.3.8-eq:21 (τ)</p>
               </div>
             </td>
             <td>
@@ -1250,7 +1253,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.8-eq:21 (greek_KAPPA | κ)</p>
+                <p>Input parameter 3 | GP-0.3.8-eq:21 (κ)</p>
               </div>
             </td>
             <td>
@@ -1264,7 +1267,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 4 | GP-0.3.8-eq:21 (greek_GAMMA | η)</p>
+                <p>Input parameter 4 | GP-0.3.8-eq:21 (η)</p>
               </div>
             </td>
             <td>
@@ -1278,7 +1281,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 5 | GP-0.3.8-eq:21 (greek_PSI_prime | ψ')</p>
+                <p>Input parameter 5 | GP-0.3.8-eq:21 (ψ')</p>
               </div>
             </td>
             <td>
@@ -1300,11 +1303,11 @@ Occurs on epoch change.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="pyjamaz.types.stf_output.ValidatorPoolOutput">ValidatorPoolOutput</span></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.ValidatorPoolOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.ValidatorPoolOutput">ValidatorPoolOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Output containing posterior state of ValidatorPoolState (greek_KAPPA_prime | κ')</p>
+                <p>Output containing: posterior state of ValidatorPoolState (κ')</p>
               </div>
             </td>
           </tr>
@@ -1313,22 +1316,7 @@ Occurs on epoch change.</p>
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">123</span>
 <span class="normal">124</span>
 <span class="normal">125</span>
 <span class="normal">126</span>
@@ -1348,7 +1336,23 @@ Occurs on epoch change.</p>
 <span class="normal">140</span>
 <span class="normal">141</span>
 <span class="normal">142</span>
-<span class="normal">143</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
         <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
@@ -1357,33 +1361,34 @@ Occurs on epoch change.</p>
         <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:57 (greek_KAPPA_prime | κ&#39;) | State transition function for the state&#39;s current validator set.</span>
-<span class="sd">    Occurs on epoch change.</span>
+<span class="sd">    GP-0.3.8-eq:57 (κ&#39;) | State transition function for the state&#39;s current validator set. Occurs on epoch change.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
 <span class="sd">        Input parameter 1 | GP-0.3.8-eq:21 (bold_H)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:21 (greek_TAU | τ)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:21 (τ)</span>
 <span class="sd">    pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.8-eq:21 (greek_KAPPA | κ)</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:21 (κ)</span>
 <span class="sd">    pre_state_safrole: SafroleState</span>
-<span class="sd">        Input parameter 4 | GP-0.3.8-eq:21 (greek_GAMMA | η)</span>
+<span class="sd">        Input parameter 4 | GP-0.3.8-eq:21 (η)</span>
 <span class="sd">    post_state_disputes: DisputesState</span>
-<span class="sd">        Input parameter 5 | GP-0.3.8-eq:21 (greek_PSI_prime | ψ&#39;)</span>
+<span class="sd">        Input parameter 5 | GP-0.3.8-eq:21 (ψ&#39;)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    ValidatorPoolOutput</span>
-<span class="sd">        Output containing posterior state of ValidatorPoolState (greek_KAPPA_prime | κ&#39;)</span>
+<span class="sd">        Output containing: posterior state of ValidatorPoolState (κ&#39;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state_validator_pool</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_pool</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
         <span class="n">post_state_validator_pool</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_safrole</span><span class="o">.</span><span class="n">validators</span>
 
-    <span class="k">return</span> <span class="n">ValidatorPoolOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_pool</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ValidatorPoolOutput</span><span class="p">(</span>
+        <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_pool</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

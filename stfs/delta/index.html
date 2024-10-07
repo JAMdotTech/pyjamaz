@@ -360,6 +360,8 @@
       
         
       
+        
+      
     
     
       
@@ -608,6 +610,24 @@
   <a href="#pyjamaz.state.components.Services" class="md-nav__link">
     <span class="md-ellipsis">
       Services
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyjamaz.state.components.Services.state_transition_after_preimages" class="md-nav__link">
+    <span class="md-ellipsis">
+      state_transition_after_preimages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyjamaz.state.components.Services.state_transition" class="md-nav__link">
+    <span class="md-ellipsis">
+      state_transition
     </span>
   </a>
   
@@ -1026,6 +1046,24 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#pyjamaz.state.components.Services.state_transition_after_preimages" class="md-nav__link">
+    <span class="md-ellipsis">
+      state_transition_after_preimages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyjamaz.state.components.Services.state_transition" class="md-nav__link">
+    <span class="md-ellipsis">
+      state_transition
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1071,21 +1109,163 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">684</span>
-<span class="normal">685</span>
-<span class="normal">686</span>
-<span class="normal">687</span>
-<span class="normal">688</span>
-<span class="normal">689</span>
-<span class="normal">690</span>
-<span class="normal">691</span>
-<span class="normal">692</span>
-<span class="normal">693</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Services</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">754</span>
+<span class="normal">755</span>
+<span class="normal">756</span>
+<span class="normal">757</span>
+<span class="normal">758</span>
+<span class="normal">759</span>
+<span class="normal">760</span>
+<span class="normal">761</span>
+<span class="normal">762</span>
+<span class="normal">763</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span>
+<span class="normal">767</span>
+<span class="normal">768</span>
+<span class="normal">769</span>
+<span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span>
+<span class="normal">774</span>
+<span class="normal">775</span>
+<span class="normal">776</span>
+<span class="normal">777</span>
+<span class="normal">778</span>
+<span class="normal">779</span>
+<span class="normal">780</span>
+<span class="normal">781</span>
+<span class="normal">782</span>
+<span class="normal">783</span>
+<span class="normal">784</span>
+<span class="normal">785</span>
+<span class="normal">786</span>
+<span class="normal">787</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span>
+<span class="normal">791</span>
+<span class="normal">792</span>
+<span class="normal">793</span>
+<span class="normal">794</span>
+<span class="normal">795</span>
+<span class="normal">796</span>
+<span class="normal">797</span>
+<span class="normal">798</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span>
+<span class="normal">809</span>
+<span class="normal">810</span>
+<span class="normal">811</span>
+<span class="normal">812</span>
+<span class="normal">813</span>
+<span class="normal">814</span>
+<span class="normal">815</span>
+<span class="normal">816</span>
+<span class="normal">817</span>
+<span class="normal">818</span>
+<span class="normal">819</span>
+<span class="normal">820</span>
+<span class="normal">821</span>
+<span class="normal">822</span>
+<span class="normal">823</span>
+<span class="normal">824</span>
+<span class="normal">825</span>
+<span class="normal">826</span>
+<span class="normal">827</span>
+<span class="normal">828</span>
+<span class="normal">829</span>
+<span class="normal">830</span>
+<span class="normal">831</span>
+<span class="normal">832</span>
+<span class="normal">833</span>
+<span class="normal">834</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Services</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="c1"># component_id = 255</span>
 
-    <span class="c1"># Todo: later</span>
-    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
-        <span class="k">pass</span>
+    <span class="k">def</span> <span class="nf">state_transition_after_preimages</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">extrinsic_preimages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Preimage</span><span class="p">],</span>
+            <span class="n">pre_state_services</span><span class="p">:</span> <span class="n">ServicesState</span><span class="p">,</span>
+            <span class="n">post_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServicesAfterPreimagesOutput</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        GP-0.3.8-eq:156 (δ†) | Intermediate state transition function after processing Preimages for the state&#39;s</span>
+<span class="sd">        services.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        extrinsic_preimages: List[Preimage]</span>
+<span class="sd">            Input parameter 1 | GP-0.3.8-eq:24 (bold_E_P)</span>
+<span class="sd">        pre_state_services: ServicesState</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:24 (δ)</span>
+<span class="sd">        post_state_timeslot: TimeslotState</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:24 (τ&#39;)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ServicesAfterPreimagesOutput</span>
+<span class="sd">            Output containing: Intermediate state after processing Preimages of ServicesState (δ†)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Todo: properly set intermediate_state_services_after_preimages by implementing STF</span>
+        <span class="n">intermediate_state_services_after_preimages</span> <span class="o">=</span> <span class="n">pre_state_services</span>
+        <span class="k">return</span> <span class="n">ServicesAfterPreimagesOutput</span><span class="p">(</span>
+            <span class="n">intermediate_state_after_preimages</span><span class="o">=</span><span class="n">intermediate_state_services_after_preimages</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Todo: Add additional intermediate STF for δ‡ (Services after accumulation, but before transfers as per</span>
+    <span class="c1">#  GP-0.3.8-eq:166. State Transition Dependency Graph does not currently list a distinct STF for this. This may</span>
+    <span class="c1">#  impact input parameters of the main STF.</span>
+
+    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">extrinsic_assurances</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Assurance</span><span class="p">],</span>
+            <span class="n">post_state_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="p">,</span>
+            <span class="n">intermediate_state_services_after_preimages</span><span class="p">:</span> <span class="n">ServicesState</span><span class="p">,</span>
+            <span class="n">pre_state_privileged_services</span><span class="p">:</span> <span class="n">PrivilegedServicesState</span><span class="p">,</span>
+            <span class="n">pre_state_validator_queue</span><span class="p">:</span> <span class="n">ValidatorQueueState</span><span class="p">,</span>
+            <span class="n">pre_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServicesOutput</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        GP-0.3.8-eq:168 (δ&#39;) | State transition function for the state&#39;s services.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        extrinsic_assurances: List[Assurance]</span>
+<span class="sd">            Input parameter 1 | GP-0.3.8-eq:28 (bold_E_A)</span>
+<span class="sd">        post_state_assurances: AssurancesState</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:28 (ρ&#39;)</span>
+<span class="sd">        intermediate_state_services_after_preimages: ServicesState</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:28 (δ†)</span>
+<span class="sd">        pre_state_privileged_services: PrivilegedServicesState</span>
+<span class="sd">            Input parameter 4 | GP-0.3.8-eq:28 (χ)</span>
+<span class="sd">        pre_state_validator_queue: ValidatorQueueState</span>
+<span class="sd">            Input parameter 5 | GP-0.3.8-eq:28 (ι)</span>
+<span class="sd">        pre_state_authorizer_queues: AuthorizerQueuesState</span>
+<span class="sd">            Input parameter 6 | GP-0.3.8-eq:28 (φ)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ServicesOutput</span>
+<span class="sd">            Output containing: posterior state of ServicesState (δ&#39;) and BeefyCommitmentMap.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Todo: properly set post_state_services by implementing STF</span>
+        <span class="n">post_state_services</span> <span class="o">=</span> <span class="n">intermediate_state_services_after_preimages</span>
+        <span class="k">return</span> <span class="n">ServicesOutput</span><span class="p">(</span>
+            <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_services</span><span class="p">,</span>
+            <span class="c1"># Todo: BeefyCommitmentMap Dictionary is a result of service accumulation and is used in STF for</span>
+            <span class="c1">#  RecentHistory.</span>
+            <span class="n">beefy_commitment_map</span><span class="o">=</span><span class="n">BeefyCommitmentMap</span><span class="p">({})</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServicesState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
@@ -1104,6 +1284,387 @@
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pyjamaz.state.components.Services.state_transition_after_preimages" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">state_transition_after_preimages</span><span class="p">(</span><span class="n">extrinsic_preimages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Preimage</span><span class="p">],</span> <span class="n">pre_state_services</span><span class="p">:</span> <span class="n">ServicesState</span><span class="p">,</span> <span class="n">post_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServicesAfterPreimagesOutput</span></code>
+
+<a href="#pyjamaz.state.components.Services.state_transition_after_preimages" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+        <p>GP-0.3.8-eq:156 (δ†) | Intermediate state transition function after processing Preimages for the state's
+services.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code>extrinsic_preimages</code></td>
+            <td>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Preimage" href="../../types/types_blocks/#pyjamaz.types.block.Preimage">Preimage</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 1 | GP-0.3.8-eq:24 (bold_E_P)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>pre_state_services</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.ServicesState" href="../../types/types_state/#pyjamaz.types.state.ServicesState">ServicesState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 2 | GP-0.3.8-eq:24 (δ)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>post_state_timeslot</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.TimeslotState" href="../../types/types_state/#pyjamaz.types.state.TimeslotState">TimeslotState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 3 | GP-0.3.8-eq:24 (τ')</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.ServicesAfterPreimagesOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.ServicesAfterPreimagesOutput">ServicesAfterPreimagesOutput</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Output containing: Intermediate state after processing Preimages of ServicesState (δ†)</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+            <details class="quote">
+              <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">757</span>
+<span class="normal">758</span>
+<span class="normal">759</span>
+<span class="normal">760</span>
+<span class="normal">761</span>
+<span class="normal">762</span>
+<span class="normal">763</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span>
+<span class="normal">767</span>
+<span class="normal">768</span>
+<span class="normal">769</span>
+<span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span>
+<span class="normal">774</span>
+<span class="normal">775</span>
+<span class="normal">776</span>
+<span class="normal">777</span>
+<span class="normal">778</span>
+<span class="normal">779</span>
+<span class="normal">780</span>
+<span class="normal">781</span>
+<span class="normal">782</span>
+<span class="normal">783</span>
+<span class="normal">784</span>
+<span class="normal">785</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_after_preimages</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">extrinsic_preimages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Preimage</span><span class="p">],</span>
+        <span class="n">pre_state_services</span><span class="p">:</span> <span class="n">ServicesState</span><span class="p">,</span>
+        <span class="n">post_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServicesAfterPreimagesOutput</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    GP-0.3.8-eq:156 (δ†) | Intermediate state transition function after processing Preimages for the state&#39;s</span>
+<span class="sd">    services.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    extrinsic_preimages: List[Preimage]</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:24 (bold_E_P)</span>
+<span class="sd">    pre_state_services: ServicesState</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:24 (δ)</span>
+<span class="sd">    post_state_timeslot: TimeslotState</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:24 (τ&#39;)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ServicesAfterPreimagesOutput</span>
+<span class="sd">        Output containing: Intermediate state after processing Preimages of ServicesState (δ†)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Todo: properly set intermediate_state_services_after_preimages by implementing STF</span>
+    <span class="n">intermediate_state_services_after_preimages</span> <span class="o">=</span> <span class="n">pre_state_services</span>
+    <span class="k">return</span> <span class="n">ServicesAfterPreimagesOutput</span><span class="p">(</span>
+        <span class="n">intermediate_state_after_preimages</span><span class="o">=</span><span class="n">intermediate_state_services_after_preimages</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pyjamaz.state.components.Services.state_transition" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">extrinsic_assurances</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Assurance</span><span class="p">],</span> <span class="n">post_state_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="p">,</span> <span class="n">intermediate_state_services_after_preimages</span><span class="p">:</span> <span class="n">ServicesState</span><span class="p">,</span> <span class="n">pre_state_privileged_services</span><span class="p">:</span> <span class="n">PrivilegedServicesState</span><span class="p">,</span> <span class="n">pre_state_validator_queue</span><span class="p">:</span> <span class="n">ValidatorQueueState</span><span class="p">,</span> <span class="n">pre_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServicesOutput</span></code>
+
+<a href="#pyjamaz.state.components.Services.state_transition" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+        <p>GP-0.3.8-eq:168 (δ') | State transition function for the state's services.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code>extrinsic_assurances</code></td>
+            <td>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Assurance" href="../../types/types_blocks/#pyjamaz.types.block.Assurance">Assurance</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 1 | GP-0.3.8-eq:28 (bold_E_A)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>post_state_assurances</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AssurancesState" href="../../types/types_state/#pyjamaz.types.state.AssurancesState">AssurancesState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 2 | GP-0.3.8-eq:28 (ρ')</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>intermediate_state_services_after_preimages</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.ServicesState" href="../../types/types_state/#pyjamaz.types.state.ServicesState">ServicesState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 3 | GP-0.3.8-eq:28 (δ†)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>pre_state_privileged_services</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.PrivilegedServicesState" href="../../types/types_state/#pyjamaz.types.state.PrivilegedServicesState">PrivilegedServicesState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 4 | GP-0.3.8-eq:28 (χ)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>pre_state_validator_queue</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.ValidatorQueueState" href="../../types/types_state/#pyjamaz.types.state.ValidatorQueueState">ValidatorQueueState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 5 | GP-0.3.8-eq:28 (ι)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>pre_state_authorizer_queues</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AuthorizerQueuesState" href="../../types/types_state/#pyjamaz.types.state.AuthorizerQueuesState">AuthorizerQueuesState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 6 | GP-0.3.8-eq:28 (φ)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.ServicesOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.ServicesOutput">ServicesOutput</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Output containing: posterior state of ServicesState (δ') and BeefyCommitmentMap.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+            <details class="quote">
+              <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">791</span>
+<span class="normal">792</span>
+<span class="normal">793</span>
+<span class="normal">794</span>
+<span class="normal">795</span>
+<span class="normal">796</span>
+<span class="normal">797</span>
+<span class="normal">798</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span>
+<span class="normal">809</span>
+<span class="normal">810</span>
+<span class="normal">811</span>
+<span class="normal">812</span>
+<span class="normal">813</span>
+<span class="normal">814</span>
+<span class="normal">815</span>
+<span class="normal">816</span>
+<span class="normal">817</span>
+<span class="normal">818</span>
+<span class="normal">819</span>
+<span class="normal">820</span>
+<span class="normal">821</span>
+<span class="normal">822</span>
+<span class="normal">823</span>
+<span class="normal">824</span>
+<span class="normal">825</span>
+<span class="normal">826</span>
+<span class="normal">827</span>
+<span class="normal">828</span>
+<span class="normal">829</span>
+<span class="normal">830</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">extrinsic_assurances</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Assurance</span><span class="p">],</span>
+        <span class="n">post_state_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="p">,</span>
+        <span class="n">intermediate_state_services_after_preimages</span><span class="p">:</span> <span class="n">ServicesState</span><span class="p">,</span>
+        <span class="n">pre_state_privileged_services</span><span class="p">:</span> <span class="n">PrivilegedServicesState</span><span class="p">,</span>
+        <span class="n">pre_state_validator_queue</span><span class="p">:</span> <span class="n">ValidatorQueueState</span><span class="p">,</span>
+        <span class="n">pre_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ServicesOutput</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    GP-0.3.8-eq:168 (δ&#39;) | State transition function for the state&#39;s services.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    extrinsic_assurances: List[Assurance]</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:28 (bold_E_A)</span>
+<span class="sd">    post_state_assurances: AssurancesState</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:28 (ρ&#39;)</span>
+<span class="sd">    intermediate_state_services_after_preimages: ServicesState</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:28 (δ†)</span>
+<span class="sd">    pre_state_privileged_services: PrivilegedServicesState</span>
+<span class="sd">        Input parameter 4 | GP-0.3.8-eq:28 (χ)</span>
+<span class="sd">    pre_state_validator_queue: ValidatorQueueState</span>
+<span class="sd">        Input parameter 5 | GP-0.3.8-eq:28 (ι)</span>
+<span class="sd">    pre_state_authorizer_queues: AuthorizerQueuesState</span>
+<span class="sd">        Input parameter 6 | GP-0.3.8-eq:28 (φ)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ServicesOutput</span>
+<span class="sd">        Output containing: posterior state of ServicesState (δ&#39;) and BeefyCommitmentMap.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Todo: properly set post_state_services by implementing STF</span>
+    <span class="n">post_state_services</span> <span class="o">=</span> <span class="n">intermediate_state_services_after_preimages</span>
+    <span class="k">return</span> <span class="n">ServicesOutput</span><span class="p">(</span>
+        <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_services</span><span class="p">,</span>
+        <span class="c1"># Todo: BeefyCommitmentMap Dictionary is a result of service accumulation and is used in STF for</span>
+        <span class="c1">#  RecentHistory.</span>
+        <span class="n">beefy_commitment_map</span><span class="o">=</span><span class="n">BeefyCommitmentMap</span><span class="p">({})</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 

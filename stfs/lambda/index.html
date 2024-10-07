@@ -360,6 +360,8 @@
       
         
       
+        
+      
     
     
       
@@ -1089,23 +1091,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
-<span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
-<span class="normal">166</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">166</span>
 <span class="normal">167</span>
 <span class="normal">168</span>
 <span class="normal">169</span>
@@ -1127,41 +1113,63 @@
 <span class="normal">185</span>
 <span class="normal">186</span>
 <span class="normal">187</span>
-<span class="normal">188</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorArchive</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorArchive</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">9</span>
 
-    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
-                         <span class="n">pre_state_validator_archive</span><span class="p">:</span> <span class="n">ValidatorArchiveState</span><span class="p">,</span>
-                         <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
+    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
+            <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
+            <span class="n">pre_state_validator_archive</span><span class="p">:</span> <span class="n">ValidatorArchiveState</span><span class="p">,</span>
+            <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorArchiveOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:57 (greek_LAMBDA_prime | λ&#39;) | State transition function for the state&#39;s archived validator set.</span>
-<span class="sd">        Occurs on epoch change.</span>
+<span class="sd">        GP-0.3.8-eq:57 (λ&#39;) | State transition function for the state&#39;s archived validator set. Occurs on epoch change.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
 <span class="sd">            Input parameter 1 | GP-0.3.8-eq:22 (bold_H)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:22 (greek_TAU | τ)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:22 (τ)</span>
 <span class="sd">        pre_state_validator_archive: ValidatorArchiveState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.8-eq:22 (greek_LAMBDA | λ)</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:22 (λ)</span>
 <span class="sd">        pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            Input parameter 4 | GP-0.3.8-eq:22 (greek_KAPPA | κ)</span>
+<span class="sd">            Input parameter 4 | GP-0.3.8-eq:22 (κ)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        ValidatorArchiveOutput</span>
-<span class="sd">            Output containing posterior state of ValidatorArchiveState (greek_LAMBDA_prime | λ&#39;)</span>
+<span class="sd">            Output containing: posterior state of ValidatorArchiveState (λ&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">post_state_validator_archive</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_archive</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-            <span class="c1"># Update prior epoch validators   GP-0.3.8-eq:57</span>
+            <span class="c1"># Update prior epoch validators GP-0.3.8-eq:57</span>
             <span class="n">post_state_validator_archive</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_validator_pool</span><span class="o">.</span><span class="n">validators</span>
 
-        <span class="k">return</span> <span class="n">ValidatorArchiveOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_archive</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ValidatorArchiveOutput</span><span class="p">(</span>
+            <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_archive</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorArchiveState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
@@ -1192,8 +1200,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:57 (greek_LAMBDA_prime | λ') | State transition function for the state's archived validator set.
-Occurs on epoch change.</p>
+        <p>GP-0.3.8-eq:57 (λ') | State transition function for the state's archived validator set. Occurs on epoch change.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1228,7 +1235,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.8-eq:22 (greek_TAU | τ)</p>
+                <p>Input parameter 2 | GP-0.3.8-eq:22 (τ)</p>
               </div>
             </td>
             <td>
@@ -1242,7 +1249,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.8-eq:22 (greek_LAMBDA | λ)</p>
+                <p>Input parameter 3 | GP-0.3.8-eq:22 (λ)</p>
               </div>
             </td>
             <td>
@@ -1256,7 +1263,7 @@ Occurs on epoch change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 4 | GP-0.3.8-eq:22 (greek_KAPPA | κ)</p>
+                <p>Input parameter 4 | GP-0.3.8-eq:22 (κ)</p>
               </div>
             </td>
             <td>
@@ -1278,11 +1285,11 @@ Occurs on epoch change.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="pyjamaz.types.stf_output.ValidatorArchiveOutput">ValidatorArchiveOutput</span></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.ValidatorArchiveOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.ValidatorArchiveOutput">ValidatorArchiveOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Output containing posterior state of ValidatorArchiveState (greek_LAMBDA_prime | λ')</p>
+                <p>Output containing: posterior state of ValidatorArchiveState (λ')</p>
               </div>
             </td>
           </tr>
@@ -1291,23 +1298,7 @@ Occurs on epoch change.</p>
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
-<span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
-<span class="normal">166</span>
-<span class="normal">167</span>
-<span class="normal">168</span>
-<span class="normal">169</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">169</span>
 <span class="normal">170</span>
 <span class="normal">171</span>
 <span class="normal">172</span>
@@ -1322,38 +1313,60 @@ Occurs on epoch change.</p>
 <span class="normal">181</span>
 <span class="normal">182</span>
 <span class="normal">183</span>
-<span class="normal">184</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                     <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
-                     <span class="n">pre_state_validator_archive</span><span class="p">:</span> <span class="n">ValidatorArchiveState</span><span class="p">,</span>
-                     <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
+        <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
+        <span class="n">pre_state_validator_archive</span><span class="p">:</span> <span class="n">ValidatorArchiveState</span><span class="p">,</span>
+        <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorArchiveOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:57 (greek_LAMBDA_prime | λ&#39;) | State transition function for the state&#39;s archived validator set.</span>
-<span class="sd">    Occurs on epoch change.</span>
+<span class="sd">    GP-0.3.8-eq:57 (λ&#39;) | State transition function for the state&#39;s archived validator set. Occurs on epoch change.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
 <span class="sd">        Input parameter 1 | GP-0.3.8-eq:22 (bold_H)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:22 (greek_TAU | τ)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:22 (τ)</span>
 <span class="sd">    pre_state_validator_archive: ValidatorArchiveState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.8-eq:22 (greek_LAMBDA | λ)</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:22 (λ)</span>
 <span class="sd">    pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        Input parameter 4 | GP-0.3.8-eq:22 (greek_KAPPA | κ)</span>
+<span class="sd">        Input parameter 4 | GP-0.3.8-eq:22 (κ)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    ValidatorArchiveOutput</span>
-<span class="sd">        Output containing posterior state of ValidatorArchiveState (greek_LAMBDA_prime | λ&#39;)</span>
+<span class="sd">        Output containing: posterior state of ValidatorArchiveState (λ&#39;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state_validator_archive</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_archive</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-        <span class="c1"># Update prior epoch validators   GP-0.3.8-eq:57</span>
+        <span class="c1"># Update prior epoch validators GP-0.3.8-eq:57</span>
         <span class="n">post_state_validator_archive</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_validator_pool</span><span class="o">.</span><span class="n">validators</span>
 
-    <span class="k">return</span> <span class="n">ValidatorArchiveOutput</span><span class="p">(</span><span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_archive</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ValidatorArchiveOutput</span><span class="p">(</span>
+        <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_validator_archive</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

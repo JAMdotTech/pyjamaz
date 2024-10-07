@@ -360,6 +360,8 @@
       
         
       
+        
+      
     
     
       
@@ -1089,61 +1091,71 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">398</span>
-<span class="normal">399</span>
-<span class="normal">400</span>
-<span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span>
-<span class="normal">407</span>
-<span class="normal">408</span>
-<span class="normal">409</span>
-<span class="normal">410</span>
-<span class="normal">411</span>
-<span class="normal">412</span>
-<span class="normal">413</span>
-<span class="normal">414</span>
-<span class="normal">415</span>
-<span class="normal">416</span>
-<span class="normal">417</span>
-<span class="normal">418</span>
-<span class="normal">419</span>
-<span class="normal">420</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">420</span>
 <span class="normal">421</span>
 <span class="normal">422</span>
 <span class="normal">423</span>
 <span class="normal">424</span>
 <span class="normal">425</span>
 <span class="normal">426</span>
-<span class="normal">427</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">AuthorizerPools</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">427</span>
+<span class="normal">428</span>
+<span class="normal">429</span>
+<span class="normal">430</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span>
+<span class="normal">437</span>
+<span class="normal">438</span>
+<span class="normal">439</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">AuthorizerPools</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">1</span>
 
-    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
+            <span class="n">post_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span><span class="p">,</span>
+            <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:85,86 (greek_ALPHA_prime | α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
+<span class="sd">        GP-0.3.8-eq:85,86 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        block: Block</span>
-<span class="sd">            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.</span>
-<span class="sd">            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
-<span class="sd">            the STFs utilize data external to the STF.</span>
-<span class="sd">        # extrinsic_guarantees: Vec(Guarantee)</span>
+<span class="sd">        extrinsic_guarantees: List[Guarantee]</span>
 <span class="sd">            Input parameter 1 | GP-0.3.8-eq:29 (bold_E_G)</span>
-<span class="sd">        # post_state_authorizer_queues: AuthorizerQueuesState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:29 (greek_PHI_prime | φ&#39;)</span>
-<span class="sd">        # pre_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.8-eq:29 (greek_ALPHA | α)</span>
+<span class="sd">        post_state_authorizer_queues: AuthorizerQueuesState</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:29 (φ&#39;)</span>
+<span class="sd">        pre_state_authorizer_pools: AuthorizerPoolsState</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:29 (α)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        post_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">            Posterior state of AuthorizerPoolsState (greek_ALPHA_prime | α&#39;)</span>
+<span class="sd">        AuthorizerPoolsOutput</span>
+<span class="sd">            Output containing: Posterior state of AuthorizerPoolsState (α&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
+        <span class="c1"># Todo: properly set post_state by implementing STF</span>
+        <span class="n">post_state_authorizer_pools</span> <span class="o">=</span> <span class="n">pre_state_authorizer_pools</span>
+        <span class="k">return</span> <span class="n">AuthorizerPoolsOutput</span><span class="p">(</span>
+            <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_authorizer_pools</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
@@ -1167,14 +1179,14 @@
 
 
 <h2 id="pyjamaz.state.components.AuthorizerPools.state_transition" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span> <span class="n">post_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span><span class="p">,</span> <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsOutput</span></code>
 
 <a href="#pyjamaz.state.components.AuthorizerPools.state_transition" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:85,86 (greek_ALPHA_prime | α') | State transition function for the state's authorizer pools.</p>
+        <p>GP-0.3.8-eq:85,86 (α') | State transition function for the state's authorizer pools.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1189,15 +1201,41 @@
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>block</code></td>
+            <td><code>extrinsic_guarantees</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.Block" href="../../types/types_blocks/#pyjamaz.types.block.Block">Block</a></code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Guarantee" href="../../types/types_blocks/#pyjamaz.types.block.Guarantee">Guarantee</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
-Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
-the STFs utilize data external to the STF.</p>
+                <p>Input parameter 1 | GP-0.3.8-eq:29 (bold_E_G)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>post_state_authorizer_queues</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AuthorizerQueuesState" href="../../types/types_state/#pyjamaz.types.state.AuthorizerQueuesState">AuthorizerQueuesState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 2 | GP-0.3.8-eq:29 (φ')</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>pre_state_authorizer_pools</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AuthorizerPoolsState" href="../../types/types_state/#pyjamaz.types.state.AuthorizerPoolsState">AuthorizerPoolsState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 3 | GP-0.3.8-eq:29 (α)</p>
               </div>
             </td>
             <td>
@@ -1212,18 +1250,18 @@ the STFs utilize data external to the STF.</p>
     <table>
       <thead>
         <tr>
-<th>Name</th>          <th>Type</th>
+          <th>Type</th>
           <th>Description</th>
         </tr>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>post_state_authorizer_pools</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AuthorizerPoolsState" href="../../types/types_state/#pyjamaz.types.state.AuthorizerPoolsState">AuthorizerPoolsState</a></code>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.AuthorizerPoolsOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.AuthorizerPoolsOutput">AuthorizerPoolsOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Posterior state of AuthorizerPoolsState (greek_ALPHA_prime | α')</p>
+                <p>Output containing: Posterior state of AuthorizerPoolsState (α')</p>
               </div>
             </td>
           </tr>
@@ -1232,51 +1270,61 @@ the STFs utilize data external to the STF.</p>
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span>
-<span class="normal">407</span>
-<span class="normal">408</span>
-<span class="normal">409</span>
-<span class="normal">410</span>
-<span class="normal">411</span>
-<span class="normal">412</span>
-<span class="normal">413</span>
-<span class="normal">414</span>
-<span class="normal">415</span>
-<span class="normal">416</span>
-<span class="normal">417</span>
-<span class="normal">418</span>
-<span class="normal">419</span>
-<span class="normal">420</span>
-<span class="normal">421</span>
-<span class="normal">422</span>
-<span class="normal">423</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">423</span>
+<span class="normal">424</span>
+<span class="normal">425</span>
+<span class="normal">426</span>
+<span class="normal">427</span>
+<span class="normal">428</span>
+<span class="normal">429</span>
+<span class="normal">430</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span>
+<span class="normal">437</span>
+<span class="normal">438</span>
+<span class="normal">439</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
+        <span class="n">post_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span><span class="p">,</span>
+        <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:85,86 (greek_ALPHA_prime | α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
+<span class="sd">    GP-0.3.8-eq:85,86 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    block: Block</span>
-<span class="sd">        Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.</span>
-<span class="sd">        Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
-<span class="sd">        the STFs utilize data external to the STF.</span>
-<span class="sd">    # extrinsic_guarantees: Vec(Guarantee)</span>
+<span class="sd">    extrinsic_guarantees: List[Guarantee]</span>
 <span class="sd">        Input parameter 1 | GP-0.3.8-eq:29 (bold_E_G)</span>
-<span class="sd">    # post_state_authorizer_queues: AuthorizerQueuesState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:29 (greek_PHI_prime | φ&#39;)</span>
-<span class="sd">    # pre_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.8-eq:29 (greek_ALPHA | α)</span>
+<span class="sd">    post_state_authorizer_queues: AuthorizerQueuesState</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:29 (φ&#39;)</span>
+<span class="sd">    pre_state_authorizer_pools: AuthorizerPoolsState</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:29 (α)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    post_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">        Posterior state of AuthorizerPoolsState (greek_ALPHA_prime | α&#39;)</span>
+<span class="sd">    AuthorizerPoolsOutput</span>
+<span class="sd">        Output containing: Posterior state of AuthorizerPoolsState (α&#39;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">pass</span>
+    <span class="c1"># Todo: properly set post_state by implementing STF</span>
+    <span class="n">post_state_authorizer_pools</span> <span class="o">=</span> <span class="n">pre_state_authorizer_pools</span>
+    <span class="k">return</span> <span class="n">AuthorizerPoolsOutput</span><span class="p">(</span>
+        <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_authorizer_pools</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

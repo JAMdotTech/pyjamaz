@@ -360,6 +360,8 @@
       
         
       
+        
+      
     
     
       
@@ -719,27 +721,27 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pyjamaz.state.components.Assurances.state_transition_disputes" class="md-nav__link">
+  <a href="#pyjamaz.state.components.Assurances.state_transition_after_disputes" class="md-nav__link">
     <span class="md-ellipsis">
-      state_transition_disputes
+      state_transition_after_disputes
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#pyjamaz.state.components.Assurances.state_transition_assurances" class="md-nav__link">
+  <a href="#pyjamaz.state.components.Assurances.state_transition_after_assurances" class="md-nav__link">
     <span class="md-ellipsis">
-      state_transition_assurances
+      state_transition_after_assurances
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#pyjamaz.state.components.Assurances.state_transition_guarantees" class="md-nav__link">
+  <a href="#pyjamaz.state.components.Assurances.state_transition_after_guarantees" class="md-nav__link">
     <span class="md-ellipsis">
-      state_transition_guarantees
+      state_transition_after_guarantees
     </span>
   </a>
   
@@ -1054,27 +1056,27 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pyjamaz.state.components.Assurances.state_transition_disputes" class="md-nav__link">
+  <a href="#pyjamaz.state.components.Assurances.state_transition_after_disputes" class="md-nav__link">
     <span class="md-ellipsis">
-      state_transition_disputes
+      state_transition_after_disputes
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#pyjamaz.state.components.Assurances.state_transition_assurances" class="md-nav__link">
+  <a href="#pyjamaz.state.components.Assurances.state_transition_after_assurances" class="md-nav__link">
     <span class="md-ellipsis">
-      state_transition_assurances
+      state_transition_after_assurances
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#pyjamaz.state.components.Assurances.state_transition_guarantees" class="md-nav__link">
+  <a href="#pyjamaz.state.components.Assurances.state_transition_after_guarantees" class="md-nav__link">
     <span class="md-ellipsis">
-      state_transition_guarantees
+      state_transition_after_guarantees
     </span>
   </a>
   
@@ -1125,46 +1127,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">519</span>
-<span class="normal">520</span>
-<span class="normal">521</span>
-<span class="normal">522</span>
-<span class="normal">523</span>
-<span class="normal">524</span>
-<span class="normal">525</span>
-<span class="normal">526</span>
-<span class="normal">527</span>
-<span class="normal">528</span>
-<span class="normal">529</span>
-<span class="normal">530</span>
-<span class="normal">531</span>
-<span class="normal">532</span>
-<span class="normal">533</span>
-<span class="normal">534</span>
-<span class="normal">535</span>
-<span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
-<span class="normal">539</span>
-<span class="normal">540</span>
-<span class="normal">541</span>
-<span class="normal">542</span>
-<span class="normal">543</span>
-<span class="normal">544</span>
-<span class="normal">545</span>
-<span class="normal">546</span>
-<span class="normal">547</span>
-<span class="normal">548</span>
-<span class="normal">549</span>
-<span class="normal">550</span>
-<span class="normal">551</span>
-<span class="normal">552</span>
-<span class="normal">553</span>
-<span class="normal">554</span>
-<span class="normal">555</span>
-<span class="normal">556</span>
-<span class="normal">557</span>
-<span class="normal">558</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">558</span>
 <span class="normal">559</span>
 <span class="normal">560</span>
 <span class="normal">561</span>
@@ -1202,80 +1165,147 @@
 <span class="normal">593</span>
 <span class="normal">594</span>
 <span class="normal">595</span>
-<span class="normal">596</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Assurances</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span>
+<span class="normal">600</span>
+<span class="normal">601</span>
+<span class="normal">602</span>
+<span class="normal">603</span>
+<span class="normal">604</span>
+<span class="normal">605</span>
+<span class="normal">606</span>
+<span class="normal">607</span>
+<span class="normal">608</span>
+<span class="normal">609</span>
+<span class="normal">610</span>
+<span class="normal">611</span>
+<span class="normal">612</span>
+<span class="normal">613</span>
+<span class="normal">614</span>
+<span class="normal">615</span>
+<span class="normal">616</span>
+<span class="normal">617</span>
+<span class="normal">618</span>
+<span class="normal">619</span>
+<span class="normal">620</span>
+<span class="normal">621</span>
+<span class="normal">622</span>
+<span class="normal">623</span>
+<span class="normal">624</span>
+<span class="normal">625</span>
+<span class="normal">626</span>
+<span class="normal">627</span>
+<span class="normal">628</span>
+<span class="normal">629</span>
+<span class="normal">630</span>
+<span class="normal">631</span>
+<span class="normal">632</span>
+<span class="normal">633</span>
+<span class="normal">634</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Assurances</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">10</span>
 
-    <span class="k">def</span> <span class="nf">state_transition_disputes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">state_transition_after_disputes</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">extrinsic_disputes</span><span class="p">:</span> <span class="n">ExtrinsicDisputes</span><span class="p">,</span>
+            <span class="n">pre_state_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesAfterDisputesOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state&#39;s assurances that</span>
-<span class="sd">        processes disputes.</span>
+<span class="sd">        GP-0.3.8-eq:110 (ρ†) | Intermediate state transition function for the state&#39;s assurances that processes</span>
+<span class="sd">        disputes extrinsic.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        block: Block</span>
-<span class="sd">            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.</span>
-<span class="sd">            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
-<span class="sd">            the STFs utilize data external to the STF.</span>
-<span class="sd">        # extrinsic_disputes: Disputes</span>
+<span class="sd">        extrinsic_disputes: ExtrinsicDisputes</span>
 <span class="sd">            Input parameter 1 | GP-0.3.8-eq:25 (bold_E_D)</span>
-<span class="sd">        # pre_state_assurances: AssurancesState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:25 (greek_RHO | ρ)</span>
+<span class="sd">        pre_state_assurances: AssurancesState</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:25 (ρ)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        post_disputes_state_assurances: AssurancesState</span>
-<span class="sd">            Intermediate state after processing disputes of AssurancesState (greek_RHO_dagger | ρ†)</span>
+<span class="sd">        AssurancesAfterDisputesOutput</span>
+<span class="sd">            Output Containing: Intermediate state after processing disputes of AssurancesState (ρ†)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
+        <span class="c1"># Todo: properly set intermediate_state_after_disputes by implementing STF</span>
+        <span class="n">intermediate_state_assurances_after_disputes</span> <span class="o">=</span> <span class="n">pre_state_assurances</span>
+        <span class="k">return</span> <span class="n">AssurancesAfterDisputesOutput</span><span class="p">(</span>
+            <span class="n">intermediate_state_after_disputes</span><span class="o">=</span><span class="n">intermediate_state_assurances_after_disputes</span>
+        <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">state_transition_assurances</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">state_transition_after_assurances</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">extrinsic_assurances</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Assurance</span><span class="p">],</span>
+            <span class="n">intermediate_state_assurances_after_disputes</span><span class="p">:</span> <span class="n">AssurancesState</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesAfterAssurancesOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state&#39;s</span>
-<span class="sd">        assurances that processes assurances.</span>
+<span class="sd">        GP-0.3.8-eq:130 (ρ‡) | Intermediate state transition function for the state&#39;s assurances that processes</span>
+<span class="sd">        assurances extrinsic.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        block: Block</span>
-<span class="sd">            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.</span>
-<span class="sd">            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
-<span class="sd">            the STFs utilize data external to the STF.</span>
-<span class="sd">        # extrinsic_assurances: Vec(Assurance)</span>
+<span class="sd">        extrinsic_assurances: List[Assurance]</span>
 <span class="sd">            Input parameter 1 | GP-0.3.8-eq:26 (bold_E_A)</span>
-<span class="sd">        # post_disputes_state_assurances: AssurancesState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:26 (greek_RHO_dagger | ρ†)</span>
+<span class="sd">        intermediate_state_assurances_after_disputes: AssurancesState</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:26 (ρ†)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        post_assurances_state_assurances: AssurancesState</span>
-<span class="sd">            Posterior state of AssurancesState (greek_RHO_doubledagger | ρ‡)</span>
+<span class="sd">        AssurancesAfterAssurancesOutput</span>
+<span class="sd">            Output Containing: Intermediate state after processing assurances of AssurancesState (ρ‡)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
+        <span class="c1"># Todo: properly set intermediate_state_assurances_after_assurances by implementing STF</span>
+        <span class="n">intermediate_state_assurances_after_assurances</span> <span class="o">=</span> <span class="n">intermediate_state_assurances_after_disputes</span>
+        <span class="k">return</span> <span class="n">AssurancesAfterAssurancesOutput</span><span class="p">(</span>
+            <span class="n">intermediate_state_after_assurances</span><span class="o">=</span><span class="n">intermediate_state_assurances_after_assurances</span>
+        <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">state_transition_guarantees</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">state_transition_after_guarantees</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
+            <span class="n">intermediate_state_assurances_after_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="p">,</span>
+            <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span>
+            <span class="n">post_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesAfterGuaranteesOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:152 (greek_RHO_prime | ρ&#39;) | State transition function for the state&#39;s assurances.</span>
+<span class="sd">        GP-0.3.8-eq:152 (ρ&#39;) | State transition function for the state&#39;s assurances that processes guarantees extrinsic.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        block: Block</span>
-<span class="sd">            Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.</span>
-<span class="sd">            Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
-<span class="sd">            the STFs utilize data external to the STF.</span>
-<span class="sd">        # extrinsic_guarantees: Vec(Guarantee)</span>
+<span class="sd">        extrinsic_guarantees: List[Guarantee]</span>
 <span class="sd">            Input parameter 1 | GP-0.3.8-eq:27 (bold_E_G)</span>
-<span class="sd">        # post_assurances_state_assurances: AssurancesState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:27 (greek_RHO_doubledagger | ρ‡)</span>
-<span class="sd">        # pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.8-eq:27 (greek_KAPPA | κ)</span>
-<span class="sd">        # post_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 4 | GP-0.3.8-eq:27 (greek_TAU_prime | τ&#39;)</span>
+<span class="sd">        intermediate_state_assurances_after_assurances: AssurancesState</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:27 (ρ‡)</span>
+<span class="sd">        pre_state_validator_pool: ValidatorPoolState</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:27 (κ)</span>
+<span class="sd">        post_state_timeslot: TimeslotState</span>
+<span class="sd">            Input parameter 4 | GP-0.3.8-eq:27 (τ&#39;)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        post_state_assurances: AssurancesState</span>
-<span class="sd">            Posterior state of AssurancesState (greek_RHO_prime | ρ&#39;)</span>
+<span class="sd">        AssurancesAfterGuaranteesOutput</span>
+<span class="sd">            Output containing: Posterior state after processing guarantees of AssurancesState (ρ&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span>
+        <span class="c1"># Todo: properly set post_state by implementing STF</span>
+        <span class="n">post_state_assurances</span> <span class="o">=</span> <span class="n">intermediate_state_assurances_after_assurances</span>
+        <span class="k">return</span> <span class="n">AssurancesAfterGuaranteesOutput</span><span class="p">(</span>
+            <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_assurances</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
@@ -1298,16 +1328,16 @@
 <div class="doc doc-object doc-function">
 
 
-<h2 id="pyjamaz.state.components.Assurances.state_transition_disputes" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">state_transition_disputes</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">)</span></code>
+<h2 id="pyjamaz.state.components.Assurances.state_transition_after_disputes" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">state_transition_after_disputes</span><span class="p">(</span><span class="n">extrinsic_disputes</span><span class="p">:</span> <span class="n">ExtrinsicDisputes</span><span class="p">,</span> <span class="n">pre_state_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesAfterDisputesOutput</span></code>
 
-<a href="#pyjamaz.state.components.Assurances.state_transition_disputes" class="headerlink" title="Permanent link">&para;</a></h2>
+<a href="#pyjamaz.state.components.Assurances.state_transition_after_disputes" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state's assurances that
-processes disputes.</p>
+        <p>GP-0.3.8-eq:110 (ρ†) | Intermediate state transition function for the state's assurances that processes
+disputes extrinsic.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1322,15 +1352,27 @@ processes disputes.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>block</code></td>
+            <td><code>extrinsic_disputes</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.Block" href="../../types/types_blocks/#pyjamaz.types.block.Block">Block</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.ExtrinsicDisputes" href="../../types/types_blocks/#pyjamaz.types.block.ExtrinsicDisputes">ExtrinsicDisputes</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
-Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
-the STFs utilize data external to the STF.</p>
+                <p>Input parameter 1 | GP-0.3.8-eq:25 (bold_E_D)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>pre_state_assurances</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AssurancesState" href="../../types/types_state/#pyjamaz.types.state.AssurancesState">AssurancesState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 2 | GP-0.3.8-eq:25 (ρ)</p>
               </div>
             </td>
             <td>
@@ -1345,137 +1387,18 @@ the STFs utilize data external to the STF.</p>
     <table>
       <thead>
         <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>post_disputes_state_assurances</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AssurancesState" href="../../types/types_state/#pyjamaz.types.state.AssurancesState">AssurancesState</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Intermediate state after processing disputes of AssurancesState (greek_RHO_dagger | ρ†)</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-            <details class="quote">
-              <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">522</span>
-<span class="normal">523</span>
-<span class="normal">524</span>
-<span class="normal">525</span>
-<span class="normal">526</span>
-<span class="normal">527</span>
-<span class="normal">528</span>
-<span class="normal">529</span>
-<span class="normal">530</span>
-<span class="normal">531</span>
-<span class="normal">532</span>
-<span class="normal">533</span>
-<span class="normal">534</span>
-<span class="normal">535</span>
-<span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
-<span class="normal">539</span>
-<span class="normal">540</span>
-<span class="normal">541</span>
-<span class="normal">542</span>
-<span class="normal">543</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_disputes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:110 (greek_RHO_dagger | ρ†) | Intermediate state transition function for the state&#39;s assurances that</span>
-<span class="sd">    processes disputes.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    block: Block</span>
-<span class="sd">        Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.</span>
-<span class="sd">        Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
-<span class="sd">        the STFs utilize data external to the STF.</span>
-<span class="sd">    # extrinsic_disputes: Disputes</span>
-<span class="sd">        Input parameter 1 | GP-0.3.8-eq:25 (bold_E_D)</span>
-<span class="sd">    # pre_state_assurances: AssurancesState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:25 (greek_RHO | ρ)</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    post_disputes_state_assurances: AssurancesState</span>
-<span class="sd">        Intermediate state after processing disputes of AssurancesState (greek_RHO_dagger | ρ†)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">pass</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="pyjamaz.state.components.Assurances.state_transition_assurances" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">state_transition_assurances</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">)</span></code>
-
-<a href="#pyjamaz.state.components.Assurances.state_transition_assurances" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents ">
-
-        <p>GP-0.3.8-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state's
-assurances that processes assurances.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
           <th>Type</th>
           <th>Description</th>
-          <th>Default</th>
         </tr>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>block</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.Block" href="../../types/types_blocks/#pyjamaz.types.block.Block">Block</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.AssurancesAfterDisputesOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.AssurancesAfterDisputesOutput">AssurancesAfterDisputesOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
-Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
-the STFs utilize data external to the STF.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>post_assurances_state_assurances</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AssurancesState" href="../../types/types_state/#pyjamaz.types.state.AssurancesState">AssurancesState</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Posterior state of AssurancesState (greek_RHO_doubledagger | ρ‡)</p>
+                <p>Output Containing: Intermediate state after processing disputes of AssurancesState (ρ†)</p>
               </div>
             </td>
           </tr>
@@ -1484,125 +1407,14 @@ the STFs utilize data external to the STF.</p>
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">545</span>
-<span class="normal">546</span>
-<span class="normal">547</span>
-<span class="normal">548</span>
-<span class="normal">549</span>
-<span class="normal">550</span>
-<span class="normal">551</span>
-<span class="normal">552</span>
-<span class="normal">553</span>
-<span class="normal">554</span>
-<span class="normal">555</span>
-<span class="normal">556</span>
-<span class="normal">557</span>
-<span class="normal">558</span>
-<span class="normal">559</span>
-<span class="normal">560</span>
-<span class="normal">561</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">561</span>
 <span class="normal">562</span>
 <span class="normal">563</span>
 <span class="normal">564</span>
 <span class="normal">565</span>
-<span class="normal">566</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_assurances</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:130 (greek_RHO_doubledagger | ρ‡) | Intermediate state transition function for the state&#39;s</span>
-<span class="sd">    assurances that processes assurances.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    block: Block</span>
-<span class="sd">        Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.</span>
-<span class="sd">        Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
-<span class="sd">        the STFs utilize data external to the STF.</span>
-<span class="sd">    # extrinsic_assurances: Vec(Assurance)</span>
-<span class="sd">        Input parameter 1 | GP-0.3.8-eq:26 (bold_E_A)</span>
-<span class="sd">    # post_disputes_state_assurances: AssurancesState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:26 (greek_RHO_dagger | ρ†)</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    post_assurances_state_assurances: AssurancesState</span>
-<span class="sd">        Posterior state of AssurancesState (greek_RHO_doubledagger | ρ‡)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">pass</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="pyjamaz.state.components.Assurances.state_transition_guarantees" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">state_transition_guarantees</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">)</span></code>
-
-<a href="#pyjamaz.state.components.Assurances.state_transition_guarantees" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents ">
-
-        <p>GP-0.3.8-eq:152 (greek_RHO_prime | ρ') | State transition function for the state's assurances.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>block</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.Block" href="../../types/types_blocks/#pyjamaz.types.block.Block">Block</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.
-Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently
-the STFs utilize data external to the STF.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>post_state_assurances</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AssurancesState" href="../../types/types_state/#pyjamaz.types.state.AssurancesState">AssurancesState</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Posterior state of AssurancesState (greek_RHO_prime | ρ')</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-            <details class="quote">
-              <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">568</span>
+<span class="normal">566</span>
+<span class="normal">567</span>
+<span class="normal">568</span>
 <span class="normal">569</span>
 <span class="normal">570</span>
 <span class="normal">571</span>
@@ -1620,37 +1432,347 @@ the STFs utilize data external to the STF.</p>
 <span class="normal">583</span>
 <span class="normal">584</span>
 <span class="normal">585</span>
-<span class="normal">586</span>
-<span class="normal">587</span>
-<span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_guarantees</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
+<span class="normal">586</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_after_disputes</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">extrinsic_disputes</span><span class="p">:</span> <span class="n">ExtrinsicDisputes</span><span class="p">,</span>
+        <span class="n">pre_state_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesAfterDisputesOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:152 (greek_RHO_prime | ρ&#39;) | State transition function for the state&#39;s assurances.</span>
+<span class="sd">    GP-0.3.8-eq:110 (ρ†) | Intermediate state transition function for the state&#39;s assurances that processes</span>
+<span class="sd">    disputes extrinsic.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    block: Block</span>
-<span class="sd">        Todo: Remove this input parameter and replace with the following (see below). General remark regarding STFs.</span>
-<span class="sd">        Refactor at some point to sandbox/isolate STFs to ONLY EXPLICITLY USE parameters to execute STFs. Currently</span>
-<span class="sd">        the STFs utilize data external to the STF.</span>
-<span class="sd">    # extrinsic_guarantees: Vec(Guarantee)</span>
-<span class="sd">        Input parameter 1 | GP-0.3.8-eq:27 (bold_E_G)</span>
-<span class="sd">    # post_assurances_state_assurances: AssurancesState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:27 (greek_RHO_doubledagger | ρ‡)</span>
-<span class="sd">    # pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.8-eq:27 (greek_KAPPA | κ)</span>
-<span class="sd">    # post_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 4 | GP-0.3.8-eq:27 (greek_TAU_prime | τ&#39;)</span>
+<span class="sd">    extrinsic_disputes: ExtrinsicDisputes</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:25 (bold_E_D)</span>
+<span class="sd">    pre_state_assurances: AssurancesState</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:25 (ρ)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    post_state_assurances: AssurancesState</span>
-<span class="sd">        Posterior state of AssurancesState (greek_RHO_prime | ρ&#39;)</span>
+<span class="sd">    AssurancesAfterDisputesOutput</span>
+<span class="sd">        Output Containing: Intermediate state after processing disputes of AssurancesState (ρ†)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">pass</span>
+    <span class="c1"># Todo: properly set intermediate_state_after_disputes by implementing STF</span>
+    <span class="n">intermediate_state_assurances_after_disputes</span> <span class="o">=</span> <span class="n">pre_state_assurances</span>
+    <span class="k">return</span> <span class="n">AssurancesAfterDisputesOutput</span><span class="p">(</span>
+        <span class="n">intermediate_state_after_disputes</span><span class="o">=</span><span class="n">intermediate_state_assurances_after_disputes</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pyjamaz.state.components.Assurances.state_transition_after_assurances" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">state_transition_after_assurances</span><span class="p">(</span><span class="n">extrinsic_assurances</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Assurance</span><span class="p">],</span> <span class="n">intermediate_state_assurances_after_disputes</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesAfterAssurancesOutput</span></code>
+
+<a href="#pyjamaz.state.components.Assurances.state_transition_after_assurances" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+        <p>GP-0.3.8-eq:130 (ρ‡) | Intermediate state transition function for the state's assurances that processes
+assurances extrinsic.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code>extrinsic_assurances</code></td>
+            <td>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Assurance" href="../../types/types_blocks/#pyjamaz.types.block.Assurance">Assurance</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 1 | GP-0.3.8-eq:26 (bold_E_A)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>intermediate_state_assurances_after_disputes</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AssurancesState" href="../../types/types_state/#pyjamaz.types.state.AssurancesState">AssurancesState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 2 | GP-0.3.8-eq:26 (ρ†)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.AssurancesAfterAssurancesOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.AssurancesAfterAssurancesOutput">AssurancesAfterAssurancesOutput</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Output Containing: Intermediate state after processing assurances of AssurancesState (ρ‡)</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+            <details class="quote">
+              <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">588</span>
+<span class="normal">589</span>
+<span class="normal">590</span>
+<span class="normal">591</span>
+<span class="normal">592</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span>
+<span class="normal">600</span>
+<span class="normal">601</span>
+<span class="normal">602</span>
+<span class="normal">603</span>
+<span class="normal">604</span>
+<span class="normal">605</span>
+<span class="normal">606</span>
+<span class="normal">607</span>
+<span class="normal">608</span>
+<span class="normal">609</span>
+<span class="normal">610</span>
+<span class="normal">611</span>
+<span class="normal">612</span>
+<span class="normal">613</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_after_assurances</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">extrinsic_assurances</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Assurance</span><span class="p">],</span>
+        <span class="n">intermediate_state_assurances_after_disputes</span><span class="p">:</span> <span class="n">AssurancesState</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesAfterAssurancesOutput</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    GP-0.3.8-eq:130 (ρ‡) | Intermediate state transition function for the state&#39;s assurances that processes</span>
+<span class="sd">    assurances extrinsic.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    extrinsic_assurances: List[Assurance]</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:26 (bold_E_A)</span>
+<span class="sd">    intermediate_state_assurances_after_disputes: AssurancesState</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:26 (ρ†)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    AssurancesAfterAssurancesOutput</span>
+<span class="sd">        Output Containing: Intermediate state after processing assurances of AssurancesState (ρ‡)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Todo: properly set intermediate_state_assurances_after_assurances by implementing STF</span>
+    <span class="n">intermediate_state_assurances_after_assurances</span> <span class="o">=</span> <span class="n">intermediate_state_assurances_after_disputes</span>
+    <span class="k">return</span> <span class="n">AssurancesAfterAssurancesOutput</span><span class="p">(</span>
+        <span class="n">intermediate_state_after_assurances</span><span class="o">=</span><span class="n">intermediate_state_assurances_after_assurances</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="pyjamaz.state.components.Assurances.state_transition_after_guarantees" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">state_transition_after_guarantees</span><span class="p">(</span><span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span> <span class="n">intermediate_state_assurances_after_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="p">,</span> <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span> <span class="n">post_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesAfterGuaranteesOutput</span></code>
+
+<a href="#pyjamaz.state.components.Assurances.state_transition_after_guarantees" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents ">
+
+        <p>GP-0.3.8-eq:152 (ρ') | State transition function for the state's assurances that processes guarantees extrinsic.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code>extrinsic_guarantees</code></td>
+            <td>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Guarantee" href="../../types/types_blocks/#pyjamaz.types.block.Guarantee">Guarantee</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 1 | GP-0.3.8-eq:27 (bold_E_G)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>intermediate_state_assurances_after_assurances</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AssurancesState" href="../../types/types_state/#pyjamaz.types.state.AssurancesState">AssurancesState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 2 | GP-0.3.8-eq:27 (ρ‡)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>pre_state_validator_pool</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.ValidatorPoolState" href="../../types/types_state/#pyjamaz.types.state.ValidatorPoolState">ValidatorPoolState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 3 | GP-0.3.8-eq:27 (κ)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code>post_state_timeslot</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.TimeslotState" href="../../types/types_state/#pyjamaz.types.state.TimeslotState">TimeslotState</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 4 | GP-0.3.8-eq:27 (τ')</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.AssurancesAfterGuaranteesOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.AssurancesAfterGuaranteesOutput">AssurancesAfterGuaranteesOutput</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Output containing: Posterior state after processing guarantees of AssurancesState (ρ')</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+            <details class="quote">
+              <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">615</span>
+<span class="normal">616</span>
+<span class="normal">617</span>
+<span class="normal">618</span>
+<span class="normal">619</span>
+<span class="normal">620</span>
+<span class="normal">621</span>
+<span class="normal">622</span>
+<span class="normal">623</span>
+<span class="normal">624</span>
+<span class="normal">625</span>
+<span class="normal">626</span>
+<span class="normal">627</span>
+<span class="normal">628</span>
+<span class="normal">629</span>
+<span class="normal">630</span>
+<span class="normal">631</span>
+<span class="normal">632</span>
+<span class="normal">633</span>
+<span class="normal">634</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition_after_guarantees</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
+        <span class="n">intermediate_state_assurances_after_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="p">,</span>
+        <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span>
+        <span class="n">post_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssurancesAfterGuaranteesOutput</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    GP-0.3.8-eq:152 (ρ&#39;) | State transition function for the state&#39;s assurances that processes guarantees extrinsic.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    extrinsic_guarantees: List[Guarantee]</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:27 (bold_E_G)</span>
+<span class="sd">    intermediate_state_assurances_after_assurances: AssurancesState</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:27 (ρ‡)</span>
+<span class="sd">    pre_state_validator_pool: ValidatorPoolState</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:27 (κ)</span>
+<span class="sd">    post_state_timeslot: TimeslotState</span>
+<span class="sd">        Input parameter 4 | GP-0.3.8-eq:27 (τ&#39;)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    AssurancesAfterGuaranteesOutput</span>
+<span class="sd">        Output containing: Posterior state after processing guarantees of AssurancesState (ρ&#39;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Todo: properly set post_state by implementing STF</span>
+    <span class="n">post_state_assurances</span> <span class="o">=</span> <span class="n">intermediate_state_assurances_after_assurances</span>
+    <span class="k">return</span> <span class="n">AssurancesAfterGuaranteesOutput</span><span class="p">(</span>
+        <span class="n">post_state</span><span class="o">=</span><span class="n">post_state_assurances</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
