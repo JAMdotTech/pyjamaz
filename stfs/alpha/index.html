@@ -1125,11 +1125,15 @@
 <span class="normal">451</span>
 <span class="normal">452</span>
 <span class="normal">453</span>
-<span class="normal">454</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">AuthorizerPools</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">AuthorizerPools</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">1</span>
 
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
+            <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
             <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
             <span class="n">post_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span><span class="p">,</span>
             <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span>
@@ -1139,12 +1143,14 @@
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
+<span class="sd">        header: Header</span>
+<span class="sd">            Input parameter 1 | GP-0.3.8-eq:29 (bold_H)</span>
 <span class="sd">        extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">            Input parameter 1 | GP-0.3.8-eq:29 (bold_E_G)</span>
+<span class="sd">            Input parameter 2 | GP-0.3.8-eq:29 (bold_E_G)</span>
 <span class="sd">        post_state_authorizer_queues: AuthorizerQueuesState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:29 (φ&#39;)</span>
+<span class="sd">            Input parameter 3 | GP-0.3.8-eq:29 (φ&#39;)</span>
 <span class="sd">        pre_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.8-eq:29 (α)</span>
+<span class="sd">            Input parameter 4 | GP-0.3.8-eq:29 (α)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1179,7 +1185,7 @@
 
 
 <h2 id="pyjamaz.state.components.AuthorizerPools.state_transition" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span> <span class="n">post_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span><span class="p">,</span> <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsOutput</span></code>
+            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span> <span class="n">post_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span><span class="p">,</span> <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsOutput</span></code>
 
 <a href="#pyjamaz.state.components.AuthorizerPools.state_transition" class="headerlink" title="Permanent link">&para;</a></h2>
 
@@ -1201,13 +1207,27 @@
       </thead>
       <tbody>
           <tr class="doc-section-item">
+            <td><code>header</code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.Header" href="../../types/types_blocks/#pyjamaz.types.block.Header">Header</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input parameter 1 | GP-0.3.8-eq:29 (bold_H)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code>extrinsic_guarantees</code></td>
             <td>
                   <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Guarantee" href="../../types/types_blocks/#pyjamaz.types.block.Guarantee">Guarantee</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 1 | GP-0.3.8-eq:29 (bold_E_G)</p>
+                <p>Input parameter 2 | GP-0.3.8-eq:29 (bold_E_G)</p>
               </div>
             </td>
             <td>
@@ -1221,7 +1241,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.8-eq:29 (φ')</p>
+                <p>Input parameter 3 | GP-0.3.8-eq:29 (φ')</p>
               </div>
             </td>
             <td>
@@ -1235,7 +1255,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.8-eq:29 (α)</p>
+                <p>Input parameter 4 | GP-0.3.8-eq:29 (α)</p>
               </div>
             </td>
             <td>
@@ -1297,8 +1317,12 @@
 <span class="normal">447</span>
 <span class="normal">448</span>
 <span class="normal">449</span>
-<span class="normal">450</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
+        <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
         <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
         <span class="n">post_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span><span class="p">,</span>
         <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span>
@@ -1308,12 +1332,14 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
+<span class="sd">    header: Header</span>
+<span class="sd">        Input parameter 1 | GP-0.3.8-eq:29 (bold_H)</span>
 <span class="sd">    extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">        Input parameter 1 | GP-0.3.8-eq:29 (bold_E_G)</span>
+<span class="sd">        Input parameter 2 | GP-0.3.8-eq:29 (bold_E_G)</span>
 <span class="sd">    post_state_authorizer_queues: AuthorizerQueuesState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:29 (φ&#39;)</span>
+<span class="sd">        Input parameter 3 | GP-0.3.8-eq:29 (φ&#39;)</span>
 <span class="sd">    pre_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.8-eq:29 (α)</span>
+<span class="sd">        Input parameter 4 | GP-0.3.8-eq:29 (α)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
