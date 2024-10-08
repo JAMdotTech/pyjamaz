@@ -2506,7 +2506,11 @@
 <span class="normal">220</span>
 <span class="normal">221</span>
 <span class="normal">222</span>
-<span class="normal">223</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ServicesOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.8-eq:28 (δ&#39;) | Output of Services STF.</span>
@@ -2519,7 +2523,11 @@
 <span class="sd">        GP-0.3.8-eq:163 (bold_C) | Secondary output of Services STF, BeefyCommitmentMap.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">ServicesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">ServicesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
-    <span class="n">beefy_commitment_map</span><span class="p">:</span> <span class="n">BeefyCommitmentMap</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">BeefyCommitmentMap</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>  <span class="c1"># BeefyCommitmentMap</span>
+    <span class="c1"># BeefyCommitmentMap</span>
+    <span class="n">beefy_commitment_map</span><span class="p">:</span> <span class="n">BeefyCommitmentMap</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">BeefyCommitmentMap</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()}</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
 

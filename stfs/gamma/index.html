@@ -1469,11 +1469,11 @@
     <span class="k">def</span> <span class="nf">enact_fallback_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pre_time_slot</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">post_time_slot</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="c1"># Not a full tickets accumulator</span>
-                <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">)</span> <span class="o">!=</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">EPOCH_TIMESLOTS</span>
-                <span class="c1"># No Ticket marker generated</span>
-                <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_phase_index</span><span class="p">(</span><span class="n">pre_time_slot</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">TICKET_SUBMISSION_END_SLOT</span>
-                <span class="c1"># Whole epoch is skipped</span>
-                <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch_number</span><span class="p">(</span><span class="n">post_time_slot</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch_number</span><span class="p">(</span><span class="n">pre_time_slot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span>
+            <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">)</span> <span class="o">!=</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">EPOCH_TIMESLOTS</span>
+            <span class="c1"># No Ticket marker generated</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_phase_index</span><span class="p">(</span><span class="n">pre_time_slot</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">TICKET_SUBMISSION_END_SLOT</span>
+            <span class="c1"># Whole epoch is skipped</span>
+            <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch_number</span><span class="p">(</span><span class="n">post_time_slot</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch_number</span><span class="p">(</span><span class="n">pre_time_slot</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span>
         <span class="p">)</span>
 
     <span class="nd">@staticmethod</span>

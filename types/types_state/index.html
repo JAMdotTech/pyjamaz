@@ -3148,7 +3148,9 @@ A timeslot</p>
 <span class="normal">337</span>
 <span class="normal">338</span>
 <span class="normal">339</span>
-<span class="normal">340</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AuthorizerQueuesState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.8-eq:84 (φ) | A collections of queues of authorizations for all cores.</span>
@@ -3158,7 +3160,9 @@ A timeslot</p>
 <span class="sd">    authorizer_queues: Array(Array(H256,constant_Q),constant_C)</span>
 <span class="sd">        GP-0.3.8-eq:84 (φ) | A collections of queues of authorizations for all cores.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">authorizer_queues</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Array</span><span class="p">(</span><span class="n">Array</span><span class="p">(</span><span class="n">H256</span><span class="p">,</span> <span class="n">MAXIMUM_AUTHORIZATION_QUEUE_ITEMS</span><span class="p">),</span> <span class="n">CORE_COUNT</span><span class="p">)})</span>
+    <span class="n">authorizer_queues</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Array</span><span class="p">(</span><span class="n">Array</span><span class="p">(</span><span class="n">H256</span><span class="p">,</span> <span class="n">MAXIMUM_AUTHORIZATION_QUEUE_ITEMS</span><span class="p">),</span> <span class="n">CORE_COUNT</span><span class="p">)}</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -3267,9 +3271,7 @@ transitions of ValidatorQueue (ι).</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">343</span>
-<span class="normal">344</span>
-<span class="normal">345</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">345</span>
 <span class="normal">346</span>
 <span class="normal">347</span>
 <span class="normal">348</span>
@@ -3292,7 +3294,9 @@ transitions of ValidatorQueue (ι).</p>
 <span class="normal">365</span>
 <span class="normal">366</span>
 <span class="normal">367</span>
-<span class="normal">368</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">PrivilegedServicesState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.8-eq:95 (χ) | The PrivilegedServices partition of the overall state.</span>
@@ -3423,9 +3427,7 @@ transitions of ValidatorQueue (ι).</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">371</span>
-<span class="normal">372</span>
-<span class="normal">373</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">373</span>
 <span class="normal">374</span>
 <span class="normal">375</span>
 <span class="normal">376</span>
@@ -3442,7 +3444,9 @@ transitions of ValidatorQueue (ι).</p>
 <span class="normal">387</span>
 <span class="normal">388</span>
 <span class="normal">389</span>
-<span class="normal">390</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">DisputesState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.8-eq:96 (ψ) | A collection of judgements of validators over the validity of work reports.</span>
@@ -3589,9 +3593,7 @@ transitions of ValidatorQueue (ι).</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">393</span>
-<span class="normal">394</span>
-<span class="normal">395</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">395</span>
 <span class="normal">396</span>
 <span class="normal">397</span>
 <span class="normal">398</span>
@@ -3614,7 +3616,9 @@ transitions of ValidatorQueue (ι).</p>
 <span class="normal">415</span>
 <span class="normal">416</span>
 <span class="normal">417</span>
-<span class="normal">418</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">Statistic</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.8-eq:169 (π.0.V) | A set of cumulative metrics for a single validator in a single epochs.</span>
@@ -3712,9 +3716,7 @@ transitions of ValidatorQueue (ι).</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">421</span>
-<span class="normal">422</span>
-<span class="normal">423</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">423</span>
 <span class="normal">424</span>
 <span class="normal">425</span>
 <span class="normal">426</span>
@@ -3723,7 +3725,11 @@ transitions of ValidatorQueue (ι).</p>
 <span class="normal">429</span>
 <span class="normal">430</span>
 <span class="normal">431</span>
-<span class="normal">432</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">StatisticsState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.8-eq:169 (π) | A collections of statistics for all validators for two epochs.</span>
@@ -3734,7 +3740,9 @@ transitions of ValidatorQueue (ι).</p>
 <span class="sd">    statistics: Array(Array(Statistic,constant_V),2)</span>
 <span class="sd">        GP-0.3.8-eq:169 (π) | A collections of statistics for all validators for two epochs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">statistics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Statistic</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Array</span><span class="p">(</span><span class="n">Array</span><span class="p">(</span><span class="n">Statistic</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">(),</span> <span class="n">VALIDATOR_COUNT</span><span class="p">),</span> <span class="mi">2</span><span class="p">)})</span>
+    <span class="n">statistics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Statistic</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Array</span><span class="p">(</span><span class="n">Array</span><span class="p">(</span><span class="n">Statistic</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">(),</span> <span class="n">VALIDATOR_COUNT</span><span class="p">),</span> <span class="mi">2</span><span class="p">)}</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -3808,11 +3816,7 @@ accumulated services.</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">439</span>
 <span class="normal">440</span>
 <span class="normal">441</span>
 <span class="normal">442</span>
@@ -3823,7 +3827,11 @@ accumulated services.</p>
 <span class="normal">447</span>
 <span class="normal">448</span>
 <span class="normal">449</span>
-<span class="normal">450</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">BeefyCommitmentMap</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map Dictionary.</span>
@@ -4070,11 +4078,7 @@ Statistics partition of the overall state</p>
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\types\state.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">453</span>
-<span class="normal">454</span>
-<span class="normal">455</span>
-<span class="normal">456</span>
-<span class="normal">457</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">457</span>
 <span class="normal">458</span>
 <span class="normal">459</span>
 <span class="normal">460</span>
@@ -4135,7 +4139,11 @@ Statistics partition of the overall state</p>
 <span class="normal">515</span>
 <span class="normal">516</span>
 <span class="normal">517</span>
-<span class="normal">518</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span>
+<span class="normal">522</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">JamState</span><span class="p">(</span><span class="n">State</span><span class="p">,</span> <span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.3.8-eq:15 (σ) | Logically partitioned state into several largely independent segments which can help both</span>
