@@ -4,7 +4,6 @@ from typing import Any, List, Dict
 import numpy as np
 import numpy.typing as npt
 
-
 from .exceptions import InvalidOpcode
 from .types import PVMProgram
 
@@ -26,10 +25,20 @@ from .constants import (
 
 class PVM:
 
-    def __init__(self, program: PVMProgram, mem_size: np.uint32 = 4096):
-        self.reg = np.zeros(13, dtype=np.uint32)
-        self.pc:np.uint32 = np.uint32(0)
-        self.gas:np.uint64 = np.uint64(0)
+    def __init__(
+            self,
+            program: PVMProgram,
+            initial_regs: list[int],
+            initial_pc: int,
+            initial_gas: int,
+            initial_page_map: list[Any],
+            initial_memory: list[Any],
+            mem_size: np.uint32 = 4096,
+            mem_offset: np.uint32 = 0,
+    ):
+        #self.reg = np.zeros(13, dtype=np.uint32)
+        #self.pc:np.uint32 = np.uint32(0)
+        #self.gas:np.uint64 = np.uint64(0)
         self.mem:npt.NDArray[np.uint8] = np.zeros(mem_size, dtype=np.uint8)
         # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
         self.rom:npt.NDArray[np.uint8] = np.array(program.code, dtype=np.uint8)
@@ -37,7 +46,25 @@ class PVM:
         self.inst_bitmask: List[bool] = program.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_len: List[int] = []
+        self.reg = np.array(initial_regs, dtype=np.uint32)
+        self.pc = np.uint32(initial_pc)
+        self.gas = np.uint64(initial_gas)
         self.status = ExitCondition.none.value
+
+        #TODO: initial_page_map.address, length, is-writable
+        self.mem_offset = mem_offset
+        if initial_page_map:
+            self.mem_offset = initial_page_map[0]["address"]    #TODO: memory addressing uitwerken
+        if initial_memory:
+            for block_idx, mem_block in enumerate(initial_memory):
+                for idx, byt in enumerate(mem_block["contents"]):
+                    self.mem[initial_page_map[block_idx]["address"] - mem_block["address"] + idx] = np.uint8(byt)
+
+        self.create_instruction_lookup()
+
+        # TODO: we always do a single step, for now
+        self.invoke()
+
 
     def create_instruction_lookup(self):
         """
@@ -76,29 +103,6 @@ class PVM:
             inst_nr += 1
             self.inst_pos[inst_bitmask_idx - 1] = inst_nr
             # print(f"added instruction {len(self.inst_len) - 1} (byte {op_bit_idx-1} == opcode {self.inst_pos[op_bit_idx-1]}) with args {op_args} (next byte: {op_bit_idx - 1})")
-
-
-    def initialize(
-            self,
-            initial_regs:list[int],
-            initial_pc:int,
-            initial_gas:int,
-            initial_page_map:list[Any],
-            initial_memory:list[Any]
-    ):
-        self.reg = np.array(initial_regs, dtype=np.uint32)
-        self.pc = np.uint32(initial_pc)
-        self.gas = np.uint32(initial_gas)
-        #TODO: initial_page_map.address, length, is-writable
-        self.mem_offset = 0
-        if initial_page_map:
-            self.mem_offset = initial_page_map[0]["address"]    #TODO: memory addressing uitwerken
-        if initial_memory:
-            for block_idx, mem_block in enumerate(initial_memory):
-                for idx, byt in enumerate(mem_block["contents"]):
-                    self.mem[initial_page_map[block_idx]["address"] - mem_block["address"] + idx] = np.uint8(byt)
-
-        self.create_instruction_lookup()
 
 
     def invoke(self):
@@ -151,32 +155,30 @@ class PVM:
 
 
                 #GP_A.5.3
-                # TODO:NO_TEST: case InstructionType.imm_imm:
                 case InstructionType.imm_imm:
 
                     l_x = min(4, self.rom[self.pc + 1] % 8)
-                    l_y = min(4, max(0, skip_len - l_x - 1))
+                    l_y = min(4, max(0, skip_len - l_x - 2))    #TODO: GP::228 l is al met 1 opgehoogd hier zo te zijn???
                     v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
                     v_y = pvm_X(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
-                    #TODO: out of bounds checks!
+                    mapped_addr = v_x - self.mem_offset
+                    if mapped_addr >= len(self.mem):
+                        self.status = ExitCondition.panic.value
+                        self.gas -= 1
+                        continue
 
                     match opcode:
                         case op.store_imm_u8.value:
-                            # TODO: NO_TESTS
-                            self.mem[self.reg[v_x]] = np.uint8(v_y & 0xFF)
+                            self.mem[self.reg[mapped_addr]] = np.uint8(v_y & 0xFF)
                         case op.store_imm_u16.value:
-                            # TODO: NO_TESTS
-                            #self.mem[self.reg[v_x]] = np.uint16(v_y & 0xFFFF)
-                            self.mem[self.reg[v_x] + 0] = np.uint8(v_y & 0xFF)
-                            self.mem[self.reg[v_x] + 1] = np.uint8((v_y & 0xFF00) >> 8)
+                            self.mem[self.reg[mapped_addr] + 0] = np.uint8(v_y & 0xFF)
+                            self.mem[self.reg[mapped_addr] + 1] = np.uint8((v_y & 0xFF00) >> 8)
                         case op.store_imm_u32.value:
-                            # TODO: NO_TESTS
-                            #self.mem[self.reg[v_x]] = np.uint32(v_y & 0xFFFFFF)
-                            self.mem[self.reg[v_x] + 0] = np.uint8(v_y & 0xFF)
-                            self.mem[self.reg[v_x] + 1] = np.uint8((v_y & 0xFF00) >> 8)
-                            self.mem[self.reg[v_x] + 2] = np.uint8((v_y & 0xFF0000) >> 16)
-                            self.mem[self.reg[v_x] + 3] = np.uint8((v_y & 0xFF000000) >> 24)
+                            self.mem[self.reg[mapped_addr] + 0] = np.uint8(v_y & 0xFF)
+                            self.mem[self.reg[mapped_addr] + 1] = np.uint8((v_y & 0xFF00) >> 8)
+                            self.mem[self.reg[mapped_addr] + 2] = np.uint8((v_y & 0xFF0000) >> 16)
+                            self.mem[self.reg[mapped_addr] + 3] = np.uint8((v_y & 0xFF000000) >> 24)
 
                         case _:
                             raise InvalidOpcode(f"Invalid imm_imm opcode: {opcode} for instruction type {inst_type}")
@@ -186,7 +188,8 @@ class PVM:
                 # TODO:NO_TEST: case InstructionType.offset:
                 case InstructionType.offset:
 
-                    l_x = min(4, max(0, skip_len) )
+                    #TODO: skip_len uit GP lijkt altijd voor te lopen, dus overal nalopen en -1 doen?
+                    l_x = min(4, max(0, skip_len - 1) )
                     v_x = pvm_Zn(read_uint(self.rom, self.pc + 1, l_x), l_x)
 
                     match opcode:
@@ -231,19 +234,15 @@ class PVM:
                         case op.load_u8.value:
                             self.reg[r_a] = self.mem[mapped_addr]
 
-                        #TODO:NO_TEST:
                         case op.load_i8.value:
-                            self.reg[r_a] = np.int32(read_uint(self.mem, mapped_addr, 1))
+                            self.reg[r_a] = pvm_Zn_inv(pvm_Zn(read_uint(self.mem, mapped_addr, 1), 1),4)
 
-                        #TODO:NO_TEST:
                         case op.load_u16.value:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 2)
 
-                        #TODO:NO_TEST:
                         case op.load_i16.value:
-                            self.reg[r_a] = np.int32(read_uint(self.mem, mapped_addr, 2))
+                            self.reg[r_a] = pvm_Zn_inv(pvm_Zn(read_uint(self.mem, mapped_addr, 2), 2), 4)
 
-                        #TODO:NO_TEST:
                         case op.load_u32.value:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 4)
 
@@ -312,13 +311,15 @@ class PVM:
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
                     l_x = min(4, (self.rom[self.pc + 1] // 16) % 8)
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
-                    v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    if l_x > 0:
+                        v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    else:
+                        v_x = 0
 
-                    l_y = min(4, max(0, skip_len - l_x - 1))
+                    l_y = min(4, max(0, skip_len - l_x - 2))
                     v_y = pvm_Zn(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     match opcode:
-                        #TODO:NO_TEST:
                         case op.load_imm_jump.value:
                             skip_len = v_y
                             self.reg[r_a] = v_x
@@ -390,11 +391,13 @@ class PVM:
                     r_a = min(12, self.rom[self.pc + 1] % 16)
                     r_b = min(12, self.rom[self.pc + 1] // 16)
 
-                    w_a = self.reg[r_a] #???????????????????????
+                    w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
-                    l_x = min(4, max(0, skip_len - 2) )  #??????hier 2 ipv 1?????
-                    #????????????????????l_x = min(4, max(0, skip_len - 1))
-                    v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    l_x = min(4, max(0, skip_len - 2) )  #TODO: GP::234 l is al met 1 opgehoogd (gaat over current pos)?
+                    if l_x > 0:
+                        v_x = pvm_X(read_uint(self.rom, self.pc + 2 , l_x), l_x)
+                    else:
+                        v_x = 0
 
                     if opcode in MemOps:
                         mapped_addr = (w_b + v_x) - self.mem_offset
@@ -421,23 +424,18 @@ class PVM:
                             self.mem[mapped_addr + 2] = np.uint8((w_a & 0xFF0000) >> 16)
                             self.mem[mapped_addr + 3] = np.uint8((w_a & 0xFF000000) >> 24)
 
-                        #TODO:NO_TEST:
                         case op.load_ind_u8.value:
                             self.reg[r_a] = np.uint32(self.mem[mapped_addr])
 
-                        #TODO:NO_TEST:
                         case op.load_ind_i8.value:
-                            self.reg[r_a] = np.int32(self.mem[mapped_addr])
+                            self.reg[r_a] = pvm_Zn_inv(pvm_Zn(read_uint(self.mem, mapped_addr, 1), 1), 4)
 
-                        #TODO:NO_TEST:
                         case op.load_ind_u16.value:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 2)
 
-                        #TODO:NO_TEST:
                         case op.load_ind_i16.value:
-                            self.reg[r_a] = np.int32(read_uint(self.mem, mapped_addr, 2))
+                            self.reg[r_a] = pvm_Zn_inv(pvm_Zn(read_uint(self.mem, mapped_addr, 2), 2), 4)
 
-                        #TODO:NO_TEST:
                         case op.load_ind_u32.value:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 4)
 
