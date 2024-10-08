@@ -72,6 +72,16 @@ class PyjamazApp:
             self,
             block: 'Block'
     ) -> 'STFOutput':
+        """
+        GP-0.3.8-eq:12 (Υ, σ') | Block Level State Transition Function for the JAM state.
+
+        Implicit parameter 1 | Current State | GP-0.3.8-eq:12 (σ)
+
+        Parameters
+        ----------
+        block: Block
+            Input parameter 2 | Block Data | GP-0.3.8-eq:12 (bold_B)
+        """
 
         # Initialization State Components
         timeslot = Timeslot(self.storage_engine)
@@ -248,7 +258,7 @@ class PyjamazApp:
                 tickets_mark=safrole_output.output_marks.tickets_mark
                 # Todo: add offenders_mark
                 # offenders_mark = disputes_output.output_marks.offenders_mark
-        )
+            )
         )
 
     def process_block(self, block: Block) -> STFOutput:
