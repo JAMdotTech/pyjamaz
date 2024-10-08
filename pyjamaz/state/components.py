@@ -10,9 +10,9 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.storage import StorageInterface
 from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
-    EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, AuthorizerPoolsOutput, \
-    RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, AssurancesAfterAssurancesOutput, \
-    AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput
+    EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
+    AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
+    AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.state.exceptions import StateTransitionError
@@ -389,11 +389,11 @@ class Safrole(StateComponent):
     def enact_fallback_method(self, pre_time_slot: int, post_time_slot: int) -> bool:
         return (
             # Not a full tickets accumulator
-                len(self.post_state_safrole.ticket_accumulator) != gp_const.EPOCH_TIMESLOTS
-                # No Ticket marker generated
-                or self.slot_phase_index(pre_time_slot) < gp_const.TICKET_SUBMISSION_END_SLOT
-                # Whole epoch is skipped
-                or self.epoch_number(post_time_slot) - self.epoch_number(pre_time_slot) > 1
+            len(self.post_state_safrole.ticket_accumulator) != gp_const.EPOCH_TIMESLOTS
+            # No Ticket marker generated
+            or self.slot_phase_index(pre_time_slot) < gp_const.TICKET_SUBMISSION_END_SLOT
+            # Whole epoch is skipped
+            or self.epoch_number(post_time_slot) - self.epoch_number(pre_time_slot) > 1
         )
 
     @staticmethod

@@ -220,7 +220,11 @@ class ServicesOutput(Serializable):
         GP-0.3.8-eq:163 (bold_C) | Secondary output of Services STF, BeefyCommitmentMap.
     """
     post_state: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
-    beefy_commitment_map: BeefyCommitmentMap = field(default=None, metadata={'codec': BeefyCommitmentMap.to_codec_def()})  # BeefyCommitmentMap
+    # BeefyCommitmentMap
+    beefy_commitment_map: BeefyCommitmentMap = field(
+        default=None,
+        metadata={'codec': BeefyCommitmentMap.to_codec_def()}
+    )
 
 
 @dataclass

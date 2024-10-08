@@ -337,7 +337,9 @@ class AuthorizerQueuesState(State, Serializable):
     authorizer_queues: Array(Array(H256,constant_Q),constant_C)
         GP-0.3.8-eq:84 (φ) | A collections of queues of authorizations for all cores.
     """
-    authorizer_queues: List[List[bytes]] = field(metadata={'codec': Array(Array(H256, MAXIMUM_AUTHORIZATION_QUEUE_ITEMS), CORE_COUNT)})
+    authorizer_queues: List[List[bytes]] = field(
+        metadata={'codec': Array(Array(H256, MAXIMUM_AUTHORIZATION_QUEUE_ITEMS), CORE_COUNT)}
+    )
 
 
 @dataclass
@@ -429,7 +431,9 @@ class StatisticsState(State, Serializable):
     statistics: Array(Array(Statistic,constant_V),2)
         GP-0.3.8-eq:169 (π) | A collections of statistics for all validators for two epochs.
     """
-    statistics: List[List[Statistic]] = field(metadata={'codec': Array(Array(Statistic.to_codec_def(), VALIDATOR_COUNT), 2)})
+    statistics: List[List[Statistic]] = field(
+        metadata={'codec': Array(Array(Statistic.to_codec_def(), VALIDATOR_COUNT), 2)}
+    )
 
 
 @dataclass
