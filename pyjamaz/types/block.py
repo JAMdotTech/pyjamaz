@@ -1,10 +1,13 @@
 from dataclasses import dataclass, field
+from functools import cached_property
+
 from math import floor
 from typing import List, Optional
 
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Null, BitArray
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.signing import Keypair
 from pyjamaz.types.common import OpaqueHash, BandersnatchKey, ByteArray784
 
 from jamcodec.mixins import Serializable
@@ -63,6 +66,7 @@ TicketsMark = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
 class OutputMarks(Serializable):
     epoch_mark: Optional[EpochMark] = field(default=None, metadata={'codec': Option(EpochMark.to_codec_def())})   # New epoch signal. OPTIONAL
     tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
+    offenders_mark: List[bytes] = field(default_factory=list, metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -84,7 +88,17 @@ class Judgement(Serializable):
     """
     vote: bool = field(metadata={'codec': Bool()})
     index: int = field(metadata={'codec': U16})
-    signature: bytes =  field(metadata={'codec': H512})
+    signature: bytes = field(metadata={'codec': H512})
+
+    def get_signing_context(self) -> bytes:
+        """
+        GP-0.3.8-eq:99
+
+        Returns
+        -------
+        bytes
+        """
+        return b'jam_valid' if self.vote else b'jam_invalid'
 
 
 @dataclass
@@ -110,6 +124,29 @@ class Verdict(Serializable):
     # Todo: change array size to use constants: 1+(floor(VALIDATOR_COUNT/3)*2)
     votes: List[Judgement] = field(metadata={'codec': Array(Judgement.to_codec_def(), 1+(floor(VALIDATOR_COUNT/3)*2))})
 
+    @cached_property
+    def total_positive_votes(self) -> int:
+        """
+        GP-0.3.8-eq:106
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        int
+        """
+        return sum([v.vote for v in self.votes])
+
+    def is_good(self) -> bool:
+        return self.total_positive_votes == VALIDATOR_COUNT * 2 / 3 + 1
+
+    def is_bad(self) -> bool:
+        return self.total_positive_votes == 0
+
+    def is_wonky(self) -> bool:
+        return self.total_positive_votes == VALIDATOR_COUNT / 3
+
 
 @dataclass
 class Culprit(Serializable):
@@ -132,6 +169,10 @@ class Culprit(Serializable):
     target: bytes = field(metadata={'codec': H256})
     key: bytes = field(metadata={'codec': H256})
     signature: bytes = field(metadata={'codec': H512})
+
+    def has_valid_signature(self) -> bool:
+        keypair = Keypair.from_public_key(self.key)
+        return keypair.verify(b'jam_guarantee' + self.target, self.signature)
 
 
 @dataclass
@@ -160,6 +201,10 @@ class Fault(Serializable):
     vote: bool = field(metadata={'codec': Bool()})
     key: bytes = field(metadata={'codec': H256})
     signature: bytes = field(metadata={'codec': H512})
+
+    def has_valid_signature(self) -> bool:
+        keypair = Keypair.from_public_key(self.key)
+        return keypair.verify(b'jam_valid' if self.vote else b'jam_invalid' + self.target, self.signature)
 
 
 @dataclass

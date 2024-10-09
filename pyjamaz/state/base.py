@@ -22,8 +22,7 @@ class StateComponent:
 
     def __init__(self, storage_engine: StorageInterface, **kwargs):
 
-        # self.pre_state = None
-        # self.post_state = None
+        self.output = None
         self.storage_engine = storage_engine
 
     def initialize(self):

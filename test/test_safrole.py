@@ -14,7 +14,7 @@ from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_
 from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.state.exceptions import StateTransitionError
-from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage
+from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage, InMemoryStorage
 from pyjamaz.types.common import OpaqueHash, ValidatorsData, ValidatorData, ByteArray144
 from pyjamaz.types.stf_output import SafroleOutput, SafroleErrorCode
 from pyjamaz.types.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, TicketBody, OutputMarks, \
@@ -112,9 +112,7 @@ class TestSafroleVector(unittest.TestCase):
 
         cls.config = AppConfig(
             ring_data=cls.ring_data,
-            # storage_engine=RocksDBStorage(path.join(storage_dir, "db"))
-            storage_engine=LevelDBStorage(path.join(storage_dir, "db"))
-            # storage_engine=JSONStorage(path.join(storage_dir, "storage.json"))
+            storage_engine=InMemoryStorage()
         )
 
     @staticmethod
@@ -248,7 +246,7 @@ class TestSafroleVector(unittest.TestCase):
             output = app.process_block(block)
             output = SafroleTestOutput(
                 ok=SafroleOutputMarks(
-                    epoch_mark=output.output_marks.epoch_mark, tickets_mark=output.output_marks.tickets_mark
+                    epoch_mark=output.epoch_mark, tickets_mark=output.tickets_mark
                 )
             )
         except StateTransitionError as e:

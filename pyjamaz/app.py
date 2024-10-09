@@ -38,8 +38,8 @@ class PyjamazApp:
         self.state_manager.add(Safrole, ring_data=self.config.ring_data)
         self.state_manager.add(ValidatorQueue)
 
-    def get_state(self, state_manager: Type[StateComponent]):
-        return self.state_manager.get(state_manager).retrieve_state()
+    def get_state(self, state_component: Type[StateComponent]):
+        return self.state_manager.get(state_component).retrieve_state()
 
     def init_state(self, state: JamState):
         self.state_manager.get(Timeslot).store_state(state.timeslot)
@@ -86,7 +86,8 @@ class PyjamazApp:
 
         # Disputes STF GP-0.3.7-eq:23
         disputes_output = disputes.state_transition(
-            extrinsic_disputes=block.extrinsic.disputes, pre_state_disputes=pre_state_disputes
+            extrinsic_disputes=block.extrinsic.disputes, pre_state_disputes=pre_state_disputes,
+            pre_state_validator_pool=pre_state_validator_pool
         )
 
         # Validator Pool STF GP-0.3.7-eq:21
@@ -95,7 +96,7 @@ class PyjamazApp:
             pre_state_timeslot=pre_state_timeslot,
             pre_state_validator_pool=pre_state_validator_pool,
             pre_state_safrole=pre_state_safrole,
-            post_state_disputes=disputes_output.post_state
+            post_state_disputes=disputes_output.offenders_mark
         )
 
         # Validator Archive STF GP-0.3.7-eq:22
@@ -125,10 +126,9 @@ class PyjamazApp:
             safrole.store_state(safrole_output.post_state)
 
         return STFOutput(
-            output_marks=OutputMarks(
-                epoch_mark=safrole_output.output_marks.epoch_mark,
-                tickets_mark=safrole_output.output_marks.tickets_mark
-            )
+            epoch_mark=safrole_output.epoch_mark,
+            tickets_mark=safrole_output.tickets_mark,
+            offenders_mark=disputes_output.offenders_mark
         )
 
     def process_block(self, block: Block) -> STFOutput:

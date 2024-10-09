@@ -435,7 +435,7 @@ class StatisticsState(State, Serializable):
     statistics: Array(Array(H256,constant_Q),constant_C)
         GP-0.3.6-eq:169 (greek_PI | π) | A collections of statistics for all validators for two epochs.
     """
-    statistics: List[List[Statistic]] = field(metadata={'codec': Array(Array(Statistic.to_codec_def(),VALIDATOR_COUNT), 2)})
+    statistics: List[List[Statistic]] = field(metadata={'codec': Array(Array(Statistic.to_codec_def(), VALIDATOR_COUNT), 2)})
 
 
 @dataclass
@@ -504,3 +504,77 @@ class JamState(State, Serializable):
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
     disputes: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
+
+    @classmethod
+    def generate(cls):
+        validator_data = ValidatorData.from_json(
+            {
+                "bandersnatch": "0x5e465beb01dbafe160ce8216047f2155dd0569f058afd52dcea601025a8d161d",
+                "ed25519": "0x3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+                "bls": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+                "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            }
+        )
+
+        return cls(
+            timeslot=TimeslotState(number=0),
+            entropy=EntropyState(
+                entropy=[bytes(32), bytes(32), bytes(32), bytes(32)]
+            ),
+            safrole=SafroleState(
+                ticket_accumulator=[],
+                validators=[validator_data] * VALIDATOR_COUNT,
+                slot_sealer_series=SlotSealerSeries(keys=[bytes(32)] * EPOCH_TIMESLOTS),
+                ring_commitment=bytes(144),
+            ),
+            validator_queue=ValidatorQueueState(
+                validators=[validator_data] * VALIDATOR_COUNT
+            ),
+            validator_pool=[validator_data] * VALIDATOR_COUNT,
+            validator_archive=[validator_data] * VALIDATOR_COUNT,
+            authorizer_pools=AuthorizerPoolsState(
+                authorizer_pools=[
+                    [],
+                    []
+                ]
+            ),
+            recent_history=RecentHistoryState(
+                recent_history=[]
+            ),
+            services=ServicesState(services={}),
+            assurances=AssurancesState(
+                assurances=[
+                    None,
+                    None
+                ]
+            ),
+            authorizer_queues=AuthorizerQueuesState(
+                authorizer_queues=[
+                    [[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
+                ]
+            ),
+            privileged_services=PrivilegedServicesState(
+                empower_service=0,
+                assign_service=0,
+                designate_service=0
+            ),
+            disputes=DisputesState(
+                good_set=[],
+                bad_set=[],
+                wonky_set=[],
+                offenders=[],
+            ),
+            statistics=StatisticsState(
+                statistics=[
+                    [
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0),
+                        Statistic(0, 0, 0, 0, 0, 0)
+                    ] * 2
+                ]
+            ),
+        )
+
