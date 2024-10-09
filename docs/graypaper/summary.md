@@ -32,4 +32,4 @@ This section has been updated to match Graypaper version 0.3.8.
 | Appendix G. Bandersnatch Ring VRF            |          5 |     0% |             0% |          0% |            0% |
 | Appendix H. Erasure Coding                   |         13 |     0% |             0% |          0% |            0% |
 | Appendix I. Index of Notation                |          0 |     0% |              - |           - |             - |
-| **Total**                                    |    **321** | **0%** |         **0%** |      **0%** |        **0%** |
+| **Total**                                    |    **348** | **0%** |         **0%** |      **0%** |        **0%** |

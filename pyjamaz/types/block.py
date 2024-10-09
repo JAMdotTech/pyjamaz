@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from math import floor
-from typing import List, Optional
+from typing import List, Optional, Dict
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Null, BitArray
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Null, BitArray, Map
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.types.common import OpaqueHash, BandersnatchKey, ByteArray784
@@ -28,17 +28,15 @@ class EpochMark(Serializable):
 @dataclass
 class TicketEnvelope(Serializable):
     """
-    GP-0.3.8-eq:73 (bold_E_T) | Single item in the tickets extrinsic. Manages selection of validators for permissioning
-    of block authoring
+    GP-0.4.1-eq:74 (bold_E_T) | Single item in the tickets extrinsic. Manages selection of validators for permissioning
+    of block authoring.
 
     Attributes
     ----------
     attempt: U16
-        GP-0.3.8-eq:73 (r) |
-        An entry index
-    signature: H512
-        GP-0.3.8-eq:73 (p) |
-        Proof of a ticket's validity
+        GP-0.4.1-eq:74 (r) | An entry index.
+    signature: Array(U8, 784)
+        GP-0.4.1-eq:74 (p) | Proof of a ticket's validity.
     """
     attempt: int = field(metadata={'codec': U8})
     signature: ByteArray784 = field(metadata={'codec': Array(U8, 784)})
@@ -63,26 +61,25 @@ class OutputMarks(Serializable):
     # New epoch signal. OPTIONAL
     epoch_mark: Optional[EpochMark] = field(default=None, metadata={'codec': Option(EpochMark.to_codec_def())})
     # Tickets signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(),
-                                                                                              EPOCH_TIMESLOTS))})
+    tickets_mark: Optional[TicketsMark] = field(
+        default=None,
+        metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
+    )
 
 
 @dataclass
 class Judgement(Serializable):
     """
-    GP-0.3.8-eq:97 (third element of the tuple in bold_v) | An individual judgements coming from a validator
+    GP-0.4.1-eq:98 (third element of the tuple in bold_v) | An individual judgements coming from a validator.
 
     Attributes
     ----------
     vote: Bool
-        GP-0.3.8-eq:97 ({T/F}) |
-        A vote
+        GP-0.4.1-eq:98 ({T/F}) | A vote.
     index: U16
-        GP-0.3.8-eq:97 (blackboard_N_V) |
-         A validator index
+        GP-0.4.1-eq:98 (blackboard_N_V) | A validator index.
     signature: H512
-        GP-0.3.8-eq:97 (blackboard_E) |
-        A Ed25519 signature corresponding to the validator index
+        GP-0.4.1-eq:98 (blackboard_E) | A Ed25519 signature corresponding to the validator index.
     """
     vote: bool = field(metadata={'codec': Bool()})
     index: int = field(metadata={'codec': U16})
@@ -92,20 +89,19 @@ class Judgement(Serializable):
 @dataclass
 class Verdict(Serializable):
     """
-    GP-0.3.8-eq:97 (bold_v) | A compilation of judgements coming from exactly two-thirds plus one of either the active
-    validator set or the previous epoch's validator set
+    GP-0.4.1-eq:98 (bold_v) | A compilation of judgements coming from exactly two-thirds plus one of either the active
+    validator set or the previous epoch's validator set.
 
     Attributes
     ----------
     target: H256
-        GP-0.3.8-eq:97 (blackboard_H in bold_v) |
-        A work-report hash
+        GP-0.4.1-eq:98 (blackboard_H in bold_v) | A work-report hash.
     age: U32
-        GP-0.3.8-eq:97 (second element of the tuple in bold_v) |
-        Determines whether the current or the previous validator set applies to this verdict
+        GP-0.4.1-eq:98 (second element of the tuple in bold_v) | Determines whether the current or the previous
+        validator set applies to this verdict.
     votes: Vec(fault)
-        GP-0.3.8-eq:97 (third element of the tuple in bold_v) | A set of judgements by two-thirds plus one of either
-        the current or the previous validator set
+        GP-0.4.1-eq:98 (third element of the tuple in bold_v) | A set of judgements by two-thirds plus one of either
+        the current or the previous validator set.
     """
     target: bytes = field(metadata={'codec': H256})
     age: int = field(metadata={'codec': U32})
@@ -116,20 +112,17 @@ class Verdict(Serializable):
 @dataclass
 class Culprit(Serializable):
     """
-    GP-0.3.8-eq:97 (bold_c) | Proof of misbehaviour of one or more validators by guaranteeing a work-report found to be
-    invalid. This is considered an offence
+    GP-0.4.1-eq:98 (bold_c) | Proof of misbehaviour of one or more validators by guaranteeing a work-report found to be
+    invalid. This is considered an offence.
 
     Attributes
     ----------
     target: H256
-        GP-0.3.8-eq:97 (blackboard_H) |
-        A work-report hash
+        GP-0.4.1-eq:98 (blackboard_H) | A work-report hash.
     key: H256
-        GP-0.3.8-eq:97 (blackboard_H_E) |
-        A validator Ed25519 public key
+        GP-0.4.1-eq:98 (blackboard_H_E) | A validator Ed25519 public key.
     signature: H512
-        GP-0.3.8-eq:97 (blackboard_E) |
-        A Ed25519 signature corresponding to the validator's Ed25519 public key
+        GP-0.4.1-eq:98 (blackboard_E) | A Ed25519 signature corresponding to the validator's Ed25519 public key.
     """
     target: bytes = field(metadata={'codec': H256})
     key: bytes = field(metadata={'codec': H256})
@@ -139,23 +132,19 @@ class Culprit(Serializable):
 @dataclass
 class Fault(Serializable):
     """
-    GP-0.3.8-eq:97 (bold_f) | Proof of misbehaviour of one or more validators by signing a judgement found to be
-    contradiction to a work-report's validity. This is considered an offence
+    GP-0.4.1-eq:98 (bold_f) | Proof of misbehaviour of one or more validators by signing a judgement found to be
+    contradiction to a work-report's validity. This is considered an offence.
 
     Attributes
     ----------
     target: H256
-        GP-0.3.8-eq:97 (blackboard_H) |
-        A work-report hash
+        GP-0.4.1-eq:98 (blackboard_H) | A work-report hash.
     vote: Bool
-        GP-0.3.8-eq:97 ({T/F}) |
-        A vote
+        GP-0.4.1-eq:98 ({T/F}) | A vote.
     key: H256
-        GP-0.3.8-eq:97 (blackboard_H_E) |
-        A validator Ed25519 public key
+        GP-0.4.1-eq:98 (blackboard_H_E) | A validator Ed25519 public key.
     signature: H512
-        GP-0.3.8-eq:97 (blackboard_E) |
-        A Ed25519 signature corresponding to the validator's Ed25519 public key
+        GP-0.4.1-eq:98 (blackboard_E) | A Ed25519 signature corresponding to the validator's Ed25519 public key.
 
     """
     target: bytes = field(metadata={'codec': H256})
@@ -167,22 +156,19 @@ class Fault(Serializable):
 @dataclass
 class ExtrinsicDisputes(Serializable):
     """
-    GP-0.3.8-eq:97 (bold_E_D) | judgements by validators on disputes
+    GP-0.4.1-eq:98 (bold_E_D) | judgements by validators on disputes.
 
     Attributes
     ----------
     verdicts: Vec(verdict)
-        GP-0.3.8-eq:97 (bold_v) |
-        Compilations of judgements coming from exactly two-thirds plus one of either the active validator set or the
-        previous epoch's validator set
+        GP-0.4.1-eq:98 (bold_v) | Compilations of judgements coming from exactly two-thirds plus one of either the
+        active validator set or the previous epoch's validator set.
     culprits: Vec(culprit)
-        GP-0.3.8-eq:97 (bold_c) |
-        Proofs of misbehaviour of one or more validators by guaranteeing a work-report found to be invalid. This is
-        considered an offence
+        GP-0.4.1-eq:98 (bold_c) | Proofs of misbehaviour of one or more validators by guaranteeing a work-report found
+        to be invalid. This is considered an offence.
     faults: Vec(fault)
-        GP-0.3.8-eq:97 (bold_f) |
-        Proofs of misbehaviour of one or more validators by signing a judgement found to be contradiction to a
-        work-report's validity. This is considered an offence
+        GP-0.4.1-eq:98 (bold_f) | Proofs of misbehaviour of one or more validators by signing a judgement found to be
+        contradiction to a work-report's validity. This is considered an offence.
     """
     verdicts: List[Verdict] = field(metadata={'codec': Vec(Verdict.to_codec_def())})
     culprits: List[Culprit] = field(metadata={'codec': Vec(Culprit.to_codec_def())})
@@ -192,17 +178,15 @@ class ExtrinsicDisputes(Serializable):
 @dataclass
 class Preimage(Serializable):
     """
-    GP-0.3.8-eq:153 (bold_E_P) | Single item in the preimages extrinsic. A preimage is a pair of service indices and
-    data
+    GP-0.4.1-eq:154 (bold_E_P) | Single item in the preimages extrinsic. A preimage is a pair of service indices and
+    data.
 
     Attributes
     ----------
     requester: U32
-        GP-0.3.8-eq:153 (blackboard_N_S) |
-        A service index
+        GP-0.4.1-eq:154 (blackboard_N_S) | A service index.
     blob: Bytes
-        GP-0.3.8-eq:153 (blackboard_Y) |
-        Arbitrary length data
+        GP-0.4.1-eq:154 (blackboard_Y) | Arbitrary length data.
     """
     requester: int = field(metadata={'codec': U32})
     blob: bytes = field(metadata={'codec': Bytes})
@@ -211,23 +195,19 @@ class Preimage(Serializable):
 @dataclass
 class Assurance(Serializable):
     """
-    GP-0.3.8-eq:123 (bold_E_A) | Single item in the assurances extrinsic. Assurance by individual validator concerning
-    which of the input data of workloads they have correctly received and are storing locally
+    GP-0.4.1-eq:124 (bold_E_A) | Single item in the assurances extrinsic. Assurance by individual validator concerning
+    which of the input data of workloads they have correctly received and are storing locally.
 
     Attributes
     ----------
     anchor: H256
-        GP-0.3.8-eq:123 (a) |
-        Anchor to the parent_hash of the block
+        GP-0.4.1-eq:124 (a) | Anchor to the parent_hash of the block.
     bitfield: BitArray(constant_C)
-        GP-0.3.8-eq:123 (f) |
-        A sequence of binary values (bitstring) one per core.
+        GP-0.4.1-eq:124 (f) | A sequence of binary values (bitstring) one per core.
     validator_index: U16
-        GP-0.3.8-eq:123 (v) |
-        A validator index
+        GP-0.4.1-eq:124 (v) | A validator index.
     signature: H512
-        GP-0.3.8-eq:123 (s) |
-        A Ed25519 signature corresponding to the validator index
+        GP-0.4.1-eq:124 (s) | A Ed25519 signature corresponding to the validator index.
     """
     anchor: bytes = field(metadata={'codec': H256})
     bitfield: List[bool] = field(metadata={'codec': BitArray(CORE_COUNT)})
@@ -238,26 +218,22 @@ class Assurance(Serializable):
 @dataclass
 class WorkExecResult(Serializable):
     """
-    GP-0.3.8-eq:121 (o) | Work result output or error of the execution of the code in the refine stage. Either a byte
-    sequence in case it was successful or one of the possible errors
+    GP-0.4.1-eq:122 (o) | Work result output or error of the execution of the code in the refine stage. Either a byte
+    sequence in case it was successful or one of the possible errors.
 
     Attributes
     ----------
     ok: Bytes
-        GP-0.3.8-eq:121 (blackboard_Y) |
-        The index of a service whose state is to be altered and thus whose refine code was already executed
+        GP-0.4.1-eq:122 (blackboard_Y) | The index of a service whose state is to be altered and thus whose refine code
+        was already executed.
     out_of_gas: None
-        GP-0.3.8-eq:122 (sign_INFINITY) |
-        Out of gas error
+        GP-0.4.1-eq:123 (sign_INFINITY) | Out of gas error.
     panic: None
-        GP-0.3.8-eq:121 (sign_LIGHTNING) |
-        Panic error
+        GP-0.4.1-eq:122 (sign_LIGHTNING) | Panic error.
     bad_code: None
-        GP-0.3.8-eq:121 (BAD) |
-        Bad code error
+        GP-0.4.1-eq:122 (BAD) | Bad code error.
     code_oversize: None
-        GP-0.3.8-eq:121 (BIG) |
-        Code oversize error
+        GP-0.4.1-eq:122 (BIG) | Code oversize error.
     """
     # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-oversize) don't match
     ok: bytes = field(default=None, metadata={'codec': Bytes})
@@ -272,27 +248,24 @@ class WorkExecResult(Serializable):
 @dataclass
 class WorkResult(Serializable):
     """
-    GP-0.3.8-eq:121 (blackboard_L) | A work result is the data conduit by which services' states may be altered through
+    GP-0.4.1-eq:122 (blackboard_L) | A work result is the data conduit by which services' states may be altered through
     the computation done within a work-package.
 
     Attributes
     ----------
     service: U32
-        GP-0.3.8-eq:121 (s) |
-        The index of a service whose state is to be altered and thus whose refine code was already executed
+        GP-0.4.1-eq:122 (s) | The index of a service whose state is to be altered and thus whose refine code was
+        already executed.
     code_hash: H256
-        GP-0.3.8-eq:121 (c) |
-        The hash of the code  of the service at the time of being reported
+        GP-0.4.1-eq:122 (c) | The hash of the code  of the service at the time of being reported
     payload_hash: H256
-        GP-0.3.8-eq:121 (l) |
-        The hash of the payload within the work item which was executed in the refine stage to give this result
+        GP-0.4.1-eq:122 (l) | The hash of the payload within the work item which was executed in the refine stage to
+        give this result.
     gas_ratio: U64
-        GP-0.3.8-eq:121 (g) |
-        The gas prioritization ration used when determining how much gas should be allocated to execute of this item's
-        accumulate
+        GP-0.4.1-eq:122 (g) | The gas prioritization ration used when determining how much gas should be allocated to
+        execute of this item's accumulation.
     result: WorkExecResult
-        GP-0.3.8-eq:121 (o) |
-        Output or error of the execution of the code
+        GP-0.4.1-eq:122 (o) | Output or error of the execution of the code.
     """
     service: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
@@ -304,29 +277,23 @@ class WorkResult(Serializable):
 @dataclass
 class RefinementContext(Serializable):
     """
-    GP-0.3.8-eq:119 (blackboard_X) | A refinement context describes the context of the chain at the point that the
+    GP-0.4.1-eq:120 (blackboard_X) | A refinement context describes the context of the chain at the point that the
     report's corresponding work-package was evaluated.
 
     Attributes
     ----------
     anchor: H256
-        GP-0.3.8-eq:119 (a) |
-        The anchor header_hash
+        GP-0.4.1-eq:120 (a) | The anchor header_hash.
     state_root: H256
-        GP-0.3.8-eq:119 (s) |
-        The anchor header's block associated posterior state-root
+        GP-0.4.1-eq:120 (s) | The anchor header's block associated posterior state-root.
     beefy_root: H256
-        GP-0.3.8-eq:119 (b) |
-        The anchor header's block associated posterior beefy-root
+        GP-0.4.1-eq:120 (b) | The anchor header's block associated posterior beefy-root.
     lookup_anchor: H256
-        GP-0.3.8-eq:119 (l) |
-        The lookup-anchor header_hash
+        GP-0.4.1-eq:120 (l) | The lookup-anchor header_hash.
     lookup_anchor_slot: U32
-        GP-0.3.8-eq:119 (t) |
-        The lookup-anchor header's associated timeslot
+        GP-0.4.1-eq:120 (t) | The lookup-anchor header's associated timeslot.
     prerequisite: Option(H256)
-        GP-0.3.8-eq:119 (p) |
-        An optional prerequisite work-package
+        GP-0.4.1-eq:120 (p) | An optional prerequisite work-package.
     """
     anchor: bytes = field(metadata={'codec': H256})
     state_root: bytes = field(metadata={'codec': H256})
@@ -339,23 +306,19 @@ class RefinementContext(Serializable):
 @dataclass
 class WorkPackageSpec(Serializable):
     """
-    GP-0.3.8-eq:120 (blackboard_S) | Availability specification are used to ensure correct reconstruction  and auditing
+    GP-0.4.1-eq:121 (blackboard_S) | Availability specification are used to ensure correct reconstruction  and auditing
     the purported ramifications of any reported work-package.
 
     Attributes
     ----------
     hash: H256
-        GP-0.3.8-eq:120 (h) |
-        The work-package hash
+        GP-0.4.1-eq:121 (h) | The work-package hash.
     len: U16
-        GP-0.3.8-eq:120 (l) |
-        The work bundle length
+        GP-0.4.1-eq:121 (l) | The work bundle length.
     erasure_root: H256
-        GP-0.3.8-eq:120 (u) |
-        The erasure-root
+        GP-0.4.1-eq:121 (u) | The erasure-root.
     exports_root: H256
-        GP-0.3.8-eq:120 (e) |
-        The segment root
+        GP-0.4.1-eq:121 (e) | The segment root.
     """
     hash: bytes = field(metadata={'codec': H256})
     len: int = field(metadata={'codec': U32})
@@ -366,51 +329,48 @@ class WorkPackageSpec(Serializable):
 @dataclass
 class WorkReport(Serializable):
     """
-    GP-0.3.8-eq:117 (bold_E_G) | A work report comprises several work outputs
+    GP-0.4.1-eq:118 (bold_E_G) | A work report comprises several work outputs.
 
     Attributes
     ----------
     package_spec: WorkPackageSpec
-        GP-0.3.8-eq:117 (s) |
-        The work package specification
+        GP-0.4.1-eq:118 (s) | The work package specification.
     context: RefinementContext
-        GP-0.3.8-eq:117 (x) |
-        The refinement context
+        GP-0.4.1-eq:118 (x) | The refinement context.
     core_index: U16
-        GP-0.3.8-eq:117 (c) |
-        The core-index
+        GP-0.4.1-eq:118 (c) | The core-index.
     authorizer_hash: H256
-        GP-0.3.8-eq:117 (a) |
-        The authorizer hash
+        GP-0.4.1-eq:118 (a) | The authorizer hash.
     auth_output: Bytes
-        GP-0.3.8-eq:117 (o) |
-        The output
+        GP-0.4.1-eq:118 (bold_o) | The output.
+    segment_root_lookup: Dict(H256,H256)
+        GP-0.4.1-eq:118 (bold_l) | Segment root lookup dictionary. Todo: explain what it does.
     results: Vec(WorkResult)
-        GP-0.3.8-eq:117 (r) |
-        The results of the evaluation of each of the items inn the work package
+        GP-0.4.1-eq:118 (r) | The results of the evaluation of each of the items inn the work package.
     """
     package_spec: WorkPackageSpec = field(metadata={'codec': WorkPackageSpec.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
     core_index: int = field(metadata={'codec': U16})
     authorizer_hash: bytes = field(metadata={'codec': H256})
     auth_output: bytes = field(metadata={'codec': Bytes})
+    segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
     results: List[WorkResult] = field(metadata={'codec': Vec(WorkResult.to_codec_def())})
+
+    # Todo: minimum of 1 results maximum of constant_I results as per GP-0.4.1-eq:118
 
 
 @dataclass
 class Credential(Serializable):
     """
-    GP-0.3.8-eq:136 (a) | Single item in the signatures attribute of a guarantee comprising a validator index and its
+    GP-0.4.1-eq:137 (a) | Single item in the signatures attribute of a guarantee comprising a validator index and its
     Ed25519 signature.
 
     Attributes
     ----------
     validator_index: U16
-        GP-0.3.8-eq:136 (blackboard_N_V) |
-        A validator index
+        GP-0.4.1-eq:137 (blackboard_N_V) | A validator index.
     signature: H512
-        GP-0.3.8-eq:136 (blackboard_E) |
-        A Ed25519 signature corresponding to the validator index
+        GP-0.4.1-eq:137 (blackboard_E) | A Ed25519 signature corresponding to the validator index.
     """
     validator_index: int = field(metadata={'codec': U16})
     signature: bytes = field(metadata={'codec': H512})
@@ -419,73 +379,65 @@ class Credential(Serializable):
 @dataclass
 class Guarantee(Serializable):
     """
-    GP-0.3.8-eq:136 (bold_E_G) | Single item in the guarantees extrinsic. Report of newly completed workload whose
-    accuracy is guaranteed by specific validators
+    GP-0.4.1-eq:137 (bold_E_G) | Single item in the guarantees extrinsic. Report of newly completed workload whose
+    accuracy is guaranteed by specific validators.
 
     Attributes
     ----------
     report: WorkReport
-        GP-0.3.8-eq:136 (w) |
-        A work report
+        GP-0.4.1-eq:137 (w) | A work report.
     slot: U32
-        GP-0.3.8-eq:136 (t) |
-        A timeslot
+        GP-0.4.1-eq:137 (t) | A timeslot.
     signatures: Vec(Credential)
-        GP-0.3.8-eq:136 (a) |
-        a set of credentials
+        GP-0.4.1-eq:137 (a) | A set of credentials.
     """
     report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
     slot: int = field(metadata={'codec': U32})
     # Todo: consider renaming to 'credentials'
     signatures: List[Credential] = field(metadata={'codec': Vec(Credential.to_codec_def())})
 
+    # Todo: signatures has either 2 or 3 items as per GP-0.4.1-eq:137
+
 
 @dataclass
 class Header(Serializable):
     """
-    GP-0.3.8-eq:37 (bold_H) | The header is a collection of metadata primarily concerned with cryptographic references
+    GP-0.4.1-eq:38 (bold_H) | The header is a collection of metadata primarily concerned with cryptographic references
     to the blockchain ancestors and the operands and results of the present transition.
 
     Attributes
     ----------
     parent: H256
-        GP-0.3.8-eq:38 (bold_H_p) |
-        Hash of the header of the block's parent
+        GP-0.4.1-eq:39 (bold_H_p) | Hash of the header of the block's parent.
     parent_state_root: H256
-        GP-0.3.8-eq:42 (bold_H_r) |
-        Merkle root of the block's parent posterior state
+        GP-0.4.1-eq:43 (bold_H_r) | Merkle root of the block's parent posterior state.
     extrinsic_hash: H256
-        GP-0.3.8-eq:40 (bold_H_x) |
-        Hash of the block's extrinsic data
+        GP-0.4.1-eq:41 (bold_H_x) | Hash of the block's extrinsic data.
     timeslot: U32
-        GP-0.3.8-eq:41,45 (bold_H_t,blackboard_N=U32) |
-        Block's timeslot
+        GP-0.4.1-eq:42,46 (bold_H_t,blackboard_N=U32) | Block's timeslot.
     epoch_marker: EpochMark
-        GP-0.3.8-eq:44 (bold_H_e) |
-        Optional block's epoch marker; fallback keys and entropy for next epoch
+        GP-0.4.1-eq:45 (bold_H_e) | Optional block's epoch marker; fallback keys and entropy for next epoch.
     tickets_marker: Option(Array(TicketBody,EPOCH_TIMESLOTS))
-        GP-0.3.8-eq:44 (bold_H_w) |
-        Optional block's winning tickets marker; provides a series of 600 slot sealing tickets for the next epoch
+        GP-0.4.1-eq:45 (bold_H_w) | Optional block's winning tickets marker; provides a series of 600 slot sealing
+        tickets for the next epoch.
     offenders_marker: Vec(H256)
-        GP-0.3.8-eq:44 (bold_H_o) |
-        List of Ed25519 keys for offenders
+        GP-0.4.1-eq:45 (bold_H_o) | List of Ed25519 keys for offenders.
     author_index: U16
-        GP-0.3.8-eq:43 (bold_H_i) |
-        Index to identify the block author into th posterior state of the current validator set (kappa)
+        GP-0.4.1-eq:44 (bold_H_i) | Index to identify the block author into th posterior state of the current validator
+        set (kappa).
     entropy_source: Array(U8, 96)
-        GP-0.3.8-eq:61 (bold_H_v) |
-        Entropy-yielding VRF signature
+        GP-0.4.1-eq:62 (bold_H_v) | Entropy-yielding VRF signature.
     seal: Array(U8, 96)
-        GP-0.3.8-eq:59,60 (bold_H_s) |
-        Seal signature
+        GP-0.4.1-eq:60,61 (bold_H_s) | Seal signature.
     """
     parent: bytes = field(metadata={'codec': H256})
     parent_state_root: bytes = field(metadata={'codec': H256})
     extrinsic_hash: bytes = field(metadata={'codec': H256})
     timeslot: int = field(metadata={'codec': U32})
     epoch_marker: Optional[EpochMark] = field(metadata={'codec': Option(EpochMark.to_codec_def())})
-    tickets_marker: Optional[TicketsMark] = field(metadata={'codec': Option(Array(TicketBody.to_codec_def(),
-                                                                                  EPOCH_TIMESLOTS))})
+    tickets_marker: Optional[TicketsMark] = field(
+        metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
+    )
     offenders_marker: List[bytes] = field(metadata={'codec': Vec(H256)})
     author_index: int = field(metadata={'codec': U16})
     entropy_source: bytes = field(metadata={'codec': Array(U8, 96)})
@@ -516,7 +468,7 @@ class Header(Serializable):
     def hash(self, value: bytes) -> None:
         setattr(self, '_hash', value)
 
-    # Todo: new function for derived author_key from validator set; GP-0.3.8-eq:43 (bold_H_a)
+    # Todo: new function for derived author_key from validator set; GP-0.4.1-eq:44 (bold_H_a)
     # def generate_author_bandersnatch_key(self) -> bytes:
     #    pass
 
@@ -524,27 +476,24 @@ class Header(Serializable):
 @dataclass
 class Extrinsic(Serializable):
     """
-    GP-0.3.8-eq:14 (bold_E) | Extrinsic data is input data external to the system.
-    Extrinsic data is split into several discrete portions.
+    GP-0.4.1-eq:14 (bold_E) | Extrinsic data is input data external to the system. Extrinsic data is split into several
+    discrete portions.
 
     Attributes
     ----------
     tickets: Vec(TicketEnvelope)
-        GP-0.3.8-eq:73 (bold_E_T) |
-        Manages selection of validators for permissioning of block authoring
+        GP-0.4.1-eq:74 (bold_E_T) | Manages selection of validators for permissioning of block authoring.
     disputes: ExtrinsicDisputes
-        GP-0.3.8-eq:97 (bold_E_D) |
-        Votes by validators on disputes
+        GP-0.4.1-eq:98 (bold_E_D) | Votes by validators on disputes.
     preimages: Vec(Preimage)
-        GP-0.3.8-eq:153 (bold_E_P) |
-        Static data presently being requested to be available for workloads to be able to fetch on demand
+        GP-0.4.1-eq:154 (bold_E_P) | Static data presently being requested to be available for workloads to be able to
+        fetch on demand.
     assurances: Vec(Assurance)
-        GP-0.3.8-eq:123 (bold_E_A) |
-        Assurances by each validator concerning which of the input data of workloads they have correctly received and
-        are storing locally
+        GP-0.4.1-eq:124 (bold_E_A) | Assurances by each validator concerning which of the input data of workloads they
+        have correctly received and are storing locally.
     guarantees: Vec(Guarantee)
-        GP-0.3.8-eq:136 (bold_E_G) |
-        Reports of newly completed workloads whose accuracy is guaranteed by specific validators
+        GP-0.4.1-eq:137 (bold_E_G) | Reports of newly completed workloads whose accuracy is guaranteed by specific
+        validators.
     """
     tickets: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})
     disputes: ExtrinsicDisputes = field(metadata={'codec': ExtrinsicDisputes.to_codec_def()})
@@ -560,17 +509,16 @@ class Extrinsic(Serializable):
 @dataclass
 class Block(Serializable):
     """
-    GP-0.3.8-eq:13 (bold_b) | The header is a collection of metadata primarily concerned with cryptographic references
+    GP-0.4.1-eq:13 (bold_b) | The header is a collection of metadata primarily concerned with cryptographic references
     to the blockchain ancestors and the operands and results of the present transition.
 
     Attributes
     ----------
     header: Header
-        GP-0.3.8-eq:37 (bold_H) | Collection of metadata primarily concerned with cryptographic references to the
-        blockchain ancestors and the operands and results of the present transition
+        GP-0.4.1-eq:38 (bold_H) | Collection of metadata primarily concerned with cryptographic references to the
+        blockchain ancestors and the operands and results of the present transition.
     extrinsic: Extrinsic
-        GP-0.3.8-eq:14 (bold_E) |
-        Extrinsic data is input data external to the system
+        GP-0.4.1-eq:14 (bold_E) | Extrinsic data is input data external to the system.
     """
     header: Header = field(metadata={'codec': Header.to_codec_def()})
     extrinsic: Extrinsic = field(metadata={'codec': Extrinsic.to_codec_def()})
@@ -579,16 +527,14 @@ class Block(Serializable):
 @dataclass
 class WorkItemExtrinsic(Serializable):
     """
-    GP-0.3.8-eq:175 (x) | A sequence of blob hashes and lengths
+    GP-0.4.1-eq:189 (bold_x) | A sequence of blob hashes and lengths
 
     Attributes
     ----------
     hash: H256
-        GP-0.3.8-eq:175 (blackboard_H) |
-        Blob hashes
+        GP-0.4.1-eq:189 (blackboard_H) | Blob hashes.
     len: U16
-        GP-0.3.8-eq:175 (blackboard_N type derived from encoding appendix) |
-        A validator index
+        GP-0.4.1-eq:189 (blackboard_N type derived from encoding appendix) | A validator index.
     """
     hash: bytes = field(metadata={'codec': H256})
     len: int = field(metadata={'codec': U32})
@@ -597,17 +543,16 @@ class WorkItemExtrinsic(Serializable):
 @dataclass
 class ImportSegment(Serializable):
     """
-    GP-0.3.8-eq:175 (i) | Imported data segments consisting of the root of the segment tree and the index into it
+    GP-0.4.1-eq:189 (bold_i) | Imported data segments consisting of the root of the segment tree and the index into it.
 
     Attributes
     ----------
     tree_root: H256
-        GP-0.3.8-eq:175 (blackboard_H) |
-        Root of the segment tree
+        GP-0.4.1-eq:189 (blackboard_H) | Root of the segment tree.
     index: U16
-        GP-0.3.8-eq:175 (blackboard_N type derived from encoding appendix) |
-        Index into the segment tree
+        GP-0.4.1-eq:189 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
     """
+    # Todo: implement ENUM as per GP-0.4.1-eq:189; requires new unit tests
     tree_root: bytes = field(metadata={'codec': H256})
     index: int = field(metadata={'codec': U16})
 
@@ -615,31 +560,22 @@ class ImportSegment(Serializable):
 @dataclass
 class WorkItem(Serializable):
     """
-    GP-0.3.8-eq:175 (blackboard_I) | Work item.
+    GP-0.4.1-eq:189 (blackboard_I) | Work item.
 
     Attributes
     ----------
     service: U32
-        GP-0.3.8-eq:175 (s) |
-        The index of a service to which it relates
+        GP-0.4.1-eq:189 (s) | The index of a service to which it relates.
     code_hash: H256
-        GP-0.3.8-eq:175 (c) |
-        The hash of the code  of the service at the time of being reported
+        GP-0.4.1-eq:189 (c) | The hash of the code  of the service at the time of being reported.
     payload: Bytes
-        GP-0.3.8-eq:175 (y) |
-        A payload blob
+        GP-0.4.1-eq:189 (bold_y) | A payload blob.
     gas_limit: U64
-        GP-0.3.8-eq:175 (g) |
-        The gas limit
+        GP-0.4.1-eq:189 (g) | The gas limit.
     import_segments: Vec(ImportSegment)
-        GP-0.3.8-eq:175 (i) |
-        Imported data segments
+        GP-0.4.1-eq:189 (bold_i) | Imported data segments.
     extrinsic: Vec(WorkItemExtrinsic)
-        GP-0.3.8-eq:175 (x) |
-        A sequence of blob hashes and lengths
-    export_count: U16
-        GP-0.3.8-eq:175 (e) |
-        The number of data segments exported by this work item
+        GP-0.4.1-eq:189 (bold_x) | A sequence of blob hashes and lengths.
     """
     service: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
@@ -647,22 +583,20 @@ class WorkItem(Serializable):
     gas_limit: int = field(metadata={'codec': U64})
     import_segments: List[ImportSegment] = field(metadata={'codec': Vec(ImportSegment.to_codec_def())})
     extrinsic: List[WorkItemExtrinsic] = field(metadata={'codec': Vec(WorkItemExtrinsic.to_codec_def())})
-    export_count: int = field(metadata={'codec': U16})
+    # Todo: removed export_count attribute in GP-0.4.1; requires updated unit tests
 
 
 @dataclass
 class Authorizer(Serializable):
     """
-    GP-0.3.8-eq:174 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob
+    GP-0.4.1-eq:188 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob.
 
     Attributes
     ----------
     code_hash: H256
-        GP-0.3.8-eq:174 (u) |
-        The authorization code hash
+        GP-0.4.1-eq:188 (u) | The authorization code hash.
     params: Bytes
-        GP-0.3.8-eq:174 (bold_p) |
-        A parameterization blob
+        GP-0.4.1-eq:188 (bold_p) | A parameterization blob.
     """
     code_hash: bytes = field(metadata={'codec': H256})
     params: bytes = field(metadata={'codec': Bytes})
@@ -671,32 +605,29 @@ class Authorizer(Serializable):
 @dataclass
 class WorkPackage(Serializable):
     """
-    GP-0.3.8-eq:174 (blackboard_P) | Work package.
+    GP-0.4.1-eq:188 (blackboard_P) | Work package.
 
     Attributes
     ----------
     authorization: Bytes
-        GP-0.3.8-eq:174 (j) |
-        Authorization token blob
+        GP-0.4.1-eq:188 (j) | Authorization token blob.
     auth_code_host: U32
-        GP-0.3.8-eq:174 (h) |
-        Index of the service which hosts the authorization code
-    # TODO: deviation from GP-0.3.8-eq:174 in which u & bold_p are separated. This impacts the structure of JSON (not
-    # JAM-codec)
+        GP-0.4.1-eq:188 (h) | Index of the service which hosts the authorization code.
+        TODO: deviation from GP-0.4.1-eq:188 in which u & bold_p are separated.
+        This impacts the structure of JSON (not JAM-codec).
     authorizer: Authorizer
-        GP-0.3.8-eq:174 (u & bold_p) |
-        A tuple of the authorization code hash and the parameterization blob
+        GP-0.4.1-eq:188 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob.
     context: RefinementContext
-        GP-0.3.8-eq:174 (x) |
-        The refinement context
+        GP-0.4.1-eq:188 (bold_x) | The refinement context.
     items: Vec(WorkItem)
-        GP-0.3.8-eq:174 (bold_w) |
-        A sequence of work items
+        GP-0.4.1-eq:188 (bold_w) | A sequence of work items.
     """
     authorization: bytes = field(metadata={'codec': Bytes})
     auth_code_host: int = field(metadata={'codec': U32})
-    # TODO: deviation from GP-0.3.8-eq:174 in which u & bold_p are separated. This impacts the structure of JSON (not
-    # JAM-codec)
+    # TODO: deviation from GP-0.4.1-eq:188 in which u & bold_p are separated.
+    #  This impacts the structure of JSON (not JAM-codec)
     authorizer: Authorizer = field(metadata={'codec': Authorizer.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
     items: List[WorkItem] = field(metadata={'codec': Vec(WorkItem.to_codec_def())})
+
+    #Todo minimum 1 work item maximum constant_I work items
