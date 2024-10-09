@@ -190,7 +190,8 @@ class TestSafroleVector(unittest.TestCase):
             privileged_services=PrivilegedServicesState(
                 empower_service=0,
                 assign_service=0,
-                designate_service=0
+                designate_service=0,
+                auto_accumulate_services={}
             ),
             disputes=DisputesState(
                 good_set=[],
@@ -201,12 +202,54 @@ class TestSafroleVector(unittest.TestCase):
             statistics=StatisticsState(
                 statistics=[
                     [
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0)
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        ),
+                        Statistic(
+                            blocks=0,
+                            tickets=0,
+                            preimages=0,
+                            preimage_bytes=0,
+                            guarantees=0,
+                            assurances=0
+                        )
                     ] * 2
                 ]
             ),

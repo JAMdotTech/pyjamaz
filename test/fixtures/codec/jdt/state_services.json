@@ -1,6 +1,6 @@
 {
   "services": {
-    "1": {
+    "0x01000000": {
       "code_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "balance": 1111111111111111,
       "gas_limit_accumulate": 1000000000000000,
@@ -23,7 +23,7 @@
         ]
       }
     },
-    "2": {
+    "0x02000000": {
       "code_hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "balance": 2222222222222222,
       "gas_limit_accumulate": 2000000000000000,
@@ -46,7 +46,7 @@
         ]
       }
     },
-    "3": {
+    "0x03000000": {
       "code_hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "balance": 3333333333333333,
       "gas_limit_accumulate": 3000000000000000,

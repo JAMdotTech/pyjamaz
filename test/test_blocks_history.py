@@ -90,7 +90,7 @@ class TestBlockHistory(unittest.TestCase):
         intermediate_state_recent_history = blocks_history.state_transition_intermediate(
             header=header,
             pre_state_recent_history=pre_state
-        )
+        ).intermediate_state
 
         output = blocks_history.state_transition(
             header=header,

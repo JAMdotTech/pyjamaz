@@ -1,5 +1,10 @@
 {
-  "empower_service": 0,
-  "assign_service": 0,
-  "designate_service": 0
+  "empower_service": 1,
+  "assign_service": 2,
+  "designate_service": 3,
+  "auto_accumulate_services": {
+    "0x01000000": 999888777,
+    "0x02000000": 999888777,
+    "0x03000000": 999888777
+  }
 }

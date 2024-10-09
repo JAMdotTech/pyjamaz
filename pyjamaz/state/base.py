@@ -46,7 +46,7 @@ class StateComponent:
 
     def _state_key_constructor_component(self) -> bytes:
         """
-        GP-ref:280,281 Only wellknown storage keys
+        GP-0.3.8-eq:290,291 Only wellknown storage keys
         """
         try:
             return WELL_KNOWN_STORAGE_KEYS[self.component_id]
@@ -72,7 +72,7 @@ class StateComponent:
     @staticmethod
     def is_epoch_change(pre_slotnumber: int, post_slotnumber: int) -> bool:
         """
-        GP-0.3.6-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+        GP-0.3.8-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
 
         Returns
         -------
@@ -84,7 +84,7 @@ class StateComponent:
     @staticmethod
     def slot_phase_index(slot_number: int) -> int:
         """
-        GP-0.3.6-eq:46 (m) | Function that returns the phase index into the epoch of the timeslot
+        GP-0.3.8-eq:46 (m) | Function that returns the phase index into the epoch of the timeslot
 
         Returns
         -------
@@ -97,7 +97,7 @@ class StateComponent:
     @staticmethod
     def epoch_number(slot_number: int) -> int:
         """
-        GP-0.3.6-eq:46 (e) | Function that returns the epoch index
+        GP-0.3.8-eq:46 (e) | Function that returns the epoch index
 
         Returns
         -------
@@ -109,7 +109,7 @@ class StateComponent:
 
 # def state_key_constructor_service(state_component_id: int, service_account_id: int) -> bytes:
 #     """
-#     GP-ref:280,281 Generates storage keys for individual service
+#     GP-0.3.8-eq:290,291 Generates storage keys for individual service
 #
 #     :param state_component_id:
 #     :param service_account_id:
@@ -120,7 +120,7 @@ class StateComponent:
 #
 # def state_key_constructor_service_item(service_account_id: int, service_account_key: bytes) -> bytes:
 #     """
-#     GP-ref:280,281 Generates storage keys for items within an individual service
+#     GP-0.3.8-eq:290,291 Generates storage keys for items within an individual service
 #
 #     :param service_account_id:
 #     :param service_account_key:
