@@ -1,6 +1,6 @@
 # 4. Overview
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.3.8. 
+This section has been updated to match Graypaper version 0.4.1. 
 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
@@ -35,21 +35,22 @@ This section has been updated to match Graypaper version 0.3.8.
 | Equation 28         |   0% |             0% |          0% |            0% |
 | Equation 29         |   0% |             0% |          0% |            0% |
 | Equation 30         |   0% |             0% |          0% |            0% |
+| Equation 31         |   0% |             0% |          0% |            0% |
 
 ## 4.6. Economics
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 31         |   0% |             0% |          0% |            0% |
+| Equation 32         |   0% |             0% |          0% |            0% |
 
 ## 4.7. The Virtual Machine and Gas
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 32         |   0% |             0% |          0% |            0% |
 | Equation 33         |   0% |             0% |          0% |            0% |
 | Equation 34         |   0% |             0% |          0% |            0% |
 | Equation 35         |   0% |             0% |          0% |            0% |
+| Equation 36         |   0% |             0% |          0% |            0% |
 
 ## 4.8. Epochs and Slots
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 36         |   0% |             0% |          0% |            0% |
+| Equation 37         |   0% |             0% |          0% |            0% |
