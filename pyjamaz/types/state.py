@@ -290,8 +290,10 @@ class ServicesState(State, Serializable):
     # services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
 
     # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    # services: Dict[bytes, ServiceAccount] = field(metadata={'codec': Map(Array(U8,1), ServiceAccount.to_codec_def())})
-    services: Dict[str, ServiceAccount] = field(metadata={'codec': Map(StringDef(U32), ServiceAccount.to_codec_def())})
+    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
+    services: Dict[int, ServiceAccount] = field(
+        metadata={'codec': Map(Array(U8,4), ServiceAccount.to_codec_def())}
+    )
 
 
 @dataclass
@@ -367,7 +369,8 @@ class PrivilegedServicesState(State, Serializable):
     # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
     # auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
     # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    auto_accumulate_services: Dict[str, int] = field(metadata={'codec': Map(StringDef(U32), U64)})
+    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
+    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(Array(U8,4), U64)})
 
 
 @dataclass
@@ -447,11 +450,12 @@ class BeefyCommitmentMap(Serializable):
         GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map dictionary. Provides accumulation result TreeRoot for
         accumulated services.
     """
-    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
+    # Todo: Ideal situation, key of dict is a U32.
     # beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
     # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    beefy_commitment_map: Dict[str, bytes] = field(metadata={'codec': Map(StringDef(U32), H256)})
+    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
+    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(Array(U8,4), H256)})
 
 
 @dataclass
