@@ -576,7 +576,8 @@ class JamState(State, Serializable):
             privileged_services=PrivilegedServicesState(
                 empower_service=0,
                 assign_service=0,
-                designate_service=0
+                designate_service=0,
+                auto_accumulate_services={}
             ),
             disputes=DisputesState(
                 good_set=[],
