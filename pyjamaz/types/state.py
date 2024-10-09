@@ -14,13 +14,12 @@ from pyjamaz.state.base import State
 @dataclass
 class TimeslotState(State, Serializable):
     """
-    GP-0.3.8-eq:45 (greek_TAU | τ) | The most recent block's slot index, combined with helper functions
+    GP-0.3.8-eq:45 (τ) | The most recent block's slot index, combined with helper functions
 
     Attributes
     ----------
-
     number: U32
-        GP-0.3.8-eq:45 (greek_TAU | τ) |
+        GP-0.3.8-eq:45 (τ) |
         The most recent block's slot index
     """
     # Todo: consider renaming number to timeslot
@@ -54,15 +53,14 @@ class TimeslotState(State, Serializable):
 @dataclass
 class EntropyState(State, Serializable):
     """
-    GP-0.3.8-eq:65 (greek_ETA | η) | Entropy partition of the overall state.
+    GP-0.3.8-eq:65 (η) | Entropy partition of the overall state.
 
     Attributes
     ----------
-
     entropy: Array(H256,4)
-        GP-0.3.8-eq:65 (greek_ETA | η) | η[0] serves as an entropy accumulator during the current epoch. η[1], η[2],
-        η[3] retain three historical values of the accumulator at the point of each of the three most recently ended
-        epochs respectively.
+        GP-0.3.8-eq:65 (η) | η[0] serves as an entropy accumulator during the current epoch. η[1], η[2], η[3] retain
+        three historical values of the accumulator at the point of each of the three most recently ended epochs
+        respectively.
     """
     entropy: List[bytes] = field(metadata={'codec': Array(H256, 4)})
 
@@ -89,19 +87,18 @@ class SlotSealerSeries(Serializable):
 @dataclass
 class SafroleState(State, Serializable):
     """
-    GP-0.3.8-eq:47 (greek_GAMMA | γ) | Safrole partition of the overall state.
+    GP-0.3.8-eq:47 (γ) | Safrole partition of the overall state.
 
     Attributes
     ----------
-
     validators: Array(ValidatorData,constant_V)
-        GP-0.3.8-eq:51 (greek_GAMMA_k | γ_k) | A fixed size set of keys and metadata for validators of the next epoch.
+        GP-0.3.8-eq:51 (γ_k) | A fixed size set of keys and metadata for validators of the next epoch.
     ring_commitment: Array(U8,144)
-        GP-0.3.8-eq:48 (greek_GAMMA_z | γ_z) | Bandersnatch ring commitment.
+        GP-0.3.8-eq:48 (γ_z) | Bandersnatch ring commitment.
     slot_sealer_series: SlotSealerSeries
-        GP-0.3.8-eq:49 (greek_GAMMA_s | γ_s) | Sealing-key series of the current epoch.
+        GP-0.3.8-eq:49 (γ_s) | Sealing-key series of the current epoch.
     ticket_accumulator: TicketBody
-        GP-0.3.8-eq:49 (greek_GAMMA_a | γ_a) | Sealing-key contest ticket accumulator.
+        GP-0.3.8-eq:49 (γ_a) | Sealing-key contest ticket accumulator.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -115,14 +112,13 @@ class SafroleState(State, Serializable):
 @dataclass
 class ValidatorQueueState(State, Serializable):
     """
-    GP-0.3.8-eq:51 (greek_IOTA | ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
+    GP-0.3.8-eq:51 (ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
 
     Attributes
     ----------
-
     validators: Array(ValidatorData,constant_V)
-        GP-0.3.8-eq:51 (greek_IOTA | ι) | A fixed size set of validator keys and metadata to be drawn from next by the
-        Safrole protocol.
+        GP-0.3.8-eq:51 (ι) | A fixed size set of validator keys and metadata to be drawn from next by the Safrole
+        protocol.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -131,13 +127,12 @@ class ValidatorQueueState(State, Serializable):
 @dataclass
 class ValidatorPoolState(State, Serializable):
     """
-    GP-0.3.8-eq:51 (greek_KAPPA | κ) | Keys and metadata for validators of the current epoch.
+    GP-0.3.8-eq:51 (κ) | Keys and metadata for validators of the current epoch.
 
     Attributes
     ----------
-
     validators: Array(ValidatorData,constant_V)
-        GP-0.3.8-eq:51 (greek_KAPPA | κ) | A fixed size set of keys and metadata for validators of the current epoch.
+        GP-0.3.8-eq:51 (κ) | A fixed size set of keys and metadata for validators of the current epoch.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -146,13 +141,12 @@ class ValidatorPoolState(State, Serializable):
 @dataclass
 class ValidatorArchiveState(State, Serializable):
     """
-    GP-0.3.8-eq:51 (greek_LAMBDA | λ) | Keys and metadata for validators of the previous epoch.
+    GP-0.3.8-eq:51 (λ) | Keys and metadata for validators of the previous epoch.
 
     Attributes
     ----------
-
     validators: Array(ValidatorData,constant_V)
-        GP-0.3.8-eq:51 (greek_LAMBDA | λ) | A fixed size set of keys and metadata for validators of the previous epoch.
+        GP-0.3.8-eq:51 (λ) | A fixed size set of keys and metadata for validators of the previous epoch.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -161,13 +155,12 @@ class ValidatorArchiveState(State, Serializable):
 @dataclass
 class AuthorizerPoolsState(State, Serializable):
     """
-    GP-0.3.8-eq:84 (greek_ALPHA | α) | A collections of pools of authorizations for all cores.
+    GP-0.3.8-eq:84 (α) | A collections of pools of authorizations for all cores.
 
     Attributes
     ----------
-
     authorizer_pools: Array(Vec(H256),constant_C)
-        GP-0.3.8-eq:84 (greek_ALPHA | α) | A collections of pools of authorizations for all cores.
+        GP-0.3.8-eq:84 (α) | A collections of pools of authorizations for all cores.
     """
     authorizer_pools: List[List[bytes]] = field(metadata={'codec': Array(Vec(H256), CORE_COUNT)})
 
@@ -194,7 +187,7 @@ class Mmr(Serializable):
 @dataclass
 class RecentBlock(Serializable):
     """
-    GP-0.3.8-eq:80 (greek_BETA | β) | A single item in the RecentHistory partition of the overall state.
+    GP-0.3.8-eq:80 (β) | A single item in the RecentHistory partition of the overall state.
 
     Attributes
     ----------
@@ -222,13 +215,12 @@ class RecentBlock(Serializable):
 @dataclass
 class RecentHistoryState(State, Serializable):
     """
-    GP-0.3.8-eq:80 (greek_BETA | β) | RecentHistory partition of the overall state
+    GP-0.3.8-eq:80 (β) | RecentHistory partition of the overall state
 
     Attributes
     ----------
-
     recent_history: Vec(RecentBlock)
-        GP-0.3.8-eq:80 (greek_BETA | β) | A collection of items in the RecentHistory partition of the overall state of
+        GP-0.3.8-eq:80 (β) | A collection of items in the RecentHistory partition of the overall state of
         up to constant_H (8) items.
     """
     recent_history: List[RecentBlock] = field(metadata={'codec': Vec(RecentBlock.to_codec_def())})
@@ -286,26 +278,28 @@ class ServiceAccount(Serializable):
 @dataclass
 class ServicesState(State, Serializable):
     """
-    GP-0.3.8-eq:88 (greek_DELTA | δ) | Services partition of the overall state.
+    GP-0.3.8-eq:88 (δ) | Services partition of the overall state.
 
     Attributes
     ----------
     services: Dict(U32,ServiceAccount)
-        GP-0.3.8-eq:88,87 (greek_DELTA | δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account
-        data for a service account index.
+        GP-0.3.8-eq:88,87 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
+        service account index.
     """
     # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
     # services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
 
     # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    # services: Dict[bytes, ServiceAccount] = field(metadata={'codec': Map(Array(U8,1), ServiceAccount.to_codec_def())})
-    services: Dict[str, ServiceAccount] = field(metadata={'codec': Map(StringDef(U32), ServiceAccount.to_codec_def())})
+    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
+    services: Dict[int, ServiceAccount] = field(
+        metadata={'codec': Map(Array(U8,4), ServiceAccount.to_codec_def())}
+    )
 
 
 @dataclass
 class Assurance(Serializable):
     """
-    GP-0.3.8-eq:116 (greek_RHO[c] | ρ[c]) | An assurance for a single core.
+    GP-0.3.8-eq:116 (ρ[c]) | An assurance for a single core.
 
     Attributes
     ----------
@@ -324,12 +318,12 @@ class Assurance(Serializable):
 @dataclass
 class AssurancesState(State, Serializable):
     """
-    GP-0.3.8-eq:116 (greek_RHO | ρ) | Assurances partition of the overall state.
+    GP-0.3.8-eq:116 (ρ) | Assurances partition of the overall state.
 
     Attributes
     ----------
     assurances: Vec(Option(Assurance))
-        GP-0.3.8-eq:116 (greek_RHO | ρ) | A collection of optional assurances per core.
+        GP-0.3.8-eq:116 (ρ) | A collection of optional assurances per core.
     """
     assurances: List[Optional[Assurance]] = field(metadata={'codec': Array(Option(Assurance.to_codec_def()),
                                                                            CORE_COUNT)})
@@ -338,40 +332,36 @@ class AssurancesState(State, Serializable):
 @dataclass
 class AuthorizerQueuesState(State, Serializable):
     """
-    GP-0.3.8-eq:84 (greek_PHI | φ) | A collections of queues of authorizations for all cores.
+    GP-0.3.8-eq:84 (φ) | A collections of queues of authorizations for all cores.
 
     Attributes
     ----------
-
     authorizer_queues: Array(Array(H256,constant_Q),constant_C)
-        GP-0.3.8-eq:84 (greek_PHI | φ) | A collections of queues of authorizations for all cores.
+        GP-0.3.8-eq:84 (φ) | A collections of queues of authorizations for all cores.
     """
-    authorizer_queues: List[List[bytes]] = field(metadata={'codec': Array(Array(H256, MAXIMUM_AUTHORIZATION_QUEUE_ITEMS), CORE_COUNT)})
+    authorizer_queues: List[List[bytes]] = field(
+        metadata={'codec': Array(Array(H256, MAXIMUM_AUTHORIZATION_QUEUE_ITEMS), CORE_COUNT)}
+    )
 
 
 @dataclass
 class PrivilegedServicesState(State, Serializable):
     """
-    GP-0.3.8-eq:95 (greek_CHI | χ) | The PrivilegedServices partition of the overall state.
+    GP-0.3.8-eq:95 (χ) | The PrivilegedServices partition of the overall state.
 
     Attributes
     ----------
-
     empower_service: U32
-        GP-0.3.8-eq:95 (greek_CHI_m | χ_m) |
-        The service index of the empower service. I.e. the service that allows state transitions of PrivilegedServices
-        (greek_CHI | χ).
+        GP-0.3.8-eq:95 (χ_m) | The service index of the empower service. I.e. the service that allows state transitions
+        of PrivilegedServices (χ).
     assign_service: U32
-        GP-0.3.8-eq:95 (greek_CHI_a | χ_a) |
-        The service index of the assign service. I.e. the service that allows state transitions of AuthorizerQueue
-        (greek_PHI | φ)
+        GP-0.3.8-eq:95 (χ_a) | The service index of the assign service. I.e. the service that allows state transitions
+        of AuthorizerQueue (φ).
     designate_service: U32
-        GP-0.3.8-eq:95 (greek_CHI_v | χ_v) |
-        The service index of the designate service. I.e. the service that allows state transitions of ValidatorQueue
-        (greek_IOTA | ι)
+        GP-0.3.8-eq:95 (χ_v) | The service index of the designate service. I.e. the service that allows state
+        transitions of ValidatorQueue (ι).
     auto_accumulate_services: Dict(U32,U64)
-        GP-0.3.8-eq:95 (greek_CHI_g | χ_g) | Auto Accumulate Services dict. Provides gas limit data for a service
-        account index.
+        GP-0.3.8-eq:95 (χ_g) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
     empower_service: int = field(metadata={'codec': U32})
     assign_service: int = field(metadata={'codec': U32})
@@ -379,26 +369,25 @@ class PrivilegedServicesState(State, Serializable):
     # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
     # auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
     # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    auto_accumulate_services: Dict[str, int] = field(metadata={'codec': Map(StringDef(U32), U64)})
+    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
+    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(Array(U8,4), U64)})
 
 
 @dataclass
 class DisputesState(State, Serializable):
     """
-    GP-0.3.8-eq:96 (greek_PSI | ψ) | A collection of judgements of validators over the validity of work reports.
+    GP-0.3.8-eq:96 (ψ) | A collection of judgements of validators over the validity of work reports.
 
     Attributes
     ----------
-
     good_set: Vec(H256)
-        GP-0.3.8-eq:111,96 (greek_PSI_g | ψ_g) | A collection of work reports hashes with a good verdict.
+        GP-0.3.8-eq:111,96 (ψ_g) | A collection of work reports hashes with a good verdict.
     bad_set: Vec(H256)
-        GP-0.3.8-eq:112,96 (greek_PSI_b | ψ_b) | A collection of work reports hashes with a bad verdict.
+        GP-0.3.8-eq:112,96 (ψ_b) | A collection of work reports hashes with a bad verdict.
     wonky_set: Vec(H256)
-        GP-0.3.8-eq:113,96 (greek_PSI_w | ψ_w) | A collection of work reports hashes with a wonky verdict.
+        GP-0.3.8-eq:113,96 (ψ_w) | A collection of work reports hashes with a wonky verdict.
     offenders: Vec(H256)
-        GP-0.3.8-eq:114,100,101 (greek_PSI_o | ψ_o) | A collection Edwards 25519 keys for validators found guilty of
-        offending.
+        GP-0.3.8-eq:114,100,101 (ψ_o) | A collection Edwards 25519 keys for validators found guilty of offending.
     """
     good_set: List[bytes] = field(metadata={'codec': Vec(H256)})
     bad_set: List[bytes] = field(metadata={'codec': Vec(H256)})
@@ -409,11 +398,10 @@ class DisputesState(State, Serializable):
 @dataclass
 class Statistic(Serializable):
     """
-    GP-0.3.8-eq:169 (greek_PI[0][V] | π[0][V]) | A set of cumulative metrics for a single validator in a single epochs.
+    GP-0.3.8-eq:169 (π.0.V) | A set of cumulative metrics for a single validator in a single epochs.
 
     Attributes
     ----------
-
     blocks: U32
         GP-0.3.8-eq:169 (b) | The number of blocks produced by the validator.
     tickets: U32
@@ -438,67 +426,88 @@ class Statistic(Serializable):
 @dataclass
 class StatisticsState(State, Serializable):
     """
-    GP-0.3.8-eq:169 (greek_PI | π) | A collections of statistics for all validators for two epochs.
+    GP-0.3.8-eq:169 (π) | A collections of statistics for all validators for two epochs.
 
     Attributes
     ----------
 
-    statistics: Array(Array(H256,constant_Q),constant_C)
-        GP-0.3.8-eq:169 (greek_PI | π) | A collections of statistics for all validators for two epochs.
+    statistics: Array(Array(Statistic,constant_V),2)
+        GP-0.3.8-eq:169 (π) | A collections of statistics for all validators for two epochs.
     """
-    statistics: List[List[Statistic]] = field(metadata={'codec': Array(Array(Statistic.to_codec_def(), VALIDATOR_COUNT), 2)})
+    statistics: List[List[Statistic]] = field(
+        metadata={'codec': Array(Array(Statistic.to_codec_def(), VALIDATOR_COUNT), 2)}
+    )
+
+
+@dataclass
+class BeefyCommitmentMap(Serializable):
+    """
+    GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map Dictionary.
+
+    Attributes
+    ----------
+    beefy_commitment_map: Dict(U32,H256)
+        GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map dictionary. Provides accumulation result TreeRoot for
+        accumulated services.
+    """
+    # Todo: Ideal situation, key of dict is a U32.
+    # beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
+
+    # Todo: Workaround for lack of support for int value dict-keys in JSON.
+    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
+    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(Array(U8,4), H256)})
 
 
 @dataclass
 class JamState(State, Serializable):
     """
-    GP-0.3.8-eq:15 (greek_SIGMA | σ) | Logically partitioned state into several largely independent segments which can
-    help both visual clutter within the protocol description and provide formality over elements of computation which
-    may be simultaneously calculated (i.e. parallelized).
+    GP-0.3.8-eq:15 (σ) | Logically partitioned state into several largely independent segments which can help both
+    visual clutter within the protocol description and provide formality over elements of computation which may be
+    simultaneously calculated (i.e. parallelized).
 
     Attributes
     ----------
     authorizer_pools: AuthorizerPoolsState
-        GP-0.3.8-eq:15 (greek_ALPHA | α) |
+        GP-0.3.8-eq:15 (α) |
         AuthorizerPool partition of the overall state
     recent_history: RecentHistoryState
-        GP-0.3.8-eq:15 (greek_BETA | β) |
+        GP-0.3.8-eq:15 (β) |
         RecentHistory partition of the overall state
     safrole: SafroleState
-        GP-0.3.8-eq:15 (greek_GAMMA | γ) |
+        GP-0.3.8-eq:15 (γ) |
         Safrole partition of the overall state
     services: ServicesState
-        GP-0.3.8-eq:15 (greek_DELTA | δ) |
+        GP-0.3.8-eq:15 (δ) |
         Services partition of the overall state
     entropy: EntropyState
-        GP-0.3.8-eq:15 (greek_ETA | η) |
+        GP-0.3.8-eq:15 (η) |
         Entropy partition of the overall state
     validator_queue: ValidatorQueueState
-        GP-0.3.8-eq:15 (greek_IOTA | ι) |
+        GP-0.3.8-eq:15 (ι) |
         ValidatorQueue partition of the overall state
     validator_pool: ValidatorPoolState
-        GP-0.3.8-eq:15 (greek_KAPPA | κ) |
+        GP-0.3.8-eq:15 (κ) |
         ValidatorPool partition of the overall state
     validator_archive: ValidatorArchiveState
-        GP-0.3.8-eq:15 (greek_LAMBDA | λ) |
+        GP-0.3.8-eq:15 (λ) |
         ValidatorArchive partition of the overall state
     assurances: AssurancesState
-        GP-0.3.8-eq:15 (greek_RHO | ρ) |
+        GP-0.3.8-eq:15 (ρ) |
         Assurances partition of the overall state
     timeslot: TimeslotState
-        GP-0.3.8-eq:15 (greek_TAU | τ) |
+        GP-0.3.8-eq:15 (τ) |
         Timeslot partition of the overall state
     authorizer_queues: AuthorizerQueuesState
-        GP-0.3.8-eq:15 (greek_PHI | φ) |
+        GP-0.3.8-eq:15 (φ) |
         AuthorizerQueue partition of the overall state
     privileged_services: PrivilegedServicesState
-        GP-0.3.8-eq:15 (greek_CHI | χ) |
+        GP-0.3.8-eq:15 (χ) |
         PrivilegedServices partition of the overall state
     disputes: DisputesState
-        GP-0.3.8-eq:15 (greek_PSI | ψ) |
+        GP-0.3.8-eq:15 (ψ) |
         Disputes partition of the overall state
     statistics: StatisticsState
-        GP-0.3.8-eq:15 (greek_PI | π) |
+        GP-0.3.8-eq:15 (π) |
         Statistics partition of the overall state
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})

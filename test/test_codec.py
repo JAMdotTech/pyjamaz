@@ -9,7 +9,7 @@ from pyjamaz.types.block import Header, Extrinsic, Assurance, ExtrinsicDisputes,
 from pyjamaz.types.stf_output import SafroleErrorCode
 from pyjamaz.types.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
-    ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState
+    ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, BeefyCommitmentMap
 from test.test_safrole import SafroleTestOutput, SafroleOutputMarks
 
 
@@ -20,6 +20,18 @@ class TestCodec(unittest.TestCase):
         cls.test_vector_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec')
         cls.test_vector_w3f_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec', 'w3f')
         cls.test_vector_jdt_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec', 'jdt')
+
+    def test_jdt_beefy_commitment_map(self):
+        with open(path.join(self.test_vector_jdt_dir, f'beefy_commitment_map.json')) as f:
+            test_vector = json.load(f)
+
+        state = BeefyCommitmentMap.from_json(test_vector)
+        value = state.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_jdt_dir, f'beefy_commitment_map.bin'), "rb") as f:
+           jam_data = f.read()
+        self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 
     def test_jdt_state_assurances(self):
         with open(path.join(self.test_vector_jdt_dir, f'state_assurances.json')) as f:
