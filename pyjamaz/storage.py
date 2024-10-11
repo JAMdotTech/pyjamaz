@@ -42,6 +42,37 @@ class StorageInterface:
         raise NotImplementedError
 
 
+class InMemoryTransaction(Transaction):
+    def __init__(self, storage_engine: 'InMemoryStorage'):
+
+        self.storage_engine = storage_engine
+
+    def __enter__(self):
+        return self
+
+    def store(self, key: bytes, value: bytes):
+        self.storage_engine.store(key, value)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return
+
+
+class InMemoryStorage(StorageInterface):
+
+    def __init__(self):
+        super().__init__()
+        self.storage = {}
+
+    def store(self, key: bytes, value: bytes):
+        self.storage[key] = value
+
+    def retrieve(self, key: bytes) -> bytes:
+        return self.storage.get(key)
+
+    def transaction(self) -> InMemoryTransaction:
+        return InMemoryTransaction(self)
+
+
 class JSONTransaction(Transaction):
     def __init__(self, json_storage: 'JSONStorage'):
 

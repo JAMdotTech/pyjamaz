@@ -1,3 +1,4 @@
+import bisect
 from copy import deepcopy, copy
 from typing import List
 
@@ -8,16 +9,19 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
+from pyjamaz.signing import Keypair
 from pyjamaz.storage import StorageInterface
+from pyjamaz.types.common import ValidatorData
 from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
-    AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput
+    AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput, \
+    DisputesErrorCode
 
 from pyjamaz.state.base import StateComponent
-from pyjamaz.state.exceptions import StateTransitionError
-from pyjamaz.types.block import TicketBody, EpochMark, OutputMarks, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance
+from pyjamaz.exceptions import StateTransitionError, BlockValidationError
+from pyjamaz.types.block import TicketBody, EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
+    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault
 from pyjamaz.types.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
@@ -272,10 +276,6 @@ class Safrole(StateComponent):
         """
         self.post_state_safrole = deepcopy(pre_state_safrole)
 
-        # TODO TBD move block validation checks
-        if header.timeslot <= pre_state_timeslot.number:
-            raise StateTransitionError(SafroleErrorCode.bad_slot)
-
         # GP-0.3.8-eq:74
         if self.slot_phase_index(header.timeslot) < gp_const.TICKET_SUBMISSION_END_SLOT:
             # Min 0, max 16 tickets
@@ -380,10 +380,8 @@ class Safrole(StateComponent):
 
         return SafroleOutput(
             post_state=self.post_state_safrole,
-            output_marks=OutputMarks(
-                epoch_mark=epoch_mark,
-                tickets_mark=tickets_mark
-            )
+            epoch_mark=epoch_mark,
+            tickets_mark=tickets_mark
         )
 
     def enact_fallback_method(self, pre_time_slot: int, post_time_slot: int) -> bool:
@@ -686,17 +684,276 @@ class Disputes(StateComponent):
         DisputesOutput
             Output containing: Posterior state of DisputesState (ψ')
         """
-        return DisputesOutput(
-            post_state=pre_state_disputes,
-            output_marks=OutputMarks(
-                epoch_mark=None,
-                tickets_mark=None
-            )
+
+        self.output = DisputesOutput(
+            post_state=deepcopy(pre_state_disputes), offenders_mark=[]
         )
+
+        if not self.are_faults_verdict_correct(extrinsic_disputes.faults):
+            raise StateTransitionError(DisputesErrorCode.fault_verdict_wrong)
+
+        # Check if all culprits have valid signatures
+        if not all(c.has_valid_signature() for c in extrinsic_disputes.culprits):
+            raise StateTransitionError(DisputesErrorCode.bad_signature)
+
+        # Check if all faults have valid signatures
+        if not all(f.has_valid_signature() for f in extrinsic_disputes.faults):
+            raise StateTransitionError(DisputesErrorCode.bad_signature)
+
+        # Check if verdicts are sorted
+        if not self.are_verdicts_sorted(extrinsic_disputes.verdicts):
+            raise StateTransitionError(DisputesErrorCode.verdicts_not_sorted_unique)
+
+        if self.has_duplicate_report_hashes(extrinsic_disputes.verdicts):
+            raise StateTransitionError(DisputesErrorCode.verdicts_not_sorted_unique)
+
+        # Process verdicts
+        for verdict in extrinsic_disputes.verdicts:
+
+            if self.is_already_judged(verdict):
+                raise StateTransitionError(DisputesErrorCode.already_judged)
+
+            # Check if judgements are sorted and unique
+            if not self.are_judgements_sorted(verdict.votes) or self.has_duplicate_judgements(verdict.votes):
+                raise StateTransitionError(DisputesErrorCode.judgements_not_sorted_unique)
+
+            # Process verdict
+            if verdict.is_good():
+                self.check_valid_faults_count(extrinsic_disputes.faults, verdict.target)
+                bisect.insort(self.output.post_state.good_set, verdict.target)
+
+            elif verdict.is_bad():
+                self.check_valid_culprits_count(extrinsic_disputes.culprits, verdict.target)
+                bisect.insort(self.output.post_state.bad_set, verdict.target)
+
+            elif verdict.is_wonky():
+                bisect.insort(self.output.post_state.wonky_set, verdict.target)
+            else:
+                raise StateTransitionError(DisputesErrorCode.bad_vote_split)
+
+        # Process culprits
+        if not self.are_culprits_sorted(extrinsic_disputes.culprits):
+            raise StateTransitionError(DisputesErrorCode.culprits_not_sorted_unique)
+
+        for culprit in extrinsic_disputes.culprits:
+            self.add_culprit(culprit)
+
+        # Process faults
+        if not self.are_faults_sorted(extrinsic_disputes.faults):
+            raise StateTransitionError(DisputesErrorCode.faults_not_sorted_unique)
+
+        for fault in extrinsic_disputes.faults:
+            self.add_fault(fault)
+
+        return self.output
+
+    @classmethod
+    def has_valid_judgement_signatures(cls, verdict: Verdict, validators: List[ValidatorData]) -> bool:
+        """
+        GP-0.3.8-eq:98
+
+        Parameters
+        ----------
+        verdict
+        validators
+
+        Returns
+        -------
+
+        """
+        for judgement in verdict.votes:
+            keypair = Keypair.from_public_key(validators[judgement.index].ed25519)
+            if not keypair.verify(judgement.get_signing_context() + verdict.target, judgement.signature):
+                return False
+        return True
+
+    def is_already_judged(self, verdict: Verdict) -> bool:
+        return (
+                verdict.target in self.output.post_state.good_set or
+                verdict.target in self.output.post_state.bad_set or
+                verdict.target in self.output.post_state.wonky_set
+        )
+
+    @staticmethod
+    def are_judgements_sorted(votes: List[Judgement]) -> bool:
+        """
+        GP-0.3.8-eq:105
+
+        Parameters
+        ----------
+        votes
+
+        Returns
+        -------
+        bool
+        """
+        return all(votes[i].index <= votes[i + 1].index for i in range(len(votes) - 1))
+
+    @staticmethod
+    def has_duplicate_judgements(votes: List[Judgement]) -> bool:
+        """
+        GP-0.3.8-eq:105
+
+        Parameters
+        ----------
+        votes
+
+        Returns
+        -------
+        bool
+        """
+
+        seen_indices = []
+        for vote in votes:
+            if vote.index in seen_indices:
+                return True
+            else:
+                seen_indices.append(vote.index)
+        return False
+
+    @staticmethod
+    def are_verdicts_sorted(verdicts: List[Verdict]) -> bool:
+        """
+        GP-0.3.8-eq:102
+
+        Parameters
+        ----------
+        verdicts
+
+        Returns
+        -------
+        bool
+        """
+        return all(verdicts[i].target <= verdicts[i + 1].target for i in range(len(verdicts) - 1))
+
+    @staticmethod
+    def are_culprits_sorted(culprits: List[Culprit]) -> bool:
+        """
+        GP-0.3.8-eq:103
+
+        Parameters
+        ----------
+        culprits
+
+        Returns
+        -------
+        bool
+        """
+        return all(culprits[i].key <= culprits[i + 1].key for i in range(len(culprits) - 1))
+
+    @staticmethod
+    def are_faults_sorted(faults: List[Fault]) -> bool:
+        """
+        GP-0.3.8-eq:103
+
+        Parameters
+        ----------
+        faults
+
+        Returns
+        -------
+        bool
+        """
+        return all(faults[i].key <= faults[i + 1].key for i in range(len(faults) - 1))
+
+    @staticmethod
+    def are_faults_verdict_correct(faults: List[Fault]) -> bool:
+        return not any(f.vote for f in faults)
+
+    def add_offender(self, offender_key: bytes):
+        if offender_key in self.output.post_state.offenders:
+            raise StateTransitionError(DisputesErrorCode.offender_already_reported)
+        self.output.offenders_mark.append(offender_key)
+        bisect.insort(self.output.post_state.offenders, offender_key)
+
+    def add_culprit(self, culprit: Culprit):
+
+        if culprit.target in self.output.post_state.bad_set:
+            self.add_offender(culprit.key)
+        else:
+            raise StateTransitionError(DisputesErrorCode.culprits_verdict_not_bad)
+
+    def add_fault(self, fault: Fault):
+
+        if fault.target in self.output.post_state.good_set:
+            self.add_offender(fault.key)
+        else:
+            raise StateTransitionError(DisputesErrorCode.fault_verdict_wrong)
 
     def retrieve_state(self) -> DisputesState:
         value = self.retrieve()
         return DisputesState.from_jam_bytes(JamBytes(value))
+
+    @staticmethod
+    def has_duplicate_report_hashes(verdicts: List[Verdict]) -> bool:
+        """
+        GP-0.3.8-eq:104
+
+        Parameters
+        ----------
+        verdicts
+
+        Returns
+        -------
+        bool
+        """
+
+        seen_targets = []
+        for verdict in verdicts:
+            if verdict.target in seen_targets:
+                return True
+            else:
+                seen_targets.append(verdict.target)
+        return False
+
+    @staticmethod
+    def check_valid_faults_count(faults: List[Fault], report_hash: bytes):
+        """
+        GP-0.3.8-eq:108
+
+        Parameters
+        ----------
+        faults
+        report_hash
+
+        Returns
+        -------
+
+        """
+        if sum(1 for f in faults if f.target == report_hash) == 0:
+            raise StateTransitionError(DisputesErrorCode.not_enough_faults)
+
+    @staticmethod
+    def check_valid_culprits_count(culprits: List[Culprit], report_hash: bytes):
+        """
+        GP-0.3.8-eq:109
+
+        Parameters
+        ----------
+        culprits
+        report_hash
+
+        Returns
+        -------
+
+        """
+        if sum(1 for c in culprits if c.target == report_hash) < 2:
+            raise StateTransitionError(DisputesErrorCode.not_enough_culprits)
+
+    @classmethod
+    def validate_extrinsic_disputes(cls, disputes: ExtrinsicDisputes, current_epoch: int,
+                                    current_validators: List[ValidatorData], prev_validators: List[ValidatorData]):
+        for verdict in disputes.verdicts:
+
+            if current_epoch - verdict.age == 0:
+                validators = current_validators
+            elif current_epoch - verdict.age == 1:
+                validators = prev_validators
+            else:
+                raise BlockValidationError(DisputesErrorCode.bad_judgement_age)
+
+            if not cls.has_valid_judgement_signatures(verdict, validators):
+                raise BlockValidationError(DisputesErrorCode.bad_signature)
 
 
 class Statistics(StateComponent):

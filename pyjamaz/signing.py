@@ -1,3 +1,5 @@
+from typing import Optional
+
 import ed25519_zebra
 from bip39 import bip39_to_mini_secret
 
@@ -17,7 +19,7 @@ class Keypair:
         self.public_key = public_key
 
     @classmethod
-    def create_from_seed(cls, seed: bytes) -> 'Keypair':
+    def from_seed(cls, seed: bytes) -> 'Keypair':
         """
         Creates a Keypair from seed bytes.
 
@@ -33,7 +35,7 @@ class Keypair:
         return cls(private_key, public_key)
 
     @classmethod
-    def create_from_mnemonic(cls, mnemonic: str) -> 'Keypair':
+    def from_mnemonic(cls, mnemonic: str) -> 'Keypair':
         """
         Create a Keypair from given mnemonic
 
@@ -46,7 +48,11 @@ class Keypair:
         Keypair
         """
         seed_array = bip39_to_mini_secret(mnemonic, "", 'en')
-        return cls.create_from_seed(bytearray(seed_array))
+        return cls.from_seed(bytearray(seed_array))
+
+    @classmethod
+    def from_public_key(cls, public_key: bytes) -> 'Keypair':
+        return cls(bytes(32), bytes(public_key))
 
     def sign(self, data: bytes) -> bytes:
         """
@@ -60,6 +66,9 @@ class Keypair:
         -------
         bytes
         """
+        if self.private_key == bytes(32):
+            raise ValueError("Cannot sign, private key is not set")
+
         return ed25519_zebra.ed_sign(self.private_key, data)
 
     def verify(self, data: bytes, signature: bytes) -> bool:

@@ -1,8 +1,11 @@
 import enum
 from dataclasses import dataclass, field
+from typing import Optional, List
 
 from jamcodec.mixins import Serializable
-from pyjamaz.types.block import OutputMarks
+from jamcodec.types import Option, Enum, Vec, H256, Array
+from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
+from pyjamaz.types.block import OutputMarks, EpochMark, TicketsMark, TicketBody
 from pyjamaz.types.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
     BeefyCommitmentMap
@@ -34,6 +37,23 @@ class EntropyOutput(Serializable):
     post_state: EntropyState = field(metadata={'codec': EntropyState.to_codec_def()})
 
 
+class DisputesErrorCode(Serializable, enum.Enum):
+    already_judged = 0
+    bad_vote_split = 1
+    verdicts_not_sorted_unique = 2
+    judgements_not_sorted_unique = 3
+    culprits_not_sorted_unique = 4
+    faults_not_sorted_unique = 5
+    not_enough_culprits = 6
+    not_enough_faults = 7
+    culprits_verdict_not_bad = 8
+    fault_verdict_wrong = 9
+    offender_already_reported = 10
+    bad_judgement_age = 11
+    bad_validator_index = 12
+    bad_signature = 13
+
+
 @dataclass
 class DisputesOutput(Serializable):
     """
@@ -47,7 +67,7 @@ class DisputesOutput(Serializable):
         GP-0.3.8-eq:115 (ψ') | Secondary output of Disputes STF.
     """
     post_state: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
-    output_marks: OutputMarks = field(default=None, metadata={'codec': OutputMarks.to_codec_def()})
+    offenders_mark: List[bytes] = field(default_factory=list, metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -126,7 +146,12 @@ class SafroleOutput(Serializable):
         GP-0.3.8-eq:71.72 (bold_H_e, bold_H_w) | Secondary output of Safrole STF.
     """
     post_state: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
-    output_marks: OutputMarks = field(default=None, metadata={'codec': OutputMarks.to_codec_def()})  # Markers
+    epoch_mark: Optional[EpochMark] = field(
+        default=None, metadata={'codec': Option(EpochMark.to_codec_def())}
+        )  # New epoch signal. OPTIONAL
+    tickets_mark: Optional[TicketsMark] = field(
+        default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
+        )  # Tickets signal. OPTIONAL
 
 
 @dataclass
@@ -229,6 +254,10 @@ class ServicesOutput(Serializable):
 
 @dataclass
 class STFOutput(Serializable):
-    output_marks: OutputMarks = field(
-        metadata={'codec': OutputMarks.to_codec_def()}
-    )
+    epoch_mark: Optional[EpochMark] = field(
+        default=None, metadata={'codec': Option(EpochMark.to_codec_def())}
+        )  # New epoch signal. OPTIONAL
+    tickets_mark: Optional[TicketsMark] = field(
+        default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
+        )  # Tickets signal. OPTIONAL
+    offenders_mark: List[bytes] = field(default_factory=list, metadata={'codec': Vec(H256)})
