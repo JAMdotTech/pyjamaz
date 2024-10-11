@@ -13,11 +13,11 @@ from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS
 from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
-from pyjamaz.state.exceptions import StateTransitionError
-from pyjamaz.storage import JSONStorage, RocksDBStorage, LevelDBStorage, InMemoryStorage
+from pyjamaz.exceptions import PyjamazAppError
+from pyjamaz.storage import InMemoryStorage
 from pyjamaz.types.common import OpaqueHash, ValidatorsData, ValidatorData, ByteArray144
-from pyjamaz.types.stf_output import SafroleOutput, SafroleErrorCode
-from pyjamaz.types.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, TicketBody, OutputMarks, \
+from pyjamaz.types.stf_output import SafroleErrorCode
+from pyjamaz.types.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, TicketBody, \
     EpochMark, TicketsMark
 from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState, RecentHistoryState, ServicesState, AssurancesState, \
@@ -107,8 +107,6 @@ class TestSafroleVector(unittest.TestCase):
         data_dir = path.join(path.dirname(path.abspath(__file__)), '..', 'pyjamaz', 'data')
         with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
             cls.ring_data = fp.read()
-
-        storage_dir = path.join(path.dirname(path.abspath(__file__)), '..', 'data')
 
         cls.config = AppConfig(
             ring_data=cls.ring_data,
@@ -282,7 +280,7 @@ class TestSafroleVector(unittest.TestCase):
 
         # Initialize app
         app = PyjamazApp(config=self.config)
-        app.init_state(jam_state)
+        app.store_jam_state(jam_state)
 
         # Process block
         try:
@@ -292,19 +290,19 @@ class TestSafroleVector(unittest.TestCase):
                     epoch_mark=output.epoch_mark, tickets_mark=output.tickets_mark
                 )
             )
-        except StateTransitionError as e:
+        except PyjamazAppError as e:
             output = SafroleTestOutput(err=e.custom_error_code)
 
         self.assertEqual(test_case.output, output, f'{name}: output does not match')
-        self.assertEqual(test_case.post_state.tau, app.get_state(Timeslot).number, f'{name}:tau does not match')
-        self.assertEqual(test_case.post_state.eta, app.get_state(Entropy).entropy, f'{name}: eta does not match')
-        self.assertEqual(test_case.post_state.lambda_, app.get_state(ValidatorArchive).validators, f'{name}: lambda_ does not match')
-        self.assertEqual(test_case.post_state.kappa, app.get_state(ValidatorPool).validators, f'{name}: kappa does not match')
-        self.assertEqual(test_case.post_state.gamma_k, app.get_state(Safrole).validators, f'{name}: gamma_k does not match')
-        self.assertEqual(test_case.post_state.iota, app.get_state(ValidatorQueue).validators, f'{name}: iota does not match')
-        self.assertEqual(test_case.post_state.gamma_a, app.get_state(Safrole).ticket_accumulator, f'{name}: gamma_a does not match')
-        self.assertEqual(test_case.post_state.gamma_s, app.get_state(Safrole).slot_sealer_series, f'{name}: gamma_s does not match')
-        self.assertEqual(test_case.post_state.gamma_z, app.get_state(Safrole).ring_commitment, f'{name}: gamma_z does not match')
+        self.assertEqual(test_case.post_state.tau, app.retrieve_component_state(Timeslot).number, f'{name}:tau does not match')
+        self.assertEqual(test_case.post_state.eta, app.retrieve_component_state(Entropy).entropy, f'{name}: eta does not match')
+        self.assertEqual(test_case.post_state.lambda_, app.retrieve_component_state(ValidatorArchive).validators, f'{name}: lambda_ does not match')
+        self.assertEqual(test_case.post_state.kappa, app.retrieve_component_state(ValidatorPool).validators, f'{name}: kappa does not match')
+        self.assertEqual(test_case.post_state.gamma_k, app.retrieve_component_state(Safrole).validators, f'{name}: gamma_k does not match')
+        self.assertEqual(test_case.post_state.iota, app.retrieve_component_state(ValidatorQueue).validators, f'{name}: iota does not match')
+        self.assertEqual(test_case.post_state.gamma_a, app.retrieve_component_state(Safrole).ticket_accumulator, f'{name}: gamma_a does not match')
+        self.assertEqual(test_case.post_state.gamma_s, app.retrieve_component_state(Safrole).slot_sealer_series, f'{name}: gamma_s does not match')
+        self.assertEqual(test_case.post_state.gamma_z, app.retrieve_component_state(Safrole).ring_commitment, f'{name}: gamma_z does not match')
 
 
 if __name__ == '__main__':

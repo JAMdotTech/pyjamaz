@@ -1,15 +1,16 @@
 from dataclasses import dataclass
-from typing import Type, TypeVar
+from typing import Type, TypeVar, Optional
 
-from pyjamaz.storage import StorageInterface
+from pyjamaz.exceptions import BlockValidationError
+from pyjamaz.storage import StorageInterface, Transaction
 from pyjamaz.state.base import StateComponent
 from pyjamaz.state.manager import StateManager
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
-    RecentHistory, Disputes, Assurances, Statistics, Services, PrivilegedServices, AuthorizerQueues, AuthorizerPools
-from pyjamaz.types.block import Block, OutputMarks
-from pyjamaz.types.state import JamState
-from pyjamaz.types.stf_output import STFOutput
+    RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools
+from pyjamaz.types.block import Block, Header, Extrinsic
+from pyjamaz.types.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState
+from pyjamaz.types.stf_output import STFOutput, SafroleErrorCode
 
 T = TypeVar('T')
 
@@ -24,7 +25,7 @@ class PyjamazApp:
     def __init__(self, config: AppConfig):
         self.config = config
 
-        self.storage_engine = config.storage_engine
+        self.storage_engine: StorageInterface = config.storage_engine
 
         self.state_manager = StateManager(self.storage_engine)
 
@@ -43,35 +44,62 @@ class PyjamazApp:
         self.state_manager.add(PrivilegedServices)
         self.state_manager.add(AuthorizerPools)
 
-    def get_state(self, state_component: Type[StateComponent]):
+        self.state: Optional[JamState] = None
+
+    def retrieve_jam_state(self):
+        return JamState(
+            timeslot=self.retrieve_component_state(Timeslot),
+            entropy=self.retrieve_component_state(Entropy),
+            safrole=self.retrieve_component_state(Safrole),
+            validator_queue=self.retrieve_component_state(ValidatorQueue),
+            validator_pool=self.retrieve_component_state(ValidatorPool),
+            validator_archive=self.retrieve_component_state(ValidatorArchive),
+            authorizer_pools=self.retrieve_component_state(AuthorizerPools),
+            recent_history=self.retrieve_component_state(RecentHistory),
+            services=ServicesState(services={}),
+            assurances=self.retrieve_component_state(Assurances),
+            authorizer_queues=AuthorizerQueuesState(authorizer_queues=[]),
+            privileged_services=self.retrieve_component_state(PrivilegedServices),
+            disputes=self.retrieve_component_state(Disputes),
+            statistics=StatisticsState(statistics=[])
+        )
+
+    def retrieve_component_state(self, state_component: Type[StateComponent]):
         return self.state_manager.get(state_component).retrieve_state()
 
-    def init_state(self, state: JamState):
-        self.state_manager.get(Timeslot).store_state(state.timeslot)
-        self.state_manager.get(RecentHistory).store_state(state.recent_history)
-        self.state_manager.get(Entropy).store_state(state.entropy)
-        self.state_manager.get(Disputes).store_state(state.disputes)
-        self.state_manager.get(Assurances).store_state(state.assurances)
-        self.state_manager.get(ValidatorArchive).store_state(state.validator_archive)
-        self.state_manager.get(ValidatorQueue).store_state(state.validator_queue)
-        self.state_manager.get(ValidatorPool).store_state(state.validator_pool)
-        self.state_manager.get(Safrole).store_state(state.safrole)
-        # self.state_manager.get(Statistics).store_state(state.statistics)
-        # self.state_manager.get(Services).store_state(state.services)
-        # self.state_manager.get(AuthorizerQueues).store_state(state.authorizer_queues)
-        self.state_manager.get(PrivilegedServices).store_state(state.privileged_services)
-        self.state_manager.get(AuthorizerPools).store_state(state.authorizer_pools)
+    def store_jam_state(self, state: JamState, transaction: Optional[Transaction] = None):
+        self.state_manager.get(Timeslot).store_state(state.timeslot, transaction)
+        self.state_manager.get(RecentHistory).store_state(state.recent_history, transaction)
+        self.state_manager.get(Entropy).store_state(state.entropy, transaction)
+        self.state_manager.get(Disputes).store_state(state.disputes, transaction)
+        self.state_manager.get(Assurances).store_state(state.assurances, transaction)
+        self.state_manager.get(ValidatorArchive).store_state(state.validator_archive, transaction)
+        self.state_manager.get(ValidatorQueue).store_state(state.validator_queue, transaction)
+        self.state_manager.get(ValidatorPool).store_state(state.validator_pool, transaction)
+        self.state_manager.get(Safrole).store_state(state.safrole, transaction)
+        # self.state_manager.get(Statistics).store_state(state.statistics, transaction)
+        # self.state_manager.get(Services).store_state(state.services, transaction)
+        # self.state_manager.get(AuthorizerQueues).store_state(state.authorizer_queues, transaction)
+        self.state_manager.get(PrivilegedServices).store_state(state.privileged_services, transaction)
+        self.state_manager.get(AuthorizerPools).store_state(state.authorizer_pools, transaction)
 
-    def validate_block(
-            self,
-            block: Block
-    ):
-        pass
+    def validate_header(self, header: Header):
+        if 0 < header.timeslot <= self.state.timeslot.number:
+            raise BlockValidationError(SafroleErrorCode.bad_slot)
 
-    def state_transition(
-            self,
-            block: 'Block'
-    ) -> 'STFOutput':
+    def validate_extrinsic(self, extrinsic: Extrinsic):
+        Disputes.validate_extrinsic_disputes(
+            disputes=extrinsic.disputes,
+            current_epoch=self.state.timeslot.epoch_number(),
+            current_validators=self.state.validator_pool.validators,
+            prev_validators=self.state.validator_archive.validators
+        )
+
+    def validate_block(self, block: Block):
+        self.validate_header(block.header)
+        self.validate_extrinsic(block.extrinsic)
+
+    def state_transition(self, block: 'Block') -> 'STFOutput':
         """
         GP-0.3.8-eq:12 (Υ, σ') | Block Level State Transition Function for the JAM state.
 
@@ -101,22 +129,22 @@ class PyjamazApp:
         privileged_services = self.state_manager.get(PrivilegedServices)
         authorizer_pools = self.state_manager.get(AuthorizerPools)
 
-        # Retrieve current state
-        pre_state_timeslot = timeslot.retrieve_state()
-        pre_state_recent_history = recent_history.retrieve_state()
-        pre_state_entropy = entropy.retrieve_state()
-        pre_state_disputes = disputes.retrieve_state()
-        pre_state_assurances = assurances.retrieve_state()
-        pre_state_safrole = safrole.retrieve_state()
-        pre_state_validator_pool = validator_pool.retrieve_state()
-        pre_state_validator_archive = validator_archive.retrieve_state()
-        pre_state_validator_queue = validator_queue.retrieve_state()
+        # Set components pre-state
+        pre_state_timeslot = self.state.timeslot
+        pre_state_recent_history = self.state.recent_history
+        pre_state_entropy = self.state.entropy
+        pre_state_disputes = self.state.disputes
+        pre_state_assurances = self.state.assurances
+        pre_state_safrole = self.state.safrole
+        pre_state_validator_pool = self.state.validator_pool
+        pre_state_validator_archive = self.state.validator_archive
+        pre_state_validator_queue = self.state.validator_queue
         # Todo: implement state component key (well known)
-        # pre_state_statistics = statistics.retrieve_state()
-        # pre_state_services = services.retrieve_state()
-        # pre_state_authorizer_queues = authorizer_queues.retrieve_state()
-        pre_state_privileged_services = privileged_services.retrieve_state()
-        pre_state_authorizer_pools = authorizer_pools.retrieve_state()
+        # pre_state_statistics = self.state.statistics
+        # pre_state_services = self.state.services
+        # pre_state_authorizer_queues = self.state.authorizer_queues
+        pre_state_privileged_services = self.state.privileged_services
+        pre_state_authorizer_pools = self.state.authorizer_pools
 
         # Timeslot STF GP-0.3.8-eq:16
         timeslot_output = timeslot.state_transition(
@@ -139,8 +167,7 @@ class PyjamazApp:
         # Disputes STF GP-0.3.8-eq:23
         disputes_output = disputes.state_transition(
             extrinsic_disputes=block.extrinsic.disputes,
-            pre_state_disputes=pre_state_disputes,
-            pre_state_validator_pool=pre_state_validator_pool
+            pre_state_disputes=pre_state_disputes
         )
 
         # Assurances After Disputes STF GP-0.3.8-eq:25
@@ -241,17 +268,17 @@ class PyjamazApp:
 
         # All state transitions successful, commit state changes
         with self.storage_engine.transaction() as transaction:
-            timeslot.store_state(timeslot_output.post_state)
-            entropy.store_state(entropy_output.post_state)
-            disputes.store_state(disputes_output.post_state)
-            validator_pool.store_state(validator_pool_output.post_state)
-            validator_archive.store_state(validator_archive_output.post_state)
-            safrole.store_state(safrole_output.post_state)
-            assurances.store_state(assurances_output.post_state)
+            timeslot.store_state(timeslot_output.post_state, transaction)
+            entropy.store_state(entropy_output.post_state, transaction)
+            disputes.store_state(disputes_output.post_state, transaction)
+            validator_pool.store_state(validator_pool_output.post_state, transaction)
+            validator_archive.store_state(validator_archive_output.post_state, transaction)
+            safrole.store_state(safrole_output.post_state, transaction)
+            assurances.store_state(assurances_output.post_state, transaction)
             # Todo: add remaining state components: recent_history, services, authorizer_pools, statistics
             # Todo: research but likely also add posterior state of privileged services output (validator_queue, authorization_queues, privileged_services)
             # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root (deprecated by previous todo)
-            # recent_history = self.state_manager.initialize(RecentHistory)
+            # recent_history = self.state_manager.initialize(RecentHistory, transaction)
 
         return STFOutput(
             epoch_mark=safrole_output.epoch_mark,
@@ -260,6 +287,7 @@ class PyjamazApp:
         )
 
     def process_block(self, block: Block) -> STFOutput:
+        self.state = self.retrieve_jam_state()
 
         self.validate_block(block)
 

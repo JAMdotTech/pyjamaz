@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import TypeVar
+from typing import TypeVar, Optional
 
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.mixins import Serializable
@@ -25,22 +25,6 @@ class StateComponent:
         self.output = None
         self.storage_engine = storage_engine
 
-    def initialize(self):
-        """
-        Sets all required variable to perform a state transition
-
-        Parameters
-        ----------
-        pre_state
-
-        Returns
-        -------
-
-        """
-        # self.pre_state = self.retrieve_state()
-        # self.post_state = deepcopy(self.pre_state)
-        pass
-
     def state_transition(self, *args):
         raise NotImplementedError
 
@@ -62,7 +46,7 @@ class StateComponent:
         else:
             self.storage_engine.store(self._state_key_constructor_component(), data)
 
-    def store_state(self, state: State, transaction: Transaction = None):
+    def store_state(self, state: State, transaction: Optional[Transaction] = None):
         data = state.to_jam_bytes().to_bytes()
         self.store(data, transaction)
 

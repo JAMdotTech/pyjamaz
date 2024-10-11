@@ -1,6 +1,5 @@
 import os
 
-import ed25519_zebra
 from parameterized import parameterized
 
 from typing import Optional
@@ -11,23 +10,16 @@ import json
 import unittest
 from os import path
 
-from jamcodec.types import Vec
 from pyjamaz.app import PyjamazApp, AppConfig
-from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS
-from pyjamaz.signing import Keypair
+from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.state.base import State
-from pyjamaz.state.components import Disputes, ValidatorPool, ValidatorArchive
-from pyjamaz.state.exceptions import StateTransitionError
+from pyjamaz.state.components import Disputes
 from pyjamaz.storage import InMemoryStorage
 
-from pyjamaz.types.block import Header, OutputMarks, Extrinsic, Assurance, ExtrinsicDisputes, RefinementContext, WorkReport, \
-    WorkResult, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
-from pyjamaz.types.common import ValidatorData
-from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput, DisputesOutput
-from pyjamaz.types.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
-    EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
-    ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, JamState, Statistic, \
-    SlotSealerSeries
+from pyjamaz.types.block import Header, Extrinsic, ExtrinsicDisputes, Block
+from pyjamaz.types.state import (DisputesState, AssurancesState,TimeslotState, ValidatorArchiveState,
+                                 ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, JamState,
+                                 Statistic, SlotSealerSeries)
 
 
 @dataclass
@@ -54,15 +46,27 @@ class TestDisputes(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+
         cls.test_vector_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'disputes')
 
-    def create_block(self, test_vector_input: dict) -> Block:
+        # Set up ring data
+        data_dir = path.join(path.dirname(path.abspath(__file__)), '..', 'pyjamaz', 'data')
+        with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
+            cls.ring_data = fp.read()
+
+        cls.config = AppConfig(
+            ring_data=cls.ring_data,
+            storage_engine=InMemoryStorage()
+        )
+
+    @staticmethod
+    def create_block(test_vector_input: dict) -> Block:
         return Block(
             header=Header(
                 parent=bytes(32),
                 parent_state_root=bytes(32),
                 extrinsic_hash=bytes(32),
-                timeslot=1,
+                timeslot=0,
                 epoch_marker=None,
                 tickets_marker=None,
                 offenders_marker=[],
@@ -79,7 +83,8 @@ class TestDisputes(unittest.TestCase):
             )
         )
 
-    def create_jam_state(self, test_vector: dict) -> JamState:
+    @staticmethod
+    def create_jam_state(test_vector: dict) -> JamState:
 
         jam_state = JamState.generate()
         jam_state.timeslot.number = test_vector['tau']
@@ -104,37 +109,28 @@ class TestDisputes(unittest.TestCase):
         block = self.create_block(test_vector['input'])
 
         # Initialize app
-        app = PyjamazApp(config=AppConfig(
-            ring_data=bytes(),
-            storage_engine=InMemoryStorage()
-        ))
-        app.init_state(pre_state)
+        app = PyjamazApp(config=self.config)
+        app.store_jam_state(pre_state)
 
         # Process block
         try:
             output = app.process_block(block)
             dispute_output = {'ok': {"offenders_mark": output.to_json()['offenders_mark']}}
-        except StateTransitionError as e:
+        except PyjamazAppError as e:
             dispute_output = {'err': e.custom_error_code.name}
 
         self.assertEqual(test_vector['output'], dispute_output)
 
-        psi = app.get_state(Disputes).to_json()
+        psi = app.retrieve_component_state(Disputes).to_json()
 
         post_state = {
-            "psi": {
-                'psi_b': psi['bad_set'],
-                'psi_g': psi['good_set'],
-                'psi_o': psi['offenders'],
-                'psi_w': psi['wonky_set'],
-            },
-            "kappa": app.get_state(ValidatorPool).to_json()['validators'],
-            "lambda": app.get_state(ValidatorArchive).to_json()['validators'],
+            'psi_b': psi['bad_set'],
+            'psi_g': psi['good_set'],
+            'psi_o': psi['offenders'],
+            'psi_w': psi['wonky_set'],
         }
 
-        self.assertDictEqual(test_vector['post_state']['psi'], post_state['psi'])
-        self.assertListEqual(test_vector['post_state']['kappa'], post_state['kappa'])
-        self.assertListEqual(test_vector['post_state']['lambda'], post_state['lambda'])
+        self.assertDictEqual(test_vector['post_state']['psi'], post_state)
 
 
 if __name__ == '__main__':

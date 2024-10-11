@@ -11,6 +11,7 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Keypair
 from pyjamaz.storage import StorageInterface
+from pyjamaz.types.common import ValidatorData
 from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
@@ -18,8 +19,8 @@ from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput, ValidatorP
     DisputesErrorCode
 
 from pyjamaz.state.base import StateComponent
-from pyjamaz.state.exceptions import StateTransitionError
-from pyjamaz.types.block import TicketBody, EpochMark, OutputMarks, Header, TicketEnvelope, ExtrinsicDisputes, \
+from pyjamaz.exceptions import StateTransitionError, BlockValidationError
+from pyjamaz.types.block import TicketBody, EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
     Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault
 from pyjamaz.types.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
@@ -274,10 +275,6 @@ class Safrole(StateComponent):
             Output containing: Posterior state of SafroleState (γ') and optional Outputmarks
         """
         self.post_state_safrole = deepcopy(pre_state_safrole)
-
-        # TODO TBD move block validation checks
-        if header.timeslot <= pre_state_timeslot.number:
-            raise StateTransitionError(SafroleErrorCode.bad_slot)
 
         # GP-0.3.8-eq:74
         if self.slot_phase_index(header.timeslot) < gp_const.TICKET_SUBMISSION_END_SLOT:
@@ -670,8 +667,7 @@ class Disputes(StateComponent):
     def state_transition(
             self,
             extrinsic_disputes: ExtrinsicDisputes,
-            pre_state_disputes: DisputesState,
-            pre_state_validator_pool: ValidatorPoolState
+            pre_state_disputes: DisputesState
     ) -> DisputesOutput:
         """
         GP-0.3.8-eq:111,112,113,114 (ψ') | State transition function for the state's disputes.
@@ -714,9 +710,6 @@ class Disputes(StateComponent):
         # Process verdicts
         for verdict in extrinsic_disputes.verdicts:
 
-            if not self.has_valid_judgement_signatures(verdict, pre_state_validator_pool):
-                raise StateTransitionError(DisputesErrorCode.bad_signature)
-
             if self.is_already_judged(verdict):
                 raise StateTransitionError(DisputesErrorCode.already_judged)
 
@@ -754,22 +747,22 @@ class Disputes(StateComponent):
 
         return self.output
 
-    @staticmethod
-    def has_valid_judgement_signatures(verdict: Verdict, pre_state_validator_pool: ValidatorPoolState) -> bool:
+    @classmethod
+    def has_valid_judgement_signatures(cls, verdict: Verdict, validators: List[ValidatorData]) -> bool:
         """
         GP-0.3.8-eq:98
 
         Parameters
         ----------
         verdict
-        pre_state_validator_pool
+        validators
 
         Returns
         -------
 
         """
         for judgement in verdict.votes:
-            keypair = Keypair.from_public_key(pre_state_validator_pool.validators[judgement.index].ed25519)
+            keypair = Keypair.from_public_key(validators[judgement.index].ed25519)
             if not keypair.verify(judgement.get_signing_context() + verdict.target, judgement.signature):
                 return False
         return True
@@ -946,6 +939,21 @@ class Disputes(StateComponent):
         """
         if sum(1 for c in culprits if c.target == report_hash) < 2:
             raise StateTransitionError(DisputesErrorCode.not_enough_culprits)
+
+    @classmethod
+    def validate_extrinsic_disputes(cls, disputes: ExtrinsicDisputes, current_epoch: int,
+                                    current_validators: List[ValidatorData], prev_validators: List[ValidatorData]):
+        for verdict in disputes.verdicts:
+
+            if current_epoch - verdict.age == 0:
+                validators = current_validators
+            elif current_epoch - verdict.age == 1:
+                validators = prev_validators
+            else:
+                raise BlockValidationError(DisputesErrorCode.bad_judgement_age)
+
+            if not cls.has_valid_judgement_signatures(verdict, validators):
+                raise BlockValidationError(DisputesErrorCode.bad_signature)
 
 
 class Statistics(StateComponent):

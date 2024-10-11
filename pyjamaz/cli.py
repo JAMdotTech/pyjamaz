@@ -5,7 +5,7 @@ from os import path
 import click
 
 from pyjamaz.app import PyjamazApp, AppConfig
-from pyjamaz.storage import JSONStorage, LevelDBStorage
+from pyjamaz.storage import LevelDBStorage
 from pyjamaz.types.block import Block
 from pyjamaz.types.state import JamState
 
@@ -23,7 +23,7 @@ def initialize_app(initial_state: JamState) -> PyjamazApp:
     )
 
     app = PyjamazApp(config=config)
-    app.init_state(initial_state)
+    app.store_jam_state(initial_state)
     return app
 
 
