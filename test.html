@@ -1,0 +1,134 @@
+<!--<html>-->
+<!--<body>-->
+<!--    <script src="./jswasi.js"></script>-->
+<!--    <script>-->
+<!--      window.buffer = "";-->
+<!--      window.alive = true;-->
+<!--      window.exitCode = 0;-->
+<!--      window.stdoutReadData = function () {-->
+<!--        if (window.stdoutAttached !== undefined)-->
+<!--          if (window.stdoutAttached && buffer.length > 0) {-->
+<!--            let tmp = window.buffer;-->
+<!--            window.buffer = "";-->
+<!--            return tmp;-->
+<!--          }-->
+<!--        return null;-->
+<!--      };-->
+
+<!--        jswasi = new Jswasi();-->
+<!--        jswasi.init();-->
+
+<!--    // const importObject = {-->
+<!--//   "main": { __main__: (arg) => console.log(arg) },-->
+<!--// };-->
+<!--//-->
+<!--// WebAssembly.instantiateStreaming(fetch("test.wasm"), importObject).then(-->
+<!--//   (results) => {-->
+<!--//     console.log(111111);-->
+<!--//     console.log(result);-->
+<!--//     console.log(222222);-->
+<!--//   },-->
+<!--// );-->
+<!--// WebAssembly.instantiateStreaming(fetch("test.wasm"), importObject).then(-->
+<!--//   (obj) => {-->
+<!--//     // Call an exported function:-->
+<!--//     obj.instance.exports.exported_func();-->
+<!--//-->
+<!--//     // or access the buffer contents of an exported memory:-->
+<!--//     const dv = new DataView(obj.instance.exports.memory.buffer);-->
+<!--//-->
+<!--//     // or access the elements of an exported table:-->
+<!--//     const table = obj.instance.exports.table;-->
+<!--//     console.log(table.get(0)());-->
+<!--//   },-->
+<!--// );-->
+<!--</script>-->
+<!--</body>-->
+<!--</html>-->
+
+<!-- Note: this example requires setting the COEP headers to work, see README.md -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wasmer JavaScript SDK</title>
+<!--    <script defer type="module">-->
+<!--       import { init, Wasmer } from "https://unpkg.com/@wasmer/sdk@latest/dist/index.mjs";-->
+
+<!--        const status = document.getElementById("status");-->
+
+<!--        status.innerHTML = "Initializing...";-->
+<!--        await init({ module: "./test2.wasm" });-->
+<!--    </script>-->
+
+    <script type="module">
+// const importObject = {
+//   imports: {
+//     test(arg) {
+//       console.log(arg);
+//     }
+//   }
+// };
+//
+// fetch('test2.wasm').then((response) =>
+//   response.arrayBuffer()
+// ).then((bytes) => {
+//   const mod = new WebAssembly.Module(bytes);
+//   const instance = new WebAssembly.Instance(mod, importObject);
+//   instance.exports.test();
+// })
+
+// try {
+//       const res = await fetch("test2.wasm");
+//       // bytes from memory
+//       const buffer = await res.arrayBuffer();
+//       // this will create an object
+//     module = new WebAssembly.Module(buffer);
+//     instance = new WebAssembly.Instance(module, {});
+//
+//       // const wasm = await WebAssembly.instantiate(buffer, {});
+//       // console.log(wasm);
+//       // // addTwo function is exported in wasm code, otherwise I would not be able to use it.
+//       // const addNumbers = wasm.instance.exports.test;
+//       // // console.log(addNumbers);
+//       // const result = addNumbers();
+//       // console.log(result);
+//     } catch (e) {
+//       console.log(e);
+//     }
+
+
+      import {
+        init,
+        Wasmer,
+      } from "https://unpkg.com/@wasmer/sdk@latest/dist/index.mjs";
+
+      async function runPython() {
+        const status = document.getElementById("status");
+
+        status.innerHTML = "Initializing...";
+        await init();
+
+        status.innerHTML = `Fetching...`;
+        const pkg = await Wasmer.fromWasm("test.wasm");
+        status.innerHTML = `Loaded`;
+        console.log(pkg, pkg.entrypoint);
+        const instance = await pkg.entrypoint.run();//{args: ["-c", "print('Hello, World!')"],});
+        let result = await instance.wait();
+        console.log("START",result, "END");
+        console.log("out",result.stdout, "-out");
+        console.log("err",result.stderr, "-err");
+      }
+
+      runPython();
+
+
+    </script>
+  </head>
+
+  <body>
+    <h1 id="status"></h1>
+    <pre><code id="stdout"></code></pre>
+  </body>
+</html>

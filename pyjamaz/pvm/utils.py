@@ -1,7 +1,9 @@
-import numpy as np
-import numpy.typing as npt
+#import numpy as np
+#import numpy.typing as npt
+import np
+#import npt
 
-from pyjamaz.pvm.exceptions import UIntValueError
+#from pyjamaz.pvm.exceptions import UIntValueError
 
 
 #gp_0.3.6_eq_223
@@ -67,7 +69,7 @@ def pvm_Zn_inv(a:np.int32, n:np.uint8):
 #
 #     return bit_array
 
-def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
+def read_uint(source, addr: np.uint32, l: np.uint8) -> np.uint32:
     if l == 1:
         return np.uint32(source[addr + 0])
     elif l == 2:
@@ -86,7 +88,7 @@ def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np
         byte3 = np.uint32(source[addr + 3])
         return np.uint32((byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0)
     else:
-        raise UIntValueError(f"Invalid uint length: {l}")
+        raise Exception(f"Invalid uint length: {l}")
 
 
 # def read_i16(source: npt.NDArray[np.uint8], addr: np.uint32) -> np.int16:

@@ -1,0 +1,37 @@
+https://github.com/wasmerio/py2wasm
+https://www.reddit.com/r/Python/comments/1cb0l1i/py2wasm_a_python_to_wasm_compiler_3x_faster_than/
+https://pypi.org/project/py2wasm/
+https://news.ycombinator.com/item?id=40114567
+
+	curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+	export NVM_DIR="$HOME/.nvm" [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+	nvm use 14
+
+	sudo apt-get -y install --no-install-recommends clang python3-clang
+
+	https://github.com/wasmerio/wasmer-install
+	curl https://get.wasmer.io -sSfL | sh
+	source /home/thijs/.wasmer/wasmer.sh
+	curl https://pyenv.run | bash
+	pyenv install 3.12 && pyenv global 3.12
+	sudo apt install patchelf
+	pip install py2wasm
+
+	py2wasm test.py -o test.wasm
+	wasmer run test.wasm
+
+    numpy support:
+        git clone https://github.com/dicej/wasi-wheels.git
+        cd wasi-wheels
+            git submodule update --init --recursive
+            make
+
+            !!!! gaat nog niet werken
+            https://github.com/numpy/numpy/issues/25859
+            https://github.com/dicej/wasi-wheels/issues/2
+            https://github.com/dicej/wasi-wheels/issues/4
+            https://numpy.org/devdocs/reference/distutils_status_migration.html#
+
+        https://github.com/dicej/wasi-wheels/releases
+        https://github.com/dicej/component-sandbox-demo?tab=readme-ov-file
+

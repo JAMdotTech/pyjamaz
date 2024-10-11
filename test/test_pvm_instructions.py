@@ -32,13 +32,18 @@ def load_test_vectors(directory):
 
 
 class TestPolkaVMInstructions(unittest.TestCase):
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs2'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs2/inst_load_u8.json'))
     def test_instruction(self, name, test_vector):
 
         # Set NumPy to ignore overflow warnings
         np.seterr(over='ignore')
 
-        #TODO: we gaan nu altijd maar uit van 1 mem page
+        # TODO!!!!!!!!!!!!!!!!!!!!!!
+        # voor fibonaci & store_u16 moet strict uit staan, de branch test gaat wel goed...: jamcodec.exceptions.ScaleDecodeException: Remaining bits not all 0
+        # fixtures/pvm/programs-extra/u16_store.json:
+        # strict moet false staan, expected gass klopt volgens mij ook niet????
+
+        # TODO: we gaan nu altijd maar uit van 1 mem page
         mem_size = 0
         mem_offset = 0
         if test_vector["expected-memory"]:

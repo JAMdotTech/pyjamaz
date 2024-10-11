@@ -1,20 +1,22 @@
 from math import floor
-from typing import Any, List, Dict
+from typing import Any, List, Dict, TypeAlias
 
-import numpy as np
-import numpy.typing as npt
+#import numpy as np
+#import numpy.typing as npt
+import np
 
-from .exceptions import InvalidOpcode
-from .types import PVMProgram
+from exceptions import InvalidOpcode
+#from .types import PVMProgram
+PVMProgram: TypeAlias = any
 
-from .utils import (
+from utils import (
     pvm_Zn,
     pvm_X,
     pvm_Zn_inv,
     read_uint
 )
 
-from .constants import (
+from constants import (
     Opcode as op,
     OpcodeScheme,
     InstructionType,
@@ -39,9 +41,9 @@ class PVM:
         #self.reg = np.zeros(13, dtype=np.uint32)
         #self.pc:np.uint32 = np.uint32(0)
         #self.gas:np.uint64 = np.uint64(0)
-        self.mem:npt.NDArray[np.uint8] = np.zeros(mem_size, dtype=np.uint8)
+        self.mem = np.zeros(mem_size, dtype=np.uint8)
         # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
-        self.rom:npt.NDArray[np.uint8] = np.array(program.code, dtype=np.uint8)
+        self.rom = np.array(program.code, dtype=np.uint8)
         self.program_size: np.uint64 = np.uint64(len(self.rom))
         self.inst_bitmask: List[bool] = program.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -185,7 +187,6 @@ class PVM:
 
 
                 #GP_A.5.4
-                # TODO:NO_TEST: case InstructionType.offset:
                 case InstructionType.offset:
 
                     #TODO: skip_len uit GP lijkt altijd voor te lopen, dus overal nalopen en -1 doen?
@@ -225,7 +226,7 @@ class PVM:
                                 self.status = ExitCondition.panic.value
                                 self.pc = 0
 
-                            #TODO:NO_TEST
+                            #TODO:implementeer
                             pass
 
                         case op.load_imm.value:
@@ -460,11 +461,11 @@ class PVM:
 
                         #TODO:NO_TEST:
                         case op.mul_upper_s_s_imm.value:
-                            self.reg[r_a] = pvm_Zn_inv((floor(pvm_Zn(w_b, 4) * pvm_Zn(v_x, 4)) / 2**32), 4)
+                            self.reg[r_a] = pvm_Zn_inv((np.uint32(pvm_Zn(w_b, 4) * pvm_Zn(v_x, 4)) / 2**32), 4)
 
                         #TODO:NO_TEST:
                         case op.mul_upper_u_u_imm.value:
-                            self.reg[r_a] = (floor((w_b * v_x) / 2 ** 32))
+                            self.reg[r_a] = np.uint32((w_b * v_x) / 2 ** 32)
 
                         case op.set_lt_u_imm.value:
                             self.reg[r_a] = w_b < v_x and 1 or 0
@@ -476,13 +477,13 @@ class PVM:
                             # TODO: cast naar python int -> port naar numpy
                             self.reg[r_a] = (int(w_b) * (2**int(v_x) % 32)) % 2**32
 
-                        # TODO: implementeer volgens gp
                         case op.shlo_r_imm.value:
-                            self.reg[r_a] = w_b >> v_x
+                            #self.reg[r_a] = w_b >> v_x
+                            self.reg[r_a] = np.uint32(w_b / (2**(v_x%32)))
 
-                        # TODO: implementeer volgens gp
                         case op.shar_r_imm.value:
-                            self.reg[r_a] = np.int32(w_b) >> v_x
+                            #self.reg[r_a] = np.int32(w_b) >> v_x
+                            self.reg[r_a] = pvm_Zn_inv(floor(pvm_Zn(w_b, 4) / (2**(v_x%32))), 4)
 
                         case op.neg_add_imm.value:
                             #TODO: cast naar python int -> port naar numpy
@@ -517,7 +518,7 @@ class PVM:
                         case _:
                             raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
-
+                # GP_A.5.10
                 case InstructionType.reg_reg_offset:
                     r_a = min(12, self.rom[self.pc + 1] % 16)
                     r_b = min(12, self.rom[self.pc + 1] // 16)
@@ -531,23 +532,23 @@ class PVM:
                             if w_a == w_b:
                                 skip_len = v_x
 
-                        case op.branch_not_eq.value:
+                        case op.branch_ne.value:
                             if w_a != w_b:
                                 skip_len = v_x
 
-                        case op.branch_less_unsigned.value:
+                        case op.branch_lt_u.value:
                             if w_a < w_b:
                                 skip_len = v_x
 
-                        case op.branch_less_signed.value:
+                        case op.branch_lt_s.value:
                             if pvm_Zn(w_a, 4) < pvm_Zn(w_b, 4):
                                 skip_len = v_x
 
-                        case op.branch_greater_or_equal_unsigned.value:
+                        case op.branch_ge_u.value:
                             if w_a >= w_b:
                                 skip_len = v_x
 
-                        case op.branch_greater_or_equal_signed.value:
+                        case op.branch_ge_s.value:
                             if pvm_Zn(w_a, 4) >= pvm_Zn(w_b, 4):
                                 skip_len = v_x
 
@@ -555,7 +556,7 @@ class PVM:
                             raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
 
-                # TODO:NO_TEST:
+                # GP_A.5.11
                 case InstructionType.reg_reg_imm_imm:
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = min(12, self.rom[self.pc + 1] % 16)
@@ -572,7 +573,7 @@ class PVM:
 
                     match opcode:
 
-                        case op.load_imm_and_jump_indirect:
+                        case op.load_imm_jump_ind:
                             if self.reg[0] == 0xffff0000:
                                 self.status = ExitCondition.halt.value
                             elif l_x == 0:
@@ -585,7 +586,7 @@ class PVM:
                         case _:
                             raise InvalidOpcode(f"Invalid reg_reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
 
-
+                # GP_A.5.12
                 case InstructionType.reg_reg_reg:
 
                     r_a = self.rom[self.pc + 1] % 16
@@ -612,40 +613,26 @@ class PVM:
                             self.reg[r_d] = self.reg[r_a] * self.reg[r_b]
 
                         #TODO:NO_TEST:
-                        case op.mul_upper_signed_signed.value:
+                        case op.mul_upper_s_s.value:
                             self.reg[r_d] = np.uint32(pvm_Zn(self.reg[r_a], 4) * pvm_Zn(self.reg[r_b], 4) // 2**32)
 
                         #TODO:NO_TEST:
-                        case op.mul_upper_unsigned_unsigned.value:
+                        case op.mul_upper_u_u.value:
                             self.reg[r_d] = np.uint32((self.reg[r_a] * self.reg[r_b]) // 2**32)
 
                         #TODO:NO_TEST:
-                        case op.mul_upper_signed_unsigned.value:
+                        case op.mul_upper_s_u.value:
                             self.reg[r_d] = np.uint32(pvm_Zn((self.reg[r_a], 4) * self.reg[r_b]) // 2 ** 32)
 
-                        case op.set_less_than_unsigned.value:
-                            self.reg[r_d] = self.reg[r_a] < self.reg[r_b]
-
-                        case op.set_less_than_signed.value:
-                            self.reg[r_d] = np.int32(self.reg[r_a]) < np.int32(self.reg[r_b])
-
-                        case op.shift_logical_left.value:
-                            self.reg[r_d] = self.reg[r_a] << (self.reg[r_b] & 0x1f)
-
-                        case op.shift_logical_right.value:
-                            self.reg[r_d] = self.reg[r_a] >> (self.reg[r_b] & 0x1f)
-
-                        case op.shift_arithmetic_right.value:
-                            self.reg[r_d] = np.int32(self.reg[r_a]) >> np.int32(self.reg[r_b] & 0x1f)
-
-                        case op.div_unsigned.value:
+                        case op.div_u.value:
                             # Note: Python integer division '//' and remainder '%' do not map to the definition of RISCV div/rem
                             if self.reg[r_b] == 0:
                                 self.reg[r_d] = 0xffffffff
                             else:
-                                self.reg[r_d] = np.fix(self.reg[r_a] / self.reg[r_b]).astype(int)
+                                #self.reg[r_d] = np.fix(self.reg[r_a] / self.reg[r_b]).astype(int)
+                                self.reg[r_d] = int(self.reg[r_a] / self.reg[r_b])
 
-                        case op.div_signed.value:
+                        case op.div_s.value:
                             # Note: Python integer division '//' and remainder '%' do not map to the definition of RISCV div/rem
                             if self.reg[r_b] == 0:
                                 self.reg[r_d] = np.int32(-1)
@@ -653,9 +640,19 @@ class PVM:
                             # elif self.reg[r_a] == 0x7FFFFFFF and self.reg[r_b] == -1:
                             #     self.reg[r_d] = 0
                             else:
-                                self.reg[r_d] = np.fix(np.int32(self.reg[r_a]) / np.int32(self.reg[r_b])).astype(int)
+                                #self.reg[r_d] = np.fix(np.int32(self.reg[r_a]) / np.int32(self.reg[r_b])).astype(int)
+                                self.reg[r_d] = int(np.int32(self.reg[r_a]) / np.int32(self.reg[r_b]))
 
-                        case op.rem_signed.value:
+                        case op.rem_u.value:
+                            # Note: Python integer division '//' and remainder '%' do not map to the definition of RISCV div/rem
+                            if self.reg[r_b] == 0:
+                                self.reg[r_d] = self.reg[r_a]
+                            else:
+                                #divr = np.fix(self.reg[r_a] / self.reg[r_b]).astype(int)
+                                divr = int(self.reg[r_a] / self.reg[r_b])
+                                self.reg[r_d] = self.reg[r_a] - self.reg[r_b] * divr
+
+                        case op.rem_s.value:
                             # Note: Python integer division '//' and remainder '%' do not map to the definition of RISCV div/rem
                             if self.reg[r_b] == 0:
                                 self.reg[r_d] = self.reg[r_a]
@@ -663,25 +660,33 @@ class PVM:
                             # elif self.reg[r_a] == 0x7FFFFFFF and self.reg[r_b] == -1:
                             #     self.reg[r_d] = 0
                             else:
-                                divr = np.fix(np.int32(self.reg[r_a]) / np.int32(self.reg[r_b])).astype(int)
+                                #divr = np.fix(np.int32(self.reg[r_a]) / np.int32(self.reg[r_b])).astype(int)
+                                divr = int(np.int32(self.reg[r_a]) / np.int32(self.reg[r_b]))
                                 a = np.int32(self.reg[r_a])
                                 b = np.int32(self.reg[r_b])
                                 self.reg[r_d] = a - b * divr
 
-                        case op.rem_unsigned.value:
-                            # Note: Python integer division '//' and remainder '%' do not map to the definition of RISCV div/rem
-                            if self.reg[r_b] == 0:
-                                self.reg[r_d] = self.reg[r_a]
-                            else:
-                                divr = np.fix(self.reg[r_a] / self.reg[r_b]).astype(int)
-                                self.reg[r_d] = self.reg[r_a] - self.reg[r_b] * divr
+                        case op.set_lt_u.value:
+                            self.reg[r_d] = self.reg[r_a] < self.reg[r_b]
 
-                        case op.cmov_if_zero.value:
+                        case op.set_lt_s.value:
+                            self.reg[r_d] = np.int32(self.reg[r_a]) < np.int32(self.reg[r_b])
+
+                        case op.shlo_l.value:
+                            self.reg[r_d] = self.reg[r_a] << (self.reg[r_b] & 0x1f)
+
+                        case op.shlo_r.value:
+                            self.reg[r_d] = self.reg[r_a] >> (self.reg[r_b] & 0x1f)
+
+                        case op.shar_r.value:
+                            self.reg[r_d] = np.int32(self.reg[r_a]) >> np.int32(self.reg[r_b] & 0x1f)
+
+                        case op.cmov_iz.value:
                             if self.reg[r_b] == 0:
                                 self.reg[r_d] = self.reg[r_a]
 
                         # TODO:NO_TEST
-                        case op.cmov_if_not_zero.value:
+                        case op.cmov_nz.value:
                             if self.reg[r_b] != 0:
                                 self.reg[r_d] = self.reg[r_a]
 

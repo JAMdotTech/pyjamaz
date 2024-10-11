@@ -1,6 +1,7 @@
 from enum import Enum
 
-import numpy as np
+#import numpy as np
+import np
 
 
 class ExitCondition(Enum):
@@ -125,15 +126,15 @@ class Opcode(Enum):
     # GP_A.5.10
     # Instructions with Arguments of Two Registers & One Offset (reg_reg_offset)
     branch_eq: np.uint8                                 = np.uint8(24)
-    branch_not_eq: np.uint8                             = np.uint8(30)
-    branch_less_unsigned: np.uint8                      = np.uint8(47)
-    branch_less_signed: np.uint8                        = np.uint8(48)
-    branch_greater_or_equal_unsigned: np.uint8          = np.uint8(41)
-    branch_greater_or_equal_signed: np.uint8            = np.uint8(43)
+    branch_ne: np.uint8                                 = np.uint8(30)
+    branch_lt_u: np.uint8                               = np.uint8(47)
+    branch_lt_s: np.uint8                               = np.uint8(48)
+    branch_ge_u: np.uint8                               = np.uint8(41)
+    branch_ge_s: np.uint8                               = np.uint8(43)
 
     # GP_A.5.11
     # Instructions with Arguments Of Two Registers And Two Immediates (reg_reg_imm_imm_
-    load_imm_and_jump_indirect: np.uint8                = np.uint8(42)
+    load_imm_jump_ind: np.uint8                         = np.uint8(42)
 
     # GP_A.5.12
     # Instructions with Arguments Of Three Registers (reg_reg_reg)
@@ -143,20 +144,20 @@ class Opcode(Enum):
     xor: np.uint8                                       = np.uint8(28)
     _or: np.uint8                                       = np.uint8(12)
     mul: np.uint8                                       = np.uint8(34)
-    mul_upper_signed_signed: np.uint8                   = np.uint8(67)
-    mul_upper_unsigned_unsigned: np.uint8               = np.uint8(57)
-    mul_upper_signed_unsigned: np.uint8                 = np.uint8(81)
-    set_less_than_unsigned: np.uint8                    = np.uint8(36)
-    set_less_than_signed: np.uint8                      = np.uint8(58)
-    shift_logical_left: np.uint8                        = np.uint8(55)
-    shift_logical_right: np.uint8                       = np.uint8(51)
-    shift_arithmetic_right: np.uint8                    = np.uint8(77)
-    div_unsigned: np.uint8                              = np.uint8(68)
-    div_signed: np.uint8                                = np.uint8(64)
-    rem_unsigned: np.uint8                              = np.uint8(73)
-    rem_signed: np.uint8                                = np.uint8(70)
-    cmov_if_zero: np.uint8                              = np.uint8(83)
-    cmov_if_not_zero: np.uint8                          = np.uint8(84)
+    mul_upper_s_s: np.uint8                             = np.uint8(67)
+    mul_upper_u_u: np.uint8                             = np.uint8(57)
+    mul_upper_s_u: np.uint8                             = np.uint8(81)
+    div_u: np.uint8                                     = np.uint8(68)
+    div_s: np.uint8                                     = np.uint8(64)
+    rem_u: np.uint8                                     = np.uint8(73)
+    rem_s: np.uint8                                     = np.uint8(70)
+    set_lt_u: np.uint8                                  = np.uint8(36)
+    set_lt_s: np.uint8                                  = np.uint8(58)
+    shlo_l: np.uint8                                    = np.uint8(55)
+    shlo_r: np.uint8                                    = np.uint8(51)
+    shar_r: np.uint8                                    = np.uint8(77)
+    cmov_iz: np.uint8                                   = np.uint8(83)
+    cmov_nz: np.uint8                                   = np.uint8(84)
 
 
 """
@@ -165,52 +166,65 @@ This enum serves as a lookup for the instruction decoding scheme we should apply
 it = InstructionType
 op = Opcode
 
-#TODO: ook mappen aan GP zoals hierboven
 OpcodeScheme = {
+    # GP_A.5.1
     # Instructions with args: none
     op.trap.value                                           : it.none,    #riscv:??? zoek dit opcode nr op
     op.fallthrough.value                                    : it.none,    #riscv:???
 
+    # GP_A.5.2
     # Instructions with args: imm
     op.ecalli.value                                         : it.imm,  # X
 
+    # GP_A.5.3
     # Instructions with args: imm_imm
     op.store_imm_u8.value                                   : it.imm_imm,  # X
     op.store_imm_u16.value                                  : it.imm_imm,  # X
     op.store_imm_u32.value                                  : it.imm_imm,  # X
 
+    # GP_A.5.4
+    # Instructions with args: offset
+    op.jump.value: it.offset,  # X
+
+    # GP_A.5.5
+    # Instructions with args: reg, imm
+    op.jump_ind.value: it.reg_imm,  # X
+    op.load_imm.value: it.reg_imm,  # riscv:li
+    op.load_u8.value: it.reg_imm,  # riscv:lbu
+    op.load_i8.value: it.reg_imm,  # X riscv:lb
+    op.load_u16.value: it.reg_imm,  # X riscv:lhu
+    op.load_i16.value: it.reg_imm,  # X riscv:lh
+    op.load_u32.value: it.reg_imm,  # X riscv:lw
+    op.store_u8.value: it.reg_imm,  # riscv:sb
+    op.store_u16.value: it.reg_imm,  # riscv:sh
+    op.store_u32.value: it.reg_imm,  # riscv:sw
+
+    # GP_A.5.6
     # Instructions with args: reg, imm, imm
     op.store_imm_ind_u8.value                               : it.reg_imm_imm,  # X
     op.store_imm_ind_u16.value                              : it.reg_imm_imm,  # X
     op.store_imm_ind_u32.value                              : it.reg_imm_imm,  # X
 
-    # Instructions with args: reg, imm
-    op.jump_ind.value                                       : it.reg_imm, #X
-    op.load_imm.value                                       : it.reg_imm, #riscv:li
-    op.load_u8.value                                        : it.reg_imm, #riscv:lbu
-    op.load_i8.value                                        : it.reg_imm, #X riscv:lb
-    op.load_u16.value                                       : it.reg_imm, #X riscv:lhu
-    op.load_i16.value                                       : it.reg_imm, #X riscv:lh
-    op.load_u32.value                                       : it.reg_imm, #X riscv:lw
-    op.store_u8.value                                       : it.reg_imm, #riscv:sb
-    op.store_u16.value                                      : it.reg_imm, #riscv:sh
-    op.store_u32.value                                      : it.reg_imm, #riscv:sw
-
+    # GP_A.5.7
     # Instructions with args: reg, imm, offset
     op.load_imm_jump.value                                  : it.reg_imm_offset, #X
     op.branch_eq_imm.value                                  : it.reg_imm_offset, #riscv:beq
     op.branch_ne_imm.value                                  : it.reg_imm_offset, #riscv:bne
-
     op.branch_lt_u_imm.value                                : it.reg_imm_offset, #riscv:bltu
     op.branch_ge_u_imm.value                                : it.reg_imm_offset, #riscv:
     op.branch_le_u_imm.value                                : it.reg_imm_offset, #riscv:
     op.branch_gt_u_imm.value                                : it.reg_imm_offset, #riscv:
-
     op.branch_lt_s_imm.value                                : it.reg_imm_offset, #riscv:
     op.branch_ge_s_imm.value                                : it.reg_imm_offset, #riscv:
     op.branch_le_s_imm.value                                : it.reg_imm_offset, #riscv:
     op.branch_gt_s_imm.value                                : it.reg_imm_offset, #riscv:
 
+    # GP_A.5.8
+    # Instructions with args: reg, reg
+    op.move_reg.value: it.reg_reg,  # riscv:
+    op.sbrk.value: it.reg_reg,  # X
+
+    # GP_A.5.9
     # Instructions with args: reg, reg, imm
     op.store_ind_u8.value                                   : it.reg_reg_imm, #X
     op.store_ind_u16.value                                  : it.reg_reg_imm, #X
@@ -238,18 +252,23 @@ OpcodeScheme = {
     op.shlo_r_imm_alt.value                                 : it.reg_reg_imm, #riscv:
     op.shar_r_imm_alt.value                                 : it.reg_reg_imm, #riscv:
     op.shlo_l_imm_alt.value                                 : it.reg_reg_imm, #riscv:
-
     op.cmov_iz_imm.value                                    : it.reg_reg_imm, #riscv:
     op.cmov_nz_imm.value                                    : it.reg_reg_imm, #riscv:
 
+    # GP_A.5.10
     # Instructions with args: reg, reg, offset
     op.branch_eq.value                                      : it.reg_reg_offset,  #riscv:
-    op.branch_not_eq.value                                  : it.reg_reg_offset,  #riscv:
-    op.branch_less_unsigned.value                           : it.reg_reg_offset,  #riscv:
-    op.branch_less_signed.value                             : it.reg_reg_offset,  #riscv:
-    op.branch_greater_or_equal_unsigned.value               : it.reg_reg_offset,  #riscv:
-    op.branch_greater_or_equal_signed.value                 : it.reg_reg_offset,  #riscv:
+    op.branch_ne.value                                      : it.reg_reg_offset,  #riscv:
+    op.branch_lt_u.value                                    : it.reg_reg_offset,  #riscv:
+    op.branch_lt_s.value                                    : it.reg_reg_offset,  #riscv:
+    op.branch_ge_u.value                                    : it.reg_reg_offset,  #riscv:
+    op.branch_ge_s.value                                    : it.reg_reg_offset,  #riscv:
 
+    # GP_A.5.11
+    # Instructions with args: reg, reg, imm, im:
+    op.load_imm_jump_ind.value: it.reg_reg_imm_imm,  # X
+
+    # GP_A.5.12
     # Instructions with args: reg, reg, reg
     op.add.value                                            : it.reg_reg_reg, #riscv:add
     op.sub.value                                            : it.reg_reg_reg, #riscv:sub
@@ -257,31 +276,20 @@ OpcodeScheme = {
     op.xor.value                                            : it.reg_reg_reg, #riscv:xor
     op._or.value                                            : it.reg_reg_reg, #riscv:or
     op.mul.value                                            : it.reg_reg_reg, #riscv:mul
-    op.mul_upper_signed_signed.value                        : it.reg_reg_reg, #X
-    op.mul_upper_unsigned_unsigned.value                    : it.reg_reg_reg, #X
-    op.mul_upper_signed_unsigned.value                      : it.reg_reg_reg, #X
-    op.set_less_than_unsigned.value                         : it.reg_reg_reg, #riscv:sltu
-    op.set_less_than_signed.value                           : it.reg_reg_reg, #riscv:slt
-    op.shift_logical_left.value                             : it.reg_reg_reg, #riscv:sll
-    op.shift_logical_right.value                            : it.reg_reg_reg, #riscv:srl
-    op.shift_arithmetic_right.value                         : it.reg_reg_reg, #riscv:sra
-    op.div_unsigned.value                                   : it.reg_reg_reg, #riscv:divu
-    op.div_signed.value                                     : it.reg_reg_reg, #riscv:div
-    op.rem_unsigned.value                                   : it.reg_reg_reg, #riscv:remu
-    op.rem_signed.value                                     : it.reg_reg_reg, #riscv:rem
-
-    op.cmov_if_zero.value                                   : it.reg_reg_reg, #riscv:https://stackoverflow.com/questions/72340698/riscv-branchless-coding
-    op.cmov_if_not_zero.value                               : it.reg_reg_reg, #X
-
-    # Instructions with args: offset
-    op.jump.value                                           : it.offset,      #X
-
-    # Instructions with args: reg, reg
-    op.move_reg.value                                       : it.reg_reg, #riscv:
-    op.sbrk.value                                           : it.reg_reg, #X
-
-    # Instructions with args: reg, reg, imm, im:
-    op.load_imm_and_jump_indirect.value                     : it.reg_reg_imm_imm,     #X
+    op.mul_upper_s_s.value                                  : it.reg_reg_reg, #X
+    op.mul_upper_u_u.value                                  : it.reg_reg_reg, #X
+    op.mul_upper_s_u.value                                  : it.reg_reg_reg, #X
+    op.div_u.value                                          : it.reg_reg_reg,  # riscv:divu
+    op.div_s.value                                          : it.reg_reg_reg,  # riscv:div
+    op.rem_u.value                                          : it.reg_reg_reg,  # riscv:remu
+    op.rem_s.value                                          : it.reg_reg_reg,  # riscv:rem
+    op.set_lt_u.value                                       : it.reg_reg_reg, #riscv:sltu
+    op.set_lt_s.value                                       : it.reg_reg_reg, #riscv:slt
+    op.shlo_l.value                                         : it.reg_reg_reg, #riscv:sll
+    op.shlo_r.value                                         : it.reg_reg_reg, #riscv:srl
+    op.shar_r.value                                         : it.reg_reg_reg, #riscv:sra
+    op.cmov_iz.value                                        : it.reg_reg_reg, #riscv:https://stackoverflow.com/questions/72340698/riscv-branchless-coding
+    op.cmov_nz.value                                        : it.reg_reg_reg, #X
 }
 
 

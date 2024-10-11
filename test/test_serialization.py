@@ -17,7 +17,7 @@ class Program(Serializable):
     code_length: int = field(metadata={'codec': VarInt64})
     jump_table: List[int] = field(metadata={'codec': Array(U8, 0)})
     code: bytes = field(metadata={'codec': Array(U8, 0)})
-    opcode_bitmask: List[bool] = field(metadata={'codec': BitArray(0, strict_decoding=False)})
+    opcode_bitmask: List[bool] = field(metadata={'codec': BitArray(0)})
 
     @classmethod
     def from_jam_bytes(cls, scale_bytes: JamBytes) -> 'Program':
@@ -27,7 +27,7 @@ class Program(Serializable):
 
         jump_table = Array(UnsignedInteger(jump_table_entry_size * 8), jump_table_entry_count).decode(scale_bytes)
         code = Array(U8, code_length).decode(scale_bytes)
-        opcode_bitmask = BitArray(code_length, strict_decoding=False).decode(scale_bytes)
+        opcode_bitmask = BitArray(code_length).decode(scale_bytes)
 
         return cls(
             jump_table_entry_count=jump_table_entry_count,
