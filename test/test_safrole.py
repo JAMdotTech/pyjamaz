@@ -121,7 +121,7 @@ class TestSafroleVector(unittest.TestCase):
         with open(test_vector_file) as f:
             return json.load(f)
 
-    @parameterized.expand(get_test_vector_files(['tiny'], file_filter='with-mark'))
+    @parameterized.expand(get_test_vector_files(['tiny'], file_filter=''))
     def test_vector(self, name, directory, test_file):
 
         test_vector = self.load_test_vector_data(directory, test_file)
