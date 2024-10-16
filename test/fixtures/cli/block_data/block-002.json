@@ -41,8 +41,6 @@
     },
     "preimages": [],
     "assurances": [],
-    "guarantees": [],
-    "work_report_hashes": [],
-    "accumulate_root": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    "guarantees": []
   }
 }

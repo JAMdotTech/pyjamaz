@@ -2,15 +2,16 @@ from dataclasses import dataclass
 from typing import Type, TypeVar, Optional
 
 from pyjamaz.exceptions import BlockValidationError
+from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT
 from pyjamaz.storage import StorageInterface, Transaction
 from pyjamaz.state.base import StateComponent
 from pyjamaz.state.manager import StateManager
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools
-from pyjamaz.types.block import Block, Header, Extrinsic
-from pyjamaz.types.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState
-from pyjamaz.types.stf_output import STFOutput, SafroleErrorCode
+from pyjamaz.models.block import Block, Header, Extrinsic
+from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState, Statistic
+from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
 
 T = TypeVar('T')
 
@@ -58,10 +59,19 @@ class PyjamazApp:
             recent_history=self.retrieve_component_state(RecentHistory),
             services=ServicesState(services={}),
             assurances=self.retrieve_component_state(Assurances),
-            authorizer_queues=AuthorizerQueuesState(authorizer_queues=[]),
+            authorizer_queues=AuthorizerQueuesState(
+                authorizer_queues=[[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
+
+            ),
             privileged_services=self.retrieve_component_state(PrivilegedServices),
             disputes=self.retrieve_component_state(Disputes),
-            statistics=StatisticsState(statistics=[])
+            statistics=StatisticsState(
+                statistics=[
+                    [
+                        Statistic(0, 0, 0, 0, 0, 0),
+                    ] * VALIDATOR_COUNT
+                ] * 2
+            )
         )
 
     def retrieve_component_state(self, state_component: Type[StateComponent]):

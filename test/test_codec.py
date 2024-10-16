@@ -4,10 +4,10 @@ from os import path
 
 from jamcodec.types import Vec
 
-from pyjamaz.types.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, RefinementContext, WorkReport, \
+from pyjamaz.models.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, RefinementContext, WorkReport, \
     WorkResult, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
-from pyjamaz.types.stf_output import SafroleErrorCode
-from pyjamaz.types.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
+from pyjamaz.models.stf_output import SafroleErrorCode
+from pyjamaz.models.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
     ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, BeefyCommitmentMap
 from test.test_safrole import SafroleTestOutput, SafroleOutputMarks

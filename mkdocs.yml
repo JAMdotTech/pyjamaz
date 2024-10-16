@@ -57,9 +57,9 @@ extra:
 nav:
   - Overview: index.md
   - Type Definitions:
-      - Block Types: types/types_blocks.md
-      - State Types: types/types_state.md
-      - STF Output Types: types/types_stf_output.md
+      - Block Types: models/types_blocks.md
+      - State Types: models/types_state.md
+      - STF Output Types: models/types_stf_output.md
   - State Transition Functions:
       - Overall State (σ): stfs/sigma.md
       - AuthorizerPools (α): stfs/alpha.md
