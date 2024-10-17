@@ -1,6 +1,8 @@
 import json
 import os
 import shutil
+import sys
+
 import time
 from os import path
 
@@ -147,10 +149,25 @@ def debug():
     """
     Enters a debug prompt after initializing the app
     """
+
+    def show(item):
+        click.echo(json.dumps(item.to_json(), indent=2))
+
+    def fields(item):
+        click.echo(json.dumps(list(item.__dict__.keys()), indent=2))
+
     app = initialize_app()
-    click.echo(f'PyJAMaz version: {__version__}')
-    click.echo(f'DB direcory: {db_path}')
-    click.echo(f'Entering debug mode..')
+    click.secho(f'=' * 80, bold=True)
+    click.secho(f'PyJAMaz version: {__version__}', bold=True)
+    click.secho(f'Python version: {sys.version}', bold=True)
+    click.secho(f'DB direcory: {db_path}', bold=True)
+    click.secho(f'Timeslot: {app.state.timeslot.number}', bold=True)
+    click.secho(f'=' * 80, bold=True)
+    click.echo(f"Entering debug mode.. \n")
+    click.echo(f"* To quit, press 'q' and Enter")
+    click.echo(f"* To print a serializable variable, use e.g. 'show(app.state.timeslot)'")
+    click.echo(f"* To list fields of a dataclass, use e.g. 'fields(app.state)'")
+    click.secho('_' * 80)
     import pdb
     pdb.set_trace()
 
