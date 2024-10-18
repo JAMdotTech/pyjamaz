@@ -38,25 +38,32 @@ class TestPolkaVMInstructions(unittest.TestCase):
         # Set NumPy to ignore overflow warnings
         np.seterr(over='ignore')
 
+        #TODO: we gaan nu altijd maar uit van 1 mem page
         mem_size = 0
+        mem_offset = 0
         if test_vector["expected-memory"]:
             mem_size = len(test_vector["expected-memory"][0]["contents"])
+            mem_offset = test_vector["expected-memory"][0]["address"]
 
-        pvm_data = PVMProgram.from_jam_bytes(JamBytes(bytes(test_vector["program"])))
-        #TODO: initialize mag naar instantiatie ==> gelijk ook de invoke
-        pvm = PVM(pvm_data, mem_size=mem_size)
-        pvm.initialize(
+        pvm_data = PVMProgram.from_jam_bytes(
+            JamBytes(bytes(test_vector["program"]))
+        )
+        pvm = PVM()
+        pvm.invoke(
+            pvm_data,
             test_vector["initial-regs"],
             test_vector["initial-pc"],
             test_vector["initial-gas"],
             test_vector["initial-page-map"],
             test_vector["initial-memory"],
+            mem_size=mem_size,
+            mem_offset=mem_offset
         )
-        pvm.invoke()
 
+        # Mapping specific for test vectors
         ExitConditionMap = {
             ExitCondition.none.value: "none",
-            ExitCondition.trap.value: "trap",
+            ExitCondition.panic.value: "trap",
             ExitCondition.halt.value: "halt"
         }
 

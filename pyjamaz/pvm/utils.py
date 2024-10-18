@@ -31,7 +31,7 @@ def pvm_Zn(a:np.uint32, n:np.uint8) -> np.int32:
     a = int(a)
     n = int(n)
     boundary = 2 ** (8 * n - 1)  # This is 2^(8n-1), the boundary between positive and negative numbers.
-    max_value = 2 ** (8 * n)-1  # This is 2^(8n), the maximum value in the n-bit space.
+    max_value = 2 ** (8 * n)  # This is 2^(8n), the maximum value in the n-bit space.
 
     # If 'a' is less than the boundary, return 'a' unchanged, otherwise subtract 2^(8n).
     if a < boundary:
