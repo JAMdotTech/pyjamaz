@@ -32,7 +32,7 @@ def load_test_vectors(directory):
 
 
 class TestPolkaVMInstructions(unittest.TestCase):
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs2'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
     def test_instruction(self, name, test_vector):
 
         # Set NumPy to ignore overflow warnings
@@ -48,7 +48,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
         pvm_data = PVMProgram.from_jam_bytes(
             JamBytes(bytes(test_vector["program"]))
         )
-        pvm = PVM(
+        pvm = PVM()
+        pvm.invoke(
             pvm_data,
             test_vector["initial-regs"],
             test_vector["initial-pc"],

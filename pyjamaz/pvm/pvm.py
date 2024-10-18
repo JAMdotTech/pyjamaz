@@ -25,45 +25,18 @@ from .constants import (
 
 class PVM:
 
-    def __init__(
-            self,
-            program: PVMProgram,
-            initial_regs: list[int],
-            initial_pc: int,
-            initial_gas: int,
-            initial_page_map: list[Any],
-            initial_memory: list[Any],
-            mem_size: np.uint32 = 4096,
-            mem_offset: np.uint32 = 0,
-    ):
-        #self.reg = np.zeros(13, dtype=np.uint32)
-        #self.pc:np.uint32 = np.uint32(0)
-        #self.gas:np.uint64 = np.uint64(0)
-        self.mem:npt.NDArray[np.uint8] = np.zeros(mem_size, dtype=np.uint8)
+    def __init__(self):
+        self.reg = np.zeros(13, dtype=np.uint32)
+        self.pc:np.uint32 = np.uint32(0)
+        self.gas:np.uint64 = np.uint64(0)
+        self.mem:npt.NDArray[np.uint8] = np.zeros(1, dtype=np.uint8)
         # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
-        self.rom:npt.NDArray[np.uint8] = np.array(program.code, dtype=np.uint8)
-        self.program_size: np.uint64 = np.uint64(len(self.rom))
-        self.inst_bitmask: List[bool] = program.opcode_bitmask
+        self.rom:npt.NDArray[np.uint8] = np.array(1, dtype=np.uint8)
+        self.program_size: np.uint64 = np.uint64(0)
+        self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_len: List[int] = []
-        self.reg = np.array(initial_regs, dtype=np.uint32)
-        self.pc = np.uint32(initial_pc)
-        self.gas = np.uint64(initial_gas)
         self.status = ExitCondition.none.value
-
-        #TODO: initial_page_map.address, length, is-writable
-        self.mem_offset = mem_offset
-        if initial_page_map:
-            self.mem_offset = initial_page_map[0]["address"]    #TODO: memory addressing uitwerken
-        if initial_memory:
-            for block_idx, mem_block in enumerate(initial_memory):
-                for idx, byt in enumerate(mem_block["contents"]):
-                    self.mem[initial_page_map[block_idx]["address"] - mem_block["address"] + idx] = np.uint8(byt)
-
-        self.create_instruction_lookup()
-
-        # TODO: we always do a single step, for now
-        self.invoke()
 
 
     def create_instruction_lookup(self):
@@ -105,8 +78,65 @@ class PVM:
             # print(f"added instruction {len(self.inst_len) - 1} (byte {op_bit_idx-1} == opcode {self.inst_pos[op_bit_idx-1]}) with args {op_args} (next byte: {op_bit_idx - 1})")
 
 
-    def invoke(self):
-        self.pc = 0
+    def reset(
+            self,
+            program: PVMProgram,
+            initial_regs: list[int],
+            initial_pc: int,
+            initial_gas: int,
+            initial_page_map: list[Any],
+            initial_memory: list[Any],
+            mem_size: np.uint32 = 4096,
+            mem_offset: np.uint32 = 0
+    ):
+        self.mem:npt.NDArray[np.uint8] = np.zeros(mem_size, dtype=np.uint8)
+        # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
+        self.rom:npt.NDArray[np.uint8] = np.array(program.code, dtype=np.uint8)
+        self.program_size: np.uint64 = np.uint64(len(self.rom))
+        self.inst_bitmask: List[bool] = program.opcode_bitmask
+        self.inst_pos: Dict[int,int] = {0: 0}
+        self.inst_len: List[int] = []
+        self.reg = np.array(initial_regs, dtype=np.uint32)
+        self.pc = np.uint32(initial_pc)
+        self.gas = np.uint64(initial_gas)
+        self.status = ExitCondition.none.value
+
+        #TODO: initial_page_map.address, length, is-writable
+        self.mem_offset = mem_offset
+        if initial_page_map:
+            self.mem_offset = initial_page_map[0]["address"]    #TODO: memory addressing uitwerken
+        if initial_memory:
+            for block_idx, mem_block in enumerate(initial_memory):
+                for idx, byt in enumerate(mem_block["contents"]):
+                    self.mem[initial_page_map[block_idx]["address"] - mem_block["address"] + idx] = np.uint8(byt)
+
+        self.create_instruction_lookup()
+
+
+    def invoke(
+        self,
+        program: PVMProgram,
+        initial_regs: list[int],
+        initial_pc: int,
+        initial_gas: int,
+        initial_page_map: list[Any],
+        initial_memory: list[Any],
+        mem_size: np.uint32 = 4096,
+        mem_offset: np.uint32 = 0
+    ):
+
+        self.reset(
+            program,
+            initial_regs,
+            initial_pc,
+            initial_gas,
+            initial_page_map,
+            initial_memory,
+            mem_size,
+            mem_offset
+        )
+
+        #self.pc = 0
         skip_len:int = 0
 
         while self.status == ExitCondition.none.value and self.gas > 0:
