@@ -15,7 +15,7 @@ pip install pyjamaz
 ## Run conformance test
 
 ```bash
-pyjamaz init --initial-state-json=./initial-state.json
+pyjamaz init --initial-state=./initial-state.json
 pyjamaz import ./block_data
 pyjamaz dump > current_state.json
 ```

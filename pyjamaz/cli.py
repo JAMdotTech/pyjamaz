@@ -7,10 +7,12 @@ import time
 from os import path
 
 import click
+from click import BadParameter
 
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
+from jamcodec.base import JamBytes
 from pyjamaz import __version__
 from pyjamaz.app import PyjamazApp, AppConfig
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
@@ -65,6 +67,7 @@ def initialize_app(read_state=True, memory_storage=False) -> PyjamazApp:
     )
 
     app = PyjamazApp(config=config)
+
     if read_state:
         app.state = app.retrieve_jam_state()
 
@@ -96,8 +99,8 @@ def main():
 
 
 @main.command()
-@click.option('--initial-state-json', type=click.Path(exists=True))
-def init(initial_state_json):
+@click.option('--initial-state', type=click.Path(exists=True))
+def init(initial_state):
     """
     Clears all existing data and initializes the JAM client.
 
@@ -108,15 +111,20 @@ def init(initial_state_json):
         shutil.rmtree(db_path)  # Delete the directory if it exists
         click.echo(f"The database at '{db_path}' was deleted successfully.")
 
-    if initial_state_json is None:
-        state_file_name = path.join(data_dir, 'initial_state_template.json')
+    if initial_state is None:
+        initial_state = path.join(data_dir, 'initial_state_template.json')
+
+    if initial_state.endswith('.json'):
+        with open(initial_state, 'r') as fp:
+            state_data = json.load(fp)
+        jam_state = JamState.from_json(state_data)
+
+    elif initial_state.endswith('.bin'):
+        with open(initial_state, 'rb') as fp:
+            jam_state = JamState.from_jam_bytes(JamBytes(fp.read()))
+
     else:
-        state_file_name = initial_state_json
-
-    with open(state_file_name, 'r') as fp:
-        state_data = json.load(fp)
-
-    jam_state = JamState.from_json(state_data)
+        raise BadParameter('initial_state can only be .json or .bin')
 
     app = initialize_app(read_state=False)
     app.store_jam_state(jam_state)
@@ -175,25 +183,35 @@ def debug():
 @main.command('import')
 @click.argument('block-dir', type=click.Path(exists=True))
 @click.option('--initial-state', type=click.File())
+@click.option('--export-state', type=click.File(mode='w'), help='Export the current state to a JSON-file')
 @click.option('--dry-run', is_flag=True, help="Perform a dry run without making any changes.")
 @click.option('--watch', is_flag=True, help="Watches provided folder for new block data")
-def import_blocks(block_dir, initial_state, dry_run, watch):
+def import_blocks(block_dir, initial_state, export_state, dry_run, watch):
     """
     Import block data from folder BLOCK_DIR
 
     When --watch is provided, it will keep watching for new block data until keyboard interupt is given.
     """
     if initial_state:
-        state_data = json.load(initial_state)
-
-        jam_state = JamState.from_json(state_data)
         app = initialize_app(read_state=False, memory_storage=dry_run)
-        app.store_jam_state(jam_state)
+
+        if initial_state.name.endswith('.json'):
+            state_data = json.load(initial_state)
+            app.state = JamState.from_json(state_data)
+        elif initial_state.name.endswith('.bin'):
+            app.state = JamState.from_jam_bytes(JamBytes(initial_state.read_bytes()))
+        else:
+            raise BadParameter('initial_state can only be .json or .bin')
+
+        app.store_jam_state(app.state)
     else:
-        if dry_run:
-            error_message('Cannot perform dry run if no initial state is provided.')
-            exit(2)
         app = initialize_app()
+
+        if dry_run:
+            # Re-initialize app with memory storage to perform dry-run
+            current_state = app.state
+            app = initialize_app(read_state=False, memory_storage=True)
+            app.store_jam_state(current_state)
 
     # Process blocks
     process_blocks(app, block_dir)
@@ -212,6 +230,12 @@ def import_blocks(block_dir, initial_state, dry_run, watch):
             click.echo("✋Stopping directory watcher...")
             observer.stop()
         observer.join()
+
+    if export_state:
+        json.dump(app.state.to_json(), export_state, indent=2)
+
+    if dry_run:
+        click.echo('Dry-run completed.')
     else:
         click.echo('Import completed.')
 
