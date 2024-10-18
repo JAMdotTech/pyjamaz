@@ -13,17 +13,17 @@ class PVMProgram(Serializable):
     code_length: int = field(metadata={'codec': VarInt64})
     jump_table: List[int] = field(metadata={'codec': Array(U8, 0)})
     code: bytes = field(metadata={'codec': Array(U8, 0)})
-    opcode_bitmask: List[bool] = field(metadata={'codec': BitArray(0, strict_decoding=False)})  #TODO: remove strict_decoding=False
+    opcode_bitmask: List[bool] = field(metadata={'codec': BitArray(0)})
 
     @classmethod
-    def from_jam_bytes(cls, scale_bytes: JamBytes) -> 'PVMProgram':
+    def from_jam_bytes(cls, scale_bytes: JamBytes, strict_decoding=True) -> 'PVMProgram':
         jump_table_entry_count = VarInt64.decode(scale_bytes)
         jump_table_entry_size = U8.decode(scale_bytes)
         code_length = VarInt64.decode(scale_bytes)
 
         jump_table = Array(UnsignedInteger(jump_table_entry_size * 8), jump_table_entry_count).decode(scale_bytes)
         code = Array(U8, code_length).decode(scale_bytes)
-        opcode_bitmask = BitArray(code_length, strict_decoding=False).decode(scale_bytes)   #TODO: remove strict_decoding=False
+        opcode_bitmask = BitArray(code_length, strict_decoding=strict_decoding).decode(scale_bytes)
 
         return cls(
             jump_table_entry_count=jump_table_entry_count,
