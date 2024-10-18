@@ -1,1 +1,1 @@
-::: pyjamaz.types.block
+::: pyjamaz.models.block

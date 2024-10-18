@@ -1,1 +1,1 @@
-::: pyjamaz.types.stf_output
+::: pyjamaz.models.stf_output

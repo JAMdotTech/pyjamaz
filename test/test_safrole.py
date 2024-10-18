@@ -15,11 +15,11 @@ from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.types.common import OpaqueHash, ValidatorsData, ValidatorData, ByteArray144
-from pyjamaz.types.stf_output import SafroleErrorCode
-from pyjamaz.types.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, TicketBody, \
+from pyjamaz.models.common import OpaqueHash, ValidatorsData, ValidatorData, ByteArray144
+from pyjamaz.models.stf_output import SafroleErrorCode
+from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, TicketBody, \
     EpochMark, TicketsMark
-from pyjamaz.types.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
+from pyjamaz.models.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState, RecentHistoryState, ServicesState, AssurancesState, \
     PrivilegedServicesState, DisputesState, StatisticsState, AuthorizerPoolsState, \
     AuthorizerQueuesState, Statistic, SlotSealerSeries
@@ -131,7 +131,7 @@ class TestSafroleVector(unittest.TestCase):
 
         test_case = Testcase.from_json(test_vector)
 
-        # TODO make type factory to bootstrap state SCALE types with correct constants
+        # TODO make type factory to bootstrap state SCALE models with correct constants
         # if directory == 'tiny':
         #     gp_const.VALIDATOR_COUNT = 6
         #     gp_const.EPOCH_TIMESLOTS = 12

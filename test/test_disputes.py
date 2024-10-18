@@ -16,10 +16,9 @@ from pyjamaz.state.base import State
 from pyjamaz.state.components import Disputes
 from pyjamaz.storage import InMemoryStorage
 
-from pyjamaz.types.block import Header, Extrinsic, ExtrinsicDisputes, Block
-from pyjamaz.types.state import (DisputesState, AssurancesState,TimeslotState, ValidatorArchiveState,
-                                 ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, JamState,
-                                 Statistic, SlotSealerSeries)
+from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes, Block
+from pyjamaz.models.state import (DisputesState, AssurancesState, TimeslotState, ValidatorArchiveState,
+                                  ValidatorPoolState, JamState)
 
 
 @dataclass
