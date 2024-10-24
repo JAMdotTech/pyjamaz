@@ -5,7 +5,7 @@ from typing import List, Type, Union
 from jamcodec.base import JamBytes, JamCodecType
 from jamcodec.mixins import Serializable, T
 from jamcodec.types import VarInt64, U8, Array, BitArray, UnsignedInteger
-from pyjamaz.types.common import ValidatorData
+from pyjamaz.models.common import ValidatorData
 
 
 @dataclass

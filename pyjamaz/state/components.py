@@ -11,8 +11,8 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Keypair
 from pyjamaz.storage import StorageInterface
-from pyjamaz.types.common import ValidatorData
-from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
+from pyjamaz.models.common import ValidatorData
+from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
     AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput, \
@@ -20,9 +20,9 @@ from pyjamaz.types.stf_output import SafroleErrorCode, SafroleOutput, ValidatorP
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError
-from pyjamaz.types.block import TicketBody, EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
+from pyjamaz.models.block import TicketBody, EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
     Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault
-from pyjamaz.types.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
+from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap

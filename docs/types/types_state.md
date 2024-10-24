@@ -1,1 +1,1 @@
-::: pyjamaz.types.state
+::: pyjamaz.models.state

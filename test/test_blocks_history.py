@@ -9,8 +9,8 @@ from parameterized import parameterized
 
 from pyjamaz.state.components import RecentHistory
 from pyjamaz.storage import JSONStorage
-from pyjamaz.types.block import Block, Header, Extrinsic, ExtrinsicDisputes, Guarantee, WorkReport, WorkPackageSpec
-from pyjamaz.types.state import RecentHistoryState
+from pyjamaz.models.block import Header, Guarantee, WorkReport, WorkPackageSpec
+from pyjamaz.models.state import RecentHistoryState
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):

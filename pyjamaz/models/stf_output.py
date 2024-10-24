@@ -3,10 +3,10 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import Option, Enum, Vec, H256, Array
+from jamcodec.types import Option, Vec, H256, Array
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
-from pyjamaz.types.block import OutputMarks, EpochMark, TicketsMark, TicketBody
-from pyjamaz.types.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
+from pyjamaz.models.block import OutputMarks, EpochMark, TicketsMark, TicketBody
+from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
     BeefyCommitmentMap
 

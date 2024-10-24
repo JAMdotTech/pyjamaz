@@ -1,61 +1,243 @@
 import json
 import os
+import shutil
+import sys
+
+import time
 from os import path
 
 import click
+from click import BadParameter
 
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+
+from jamcodec.base import JamBytes
+from pyjamaz import __version__
 from pyjamaz.app import PyjamazApp, AppConfig
-from pyjamaz.storage import LevelDBStorage
-from pyjamaz.types.block import Block
-from pyjamaz.types.state import JamState
+from pyjamaz.storage import LevelDBStorage, InMemoryStorage
+from pyjamaz.models.block import Block
+from pyjamaz.models.state import JamState
+
+data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
+db_path = path.join(data_dir, 'db')
 
 
-def initialize_app(initial_state: JamState) -> PyjamazApp:
-    data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
+def error_message(message: str):
+    click.echo(click.style(f'⚠️ {message}', fg='red'), err=True)
+
+
+class JSONFileHandler(FileSystemEventHandler):
+    def __init__(self, app):
+        self.app = app  # Store the app instance for use in event handling
+
+    def on_created(self, event):
+        if not event.is_directory and event.src_path.endswith('.json'):
+            self.process_json(event.src_path)
+
+    def process_json(self, filepath):
+        try:
+            with open(filepath, 'r') as file:
+                data = json.load(file)
+                block = Block.from_json(data)
+                self.app.process_block(block)
+                click.echo(f"🆕 Processed: {os.path.basename(filepath)}")
+        except Exception as e:
+            error_message(f"Failed to process {filepath}: {e}")
+
+
+def initialize_app(read_state=True, memory_storage=False) -> PyjamazApp:
     with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
         ring_data = fp.read()
+
+    try:
+        if memory_storage:
+            storage_engine = InMemoryStorage()
+        else:
+            storage_engine = LevelDBStorage(db_path)
+
+    except IOError as e:
+        error_message(f'Could not initialize storage engine: {str(e)}')
+        exit(2)
 
     # Initialize app
     config = AppConfig(
         ring_data=ring_data,
-        # storage_engine=JSONStorage(path.join(data_dir, 'storage.json'))
-        storage_engine=LevelDBStorage(path.join(data_dir, 'db'))
+        storage_engine=storage_engine
     )
 
     app = PyjamazApp(config=config)
-    app.store_jam_state(initial_state)
+
+    if read_state:
+        app.state = app.retrieve_jam_state()
+
     return app
 
 
+def process_blocks(app, block_dir):
+    for filename in sorted(os.listdir(block_dir)):
+        if filename.endswith('.json'):
+            try:
+                with open(os.path.join(block_dir, filename)) as f:
+                    block_data = json.load(f)
+
+                block = Block.from_json(block_data)
+                app.process_block(block)
+
+                click.echo("🆗 Processed: {}".format(filename))
+            except Exception as e:
+                error_message(f"Failed to process '{filename}': {e}")
+
+
+# CLI commands
+
 @click.group()
+@click.version_option(package_name='pyjamaz')
 def main():
-    """Python Jam Client"""
+    """PyJAMaz: Python JAM Client"""
     pass
 
 
 @main.command()
-@click.argument('initial-state-json')
-@click.argument('block-dir')
-def import_blocks(initial_state_json, block_dir):
-    """Import block data from a folder"""
+@click.option('--initial-state', type=click.Path(exists=True))
+def init(initial_state):
+    """
+    Clears all existing data and initializes the JAM client.
 
-    with open(path.join(os.getcwd(), initial_state_json), 'r') as fp:
-        state_data = json.load(fp)
+    Defaults to DEV initial state if none is provided.
+    """
+    if os.path.isdir(db_path):
+        click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
+        shutil.rmtree(db_path)  # Delete the directory if it exists
+        click.echo(f"The database at '{db_path}' was deleted successfully.")
 
-    jam_state = JamState.from_json(state_data)
-    app = initialize_app(jam_state)
+    if initial_state is None:
+        initial_state = path.join(data_dir, 'initial_state_template.json')
+
+    if initial_state.endswith('.json'):
+        with open(initial_state, 'r') as fp:
+            state_data = json.load(fp)
+        jam_state = JamState.from_json(state_data)
+
+    elif initial_state.endswith('.bin'):
+        with open(initial_state, 'rb') as fp:
+            jam_state = JamState.from_jam_bytes(JamBytes(fp.read()))
+
+    else:
+        raise BadParameter('initial_state can only be .json or .bin')
+
+    app = initialize_app(read_state=False)
+    app.store_jam_state(jam_state)
+    click.echo(f"✅ Initialization complete.")
+
+
+@main.command('dump')
+@click.option(
+    '--format', 'output_format',
+    type=click.Choice(['json', 'bin'], case_sensitive=False),
+    default='json',
+    show_default=True,
+    help='Choose the output format: JSON or JAM-bytes'
+)
+def dump_state(output_format):
+    """
+    Dumps current state to stdout
+
+    """
+    app = initialize_app()
+
+    if output_format == 'json':
+        click.echo(json.dumps(app.state.to_json(), indent=2))
+    elif output_format == 'bin':
+        click.echo(app.state.to_jam_bytes().to_bytes(), file=click.get_binary_stream('stdout'), nl=False)
+
+
+@main.command()
+def debug():
+    """
+    Enters a debug prompt after initializing the app
+    """
+
+    def show(item):
+        click.echo(json.dumps(item.to_json(), indent=2))
+
+    def fields(item):
+        click.echo(json.dumps(list(item.__dict__.keys()), indent=2))
+
+    app = initialize_app()
+    click.secho(f'=' * 80, bold=True)
+    click.secho(f'PyJAMaz version: {__version__}', bold=True)
+    click.secho(f'Python version: {sys.version}', bold=True)
+    click.secho(f'DB direcory: {db_path}', bold=True)
+    click.secho(f'Timeslot: {app.state.timeslot.number}', bold=True)
+    click.secho(f'=' * 80, bold=True)
+    click.echo(f"Entering debug mode.. \n")
+    click.echo(f"* To quit, press 'q' and Enter")
+    click.echo(f"* To print a serializable variable, use e.g. 'show(app.state.timeslot)'")
+    click.echo(f"* To list fields of a dataclass, use e.g. 'fields(app.state)'")
+    click.secho('_' * 80)
+    import pdb
+    pdb.set_trace()
+
+
+@main.command('import')
+@click.argument('block-dir', type=click.Path(exists=True))
+@click.option('--initial-state', type=click.File())
+@click.option('--export-state', type=click.File(mode='w'), help='Export the current state to a JSON-file')
+@click.option('--dry-run', is_flag=True, help="Perform a dry run without making any changes.")
+@click.option('--watch', is_flag=True, help="Watches provided folder for new block data")
+def import_blocks(block_dir, initial_state, export_state, dry_run, watch):
+    """
+    Import block data from folder BLOCK_DIR
+
+    When --watch is provided, it will keep watching for new block data until keyboard interupt is given.
+    """
+    if initial_state:
+        app = initialize_app(read_state=False, memory_storage=dry_run)
+
+        if initial_state.name.endswith('.json'):
+            state_data = json.load(initial_state)
+            app.state = JamState.from_json(state_data)
+        elif initial_state.name.endswith('.bin'):
+            app.state = JamState.from_jam_bytes(JamBytes(initial_state.read_bytes()))
+        else:
+            raise BadParameter('initial_state can only be .json or .bin')
+
+        app.store_jam_state(app.state)
+    else:
+        app = initialize_app()
+
+        if dry_run:
+            # Re-initialize app with memory storage to perform dry-run
+            current_state = app.state
+            app = initialize_app(read_state=False, memory_storage=True)
+            app.store_jam_state(current_state)
 
     # Process blocks
-    for filename in sorted(os.listdir(block_dir)):
-        if filename.endswith('.json'):
-            with open(os.path.join(block_dir, filename)) as f:
-                block_data = json.load(f)
-            block = Block.from_json(block_data)
-            app.process_block(block)
+    process_blocks(app, block_dir)
 
-            click.echo("Processed block {}".format(filename))
+    if watch:
+        event_handler = JSONFileHandler(app)
+        observer = Observer()
+        observer.schedule(event_handler, block_dir, recursive=False)
+        observer.start()
+        click.echo(f"👀 Watching directory: {block_dir} for new JSON files...")
 
-    click.echo('Import completed.')
+        try:
+            while True:
+                time.sleep(1)  # Keep the script running
+        except KeyboardInterrupt:
+            click.echo("✋Stopping directory watcher...")
+            observer.stop()
+        observer.join()
+
+    if export_state:
+        json.dump(app.state.to_json(), export_state, indent=2)
+
+    if dry_run:
+        click.echo('Dry-run completed.')
+    else:
+        click.echo('Import completed.')
 
 
 if __name__ == '__main__':

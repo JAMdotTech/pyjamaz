@@ -8,7 +8,7 @@ from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, B
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.signing import Keypair
-from pyjamaz.types.common import OpaqueHash, BandersnatchKey, ByteArray784
+from pyjamaz.models.common import OpaqueHash, BandersnatchKey, ByteArray784
 
 from jamcodec.mixins import Serializable
 

@@ -2,11 +2,11 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, StringDef, Enum
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
-from pyjamaz.types.block import WorkReport, TicketBody
-from pyjamaz.types.common import ValidatorData, BandersnatchKey
+from pyjamaz.models.block import WorkReport, TicketBody
+from pyjamaz.models.common import ValidatorData, BandersnatchKey
 
 from pyjamaz.state.base import State
 
@@ -310,7 +310,7 @@ class Assurance(Serializable):
         GP-0.3.8-eq:116 (t) |
         A timeslot
     """
-    # Todo: Move WorkReport and related dataclasses from Block to Common section.
+    # Todo: Move WorkReport and related models from Block to Common section.
     work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
     timeslot: int = field(metadata={'codec': U32})
 
@@ -550,8 +550,12 @@ class JamState(State, Serializable):
             validator_queue=ValidatorQueueState(
                 validators=[validator_data] * VALIDATOR_COUNT
             ),
-            validator_pool=[validator_data] * VALIDATOR_COUNT,
-            validator_archive=[validator_data] * VALIDATOR_COUNT,
+            validator_pool=ValidatorPoolState(
+                validators=[validator_data] * VALIDATOR_COUNT
+            ),
+            validator_archive=ValidatorArchiveState(
+                validators=[validator_data] * VALIDATOR_COUNT
+            ),
             authorizer_pools=AuthorizerPoolsState(
                 authorizer_pools=[
                     [],
@@ -569,9 +573,8 @@ class JamState(State, Serializable):
                 ]
             ),
             authorizer_queues=AuthorizerQueuesState(
-                authorizer_queues=[
-                    [[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
-                ]
+                authorizer_queues=[[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
+
             ),
             privileged_services=PrivilegedServicesState(
                 empower_service=0,
@@ -589,13 +592,8 @@ class JamState(State, Serializable):
                 statistics=[
                     [
                         Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0),
-                        Statistic(0, 0, 0, 0, 0, 0)
-                    ] * 2
-                ]
+                    ] * VALIDATOR_COUNT
+                ] * 2
             ),
         )
 
