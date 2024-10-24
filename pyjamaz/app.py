@@ -211,7 +211,8 @@ class PyjamazApp:
             pre_state_safrole=pre_state_safrole,
             pre_state_validator_queue=pre_state_validator_queue,
             post_state_entropy=entropy_output.post_state,
-            post_state_validator_pool=validator_pool_output.post_state
+            post_state_validator_pool=validator_pool_output.post_state,
+            post_state_disputes=disputes_output.post_state
         )
 
         # Statistics STF GP-0.3.8-eq:30

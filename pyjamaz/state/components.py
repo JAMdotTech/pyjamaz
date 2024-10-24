@@ -247,7 +247,8 @@ class Safrole(StateComponent):
             pre_state_safrole: SafroleState,
             pre_state_validator_queue: ValidatorQueueState,
             post_state_entropy: EntropyState,
-            post_state_validator_pool: ValidatorPoolState
+            post_state_validator_pool: ValidatorPoolState,
+            post_state_disputes = DisputesState
     ) -> SafroleOutput:
         """
         GP-0.3.8-eq:57,59,60 (γ') | State transition function for the state's Safrole data.
@@ -331,9 +332,13 @@ class Safrole(StateComponent):
 
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # Epoch change
-            epoch_validator_keys = [
-                validator.bandersnatch for validator in pre_state_validator_queue.validators
-            ]
+
+            # Update Validator keys for the following epoch. # GP-0.3.8-eq:57
+            # Apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.3.8-eq:58
+            self.post_state_safrole.validators = self.check_offenders(
+                validators=deepcopy(pre_state_validator_queue.validators),
+                offenders=post_state_disputes.offenders
+            )
 
             # Clear tickets mark
             tickets_mark = None
@@ -341,12 +346,8 @@ class Safrole(StateComponent):
             # Create epoch mark
             epoch_mark = EpochMark(
                 entropy=post_state_entropy.entropy[1],
-                validators=epoch_validator_keys
+                validators=[validator.bandersnatch for validator in self.post_state_safrole.validators]
             )
-
-            # Update Validator keys for the following epoch. # GP-0.3.8-eq:57
-            # TODO: apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.3.8-eq:58
-            self.post_state_safrole.validators = deepcopy(pre_state_validator_queue.validators)
 
             # Update Sealing-key series of the current epoch.
             if self.enact_fallback_method(pre_state_timeslot.number, header.timeslot):
@@ -402,6 +403,20 @@ class Safrole(StateComponent):
     def retrieve_state(self) -> SafroleState:
         value = self.retrieve()
         return SafroleState.from_jam_bytes(JamBytes(value))
+
+    def check_offenders(self, validators: List[ValidatorData], offenders: List[bytes]):
+        """
+        GP-0.3.8-eq:58
+        """
+        checked_validators = []
+        for v in validators:
+            if v.ed25519 in offenders:
+                v.bandersnatch = bytes(32)
+                v.ed25519 = bytes(32)
+            checked_validators.append(v)
+
+        return checked_validators
+
 
 
 class AuthorizerQueues(StateComponent):
