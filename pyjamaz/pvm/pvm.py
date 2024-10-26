@@ -1,13 +1,10 @@
 from math import floor
-from typing import Any, List, Dict, TypeAlias
+from lpython import i32, i64
 
-#import numpy as np
-#import numpy.typing as npt
-import np
+
+import numpy as np
 
 from exceptions import InvalidOpcode
-#from .types import PVMProgram
-PVMProgram: TypeAlias = any
 
 from utils import (
     pvm_Zn,
@@ -29,12 +26,12 @@ class PVM:
 
     def __init__(
             self,
-            program: PVMProgram,
-            initial_regs: list[int],
-            initial_pc: int,
-            initial_gas: int,
-            initial_page_map: list[Any],
-            initial_memory: list[Any],
+            program: dict,
+            initial_regs: i32[:],
+            initial_pc: i32,
+            initial_gas: i32,
+            initial_page_map: i32[:],
+            initial_memory: np.uint8[:],
             mem_size: np.uint32 = 4096,
             mem_offset: np.uint32 = 0,
     ):
@@ -45,9 +42,9 @@ class PVM:
         # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
         self.rom = np.array(program.code, dtype=np.uint8)
         self.program_size: np.uint64 = np.uint64(len(self.rom))
-        self.inst_bitmask: List[bool] = program.opcode_bitmask
-        self.inst_pos: Dict[int,int] = {0: 0}
-        self.inst_len: List[int] = []
+        self.inst_bitmask: list[bool] = program.opcode_bitmask
+        self.inst_pos: dict = {0: 0}
+        self.inst_len: i32[:]
         self.reg = np.array(initial_regs, dtype=np.uint32)
         self.pc = np.uint32(initial_pc)
         self.gas = np.uint64(initial_gas)

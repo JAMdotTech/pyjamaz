@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>wasimg - Image Converter</title>
+
+<!--    <script type="module">-->
+<!--      import {-->
+<!--        init,-->
+<!--        Wasmer,-->
+<!--        Directory-->
+<!--      } from "https://unpkg.com/@wasmer/sdk@0.8.0-beta.1/dist/index.mjs";-->
+    <script defer type="module">
+      import {
+        init,
+        Wasmer,
+              runWasix,
+              Directory
+      } from "https://unpkg.com/@wasmer/sdk@latest/dist/index.mjs";
+
+        //await init();
+        await init({log: "debug"});
+	  	//const project = new Directory();
+        const MODULE = await WebAssembly.compileStreaming(fetch("./test.wasm"));
+      //const stdin = await file.arrayBuffer();
+      console.log(124221, MODULE);
+
+      const instance = await runWasix(MODULE, {
+        args: [],
+        stdin: new Uint8Array(10000),
+          js: {
+              cpu_time: (time) => (Date.now() / 1000), // Date.now() returns milliseconds, so divide by 1000
+              wasm_test: () => console.log("js.wasm_test called: ") // Date.now() returns milliseconds, so divide by 1000
+          }
+      });
+
+      const { code, stdout } = await instance.wait();
+      console.log(`Python exited with ${code}: ${stdout}`);
+
+        //let wasm = await project.readFile("./test.wasm");
+        //console.log("WASMMMM", wasm);
+        /*const example = await Wasmer.fromFile(MODULE);
+        const result = await example.entrypoint.run();
+        const outputExample = await result.wait();
+        console.log(outputExample.stdout);
+      */
+
+		// const { init, runWasix } = await import("@wasmer/sdk");
+
+		// await init({log: "debug"});
+		//
+		// MODULE = await WebAssembly.compileStreaming(fetch("./test.wasm"));
+		// const stdin = await file.arrayBuffer();
+		//
+		// const instance = await runWasix(MODULE, {
+		// args: [
+		//   "resize",
+		//   "--width",
+		//   width.toString(),
+		//   "--height",
+		//   height.toString(),
+		// ],
+		// stdin: new Uint8Array(stdin),
+		// });
+		//
+		// const result = await instance.wait();
+		// if (result.code !== 0) {
+		// throw new Error(`Failed to convert image: ${result.stderr}`);
+		// }
+		//
+		// const blob = new Blob([result.stdoutBytes], { type: "image/png" });
+		//return blob;
+	</script>
+  </head>
+
+  <body>
+    <div id="root" />
+  </body>
+</html>

@@ -1,0 +1,448 @@
+lpython
+
+    subset van python, met annotated types, compatible met basis numpy, compiled naar LLVM, X86, WASM (alleen WASI?)
+
+    https://lpython.org
+    https://lpython.org/blog/2023/07/lpython-novel-fast-retargetable-python-compiler/
+    https://news.ycombinator.com/item?id=36916182
+
+        Gebasseerd op lfortran:
+            https://docs.lfortran.org/en/developer_tutorial/
+            https://lfortran.zulipchat.com/#narrow/channel/197339-General/topic/CI.20Tests
+            https://groups.io/g/lfortran
+
+
+    docker build -t lpython .
+    docker run -it -v /home/thijs/pyjamaz/pyjamaz/pvm:/usr/src/ lpython bash
+        conda activate lp
+
+        ./src/bin/lpython /usr/src/test.py -o /usr/src/test --backend=wasm -o test
+        node /usr/src/test.js
+
+    lpython heeft zelf ook wat online demos, ze lijken echter een compiler naar wasm te hebben gecompiled, welke weer
+    anders werkt dan hun native versie?? De native versie compiled WASM naar WASI formaat, wat weer een extra conventie
+    boven op WASM is... Dit is echter heel slecht in browsers ondersteund (alleen via shims?). Ik heb wat expirimentjes
+    gedaan en heb uiteindelijk twee candidaten gevonden waar ik resultaat mee heb weten te boeken:
+
+    via wasi-bjorn3 (werkt):
+        python -m http.server 8888
+        http://localhost:8888/wasi-bjorn3/test.html
+        * moest de fd_write nog handmatig uitbreiden:
+                https://blog.dkwr.de/development/wasi-load-fd-write/
+                https://observablehq.com/@tomlarkworthy/wasi-shim-experiments
+
+    via wasi-wasmer (werkt bijna/"soort van"?)
+
+        python wasmer-server.py
+        http://localhost:8888/wasi-wasmer/
+            * moet met extra headers (coep-coop-corp-security) draaien om shared_array_buffers mogelijk te maken:
+                https://gist.github.com/pezcode/d51926bdbadcbd4f22f5a5d2fb8e0394
+                https://adamj.eu/tech/2021/05/01/how-to-set-coep-coop-corp-security-headers-in-django/
+                https://web.dev/articles/coop-coep
+
+
+            -> reden?: https://github.com/wasmerio/wasmer-go/issues/275
+                ? https://github.com/wasmerio/wasmer-go/issues/312
+                https://gitlab.haskell.org/ghc/ghc/-/issues/23044
+
+            https://wasmer.io/posts/introducing-the-wasmer-js-sdk
+            https://docs.wasmer.io/sdk/wasmer-js/tutorials/xterm-js
+
+        Uitzoeken:
+
+            https://discourse.haskell.org/t/javascript-webassembly-backend/6787/11
+                https://www.reddit.com/r/haskell/comments/11e6263/browser_to_haskell_wasm_reactor_module/
+                https://github.com/wasmerio/wasmer-js/blob/main/src-js/index.ts
+            https://www.reddit.com/r/learnjavascript/comments/199p1u3/askjs_how_to_run_a_wasm_on_node_and_the_browser/
+            https://www.reddit.com/r/WebAssembly/comments/x7y1re/assemblyscript_has_removed_wasi_support/
+            https://github.com/oligamiq/browser_wasi_shim/commit/3dc520ff344f3baa1694eff89e192ab7396e75fb
+            https://github.com/ktock/container2wasm/blob/d05d6977df7a0d51dbc807a893f1854db8960c75/examples/wasi-browser/htdocs/worker.js#L169
+
+                https://github.com/wasmerio/wasmer/issues
+                zie ook examples
+                    https://github.com/wasmerio/wasmer-js/blob/main/examples/wasmer.sh/index.ts
+                https://news.ycombinator.com/item?id=37287339
+
+
+    lpython notes:
+
+        leads om in browser te laten werken:
+        https://github.com/lcompilers/lpython/pull/1497#issuecomment-1424971456
+            https://github.com/bjorn3/browser_wasi_shim?tab=readme-ov-file
+                https://github.com/bjorn3/browser_wasi_shim/blob/main/examples/rustc.html
+
+        zie save_js_glue_wasi(std::string filename) {
+        https://github.com/bjorn3/browser_wasi_shim/blob/main/examples/rustc.html
+
+        lpython compiled nu standaard standalone?:
+        https://github.com/emscripten-core/emscripten/wiki/WebAssembly-Standalone
+        https://v8.dev/blog/emscripten-standalone-wasm
+
+        zie ook dit voorbeeld voor communicatie tussen JS/WASM:
+        https://github.com/zeux/meshoptimizer/blob/master/js/meshopt_decoder.js
+        https://stackoverflow.com/questions/41875728/pass-a-javascript-array-as-argument-to-a-webassembly-function
+
+        minimaal wasm voorbeeld met js invokation:
+        https://stackoverflow.com/a/70821634
+        https://marcoselvatici.github.io/WASM_tutorial/
+
+        de integratie tests bevatten veel voorbeelden:
+        https://github.com/lcompilers/lpython/tree/f8fbd8d3393ca1fab40a0bfcd08250be03b40d4a/integration_tests
+
+        check alle forks
+        https://github.com/lcompilers/lpython/forks
+        https://github.com/kmr-srbh/lpython
+
+        zie ook online_lpython
+        https://github.com/lcompilers/online_lpython/blob/main/pages/index.js
+
+        wasm issues
+        https://github.com/lcompilers/lpython/issues?page=2&q=wasm
+        https://github.com/lcompilers/lpython/issues?page=3&q=wasm+in%3Abody
+
+        https://github.com/dicej/cwasm-standalone/pull/3
+
+        https://bytecodealliance.zulipchat.com/#narrow/stream/217126-wasmtime/topic/import.20memory/near/325736801
+
+        draaid hun online demo niet via die lpython.wasm?:
+        https://github.com/lcompilers/lpython/issues/1413#issuecomment-1379268440
+        zie ook die js sectie:
+        https://github.com/lcompilers/lpython/issues/1413#issuecomment-1468467812
+
+        !!!dit is wat we uiteindelijk willen toch?:
+        https://github.com/lcompilers/lpython/issues/1413#issuecomment-1745610155
+
+        how to passing array from js to wasm binary instance without Module.cwrap ?
+        https://github.com/emscripten-core/emscripten/issues/4948
+
+
+        Ensure the WASM output is compatible with wasmtime + WASI
+        https://github.com/lcompilers/lpython/issues/1461
+
+        WASI: Initial Support
+        https://github.com/lcompilers/lpython/pull/1497
+
+        NODE WASI
+        https://nodejs.org/api/wasi.html
+
+        WASM roadmap
+        https://github.com/lcompilers/lpython/issues/1485
+
+        https://blog.ttulka.com/learning-webassembly-7-introducing-wasi/
+        https://wasmbyexample.dev/examples/wasi-hello-world/wasi-hello-world.assemblyscript.en-us.html
+        https://wasmbyexample.dev/examples/wasi-introduction/wasi-introduction.all.en-us.html
+        https://hacks.mozilla.org/2019/03/standardizing-wasi-a-webassembly-system-interface/
+        https://blog.jeremylikness.com/blog/explore-wasi-from-your-browser/
+
+
+        I'm not sure if here is the right channel. But, anyone have any code-example of how use LPython in context of WebAssembly?
+        https://lfortran.zulipchat.com/#narrow/stream/197339-general/topic/wasm.20export.2Fimport.20and.20reads/near/397967687
+
+        Will browsers support WASI?
+        https://www.reddit.com/r/WebAssembly/comments/vs1xaz/will_browsers_support_wasi/
+
+        andere wasm modules aanroepen:
+        https://github.com/lcompilers/lpython/issues/2388
+
+        lowlevel calling js from wasm:
+        https://stackoverflow.com/questions/47248045/webassembly-calling-javascript-methods-from-wasm-i-e-within-c-code
+        https://medium.com/@eliamaino/calling-c-functions-from-javascript-with-emscripten-first-part-e99fb6eedb22
+
+        WASI
+        https://github.com/ndesmic/wasm-cross/tree/v0
+        https://github.com/wasmerio/wasmer-js
+        https://svevn.com/blog/introducing-jswasi-a-wasm-runtime-for-browsers/
+        https://wasmtime.dev/
+        https://www.npmjs.com/package/wasi-js
+        https://github.com/wasmerio/wasmer-js
+        https://www.npmjs.com/package/wasi-js
+        https://wasmbyexample.dev/examples/wasi-hello-world/wasi-hello-world.rust.en-us.html
+        https://blog.wasmer.io/wasmer-js-9a53e837b80
+        https://dev.to/ndesmic/building-a-minimal-wasi-polyfill-for-browsers-4nel
+        https://news.ycombinator.com/item?id=33146686
+        https://antmicro.com/blog/2024/03/introducing-jswasi-a-wasm-runtime-for-browsers/
+        https://www.reddit.com/r/WebAssembly/comments/vs1xaz/will_browsers_support_wasi/
+        https://component-model.bytecodealliance.org/design/why-component-model.html
+        https://runno.dev/wasi
+        https://news.ycombinator.com/item?id=37287339
+
+        CI.yml:
+            name: Upload to wasm_builds
+
+        in deze pull request wordt build-to-wasm geintrodiuceerd?:
+            https://github.com/lcompilers/lpython/pull/2328
+            https://github.com/lcompilers/lpython/pull/2328/commits/90c240a7d14657efaefd9a2f1329da5cdb502a00
+
+        Ubuntu: expr2.py example doesn't compile with wasm_x64 backend
+            https://github.com/lcompilers/lpython/issues/2370
+
+        Bug: Expressions with a return value not stored in a variable lead to an exception
+            https://github.com/lcompilers/lpython/issues/2627
+
+        Allow to import a function from any WASM module
+        wasm export/import and reads
+            https://lfortran.zulipchat.com/#narrow/stream/197339-general/topic/wasm.20export.2Fimport.20and.20reads/near/397967687
+        One option is @wasmcall.
+            https://github.com/lcompilers/lpython/issues/2388
+
+        Also, how I cast pointers/offsets to arrays?
+            Use c_p_pointer, here is an example: https://github.com/lcompilers/lpython/blob/f8fbd8d3393ca1fab40a0bfcd08250be03b40d4a/integration_tests/bindc_07.py#L25.
+
+
+        type checking mix met lpython\
+            https://github.com/lcompilers/lpython/issues/2327
+
+
+        https://dev.lpython.org/
+            -> zie bv de jscall methods en de typings
+
+        examples
+            https://github.com/lcompilers/lpython/blob/main/examples/example_notebook.ipynb
+            https://github.com/lcompilers/lpython/tree/f8fbd8d3393ca1fab40a0bfcd08250be03b40d4a/integration_tests
+            https://github.com/lcompilers/lpython/blob/f8fbd8d3393ca1fab40a0bfcd08250be03b40d4a/integration_tests/array_01.py
+            https://github.com/lcompilers/lpython/blob/f8fbd8d3393ca1fab40a0bfcd08250be03b40d4a/integration_tests/bindc_07.py#L25
+
+
+        emscripten docker file examples:
+            https://github.com/rnixik/emsdk-docker/blob/master/Dockerfile
+            https://github.com/duckdb/duckdb-wasm-ci-env/blob/master/Dockerfile
+
+
+        emscripten forge?:
+            https://github.com/emscripten-forge/recipes/pull/883/files
+
+
+        #!!!!!! over wasm flags bij compilen ivm segfault errors: https://github.com/lcompilers/lpython/pull/2328#discussion_r1328037351
+
+        @inline werkt ook! -> zie integration_tests/test_modules/inline*
+        en wat dooet @static in func_satatic...?
+
+        in generic_array_02 zie je hoe een dynamische functie wordt meegegeven
+
+        class_01 werkt nog niet op wasm????
+
+        interessante openstaande issues:
+            https://github.com/lcompilers/lpython/issues/2474
+            https://github.com/lcompilers/lpython/issues/2409
+            https://github.com/lcompilers/lpython/issues/2258
+            https://github.com/certik/fastGPT/tree/smit-lpython-port
+            https://github.com/lcompilers/lpython/issues/2427
+            https://github.com/lcompilers/lpython/issues/2168
+            https://github.com/lcompilers/lpython/issues/2310
+            https://github.com/lcompilers/lpython/pull/2571
+            https://github.com/lcompilers/lpython/issues/2370
+            https://github.com/lcompilers/lpython/issues/2369
+            https://github.com/lcompilers/lpython/issues/2363
+
+
+    Dit moet ik nog een issue voor inschieten als lpython issues:
+
+        If installed from conda it throws this error (which is expected?):
+
+        semantic error: Only dataclass decorated classes and Enum subclasses are supported.
+          --> /usr/src/test.py:47:1 - 50:23
+           |
+        47 |    class coord:
+           |    ^^^^^^^^^^^^...
+        ...
+           |
+        50 |            self.y: i32 = 4
+           | ...^^^^^^^^^^^^^^^^^^^^^^^
+
+
+        But if I install lpython from source (see dockerfile), this class based test actually works and returns output!:
+
+        ./src/bin/lpython /usr/src/test.py
+        Test =  7
+
+        But when i compile using the wasm backend i get this error:
+
+        ./src/bin/lpython /usr/src/test.py --backend=wasm
+        Internal Compiler Error: Unhandled exception
+          Binary file "/lpython/src/bin/lpython", in _start()
+          Binary file "/lib/x86_64-linux-gnu/libc.so.6", in __libc_start_main()
+          Binary file "/lib/x86_64-linux-gnu/libc.so.6", in __libc_init_first()
+          File "/lpython/src/bin/lpython.cpp", line 2232, in main()
+            err = compile_to_binary_wasm(arg_file, outfile,
+          File "/lpython/src/bin/lpython.cpp", line 1249, in compile_to_binary_wasm()
+            LCompilers::Result<int> res = LCompilers::asr_to_wasm(*asr, al,  outfile, time_report, diagnostics, compiler_options);
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 3237, in LCompilers::asr_to_wasm(LCompilers::ASR::TranslationUnit_t&, Allocator&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, bool, LCompilers::diag::Diagnostics&, LCompilers::CompilerOptions&)
+            Result<Vec<uint8_t>> wasm = asr_to_wasm_bytes_stream(asr, al, diagnostics, co);
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 3221, in LCompilers::asr_to_wasm_bytes_stream(LCompilers::ASR::TranslationUnit_t&, Allocator&, LCompilers::diag::Diagnostics&, LCompilers::CompilerOptions&)
+            v.visit_asr((ASR::asr_t &)asr);
+          File "/lpython/src/libasr/../libasr/asr.h", line 5367, in LCompilers::ASR::BaseVisitor<LCompilers::ASRToWASMVisitor>::visit_asr(LCompilers::ASR::asr_t const&)
+            void visit_asr(const asr_t &b) { visit_asr_t(b, self()); }
+          File "/lpython/src/libasr/../libasr/asr.h", line 5343, in visit_asr_t<LCompilers::ASRToWASMVisitor>()
+            case asrType::unit: { v.visit_unit((const unit_t &)x); return; }
+          File "/lpython/src/libasr/../libasr/asr.h", line 5368, in LCompilers::ASR::BaseVisitor<LCompilers::ASRToWASMVisitor>::visit_unit(LCompilers::ASR::unit_t const&)
+            void visit_unit(const unit_t &b) { visit_unit_t(b, self()); }
+          File "/lpython/src/libasr/../libasr/asr.h", line 5064, in visit_unit_t<LCompilers::ASRToWASMVisitor>()
+            case unitType::TranslationUnit: { v.visit_TranslationUnit((const TranslationUnit_t &)x); return; }
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 795, in LCompilers::ASRToWASMVisitor::visit_TranslationUnit(LCompilers::ASR::TranslationUnit_t const&)
+            declare_symbols(x);
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 727, in LCompilers::ASRToWASMVisitor::declare_symbols(LCompilers::ASR::TranslationUnit_t const&)
+            this->visit_symbol(*mod);
+          File "/lpython/src/libasr/../libasr/asr.h", line 5370, in LCompilers::ASR::BaseVisitor<LCompilers::ASRToWASMVisitor>::visit_symbol(LCompilers::ASR::symbol_t const&)
+            void visit_symbol(const symbol_t &b) { visit_symbol_t(b, self()); }
+          File "/lpython/src/libasr/../libasr/asr.h", line 5073, in visit_symbol_t<LCompilers::ASRToWASMVisitor>()
+            case symbolType::Module: { v.visit_Module((const Module_t &)x); return; }
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 833, in LCompilers::ASRToWASMVisitor::visit_Module(LCompilers::ASR::Module_t const&)
+            declare_all_functions(*x.m_symtab);
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 817, in LCompilers::ASRToWASMVisitor::declare_all_functions(LCompilers::SymbolTable const&)
+            this->visit_Function(*s);
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 1190, in LCompilers::ASRToWASMVisitor::visit_Function(LCompilers::ASR::Function_t const&)
+            emit_function_body(x);
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 1140, in LCompilers::ASRToWASMVisitor::emit_function_body(LCompilers::ASR::Function_t const&)
+            m_wa.emit_func_body(cur_sym_info.index, x.m_name, local_vars, [&](){
+          File "/lpython/src/libasr/../libasr/codegen/wasm_assembler.h", line 316, in LCompilers::WASMAssembler::emit_func_body(unsigned int, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::vector<LCompilers::wasm::var_type, std::allocator<LCompilers::wasm::var_type> >&, std::function<void ()>)
+            func_body();
+          File "/usr/include/c++/13/bits/std_function.h", line 591, in std::function<void ()>::operator()() const
+            return _M_invoker(_M_functor, std::forward<_ArgTypes>(__args)...);
+          File "/usr/include/c++/13/bits/std_function.h", line 290, in std::_Function_handler<void (), LCompilers::ASRToWASMVisitor::emit_function_body(LCompilers::ASR::Function_t const&)::{lambda()#1}>::_M_invoke(std::_Any_data const&)
+            return std::__invoke_r<_Res>(*_Base::_M_get_pointer(__functor),
+          File "/usr/include/c++/13/bits/invoke.h", line 111, in std::enable_if<is_invocable_r_v<void, LCompilers::ASRToWASMVisitor::emit_function_body(LCompilers::ASR::Function_t const&)::{lambda()#1}&>, void>::type std::__invoke_r<void, LCompilers::ASRToWASMVisitor::emit_function_body(LCompilers::ASR::Function_t const&)::{lambda()#1}&>(LCompilers::ASRToWASMVisitor::emit_function_body(LCompilers::ASR::Function_t const&)::{lambda()#1}&)
+            std::__invoke_impl<__type>(__tag{}, std::forward<_Callable>(__fn),
+          File "/usr/include/c++/13/bits/invoke.h", line 61, in void std::__invoke_impl<void, LCompilers::ASRToWASMVisitor::emit_function_body(LCompilers::ASR::Function_t const&)::{lambda()#1}&>(std::__invoke_other, LCompilers::ASRToWASMVisitor::emit_function_body(LCompilers::ASR::Function_t const&)::{lambda()#1}&)
+            { return std::forward<_Fn>(__f)(std::forward<_Args>(__args)...); }
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 1143, in LCompilers::ASRToWASMVisitor::emit_function_body(LCompilers::ASR::Function_t const&)::{lambda()#1}::operator()() const
+            this->visit_stmt(*x.m_body[i]);
+          File "/lpython/src/libasr/../libasr/asr.h", line 5387, in LCompilers::ASR::BaseVisitor<LCompilers::ASRToWASMVisitor>::visit_stmt(LCompilers::ASR::stmt_t const&)
+            void visit_stmt(const stmt_t &b) { visit_stmt_t(b, self()); }
+          File "/lpython/src/libasr/../libasr/asr.h", line 5098, in visit_stmt_t<LCompilers::ASRToWASMVisitor>()
+            case stmtType::Assignment: { v.visit_Assignment((const Assignment_t &)x); return; }
+          File "/lpython/src/libasr/codegen/asr_to_wasm.cpp", line 1398, in LCompilers::ASRToWASMVisitor::visit_Assignment(LCompilers::ASR::Assignment_t const&)
+            this->visit_expr(*x.m_value);
+          File "/lpython/src/libasr/../libasr/asr.h", line 5439, in LCompilers::ASR::BaseVisitor<LCompilers::ASRToWASMVisitor>::visit_expr(LCompilers::ASR::expr_t const&)
+            void visit_expr(const expr_t &b) { visit_expr_t(b, self()); }
+          File "/lpython/src/libasr/../libasr/asr.h", line 5161, in visit_expr_t<LCompilers::ASRToWASMVisitor>()
+            case exprType::StructConstructor: { v.visit_StructConstructor((const StructConstructor_t &)x); return; }
+        LCompilersException: visit_StructConstructor() not implemented
+
+        It's awesome that (simple?) classes work now, what would it take to make this work for the WASM target as well?
+
+
+Andere alternatieven om te bekijken:
+
+    https://bernsteinbear.com/blog/typed-python/
+    https://lab.abilian.com/Tech/Python/Python%20%26%20WASM/
+    https://www.reddit.com/r/Compilers/comments/1bog3kp/what_do_you_think_about_a_python_compiler/
+
+        mojo
+        https://colinsblog.net/2023-11-03-notes-on-mojo/
+        https://shriramsivanandhan.medium.com/interoperability-of-mojo-programming-language-with-python-ecosystem-programming-in-mojo-part-v-119e6d1de5ae
+        https://github.com/modularml/mojo/discussions/1161
+        https://github.com/ihnorton/mojo-ffi
+        https://github.com/rd4com/mojo-learning/blob/main/tutorials/calling-mojo-functions-in-python.md
+        https://x.com/svpino/status/1809247175651586405?t=CGKitGE246qEjfivuyc8MQ&s=03
+        https://docs.modular.com/mojo/manual/python/
+        ???: https://github.com/modularml/mojo/discussions/3230
+        https://www.youtube.com/watch?app=desktop&v=qRjY6S2-6nc
+        https://colinsblog.net/2023-11-03-notes-on-mojo/
+        https://github.com/modularml/mojo/discussions/1983
+
+
+        https://pygame-web.github.io/
+        https://github.com/sagemathinc/cowasm
+        https://github.com/micropython/micropython
+        https://github.com/modularml/
+        https://github.com/exaloop/codon
+
+        condon
+        https://github.com/exaloop/codon/issues/67
+
+        cinder
+        https://github.com/facebookincubator/cinder/#static-python
+        https://github.com/python/cpython/issues/84461
+
+        pyccel
+        https://github.com/pyccel/pyccel
+
+        compiling python to native wasm
+        https://www.youtube.com/watch?v=_Gq273qvNMg
+
+        micropython to wasm
+        https://www.anaconda.com/blog/pyscript-updates-bytecode-alliance-pyodide-and-micropython
+
+        !!!!!!!!!!!!!!!!!!!!!!!????? taichi compiled pythonesque naar webgpu?
+        https://github.com/taichi-dev/taichi
+        https://github.com/taichi-dev/taichi/issues/8526
+        https://taichi-js.com/playground/mpm99
+
+        https://github.com/fadel-hasan/python-compiler
+
+        numpy in mojo:
+        https://github.com/Mojo-Numerics-and-Algorithms-group/NuMojo
+
+
+        PyTorch
+        Pyston
+        mypyc
+        JAX
+        MicroPython
+        Cython
+        Numba
+        CuPy
+        Taichi
+        PyPy
+        Triton
+        Nuitka
+        Brython
+        Skulpt
+        Pythran
+        DaCe
+        LPython
+        Weld
+        IronPython
+        Transcrypt
+        Pyccel
+        Pyjs
+        Grumpy
+        Mojo
+        uarray
+        Shedskin
+        Jython
+        Codon
+        Compyle
+        Seq
+        Hope
+        Transonic
+
+    X py2wasm(of pyodide related oplossingen)
+        Genereerd hele grote wasm files -> voegt ook alle cpython libs toe? numpy werkt niet, performance is mehhh
+
+        https://github.com/wasmerio/py2wasm
+        https://www.reddit.com/r/Python/comments/1cb0l1i/py2wasm_a_python_to_wasm_compiler_3x_faster_than/
+        https://pypi.org/project/py2wasm/
+        https://news.ycombinator.com/item?id=40114567
+
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+            export NVM_DIR="$HOME/.nvm" [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+            nvm use 14
+
+            sudo apt-get -y install --no-install-recommends clang python3-clang
+
+            https://github.com/wasmerio/wasmer-install
+            curl https://get.wasmer.io -sSfL | sh
+            source /home/thijs/.wasmer/wasmer.sh
+            curl https://pyenv.run | bash
+            pyenv install 3.12 && pyenv global 3.12
+            sudo apt install patchelf
+            pip install py2wasm
+
+            py2wasm test.py -o test.wasm
+            wasmer run test.wasm
+
+            X numpy support:
+                git clone https://github.com/dicej/wasi-wheels.git
+                cd wasi-wheels
+                    git submodule update --init --recursive
+                    make
+
+                    !!!! gaat nog niet werken
+                    https://github.com/numpy/numpy/issues/25859
+                    https://github.com/dicej/wasi-wheels/issues/2
+                    https://github.com/dicej/wasi-wheels/issues/4
+                    https://numpy.org/devdocs/reference/distutils_status_migration.html#
+
+                https://github.com/dicej/wasi-wheels/releases
+                https://github.com/dicej/component-sandbox-demo?tab=readme-ov-file

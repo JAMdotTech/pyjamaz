@@ -1,0 +1,181 @@
+<html>
+
+<body>
+<script>
+
+//   var stdout = [];
+//
+//   function stdout_print(text) {
+//       stdout.push(text);
+//   }
+//
+//var memory;
+//function define_imports(outputBuffer, exit_code, stdout_print) {
+//   const flushBuffer = () => {
+//       stdout_print(outputBuffer.join(""));
+//       outputBuffer.length = 0;
+//   }
+//   const fd_write = (file_type, iov_location, no_of_iovs, return_val_mem_loc) => {
+//       const mem_data = new DataView(memory.buffer, iov_location, Int32Array.BYTES_PER_ELEMENT * 2);
+//       const strLoc = mem_data.getInt32(0, true);
+//       const strLen = mem_data.getInt32(4, true);
+//       const s =  new TextDecoder("utf8").decode(new Uint8Array(memory.buffer, strLoc, strLen));
+//       outputBuffer.push(s);
+//       return 0;
+//   }
+//   const proc_exit = (exit_code_val) => exit_code.val = exit_code_val;
+//   const cpu_time = (time) => (Date.now() / 1000); // Date.now() returns milliseconds, so divide by 1000
+//   const wasm_test = () => {
+//       console.log("OEHOE!!!???");
+//       alert("JAJAJAJAJAJ")
+//   }
+//   var imports = {
+//       wasi_snapshot_preview1: {
+//           /* wasi functions */
+//           fd_write: fd_write,
+//           proc_exit: proc_exit,
+//       },
+//       js: {
+//           /* custom functions */
+//           cpu_time: cpu_time,
+//           wasm_test: wasm_test,
+//           js_wasm_test: wasm_test,
+//       },
+//   };
+//   return imports;
+//}
+//
+//async function loadWasm(bytes) {
+////const bytes = await WebAssembly.compile(fs.readFileSync("/usr/src/test2.js"));
+//
+//}
+//
+//
+//async function main() {
+//   // const fs = require("fs");
+//   // const { WASI } = require("wasi");
+//   // const wasi = new WASI();
+//   // const importObject = {
+//   //     wasi_snapshot_preview1: wasi.wasiImport,
+//   //     js: {
+//   //         cpu_time: (time) => (Date.now() / 1000), // Date.now() returns milliseconds, so divide by 1000
+//   //     }
+//   // };
+//   // const wasm = await WebAssembly.compile(fs.readFileSync("/usr/src/test2.js"));
+//   // const instance = await WebAssembly.instantiate(wasm, importObject);
+//   // wasi.start(instance);
+//   //
+//   // const exec_res = await lfortran_funcs.execute_code(
+//   //     new Uint8Array(compile_result),
+//   //     (text) => stdout.push(text)
+//   // );
+//   // setOutput(stdout.join(""));
+//
+// //   await fetch("test2.js")
+// // .then((response) => loadWasm(response.arrayBuffer()));
+// //.then((bytes) => WebAssembly.compile(bytes))
+// //.then((mod) => worker.postMessage(mod));
+//
+//
+//
+//    const response = await fetch("test2.js");
+//   //const bytes = response.arrayBuffer();
+//   const bytes = await response.arrayBuffer();
+//
+//   console.log("bytes", bytes);
+//   var exit_code = {val: 1}; /* non-zero exit code */
+//   var outputBuffer = [];
+//   var imports = define_imports(outputBuffer, exit_code, stdout_print);
+//   var start_exec, end_exec;
+//   const printResults = () => {
+//       stdout_print(outputBuffer.join(""));
+//   }
+//   try {
+//       console.log("RUNNING!!?:");
+//       var res = await WebAssembly.instantiate(bytes, imports);
+//       memory = res.instance.exports.memory;
+//       printResults();
+//
+//       //const wasi = new WASI();
+//       //wasi.start(instance);
+//
+//
+//   } catch(err_msg) {
+//       console.log("OHHHNOOOOO");
+//       end_exec = performance.now();
+//       printResults();
+//       if (exit_code.val == 0) {
+//           return;
+//       }
+//       console.log(err_msg);
+//       stdout_print(`\n${err_msg}\nERROR: The code could not be executed. Either there is a runtime error or there is an issue at our end.`);
+//   }
+//   console.log("HMMMMM: ", stdout)
+//}
+//main();
+
+    </script>
+
+
+<script type="module">
+
+// import WASI from "@wasmer/wasi";
+// import WasmFs from "@wasmer/wasmfs";
+// import wasm_transformer_init, {
+//   lower_i64_imports
+// } from "@wasmer/wasm-transformer";
+//
+// const runWasiModule = async () => {
+//   // Create our Wasi instance
+//   const wasmFs = new WasmFs();
+//   const wasi = new WASI({
+//     // Optional parameters
+//     preopenDirectories: {},
+//     env: {},
+//     args: [],
+//     // fs is in the default bindings, but binding here manually to show where WasmFs is used.
+//     bindings: {
+//       ...WASI.defaultConfig.bindings
+//       // fs: wasmFs.fs,
+//     }
+//   });
+//   // Get our Wasm Binary
+//   const wasm_bytes = new Uint8Array(fs.readFileSync("test2.js").buffer);
+//   // Transform the binary to lower wasi i64 imports,
+//   // by injecting trampoline functions into the wasm module.
+//   await wasm_transformer_init("url-to-wasm-transformer.wasm");
+//   const transformed_bytes = lower_i64_imports(wasm_bytes);
+//   // Instantiate the Wasm Module with out Wasi imports
+//   let { instance } = await WebAssembly.instantiate(bytes, {
+//     wasi_unstable: wasi.wasiImport,
+//   });
+//   // Start the WebAssembly WASI instance!
+//   wasi.start(instance);
+// };
+//
+// runWasiModule();
+</script>
+
+
+<script defer type="module">
+    import { init, Wasmer } from "https://unpkg.com/@wasmer/sdk@latest/dist/index.mjs";
+
+    async function runPython() {
+        await init({ module: "./test2.js" });
+
+        const packageName = "python/python";
+        const pkg = await Wasmer.fromRegistry(packageName);
+        const instance = await pkg.entrypoint.run({
+            args: ["-c", "print('Hello, World!')"],
+        });
+
+        const { code, stdout } = await instance.wait();
+
+        console.log(`Python exited with ${code}: ${stdout}`);
+    }
+
+    runPython();
+</script>
+
+</body>
+</html>

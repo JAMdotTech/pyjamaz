@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" /> -->
+<!-- <script src="node_modules/xterm/lib/xterm.js"></script>
+<script src="node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+ --><style>
+    body {
+        margin: 0;
+    }
+    p {
+        margin: 10px;
+    }
+</style>
+</head>
+<body>
+<div id="terminal"></div>
+
+<script type="module">
+    import { Fd, File, Directory, PreopenDirectory, WASI, strace } from "./js/index.js";
+
+    // var term = new Terminal({
+    //     convertEol: true,
+    // });
+    // term.open(document.getElementById('terminal'));
+
+    // var fitAddon = new FitAddon.FitAddon();
+    // term.loadAddon(fitAddon);
+    // fitAddon.fit();
+
+    // class XtermStdio extends Fd {
+    //     /*:: term: Terminal*/
+
+    //     constructor(term/*: Terminal*/) {
+    //         super();
+    //         this.term = term;
+    //     }
+    //     fd_write(data/*: Uint8Array*/)/*: {ret: number, nwritten: number}*/ {
+    //         let nwritten = 0;
+    //         console.log(data);
+    //         this.term.writeUtf8(data);
+    //         return { ret: 0, nwritten: data.byteLength };
+    //     }
+    // }
+
+    (async function () {
+        let wasm = await WebAssembly.compileStreaming(fetch("../test.wasm"));
+        //let wasm = await WebAssembly.compileStreaming(fetch("/rust_out.wasm"));
+
+        // async function load_external_file(path) {
+        //     return new File(await (await (await fetch(path)).blob()).arrayBuffer());
+        // }
+
+        let args = [];
+        let env = [];
+        let fds = [];
+
+        // let args = ["rustc", "/hello.rs", "--sysroot", "/sysroot", "--target", "x86_64-unknown-linux-gnu", "-Cpanic=abort", "-Ccodegen-units=1"];
+        // let env = ["RUSTC_LOG=info"];
+        // let fds = [
+        //     new XtermStdio(term),
+        // ];
+
+        let w = new WASI(args, env, fds, { debug: true });
+        // let next_thread_id = 1;
+
+        console.log(wasm);
+
+        let inst = await WebAssembly.instantiate(wasm, {
+            "env": { memory: new WebAssembly.Memory({ initial: 256, maximum: 16384, shared: true }) },
+            "wasi": {
+                "thread-spawn": function(start_arg) {
+                    let thread_id = next_thread_id++;
+                    inst.exports.wasi_thread_start(thread_id, start_arg);
+                    return thread_id;
+                }
+            },
+            "wasi_snapshot_preview1": strace(w.wasiImport, ["fd_prestat_get"]),
+            js: {
+                cpu_time: (time) => (Date.now() / 1000), // Date.now() returns milliseconds, so divide by 1000
+                wasm_test: () => console.log("js.wasm_test called: ") // Date.now() returns milliseconds, so divide by 1000
+            }
+        });
+        
+        //term.writeln("\x1B[93mExecuting\x1B[0m");
+        console.log(inst.exports);
+        try { w.start(inst); } catch(e) { term.writeln("Exception: " + e.message); /*term.writeln("backtrace:"); term.writeln(e.stack);*/ }
+        //term.writeln("\x1B[92mDone\x1B[0m");
+
+        console.log(fds);
+})();
+</script>
+</body>
+</html>
