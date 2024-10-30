@@ -7,8 +7,7 @@ from typing import List, Optional
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Null, BitArray
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.signing import Keypair
-from pyjamaz.models.common import OpaqueHash, BandersnatchKey, ByteArray784
+from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
 
@@ -17,15 +16,15 @@ from jamcodec.mixins import Serializable
 @dataclass
 # Todo: (Re)move, annotate, reference-GP
 class TicketBody(Serializable):
-    id: OpaqueHash = field(metadata={'codec': H256})  # OpaqueHash
-    attempt: int = field(metadata={'codec': U8})  # U8
+    id: bytes = field(metadata={'codec': H256})
+    attempt: int = field(metadata={'codec': U8})
 
 
 @dataclass
 # Todo: (Re)move, annotate, reference-GP
 class EpochMark(Serializable):
-    entropy: OpaqueHash = field(metadata={'codec': H256})
-    validators: List[BandersnatchKey] = field(metadata={'codec': Array(H256, VALIDATOR_COUNT)})
+    entropy: bytes = field(metadata={'codec': H256})
+    validators: List[bytes] = field(metadata={'codec': Array(H256, VALIDATOR_COUNT)})
 
 
 @dataclass
@@ -44,7 +43,7 @@ class TicketEnvelope(Serializable):
         Proof of a ticket's validity
     """
     attempt: int = field(metadata={'codec': U8})
-    signature: ByteArray784 = field(metadata={'codec': Array(U8, 784)})
+    signature: bytes = field(metadata={'codec': Array(U8, 784)})
 
     def __post_init__(self):
         # Validate that attempt is a valid U8 integer
@@ -172,7 +171,7 @@ class Culprit(Serializable):
     signature: bytes = field(metadata={'codec': H512})
 
     def has_valid_signature(self) -> bool:
-        keypair = Keypair.from_public_key(self.key)
+        keypair = Ed25519Keypair.from_public_key(self.key)
         return keypair.verify(b'jam_guarantee' + self.target, self.signature)
 
 
@@ -204,7 +203,7 @@ class Fault(Serializable):
     signature: bytes = field(metadata={'codec': H512})
 
     def has_valid_signature(self) -> bool:
-        keypair = Keypair.from_public_key(self.key)
+        keypair = Ed25519Keypair.from_public_key(self.key)
         return keypair.verify(b'jam_valid' if self.vote else b'jam_invalid' + self.target, self.signature)
 
 
@@ -550,15 +549,27 @@ class Header(Serializable):
         if getattr(self, '_hash', None) is not None:
             return getattr(self, '_hash')
 
+        data = self.get_unsigned_payload()
+
+        return blake2b_256_hash(data)
+
+    def get_unsigned_payload(self) -> bytes:
+        """
+        Payload to create seal signature GP-0.3.8-eq:59 E_U(H)
+
+        Returns
+        -------
+        bytes
+        """
         data = self.to_jam_bytes().to_bytes()
         if self.seal is not None:
             data = data[:-96]
-
-        return blake2b_256_hash(data)
+        return data
 
     @hash.setter
     def hash(self, value: bytes) -> None:
         setattr(self, '_hash', value)
+
 
     # Todo: new function for derived author_key from validator set; GP-0.3.8-eq:43 (bold_H_a)
     # def generate_author_bandersnatch_key(self) -> bytes:
@@ -599,6 +610,16 @@ class Extrinsic(Serializable):
     # TODO TEMP unclear, move when Extrinsic is fully defined
     # work_report_hashes: Optional[List[bytes]] = field(metadata={'codec': Option(Vec(H256))})
     # accumulate_root: Optional[bytes] = field(metadata={'codec': Option(H256)})
+
+    def generate_extrinsic_hash(self) -> bytes:
+        """
+        GP-0.3.8-eq:40
+
+        Returns
+        -------
+        bytes
+        """
+        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
 
 @dataclass

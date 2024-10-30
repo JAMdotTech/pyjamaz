@@ -6,7 +6,7 @@ from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, E
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
 from pyjamaz.models.block import WorkReport, TicketBody
-from pyjamaz.models.common import ValidatorData, BandersnatchKey
+from pyjamaz.models.common import ValidatorData
 
 from pyjamaz.state.base import State
 
@@ -67,12 +67,9 @@ class EntropyState(State, Serializable):
 
 @dataclass
 class SlotSealerSeries(Serializable):
-    # Optional list of TicketBody instances
     tickets: Optional[List[TicketBody]] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(),
                                                                                               EPOCH_TIMESLOTS))})
-    # Optional list of BandersnatchKey instances
-    keys: Optional[List[BandersnatchKey]] = field(default=None, metadata={'codec': Option(Array(H256,
-                                                                                                EPOCH_TIMESLOTS))})
+    keys: Optional[List[bytes]] = field(default=None, metadata={'codec': Option(Array(H256, EPOCH_TIMESLOTS))})
 
     _codec_type_def = Enum(
         tickets=Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS),

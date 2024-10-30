@@ -9,7 +9,7 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
-from pyjamaz.signing import Keypair
+from pyjamaz.signing import Keypair, Ed25519Keypair
 from pyjamaz.storage import StorageInterface
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
@@ -219,7 +219,7 @@ class Safrole(StateComponent):
         self.ring_data = ring_data
         self.post_state_safrole = None
 
-    def create_ticket_body(self, ticket_data, ring_public_keys, entropy: bytes) -> TicketBody:
+    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys, entropy: bytes) -> TicketBody:
         if ticket_data.attempt not in [0, 1]:
             raise StateTransitionError(SafroleErrorCode.bad_ticket_attempt)
 
@@ -762,7 +762,7 @@ class Disputes(StateComponent):
 
         """
         for judgement in verdict.votes:
-            keypair = Keypair.from_public_key(validators[judgement.index].ed25519)
+            keypair = Ed25519Keypair.from_public_key(validators[judgement.index].ed25519)
             if not keypair.verify(judgement.get_signing_context() + verdict.target, judgement.signature):
                 return False
         return True

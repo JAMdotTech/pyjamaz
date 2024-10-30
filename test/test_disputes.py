@@ -41,7 +41,7 @@ def get_test_vector_files(directories: list, file_filter: Optional[str] = None):
     return test_vectors
 
 
-class TestDisputes(unittest.TestCase):
+class TestDisputes(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -55,7 +55,8 @@ class TestDisputes(unittest.TestCase):
 
         cls.config = AppConfig(
             ring_data=cls.ring_data,
-            storage_engine=InMemoryStorage()
+            storage_engine=InMemoryStorage(),
+            epoch=0
         )
 
     @staticmethod
@@ -99,7 +100,7 @@ class TestDisputes(unittest.TestCase):
         return jam_state
 
     @parameterized.expand(get_test_vector_files(['tiny'], file_filter=''))
-    def test_vector(self, name, directory, test_file):
+    async def test_vector(self, name, directory, test_file):
         with open(path.join(self.test_vector_dir, directory, test_file)) as f:
             test_vector = json.load(f)
 
@@ -113,7 +114,7 @@ class TestDisputes(unittest.TestCase):
 
         # Process block
         try:
-            output = app.process_block(block)
+            output = await app.process_block(block)
             dispute_output = {'ok': {"offenders_mark": output.to_json()['offenders_mark']}}
         except PyjamazAppError as e:
             dispute_output = {'err': e.custom_error_code.name}

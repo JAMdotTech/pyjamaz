@@ -9,14 +9,26 @@ pip install .
 
 ## Using the CLI
 
-### Import blocks
-Initialize a new pyJAMaz app with provided initial state and import blocks from given folder.
-
-Output will be a dump of the final state
-
+### Run conformance test
 ```bash
-pyjamaz import-blocks ./test/fixtures/cli/initial-state.json ./test/fixtures/cli/block_data > final_state.json
+pyjamaz init --initial-state=./initial-state.json
+pyjamaz import ./block_data
+pyjamaz dump > current_state.json
 ```
+
+### Import and watch for new block data
+```bash
+pyjamaz import ./block_data --watch
+```
+
+### Show debug info and access state directly
+```bash
+pyjamaz debug
+# > fields(app.state)
+# > show(app.state.safrole)
+```
+
+
 
 ## Run documentation
 
