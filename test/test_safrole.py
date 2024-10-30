@@ -73,11 +73,13 @@ class SafroleTestOutput(Serializable):
         else:
             return {'ok': self.ok.serialize()}
 
+
 @dataclass
 class SafroleInput(Serializable):
     slot: int = field(metadata={'codec': U32})  # Current slot. U32
     entropy: bytes = field(metadata={'codec': H256})  # Per block entropy (originated from block entropy source VRF)
     extrinsic: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})  # Safrole extrinsic. SEQUENCE (SIZE(0..16)) OF TicketEnvelope
+    post_offenders: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -143,116 +145,30 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         #     gp_const.TICKET_SUBMISSION_END_SLOT = 500
 
         # Build initial state
-        jam_state = JamState(
-            timeslot=TimeslotState(
-                number=test_case.pre_state.tau
-            ),
-            entropy=EntropyState(
-                entropy=test_case.pre_state.eta
-            ),
-            safrole=SafroleState(
-                ticket_accumulator=test_case.pre_state.gamma_a,
-                validators=test_case.pre_state.gamma_k,
-                slot_sealer_series=test_case.pre_state.gamma_s,
-                ring_commitment=test_case.pre_state.gamma_z,
-            ),
-            validator_queue=ValidatorQueueState(
-                validators=test_case.pre_state.iota
-            ),
-            validator_pool=ValidatorPoolState(
-                validators=test_case.pre_state.kappa
-            ),
-            validator_archive=ValidatorArchiveState(
-                validators=test_case.pre_state.lambda_
-            ),
-            authorizer_pools=AuthorizerPoolsState(
-                authorizer_pools=[
-                    [],
-                    []
-                ]
-            ),
-            recent_history=RecentHistoryState(
-                recent_history=[]
-            ),
-            services=ServicesState(services={}),
-            assurances=AssurancesState(
-                assurances=[
-                    None,
-                    None
-                ]
-            ),
-            authorizer_queues=AuthorizerQueuesState(
-                authorizer_queues=[
-                    [[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
-                ]
-            ),
-            privileged_services=PrivilegedServicesState(
-                empower_service=0,
-                assign_service=0,
-                designate_service=0,
-                auto_accumulate_services={}
-            ),
-            disputes=DisputesState(
-                good_set=[],
-                bad_set=[],
-                wonky_set=[],
-                offenders=[]
-            ),
-            statistics=StatisticsState(
-                statistics=[
-                    [
-                        Statistic(
-                            blocks=0,
-                            tickets=0,
-                            preimages=0,
-                            preimage_bytes=0,
-                            guarantees=0,
-                            assurances=0
-                        ),
-                        Statistic(
-                            blocks=0,
-                            tickets=0,
-                            preimages=0,
-                            preimage_bytes=0,
-                            guarantees=0,
-                            assurances=0
-                        ),
-                        Statistic(
-                            blocks=0,
-                            tickets=0,
-                            preimages=0,
-                            preimage_bytes=0,
-                            guarantees=0,
-                            assurances=0
-                        ),
-                        Statistic(
-                            blocks=0,
-                            tickets=0,
-                            preimages=0,
-                            preimage_bytes=0,
-                            guarantees=0,
-                            assurances=0
-                        ),
-                        Statistic(
-                            blocks=0,
-                            tickets=0,
-                            preimages=0,
-                            preimage_bytes=0,
-                            guarantees=0,
-                            assurances=0
-                        ),
-                        Statistic(
-                            blocks=0,
-                            tickets=0,
-                            preimages=0,
-                            preimage_bytes=0,
-                            guarantees=0,
-                            assurances=0
-                        )
-                    ] * 2
-                ]
-            ),
+        jam_state = JamState.generate()
+
+        jam_state.timeslot = TimeslotState(
+            number=test_case.pre_state.tau
         )
+        jam_state.entropy = EntropyState(
+            entropy=test_case.pre_state.eta
+        )
+        jam_state.safrole = SafroleState(
+            ticket_accumulator=test_case.pre_state.gamma_a,
+            validators=test_case.pre_state.gamma_k,
+            slot_sealer_series=test_case.pre_state.gamma_s,
+            ring_commitment=test_case.pre_state.gamma_z,
+        )
+        jam_state.validator_queue = ValidatorQueueState(
+            validators=test_case.pre_state.iota
+        )
+        jam_state.validator_pool = ValidatorPoolState(
+            validators=test_case.pre_state.kappa
+        )
+        jam_state.validator_archive = ValidatorArchiveState(
+            validators=test_case.pre_state.lambda_
+        )
+        jam_state.disputes.offenders = test_case.input.post_offenders
 
         # Convert test case input to block
         test_case_input = deepcopy(test_case.input)
