@@ -15,7 +15,7 @@ from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.common import OpaqueHash, ValidatorsData, ValidatorData, ByteArray144
+from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, TicketBody, \
     EpochMark, TicketsMark
@@ -29,18 +29,18 @@ from pyjamaz.models.state import JamState, TimeslotState, EntropyState, SafroleS
 class SafroleTestState(Serializable):
     # Most recent block's timeslot.
     tau: int = field(metadata={'codec': U32})
-    # SEQUENCE (SIZE(4)) OF OpaqueHash
-    eta: List[OpaqueHash] = field(metadata={'codec': Array(H256, 4)})
-    lambda_: ValidatorsData = field(
+
+    eta: List[bytes] = field(metadata={'codec': Array(H256, 4)})
+    lambda_: List[ValidatorData] = field(
         metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
         )  # Validator keys and metadata which were active in the prior epoch.
-    kappa: ValidatorsData = field(
+    kappa: List[ValidatorData] = field(
         metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
         )  # Validator keys and metadata currently active.
-    gamma_k: ValidatorsData = field(
+    gamma_k: List[ValidatorData] = field(
         metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
         )  # Validator keys for the following epoch.
-    iota: ValidatorsData = field(
+    iota: List[ValidatorData] = field(
         metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
         )  # Validator keys and metadata to be drawn from next.
     gamma_a: List[TicketBody] = field(
@@ -48,7 +48,7 @@ class SafroleTestState(Serializable):
         )  # Sealing-key contest ticket accumulator.
     gamma_s: SlotSealerSeries = field(
         metadata={'codec': SlotSealerSeries.to_codec_def()})  # Sealing-key series of the current epoch.
-    gamma_z: ByteArray144 = field(metadata={'codec': Array(U8, 144)})  # Bandersnatch ring commitment.
+    gamma_z: bytes = field(metadata={'codec': Array(U8, 144)})  # Bandersnatch ring commitment.
 
 
 @dataclass
@@ -101,7 +101,7 @@ def get_test_vector_files(directories: list, file_filter: Optional[str] = None):
     return test_vectors
 
 
-class TestSafroleVector(unittest.TestCase):
+class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -112,7 +112,8 @@ class TestSafroleVector(unittest.TestCase):
 
         cls.config = AppConfig(
             ring_data=cls.ring_data,
-            storage_engine=InMemoryStorage()
+            storage_engine=InMemoryStorage(),
+            epoch=0
         )
 
     @staticmethod
@@ -124,7 +125,7 @@ class TestSafroleVector(unittest.TestCase):
             return json.load(f)
 
     @parameterized.expand(get_test_vector_files(['tiny'], file_filter=''))
-    def test_vector(self, name, directory, test_file):
+    async def test_vector(self, name, directory, test_file):
 
         test_vector = self.load_test_vector_data(directory, test_file)
 
@@ -182,7 +183,7 @@ class TestSafroleVector(unittest.TestCase):
                 tickets_marker=None,
                 offenders_marker=[],
                 author_index=0,
-                entropy_source=test_case_input.entropy,
+                entropy_source=test_case_input.entropy.ljust(96, b'\x00'),
                 seal=bytes(96)
             ),
             extrinsic=Extrinsic(
@@ -196,11 +197,13 @@ class TestSafroleVector(unittest.TestCase):
 
         # Initialize app
         app = PyjamazApp(config=self.config)
+        # app.state = jam_state
         app.store_jam_state(jam_state)
 
         # Process block
         try:
-            output = app.process_block(block)
+            app.state = app.retrieve_jam_state()
+            output = await app.process_block(block)
             output = SafroleTestOutput(
                 ok=SafroleOutputMarks(
                     epoch_mark=output.epoch_mark, tickets_mark=output.tickets_mark

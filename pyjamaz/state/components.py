@@ -1,6 +1,6 @@
 import bisect
 from copy import deepcopy, copy
-from typing import List
+from typing import List, Union
 
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 
@@ -8,9 +8,9 @@ import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.merkle import MerkleMountainRange
-from pyjamaz.signing import Keypair
-from pyjamaz.storage import StorageInterface
+from pyjamaz.merkle import MerkleMountainRange, MerkleTree
+from pyjamaz.signing import Keypair, Ed25519Keypair
+from pyjamaz.storage import StorageEngine
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
@@ -58,6 +58,8 @@ class Timeslot(StateComponent):
 
     def retrieve_state(self) -> TimeslotState:
         value = self.retrieve()
+        if value is None:
+            raise ValueError(f"No storage found in DB for Component ID {self.component_id}")
         return TimeslotState.from_jam_bytes(JamBytes(value))
 
 
@@ -91,7 +93,7 @@ class Entropy(StateComponent):
         post_state_entropy = deepcopy(pre_state_entropy)
 
         # GP-0.3.8-eq:66 (η'[0]) | State transition for first index of the entropy.
-        eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + header.entropy_source)
+        eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(header.entropy_source))
 
         # GP-0.3.8-eq:67 (η'[1-3]) | State transition for last three indices of the entropy.
         # State transition happen on epoch change.
@@ -109,6 +111,20 @@ class Entropy(StateComponent):
         value = self.retrieve()
         return EntropyState.from_jam_bytes(JamBytes(value))
 
+    def entropy_output(self, entropy_source: bytes) -> bytes:
+        """
+        GP-0.4.3-eq:333
+        TODO check if output is indeed the first 32 bytes or a hash of the first 32 bytes
+
+        Parameters
+        ----------
+        entropy_source
+
+        Returns
+        -------
+        bytes
+        """
+        return entropy_source[:32]
 
 class ValidatorQueue(StateComponent):
     """
@@ -211,12 +227,12 @@ class ValidatorArchive(StateComponent):
 class Safrole(StateComponent):
     component_id = 4
 
-    def __init__(self, storage_engine: StorageInterface, ring_data: bytes):
+    def __init__(self, storage_engine: StorageEngine, ring_data: bytes):
         super().__init__(storage_engine)
         self.ring_data = ring_data
         self.post_state_safrole = None
 
-    def create_ticket_body(self, ticket_data, ring_public_keys, entropy: bytes) -> TicketBody:
+    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys, entropy: bytes) -> TicketBody:
         if ticket_data.attempt not in [0, 1]:
             raise StateTransitionError(SafroleErrorCode.bad_ticket_attempt)
 
@@ -506,7 +522,7 @@ class RecentHistory(StateComponent):
             header: Header,
             extrinsic_guarantees: List[Guarantee],
             intermediate_state_recent_history: RecentHistoryState,
-            accumulate_root: bytes
+            beefy_commitment_map: Union[BeefyCommitmentMap, bytes]
     ) -> RecentHistoryOutput:
         """
         GP-0.3.8-eq:83 (β') | State transition function for the state's recent history.
@@ -542,6 +558,11 @@ class RecentHistory(StateComponent):
             mmr_peaks = []
 
         # Extend MMR
+        if type(beefy_commitment_map) is bytes:
+            accumulate_root = beefy_commitment_map
+        else:
+            accumulate_root = beefy_commitment_map.get_accumulate_root()
+
         mmr = MerkleMountainRange(mmr_peaks)
         mmr.insert(accumulate_root)
 
@@ -775,7 +796,7 @@ class Disputes(StateComponent):
 
         """
         for judgement in verdict.votes:
-            keypair = Keypair.from_public_key(validators[judgement.index].ed25519)
+            keypair = Ed25519Keypair.from_public_key(validators[judgement.index].ed25519)
             if not keypair.verify(judgement.get_signing_context() + verdict.target, judgement.signature):
                 return False
         return True

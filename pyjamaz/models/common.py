@@ -4,16 +4,6 @@ from typing import List
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8
 
-ByteArray32 = bytes  # SEQUENCE (SIZE(32)) OF U8
-ByteArray128 = bytes
-ByteArray144 = bytes
-ByteArray784 = bytes
-OpaqueHash = ByteArray32
-Ed25519Key = ByteArray32
-BlsKey = ByteArray144  # SEQUENCE (SIZE(144)) OF U8
-BandersnatchKey = ByteArray32
-EpochKeys = List[BandersnatchKey]  # SEQUENCE (SIZE(epoch-length)) OF BandersnatchKey
-
 
 @dataclass
 class ValidatorData(Serializable):
@@ -32,14 +22,7 @@ class ValidatorData(Serializable):
     metadata: H256
         GP-0.3.8-eq:56 (k_m | blackboard_Y_128) | Metadata for arbitrary data storage.
     """
-    # Todo: check consistency with other dataclass definitions, why use: BandersnatchKey
-    bandersnatch: BandersnatchKey = field(metadata={'codec': H256})
-    # Todo: check consistency with other dataclass definitions, why use: Ed25519Key
-    ed25519: Ed25519Key = field(metadata={'codec': H256})
-    # Todo: check consistency with other dataclass definitions, why use: BlsKey
-    bls: BlsKey = field(metadata={'codec': Array(U8, 144)})
-    metadata: ByteArray128 = field(metadata={'codec': Array(U8, 128)})
-
-
-# Todo: check consistency with other dataclass definitions
-ValidatorsData = List[ValidatorData]  # SEQUENCE (SIZE(validators-count)) OF ValidatorData
+    bandersnatch: bytes = field(metadata={'codec': H256})
+    ed25519: bytes = field(metadata={'codec': H256})
+    bls: bytes = field(metadata={'codec': Array(U8, 144)})
+    metadata: bytes = field(metadata={'codec': Array(U8, 128)})

@@ -1,2 +1,0 @@
-sample_headers_001.txt | Has 255 Headers with ascending timeslot and rotating author_key_idx | Objective: Poc, Header Model, Import
-sample_blocks_001.txt | Contains sample_headers_001.txt with empty extrinsic data | Objective: Poc, Extrinsic, Block Model, Import

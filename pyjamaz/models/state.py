@@ -5,8 +5,9 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
+from pyjamaz.merkle import MerkleTree
 from pyjamaz.models.block import WorkReport, TicketBody
-from pyjamaz.models.common import ValidatorData, BandersnatchKey
+from pyjamaz.models.common import ValidatorData
 
 from pyjamaz.state.base import State
 
@@ -67,12 +68,9 @@ class EntropyState(State, Serializable):
 
 @dataclass
 class SlotSealerSeries(Serializable):
-    # Optional list of TicketBody instances
     tickets: Optional[List[TicketBody]] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(),
                                                                                               EPOCH_TIMESLOTS))})
-    # Optional list of BandersnatchKey instances
-    keys: Optional[List[BandersnatchKey]] = field(default=None, metadata={'codec': Option(Array(H256,
-                                                                                                EPOCH_TIMESLOTS))})
+    keys: Optional[List[bytes]] = field(default=None, metadata={'codec': Option(Array(H256, EPOCH_TIMESLOTS))})
 
     _codec_type_def = Enum(
         tickets=Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS),
@@ -456,6 +454,10 @@ class BeefyCommitmentMap(Serializable):
     # Todo: Workaround for lack of support for int value dict-keys in JSON.
     #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
     beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(Array(U8, 4), H256)})
+
+    def get_accumulate_root(self):
+        data = [(k.to_bytes(4, byteorder='little'), v) for k, v in self.beefy_commitment_map.items()]
+        return MerkleTree(data).root()
 
 
 @dataclass

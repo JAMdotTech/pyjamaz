@@ -2,13 +2,13 @@ from typing import Dict, Type
 
 from pyjamaz.exceptions import StateComponentNotFound
 from pyjamaz.state.base import StateComponent, T
-from pyjamaz.storage import StorageInterface
+from pyjamaz.storage import StorageEngine
 
 
 class StateManager:
 
-    def __init__(self, storage_engine: StorageInterface):
-        self.storage_engine: StorageInterface = storage_engine
+    def __init__(self, storage_engine: StorageEngine):
+        self.storage_engine: StorageEngine = storage_engine
         self.state_components: Dict[Type['StateComponent'], StateComponent] = {}
         self.state_components_by_id: Dict[int, StateComponent] = {}
 

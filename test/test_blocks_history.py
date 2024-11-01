@@ -8,7 +8,7 @@ from typing import Optional
 from parameterized import parameterized
 
 from pyjamaz.state.components import RecentHistory
-from pyjamaz.storage import JSONStorage
+from pyjamaz.storage import JSONStorage, InMemoryStorage
 from pyjamaz.models.block import Header, Guarantee, WorkReport, WorkPackageSpec
 from pyjamaz.models.state import RecentHistoryState
 
@@ -28,10 +28,7 @@ class TestBlockHistory(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        storage_dir = path.join(path.dirname(path.abspath(__file__)), '..', 'data')
-
-        # cls.storage_engine = LevelDBStorage(path.join(storage_dir, "db"))
-        cls.storage_engine = JSONStorage(path.join(storage_dir, "storage.json"))
+        cls.storage_engine = InMemoryStorage()
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -96,7 +93,7 @@ class TestBlockHistory(unittest.TestCase):
             header=header,
             extrinsic_guarantees=extrinsic_guarantees,
             intermediate_state_recent_history=intermediate_state_recent_history,
-            accumulate_root=accumulate_root
+            beefy_commitment_map=accumulate_root
         )
 
         self.assertEqual(
