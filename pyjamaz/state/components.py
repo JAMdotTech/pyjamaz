@@ -129,8 +129,7 @@ class ValidatorPool(StateComponent):
             header: Header,
             pre_state_timeslot: TimeslotState,
             pre_state_validator_pool: ValidatorPoolState,
-            pre_state_safrole: SafroleState,
-            post_state_disputes: DisputesState
+            pre_state_safrole: SafroleState
     ) -> ValidatorPoolOutput:
         """
         GP-0.3.8-eq:57 (κ') | State transition function for the state's current validator set. Occurs on epoch change.
@@ -145,8 +144,6 @@ class ValidatorPool(StateComponent):
             Input parameter 3 | GP-0.3.8-eq:21 (κ)
         pre_state_safrole: SafroleState
             Input parameter 4 | GP-0.3.8-eq:21 (η)
-        post_state_disputes: DisputesState
-            Input parameter 5 | GP-0.3.8-eq:21 (ψ')
 
         Returns
         -------
@@ -269,7 +266,8 @@ class Safrole(StateComponent):
             Input parameter 6 | GP-0.3.8-eq:19 (η')
         post_state_validator_pool: ValidatorPoolState
             Input parameter 7 | GP-0.3.8-eq:19 (κ')
-
+        post_state_disputes: DisputesState
+            Input parameter 5 | GP-0.4.5-eq:19 (ψ')
         Returns
         -------
         SafroleOutput
