@@ -217,8 +217,7 @@ class PyjamazApp:
             header=block.header,
             pre_state_timeslot=pre_state_timeslot,
             pre_state_validator_pool=pre_state_validator_pool,
-            pre_state_safrole=pre_state_safrole,
-            post_state_disputes=disputes_output.offenders_mark
+            pre_state_safrole=pre_state_safrole
         )
 
         # Validator Archive STF GP-0.3.8-eq:22
