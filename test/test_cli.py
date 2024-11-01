@@ -2,23 +2,27 @@ import json
 import unittest
 from os import path
 
-from click.testing import CliRunner
+from asyncclick.testing import CliRunner
 from pyjamaz.cli import main
 
 
-class TestCLI(unittest.TestCase):
+class TestCLI(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.base_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'cli')
 
-    # TODO refactor CLI tests
-    def test_import_blocks(self):
-        result = self.runner.invoke(main, [
-            'import', path.join(self.base_dir, "block_data"), '--initial-state',
-            path.join(self.base_dir, "initial-state.json"), '--dry-run'
+    # TODO cover more CLI features
+    async def test_generate_keys(self):
+
+        result = await self.runner.invoke(main, [
+            'keys', 'generate', '0x0000000000000000000000000000000000000000000000000000000000000000'
         ])
+
         self.assertIsNone(result.exception)
         self.assertEqual(0, result.exit_code)
+
+        output = json.loads(result.output)
+        self.assertEqual('0x3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29', output['ed25519'])
 
 
 if __name__ == '__main__':
