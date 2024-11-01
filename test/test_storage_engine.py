@@ -9,8 +9,7 @@ from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 class TestLevelDBStorage(unittest.TestCase):
 
     def setUp(self):
-        data_dir = path.join(path.dirname(path.abspath(__file__)), '..', 'data')
-        db_path = path.join(data_dir, 'db')
+        db_path = path.join(path.dirname(path.abspath(__file__)), '..', 'data')
 
         self.storage = LevelDBStorage.create_from_file(db_path)
 
