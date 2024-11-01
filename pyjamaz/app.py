@@ -8,14 +8,15 @@ from pyjamaz.exceptions import BlockValidationError
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
-from pyjamaz.storage import StorageInterface, Transaction
+from pyjamaz.storage import StorageEngine, Transaction
 from pyjamaz.state.base import StateComponent
 from pyjamaz.state.manager import StateManager
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
-from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState, Statistic
+from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState, Statistic, \
+    BeefyCommitmentMap
 from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
 
 T = TypeVar('T')
@@ -37,22 +38,23 @@ class Keys(Serializable):
 @dataclass
 class AppConfig:
     ring_data: bytes
-    storage_engine: StorageInterface
+    storage_engine: StorageEngine
     epoch: int
     keys: Optional[Keys] = field(default=None)
+    create_traces: bool = field(default=False)
 
 
 class PyjamazApp:
     def __init__(self, config: AppConfig):
         self.config = config
 
-        self.storage_engine: StorageInterface = config.storage_engine
+        # self.storage_engine: StorageInterface = config.storage_engine
 
-        self.state_db = self.storage_engine.namespace(b"state")
-        self.block_db = self.storage_engine.namespace(b"block")
-        self.app_db = self.storage_engine.namespace(b"app")
+        self.state_db: StorageEngine = config.storage_engine.namespace(b"state")
+        self.block_db: StorageEngine = config.storage_engine.namespace(b"block")
+        self.app_db: StorageEngine = config.storage_engine.namespace(b"app")
 
-        self.state_manager = StateManager(self.storage_engine)
+        self.state_manager = StateManager(self.state_db)
 
         self.extrinsic_accumulator: List[Extrinsic] = []
 
@@ -120,7 +122,7 @@ class PyjamazApp:
         self.state_manager.get(AuthorizerPools).store_state(state.authorizer_pools, transaction)
 
     def validate_header(self, header: Header):
-        if 0 < header.timeslot <= self.state.timeslot.number:
+        if 0 < header.timeslot <= self.state.timeslot.number or header.timeslot > self.current_timeslot():
             raise BlockValidationError(SafroleErrorCode.bad_slot)
 
     def validate_extrinsic(self, extrinsic: Extrinsic):
@@ -148,9 +150,8 @@ class PyjamazApp:
         """
 
         # Initialization State Components
-        timeslot = Timeslot(self.storage_engine)
+        timeslot = self.state_manager.get(Timeslot)
         # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root
-        # recent_history = self.state_manager.initialize(RecentHistory)
         recent_history = self.state_manager.get(RecentHistory)
         entropy = self.state_manager.get(Entropy)
         disputes = self.state_manager.get(Disputes)
@@ -294,16 +295,17 @@ class PyjamazApp:
         #)
 
         # RecentHistory STF GP-0.3.8-eq:18
-        #recent_history_output = recent_history.state_transition(
-        #    header=block.header,
-        #    extrinsic_guarantees=block.extrinsic.guarantees,
-        #    intermediate_state_recent_history=recent_history_intermediate_output.intermediate_state,
-        #    # Todo: BeefyCommitmentMap is determined by service accumulation (part of STF secondary output)
-        #    accumulate_root=services_output.beefy_commitment_map
-        #)
+        recent_history_output = recent_history.state_transition(
+           header=block.header,
+           extrinsic_guarantees=block.extrinsic.guarantees,
+           intermediate_state_recent_history=recent_history_intermediate_output.intermediate_state,
+           # Todo: BeefyCommitmentMap is determined by service accumulation (part of STF secondary output)
+           beefy_commitment_map=BeefyCommitmentMap(beefy_commitment_map={})
+           #beefy_commitment_map=services_output.beefy_commitment_map
+        )
 
         # All state transitions successful, commit state changes
-        with self.storage_engine.transaction() as transaction:
+        with self.state_db.transaction() as transaction:
             timeslot.store_state(timeslot_output.post_state, transaction)
             entropy.store_state(entropy_output.post_state, transaction)
             disputes.store_state(disputes_output.post_state, transaction)
@@ -314,7 +316,17 @@ class PyjamazApp:
             # Todo: add remaining state components: recent_history, services, authorizer_pools, statistics
             # Todo: research but likely also add posterior state of privileged services output (validator_queue, authorization_queues, privileged_services)
             # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root (deprecated by previous todo)
-            # recent_history = self.state_manager.initialize(RecentHistory, transaction)
+            recent_history.store_state(recent_history_output.post_state, transaction)
+
+            # Update state in memory
+            self.state.timeslot = timeslot_output.post_state
+            self.state.entropy = entropy_output.post_state
+            self.state.disputes = disputes_output.post_state
+            self.state.validator_pool = validator_pool_output.post_state
+            self.state.validator_archive = validator_archive_output.post_state
+            self.state.safrole = safrole_output.post_state
+            self.state.assurances = assurances_output.post_state
+            self.state.recent_history = recent_history_output.post_state
 
         return STFOutput(
             epoch_mark=safrole_output.epoch_mark,
@@ -323,15 +335,17 @@ class PyjamazApp:
         )
 
     async def process_block(self, block: Block) -> STFOutput:
-        self.state = self.retrieve_jam_state()
+        # self.state = self.retrieve_jam_state()
 
         self.validate_block(block)
 
         output = await self.state_transition(block)
 
+        await self.store_block(block)
+
         return output
 
-    def store_block(self, block: Block):
+    async def store_block(self, block: Block):
         # Store block in DB
         self.block_db.put(
             b'block:' + block.header.timeslot.to_bytes(length=4, byteorder='little'), block.to_jam_bytes().to_bytes()
@@ -377,6 +391,10 @@ class PyjamazApp:
 
         """
         return self.current_timeslot() % EPOCH_TIMESLOTS
+
+    def get_next_slot_timestamp(self) -> int:
+        elapsed_timeslots = (time.time() - self.config.epoch) // SLOT_PERIOD
+        return self.config.epoch + (elapsed_timeslots + 1) * SLOT_PERIOD
 
     def get_author_bandersnatch_key(self, author_index: int) -> bytes:
         """
@@ -431,18 +449,18 @@ class PyjamazApp:
             tickets_marker=None,
             offenders_marker=[],
             author_index=self.get_author_index(),
+            # TODO generate bandersnatch signature
             entropy_source=bytes(96),
+            # TODO generate bandersnatch signature
             seal=bytes(96)
         )
-
-
 
         return Block(
             header=header,
             extrinsic=extrinsic
         )
 
-    def finalize_block(self, block: Block, stf_output: STFOutput):
+    async def finalize_block(self, block: Block, stf_output: STFOutput):
         block.header.epoch_marker = stf_output.epoch_mark
         block.header.tickets_marker = stf_output.tickets_mark
         block.header.offenders_marker = stf_output.offenders_mark

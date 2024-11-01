@@ -93,7 +93,7 @@ class TestBlockHistory(unittest.TestCase):
             header=header,
             extrinsic_guarantees=extrinsic_guarantees,
             intermediate_state_recent_history=intermediate_state_recent_history,
-            accumulate_root=accumulate_root
+            beefy_commitment_map=accumulate_root
         )
 
         self.assertEqual(

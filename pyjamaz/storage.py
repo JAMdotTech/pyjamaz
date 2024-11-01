@@ -29,7 +29,7 @@ class Transaction:
         pass
 
 
-class StorageInterface:
+class StorageEngine:
     def __init__(self):
         pass
 
@@ -42,7 +42,7 @@ class StorageInterface:
     def transaction(self):
         raise NotImplementedError
 
-    def namespace(self, prefix: bytes) -> 'StorageInterface':
+    def namespace(self, prefix: bytes) -> 'StorageEngine':
         raise NotImplementedError
 
 
@@ -61,7 +61,7 @@ class InMemoryTransaction(Transaction):
         return
 
 
-class InMemoryStorage(StorageInterface):
+class InMemoryStorage(StorageEngine):
 
     def __init__(self, storage: Optional[dict] = None, prefix: Optional[bytes] = None):
         super().__init__()
@@ -100,7 +100,7 @@ class JSONTransaction(Transaction):
         return
 
 
-class JSONStorage(StorageInterface):
+class JSONStorage(StorageEngine):
 
     def __init__(self, json_file: str):
         super().__init__()
@@ -152,7 +152,7 @@ class RocksDBTransaction(Transaction):
             raise TransactionRolledBack(exc_val)
 
 
-class RocksDBStorage(StorageInterface):
+class RocksDBStorage(StorageEngine):
 
     def __init__(self, db_file: str):
         if rocksdb3 is None:
@@ -197,7 +197,7 @@ class LevelDBTransaction(Transaction):
             raise TransactionRolledBack(exc_val)
 
 
-class LevelDBStorage(StorageInterface):
+class LevelDBStorage(StorageEngine):
 
     def __init__(self, db):
         super().__init__()

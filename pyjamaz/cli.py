@@ -1,12 +1,9 @@
-import asyncio
 from datetime import datetime
 import json
 import os
 import shutil
-import random
 
 import anyio
-import math
 import sys
 
 import time
@@ -15,60 +12,31 @@ from os import path
 import asyncclick as click
 from asyncclick import BadParameter
 
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
-
 from jamcodec.base import JamBytes
 from pyjamaz import __version__
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
-from pyjamaz.graypaper_constants import SLOT_PERIOD
-from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 from pyjamaz.models.block import Block
 from pyjamaz.models.state import JamState
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
-db_path = path.join(data_dir, 'db')
+default_db_path = path.join(data_dir, 'db')
 
 
 def error_message(message: str):
-    formatted_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    formatted_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
     click.echo(
         click.style(formatted_date_time, fg=(80, 80, 80)) + '  ' + click.style(f'⚠️ {message}', fg='red'), err=True
     )
 
 
 def info_message(message: str):
-    formatted_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    formatted_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
     click.echo(click.style(formatted_date_time, fg=(80, 80, 80)) + '  ' + message)
 
 
-# class JSONFileHandler(FileSystemEventHandler):
-#     def __init__(self, app, latest_output):
-#         self.app = app  # Store the app instance for use in event handling
-#         self.latest_output = latest_output
-#
-#     def on_created(self, event):
-#         if not event.is_directory and event.src_path.endswith('.json'):
-#             latest_output = self.process_json(event.src_path)
-#             # Check if validator should produce block
-#             # if self.app.should_produce_block():
-#             #     block = self.app.produce_block(output)
-#
-#     def process_json(self, filepath):
-#         try:
-#             with open(filepath, 'r') as file:
-#                 data = json.load(file)
-#                 block = Block.from_json(data)
-#                 output = self.app.process_block(block)
-#                 info_message(f"🆕 Processed: {os.path.basename(filepath)}")
-#                 return output
-#         except Exception as e:
-#             error_message(f"Failed to process {filepath}: {e}")
-
-
-def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None) -> PyjamazApp:
+def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None, custom_db_path=None) -> PyjamazApp:
 
     # Load SRS
     with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
@@ -79,7 +47,7 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None)
         if memory_storage:
             storage_engine = InMemoryStorage()
         else:
-            storage_engine = LevelDBStorage.create_from_file(db_path)
+            storage_engine = LevelDBStorage.create_from_file(custom_db_path or default_db_path)
 
     except IOError as e:
         error_message(f'Could not initialize storage engine: {str(e)}')
@@ -87,7 +55,11 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None)
 
     # Set epoch
     if not epoch:
-        epoch = math.ceil(time.time() / 12) * 12
+        epoch = 12
+    elif epoch < 10000:
+        # epoch is relative to current time
+        current_time = time.time()
+        epoch = int(current_time - (current_time % epoch) + epoch)
 
     # Initialize app
     config = AppConfig(
@@ -105,23 +77,6 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None)
     return app
 
 
-async def process_blocks(app, block_dir):
-    for filename in sorted(os.listdir(block_dir)):
-        if filename.endswith('.json'):
-            try:
-                with open(os.path.join(block_dir, filename)) as f:
-                    block_data = json.load(f)
-
-                block = Block.from_json(block_data)
-                app.process_block(block)
-
-                app.store_block(block)
-
-                info_message("🆗 Processed: {}".format(filename))
-            except Exception as e:
-                error_message(f"Failed to process '{filename}': {e}")
-
-
 # CLI commands
 
 @click.group(invoke_without_command=True)
@@ -137,70 +92,67 @@ async def process_blocks(app, block_dir):
 @click.option('--culprit', is_flag=True, help="Culprit mode: node will intentionally act malicious")
 @click.option('--block-dir', type=click.Path(exists=True))
 @click.option('--traces-dir', type=click.Path(exists=True))
-async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir):
+@click.option('--db-path', 'custom_db_path', type=click.Path())
+async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom_db_path):
     """PyJAMaz: Python JAM Client"""
 
-    if mode != 'safrole':
-        raise BadParameter(f'{mode} is not supported yet')
-
-    app = initialize_app(
-        keys=Keys.from_seed(bytes.fromhex(seed[2:])),
-        epoch=ts
-    )
-
     if ctx.invoked_subcommand is None:
+
+        if mode != 'safrole':
+            raise BadParameter(f'{mode} is not supported yet')
+
+        db_path = custom_db_path or default_db_path
+
+        if not os.path.isdir(db_path):
+            raise BadParameter(f'DB is not yet initialized; run init first')
+
+        app = initialize_app(
+            keys=Keys.from_seed(bytes.fromhex(seed[2:])),
+            epoch=ts,
+            custom_db_path=custom_db_path
+        )
+
         info_message(f'🥋 Starting PyJAMaz client, listening on port {port}')
+        info_message(f'💾 Storage path: {db_path}')
         info_message(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
         info_message(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
         info_message(f'🗓️ Epoch: {app.config.epoch}')
         info_message(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
-
-        latest_output = STFOutput()
         lock = anyio.Lock()
 
         async with anyio.create_task_group() as tg:
             if block_dir:
-                tg.start_soon(timeslot_ticker, app, latest_output, block_dir, lock)
+                # TODO schedule to start at 0ms of clock
+                tg.start_soon(timeslot_ticker, app, block_dir, traces_dir, lock)
                 info_message(f"👀 Watching directory: {block_dir} for new blocks...")
-                tg.start_soon(local_block_importer, app, block_dir, traces_dir, latest_output, lock)
+                tg.start_soon(local_block_importer, app, block_dir, traces_dir, lock)
             else:
                 error_message("Networking not implemented yet; use --block-dir for filesystem mode")
 
         info_message(f'Node stopped.')
 
 
-# async def local_block_importer(app: PyjamazApp, block_dir, latest_output: STFOutput):
-#     event_handler = JSONFileHandler(app, latest_output)
-#     observer = Observer()
-#     observer.schedule(event_handler, block_dir, recursive=False)
-#     observer.start()
-#     info_message(f"👀 Watching directory: {block_dir} for new blocks...")
-#
-#     try:
-#         while True:
-#             time.sleep(1)  # Keep the script running
-#     except KeyboardInterrupt:
-#         info_message("✋Stopping directory watcher...")
-#         observer.stop()
-#     observer.join()
+async def store_trace(pre_state: dict, block: Block, output: STFOutput, app: PyjamazApp, traces_dir: str):
+    trace = {
+        'pre_state': pre_state,
+        'output': output.to_json(),
+        'post_state': app.state.to_json(),
+    }
+    trace_filepath = os.path.join(traces_dir, f'trace-{block.header.timeslot:06}.json')
+
+    with open(trace_filepath, 'w') as file:
+        json.dump(trace, file, indent=2)
 
 
-async def process_file(filepath):
-    # Your file processing logic here
-    info_message(f"Processing file: {filepath}")
-    # Simulate some async processing time
-    await anyio.sleep(1)
+async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 
-
-async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, latest_output: STFOutput, lock):
-    # Track the files already in the directory
     seen_files = set()
 
     while True:
         # Run the directory check in a separate thread (non-blocking)
         new_files = await anyio.to_thread.run_sync(
-            lambda: {f for f in os.listdir(block_dir) if f.endswith('.json')} - seen_files
+            lambda: {f for f in os.listdir(block_dir) if f.startswith('block-')} - seen_files
         )
 
         if new_files:
@@ -208,31 +160,30 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, latest_ou
                 filepath = os.path.join(block_dir, filename)
 
                 try:
-                    with open(filepath, 'r') as file:
-                        data = json.load(file)
-                        block = Block.from_json(data)
+                    async with lock:
+                        with open(filepath, 'r') as file:
 
-                        trace = {'pre_state': app.state.to_json()}
+                            # TODO keep state in memory
+                            app.state = app.retrieve_jam_state()
 
-                        output = await app.process_block(block)
+                            data = json.load(file)
+                            # TODO also import .bin jamcodec files
+                            block = Block.from_json(data)
 
-                        app.store_block(block)
+                            # TODO block.header.timeslot == 0 possible?
+                            if block.header.timeslot > app.state.timeslot.number or app.state.timeslot.number == 0:
 
-                        trace['output'] = output.to_json()
-                        trace['post_state'] = app.state.to_json()
+                                if traces_dir:
+                                    pre_state = app.state.to_json()
 
-                        if traces_dir:
-                            trace_filepath = os.path.join(traces_dir, f'trace-{block.header.timeslot:06}.json')
+                                output = await app.process_block(block)
 
-                            with open(trace_filepath, 'w') as file:
-                                json.dump(trace, file, indent=2)
+                                if traces_dir:
+                                    await store_trace(pre_state, block, output, app, traces_dir)
 
-                        async with lock:
-                            latest_output.epoch_mark = output.epoch_mark
-                            latest_output.tickets_mark = output.tickets_mark
-                            latest_output.offenders_mark = output.offenders_mark
-
-                        info_message(f"📦 Imported: {os.path.basename(filepath)}")
+                                info_message(f"📦 Imported: {os.path.basename(filepath)}")
+                            else:
+                                info_message(f"⏭️ Skipped: {os.path.basename(filepath)}")
 
                 except Exception as e:
                     error_message(f"Failed to process {filepath}: {e}")
@@ -240,32 +191,43 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, latest_ou
             # Update the seen_files set to include the newly processed files
             seen_files.update(new_files)
 
-        # Wait for the specified interval before polling again
-        await anyio.sleep(1)
+        await anyio.sleep(.5)
 
 
-async def timeslot_ticker(app: PyjamazApp, latest_output: STFOutput, block_dir, lock):
+async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
 
     try:
-        while int(time.time()) < app.config.epoch:
-            info_message(f'💤 Waiting to start at {app.config.epoch} (now is {int(time.time())})')
-            await anyio.sleep(1)
+
+        info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.epoch).strftime('%Y-%m-%d %H:%M:%S')}')
+        await anyio.sleep(app.config.epoch - time.time())
 
         while True:
 
             if app.should_produce_block():
                 async with lock:
-                    block = app.produce_block(latest_output)
+                    # TODO keep state in memory
+                    app.state = app.retrieve_jam_state()
+
+                    if traces_dir:
+                        pre_state = app.state.to_json()
+
+                    block = app.produce_block()
+                    output = await app.process_block(block)
+                    await app.finalize_block(block, output)
+
+                    if traces_dir:
+                        await store_trace(pre_state, block, output, app, traces_dir)
+
                     # write block to dir
                     filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
                     with open(filepath, 'w') as file:
                         json.dump(block.to_json(), file, indent=2)
 
-                info_message(f'🎁 Produced block: #{block.header.timeslot}')
+                    info_message(f'🎁 Produced block: #{block.header.timeslot}')
             else:
-                info_message(f'💤 Waiting for blocks #{app.current_timeslot()}')
+                info_message(f'💤 Waiting for block #{app.current_timeslot()}')
 
-            await anyio.sleep(SLOT_PERIOD)
+            await anyio.sleep(app.get_next_slot_timestamp() - time.time())
 
     except (KeyboardInterrupt, anyio.get_cancelled_exc_class()):
         info_message("Stopping node...")
@@ -288,24 +250,30 @@ def generate(seed):
 
     validator_keys = Keys.from_seed(bytes.fromhex(seed[2:]))
 
-    validator_data = ValidatorData(
-        ed25519=validator_keys.ed25519.public_key,
-        bandersnatch=validator_keys.bandersnatch.public_key,
-        bls=bytes(144),
-        metadata=bytes(128)
-    )
+    key_data = {
+        "bandersnatch": f"0x{validator_keys.bandersnatch.public_key.hex()}",
+        "ed25519": f"0x{validator_keys.ed25519.public_key.hex()}",
+        "bls": f"0x{bytes(144).hex()}",
+        "bandersnatch_priv": f"0x{validator_keys.bandersnatch.private_key.hex()}",
+        "ed25519_priv": f"0x{validator_keys.ed25519.private_key.hex()}",
+        "bls_priv": f"0x{bytes(32).hex()}",
+    }
 
-    click.echo(json.dumps(validator_data.to_json(), indent=2))
+    click.echo(json.dumps(key_data, indent=2))
 
 
 @main.command()
 @click.option('--initial-state', type=click.Path(exists=True))
-async def init(initial_state):
+@click.option('--db-path', 'custom_db_path', type=click.Path())
+async def init(initial_state, custom_db_path):
     """
     Clears all existing data and initializes the JAM client.
 
     Defaults to DEV initial state if none is provided.
     """
+
+    db_path = custom_db_path or default_db_path
+
     if os.path.isdir(db_path):
         click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
         shutil.rmtree(db_path)  # Delete the directory if it exists
@@ -326,7 +294,7 @@ async def init(initial_state):
     else:
         raise BadParameter('initial_state can only be .json or .bin')
 
-    app = initialize_app(read_state=False)
+    app = initialize_app(read_state=False, custom_db_path=custom_db_path)
     app.store_jam_state(jam_state)
     click.echo(f"✅ Initialization complete.")
 
@@ -368,7 +336,7 @@ async def debug():
     click.secho(f'=' * 80, bold=True)
     click.secho(f'PyJAMaz version: {__version__}', bold=True)
     click.secho(f'Python version: {sys.version}', bold=True)
-    click.secho(f'DB direcory: {db_path}', bold=True)
+    click.secho(f'DB direcory: {default_db_path}', bold=True)
     click.secho(f'Timeslot: {app.state.timeslot.number}', bold=True)
     click.secho(f'=' * 80, bold=True)
     click.echo(f"Entering debug mode.. \n")
@@ -378,66 +346,6 @@ async def debug():
     click.secho('_' * 80)
     import pdb
     pdb.set_trace()
-
-
-# @main.command('import')
-# @click.argument('block-dir', type=click.Path(exists=True))
-# @click.option('--initial-state', type=click.File())
-# @click.option('--export-state', type=click.File(mode='w'), help='Export the current state to a JSON-file')
-# @click.option('--dry-run', is_flag=True, help="Perform a dry run without making any changes.")
-# @click.option('--watch', is_flag=True, help="Watches provided folder for new block data")
-# async def import_blocks(block_dir, initial_state, export_state, dry_run, watch):
-#     """
-#     Import block data from folder BLOCK_DIR
-#
-#     When --watch is provided, it will keep watching for new block data until keyboard interupt is given.
-#     """
-#     if initial_state:
-#         app = initialize_app(read_state=False, memory_storage=dry_run)
-#
-#         if initial_state.name.endswith('.json'):
-#             state_data = json.load(initial_state)
-#             app.state = JamState.from_json(state_data)
-#         elif initial_state.name.endswith('.bin'):
-#             app.state = JamState.from_jam_bytes(JamBytes(initial_state.read_bytes()))
-#         else:
-#             raise BadParameter('initial_state can only be .json or .bin')
-#
-#         app.store_jam_state(app.state)
-#     else:
-#         app = initialize_app()
-#
-#         if dry_run:
-#             # Re-initialize app with memory storage to perform dry-run
-#             current_state = app.state
-#             app = initialize_app(read_state=False, memory_storage=True)
-#             app.store_jam_state(current_state)
-#
-#     # Process blocks
-#     process_blocks(app, block_dir)
-#
-#     if watch:
-#         event_handler = JSONFileHandler(app)
-#         observer = Observer()
-#         observer.schedule(event_handler, block_dir, recursive=False)
-#         observer.start()
-#         info_message(f"👀 Watching directory: {block_dir} for new JSON files...")
-#
-#         try:
-#             while True:
-#                 time.sleep(1)  # Keep the script running
-#         except KeyboardInterrupt:
-#             info_message("✋Stopping directory watcher...")
-#             observer.stop()
-#         observer.join()
-#
-#     if export_state:
-#         json.dump(app.state.to_json(), export_state, indent=2)
-#
-#     if dry_run:
-#         info_message('✅ Dry-run completed.')
-#     else:
-#         info_message('✅ Import completed.')
 
 
 if __name__ == '__main__':

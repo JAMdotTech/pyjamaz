@@ -11,6 +11,7 @@ class TestCLI(unittest.TestCase):
         self.runner = CliRunner()
         self.base_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'cli')
 
+    # TODO refactor CLI tests
     def test_import_blocks(self):
         result = self.runner.invoke(main, [
             'import', path.join(self.base_dir, "block_data"), '--initial-state',

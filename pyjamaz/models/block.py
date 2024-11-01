@@ -531,6 +531,7 @@ class Header(Serializable):
                                                                                   EPOCH_TIMESLOTS))})
     offenders_marker: List[bytes] = field(metadata={'codec': Vec(H256)})
     author_index: int = field(metadata={'codec': U16})
+    # TODO should be 96 bytes?
     entropy_source: bytes = field(metadata={'codec': Array(U8, 96)})
     seal: bytes = field(metadata={'codec': Array(U8, 96)})
 

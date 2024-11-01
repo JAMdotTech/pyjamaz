@@ -71,7 +71,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
                 tickets_marker=None,
                 offenders_marker=[],
                 author_index=0,
-                entropy_source=bytes(32),
+                entropy_source=bytes(96),
                 seal=bytes(96)
             ),
             extrinsic=Extrinsic(
@@ -114,6 +114,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
 
         # Process block
         try:
+            app.state = app.retrieve_jam_state()
             output = await app.process_block(block)
             dispute_output = {'ok': {"offenders_mark": output.to_json()['offenders_mark']}}
         except PyjamazAppError as e:

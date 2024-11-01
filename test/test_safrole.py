@@ -183,7 +183,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
                 tickets_marker=None,
                 offenders_marker=[],
                 author_index=0,
-                entropy_source=test_case_input.entropy,
+                entropy_source=test_case_input.entropy.ljust(96, b'\x00'),
                 seal=bytes(96)
             ),
             extrinsic=Extrinsic(
@@ -197,10 +197,12 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
         # Initialize app
         app = PyjamazApp(config=self.config)
+        # app.state = jam_state
         app.store_jam_state(jam_state)
 
         # Process block
         try:
+            app.state = app.retrieve_jam_state()
             output = await app.process_block(block)
             output = SafroleTestOutput(
                 ok=SafroleOutputMarks(

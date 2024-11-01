@@ -5,7 +5,7 @@ import pyjamaz.graypaper_constants as gp_const
 from jamcodec.mixins import Serializable
 from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound
-from pyjamaz.storage import StorageInterface, Transaction
+from pyjamaz.storage import StorageEngine, Transaction
 
 T = TypeVar('T')
 
@@ -20,7 +20,7 @@ class StateComponent:
 
     component_id: int
 
-    def __init__(self, storage_engine: StorageInterface, **kwargs):
+    def __init__(self, storage_engine: StorageEngine, **kwargs):
 
         self.output = None
         self.storage_engine = storage_engine
