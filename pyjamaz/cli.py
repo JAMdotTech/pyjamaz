@@ -198,7 +198,7 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
 
     try:
 
-        info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.epoch).strftime('%Y-%m-%d %H:%M:%S')}')
+        info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.epoch).strftime("%Y-%m-%d %H:%M:%S")}')
         await anyio.sleep(app.config.epoch - time.time())
 
         while True:
