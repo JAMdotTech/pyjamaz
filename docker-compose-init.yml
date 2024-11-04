@@ -1,0 +1,48 @@
+version: '3.2'
+
+services:
+
+  pyjamaz-alice:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz:/app/pyjamaz/data'
+    command: 'init --db-path /app/pyjamaz/data/alice'
+
+  pyjamaz-bob:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz:/app/pyjamaz/data'
+    command: 'init --db-path /app/pyjamaz/data/bob'
+
+  pyjamaz-charly:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz:/app/pyjamaz/data'
+    command: 'init --db-path /app/pyjamaz/data/charly'
+
+  pyjamaz-dave:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz:/app/pyjamaz/data'
+    command: 'init --db-path /app/pyjamaz/data/dave'
+
+  pyjamaz-eve:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz:/app/pyjamaz/data'
+    command: 'init --db-path /app/pyjamaz/data/eve'
+
+  pyjamaz-ferdi:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz:/app/pyjamaz/data'
+    command: 'init --db-path /app/pyjamaz/data/ferdi'
+
+volumes:
+  pyjamaz:
