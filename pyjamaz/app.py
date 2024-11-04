@@ -2,9 +2,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Type, TypeVar, Optional, List
 
+from bandersnatch_vrfs import ietf_vrf_sign, ietf_vrf_verify
+
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from pyjamaz.exceptions import BlockValidationError
+from pyjamaz.exceptions import BlockValidationError, PyjamazAppError
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
@@ -124,6 +126,51 @@ class PyjamazApp:
     def validate_header(self, header: Header):
         if 0 < header.timeslot <= self.state.timeslot.number or header.timeslot > self.current_timeslot():
             raise BlockValidationError(SafroleErrorCode.bad_slot)
+        # Validate seal
+
+        author_key = self.get_author_bandersnatch_key(header.author_index)
+
+        # TODO finish seal validation
+
+        # if self.state.safrole.slot_sealer_series.tickets is not None:
+        #     raise NotImplementedError("Ticket slot_sealer_series is not supported")
+        # else:
+        #     # Fallback method
+        #
+        #     sealer_key = self.state.safrole.slot_sealer_series.keys[header.timeslot % EPOCH_TIMESLOTS]
+        #
+        #     if author_key != sealer_key:
+        #         raise BlockValidationError("Wrong author key")
+        #     try:
+        #
+        #         # TODO according to GP?
+        #         if self.is_epoch_change(self.state.timeslot.number, header.timeslot):
+        #             entropy = self.state.entropy.entropy[1]
+        #         else:
+        #             entropy = self.state.entropy.entropy[2]
+        #
+        #         vrf_output_hash = ietf_vrf_verify(
+        #             bytes(sealer_key),
+        #             b"jam_fallback_seal" + entropy,
+        #             header.get_unsigned_payload(),
+        #             header.seal
+        #         )
+        #     except ValueError:
+        #         raise BlockValidationError("Wrong seal key")
+
+    @staticmethod
+    def is_epoch_change(pre_slotnumber: int, post_slotnumber: int) -> bool:
+        """
+        GP-0.3.8-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+
+        Returns
+        -------
+        bool
+            `True` when epoch has changed, `False` otherwise.
+
+        TODO duplicate code, move to dedicated until package?
+        """
+        return pre_slotnumber // EPOCH_TIMESLOTS != post_slotnumber // EPOCH_TIMESLOTS
 
     def validate_extrinsic(self, extrinsic: Extrinsic):
         Disputes.validate_extrinsic_disputes(
@@ -134,6 +181,10 @@ class PyjamazApp:
         )
 
     def validate_block(self, block: Block):
+        # Check extrinsic hash
+        if block.header.extrinsic_hash != block.extrinsic.generate_extrinsic_hash():
+            raise BlockValidationError("Extrinsic hash mismatch")
+
         self.validate_header(block.header)
         self.validate_extrinsic(block.extrinsic)
 
@@ -334,10 +385,12 @@ class PyjamazApp:
             offenders_mark=disputes_output.offenders_mark
         )
 
-    async def process_block(self, block: Block) -> STFOutput:
+    async def process_block(self, block: Block, validate=True) -> STFOutput:
         # self.state = self.retrieve_jam_state()
+        # TODO rename to import_block and separate produce_block ?
 
-        self.validate_block(block)
+        if validate:
+            self.validate_block(block)
 
         output = await self.state_transition(block)
 
@@ -365,17 +418,26 @@ class PyjamazApp:
         if self.state.safrole.slot_sealer_series.tickets is not None:
             raise NotImplementedError("Ticket slot_sealer_series is not supported")
         elif self.state.safrole.slot_sealer_series.keys is not None:
-            current_author = self.state.safrole.slot_sealer_series.keys[self.current_slot_phase_index()]
+            current_author = self.get_author_bandersnatch_key(self.current_slot_phase_index())
             if current_author == self.config.keys.bandersnatch.public_key:
                 return True
 
         return False
 
     def generate_block_seal(self, header: Header) -> bytes:
+
+        # TODO welke entropy na era change?
+
         if self.state.safrole.slot_sealer_series.tickets is not None:
             raise NotImplementedError("Ticket slot_sealer_series is not supported")
         elif self.state.safrole.slot_sealer_series.keys is not None:
-            return bytes(96)
+            return ietf_vrf_sign(
+                self.config.keys.bandersnatch.private_key,
+                b"jam_fallback_seal" + bytes(self.state.entropy.entropy[2]),
+                header.get_unsigned_payload()
+            )
+        else:
+            raise PyjamazAppError("No valid sealing policy in current state")
 
     def current_timeslot(self) -> int:
         return int(time.time() - self.config.epoch) // SLOT_PERIOD
@@ -410,7 +472,10 @@ class PyjamazApp:
         -------
         bytes
         """
-        pass
+        if self.state.safrole.slot_sealer_series.tickets is not None:
+            raise NotImplementedError("Ticket slot_sealer_series is not supported")
+        else:
+            return self.state.safrole.slot_sealer_series.keys[author_index]
 
     def get_author_index(self) -> int:
         """
@@ -430,7 +495,7 @@ class PyjamazApp:
                 return index
         raise ValueError(f"Bandersnatch {self.config.keys.bandersnatch.public_key} not found in current validator set")
 
-    def produce_block(self) -> Block:
+    async def produce_block(self) -> Block:
 
         # Todo include extrinsic items collected in extrinsic accumulator
         extrinsic = Extrinsic(
@@ -454,6 +519,8 @@ class PyjamazApp:
             # TODO generate bandersnatch signature
             seal=bytes(96)
         )
+
+        header.seal = self.generate_block_seal(header)
 
         return Block(
             header=header,

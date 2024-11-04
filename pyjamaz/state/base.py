@@ -4,7 +4,7 @@ from typing import TypeVar, Optional
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.mixins import Serializable
 from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
-from pyjamaz.exceptions import StateComponentNotFound
+from pyjamaz.exceptions import StateComponentNotFound, StateKeyNoResult
 from pyjamaz.storage import StorageEngine, Transaction
 
 T = TypeVar('T')
@@ -38,7 +38,10 @@ class StateComponent:
             raise StateComponentNotFound(f"State component ID {self.component_id} not found")
 
     def retrieve(self):
-        return self.storage_engine.get(self._state_key_constructor_component())
+        result = self.storage_engine.get(self._state_key_constructor_component())
+        if result is None:
+            raise StateKeyNoResult(f"No result for state component {self.component_id}")
+        return result
 
     def store(self, data: bytes, transaction: Transaction = None):
         if transaction is not None:

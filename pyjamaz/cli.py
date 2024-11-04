@@ -1,3 +1,4 @@
+from asyncio import CancelledError
 from datetime import datetime
 import json
 import os
@@ -11,10 +12,12 @@ from os import path
 
 import asyncclick as click
 from asyncclick import BadParameter
+from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
 from pyjamaz import __version__
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
+from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 from pyjamaz.models.block import Block
@@ -56,7 +59,8 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None,
     # Set epoch
     if not epoch:
         epoch = 12
-    elif epoch < 10000:
+
+    if epoch < 10000:
         # epoch is relative to current time
         current_time = time.time()
         epoch = int(current_time - (current_time % epoch) + epoch)
@@ -92,7 +96,7 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None,
 @click.option('--culprit', is_flag=True, help="Culprit mode: node will intentionally act malicious")
 @click.option('--block-dir', type=click.Path(exists=True))
 @click.option('--traces-dir', type=click.Path(exists=True))
-@click.option('--db-path', 'custom_db_path', type=click.Path())
+@click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom_db_path):
     """PyJAMaz: Python JAM Client"""
 
@@ -103,14 +107,14 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
 
         db_path = custom_db_path or default_db_path
 
-        if not os.path.isdir(db_path):
+        try:
+            app = initialize_app(
+                keys=Keys.from_seed(bytes.fromhex(seed[2:])),
+                epoch=ts,
+                custom_db_path=custom_db_path
+            )
+        except StateKeyNoResult:
             raise BadParameter(f'DB is not yet initialized; run init first')
-
-        app = initialize_app(
-            keys=Keys.from_seed(bytes.fromhex(seed[2:])),
-            epoch=ts,
-            custom_db_path=custom_db_path
-        )
 
         info_message(f'🥋 Starting PyJAMaz client, listening on port {port}')
         info_message(f'💾 Storage path: {db_path}')
@@ -120,25 +124,23 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
         info_message(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
         lock = anyio.Lock()
-
-        async with anyio.create_task_group() as tg:
-            if block_dir:
-                # TODO schedule to start at 0ms of clock
-                tg.start_soon(timeslot_ticker, app, block_dir, traces_dir, lock)
-                info_message(f"👀 Watching directory: {block_dir} for new blocks...")
-                tg.start_soon(local_block_importer, app, block_dir, traces_dir, lock)
-            else:
-                error_message("Networking not implemented yet; use --block-dir for filesystem mode")
-
-        info_message(f'Node stopped.')
+        try:
+            async with anyio.create_task_group() as tg:
+                if block_dir:
+                    tg.start_soon(timeslot_ticker, app, block_dir, traces_dir, lock)
+                    info_message(f"👀 Watching directory: {block_dir} for new blocks...")
+                    tg.start_soon(local_block_importer, app, block_dir, traces_dir, lock)
+                else:
+                    error_message("Networking not implemented yet; use --block-dir for filesystem mode")
+        except (KeyboardInterrupt, CancelledError):
+            info_message("Stopping node...")
+        finally:
+            info_message(f'Node stopped.')
 
 
 async def store_trace(pre_state: dict, block: Block, output: STFOutput, app: PyjamazApp, traces_dir: str):
-    trace = {
-        'pre_state': pre_state,
-        'output': output.to_json(),
-        'post_state': app.state.to_json(),
-    }
+    trace = DeepDiff(pre_state, app.state.to_json(), ignore_order=True)
+
     trace_filepath = os.path.join(traces_dir, f'trace-{block.header.timeslot:06}.json')
 
     with open(trace_filepath, 'w') as file:
@@ -196,41 +198,36 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 
 async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
 
-    try:
+    info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.epoch).strftime("%Y-%m-%d %H:%M:%S")}')
+    await anyio.sleep(app.config.epoch - time.time())
 
-        info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.epoch).strftime("%Y-%m-%d %H:%M:%S")}')
-        await anyio.sleep(app.config.epoch - time.time())
+    while True:
 
-        while True:
+        if app.should_produce_block():
+            async with lock:
+                # TODO keep state in memory
+                app.state = app.retrieve_jam_state()
 
-            if app.should_produce_block():
-                async with lock:
-                    # TODO keep state in memory
-                    app.state = app.retrieve_jam_state()
+                if traces_dir:
+                    pre_state = app.state.to_json()
 
-                    if traces_dir:
-                        pre_state = app.state.to_json()
+                block = await app.produce_block()
+                output = await app.process_block(block, validate=False)
+                await app.finalize_block(block, output)
 
-                    block = app.produce_block()
-                    output = await app.process_block(block)
-                    await app.finalize_block(block, output)
+                if traces_dir:
+                    await store_trace(pre_state, block, output, app, traces_dir)
 
-                    if traces_dir:
-                        await store_trace(pre_state, block, output, app, traces_dir)
+                # write block to dir
+                filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
+                with open(filepath, 'w') as file:
+                    json.dump(block.to_json(), file, indent=2)
 
-                    # write block to dir
-                    filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
-                    with open(filepath, 'w') as file:
-                        json.dump(block.to_json(), file, indent=2)
+                info_message(f'🎁 Produced block: #{block.header.timeslot}')
+        else:
+            info_message(f'💤 Waiting for block #{app.current_timeslot()}')
 
-                    info_message(f'🎁 Produced block: #{block.header.timeslot}')
-            else:
-                info_message(f'💤 Waiting for block #{app.current_timeslot()}')
-
-            await anyio.sleep(app.get_next_slot_timestamp() - time.time())
-
-    except (KeyboardInterrupt, anyio.get_cancelled_exc_class()):
-        info_message("Stopping node...")
+        await anyio.sleep(app.get_next_slot_timestamp() - time.time())
 
 
 @main.group()
