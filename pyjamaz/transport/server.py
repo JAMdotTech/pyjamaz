@@ -11,27 +11,20 @@ from aioquic.quic.logger import QuicFileLogger
 from aioquic.tls import SessionTicket
 
 
-class DnsServerProtocol(QuicConnectionProtocol):
+class TestProtocol(QuicConnectionProtocol):
     def quic_event_received(self, event: QuicEvent):
+        print("EVENT RECEIVED: ", event)
         if isinstance(event, StreamDataReceived):
-            # parse query
-            length = struct.unpack("!H", bytes(event.data[:2]))[0]
-            #query = DNSRecord.parse(event.data[2 : 2 + length])
+            payload = struct.unpack("!H", bytes(event.data[:2]))[0]
+            print("RECEIVED DATA: ", payload)
 
-            # perform lookup and serialize answer
-            # data = query.send(args.resolver, 53)
-            # data = struct.pack("!H", len(data)) + data
-            data = struct.pack("!H", length)
+            msg = b"PONG"
+            data = struct.pack("!H", len(msg)) + msg
             print("SENDING DATA: ", data)
-
-            # send answer
             self._quic.send_stream_data(event.stream_id, data, end_stream=True)
 
 
 class SessionTicketStore:
-    """
-    Simple in-memory store for session tickets.
-    """
 
     def __init__(self) -> None:
         self.tickets: Dict[bytes, SessionTicket] = {}
@@ -54,7 +47,7 @@ async def main(
         host,
         port,
         configuration=configuration,
-        create_protocol=DnsServerProtocol,
+        create_protocol=TestProtocol,
         session_ticket_fetcher=session_ticket_store.pop,
         session_ticket_handler=session_ticket_store.add,
         retry=retry,
@@ -90,12 +83,6 @@ if __name__ == "__main__":
         help="load the TLS certificate from the specified file",
     )
     parser.add_argument(
-        "--resolver",
-        type=str,
-        default="8.8.8.8",
-        help="Upstream Classic DNS resolver to use",
-    )
-    parser.add_argument(
         "--retry",
         action="store_true",
         help="send a retry for new connections",
@@ -124,7 +111,7 @@ if __name__ == "__main__":
         quic_logger = None
 
     configuration = QuicConfiguration(
-        alpn_protocols=["doq"],
+        alpn_protocols=["test"],
         is_client=False,
         quic_logger=quic_logger,
     )
