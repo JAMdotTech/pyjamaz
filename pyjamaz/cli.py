@@ -1,3 +1,4 @@
+from asyncio import CancelledError
 from datetime import datetime
 import json
 import os
@@ -11,10 +12,13 @@ from os import path
 
 import asyncclick as click
 from asyncclick import BadParameter
+from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
 from pyjamaz import __version__
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
+from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.graypaper_constants import COMMON_ERA
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 from pyjamaz.models.block import Block
@@ -36,7 +40,7 @@ def info_message(message: str):
     click.echo(click.style(formatted_date_time, fg=(80, 80, 80)) + '  ' + message)
 
 
-def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None, custom_db_path=None) -> PyjamazApp:
+def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=None, custom_db_path=None) -> PyjamazApp:
 
     # Load SRS
     with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
@@ -53,20 +57,21 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None,
         error_message(f'Could not initialize storage engine: {str(e)}')
         exit(2)
 
-    # Set epoch
-    if not epoch:
-        epoch = 12
-    elif epoch < 10000:
+    # Set common era
+    if not common_era:
+        common_era = COMMON_ERA
+
+    if common_era < 10000:
         # epoch is relative to current time
         current_time = time.time()
-        epoch = int(current_time - (current_time % epoch) + epoch)
+        common_era = int(current_time - (current_time % common_era) + common_era)
 
     # Initialize app
     config = AppConfig(
         ring_data=ring_data,
         storage_engine=storage_engine,
         keys=keys,
-        epoch=epoch
+        common_era=common_era
     )
 
     app = PyjamazApp(config=config)
@@ -92,7 +97,7 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None,
 @click.option('--culprit', is_flag=True, help="Culprit mode: node will intentionally act malicious")
 @click.option('--block-dir', type=click.Path(exists=True))
 @click.option('--traces-dir', type=click.Path(exists=True))
-@click.option('--db-path', 'custom_db_path', type=click.Path())
+@click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom_db_path):
     """PyJAMaz: Python JAM Client"""
 
@@ -103,42 +108,40 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
 
         db_path = custom_db_path or default_db_path
 
-        if not os.path.isdir(db_path):
+        try:
+            app = initialize_app(
+                keys=Keys.from_seed(bytes.fromhex(seed[2:])),
+                common_era=ts,
+                custom_db_path=custom_db_path
+            )
+        except StateKeyNoResult:
             raise BadParameter(f'DB is not yet initialized; run init first')
-
-        app = initialize_app(
-            keys=Keys.from_seed(bytes.fromhex(seed[2:])),
-            epoch=ts,
-            custom_db_path=custom_db_path
-        )
 
         info_message(f'🥋 Starting PyJAMaz client, listening on port {port}')
         info_message(f'💾 Storage path: {db_path}')
         info_message(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
         info_message(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
-        info_message(f'🗓️ Epoch: {app.config.epoch}')
+        info_message(f'🗓️ Common Era: {app.config.common_era}')
         info_message(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
         lock = anyio.Lock()
-
-        async with anyio.create_task_group() as tg:
-            if block_dir:
-                # TODO schedule to start at 0ms of clock
-                tg.start_soon(timeslot_ticker, app, block_dir, traces_dir, lock)
-                info_message(f"👀 Watching directory: {block_dir} for new blocks...")
-                tg.start_soon(local_block_importer, app, block_dir, traces_dir, lock)
-            else:
-                error_message("Networking not implemented yet; use --block-dir for filesystem mode")
-
-        info_message(f'Node stopped.')
+        try:
+            async with anyio.create_task_group() as tg:
+                if block_dir:
+                    tg.start_soon(timeslot_ticker, app, block_dir, traces_dir, lock)
+                    info_message(f"👀 Watching directory: {block_dir} for new blocks...")
+                    tg.start_soon(local_block_importer, app, block_dir, traces_dir, lock)
+                else:
+                    error_message("Networking not implemented yet; use --block-dir for filesystem mode")
+        except (KeyboardInterrupt, CancelledError):
+            info_message("Stopping node...")
+        finally:
+            info_message(f'Node stopped.')
 
 
 async def store_trace(pre_state: dict, block: Block, output: STFOutput, app: PyjamazApp, traces_dir: str):
-    trace = {
-        'pre_state': pre_state,
-        'output': output.to_json(),
-        'post_state': app.state.to_json(),
-    }
+    trace = DeepDiff(pre_state, app.state.to_json(), ignore_order=True)
+
     trace_filepath = os.path.join(traces_dir, f'trace-{block.header.timeslot:06}.json')
 
     with open(trace_filepath, 'w') as file:
@@ -196,41 +199,36 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 
 async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
 
-    try:
+    info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")}')
+    await anyio.sleep(app.config.common_era - time.time())
 
-        info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.epoch).strftime("%Y-%m-%d %H:%M:%S")}')
-        await anyio.sleep(app.config.epoch - time.time())
+    while True:
 
-        while True:
+        if app.should_produce_block():
+            async with lock:
+                # TODO keep state in memory
+                app.state = app.retrieve_jam_state()
 
-            if app.should_produce_block():
-                async with lock:
-                    # TODO keep state in memory
-                    app.state = app.retrieve_jam_state()
+                if traces_dir:
+                    pre_state = app.state.to_json()
 
-                    if traces_dir:
-                        pre_state = app.state.to_json()
+                block = await app.produce_block()
+                output = await app.process_block(block, validate=False)
+                await app.finalize_block(block, output)
 
-                    block = app.produce_block()
-                    output = await app.process_block(block)
-                    await app.finalize_block(block, output)
+                if traces_dir:
+                    await store_trace(pre_state, block, output, app, traces_dir)
 
-                    if traces_dir:
-                        await store_trace(pre_state, block, output, app, traces_dir)
+                # write block to dir
+                filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
+                with open(filepath, 'w') as file:
+                    json.dump(block.to_json(), file, indent=2)
 
-                    # write block to dir
-                    filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
-                    with open(filepath, 'w') as file:
-                        json.dump(block.to_json(), file, indent=2)
+                info_message(f'🎁 Produced block: #{block.header.timeslot}')
+        else:
+            info_message(f'💤 Waiting for block #{app.current_timeslot()}')
 
-                    info_message(f'🎁 Produced block: #{block.header.timeslot}')
-            else:
-                info_message(f'💤 Waiting for block #{app.current_timeslot()}')
-
-            await anyio.sleep(app.get_next_slot_timestamp() - time.time())
-
-    except (KeyboardInterrupt, anyio.get_cancelled_exc_class()):
-        info_message("Stopping node...")
+        await anyio.sleep(app.get_next_slot_timestamp() - time.time())
 
 
 @main.group()
@@ -265,7 +263,8 @@ def generate(seed):
 @main.command()
 @click.option('--initial-state', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
-async def init(initial_state, custom_db_path):
+@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
+async def init(initial_state, custom_db_path, force_overwrite):
     """
     Clears all existing data and initializes the JAM client.
 
@@ -275,7 +274,8 @@ async def init(initial_state, custom_db_path):
     db_path = custom_db_path or default_db_path
 
     if os.path.isdir(db_path):
-        click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
+        if not force_overwrite:
+            click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
         shutil.rmtree(db_path)  # Delete the directory if it exists
         click.echo(f"The database at '{db_path}' was deleted successfully.")
 

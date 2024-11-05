@@ -126,6 +126,7 @@ class Entropy(StateComponent):
         """
         return entropy_source[:32]
 
+
 class ValidatorQueue(StateComponent):
     """
     ValidatorQueue has no native STF. STF is delegated to a particular PrivilegedService.
