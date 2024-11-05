@@ -16,7 +16,7 @@ class TestProtocol(QuicConnectionProtocol):
         print("EVENT RECEIVED: ", event)
         if isinstance(event, StreamDataReceived):
             payload = struct.unpack("!H", bytes(event.data[:2]))[0]
-            print("RECEIVED DATA: ", payload)
+            print("RECEIVED DATA: ", event.data)
 
             msg = b"PONG"
             data = struct.pack("!H", len(msg)) + msg

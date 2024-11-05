@@ -58,7 +58,7 @@ async def main(
         host,
         port,
         configuration=configuration,
-        session_ticket_handler=save_session_ticket,
+        #session_ticket_handler=save_session_ticket,
         create_protocol=TestProtocol,
     ) as client:
         client = cast(TestProtocol, client)
