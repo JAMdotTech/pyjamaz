@@ -56,16 +56,25 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
         cls.config = AppConfig(
             ring_data=cls.ring_data,
             storage_engine=InMemoryStorage(),
-            epoch=0
+            common_era=0
         )
 
     @staticmethod
     def create_block(test_vector_input: dict) -> Block:
+
+        extrinsic = Extrinsic(
+            tickets=[],
+            disputes=ExtrinsicDisputes.from_json(test_vector_input['disputes']),
+            preimages=[],
+            assurances=[],
+            guarantees=[]
+        )
+
         return Block(
             header=Header(
                 parent=bytes(32),
                 parent_state_root=bytes(32),
-                extrinsic_hash=bytes(32),
+                extrinsic_hash=extrinsic.generate_extrinsic_hash(),
                 timeslot=0,
                 epoch_marker=None,
                 tickets_marker=None,
@@ -74,13 +83,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
                 entropy_source=bytes(96),
                 seal=bytes(96)
             ),
-            extrinsic=Extrinsic(
-                tickets=[],
-                disputes=ExtrinsicDisputes.from_json(test_vector_input['disputes']),
-                preimages=[],
-                assurances=[],
-                guarantees=[]
-            )
+            extrinsic=extrinsic
         )
 
     @staticmethod

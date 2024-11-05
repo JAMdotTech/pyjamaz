@@ -41,7 +41,7 @@ class Keys(Serializable):
 class AppConfig:
     ring_data: bytes
     storage_engine: StorageEngine
-    epoch: int
+    common_era: int
     keys: Optional[Keys] = field(default=None)
     create_traces: bool = field(default=False)
 
@@ -440,7 +440,7 @@ class PyjamazApp:
             raise PyjamazAppError("No valid sealing policy in current state")
 
     def current_timeslot(self) -> int:
-        return int(time.time() - self.config.epoch) // SLOT_PERIOD
+        return int(time.time() - self.config.common_era) // SLOT_PERIOD
 
     def current_slot_phase_index(self) -> int:
         """
@@ -455,8 +455,8 @@ class PyjamazApp:
         return self.current_timeslot() % EPOCH_TIMESLOTS
 
     def get_next_slot_timestamp(self) -> int:
-        elapsed_timeslots = (time.time() - self.config.epoch) // SLOT_PERIOD
-        return self.config.epoch + (elapsed_timeslots + 1) * SLOT_PERIOD
+        elapsed_timeslots = (time.time() - self.config.common_era) // SLOT_PERIOD
+        return self.config.common_era + (elapsed_timeslots + 1) * SLOT_PERIOD
 
     def get_author_bandersnatch_key(self, author_index: int) -> bytes:
         """

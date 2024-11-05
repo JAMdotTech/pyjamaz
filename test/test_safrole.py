@@ -113,7 +113,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         cls.config = AppConfig(
             ring_data=cls.ring_data,
             storage_engine=InMemoryStorage(),
-            epoch=0
+            common_era=0
         )
 
     @staticmethod
@@ -173,11 +173,19 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         # Convert test case input to block
         test_case_input = deepcopy(test_case.input)
 
+        extrinsic = Extrinsic(
+            tickets=test_case_input.extrinsic,
+            disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
+            preimages=[],
+            assurances=[],
+            guarantees=[]
+        )
+
         block = Block(
             header=Header(
                 parent=bytes(32),
                 parent_state_root=bytes(32),
-                extrinsic_hash=bytes(32),
+                extrinsic_hash=extrinsic.generate_extrinsic_hash(),
                 timeslot=test_case_input.slot,
                 epoch_marker=None,
                 tickets_marker=None,
@@ -186,13 +194,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
                 entropy_source=test_case_input.entropy.ljust(96, b'\x00'),
                 seal=bytes(96)
             ),
-            extrinsic=Extrinsic(
-                tickets=test_case_input.extrinsic,
-                disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
-                preimages=[],
-                assurances=[],
-                guarantees=[]
-            )
+            extrinsic=extrinsic
         )
 
         # Initialize app

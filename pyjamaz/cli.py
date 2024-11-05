@@ -18,6 +18,7 @@ from jamcodec.base import JamBytes
 from pyjamaz import __version__
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.graypaper_constants import COMMON_ERA
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 from pyjamaz.models.block import Block
@@ -39,7 +40,7 @@ def info_message(message: str):
     click.echo(click.style(formatted_date_time, fg=(80, 80, 80)) + '  ' + message)
 
 
-def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None, custom_db_path=None) -> PyjamazApp:
+def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=None, custom_db_path=None) -> PyjamazApp:
 
     # Load SRS
     with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
@@ -56,21 +57,21 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None,
         error_message(f'Could not initialize storage engine: {str(e)}')
         exit(2)
 
-    # Set epoch
-    if not epoch:
-        epoch = 12
+    # Set common era
+    if not common_era:
+        common_era = COMMON_ERA
 
-    if epoch < 10000:
+    if common_era < 10000:
         # epoch is relative to current time
         current_time = time.time()
-        epoch = int(current_time - (current_time % epoch) + epoch)
+        common_era = int(current_time - (current_time % common_era) + common_era)
 
     # Initialize app
     config = AppConfig(
         ring_data=ring_data,
         storage_engine=storage_engine,
         keys=keys,
-        epoch=epoch
+        common_era=common_era
     )
 
     app = PyjamazApp(config=config)
@@ -110,7 +111,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
         try:
             app = initialize_app(
                 keys=Keys.from_seed(bytes.fromhex(seed[2:])),
-                epoch=ts,
+                common_era=ts,
                 custom_db_path=custom_db_path
             )
         except StateKeyNoResult:
@@ -120,7 +121,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
         info_message(f'💾 Storage path: {db_path}')
         info_message(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
         info_message(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
-        info_message(f'🗓️ Epoch: {app.config.epoch}')
+        info_message(f'🗓️ Common Era: {app.config.common_era}')
         info_message(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
         lock = anyio.Lock()
@@ -198,8 +199,8 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 
 async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
 
-    info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.epoch).strftime("%Y-%m-%d %H:%M:%S")}')
-    await anyio.sleep(app.config.epoch - time.time())
+    info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")}')
+    await anyio.sleep(app.config.common_era - time.time())
 
     while True:
 
@@ -262,7 +263,8 @@ def generate(seed):
 @main.command()
 @click.option('--initial-state', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
-async def init(initial_state, custom_db_path):
+@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
+async def init(initial_state, custom_db_path, force_overwrite):
     """
     Clears all existing data and initializes the JAM client.
 
@@ -272,7 +274,8 @@ async def init(initial_state, custom_db_path):
     db_path = custom_db_path or default_db_path
 
     if os.path.isdir(db_path):
-        click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
+        if not force_overwrite:
+            click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
         shutil.rmtree(db_path)  # Delete the directory if it exists
         click.echo(f"The database at '{db_path}' was deleted successfully.")
 
