@@ -1,24 +1,31 @@
 import argparse
 import asyncio
 import logging
+import ssl
 import struct
 from typing import Dict, Optional
 
 from aioquic.asyncio import QuicConnectionProtocol, serve
 from aioquic.quic.configuration import QuicConfiguration
-from aioquic.quic.events import QuicEvent, StreamDataReceived
+from aioquic.quic.events import QuicEvent, StreamDataReceived, ProtocolNegotiated, HandshakeCompleted
 from aioquic.quic.logger import QuicFileLogger
 from aioquic.tls import SessionTicket
 
 
 class TestProtocol(QuicConnectionProtocol):
     def quic_event_received(self, event: QuicEvent):
-        print("EVENT RECEIVED: ", event)
+        #print("EVENT RECEIVED: ", event)
+        #self._quic.tls.certificate
+        # if isinstance(event, ProtocolNegotiated):
+        #     import pdb;pdb.set_trace()
+        # if isinstance(event, HandshakeCompleted):
+        #     import pdb;pdb.set_trace()
         if isinstance(event, StreamDataReceived):
-            payload = struct.unpack("!H", bytes(event.data[:2]))[0]
             print("RECEIVED DATA: ", event.data)
+            payload = str(event.data[:2]).replace("CLIENT ", "").encode('utf-8')
+            #payload = struct.unpack("!H", bytes(tt))
 
-            msg = b"PONG"
+            msg = bytes(f"SERVER {payload}", 'utf-8')
             data = struct.pack("!H", len(msg)) + msg
             print("SENDING DATA: ", data)
             self._quic.send_stream_data(event.stream_id, data, end_stream=True)
@@ -34,6 +41,16 @@ class SessionTicketStore:
 
     def pop(self, label: bytes) -> Optional[SessionTicket]:
         return self.tickets.pop(label, None)
+
+
+def server_verify_certificate(*args, **kwargs):
+    # Perform custom validation
+    import pdb;pdb.set_trace()
+    #valid = validate_peer_certificate(certificates)
+    # if not valid:
+    #     raise ssl.SSLError("Invalid peer certificate")
+    return
+
 
 
 async def main(
@@ -114,8 +131,15 @@ if __name__ == "__main__":
         alpn_protocols=["test"],
         is_client=False,
         quic_logger=quic_logger,
+        #verify_mode=ssl.CERT_NONE,
+        #verify_certificate=server_verify_certificate
+        #verify_certificate_callback=server_verify_certificate
+        #?????https://github.com/aiortc/aioquic/blob/main/tests/test_tls.py#L24
+        #def handshake_with_client_input_corruption(
     )
 
+    #import pdb;pdb.set_trace()
+    #configuration._request_client_certificate = True
     configuration.load_cert_chain(args.certificate, args.private_key)
 
     try:

@@ -18,7 +18,7 @@ logger = logging.getLogger("client")
 class TestProtocol(QuicConnectionProtocol):
 
     async def query(self, msg: str):
-        msg = b"PING"
+        msg = bytes(f"CLIENT {msg}", 'utf-8')
         data = struct.pack("!H", len(msg)) + msg
 
         # send query and wait for answer
@@ -117,11 +117,15 @@ if __name__ == "__main__":
         level=logging.DEBUG if args.verbose else logging.INFO,
     )
 
-    configuration = QuicConfiguration(alpn_protocols=["test"], is_client=True)
-    if args.ca_certs:
-        configuration.load_verify_locations(args.ca_certs)
-    if args.insecure:
-        configuration.verify_mode = ssl.CERT_NONE
+    #configuration = QuicConfiguration(alpn_protocols=["test"], is_client=True, verify_mode=ssl.CERT_NONE)
+    configuration = QuicConfiguration(alpn_protocols=["test"], is_client=True, verify_mode=ssl.CERT_NONE)
+    configuration.load_cert_chain(certfile='cert_client.pem', keyfile='pk_client.pem')
+
+    # if args.ca_certs:
+    #     configuration.load_cert_chain(certfile='certificate_client.pem', keyfile='private_key_client.pem')
+    #     #configuration.load_verify_locations(args.ca_certs)
+    # if args.insecure:
+    #     configuration.verify_mode = ssl.CERT_NONE
     if args.quic_log:
         configuration.quic_logger = QuicFileLogger(args.quic_log)
     # if args.secrets_log:

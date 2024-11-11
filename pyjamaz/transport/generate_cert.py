@@ -60,22 +60,19 @@ if __name__ == "__main__":
         help="Comma sperated list of allowed IP addresses for this certificate",
     )
     parser.add_argument(
-        "--private_key_file",
+        "--pk_file",
         type=str,
-        default="private_key.pem",
+        default="peer.key",
         help="Filename to write out the generated private key PEM file",
     )
     parser.add_argument(
-        "--certificate_file",
+        "--cert_file",
         type=str,
-        default="certificate.pem",
+        default="peer.crt",
         help="Filename to write out the generated certificate PEM file",
     )
 
     args = parser.parse_args()
-
-    origin_list = [x509.IPAddress(ip_address(ip.strip())) for ip in args.ips.split(",")]
-    origin_list += [x509.DNSName(domain.strip()) for domain in args.domains.split(",")]
 
     # Replace this with your actual 32-byte raw private key bytes
     raw_private_key_bytes = bytes.fromhex(args.key)
@@ -85,6 +82,16 @@ if __name__ == "__main__":
 
     # Generate a public key
     public_key = private_key.public_key()
+
+    origin_list = [x509.IPAddress(ip_address(ip.strip())) for ip in args.ips.split(",")]
+    origin_list += [x509.DNSName(domain.strip()) for domain in args.domains.split(",")]
+    # Encode the public key in base32 using the specified alphabet
+    #public_bytes = public_key.public_bytes(
+    #    encoding=serialization.Encoding.Raw,
+    #    format=serialization.PublicFormat.Raw
+    #)
+    #public_key_b32 = base64.b32encode(public_bytes).lower().decode('ascii').strip('=')
+    #origin_list += [x509.DNSName('e' + public_key_b32)]
 
     # Build the subject and issuer name
     name = x509.Name([
@@ -118,7 +125,10 @@ if __name__ == "__main__":
         #     x509.IPAddress(ip_address(u"127.0.0.1")),
         # ]),
         critical=False,
-    ).sign(private_key, algorithm=None)
+    ).sign(
+        private_key,
+        algorithm=None
+    )
 
     # Serialize the private key and certificate to PEM format
     private_key_pem = private_key.private_bytes(
@@ -130,10 +140,10 @@ if __name__ == "__main__":
     certificate_pem = certificate.public_bytes(serialization.Encoding.PEM)
 
     # Save the private key and certificate to files
-    with open(args.private_key_file, 'wb') as f:
+    with open(args.pk_file, 'wb') as f:
         f.write(private_key_pem)
 
-    with open(args.certificate_file, 'wb') as f:
+    with open(args.cert_file, 'wb') as f:
         f.write(certificate_pem)
 
     print("Private key and certificate have been generated and saved.")
