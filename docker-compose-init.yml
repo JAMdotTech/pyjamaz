@@ -1,5 +1,3 @@
-version: '3.2'
-
 services:
 
   pyjamaz-alice:
@@ -7,42 +5,42 @@ services:
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz:/app/pyjamaz/data'
-    command: 'init --db-path /app/pyjamaz/data/alice'
+    command: 'init --db-path /app/pyjamaz/data/alice --force-overwrite'
 
   pyjamaz-bob:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz:/app/pyjamaz/data'
-    command: 'init --db-path /app/pyjamaz/data/bob'
+    command: 'init --db-path /app/pyjamaz/data/bob --force-overwrite'
 
   pyjamaz-charly:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz:/app/pyjamaz/data'
-    command: 'init --db-path /app/pyjamaz/data/charly'
+    command: 'init --db-path /app/pyjamaz/data/charly --force-overwrite'
 
   pyjamaz-dave:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz:/app/pyjamaz/data'
-    command: 'init --db-path /app/pyjamaz/data/dave'
+    command: 'init --db-path /app/pyjamaz/data/dave --force-overwrite'
 
   pyjamaz-eve:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz:/app/pyjamaz/data'
-    command: 'init --db-path /app/pyjamaz/data/eve'
+    command: 'init --db-path /app/pyjamaz/data/eve --force-overwrite'
 
   pyjamaz-ferdi:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz:/app/pyjamaz/data'
-    command: 'init --db-path /app/pyjamaz/data/ferdi'
+    command: 'init --db-path /app/pyjamaz/data/ferdi --force-overwrite'
 
 volumes:
   pyjamaz:

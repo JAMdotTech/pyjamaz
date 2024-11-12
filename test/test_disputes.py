@@ -118,14 +118,14 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
         # Process block
         try:
             app.state = app.retrieve_jam_state()
-            output = await app.process_block(block)
+            output = await app.import_block(block, validate=False)
             dispute_output = {'ok': {"offenders_mark": output.to_json()['offenders_mark']}}
         except PyjamazAppError as e:
             dispute_output = {'err': e.custom_error_code.name}
 
         self.assertEqual(test_vector['output'], dispute_output)
 
-        psi = app.retrieve_component_state(Disputes).to_json()
+        psi = app.components.disputes.retrieve_state().to_json()
 
         post_state = {
             'psi_b': psi['bad_set'],

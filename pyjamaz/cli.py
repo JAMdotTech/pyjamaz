@@ -1,3 +1,4 @@
+import logging
 from asyncio import CancelledError
 from datetime import datetime
 import json
@@ -17,10 +18,11 @@ from deepdiff import DeepDiff
 from jamcodec.base import JamBytes
 from pyjamaz import __version__
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
-from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.exceptions import StateKeyNoResult, BlockValidationError
 from pyjamaz.graypaper_constants import COMMON_ERA
+from pyjamaz.logger import setup_logging
 from pyjamaz.models.stf_output import STFOutput
-from pyjamaz.storage import LevelDBStorage, InMemoryStorage
+from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block
 from pyjamaz.models.state import JamState
 
@@ -28,16 +30,7 @@ data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
 
 
-def error_message(message: str):
-    formatted_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-    click.echo(
-        click.style(formatted_date_time, fg=(80, 80, 80)) + '  ' + click.style(f'⚠️ {message}', fg='red'), err=True
-    )
-
-
-def info_message(message: str):
-    formatted_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-    click.echo(click.style(formatted_date_time, fg=(80, 80, 80)) + '  ' + message)
+logger = logging.getLogger(__name__)
 
 
 def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=None, custom_db_path=None) -> PyjamazApp:
@@ -54,7 +47,7 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=
             storage_engine = LevelDBStorage.create_from_file(custom_db_path or default_db_path)
 
     except IOError as e:
-        error_message(f'Could not initialize storage engine: {str(e)}')
+        logger.error(f'Could not initialize storage engine: {str(e)}')
         exit(2)
 
     # Set common era
@@ -98,8 +91,13 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=
 @click.option('--block-dir', type=click.Path(exists=True))
 @click.option('--traces-dir', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
-async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom_db_path):
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom_db_path, verbose):
     """PyJAMaz: Python JAM Client"""
+
+    # Setup logging
+    log_level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(log_level)
 
     if ctx.invoked_subcommand is None:
 
@@ -117,35 +115,41 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
         except StateKeyNoResult:
             raise BadParameter(f'DB is not yet initialized; run init first')
 
-        info_message(f'🥋 Starting PyJAMaz client, listening on port {port}')
-        info_message(f'💾 Storage path: {db_path}')
-        info_message(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
-        info_message(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
-        info_message(f'🗓️ Common Era: {app.config.common_era}')
-        info_message(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
+        logger.info(f'🥋 Starting PyJAMaz client, listening on port {port}')
+        logger.info(f'💾 Storage path: {db_path}')
+        logger.info(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
+        logger.info(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
+        logger.info(f'🗓️ Common Era: {app.config.common_era}')
+        logger.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
         lock = anyio.Lock()
         try:
             async with anyio.create_task_group() as tg:
                 if block_dir:
                     tg.start_soon(timeslot_ticker, app, block_dir, traces_dir, lock)
-                    info_message(f"👀 Watching directory: {block_dir} for new blocks...")
+                    logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
                     tg.start_soon(local_block_importer, app, block_dir, traces_dir, lock)
                 else:
-                    error_message("Networking not implemented yet; use --block-dir for filesystem mode")
+                    logger.error("Networking not implemented yet; use --block-dir for filesystem mode")
         except (KeyboardInterrupt, CancelledError):
-            info_message("Stopping node...")
+            logger.info("Stopping node...")
         finally:
-            info_message(f'Node stopped.')
+            logger.info(f'Node stopped.')
 
 
 async def store_trace(pre_state: dict, block: Block, output: STFOutput, app: PyjamazApp, traces_dir: str):
-    trace = DeepDiff(pre_state, app.state.to_json(), ignore_order=True)
+    state_diff = DeepDiff(pre_state, app.state.to_json(), ignore_order=True)
 
-    trace_filepath = os.path.join(traces_dir, f'trace-{block.header.timeslot:06}.json')
+    with open(os.path.join(traces_dir, f'state-diff-{block.header.timeslot:06}.json'), 'w') as file:
+        json.dump(state_diff, file, indent=2)
 
-    with open(trace_filepath, 'w') as file:
-        json.dump(trace, file, indent=2)
+    state_data = app.state.to_json()
+
+    with open(os.path.join(traces_dir, f'state-{block.header.timeslot:06}.json'), 'w') as file:
+        json.dump(state_data, file, indent=2)
+
+    with open(os.path.join(traces_dir, f'block-{block.header.timeslot:06}.json'), 'w') as file:
+        json.dump(block.to_json(), file, indent=2)
 
 
 async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
@@ -174,22 +178,32 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
                             block = Block.from_json(data)
 
                             # TODO block.header.timeslot == 0 possible?
-                            if block.header.timeslot > app.state.timeslot.number or app.state.timeslot.number == 0:
+                            if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
+
+                                # TODO move to app.process_timeslot()
+                                if app.is_epoch_change():
+                                    logging.info("🗓️ Process Epoch change")
+                                    # Process tickets
+                                    app.extrinsic.on_epoch_change()
+                                    logging.info(
+                                        f"🎫 Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}"
+                                        )
 
                                 if traces_dir:
                                     pre_state = app.state.to_json()
 
-                                output = await app.process_block(block)
+                                output = await app.import_block(block)
 
                                 if traces_dir:
                                     await store_trace(pre_state, block, output, app, traces_dir)
 
-                                info_message(f"📦 Imported: {os.path.basename(filepath)}")
+                                logger.info(f"📦 Imported: {os.path.basename(filepath)}")
+                                logger.info(f'🎫 Collected tickets: {len(app.state.safrole.ticket_accumulator)}')
                             else:
-                                info_message(f"⏭️ Skipped: {os.path.basename(filepath)}")
+                                logger.info(f"⏭️ Skipped: {os.path.basename(filepath)}")
 
                 except Exception as e:
-                    error_message(f"Failed to process {filepath}: {e}")
+                    logger.error(f"Failed to process {filepath}: {e}")
 
             # Update the seen_files set to include the newly processed files
             seen_files.update(new_files)
@@ -199,34 +213,50 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 
 async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
 
-    info_message(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")}')
+    logger.info(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")}')
     await anyio.sleep(app.config.common_era - time.time())
 
     while True:
+        # TODO keep state in memory
+        app.state = app.retrieve_jam_state()
 
+        # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
+        #  triggering state changes in STFs caused be epoch change.
+        # if app.should_produce_block() or app.is_epoch_change():
         if app.should_produce_block():
+
+            # TODO move to app.process_timeslot()
+            if app.is_epoch_change():
+                logging.info("🗓️ Process Epoch change")
+                # Process tickets
+                app.extrinsic.on_epoch_change()
+                logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
+
             async with lock:
-                # TODO keep state in memory
-                app.state = app.retrieve_jam_state()
+                try:
 
-                if traces_dir:
-                    pre_state = app.state.to_json()
+                    if traces_dir:
+                        pre_state = app.state.to_json()
 
-                block = await app.produce_block()
-                output = await app.process_block(block, validate=False)
-                await app.finalize_block(block, output)
+                    block = await app.produce_block()
 
-                if traces_dir:
-                    await store_trace(pre_state, block, output, app, traces_dir)
+                    if traces_dir:
+                        await store_trace(pre_state, block, None, app, traces_dir)
 
-                # write block to dir
-                filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
-                with open(filepath, 'w') as file:
-                    json.dump(block.to_json(), file, indent=2)
+                    # write block to dir
+                    filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
+                    with open(filepath, 'w') as file:
+                        json.dump(block.to_json(), file, indent=2)
 
-                info_message(f'🎁 Produced block: #{block.header.timeslot}')
+                    logger.info(f'🎁 Produced block: #{block.header.timeslot}')
+                except Exception as e:
+                    logger.info(f'🗑️ Discarded produced block for #{app.current_timeslot()}: {e}')
+                    app.state = app.retrieve_jam_state()
+                    # TODO Make transactional
+                    app.extrinsic.clear_tickets()
+
         else:
-            info_message(f'💤 Waiting for block #{app.current_timeslot()}')
+            logger.info(f'💤 Waiting for block #{app.current_timeslot()} | epoch #{app.current_epoch()} | phase #{app.current_slot_phase_index()}')
 
         await anyio.sleep(app.get_next_slot_timestamp() - time.time())
 
@@ -318,34 +348,6 @@ async def dump_state(output_format):
         click.echo(json.dumps(app.state.to_json(), indent=2))
     elif output_format == 'bin':
         click.echo(app.state.to_jam_bytes().to_bytes(), file=click.get_binary_stream('stdout'), nl=False)
-
-
-@main.command()
-async def debug():
-    """
-    Enters a debug prompt after initializing the app
-    """
-
-    def show(item):
-        click.echo(json.dumps(item.to_json(), indent=2))
-
-    def fields(item):
-        click.echo(json.dumps(list(item.__dict__.keys()), indent=2))
-
-    app = initialize_app()
-    click.secho(f'=' * 80, bold=True)
-    click.secho(f'PyJAMaz version: {__version__}', bold=True)
-    click.secho(f'Python version: {sys.version}', bold=True)
-    click.secho(f'DB direcory: {default_db_path}', bold=True)
-    click.secho(f'Timeslot: {app.state.timeslot.number}', bold=True)
-    click.secho(f'=' * 80, bold=True)
-    click.echo(f"Entering debug mode.. \n")
-    click.echo(f"* To quit, press 'q' and Enter")
-    click.echo(f"* To print a serializable variable, use e.g. 'show(app.state.timeslot)'")
-    click.echo(f"* To list fields of a dataclass, use e.g. 'fields(app.state)'")
-    click.secho('_' * 80)
-    import pdb
-    pdb.set_trace()
 
 
 if __name__ == '__main__':
