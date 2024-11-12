@@ -1,15 +1,16 @@
 import bisect
+import logging
 from copy import deepcopy, copy
 from typing import List, Union
 
-from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
+from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ring_vrf_sign
 
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange, MerkleTree
-from pyjamaz.signing import Keypair, Ed25519Keypair
+from pyjamaz.signing import Keypair, Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.storage import StorageEngine
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
@@ -233,14 +234,11 @@ class Safrole(StateComponent):
         self.ring_data = ring_data
         self.post_state_safrole = None
 
-    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys, entropy: bytes) -> TicketBody:
+    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes) -> TicketBody:
         if ticket_data.attempt not in [0, 1]:
             raise StateTransitionError(SafroleErrorCode.bad_ticket_attempt)
 
-        # GP-0.3.8-eq:75
-        vrf_input_data = b"jam_ticket_seal"  # GP-0.3.8-eq:64
-        vrf_input_data += entropy
-        vrf_input_data += int.to_bytes(ticket_data.attempt, byteorder='little', length=1)
+        vrf_input_data = ticket_data.generate_vrf_input(entropy)
 
         aux_data = b''
 
@@ -290,6 +288,7 @@ class Safrole(StateComponent):
         SafroleOutput
             Output containing: Posterior state of SafroleState (γ') and optional Outputmarks
         """
+
         self.post_state_safrole = deepcopy(pre_state_safrole)
 
         # GP-0.3.8-eq:74
@@ -344,6 +343,7 @@ class Safrole(StateComponent):
             if len(self.post_state_safrole.ticket_accumulator) == gp_const.EPOCH_TIMESLOTS:
                 # GP-0.3.2-ref:70
                 tickets_mark = reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
+                logging.debug(f"Tickets Mark generated")
 
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # Epoch change
@@ -363,6 +363,7 @@ class Safrole(StateComponent):
                 entropy=post_state_entropy.entropy[1],
                 validators=[validator.bandersnatch for validator in self.post_state_safrole.validators]
             )
+            logging.debug(f"Epoch Mark generated")
 
             # Update Sealing-key series of the current epoch.
             if self.enact_fallback_method(pre_state_timeslot.number, header.timeslot):
@@ -380,11 +381,13 @@ class Safrole(StateComponent):
                     validators.append(post_state_validator_pool.validators[validator_idx].bandersnatch)
 
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
+                logging.info(f"⚠️ New Slot Sealer Series with fallback keys")
             else:
                 # When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:69
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(
                     tickets=reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 )
+                logging.debug(f"New Slot Sealer Series with tickets")
 
             # Update ring commitment using O(); GP-0.3.8-eq:57
             self.post_state_safrole.ring_commitment = ring_commitment(
@@ -702,7 +705,10 @@ class Disputes(StateComponent):
     def state_transition(
             self,
             extrinsic_disputes: ExtrinsicDisputes,
-            pre_state_disputes: DisputesState
+            pre_state_disputes: DisputesState,
+            pre_state_timeslot: TimeslotState,
+            pre_state_validator_pool: ValidatorPoolState,
+            pre_state_validator_archive: ValidatorArchiveState
     ) -> DisputesOutput:
         """
         GP-0.3.8-eq:111,112,113,114 (ψ') | State transition function for the state's disputes.
@@ -741,6 +747,14 @@ class Disputes(StateComponent):
 
         if self.has_duplicate_report_hashes(extrinsic_disputes.verdicts):
             raise StateTransitionError(DisputesErrorCode.verdicts_not_sorted_unique)
+
+        # Validate dispute extrinsic
+        self.validate_extrinsic_disputes(
+            disputes=extrinsic_disputes,
+            current_epoch=pre_state_timeslot.epoch_number(),
+            current_validators=pre_state_validator_pool.validators,
+            prev_validators=pre_state_validator_archive.validators
+        )
 
         # Process verdicts
         for verdict in extrinsic_disputes.verdicts:
