@@ -260,7 +260,7 @@ class Safrole(StateComponent):
             pre_state_validator_queue: ValidatorQueueState,
             post_state_entropy: EntropyState,
             post_state_validator_pool: ValidatorPoolState,
-            post_state_disputes = DisputesState
+            post_state_disputes: DisputesState
     ) -> SafroleOutput:
         """
         GP-0.3.8-eq:57,59,60 (γ') | State transition function for the state's Safrole data.

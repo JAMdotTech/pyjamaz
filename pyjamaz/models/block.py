@@ -608,6 +608,21 @@ class Header(Serializable):
             self.seal
         )
 
+    @classmethod
+    def default(cls) -> 'Header':
+        return Header(
+                parent=bytes(32),
+                parent_state_root=bytes(32),
+                extrinsic_hash=bytes(32),
+                timeslot=0,
+                epoch_marker=None,
+                tickets_marker=None,
+                offenders_marker=[],
+                author_index=0,
+                entropy_source=bytes(96),
+                seal=bytes(96)
+            )
+
     # Todo: new function for derived author_key from validator set; GP-0.3.8-eq:43 (bold_H_a)
     # def generate_author_bandersnatch_key(self) -> bytes:
     #    pass
