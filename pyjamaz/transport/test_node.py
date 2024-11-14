@@ -29,17 +29,19 @@ async def handle_input(protocol, server):
             elif key == 'i':
                 print("LIST ALL INGOING CONNECTIONS")
             elif key == 's':
-                print("Connect to server, enter address (defaults to ::)")
-                server_addr = input()
-                server_addr = server_addr or "0.0.0.0"
-                print("Enter port nr (defaults to 9000):")
-                server_port = input()
-                server_port = server_port or 9000
-                print("Enter message to send (defaults to 'hello'):")
-                msg = input()
-                conn = protocol.connections.get((server_addr, server_port))
+                # print("Connect to server, enter address (defaults to ::)")
+                # server_addr = input()
+                # server_addr = server_addr or "0.0.0.0"
+                # print("Enter port nr (defaults to 9000):")
+                # server_port = input()
+                # server_port = server_port or 9000
+                # print("Enter message to send (defaults to 'hello'):")
+                # msg = input()
+                #conn = protocol.conn_in.get((server_addr, server_port))
                 #await conn.query(msg)
-                msg_task = asyncio.create_task(conn.query(msg))
+                #msg_task = asyncio.create_task(conn.query(msg))
+                asyncio.create_task(protocol.broadcast_block_announcement("1", "2"))
+                print("SENDED?")
             elif key == 'q':
                 print("QUIT")
                 server.cancel()

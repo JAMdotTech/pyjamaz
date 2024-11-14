@@ -19,6 +19,8 @@ from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 from pyjamaz.models.block import Block
 from pyjamaz.models.state import JamState
+from pyjamaz.transport.generate_cert import generate_cert, write_cert
+from pyjamaz.transport.protocol_jamnp_s import JAMNPS
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
@@ -79,6 +81,25 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None,
 
 # CLI commands
 
+def broadcast_block_to_file(block_dir):
+    def broadcast(block):
+        # write block to dir
+        filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
+        with open(filepath, 'w') as file:
+            json.dump(block.to_json(), file, indent=2)
+
+    return broadcast
+
+
+def broadcast_block_to_network(protocol):
+    def broadcast(block):
+        print("BROADCASTING!!!!!!!!")
+        import pdb;pdb.set_trace()
+        protocol.send_block(block)
+
+    return broadcast
+
+
 @click.group(invoke_without_command=True)
 @click.pass_context
 @click.version_option(package_name='pyjamaz')
@@ -93,7 +114,10 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, epoch=None,
 @click.option('--block-dir', type=click.Path(exists=True))
 @click.option('--traces-dir', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
-async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom_db_path):
+@click.option('--host', 'host', type=str, default="::", show_default=True, help='Host address to listnen on')
+@click.option('--certificate', 'certificate', type=str, help='Certificate')
+@click.option('--private-key', 'private_key', type=str, help='Private key')
+async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom_db_path, host, certificate, private_key):
     """PyJAMaz: Python JAM Client"""
 
     if ctx.invoked_subcommand is None:
@@ -124,11 +148,15 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
         async with anyio.create_task_group() as tg:
             if block_dir:
                 # TODO schedule to start at 0ms of clock
-                tg.start_soon(timeslot_ticker, app, block_dir, traces_dir, lock)
+                tg.start_soon(timeslot_ticker, app, traces_dir, lock, broadcast_block_to_file(block_dir))
                 info_message(f"👀 Watching directory: {block_dir} for new blocks...")
-                tg.start_soon(local_block_importer, app, block_dir, traces_dir, lock)
+                tg.start_soon(file_block_importer, app, block_dir, traces_dir, lock)
             else:
-                error_message("Networking not implemented yet; use --block-dir for filesystem mode")
+                protocol = JAMNPS(host, port, certificate, private_key)
+                tg.start_soon(timeslot_ticker, app, traces_dir, lock, broadcast_block_to_network(protocol))
+                info_message(f"👀 Watching network for new blocks...")
+                tg.start_soon(network_block_importer, app, block_dir, traces_dir, lock)
+
 
         info_message(f'Node stopped.')
 
@@ -145,7 +173,11 @@ async def store_trace(pre_state: dict, block: Block, output: STFOutput, app: Pyj
         json.dump(trace, file, indent=2)
 
 
-async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
+async def network_block_importer(app: PyjamazApp,  protocol, traces_dir, lock):
+    pass
+
+
+async def file_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 
     seen_files = set()
 
@@ -194,7 +226,7 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
         await anyio.sleep(.5)
 
 
-async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
+async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, broadcaster):
 
     try:
 
@@ -218,10 +250,8 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
                     if traces_dir:
                         await store_trace(pre_state, block, output, app, traces_dir)
 
-                    # write block to dir
-                    filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
-                    with open(filepath, 'w') as file:
-                        json.dump(block.to_json(), file, indent=2)
+                    if broadcaster:
+                        broadcaster(block)
 
                     info_message(f'🎁 Produced block: #{block.header.timeslot}')
             else:
@@ -265,7 +295,30 @@ def generate(seed):
 @main.command()
 @click.option('--initial-state', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
-async def init(initial_state, custom_db_path):
+@click.option('--cert-bandersnatch', 'cert_bandersnatch', type=str)
+@click.option('--cert-file', 'cert_file', type=str)
+@click.option('--cert-pk-file', 'cert_pk_file', type=str)
+@click.option('--cert-ips', 'cert_ips', default="::", type=str)
+@click.option('--cert-domains', 'cert_domains', type=str)
+@click.option('--cert-country', 'cert_country', default="US", type=str)
+@click.option('--cert-state', 'cert_state', default="test state", type=str)
+@click.option('--cert-city', 'cert_city', default="test city", type=str)
+@click.option('--cert-organization', 'cert_organization', default="test", type=str)
+@click.option('--cert-website', 'cert_website', default="test.com", type=str)
+async def init(
+        initial_state,
+        custom_db_path,
+        cert_bandersnatch,
+        cert_file,
+        cert_pk_file,
+        cert_ips,
+        cert_domains,
+        cert_country,
+        cert_state,
+        cert_city,
+        cert_organization,
+        cert_website,
+):
     """
     Clears all existing data and initializes the JAM client.
 
@@ -296,6 +349,20 @@ async def init(initial_state, custom_db_path):
 
     app = initialize_app(read_state=False, custom_db_path=custom_db_path)
     app.store_jam_state(jam_state)
+
+    pk_pem, cert_pem = generate_cert(
+        cert_bandersnatch,
+        cert_ips,
+        cert_domains,
+        cert_country,
+        cert_state,
+        cert_city,
+        cert_organization,
+        cert_website,
+    )
+
+    write_cert(pk_pem, cert_pk_file, cert_pem, cert_file)
+
     click.echo(f"✅ Initialization complete.")
 
 
