@@ -1,9 +1,9 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Type, TypeVar, Optional, List
+from typing import TypeVar, Optional
 
-from bandersnatch_vrfs import ietf_vrf_sign, ietf_vrf_verify
+from bandersnatch_vrfs import ietf_vrf_sign
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
@@ -19,7 +19,7 @@ from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchiv
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState, Statistic, \
     BeefyCommitmentMap
-from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
+from pyjamaz.models.stf_output import STFOutput
 
 T = TypeVar('T')
 
@@ -61,6 +61,8 @@ class PyjamazApp:
         self.extrinsic = ExtrinsicAccumulator(self.config.ring_data)
 
         self.state: Optional[JamState] = None
+
+        self.latest_epoch = None
 
     def retrieve_jam_state(self):
         return JamState(
@@ -154,21 +156,16 @@ class PyjamazApp:
         if slotnumber is None:
             slotnumber = self.current_timeslot()
 
-        return self.state.timeslot.number // EPOCH_TIMESLOTS != slotnumber // EPOCH_TIMESLOTS
-
-    def get_entropy(self, slotnumber: int = None):
-        if self.is_epoch_change(slotnumber):
-            return self.state.entropy.entropy[1]
-        else:
-            return self.state.entropy.entropy[2]
+        return self.latest_epoch != slotnumber // EPOCH_TIMESLOTS
 
     def validate_extrinsic(self, extrinsic: Extrinsic):
-        Disputes.validate_extrinsic_disputes(
-            disputes=extrinsic.disputes,
-            current_epoch=self.state.timeslot.epoch_number(),
-            current_validators=self.state.validator_pool.validators,
-            prev_validators=self.state.validator_archive.validators
-        )
+        pass
+        # Disputes.validate_extrinsic_disputes(
+        #     disputes=extrinsic.disputes,
+        #     current_epoch=self.state.timeslot.epoch_number(),
+        #     current_validators=self.state.validator_pool.validators,
+        #     prev_validators=self.state.validator_archive.validators
+        # )
 
     def validate_block(self, block: Block):
         # Check extrinsic hash
@@ -176,7 +173,7 @@ class PyjamazApp:
             raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
 
         self.validate_header(block.header)
-        # self.validate_extrinsic(block.extrinsic)
+        self.validate_extrinsic(block.extrinsic)
 
     async def state_transition(self, block: 'Block', transaction) -> 'STFOutput':
         """
@@ -191,6 +188,7 @@ class PyjamazApp:
         """
 
         # Set components pre-state
+        # TODO move deepcopy() from STF to here
         pre_state_timeslot = self.state.timeslot
         pre_state_recent_history = self.state.recent_history
         pre_state_entropy = self.state.entropy
@@ -334,6 +332,16 @@ class PyjamazApp:
         )
 
         # All state transitions successful, commit state changes
+        self.state.timeslot = timeslot_output.post_state
+        self.state.entropy = entropy_output.post_state
+        self.state.disputes = disputes_output.post_state
+        self.state.validator_pool = validator_pool_output.post_state
+        self.state.validator_archive = validator_archive_output.post_state
+        self.state.safrole = safrole_output.post_state
+        self.state.assurances = assurances_output.post_state
+        self.state.recent_history = recent_history_output.post_state
+
+        # TODO only set local memory self.state not write to DB
         self.components.timeslot.store_state(timeslot_output.post_state, transaction)
         self.components.entropy.store_state(entropy_output.post_state, transaction)
         self.components.disputes.store_state(disputes_output.post_state, transaction)
@@ -359,7 +367,6 @@ class PyjamazApp:
                 if validate:
                     self.validate_block(block)
 
-            self.state = self.retrieve_jam_state()
             await self.store_block(block)
             return output
 
@@ -419,7 +426,7 @@ class PyjamazApp:
         if self.state.safrole.slot_sealer_series.tickets is not None:
 
             ticket = self.state.safrole.slot_sealer_series.tickets[self.current_slot_phase_index()]
-            logging.debug(f"Generating Ticket Seal with entropy {self.state.entropy.entropy[3].hex()} for ticket {ticket.id.hex()}")
+            logging.debug(f"Generating Ticket Seal for ticket {ticket.id.hex()} with entropy {self.state.entropy.entropy[3].hex()}")
             return ietf_vrf_sign(
                 self.config.keys.bandersnatch.private_key,
                 b"jam_ticket_seal" + bytes(self.state.entropy.entropy[3]) + int.to_bytes(ticket.attempt, byteorder='little', length=1),
@@ -509,24 +516,26 @@ class PyjamazApp:
                 return index
         raise ValueError(f"Bandersnatch {self.config.keys.bandersnatch.public_key} not found in current validator set")
 
-    async def produce_block(self) -> Block:
+    async def produce_block(self, timeslot: int) -> Block:
 
-        if self.is_epoch_change():
-            entropy = self.state.entropy.entropy[1]
-        else:
+        # if self.is_epoch_change(timeslot):
+        #     entropy = self.state.entropy.entropy[1]
+        # else:
+        #     entropy = self.state.entropy.entropy[2]
+        if timeslot % EPOCH_TIMESLOTS > 0:
             entropy = self.state.entropy.entropy[2]
 
-        if self.extrinsic.can_add_own_ticket():
+            if self.extrinsic.can_add_own_ticket():
 
-            ring_public_keys = [v.bandersnatch for v in self.state.safrole.validators]
+                ring_public_keys = [v.bandersnatch for v in self.state.safrole.validators]
 
-            self.extrinsic.add_own_ticket(
-                ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
-            )
+                self.extrinsic.add_own_ticket(
+                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                )
 
-            self.extrinsic.add_own_ticket(
-                ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
-            )
+                self.extrinsic.add_own_ticket(
+                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                )
 
         extrinsic = Extrinsic(
             tickets=self.extrinsic.collect_tickets(),
@@ -539,7 +548,7 @@ class PyjamazApp:
             parent=bytes(32),
             parent_state_root=bytes(32),
             extrinsic_hash=extrinsic.generate_extrinsic_hash(),
-            timeslot=self.current_timeslot(),
+            timeslot=timeslot,
             # Placeholder
             epoch_marker=None,
             # Placeholder
@@ -577,8 +586,6 @@ class PyjamazApp:
             # block.header.entropy_source = self.generate_entropy_source(block.header.seal)
 
             # self.validate_block(block)
-
-        self.state = self.retrieve_jam_state()
 
         await self.store_block(block)
         # await self.send_block(block)

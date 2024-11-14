@@ -6,7 +6,6 @@ import os
 import shutil
 
 import anyio
-import sys
 
 import time
 from os import path
@@ -16,14 +15,13 @@ from asyncclick import BadParameter
 from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
-from pyjamaz import __version__
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
-from pyjamaz.exceptions import StateKeyNoResult, BlockValidationError
-from pyjamaz.graypaper_constants import COMMON_ERA
+from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.stf_output import STFOutput
-from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
-from pyjamaz.models.block import Block
+from pyjamaz.storage import LevelDBStorage, InMemoryStorage
+from pyjamaz.models.block import Block, Header
 from pyjamaz.models.state import JamState
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
@@ -71,6 +69,7 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=
 
     if read_state:
         app.state = app.retrieve_jam_state()
+        app.latest_epoch = app.state.timeslot.epoch_number()
 
     return app
 
@@ -170,9 +169,6 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
                     async with lock:
                         with open(filepath, 'r') as file:
 
-                            # TODO keep state in memory
-                            app.state = app.retrieve_jam_state()
-
                             data = json.load(file)
                             # TODO also import .bin jamcodec files
                             block = Block.from_json(data)
@@ -180,14 +176,14 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
                             # TODO block.header.timeslot == 0 possible?
                             if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
 
-                                # TODO move to app.process_timeslot()
-                                if app.is_epoch_change():
-                                    logging.info("🗓️ Process Epoch change")
-                                    # Process tickets
-                                    app.extrinsic.on_epoch_change()
-                                    logging.info(
-                                        f"🎫 Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}"
-                                        )
+                                # # TODO move to app.process_timeslot()
+                                # if app.is_epoch_change():
+                                #     logging.info("🗓️ Process Epoch change")
+                                #     # Process tickets
+                                #     app.extrinsic.on_epoch_change()
+                                #     logging.info(
+                                #         f"🎫 Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}"
+                                #         )
 
                                 if traces_dir:
                                     pre_state = app.state.to_json()
@@ -217,20 +213,35 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
     await anyio.sleep(app.config.common_era - time.time())
 
     while True:
-        # TODO keep state in memory
-        app.state = app.retrieve_jam_state()
+        timeslot = app.current_timeslot()
 
         # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
         #  triggering state changes in STFs caused be epoch change.
-        # if app.should_produce_block() or app.is_epoch_change():
-        if app.should_produce_block():
+        if app.is_epoch_change(timeslot):
+            # TODO move to app.on_epoch_change()
+            app.latest_epoch = timeslot // EPOCH_TIMESLOTS
+            logging.info("🗓️ Process Epoch change")
 
-            # TODO move to app.process_timeslot()
-            if app.is_epoch_change():
-                logging.info("🗓️ Process Epoch change")
-                # Process tickets
-                app.extrinsic.on_epoch_change()
-                logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
+            header = Header.default()
+            header.timeslot = timeslot
+            post_safrole_state = app.components.safrole.state_transition(
+                header=header,
+                pre_state_timeslot=app.state.timeslot,
+                pre_state_safrole=app.state.safrole,
+                pre_state_validator_queue=app.state.validator_queue,
+                post_state_entropy=app.state.entropy,
+                post_state_disputes=app.state.disputes,
+                post_state_validator_pool=app.state.validator_pool,
+                extrinsic_tickets=[]
+            )
+            # Update slot_sealer_series in advance
+            app.state.safrole.slot_sealer_series = post_safrole_state.post_state.slot_sealer_series
+            logging.debug(f'New slot_sealer_series: {app.state.safrole.slot_sealer_series.to_json()}')
+            # Process tickets
+            app.extrinsic.on_epoch_change()
+            logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
+
+        if app.should_produce_block():
 
             async with lock:
                 try:
@@ -238,7 +249,7 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
                     if traces_dir:
                         pre_state = app.state.to_json()
 
-                    block = await app.produce_block()
+                    block = await app.produce_block(timeslot)
 
                     if traces_dir:
                         await store_trace(pre_state, block, None, app, traces_dir)
@@ -250,7 +261,8 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
 
                     logger.info(f'🎁 Produced block: #{block.header.timeslot}')
                 except Exception as e:
-                    logger.info(f'🗑️ Discarded produced block for #{app.current_timeslot()}: {e}')
+                    logger.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
+                    # Rollback state from DB
                     app.state = app.retrieve_jam_state()
                     # TODO Make transactional
                     app.extrinsic.clear_tickets()

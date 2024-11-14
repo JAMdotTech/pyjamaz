@@ -57,6 +57,7 @@ class SafroleOutputMarks(Serializable):
     epoch_mark: Optional[EpochMark] = field(default=None, metadata={'codec': Option(EpochMark.to_codec_def())})   # New epoch signal. OPTIONAL
     tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
 
+
 @dataclass
 class SafroleTestOutput(Serializable):
     ok: Optional[SafroleOutputMarks] = field(default=None, metadata={'codec': Option(SafroleOutputMarks.to_codec_def())})  # Markers
