@@ -94,7 +94,6 @@ def broadcast_block_to_file(block_dir):
 def broadcast_block_to_network(protocol):
     def broadcast(block):
         print("BROADCASTING!!!!!!!!")
-        import pdb;pdb.set_trace()
         protocol.send_block(block)
 
     return broadcast
@@ -153,6 +152,21 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
                 tg.start_soon(file_block_importer, app, block_dir, traces_dir, lock)
             else:
                 protocol = JAMNPS(host, port, certificate, private_key)
+
+                """
+                app.state.safrole.validators[0].metadata
+                    packed_ipv6 = socket.inet_pton(socket.AF_INET6, ipv6_address)
+                    ipv6_address = socket.inet_ntop(socket.AF_INET6, byte_data)
+                
+                
+                send_block_announcement(block.to_jam_bytes().to_bytes())
+                
+                event raisen vanuit protocol -> met binaire data
+                    Block.from_jam_bytes(JamBytes(byte_data))
+                
+                The validators' IP-layer endpoints are given as IPv6/port combinations, to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and the latter 2 being a little endian representation of the port.
+                """
+
                 tg.start_soon(timeslot_ticker, app, traces_dir, lock, broadcast_block_to_network(protocol))
                 info_message(f"👀 Watching network for new blocks...")
                 tg.start_soon(network_block_importer, app, block_dir, traces_dir, lock)

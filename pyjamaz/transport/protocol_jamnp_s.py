@@ -47,11 +47,8 @@ class JAMNPSProtocol(QuicConnectionProtocol):
 
 class ServerProtocol(JAMNPSProtocol):
 
-    async def send_block_announcement(self, header_hash, slot):
-        # Format and send an `Announcement` message over the stream
-        #announcement_message = header_hash + struct.pack("<I", slot)
-        #self._quic.send_stream_data(self.stream_up_0, announcement_message)
-        self._quic.send_stream_data(self.stream_up_0, b"1")
+    async def send_block_announcement(self, block_data):
+        self._quic.send_stream_data(self.stream_up_0, block_data)
         self.transmit()
         print("Block announcement sent to", self, self.stream_up_0)
 
@@ -115,6 +112,7 @@ class ClientProtocol(JAMNPSProtocol):
         print("!!!CLIENT: quic_event_received", event)
         if isinstance(event, StreamDataReceived):
             print("RECEIVED DATA:", event.data)
+            #TODO: raise asyncio event(block_data)
             #received = struct.unpack("!H", bytes(event.data[:2]))[0]
 
     async def handle_stream_data(self, stream_id, data, fin):
@@ -190,7 +188,8 @@ class JAMNPS(object):
     #PROTOCOL_NAME = "jamnp-s/0/00000000"
     PROTOCOL_NAME = "test"
 
-    def __init__(self, host, port, certificate, private_key):
+    def __init__(self, app, host, port, certificate, private_key):
+        self.app = app
         self.host = host
         self.port = port
         self.session_ticket_store = SessionTicketStore()
@@ -247,7 +246,7 @@ class JAMNPS(object):
             await client.wait_closed()
             del self.conn_out[(host, port)]
 
-    async def broadcast_block_announcement(self, header_hash, slot):
+    async def broadcast_block_announcement(self, block):
         for client_id, client in self.conn_in.items():
             print("SENDING TO CLIENT: ", client_id, client)
-            await client.send_block_announcement(header_hash, slot)
+            await client.send_block_announcement(block)
