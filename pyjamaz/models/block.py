@@ -584,7 +584,7 @@ class Header(Serializable):
         """
         data = self.to_jam_bytes().to_bytes()
         # TODO also omit entropy?
-        return data[:-192]
+        return data[:-96]
 
     @hash.setter
     def hash(self, value: bytes) -> None:

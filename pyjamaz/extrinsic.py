@@ -1,9 +1,10 @@
 import logging
 from typing import Dict, List
 
-from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify
+from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify, vrf_output
 
-from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS
+from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
+    EPOCH_TIMESLOTS
 from pyjamaz.models.block import TicketEnvelope, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
@@ -38,8 +39,8 @@ class ExtrinsicAccumulator:
         ticket_body = self.create_ticket_body(ticket_data, ring_public_keys, entropy)
         self.tickets_queue[ticket_body.id] = ticket_data
 
-    def can_add_own_ticket(self) -> bool:
-        return len(self.own_tickets_next) < TICKET_ENTRIES
+    def can_add_own_ticket(self, timeslot: int) -> bool:
+        return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS <= TICKET_SUBMISSION_END_SLOT
 
     def add_own_ticket(
             self, ring_public_keys: List[bytes], entropy: bytes, keypair: BandersnatchKeypair, author_index: int
@@ -67,12 +68,12 @@ class ExtrinsicAccumulator:
             signature=signature
         )
 
-        ticket_body = self.create_ticket_body(ticket, ring_public_keys, entropy)
+        ticket_id = vrf_output(keypair.private_key, vrf_input_data)
 
-        logging.debug(f'Generated and validated own ticket: id = {ticket_body.id.hex()} with entropy {entropy.hex()}')
+        logging.debug(f'Generated Safrole ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
 
-        self.tickets_queue[ticket_body.id] = ticket
-        self.own_tickets_next.append(ticket_body.id)
+        self.tickets_queue[ticket_id] = ticket
+        self.own_tickets_next.append(ticket_id)
 
     def collect_tickets(self) -> List[TicketEnvelope]:
         """
@@ -106,7 +107,7 @@ class ExtrinsicAccumulator:
         self.tickets_queue = {}
         self.own_tickets_next = []
 
-    def on_epoch_change(self):
+    def process_epoch_change(self):
         self.own_tickets_current = self.own_tickets_next
         self.own_tickets_next = []
         self.tickets_queue = {}

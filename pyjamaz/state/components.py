@@ -382,6 +382,9 @@ class Safrole(StateComponent):
 
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
                 logging.info(f"⚠️ New Slot Sealer Series with fallback keys")
+                # TODO temp
+                logging.debug(f"Used entropy: {post_state_entropy.entropy[2].hex()}")
+                logging.debug(f"New Series: {self.post_state_safrole.slot_sealer_series.to_json()}")
             else:
                 # When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:69
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(

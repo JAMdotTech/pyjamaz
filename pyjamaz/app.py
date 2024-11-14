@@ -107,11 +107,44 @@ class PyjamazApp:
         self.components.privileged_services.store_state(state.privileged_services, transaction)
         self.components.authorizer_pools.store_state(state.authorizer_pools, transaction)
 
+    async def process_timeslot(self, timeslot: int):
+        if self.is_epoch_change(timeslot):
+
+            self.latest_epoch = timeslot // EPOCH_TIMESLOTS
+            logging.info("🗓️ Process Epoch change")
+
+            # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
+            #  triggering state changes in STFs caused be epoch change.
+
+            header = Header.default()
+            header.timeslot = timeslot
+
+            entropy_output = self.components.entropy.state_transition(
+                header=header,
+                pre_state_timeslot=self.state.timeslot,
+                pre_state_entropy=self.state.entropy
+            )
+
+            post_safrole_state = self.components.safrole.state_transition(
+                header=header,
+                pre_state_timeslot=self.state.timeslot,
+                pre_state_safrole=self.state.safrole,
+                pre_state_validator_queue=self.state.validator_queue,
+                post_state_entropy=entropy_output.post_state,
+                post_state_disputes=self.state.disputes,
+                post_state_validator_pool=self.state.validator_pool,
+                extrinsic_tickets=[]
+            )
+            # Update slot_sealer_series in advance
+            self.state.safrole.slot_sealer_series = post_safrole_state.post_state.slot_sealer_series
+            logging.debug(f'New slot_sealer_series: {self.state.safrole.slot_sealer_series.to_json()}')
+            # Process tickets
+            self.extrinsic.process_epoch_change()
+            logging.debug(f"Current tickets {[i.hex() for i in self.extrinsic.own_tickets_current]}")
+
     def validate_header(self, header: Header):
         # if 0 < header.timeslot <= self.state.timeslot.number or header.timeslot > self.current_timeslot():
         #     raise BlockValidationError(SafroleErrorCode.bad_slot)
-
-        # TODO Check parent hash and parent state root
 
         # Validate seal
         author_key = self.get_author_bandersnatch_key(header.author_index)
@@ -167,7 +200,11 @@ class PyjamazApp:
         #     prev_validators=self.state.validator_archive.validators
         # )
 
-    def validate_block(self, block: Block):
+    def validate_block(self, block: Block, parent_hash: bytes):
+
+        if block.header.parent != parent_hash:
+            raise BlockValidationError(f"Parent hash {block.header.parent.hex()} does not match latest block in state 0x{parent_hash.hex()}")
+
         # Check extrinsic hash
         if block.header.extrinsic_hash != block.extrinsic.generate_extrinsic_hash():
             raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
@@ -363,9 +400,12 @@ class PyjamazApp:
     async def import_block(self, block: Block, validate=True) -> STFOutput:
         try:
             with self.state_db.transaction() as transaction:
+                parent_hash = self.retrieve_block_hash(self.state.timeslot.number) or bytes(32)
+
                 output = await self.state_transition(block, transaction)
                 if validate:
-                    self.validate_block(block)
+                    # Todo move validate block before state transition
+                    self.validate_block(block, parent_hash)
 
             await self.store_block(block)
             return output
@@ -382,10 +422,20 @@ class PyjamazApp:
             b'block:' + block.header.timeslot.to_bytes(length=4, byteorder='little'), block.to_jam_bytes().to_bytes()
         )
 
+        self.block_db.put(
+            b'block_hash:' + block.header.timeslot.to_bytes(length=4, byteorder='little'), block.header.hash
+        )
+        self.block_db.put(
+            b'block_number:' + block.header.hash, block.header.timeslot.to_bytes(length=4, byteorder='little')
+        )
+
     def retrieve_block(self, timeslot: int) -> Optional[Block]:
         block_data = self.block_db.get(b'block:' + timeslot.to_bytes(length=4, byteorder='little'))
         if block_data is not None:
             return Block.from_jam_bytes(JamBytes(block_data))
+
+    def retrieve_block_hash(self, timeslot: int) -> Optional[bytes]:
+        return self.block_db.get(b'block_hash:' + timeslot.to_bytes(length=4, byteorder='little'))
 
     def should_produce_block(self) -> bool:
         slot_phase_index = self.current_slot_phase_index()
@@ -398,17 +448,26 @@ class PyjamazApp:
         if self.state.safrole.slot_sealer_series.tickets is not None:
             # Retrieve current ticket
             ticket_id = self.state.safrole.slot_sealer_series.tickets[slot_phase_index].id
+            should_produce = ticket_id in self.extrinsic.own_tickets_current
 
-            logging.debug(f'Waiting for author with ticket ID: {ticket_id.hex()}')
+            if should_produce:
+                logging.debug(f'Owning ticket ID: {ticket_id.hex()}')
+            else:
+                logging.debug(f'Waiting for author with ticket ID: {ticket_id.hex()}')
 
-            return ticket_id in self.extrinsic.own_tickets_current
+            return should_produce
 
         elif self.state.safrole.slot_sealer_series.keys is not None:
             author = self.state.safrole.slot_sealer_series.keys[slot_phase_index]
 
-            logging.debug(f'Waiting for author with key: {author.hex()}')
+            should_produce = author == self.config.keys.bandersnatch.public_key
 
-            return author == self.config.keys.bandersnatch.public_key
+            if should_produce:
+                logging.debug(f'Having author key: {author.hex()}')
+            else:
+                logging.debug(f'Waiting for author with key: {author.hex()}')
+
+            return should_produce
 
     def generate_block_seal(self, header: Header) -> bytes:
         """
@@ -525,7 +584,7 @@ class PyjamazApp:
         if timeslot % EPOCH_TIMESLOTS > 0:
             entropy = self.state.entropy.entropy[2]
 
-            if self.extrinsic.can_add_own_ticket():
+            if self.extrinsic.can_add_own_ticket(timeslot):
 
                 ring_public_keys = [v.bandersnatch for v in self.state.safrole.validators]
 
@@ -544,8 +603,9 @@ class PyjamazApp:
             assurances=[],
             guarantees=[]
         )
+
         header = Header(
-            parent=bytes(32),
+            parent=self.retrieve_block_hash(self.state.timeslot.number) or bytes(32),
             parent_state_root=bytes(32),
             extrinsic_hash=extrinsic.generate_extrinsic_hash(),
             timeslot=timeslot,
@@ -563,11 +623,15 @@ class PyjamazApp:
             seal=bytes(96)
         )
 
+        logging.debug(f"Produced with parent: {header.parent.hex()}")
+
         block = Block(
             header=header,
             extrinsic=extrinsic
         )
         with self.state_db.transaction() as transaction:
+            parent_hash = self.retrieve_block_hash(self.state.timeslot.number) or bytes(32)
+
             output = await self.state_transition(block, transaction)
 
             block.header.epoch_marker = output.epoch_mark
@@ -578,7 +642,8 @@ class PyjamazApp:
             block.header.seal = self.generate_block_seal(block.header)
 
             # TEMP Check if block should be produced after all
-            self.validate_block(block)
+            self.validate_block(block, parent_hash)
+
             # if not self.should_produce_block():
             #     raise BlockValidationError("Shouldn't produce block")
 

@@ -9,7 +9,7 @@ pycryptodome>=3.11.0,<4
 py-bip39-bindings>=0.1.9,<1
 plyvel-ci ~=1.5.1
 
-bandersnatch-vrfs @ git+https://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@github.com/JAMdotTech/py-bandersnatch-vrfs.git@v0.2.1
+bandersnatch-vrfs @ git+https://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@github.com/JAMdotTech/py-bandersnatch-vrfs.git@v0.3.0
 jamcodec @ git+https://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@github.com/JAMdotTech/py-jam-codec.git
 
 numpy~=2.1

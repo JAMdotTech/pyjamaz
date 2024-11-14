@@ -215,31 +215,7 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
     while True:
         timeslot = app.current_timeslot()
 
-        # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
-        #  triggering state changes in STFs caused be epoch change.
-        if app.is_epoch_change(timeslot):
-            # TODO move to app.on_epoch_change()
-            app.latest_epoch = timeslot // EPOCH_TIMESLOTS
-            logging.info("🗓️ Process Epoch change")
-
-            header = Header.default()
-            header.timeslot = timeslot
-            post_safrole_state = app.components.safrole.state_transition(
-                header=header,
-                pre_state_timeslot=app.state.timeslot,
-                pre_state_safrole=app.state.safrole,
-                pre_state_validator_queue=app.state.validator_queue,
-                post_state_entropy=app.state.entropy,
-                post_state_disputes=app.state.disputes,
-                post_state_validator_pool=app.state.validator_pool,
-                extrinsic_tickets=[]
-            )
-            # Update slot_sealer_series in advance
-            app.state.safrole.slot_sealer_series = post_safrole_state.post_state.slot_sealer_series
-            logging.debug(f'New slot_sealer_series: {app.state.safrole.slot_sealer_series.to_json()}')
-            # Process tickets
-            app.extrinsic.on_epoch_change()
-            logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
+        await app.process_timeslot(timeslot)
 
         if app.should_produce_block():
 
@@ -259,7 +235,7 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
                     with open(filepath, 'w') as file:
                         json.dump(block.to_json(), file, indent=2)
 
-                    logger.info(f'🎁 Produced block: #{block.header.timeslot}')
+                    logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
                 except Exception as e:
                     logger.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                     # Rollback state from DB
