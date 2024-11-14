@@ -1,4 +1,13 @@
+import enum
+
+from jamcodec.mixins import Serializable
+
+
 class StateComponentNotFound(ValueError):
+    pass
+
+
+class StateKeyNoResult(ValueError):
     pass
 
 
@@ -9,6 +18,12 @@ class PyjamazAppError(Exception):
 
 class StateTransitionError(PyjamazAppError):
     pass
+
+
+class BlockValidationErrorCode(Serializable, enum.Enum):
+    extrinsic_hash_mismatch = 0
+    invalid_author_key = 1
+    invalid_seal_key = 2
 
 
 class BlockValidationError(PyjamazAppError):

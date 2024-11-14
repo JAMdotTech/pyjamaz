@@ -1,6 +1,8 @@
+import logging
 from dataclasses import dataclass, field
 from functools import cached_property
 
+from bandersnatch_vrfs import ietf_vrf_verify
 from math import floor
 from typing import List, Optional
 
@@ -53,6 +55,25 @@ class TicketEnvelope(Serializable):
         # Validate that signature is a valid ByteArray784
         if not isinstance(self.signature, (bytes, bytearray)) or len(self.signature) != 784:
             raise ValueError("Signature must be a bytes object of length 784")
+
+    def generate_vrf_input(self, entropy: bytes) -> bytes:
+        """
+        GP-0.3.8-eq:75
+
+        Parameters
+        ----------
+        entropy
+
+        Returns
+        -------
+        bytes
+        """
+        #
+        vrf_input_data = b"jam_ticket_seal"  # GP-0.3.8-eq:64
+        vrf_input_data += entropy
+        vrf_input_data += int.to_bytes(self.attempt, byteorder='little', length=1)
+
+        return vrf_input_data
 
 
 # Todo: (Re)move, annotate, reference-GP
@@ -531,7 +552,6 @@ class Header(Serializable):
                                                                                   EPOCH_TIMESLOTS))})
     offenders_marker: List[bytes] = field(metadata={'codec': Vec(H256)})
     author_index: int = field(metadata={'codec': U16})
-    # TODO should be 96 bytes?
     entropy_source: bytes = field(metadata={'codec': Array(U8, 96)})
     seal: bytes = field(metadata={'codec': Array(U8, 96)})
 
@@ -563,14 +583,45 @@ class Header(Serializable):
         bytes
         """
         data = self.to_jam_bytes().to_bytes()
-        if self.seal is not None:
-            data = data[:-96]
-        return data
+        # TODO also omit entropy?
+        return data[:-192]
 
     @hash.setter
     def hash(self, value: bytes) -> None:
         setattr(self, '_hash', value)
 
+    def verify_ticket_seal(self, bandersnatch_key: bytes, ticket_body: TicketBody, entropy: bytes) -> bytes:
+        vrf_output = ietf_vrf_verify(
+            bytes(bandersnatch_key),
+            b"jam_ticket_seal" + entropy + int.to_bytes(ticket_body.attempt, byteorder='little', length=1),
+            self.get_unsigned_payload(),
+            self.seal
+        )
+
+        return ticket_body.id == vrf_output
+
+    def verify_fallback_seal(self, sealer_key: bytes, entropy: bytes) -> bytes:
+        return ietf_vrf_verify(
+            bytes(sealer_key),
+            b"jam_fallback_seal" + entropy,
+            self.get_unsigned_payload(),
+            self.seal
+        )
+
+    @classmethod
+    def default(cls) -> 'Header':
+        return Header(
+                parent=bytes(32),
+                parent_state_root=bytes(32),
+                extrinsic_hash=bytes(32),
+                timeslot=0,
+                epoch_marker=None,
+                tickets_marker=None,
+                offenders_marker=[],
+                author_index=0,
+                entropy_source=bytes(96),
+                seal=bytes(96)
+            )
 
     # Todo: new function for derived author_key from validator set; GP-0.3.8-eq:43 (bold_H_a)
     # def generate_author_bandersnatch_key(self) -> bytes:

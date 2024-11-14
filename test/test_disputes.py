@@ -56,16 +56,25 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
         cls.config = AppConfig(
             ring_data=cls.ring_data,
             storage_engine=InMemoryStorage(),
-            epoch=0
+            common_era=0
         )
 
     @staticmethod
     def create_block(test_vector_input: dict) -> Block:
+
+        extrinsic = Extrinsic(
+            tickets=[],
+            disputes=ExtrinsicDisputes.from_json(test_vector_input['disputes']),
+            preimages=[],
+            assurances=[],
+            guarantees=[]
+        )
+
         return Block(
             header=Header(
                 parent=bytes(32),
                 parent_state_root=bytes(32),
-                extrinsic_hash=bytes(32),
+                extrinsic_hash=extrinsic.generate_extrinsic_hash(),
                 timeslot=0,
                 epoch_marker=None,
                 tickets_marker=None,
@@ -74,13 +83,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
                 entropy_source=bytes(96),
                 seal=bytes(96)
             ),
-            extrinsic=Extrinsic(
-                tickets=[],
-                disputes=ExtrinsicDisputes.from_json(test_vector_input['disputes']),
-                preimages=[],
-                assurances=[],
-                guarantees=[]
-            )
+            extrinsic=extrinsic
         )
 
     @staticmethod
@@ -115,14 +118,14 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
         # Process block
         try:
             app.state = app.retrieve_jam_state()
-            output = await app.process_block(block)
+            output = await app.import_block(block, validate=False)
             dispute_output = {'ok': {"offenders_mark": output.to_json()['offenders_mark']}}
         except PyjamazAppError as e:
             dispute_output = {'err': e.custom_error_code.name}
 
         self.assertEqual(test_vector['output'], dispute_output)
 
-        psi = app.retrieve_component_state(Disputes).to_json()
+        psi = app.components.disputes.retrieve_state().to_json()
 
         post_state = {
             'psi_b': psi['bad_set'],

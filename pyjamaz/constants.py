@@ -1,32 +1,29 @@
-from hashlib import blake2b
-
 WELL_KNOWN_STORAGE_KEYS = {
     # Authorizer pool
-    1: b'\xee\x15Z\xce\x9c@) t\xcbj\xff\x8c\x9c\xcd\xd2s\xc8\x16H\xff\x11I\xef6\xbc\xean\xbb\x8a>%',
-
+    1: bytes.fromhex('0100000000000000000000000000000000000000000000000000000000000000'),
     # Authorizer queue
-    2: b'\xbb0\xa4,\x1eb\xf0\xaf\xda_\nN\x8aV/z\x13\xa2L\xea\x00\xee\x81\x91{\x86\xb8\x9e\x80\x13\x14\xaa',
+    2: bytes.fromhex('0200000000000000000000000000000000000000000000000000000000000000'),
     # Recent blocks
-    3: b'\xe8\x8b\xd7W\xad[\x9b\xed\xf3r\xd8\xd3\xf0\xcfl\x96*F\x9d\xb6\x1a&_d\x18\xe1\xff\xed\x86\xda)\xec',
+    3: bytes.fromhex('0300000000000000000000000000000000000000000000000000000000000000'),
     # Safrole
-    4: b'd"\x061OSK)\xad)}\x82D\n_\x9f!\x0e0\xca\\\xed\x80ZX|\xa4\x02\xde\x92sB',
+    4: bytes.fromhex('0400000000000000000000000000000000000000000000000000000000000000'),
     # Disputes
-    5: b'\xfb=c\\|\xb5s\xd1\xb9\xe9\xbf\xf4\xa6J\xb4\xf2Q\x90\xd2\x9bo\xd8\xdb\x94\xc6\x05\xa2\x18\xa2?\xa9\xad',
+    5: bytes.fromhex('0500000000000000000000000000000000000000000000000000000000000000'),
     # Entropy
-    6: b'\xbf\xa7&\xc3\xc1I\x16[\x10\x8eo\xf5P\xcb\x1a\x1cO\x0f\xdc.\x9f&\xa9\xa1oH\xba\xbes\xb6\x00\xce',
+    6: bytes.fromhex('0600000000000000000000000000000000000000000000000000000000000000'),
     # Validator queue
-    7: b'\x87>O\xe9\xe4\x1e\x92I\x11\xbb\xa3\xecS\xffG\x82\xef\xc8\xc0\xf2D\xfbu\xc8y\xf8\xa42\x8d\x01B\xca',
+    7: bytes.fromhex('0700000000000000000000000000000000000000000000000000000000000000'),
     # Validator pool
-    8: b'\xfa\xdd!\x80\xbdk\x1c\xfas\xa6~x\x92\xd8xR\x1e\xf6\x99\x18\x99P@\xfb\x86ad}2\x1e\x0cU',
+    8: bytes.fromhex('0800000000000000000000000000000000000000000000000000000000000000'),
     # Validator archive
-    9: b'\xf5\xc8\x90T\x17\x93\xf3{\xfe\xef\xc6\xed\xfa8A-\xe0\x05\xf5\xac\x94\xf0\xf1\xeb\xfb\x8bU\xdf \xe6\xf6T',
+    9: bytes.fromhex('0900000000000000000000000000000000000000000000000000000000000000'),
     # Assurances
-    10: b'[K\x01\xa4\xa3\x89.\xa3u\x17\x93\xdaW\xf0r\xae\x08\xee\xc6\x94\xdd\xcd\xa8r#\x9f\xc8#\x9eK\xcd\x1b',
+    10: bytes.fromhex('0a00000000000000000000000000000000000000000000000000000000000000'),
     # Timeslot
-    11: b"D\xe9\xe1\xdf\xd3\x1eL\x8c\x8e\x05\xd6\xdbv\x91'\x90\xae\x9b/\x98\x94c\xf5\x9fp\x9c\xdd=\xf796u",
+    11: bytes.fromhex('0b00000000000000000000000000000000000000000000000000000000000000'),
     # Privileged services
-    12: b'^\x9d\x8b\xacWn\x86\x04\xe7\xc3R`%\xbc\x14o_\xa1x\x17>:U\x92\xd1"h{\xd7\x85\xb5 ',
-    #Todo: recalculate well known key for index 13: Statistics
+    12: bytes.fromhex('0c00000000000000000000000000000000000000000000000000000000000000'),
     # Statistics
-    #13: b'^\xad\xab\xacWn\xa6\x04\xe7\xc3R`%\xbc\x14o_\xa1x\x17>:U\x92\xd1"h{\xd7\x85\xb5 '
+    13: bytes.fromhex('0d00000000000000000000000000000000000000000000000000000000000000'),
 }
+

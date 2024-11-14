@@ -57,6 +57,7 @@ class SafroleOutputMarks(Serializable):
     epoch_mark: Optional[EpochMark] = field(default=None, metadata={'codec': Option(EpochMark.to_codec_def())})   # New epoch signal. OPTIONAL
     tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
 
+
 @dataclass
 class SafroleTestOutput(Serializable):
     ok: Optional[SafroleOutputMarks] = field(default=None, metadata={'codec': Option(SafroleOutputMarks.to_codec_def())})  # Markers
@@ -113,7 +114,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         cls.config = AppConfig(
             ring_data=cls.ring_data,
             storage_engine=InMemoryStorage(),
-            epoch=0
+            common_era=0
         )
 
     @staticmethod
@@ -173,11 +174,19 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         # Convert test case input to block
         test_case_input = deepcopy(test_case.input)
 
+        extrinsic = Extrinsic(
+            tickets=test_case_input.extrinsic,
+            disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
+            preimages=[],
+            assurances=[],
+            guarantees=[]
+        )
+
         block = Block(
             header=Header(
                 parent=bytes(32),
                 parent_state_root=bytes(32),
-                extrinsic_hash=bytes(32),
+                extrinsic_hash=extrinsic.generate_extrinsic_hash(),
                 timeslot=test_case_input.slot,
                 epoch_marker=None,
                 tickets_marker=None,
@@ -186,13 +195,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
                 entropy_source=test_case_input.entropy.ljust(96, b'\x00'),
                 seal=bytes(96)
             ),
-            extrinsic=Extrinsic(
-                tickets=test_case_input.extrinsic,
-                disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
-                preimages=[],
-                assurances=[],
-                guarantees=[]
-            )
+            extrinsic=extrinsic
         )
 
         # Initialize app
@@ -203,7 +206,12 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         # Process block
         try:
             app.state = app.retrieve_jam_state()
-            output = await app.process_block(block)
+
+            # TODO temp check
+            if block.header.timeslot <= app.state.timeslot.number:
+                raise PyjamazAppError(SafroleErrorCode.bad_slot)
+
+            output = await app.import_block(block, validate=False)
             output = SafroleTestOutput(
                 ok=SafroleOutputMarks(
                     epoch_mark=output.epoch_mark, tickets_mark=output.tickets_mark
@@ -213,15 +221,15 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
             output = SafroleTestOutput(err=e.custom_error_code)
 
         self.assertEqual(test_case.output, output, f'{name}: output does not match')
-        self.assertEqual(test_case.post_state.tau, app.retrieve_component_state(Timeslot).number, f'{name}:tau does not match')
-        self.assertEqual(test_case.post_state.eta, app.retrieve_component_state(Entropy).entropy, f'{name}: eta does not match')
-        self.assertEqual(test_case.post_state.lambda_, app.retrieve_component_state(ValidatorArchive).validators, f'{name}: lambda_ does not match')
-        self.assertEqual(test_case.post_state.kappa, app.retrieve_component_state(ValidatorPool).validators, f'{name}: kappa does not match')
-        self.assertEqual(test_case.post_state.gamma_k, app.retrieve_component_state(Safrole).validators, f'{name}: gamma_k does not match')
-        self.assertEqual(test_case.post_state.iota, app.retrieve_component_state(ValidatorQueue).validators, f'{name}: iota does not match')
-        self.assertEqual(test_case.post_state.gamma_a, app.retrieve_component_state(Safrole).ticket_accumulator, f'{name}: gamma_a does not match')
-        self.assertEqual(test_case.post_state.gamma_s, app.retrieve_component_state(Safrole).slot_sealer_series, f'{name}: gamma_s does not match')
-        self.assertEqual(test_case.post_state.gamma_z, app.retrieve_component_state(Safrole).ring_commitment, f'{name}: gamma_z does not match')
+        self.assertEqual(test_case.post_state.tau, app.components.timeslot.retrieve_state().number, f'{name}:tau does not match')
+        self.assertEqual(test_case.post_state.eta, app.components.entropy.retrieve_state().entropy, f'{name}: eta does not match')
+        self.assertEqual(test_case.post_state.lambda_, app.components.validator_archive.retrieve_state().validators, f'{name}: lambda_ does not match')
+        self.assertEqual(test_case.post_state.kappa, app.components.validator_pool.retrieve_state().validators, f'{name}: kappa does not match')
+        self.assertEqual(test_case.post_state.gamma_k, app.components.safrole.retrieve_state().validators, f'{name}: gamma_k does not match')
+        self.assertEqual(test_case.post_state.iota, app.components.validator_queue.retrieve_state().validators, f'{name}: iota does not match')
+        self.assertEqual(test_case.post_state.gamma_a, app.components.safrole.retrieve_state().ticket_accumulator, f'{name}: gamma_a does not match')
+        self.assertEqual(test_case.post_state.gamma_s, app.components.safrole.retrieve_state().slot_sealer_series, f'{name}: gamma_s does not match')
+        self.assertEqual(test_case.post_state.gamma_z, app.components.safrole.retrieve_state().ring_commitment, f'{name}: gamma_z does not match')
 
 
 if __name__ == '__main__':
