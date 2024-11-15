@@ -1,9 +1,11 @@
+import asyncio
 import logging
 from asyncio import CancelledError
 from datetime import datetime
 import json
 import os
 import shutil
+import socket
 
 import anyio
 
@@ -89,9 +91,10 @@ def broadcast_block_to_file(block_dir):
 
 
 def broadcast_block_to_network(protocol):
-    def broadcast(block):
+    async def broadcast(block):
         print("BROADCASTING!!!!!!!!")
-        protocol.send_block(block)
+
+        await protocol.broadcast_block_announcement(block)
 
     return broadcast
 
@@ -154,13 +157,36 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
                     logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
                     tg.start_soon(file_block_importer, app, block_dir, traces_dir, lock)
                 else:
+                    print("LISTNEN: ", host, port)
                     protocol = JAMNPS(host, port, certificate, private_key)
+                    asyncio.create_task(protocol.listen())
+                    validator_metadata = [x.metadata for x in app.state.safrole.validators]
+                    for bin_data in validator_metadata:
+                        #TODO: ook een encoder/decoder voor maken? scale?
+                        hex_data = bin_data.hex()
+                        ip_data = bytes.fromhex(hex_data[:32])
+                        port_data = bytes.fromhex(hex_data[32:36])
+                        validator_address = socket.inet_ntop(socket.AF_INET6, ip_data)
+                        validator_port = int.from_bytes(port_data, 'little')
+                        #TODO: temp hack to connect to everyone but ourselves
+                        if validator_port != port:
+                            #if validator_port in (9000,):
+                                #print("TRY TO CONNECT TO : ", validator_address, validator_port)
+                                #asyncio.create_task(protocol.connect(validator_address, validator_port))
+                                #print("TRY TO CONNECT TO : ", host, validator_port)
+                            validator_address = host #TODO: fix certs for ipv6
+                            asyncio.create_task(protocol.connect(validator_address, validator_port))
 
                     """
                     app.state.safrole.validators[0].metadata
-                        packed_ipv6 = socket.inet_pton(socket.AF_INET6, ipv6_address)
-                        ipv6_address = socket.inet_ntop(socket.AF_INET6, byte_data)
-                    
+                        hex_str = socket.inet_pton(socket.AF_INET6, "::").hex() + (9000).to_bytes(2, byteorder='little').hex()
+                        ip_bytes = bytes.fromhex(hex_str[:32])
+                        
+                        ip_bytes = bytes.fromhex(hex_str[:32])
+                        
+                        port_bytes = bytes.fromhex(hex_str[32:])
+                        ipv6_address = socket.inet_ntop(socket.AF_INET6, ip_bytes.hex())
+                        ipv6_port = int.from_bytes(port_bytes, 'little')
                     
                     send_block_announcement(block.to_jam_bytes().to_bytes())
                     
@@ -303,10 +329,11 @@ async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, broadcaster):
                         await store_trace(pre_state, block, None, app, traces_dir)
 
                     if broadcaster:
-                        broadcaster(block)
+                        await broadcaster(block)
 
                     logger.info(f'🎁 Produced block: #{block.header.timeslot}')
                 except Exception as e:
+                    raise
                     logger.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                     # Rollback state from DB
                     app.state = app.retrieve_jam_state()
@@ -352,7 +379,7 @@ def generate(seed):
 @click.option('--initial-state', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
-@click.option('--cert-bandersnatch', 'cert_bandersnatch', type=str)
+@click.option('--cert-seed', 'cert_seed', type=str)
 @click.option('--cert-file', 'cert_file', type=str)
 @click.option('--cert-pk-file', 'cert_pk_file', type=str)
 @click.option('--cert-ips', 'cert_ips', default="::", type=str)
@@ -366,7 +393,7 @@ async def init(
         initial_state,
         custom_db_path,
         force_overwrite,
-        cert_bandersnatch,
+        cert_seed,
         cert_file,
         cert_pk_file,
         cert_ips,
@@ -409,8 +436,10 @@ async def init(
     app = initialize_app(read_state=False, custom_db_path=custom_db_path)
     app.store_jam_state(jam_state)
 
+    keys = Keys.from_seed(bytes.fromhex(cert_seed))
+
     pk_pem, cert_pem = generate_cert(
-        cert_bandersnatch,
+        keys,
         cert_ips,
         cert_domains,
         cert_country,

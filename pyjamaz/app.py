@@ -595,12 +595,6 @@ class PyjamazApp:
     async def seal_block(self, block: Block):
         pass
 
-    async def send_block(self, block: Block):
-        pass
-
-    async def send_ticket(self, ticket: TicketEnvelope):
-        pass
-
 
 class StateComponents:
 

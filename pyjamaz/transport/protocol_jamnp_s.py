@@ -188,8 +188,7 @@ class JAMNPS(object):
     #PROTOCOL_NAME = "jamnp-s/0/00000000"
     PROTOCOL_NAME = "test"
 
-    def __init__(self, app, host, port, certificate, private_key):
-        self.app = app
+    def __init__(self, host, port, certificate, private_key):
         self.host = host
         self.port = port
         self.session_ticket_store = SessionTicketStore()
@@ -230,7 +229,7 @@ class JAMNPS(object):
             verify_mode=ssl.CERT_NONE
         )
         configuration.load_cert_chain(certfile=self.cert, keyfile=self.pk)
-        configuration.idle_timeout = 300000  # Set idle timeout to 5 minutes
+        #configuration.idle_timeout = 300000  # Set idle timeout to 5 minutes
 
         logger.debug(f"Connecting to {host}:{port}")
         async with connect(
@@ -247,6 +246,7 @@ class JAMNPS(object):
             del self.conn_out[(host, port)]
 
     async def broadcast_block_announcement(self, block):
+        print("self.conn_in", self.conn_in)
         for client_id, client in self.conn_in.items():
             print("SENDING TO CLIENT: ", client_id, client)
             await client.send_block_announcement(block)

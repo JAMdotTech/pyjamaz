@@ -10,7 +10,7 @@ from ipaddress import ip_address
 
 
 def generate_cert(
-        key,
+        keys,
         ips,
         domains,
         country,
@@ -20,11 +20,8 @@ def generate_cert(
         website,
 ):
 
-    # Replace this with your actual 32-byte raw private key bytes
-    raw_private_key_bytes = bytes.fromhex(key)
-
     # Create an Ed25519 private key from raw bytes
-    private_key = ed25519.Ed25519PrivateKey.from_private_bytes(raw_private_key_bytes)
+    private_key = ed25519.Ed25519PrivateKey.from_private_bytes(keys.ed25519.private_key)
 
     # Generate a public key
     public_key = private_key.public_key()
