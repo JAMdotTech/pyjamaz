@@ -235,7 +235,7 @@ class Safrole(StateComponent):
         self.post_state_safrole = None
 
     def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes) -> TicketBody:
-        if ticket_data.attempt not in [0, 1]:
+        if ticket_data.attempt >= gp_const.TICKET_ENTRIES:
             raise StateTransitionError(SafroleErrorCode.bad_ticket_attempt)
 
         vrf_input_data = ticket_data.generate_vrf_input(entropy)
@@ -382,6 +382,9 @@ class Safrole(StateComponent):
 
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
                 logging.info(f"⚠️ New Slot Sealer Series with fallback keys")
+                # TODO temp
+                logging.debug(f"Used entropy: {post_state_entropy.entropy[2].hex()}")
+                logging.debug(f"New Series: {self.post_state_safrole.slot_sealer_series.to_json()}")
             else:
                 # When ticket accumulator is saturated and ticket mark is generated # GP-0.3.2-ref:69
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(
