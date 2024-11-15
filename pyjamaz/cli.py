@@ -176,15 +176,6 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
                             # TODO block.header.timeslot == 0 possible?
                             if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
 
-                                # # TODO move to app.process_timeslot()
-                                # if app.is_epoch_change():
-                                #     logging.info("🗓️ Process Epoch change")
-                                #     # Process tickets
-                                #     app.extrinsic.on_epoch_change()
-                                #     logging.info(
-                                #         f"🎫 Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}"
-                                #         )
-
                                 if traces_dir:
                                     pre_state = app.state.to_json()
 
@@ -194,7 +185,7 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
                                     await store_trace(pre_state, block, output, app, traces_dir)
 
                                 logger.info(f"📦 Imported: {os.path.basename(filepath)}")
-                                logger.info(f'🎫 Collected tickets: {len(app.state.safrole.ticket_accumulator)}')
+                                logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
                             else:
                                 logger.info(f"⏭️ Skipped: {os.path.basename(filepath)}")
 

@@ -19,7 +19,7 @@ class ExtrinsicAccumulator:
         self.ring_data = ring_data
 
     def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes) -> TicketBody:
-        if ticket_data.attempt not in [0, 1]:
+        if ticket_data.attempt >= TICKET_ENTRIES:
             raise ValueError(SafroleErrorCode.bad_ticket_attempt)
 
         vrf_input_data = ticket_data.generate_vrf_input(entropy)
@@ -70,7 +70,8 @@ class ExtrinsicAccumulator:
 
         ticket_id = vrf_output(keypair.private_key, vrf_input_data)
 
-        logging.debug(f'Generated Safrole ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
+        logging.info(f'🎫 Generated ticket: 0x{ticket_id.hex()}')
+        # logging.debug(f'Generated ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
 
         self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)

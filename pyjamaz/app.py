@@ -469,6 +469,20 @@ class PyjamazApp:
 
             return should_produce
 
+    def get_block_seal_vrf_input(self) -> bytes:
+        if self.state.safrole.slot_sealer_series.tickets is not None:
+
+            ticket = self.state.safrole.slot_sealer_series.tickets[self.current_slot_phase_index()]
+            logging.debug(f"VRF input: Ticket Seal for ticket {ticket.id.hex()} with entropy {self.state.entropy.entropy[3].hex()}")
+            return b"jam_ticket_seal" + bytes(self.state.entropy.entropy[3]) + int.to_bytes(ticket.attempt, byteorder='little', length=1)
+
+        elif self.state.safrole.slot_sealer_series.keys is not None:
+            logging.debug(f"VRF input: Fallback Seal with entropy {self.state.entropy.entropy[2].hex()}")
+            return b"jam_fallback_seal" + bytes(self.state.entropy.entropy[2])
+
+        else:
+            raise PyjamazAppError("No valid sealing policy in current state")
+
     def generate_block_seal(self, header: Header) -> bytes:
         """
         # GP-0.4.5-eq:60,61 (Hs)
@@ -479,34 +493,18 @@ class PyjamazApp:
 
         Returns
         -------
-
+        bytes
         """
 
-        if self.state.safrole.slot_sealer_series.tickets is not None:
+        return ietf_vrf_sign(
+            self.config.keys.bandersnatch.private_key,
+            self.get_block_seal_vrf_input(),
+            header.get_unsigned_payload()
+        )
 
-            ticket = self.state.safrole.slot_sealer_series.tickets[self.current_slot_phase_index()]
-            logging.debug(f"Generating Ticket Seal for ticket {ticket.id.hex()} with entropy {self.state.entropy.entropy[3].hex()}")
-            return ietf_vrf_sign(
-                self.config.keys.bandersnatch.private_key,
-                b"jam_ticket_seal" + bytes(self.state.entropy.entropy[3]) + int.to_bytes(ticket.attempt, byteorder='little', length=1),
-                header.get_unsigned_payload()
-            )
-
-        elif self.state.safrole.slot_sealer_series.keys is not None:
-            logging.debug(f"Generating Fallback Seal with entropy {self.state.entropy.entropy[2].hex()}")
-            return ietf_vrf_sign(
-                self.config.keys.bandersnatch.private_key,
-                b"jam_fallback_seal" + bytes(self.state.entropy.entropy[2]),
-                header.get_unsigned_payload()
-            )
-        else:
-            raise PyjamazAppError("No valid sealing policy in current state")
-
-    def generate_entropy_source(self, header_seal: bytes) -> bytes:
+    def generate_entropy_source(self) -> bytes:
         """
         # GP-0.4.5-eq:62 (Hv)
-
-        TODO Verify if Y(Hs) indeed means first 32 bytes
 
         Returns
         -------
@@ -514,7 +512,7 @@ class PyjamazApp:
         """
         return ietf_vrf_sign(
             self.config.keys.bandersnatch.private_key,
-            b"jam_entropy" + header_seal[:32],
+            b"jam_entropy" + self.get_block_seal_vrf_input(),
             b""
         )
 
@@ -596,6 +594,10 @@ class PyjamazApp:
                     ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
+                self.extrinsic.add_own_ticket(
+                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                )
+
         extrinsic = Extrinsic(
             tickets=self.extrinsic.collect_tickets(),
             disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
@@ -617,8 +619,7 @@ class PyjamazApp:
             offenders_marker=[],
             # Placeholder
             author_index=0,
-            # Placeholder
-            entropy_source=bytes(96),
+            entropy_source=self.generate_entropy_source(),
             # Placeholder
             seal=bytes(96)
         )
