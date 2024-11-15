@@ -2,6 +2,7 @@ import asyncio
 import logging
 import struct
 import ssl
+from enum import Enum
 
 from typing import Dict, Optional
 from typing import Optional, cast
@@ -13,7 +14,9 @@ from aioquic.quic.logger import QuicFileLogger
 from aioquic.tls import SessionTicket
 
 from aioquic.asyncio.client import connect
+from jamcodec.base import JamBytes
 
+from pyjamaz.models.block import Block
 
 logger = logging.getLogger("jamnps")
 
@@ -35,95 +38,76 @@ class JAMNPSProtocol(QuicConnectionProtocol):
         self.stream_up_0 = None
 
     def build_handshake_message(self):
-        # Structure `Final`, `Leaf`, `Handshake` as per protocol
-        # This is a placeholder; replace with actual message structure
-        final = b'\x00' * 32  # Final block header hash and slot placeholder
-        leaves = [b'\x00' * 36]  # List of leaves with Header Hash + Slot
-        leaves_encoded = b"".join(leaves)
-        handshake_message = final + struct.pack("<I", len(leaves)) + leaves_encoded
-        handshake_message = b"1"
-        return handshake_message
+        #TODO:
+        return b"1"
 
 
 class ServerProtocol(JAMNPSProtocol):
 
-    async def send_block_announcement(self, block_data):
-        self._quic.send_stream_data(self.stream_up_0, block_data)
+    async def send_block_announcement(self, block_bytes):
+        if self.stream_up_0 is None:
+            raise Exception("NO UP 0 block_announcement channel opend yet??")
+
+        self._quic.send_stream_data(self.stream_up_0, (len(block_bytes).to_bytes(length=4, byteorder='little')) + block_bytes)
         self.transmit()
-        print("Block announcement sent to", self, self.stream_up_0)
+        #TODO: nodig? https://superfastpython.com/asyncio-shield/
+        #waiter = self._loop.create_future()
+        #self.transmit()
+        #return await asyncio.shield(waiter)
+        print("SERVER: Block announcement sent to", self, self.stream_up_0, len(block_bytes))
 
     def quic_event_received(self, event: QuicEvent):
-        print("!!!SERVER: ", event)
+        print("!!!SERVER EVENT:", event)
         if isinstance(event, HandshakeCompleted):
+            # TODO: check client certificate
             # print("Handshake with peer completed.")
-            # if self._quic.configuration.alpn_protocols[0] != "jamnp-s/0/H":
+            # if self._quic.configuration.alpn_protocols[0] != "jamnp-s/0/00000000":
             #     self._quic.close()
             #     return
             self.client_id = id(self)
             self.host.conn_in[self.client_id] = self  # Store reference for broadcasting
-            print(f"New incomming connection {self.client_id} connected.")
+            print(f"SERVER: New incomming connection {self.client_id} connected.")
 
         #TODO: remove connections on connection closed/lost etc
 
         elif isinstance(event, StreamDataReceived):
-            print("SERVER: ", event.data)
-            # payload = str(event.data[:2]).replace("CLIENT ", "").encode('utf-8')
-            # #payload = struct.unpack("!H", bytes(tt))
-            #
-            # msg = bytes(f"SERVER {payload}", 'utf-8')
-            # data = struct.pack("!H", len(msg)) + msg
-            # print("SERVER SENDING DATA: ", data)
-            # self._quic.send_stream_data(event.stream_id, data, end_stream=True)
-            # if len(event.data) >= 36:  # Handshake or Announcement
-            #     self.process_handshake_or_announcement(event.data)
+            print("SERVER RECEIVED: ", event.data)
             if self.stream_up_0 is None:
                 self.stream_up_0 = event.stream_id
+                print("SETTING CHANNEL: ", self.stream_up_0)
 
             if event.stream_id == self.stream_up_0:
                 # Process incoming data (either handshake or announcement)
-                #self.process_up0_message(event.data)
-                print("PROCESS UP 0 MESSAGE", self, event.stream_id)
-                #self._quic.send_stream_data(event.stream_id, b"HUH??", end_stream=True)
-                self._quic.send_stream_data(event.stream_id, b"HUH??")
+                print("Server: Opened UP 0 Block announcement stream", self, event.stream_id)
 
-    # def process_handshake_or_announcement(self, data):
-    #     # Handshake/Announcement structure
-    #     # Final (Header Hash + Slot), followed by list of known leaves in handshake
-    #     header_hash = data[:32]  # Extract header hash
-    #     slot = unpack("<I", data[32:36])[0]  # Extract slot
-    #     print(f"Received Handshake/Announcement with Header Hash: {header_hash.hex()}, Slot: {slot}")
-    #     # If more data, parse known leaves (Handshake), otherwise this may be an announcement
-    #     if len(data) > 36:
-    #         leaves = []
-    #         offset = 36
-    #         while offset < len(data):
-    #             leaf_hash = data[offset:offset + 32]
-    #             leaf_slot = unpack("<I", data[offset + 32:offset + 36])[0]
-    #             leaves.append((leaf_hash.hex(), leaf_slot))
-    #             offset += 36
-    #         print(f"Received Handshake with leaves: {leaves}")
-    #     else:
-    #         print("Received block announcement.")
+    #     elif isinstance(event, ConnectionTerminated):
+    #         # Handle connection termination
+    #         print("Connection terminated")
 
 
 class ClientProtocol(JAMNPSProtocol):
 
     def quic_event_received(self, event: QuicEvent) -> None:
-        print("!!!CLIENT: quic_event_received", event)
+        print("!!!CLIENT EVENT: quic_event_received", event)
         if isinstance(event, StreamDataReceived):
-            print("RECEIVED DATA:", event.data)
-            #TODO: raise asyncio event(block_data)
+            print("CLIENT RECEIVED:", event.data)
             #received = struct.unpack("!H", bytes(event.data[:2]))[0]
+            #TODO: raise asyncio event(block_bytes)
+            byte_data = bytes(event.data)
+            #msg_type = byte_data[0]
+            msg_type = JAMNPS.MSG.UP0_BlockAnnouncement
+            msg_len = int.from_bytes(byte_data[0:4], byteorder='little')
+            import pdb;pdb.set_trace()
+            #TODO: hoe differentieren tussen een lopende stream en een nieuwe message?
+            match msg_type:
+                case JAMNPS.MSG.UP0_BlockAnnouncement:
+                    #TODO: hmmmmm block = Block.from_jam_bytes(JamBytes(byte_data[4:msg_len]))
+                    block = Block.from_jam_bytes(JamBytes(byte_data[4:]))
+                    import pdb;pdb.set_trace()
 
-    async def handle_stream_data(self, stream_id, data, fin):
-        if stream_id == self.stream_up_0:
-            if not fin:
-                self.process_announcement(data)
-
-    def process_announcement(self, data):
-        # Unpack the data as per protocol definitions for Handshake and Announcement structures
-        # Example: parse `Final`, `Leaf`, or `Announcement` messages
-        print("Received block announcement:", data)
+    #     elif isinstance(event, ConnectionTerminated):
+    #         # Handle connection termination
+    #         print("Connection terminated")
 
     async def open_stream_up_0(self):
         # Initiate UP 0 stream by sending the Handshake message
@@ -132,43 +116,7 @@ class ClientProtocol(JAMNPSProtocol):
             self.stream_up_0,
             self.build_handshake_message(),
         )
-        print("Block announcement stream opened")
-
-
-    # async def query(self, msg: str):
-    #     msg = bytes(f"CLIENT {msg}", 'utf-8')
-    #     data = struct.pack("!H", len(msg)) + msg
-    #
-    #     # send query and wait for answer
-    #     stream_id = self._quic.get_next_available_stream_id()
-    #     self._quic.send_stream_data(stream_id, data, end_stream=True)
-    #     print("SEND DATA: ", data)
-    #     waiter = self._loop.create_future()
-    #     self.transmit()
-    #
-    #     return await asyncio.shield(waiter)
-
-    # async def send_initial_data(self, data=b"CONNECT"):
-    #     # Wait until the handshake is complete
-    #     await self._handshake_completed.wait()
-    #     # Open a new stream and send data
-    #     stream_id = self._quic.get_next_available_stream_id()
-    #     self._quic.send_stream_data(stream_id, data, end_stream=True)
-    #     self.transmit()
-    #
-    # def quic_event_received(self, event):
-    #     if isinstance(event, StreamDataReceived):
-    #         stream_id = event.stream_id
-    #         data = event.data
-    #         end_stream = event.end_stream
-    #         # Handle received data
-    #         print(f"Received data on stream {stream_id}: {data.decode()}")
-    #         if end_stream:
-    #             # Optionally close the stream
-    #             pass
-    #     elif isinstance(event, ConnectionTerminated):
-    #         # Handle connection termination
-    #         print("Connection terminated")
+        print("CLIENT: Block announcement stream opened")
 
 
 class SessionTicketStore:
@@ -185,8 +133,11 @@ class SessionTicketStore:
 
 class JAMNPS(object):
 
-    #PROTOCOL_NAME = "jamnp-s/0/00000000"
-    PROTOCOL_NAME = "test"
+    class MSG(Enum):
+        UP0_BlockAnnouncement: int = 0
+
+    #TODO: 00000000 -> vervang met de eerste 8 nibbles vd genesis header hash op __init__
+    PROTOCOL_NAME = "jamnp-s/0/00000000"
 
     def __init__(self, host, port, certificate, private_key):
         self.host = host
@@ -245,8 +196,8 @@ class JAMNPS(object):
             await client.wait_closed()
             del self.conn_out[(host, port)]
 
-    async def broadcast_block_announcement(self, block):
+    async def broadcast_block_announcement(self, block_bytes):
         print("self.conn_in", self.conn_in)
         for client_id, client in self.conn_in.items():
-            print("SENDING TO CLIENT: ", client_id, client)
-            await client.send_block_announcement(block)
+            print("SERVER: SENDING TO CLIENT: ", client_id, client)
+            await client.send_block_announcement(block_bytes)

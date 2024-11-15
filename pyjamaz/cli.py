@@ -80,7 +80,9 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=
 
 # CLI commands
 
+#TODO: replace with events/handlers
 def broadcast_block_to_file(block_dir):
+    #TODO: create a custom transport class for file based communication
     def broadcast(block):
         # write block to dir
         filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
@@ -89,12 +91,11 @@ def broadcast_block_to_file(block_dir):
 
     return broadcast
 
-
 def broadcast_block_to_network(protocol):
     async def broadcast(block):
         print("BROADCASTING!!!!!!!!")
-
-        await protocol.broadcast_block_announcement(block)
+        block_bytes = block.to_jam_bytes().to_bytes()
+        await protocol.broadcast_block_announcement(block_bytes)
 
     return broadcast
 
@@ -161,40 +162,29 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
                     protocol = JAMNPS(host, port, certificate, private_key)
                     asyncio.create_task(protocol.listen())
                     validator_metadata = [x.metadata for x in app.state.safrole.validators]
-                    for bin_data in validator_metadata:
-                        #TODO: ook een encoder/decoder voor maken? scale?
-                        hex_data = bin_data.hex()
-                        ip_data = bytes.fromhex(hex_data[:32])
-                        port_data = bytes.fromhex(hex_data[32:36])
-                        validator_address = socket.inet_ntop(socket.AF_INET6, ip_data)
-                        validator_port = int.from_bytes(port_data, 'little')
-                        #TODO: temp hack to connect to everyone but ourselves
-                        if validator_port != port:
-                            #if validator_port in (9000,):
-                                #print("TRY TO CONNECT TO : ", validator_address, validator_port)
-                                #asyncio.create_task(protocol.connect(validator_address, validator_port))
-                                #print("TRY TO CONNECT TO : ", host, validator_port)
-                            validator_address = host #TODO: fix certs for ipv6
-                            asyncio.create_task(protocol.connect(validator_address, validator_port))
 
-                    """
-                    app.state.safrole.validators[0].metadata
-                        hex_str = socket.inet_pton(socket.AF_INET6, "::").hex() + (9000).to_bytes(2, byteorder='little').hex()
-                        ip_bytes = bytes.fromhex(hex_str[:32])
-                        
-                        ip_bytes = bytes.fromhex(hex_str[:32])
-                        
-                        port_bytes = bytes.fromhex(hex_str[32:])
-                        ipv6_address = socket.inet_ntop(socket.AF_INET6, ip_bytes.hex())
-                        ipv6_port = int.from_bytes(port_bytes, 'little')
-                    
-                    send_block_announcement(block.to_jam_bytes().to_bytes())
-                    
-                    event raisen vanuit protocol -> met binaire data
-                        Block.from_jam_bytes(JamBytes(byte_data))
-                    
-                    The validators' IP-layer endpoints are given as IPv6/port combinations, to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and the latter 2 being a little endian representation of the port.
-                    """
+                    node_port_hex = validator_metadata[0].hex()
+                    node_port = int.from_bytes(bytes.fromhex(node_port_hex[32:36]), 'little')
+
+                    if node_port != port:
+                        for bin_data in validator_metadata:
+                            # TODO: ook een encoder/decoder voor maken? scale?
+                            # The validators' IP-layer endpoints are given as IPv6/port combinations,
+                            # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
+                            # the latter 2 being a little endian representation of the port.
+                            hex_data = bin_data.hex()
+                            ip_data = bytes.fromhex(hex_data[:32])
+                            port_data = bytes.fromhex(hex_data[32:36])
+                            validator_address = socket.inet_ntop(socket.AF_INET6, ip_data)
+                            validator_port = int.from_bytes(port_data, 'little')
+                            #TODO: temp hack to only the main node
+                            if validator_port == node_port:
+                                #if validator_port in (9000,):
+                                    #print("TRY TO CONNECT TO : ", validator_address, validator_port)
+                                    #asyncio.create_task(protocol.connect(validator_address, validator_port))
+                                    #print("TRY TO CONNECT TO : ", host, validator_port)
+                                validator_address = host #TODO: fix certs for ipv6
+                                asyncio.create_task(protocol.connect(validator_address, validator_port))
 
                     tg.start_soon(timeslot_ticker, app, traces_dir, lock, broadcast_block_to_network(protocol))
                     logger.info(f"👀 Watching network for new blocks...")
