@@ -80,6 +80,7 @@ class ServerProtocol(JAMNPSProtocol):
                 # Process incoming data (either handshake or announcement)
                 print("Server: Opened UP 0 Block announcement stream", self, event.stream_id)
 
+    # TODO: handle graceful
     #     elif isinstance(event, ConnectionTerminated):
     #         # Handle connection termination
     #         print("Connection terminated")
@@ -97,14 +98,13 @@ class ClientProtocol(JAMNPSProtocol):
             #msg_type = byte_data[0]
             msg_type = JAMNPS.MSG.UP0_BlockAnnouncement
             msg_len = int.from_bytes(byte_data[0:4], byteorder='little')
-            import pdb;pdb.set_trace()
             #TODO: hoe differentieren tussen een lopende stream en een nieuwe message?
             match msg_type:
                 case JAMNPS.MSG.UP0_BlockAnnouncement:
-                    #TODO: hmmmmm block = Block.from_jam_bytes(JamBytes(byte_data[4:msg_len]))
-                    block = Block.from_jam_bytes(JamBytes(byte_data[4:]))
-                    import pdb;pdb.set_trace()
+                    #block = Block.from_jam_bytes(JamBytes(byte_data[4:(4+msg_len)]))
+                    pass
 
+    # TODO: handle gracefully
     #     elif isinstance(event, ConnectionTerminated):
     #         # Handle connection termination
     #         print("Connection terminated")

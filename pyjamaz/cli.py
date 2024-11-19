@@ -270,6 +270,31 @@ async def file_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 
         await anyio.sleep(.5)
 
+#TODO:
+# class EventQueue():
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.event_queue = asyncio.Queue()
+#
+#     def emit(self, event_name, *args, **kwargs):
+#         handlers = self.event_handlers.get(event_name, [])
+#         for handler in handlers:
+#             result = handler(*args, **kwargs)
+#             if asyncio.iscoroutine(result):
+#                 asyncio.create_task(result)
+#
+#     async def event_listener(protocol):
+#         while True:
+#             event_name, data = await protocol.event_queue.get()
+#             if event_name == 'data_received':
+#                 # Handle the event
+#                 print(f"Data received: {data.decode()}")
+#
+#             protocol.event_queue.task_done()
+#
+#
+# asyncio.create_task(event_listener(protocol))
+
 
 async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, broadcaster):
 
