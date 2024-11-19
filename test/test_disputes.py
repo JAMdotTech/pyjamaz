@@ -89,7 +89,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     def create_jam_state(test_vector: dict) -> JamState:
 
-        jam_state = JamState.generate()
+        jam_state = JamState.create_genesis_state()
         jam_state.timeslot.number = test_vector['tau']
         jam_state.validator_pool = ValidatorPoolState.from_json({"validators": test_vector['kappa']})
         jam_state.validator_archive = ValidatorArchiveState.from_json({"validators": test_vector['lambda']})

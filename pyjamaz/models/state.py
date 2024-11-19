@@ -528,15 +528,15 @@ class JamState(State, Serializable):
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
 
     @classmethod
-    def generate(cls):
-        validator_data = ValidatorData.from_json(
-            {
+    def create_genesis_state(cls, validators: Optional[List[ValidatorData]] = None):
+
+        if validators is None:
+            validators = [ValidatorData.from_json({
                 "bandersnatch": "0x5e465beb01dbafe160ce8216047f2155dd0569f058afd52dcea601025a8d161d",
                 "ed25519": "0x3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
                 "bls": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
                 "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-            }
-        )
+            })] * VALIDATOR_COUNT
 
         return cls(
             timeslot=TimeslotState(number=0),
@@ -545,18 +545,18 @@ class JamState(State, Serializable):
             ),
             safrole=SafroleState(
                 ticket_accumulator=[],
-                validators=[validator_data] * VALIDATOR_COUNT,
+                validators=validators,
                 slot_sealer_series=SlotSealerSeries(keys=[bytes(32)] * EPOCH_TIMESLOTS),
                 ring_commitment=bytes(144),
             ),
             validator_queue=ValidatorQueueState(
-                validators=[validator_data] * VALIDATOR_COUNT
+                validators=validators
             ),
             validator_pool=ValidatorPoolState(
-                validators=[validator_data] * VALIDATOR_COUNT
+                validators=validators
             ),
             validator_archive=ValidatorArchiveState(
-                validators=[validator_data] * VALIDATOR_COUNT
+                validators=validators
             ),
             authorizer_pools=AuthorizerPoolsState(
                 authorizer_pools=[

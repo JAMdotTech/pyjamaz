@@ -19,6 +19,7 @@ from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
+from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 from pyjamaz.models.block import Block, Header
@@ -51,11 +52,6 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=
     # Set common era
     if not common_era:
         common_era = COMMON_ERA
-
-    if common_era < 10000:
-        # epoch is relative to current time
-        current_time = time.time()
-        common_era = int(current_time - (current_time % common_era) + common_era)
 
     # Initialize app
     config = AppConfig(
@@ -105,10 +101,14 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
 
         db_path = custom_db_path or default_db_path
 
+        if not ts:
+            # default start ts
+            current_time = time.time()
+            ts = int(current_time - (current_time % 12) + 12)
+
         try:
             app = initialize_app(
                 keys=Keys.from_seed(bytes.fromhex(seed[2:])),
-                common_era=ts,
                 custom_db_path=custom_db_path
             )
         except StateKeyNoResult:
@@ -118,8 +118,13 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
         logger.info(f'💾 Storage path: {db_path}')
         logger.info(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
         logger.info(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
-        logger.info(f'🗓️ Common Era: {app.config.common_era}')
+        logger.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
         logger.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
+
+        logger.info(
+            f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}'
+            )
+        await anyio.sleep(ts - time.time())
 
         lock = anyio.Lock()
         try:
@@ -200,11 +205,13 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 
 async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
 
-    logger.info(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")}')
-    await anyio.sleep(app.config.common_era - time.time())
-
     while True:
         timeslot = app.current_timeslot()
+
+        if app.state.timeslot.number >= timeslot:
+            logger.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
+            await anyio.sleep(0.1)
+            continue
 
         await app.process_timeslot(timeslot)
 
@@ -237,7 +244,7 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, traces_dir, lock):
         else:
             logger.info(f'💤 Waiting for block #{app.current_timeslot()} | epoch #{app.current_epoch()} | phase #{app.current_slot_phase_index()}')
 
-        await anyio.sleep(app.get_next_slot_timestamp() - time.time())
+        await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01)
 
 
 @main.group()
@@ -271,9 +278,10 @@ def generate(seed):
 
 @main.command()
 @click.option('--initial-state', type=click.Path(exists=True))
+@click.option('--genesis', type=click.Path())
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
-async def init(initial_state, custom_db_path, force_overwrite):
+async def init(initial_state, genesis, custom_db_path, force_overwrite):
     """
     Clears all existing data and initializes the JAM client.
 
@@ -281,6 +289,7 @@ async def init(initial_state, custom_db_path, force_overwrite):
     """
 
     db_path = custom_db_path or default_db_path
+    common_era = None
 
     if os.path.isdir(db_path):
         if not force_overwrite:
@@ -288,22 +297,31 @@ async def init(initial_state, custom_db_path, force_overwrite):
         shutil.rmtree(db_path)  # Delete the directory if it exists
         click.echo(f"The database at '{db_path}' was deleted successfully.")
 
-    if initial_state is None:
-        initial_state = path.join(data_dir, 'initial_state_template.json')
+    if initial_state is not None:
 
-    if initial_state.endswith('.json'):
-        with open(initial_state, 'r') as fp:
-            state_data = json.load(fp)
-        jam_state = JamState.from_json(state_data)
+        if initial_state.endswith('.json'):
+            with open(initial_state, 'r') as fp:
+                state_data = json.load(fp)
+            jam_state = JamState.from_json(state_data)
 
-    elif initial_state.endswith('.bin'):
-        with open(initial_state, 'rb') as fp:
-            jam_state = JamState.from_jam_bytes(JamBytes(fp.read()))
+        elif initial_state.endswith('.bin'):
+            with open(initial_state, 'rb') as fp:
+                jam_state = JamState.from_jam_bytes(JamBytes(fp.read()))
 
+        else:
+            raise BadParameter('initial_state can only be .json or .bin')
     else:
-        raise BadParameter('initial_state can only be .json or .bin')
+        if genesis is None:
+            genesis = path.join(data_dir,  'genesis.json')
 
-    app = initialize_app(read_state=False, custom_db_path=custom_db_path)
+        with open(genesis, 'r') as fp:
+            genesis_data = json.load(fp)
+            common_era = genesis_data['common_era']
+            jam_state = JamState.create_genesis_state(
+                validators=[ValidatorData.from_json(v) for v in genesis_data['validators']],
+            )
+
+    app = initialize_app(read_state=False, custom_db_path=custom_db_path, common_era=common_era)
     app.store_jam_state(jam_state)
     click.echo(f"✅ Initialization complete.")
 

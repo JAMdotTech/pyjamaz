@@ -153,7 +153,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         test_case = Testcase.from_json(test_vector)
 
         # Build initial state
-        jam_state = JamState.generate()
+        jam_state = JamState.create_genesis_state()
 
         jam_state.timeslot = TimeslotState(
             number=test_case.pre_state.tau

@@ -570,9 +570,7 @@ class Header(Serializable):
         if getattr(self, '_hash', None) is not None:
             return getattr(self, '_hash')
 
-        data = self.get_unsigned_payload()
-
-        return blake2b_256_hash(data)
+        return blake2b_256_hash(self.get_unsigned_payload())
 
     def get_unsigned_payload(self) -> bytes:
         """

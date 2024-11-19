@@ -381,7 +381,7 @@ class Safrole(StateComponent):
                     validators.append(post_state_validator_pool.validators[validator_idx].bandersnatch)
 
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
-                logging.info(f"⚠️ New Slot Sealer Series with fallback keys")
+                logging.info(f"🤷‍ New Slot Sealer Series with fallback keys")
                 # TODO temp
                 logging.debug(f"Used entropy: {post_state_entropy.entropy[2].hex()}")
                 logging.debug(f"New Series: {self.post_state_safrole.slot_sealer_series.to_json()}")
