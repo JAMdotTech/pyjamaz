@@ -4,12 +4,12 @@ services:
     build: .
     image: jamdottech/pyjamaz
     volumes:
-      - 'pyjamaz:/app/pyjamaz/data'
-      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
-#      - './data/blocks/:/app/pyjamaz/data/blocks'
-      - 'pyjamaz-traces-alice:/app/pyjamaz/data/traces'
+      - 'pyjamaz-data-alice:/app/pyjamaz/data'
+#      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
+      - './data/blocks/:/app/pyjamaz/data/blocks'
+      - './data/traces-alice:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000000 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces --db-path=/app/pyjamaz/data/alice --ts 10 --verbose'
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000000 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces --verbose'
     ports:
       - '9000:9000'
 
@@ -17,12 +17,12 @@ services:
     build: .
     image: jamdottech/pyjamaz
     volumes:
-      - 'pyjamaz:/app/pyjamaz/data'
-      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
-#      - './data/blocks/:/app/pyjamaz/data/blocks'
-      - 'pyjamaz-traces-bob:/app/pyjamaz/data/traces'
+      - 'pyjamaz-data-bob:/app/pyjamaz/data'
+#      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
+      - './data/blocks/:/app/pyjamaz/data/blocks'
+      - './data/traces-bob:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000001 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces --db-path=/app/pyjamaz/data/bob --ts 10 --verbose'
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000001 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces --verbose'
     ports:
       - '9001:9000'
 
@@ -30,12 +30,12 @@ services:
     build: .
     image: jamdottech/pyjamaz
     volumes:
-      - 'pyjamaz:/app/pyjamaz/data'
-      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
-#      - './data/blocks/:/app/pyjamaz/data/blocks'
-      - 'pyjamaz-traces-charlie:/app/pyjamaz/data/traces'
+      - 'pyjamaz-data-charlie:/app/pyjamaz/data'
+#      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
+      - './data/blocks/:/app/pyjamaz/data/blocks'
+      - './data/traces-charlie:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000002 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces --db-path=/app/pyjamaz/data/charly --ts 10 --verbose'
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000002 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces --verbose'
     ports:
       - '9002:9000'
 
@@ -43,12 +43,12 @@ services:
     build: .
     image: jamdottech/pyjamaz
     volumes:
-      - 'pyjamaz:/app/pyjamaz/data'
-      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
-#      - './data/blocks/:/app/pyjamaz/data/blocks'
-      - 'pyjamaz-traces-dave:/app/pyjamaz/data/traces'
+      - 'pyjamaz-data-dave:/app/pyjamaz/data'
+#      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
+      - './data/blocks/:/app/pyjamaz/data/blocks'
+      - './data/traces-dave:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000003 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces --db-path=/app/pyjamaz/data/dave --ts 10 --verbose'
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000003 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces'
     ports:
       - '9003:9000'
 
@@ -56,12 +56,12 @@ services:
     build: .
     image: jamdottech/pyjamaz
     volumes:
-      - 'pyjamaz:/app/pyjamaz/data'
-      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
-#      - './data/blocks/:/app/pyjamaz/data/blocks'
-      - 'pyjamaz-traces-eve:/app/pyjamaz/data/traces'
+      - 'pyjamaz-data-eve:/app/pyjamaz/data'
+#      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
+      - './data/blocks/:/app/pyjamaz/data/blocks'
+      - './data/traces-eve:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000004 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces --db-path=/app/pyjamaz/data/eve --ts 10 --verbose'
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000004 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces'
     ports:
       - '9004:9000'
 
@@ -69,18 +69,24 @@ services:
     build: .
     image: jamdottech/pyjamaz
     volumes:
-      - 'pyjamaz:/app/pyjamaz/data'
-      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
-#      - './data/blocks/:/app/pyjamaz/data/blocks'
-      - 'pyjamaz-traces-ferdie:/app/pyjamaz/data/traces'
+      - 'pyjamaz-data-ferdie:/app/pyjamaz/data'
+
+#      - 'pyjamaz-blocks:/app/pyjamaz/data/blocks'
+      - './data/blocks/:/app/pyjamaz/data/blocks'
+      - './data/traces-ferdie:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000005 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces --db-path=/app/pyjamaz/data/ferdi --ts 10 --verbose'
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000005 --block-dir /app/pyjamaz/data/blocks --traces-dir /app/pyjamaz/data/traces'
     ports:
       - '9005:9000'
 
 volumes:
-  pyjamaz:
   pyjamaz-blocks:
+  pyjamaz-data-alice:
+  pyjamaz-data-bob:
+  pyjamaz-data-charlie:
+  pyjamaz-data-dave:
+  pyjamaz-data-eve:
+  pyjamaz-data-ferdie:
   pyjamaz-traces-alice:
   pyjamaz-traces-bob:
   pyjamaz-traces-charlie:

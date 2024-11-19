@@ -1,3 +1,8 @@
+TEST_SUITE = 'full'
+import pyjamaz.graypaper_constants as gp_const
+
+
+
 import json
 import os
 import unittest
@@ -10,9 +15,7 @@ from parameterized import parameterized
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum
-from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS
 from pyjamaz.app import AppConfig, PyjamazApp
-from pyjamaz.state.components import Timeslot, Entropy, ValidatorArchive, ValidatorPool, Safrole, ValidatorQueue
 from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.common import ValidatorData
@@ -20,9 +23,7 @@ from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, TicketBody, \
     EpochMark, TicketsMark
 from pyjamaz.models.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
-    ValidatorPoolState, ValidatorArchiveState, RecentHistoryState, ServicesState, AssurancesState, \
-    PrivilegedServicesState, DisputesState, StatisticsState, AuthorizerPoolsState, \
-    AuthorizerQueuesState, Statistic, SlotSealerSeries
+    ValidatorPoolState, ValidatorArchiveState, SlotSealerSeries
 
 
 @dataclass
@@ -32,16 +33,16 @@ class SafroleTestState(Serializable):
 
     eta: List[bytes] = field(metadata={'codec': Array(H256, 4)})
     lambda_: List[ValidatorData] = field(
-        metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
+        metadata={'codec': Array(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
         )  # Validator keys and metadata which were active in the prior epoch.
     kappa: List[ValidatorData] = field(
-        metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
+        metadata={'codec': Array(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
         )  # Validator keys and metadata currently active.
     gamma_k: List[ValidatorData] = field(
-        metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
+        metadata={'codec': Array(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
         )  # Validator keys for the following epoch.
     iota: List[ValidatorData] = field(
-        metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)}
+        metadata={'codec': Array(ValidatorData.to_codec_def(), gp_const.VALIDATOR_COUNT)}
         )  # Validator keys and metadata to be drawn from next.
     gamma_a: List[TicketBody] = field(
         metadata={'codec': Vec(TicketBody.to_codec_def())}
@@ -55,7 +56,7 @@ class SafroleTestState(Serializable):
 # Todo: (Re)move, annotate, reference-GP
 class SafroleOutputMarks(Serializable):
     epoch_mark: Optional[EpochMark] = field(default=None, metadata={'codec': Option(EpochMark.to_codec_def())})   # New epoch signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
+    tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), gp_const.EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
 
 
 @dataclass
@@ -128,6 +129,22 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
     @parameterized.expand(get_test_vector_files(['tiny'], file_filter=''))
     async def test_vector(self, name, directory, test_file):
 
+        if directory == 'tiny':
+            # Set graypaper constants confirm test vectors setup
+            gp_const.TICKET_ENTRIES = 2
+            gp_const.EPOCH_TIMESLOTS = 12  # E
+            gp_const.TICKET_SUBMISSION_END_SLOT = 10  # Y
+            gp_const.VALIDATOR_COUNT = 6  # V
+            gp_const.CORE_COUNT = 2  # C
+            gp_const.SLOT_PERIOD = 6  # P
+        else:
+            gp_const.TICKET_ENTRIES = 2
+            gp_const.EPOCH_TIMESLOTS = 600  # E
+            gp_const.TICKET_SUBMISSION_END_SLOT = 500  # Y
+            gp_const.VALIDATOR_COUNT = 1023  # V
+            gp_const.CORE_COUNT = 341  # C
+            gp_const.SLOT_PERIOD = 6  # P
+
         test_vector = self.load_test_vector_data(directory, test_file)
 
         test_vector['pre_state']['lambda_'] = test_vector['pre_state'].pop('lambda')
@@ -135,18 +152,8 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
         test_case = Testcase.from_json(test_vector)
 
-        # TODO make type factory to bootstrap state SCALE models with correct constants
-        # if directory == 'tiny':
-        #     gp_const.VALIDATOR_COUNT = 6
-        #     gp_const.EPOCH_TIMESLOTS = 12
-        #     gp_const.TICKET_SUBMISSION_END_SLOT = 10
-        # else:
-        #     gp_const.VALIDATOR_COUNT = 1023
-        #     gp_const.EPOCH_TIMESLOTS = 600
-        #     gp_const.TICKET_SUBMISSION_END_SLOT = 500
-
         # Build initial state
-        jam_state = JamState.generate()
+        jam_state = JamState.create_genesis_state()
 
         jam_state.timeslot = TimeslotState(
             number=test_case.pre_state.tau

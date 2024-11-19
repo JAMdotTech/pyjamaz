@@ -21,6 +21,7 @@ from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
+from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 from pyjamaz.models.block import Block, Header
@@ -55,11 +56,6 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=
     # Set common era
     if not common_era:
         common_era = COMMON_ERA
-
-    if common_era < 10000:
-        # epoch is relative to current time
-        current_time = time.time()
-        common_era = int(current_time - (current_time % common_era) + common_era)
 
     # Initialize app
     config = AppConfig(
@@ -132,10 +128,14 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
 
         db_path = custom_db_path or default_db_path
 
+        if not ts:
+            # default start ts
+            current_time = time.time()
+            ts = int(current_time - (current_time % 12) + 12)
+
         try:
             app = initialize_app(
                 keys=Keys.from_seed(bytes.fromhex(seed[2:])),
-                common_era=ts,
                 custom_db_path=custom_db_path
             )
         except StateKeyNoResult:
@@ -145,8 +145,13 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
         logger.info(f'💾 Storage path: {db_path}')
         logger.info(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
         logger.info(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
-        logger.info(f'🗓️ Common Era: {app.config.common_era}')
+        logger.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
         logger.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
+
+        logger.info(
+            f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}'
+            )
+        await anyio.sleep(ts - time.time())
 
         lock = anyio.Lock()
 
@@ -240,15 +245,6 @@ async def file_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
                             # TODO block.header.timeslot == 0 possible?
                             if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
 
-                                # # TODO move to app.process_timeslot()
-                                # if app.is_epoch_change():
-                                #     logging.info("🗓️ Process Epoch change")
-                                #     # Process tickets
-                                #     app.extrinsic.on_epoch_change()
-                                #     logging.info(
-                                #         f"🎫 Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}"
-                                #         )
-
                                 if traces_dir:
                                     pre_state = app.state.to_json()
 
@@ -258,7 +254,7 @@ async def file_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
                                     await store_trace(pre_state, block, output, app, traces_dir)
 
                                 logger.info(f"📦 Imported: {os.path.basename(filepath)}")
-                                logger.info(f'🎫 Collected tickets: {len(app.state.safrole.ticket_accumulator)}')
+                                logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
                             else:
                                 logger.info(f"⏭️ Skipped: {os.path.basename(filepath)}")
 
@@ -298,37 +294,15 @@ async def file_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 
 async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, broadcaster):
 
-    logger.info(f'💤 Waiting to start at {datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")}')
-    await anyio.sleep(app.config.common_era - time.time())
-
     while True:
         timeslot = app.current_timeslot()
 
-        # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
-        #  triggering state changes in STFs caused be epoch change.
-        if app.is_epoch_change(timeslot):
-            # TODO move to app.on_epoch_change()
-            app.latest_epoch = timeslot // EPOCH_TIMESLOTS
-            logging.info("🗓️ Process Epoch change")
+        if app.state.timeslot.number >= timeslot:
+            logger.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
+            await anyio.sleep(0.1)
+            continue
 
-            header = Header.default()
-            header.timeslot = timeslot
-            post_safrole_state = app.components.safrole.state_transition(
-                header=header,
-                pre_state_timeslot=app.state.timeslot,
-                pre_state_safrole=app.state.safrole,
-                pre_state_validator_queue=app.state.validator_queue,
-                post_state_entropy=app.state.entropy,
-                post_state_disputes=app.state.disputes,
-                post_state_validator_pool=app.state.validator_pool,
-                extrinsic_tickets=[]
-            )
-            # Update slot_sealer_series in advance
-            app.state.safrole.slot_sealer_series = post_safrole_state.post_state.slot_sealer_series
-            logging.debug(f'New slot_sealer_series: {app.state.safrole.slot_sealer_series.to_json()}')
-            # Process tickets
-            app.extrinsic.on_epoch_change()
-            logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
+        await app.process_timeslot(timeslot)
 
         if app.should_produce_block():
 
@@ -346,7 +320,7 @@ async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, broadcaster):
                     if broadcaster:
                         await broadcaster(block)
 
-                    logger.info(f'🎁 Produced block: #{block.header.timeslot}')
+                    logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
                 except Exception as e:
                     raise
                     logger.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
@@ -358,7 +332,7 @@ async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, broadcaster):
         else:
             logger.info(f'💤 Waiting for block #{app.current_timeslot()} | epoch #{app.current_epoch()} | phase #{app.current_slot_phase_index()}')
 
-        await anyio.sleep(app.get_next_slot_timestamp() - time.time())
+        await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01)
 
 
 @main.group()
@@ -392,6 +366,7 @@ def generate(seed):
 
 @main.command()
 @click.option('--initial-state', type=click.Path(exists=True))
+@click.option('--genesis', type=click.Path())
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--cert-seed', 'cert_seed', type=str)
@@ -406,6 +381,7 @@ def generate(seed):
 @click.option('--cert-website', 'cert_website', default="test.com", type=str)
 async def init(
         initial_state,
+        genesis,
         custom_db_path,
         force_overwrite,
         cert_seed,
@@ -426,6 +402,7 @@ async def init(
     """
 
     db_path = custom_db_path or default_db_path
+    common_era = None
 
     if os.path.isdir(db_path):
         if not force_overwrite:
@@ -433,22 +410,31 @@ async def init(
         shutil.rmtree(db_path)  # Delete the directory if it exists
         click.echo(f"The database at '{db_path}' was deleted successfully.")
 
-    if initial_state is None:
-        initial_state = path.join(data_dir, 'initial_state_template.json')
+    if initial_state is not None:
 
-    if initial_state.endswith('.json'):
-        with open(initial_state, 'r') as fp:
-            state_data = json.load(fp)
-        jam_state = JamState.from_json(state_data)
+        if initial_state.endswith('.json'):
+            with open(initial_state, 'r') as fp:
+                state_data = json.load(fp)
+            jam_state = JamState.from_json(state_data)
 
-    elif initial_state.endswith('.bin'):
-        with open(initial_state, 'rb') as fp:
-            jam_state = JamState.from_jam_bytes(JamBytes(fp.read()))
+        elif initial_state.endswith('.bin'):
+            with open(initial_state, 'rb') as fp:
+                jam_state = JamState.from_jam_bytes(JamBytes(fp.read()))
 
+        else:
+            raise BadParameter('initial_state can only be .json or .bin')
     else:
-        raise BadParameter('initial_state can only be .json or .bin')
+        if genesis is None:
+            genesis = path.join(data_dir,  'genesis.json')
 
-    app = initialize_app(read_state=False, custom_db_path=custom_db_path)
+        with open(genesis, 'r') as fp:
+            genesis_data = json.load(fp)
+            common_era = genesis_data['common_era']
+            jam_state = JamState.create_genesis_state(
+                validators=[ValidatorData.from_json(v) for v in genesis_data['validators']],
+            )
+
+    app = initialize_app(read_state=False, custom_db_path=custom_db_path, common_era=common_era)
     app.store_jam_state(jam_state)
 
     keys = Keys.from_seed(bytes.fromhex(cert_seed))
