@@ -1,45 +1,55 @@
-async def file_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
+import json
+import logging
+import os
+import anyio
 
-    seen_files = set()
+from pyjamaz.constants import MESSAGE_TYPES
 
-    while True:
-        # Run the directory check in a separate thread (non-blocking)
-        new_files = await anyio.to_thread.run_sync(
-            lambda: {f for f in os.listdir(block_dir) if f.startswith('block-')} - seen_files
-        )
 
-        if new_files:
-            for filename in sorted(new_files):
-                filepath = os.path.join(block_dir, filename)
+logger = logging.getLogger("FSProtocol")
 
-                try:
-                    async with lock:
-                        with open(filepath, 'r') as file:
 
-                            data = json.load(file)
-                            # TODO also import .bin jamcodec files
-                            block = Block.from_json(data)
+class FSProtocol(object):
 
-                            # TODO block.header.timeslot == 0 possible?
-                            if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
+    def __init__(self, block_dir, lock, pubsub):
+        self.block_dir = block_dir
+        self.lock = lock
+        self.pubsub = pubsub
 
-                                if traces_dir:
-                                    pre_state = app.state.to_json()
+    async def listen(self):
 
-                                output = await app.import_block(block)
+        seen_files = set()
 
-                                if traces_dir:
-                                    await store_trace(pre_state, block, output, app, traces_dir)
+        while True:
+            # Run the directory check in a separate thread (non-blocking)
+            new_files = await anyio.to_thread.run_sync(
+                lambda: {f for f in os.listdir(self.block_dir) if f.startswith('block-')} - seen_files
+            )
 
-                                logger.info(f"📦 Imported: {os.path.basename(filepath)}")
-                                logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
-                            else:
-                                logger.info(f"⏭️ Skipped: {os.path.basename(filepath)}")
+            if new_files:
+                for filename in sorted(new_files):
+                    filepath = os.path.join(self.block_dir, filename)
 
-                except Exception as e:
-                    logger.error(f"Failed to process {filepath}: {e}")
+                    try:
+                        async with self.lock:
+                            with open(filepath, 'r') as file:
 
-            # Update the seen_files set to include the newly processed files
-            seen_files.update(new_files)
+                                self.pubsub.send_stream.send_nowait({
+                                    "message_type": MESSAGE_TYPES.IMPORT_BLOCK_JSON,
+                                    "data": json.load(file)
+                                })
 
-        await anyio.sleep(.5)
+                    except Exception as e:
+                        logger.error(f"Failed to process {filepath}: {e}")
+
+                # Update the seen_files set to include the newly processed files
+                seen_files.update(new_files)
+
+            await anyio.sleep(.5)
+
+
+    async def broadcast_block(self, block):
+        # write block to dir
+        filepath = os.path.join(self.block_dir, f'block-{block.header.timeslot:06}.json')
+        with open(filepath, 'w') as file:
+            json.dump(block.to_json(), file, indent=2)

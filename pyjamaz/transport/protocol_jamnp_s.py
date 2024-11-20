@@ -1,6 +1,4 @@
-import asyncio
 import logging
-import struct
 import ssl
 from enum import Enum
 
@@ -18,8 +16,8 @@ from aioquic.asyncio.client import connect
 from pyjamaz.constants import MESSAGE_TYPES
 
 
-logger = logging.getLogger("jamnps")
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger("JAMNPSProtocol")
+logger.setLevel(logging.DEBUG) #TODO: tmp!
 
 
 def wrap_protocol(wrapper, protocol):
@@ -140,7 +138,7 @@ class ClientProtocol(JAMNPSProtocol):
                     match self._msg_type:
 
                         case JAMNPS.MSG.UP0_BlockAnnouncement:
-                            self.wrapper.broadcaster.send_nowait({"message_type": MESSAGE_TYPES.IMPORT_BLOCK, "data": self._msg_buffer[4:self._msg_len]})
+                            self.wrapper.broadcaster.send_stream.send_nowait({"message_type": MESSAGE_TYPES.IMPORT_BLOCK_BYTES, "data": self._msg_buffer[4:self._msg_len]})
                             self._reset_msg()
 
                         case _:
@@ -180,6 +178,7 @@ class JAMNPS(object):
 
     #TODO: 00000000 -> vervang met de eerste 8 nibbles vd genesis header hash op __init__
     PROTOCOL_NAME = "jamnp-s/0/00000000"
+
 
     def __init__(self, host, port, certificate, private_key, broadcaster):
         self.host = host
@@ -245,6 +244,7 @@ class JAMNPS(object):
             logger.info(f"💩 ClientProtocol Cannot connect to {host}:{port}")
 
 
-    async def broadcast_block_announcement(self, block_bytes):
+    async def broadcast_block(self, block):
+        block_bytes = block.to_jam_bytes().to_bytes()
         for client_id, client in self.conn_in.items():
             await client.send_block_announcement(block_bytes)

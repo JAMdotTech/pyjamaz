@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 import socket
-from typing import Dict
+from typing import Dict, List, Callable
 
 import anyio
 
@@ -14,7 +14,7 @@ import time
 from os import path
 
 import asyncclick as click
-from anyio.streams.memory import MemoryObjectReceiveStream
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from asyncclick import BadParameter
 from deepdiff import DeepDiff
 
@@ -30,6 +30,7 @@ from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 from pyjamaz.models.block import Block, Header
 from pyjamaz.models.state import JamState
 from pyjamaz.transport.generate_cert import generate_cert, write_cert
+from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
@@ -79,47 +80,74 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=
 
 # CLI commands
 
-#TODO: replace with events/handlers
-def broadcast_block_to_file(block_dir):
-    #TODO: create a custom transport class for file based communication
-    def broadcast(block):
-        # write block to dir
-        filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
-        with open(filepath, 'w') as file:
-            json.dump(block.to_json(), file, indent=2)
 
-    return broadcast
+class PubSub(object):
 
-def broadcast_block_to_network(protocol):
-    async def broadcast(block):
-        block_bytes = block.to_jam_bytes().to_bytes()
-        await protocol.broadcast_block_announcement(block_bytes)
+    def __init__(self):
+        #self.send_stream: MemoryObjectSendStream[Dict], self.receive_stream: MemoryObjectReceiveStream[Dict] = anyio.create_memory_object_stream[Dict](max_buffer_size=10)
+        self.send_stream: MemoryObjectSendStream[Dict] = None
+        self.receive_stream: MemoryObjectReceiveStream[Dict] = None
+        self.send_stream, self.receive_stream = anyio.create_memory_object_stream[Dict](max_buffer_size=10)
+        self.subscriptions: Dict[str, List[Callable]] = {}
+        for msg_type in MESSAGE_TYPES:
+            self.subscriptions[msg_type.value] = []
 
-    return broadcast
+    def subscribe(self, topic: MESSAGE_TYPES, callback: Callable) -> None:
+        if topic.value not in self.subscriptions:
+            raise Exception(f"Cannot subscribe to topic {topic} (topic does not exist)")
+        self.subscriptions[topic.value].append(callback)
+
+    async def process_messages(self) -> None:
+        async with self.receive_stream, anyio.create_task_group() as tg:
+            async for item in self.receive_stream:
+                for subscriber in self.subscriptions[item["message_type"].value]:
+                    tg.start_soon(subscriber, item["data"])
 
 
-async def process_messages(app: PyjamazApp, traces_dir: str, receive_stream: MemoryObjectReceiveStream[Dict]) -> None:
+def create_debug_block_bytes(app: PyjamazApp, traces_dir: str):
+    async def debug_import_block(data):
+        logger.debug(f"📦 Importing block from bytes")
+        block = Block.from_jam_bytes(JamBytes(data))
 
-    async with receive_stream:
+        if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
 
-        async for item in receive_stream:
+            if traces_dir:
+                pre_state = app.state.to_json()
 
-            if item["message_type"] == MESSAGE_TYPES.IMPORT_BLOCK:
-                block = Block.from_jam_bytes(JamBytes(item["data"]))
-                if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
+            output = await app.import_block(block)
 
-                    if traces_dir:
-                        pre_state = app.state.to_json()
+            if traces_dir:
+                await store_trace(pre_state, block, output, app, traces_dir)
 
-                    output = await app.import_block(block)
+            logger.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
+            logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
+        else:
+            logger.info(f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {app.state.timeslot.number}, should produce block: {app.should_produce_block()})")
 
-                    if traces_dir:
-                        await store_trace(pre_state, block, output, app, traces_dir)
+    return debug_import_block
 
-                    logger.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
-                    logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
-                else:
-                    logger.info(f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {app.state.timeslot.number}, should produce block: {app.should_produce_block()})")
+
+def create_debug_block_json(app: PyjamazApp, traces_dir: str):
+    async def debug_import_block(data):
+        logger.debug(f"📦 Importing block from json")
+        block = Block.from_json(data)
+
+        if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
+
+            if traces_dir:
+                pre_state = app.state.to_json()
+
+            output = await app.import_block(block)
+
+            if traces_dir:
+                await store_trace(pre_state, block, output, app, traces_dir)
+
+            logger.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
+            logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
+        else:
+            logger.info(f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {app.state.timeslot.number}, should produce block: {app.should_produce_block()})")
+
+    return debug_import_block
 
 
 @click.group(invoke_without_command=True)
@@ -181,23 +209,25 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
 
         lock = anyio.Lock()
 
-        send_stream, receive_stream = anyio.create_memory_object_stream[Dict](max_buffer_size=10)
+        pubsub = PubSub()
 
         try:
             async with anyio.create_task_group() as tg:
 
                 # Create a subscriber to process incomming messages (fx from a protocol)
-                tg.start_soon(process_messages, app, traces_dir, receive_stream)
+                tg.start_soon(pubsub.process_messages)
 
                 if block_dir:
-                    # TODO schedule to start at 0ms of clock
-                    tg.start_soon(timeslot_ticker, app, traces_dir, lock, broadcast_block_to_file(block_dir))
                     logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    tg.start_soon(file_block_importer, app, block_dir, traces_dir, lock)
+                    fs_protocol = FSProtocol(block_dir, traces_dir, lock, pubsub)
+                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, fs_protocol.broadcast_block)
+                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_JSON, create_debug_block_json(app, traces_dir))
+                    tg.start_soon(fs_protocol.listen)
                 else:
-                    protocol = JAMNPS(host, port, certificate, private_key, send_stream)
-                    asyncio.create_task(protocol.listen())
-                    #tg.start_soon(protocol.listen)
+                    nps_protocol = JAMNPS(host, port, certificate, private_key, pubsub)
+                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, nps_protocol.broadcast_block)
+                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_BYTES, create_debug_block_bytes(app, traces_dir))
+                    tg.start_soon(nps_protocol.listen)
                     validator_metadata = [x.metadata for x in app.state.safrole.validators]
 
                     node_port_hex = validator_metadata[0].hex()
@@ -219,11 +249,12 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
 
                         #TODO: for now we hardcode all nodes to be hosted on localhost
                         validator_address = "localhost"
-                        tg.start_soon(protocol.connect, validator_address, validator_port)
+                        tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
-                    tg.start_soon(timeslot_ticker, app, traces_dir, lock, broadcast_block_to_network(protocol))
                     logger.info(f"👀 Watching network for new blocks...")
                     tg.start_soon(network_block_importer, app, block_dir, traces_dir, lock)
+
+                tg.start_soon(timeslot_ticker, app, traces_dir, lock, pubsub)
 
         except (KeyboardInterrupt, CancelledError):
             logger.info("Stopping node...")
@@ -251,7 +282,7 @@ async def network_block_importer(app: PyjamazApp,  protocol, traces_dir, lock):
 
 
 
-async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, broadcaster):
+async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, pubsub: PubSub):
 
     while True:
         timeslot = app.current_timeslot()
@@ -276,8 +307,8 @@ async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, broadcaster):
                     if traces_dir:
                         await store_trace(pre_state, block, None, app, traces_dir)
 
-                    if broadcaster:
-                        await broadcaster(block)
+                    if pubsub:
+                        pubsub.send_stream.send_nowait({"message_type": MESSAGE_TYPES.PRODUCED_BLOCK, "data": block})
 
                     logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
                 except Exception as e:
