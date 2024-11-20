@@ -14,31 +14,46 @@ from aioquic.quic.logger import QuicFileLogger
 from aioquic.tls import SessionTicket
 
 from aioquic.asyncio.client import connect
-from jamcodec.base import JamBytes
 
-from pyjamaz.models.block import Block
+from pyjamaz.constants import MESSAGE_TYPES
+
 
 logger = logging.getLogger("jamnps")
+logger.setLevel(logging.DEBUG)
 
 
-def wrap_protocol(host, protocol):
+def wrap_protocol(wrapper, protocol):
     def create_protocol(*args, **kwargs):
         instance = protocol(*args, **kwargs)
-        instance.host = host
+        instance.wrapper = wrapper
         return instance
 
     return create_protocol
+
+
+class InvalidJAMNPSMessage(Exception):
+    pass
 
 
 class JAMNPSProtocol(QuicConnectionProtocol):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.host = None    # Note: should be set in wrap_protocol
+        self.wrapper = None    # Note: should be set in wrap_protocol
         self.stream_up_0 = None
+        #TODO: this buffer should be made per stream_id (for now, we always assume stream_up_0)
+        self._msg_buffer = b""
+        self._msg_len = -1
+        self._msg_type = -1
+
+    def _reset_msg(self):
+        self._msg_buffer = b""
+        self._msg_len = -1
+        self._msg_type = -1
 
     def build_handshake_message(self):
-        #TODO:
+        #TODO: implement handshake response according to JAMSNP
+        """Both sides should begin by sending a handshake message containing all known leaves (descendants of the latest finalized block with no known children)."""
         return b"1"
 
 
@@ -48,66 +63,93 @@ class ServerProtocol(JAMNPSProtocol):
         if self.stream_up_0 is None:
             raise Exception("NO UP 0 block_announcement channel opend yet??")
 
+        """
+        TODO:
+        For now we only send length++, we should send:
+            Final = Header Hash ++ Slot
+            Leaf = Header Hash ++ Slot
+            Handshake = Final ++ len++[Leaf]
+            Announcement = Header ++ Final
+        """
         self._quic.send_stream_data(self.stream_up_0, (len(block_bytes).to_bytes(length=4, byteorder='little')) + block_bytes)
         self.transmit()
-        #TODO: nodig? https://superfastpython.com/asyncio-shield/
-        #waiter = self._loop.create_future()
-        #self.transmit()
-        #return await asyncio.shield(waiter)
-        print("SERVER: Block announcement sent to", self, self.stream_up_0, len(block_bytes))
+        logger.debug(f"ServerProtocol Block announcement sent to stream {self.stream_up_0} ({len(block_bytes)})")
 
     def quic_event_received(self, event: QuicEvent):
-        print("!!!SERVER EVENT:", event)
         if isinstance(event, HandshakeCompleted):
-            # TODO: check client certificate
-            # print("Handshake with peer completed.")
+            # TODO: check client certificate and alpn
             # if self._quic.configuration.alpn_protocols[0] != "jamnp-s/0/00000000":
             #     self._quic.close()
             #     return
+
             self.client_id = id(self)
-            self.host.conn_in[self.client_id] = self  # Store reference for broadcasting
-            print(f"SERVER: New incomming connection {self.client_id} connected.")
+            self.wrapper.conn_in[self.client_id] = self  # Store reference for broadcasting
+
+            logger.info(f'ServerProtocol new connected client #{self.client_id}')
 
         #TODO: remove connections on connection closed/lost etc
 
         elif isinstance(event, StreamDataReceived):
-            print("SERVER RECEIVED: ", event.data)
+            logger.debug(f'Server received data: {event.data}')
+
             if self.stream_up_0 is None:
                 self.stream_up_0 = event.stream_id
-                print("SETTING CHANNEL: ", self.stream_up_0)
 
             if event.stream_id == self.stream_up_0:
                 # Process incoming data (either handshake or announcement)
-                print("Server: Opened UP 0 Block announcement stream", self, event.stream_id)
+                logger.info(f'ServerProtocol new UP-0 stream ({self.stream_up_0}) for client #{self.client_id}')
 
-    # TODO: handle graceful
-    #     elif isinstance(event, ConnectionTerminated):
-    #         # Handle connection termination
-    #         print("Connection terminated")
+        elif isinstance(event, ConnectionTerminated):
+            # Handle connection termination
+            if id(self) in self.wrapper.conn_in:
+                del self.wrapper.conn_in[id(self)]
 
 
 class ClientProtocol(JAMNPSProtocol):
 
     def quic_event_received(self, event: QuicEvent) -> None:
-        print("!!!CLIENT EVENT: quic_event_received", event)
+        logger.debug(f'ClientProtocol received data {event}')
+
         if isinstance(event, StreamDataReceived):
-            print("CLIENT RECEIVED:", event.data)
-            #received = struct.unpack("!H", bytes(event.data[:2]))[0]
-            #TODO: raise asyncio event(block_bytes)
+
+            #TODO: for now we only support 1 stream (UP-0)
+            #stream_id = event.stream_id
+            #stream = self._get_or_create_stream(stream_id)
+
             byte_data = bytes(event.data)
-            #msg_type = byte_data[0]
-            msg_type = JAMNPS.MSG.UP0_BlockAnnouncement
-            msg_len = int.from_bytes(byte_data[0:4], byteorder='little')
-            #TODO: hoe differentieren tussen een lopende stream en een nieuwe message?
-            match msg_type:
-                case JAMNPS.MSG.UP0_BlockAnnouncement:
-                    #block = Block.from_jam_bytes(JamBytes(byte_data[4:(4+msg_len)]))
-                    pass
+            bytes_left = byte_data
+
+            # Note: Parse bytes until stream data is empty: https://github.com/microsoft/msquic/discussions/2037
+            while len(bytes_left) > 0:
+
+                #TODO: do this per channel
+                if not self._msg_buffer:
+                    # Note: first message always contains expected message length
+                    self._msg_len = int.from_bytes(byte_data[0:4], byteorder='little') + 4
+                    # TODO: msg_type is hardcoded to UP0_BlockAnnouncement for now
+                    self._msg_type = JAMNPS.MSG.UP0_BlockAnnouncement
+                    logger.debug(f'ClientProtocol received UP0_BlockAnnouncement')
+
+                nr_bytes_remaining = self._msg_len-len(self._msg_buffer)
+                self._msg_buffer += bytes_left[:nr_bytes_remaining]
+                bytes_left = bytes_left[nr_bytes_remaining:]
+
+                # If we assembled a new message, parse it
+                if 0 < self._msg_len == len(self._msg_buffer):
+
+                    match self._msg_type:
+
+                        case JAMNPS.MSG.UP0_BlockAnnouncement:
+                            self.wrapper.broadcaster.send_nowait({"message_type": MESSAGE_TYPES.IMPORT_BLOCK, "data": self._msg_buffer[4:self._msg_len]})
+                            self._reset_msg()
+
+                        case _:
+                            raise InvalidJAMNPSMessage(f"Invalid JAMNPS message: {self._msg_type}")
+
 
     # TODO: handle gracefully
     #     elif isinstance(event, ConnectionTerminated):
     #         # Handle connection termination
-    #         print("Connection terminated")
 
     async def open_stream_up_0(self):
         # Initiate UP 0 stream by sending the Handshake message
@@ -116,7 +158,7 @@ class ClientProtocol(JAMNPSProtocol):
             self.stream_up_0,
             self.build_handshake_message(),
         )
-        print("CLIENT: Block announcement stream opened")
+        logger.debug(f'ClientProtocol Block announcement stream opened')
 
 
 class SessionTicketStore:
@@ -139,9 +181,10 @@ class JAMNPS(object):
     #TODO: 00000000 -> vervang met de eerste 8 nibbles vd genesis header hash op __init__
     PROTOCOL_NAME = "jamnp-s/0/00000000"
 
-    def __init__(self, host, port, certificate, private_key):
+    def __init__(self, host, port, certificate, private_key, broadcaster):
         self.host = host
         self.port = port
+        self.broadcaster = broadcaster
         self.session_ticket_store = SessionTicketStore()
         self.configuration = QuicConfiguration(
             alpn_protocols=[JAMNPS.PROTOCOL_NAME],
@@ -182,22 +225,26 @@ class JAMNPS(object):
         configuration.load_cert_chain(certfile=self.cert, keyfile=self.pk)
         #configuration.idle_timeout = 300000  # Set idle timeout to 5 minutes
 
-        logger.debug(f"Connecting to {host}:{port}")
-        async with connect(
-                host,
-                port,
-                configuration=configuration,
-                # session_ticket_handler=save_session_ticket,
-                create_protocol=wrap_protocol(self, ClientProtocol),
-        ) as client:
-            client = cast(ClientProtocol, client)
-            self.conn_out[(host, port)] = client
-            await client.open_stream_up_0()
-            await client.wait_closed()
-            del self.conn_out[(host, port)]
+        logger.info(f"ClientProtocol Connecting to {host}:{port}")
+        try:
+            async with connect(
+                    host,
+                    port,
+                    configuration=configuration,
+                    # session_ticket_handler=save_session_ticket,
+                    create_protocol=wrap_protocol(self, ClientProtocol),
+            ) as client:
+                client = cast(ClientProtocol, client)
+                self.conn_out[(host, port)] = client
+                await client.open_stream_up_0()
+                await client.wait_closed()
+                del self.conn_out[(host, port)]
+        except ConnectionError:
+            if (host, port) in self.conn_out:
+                del self.conn_out[(host, port)]
+            logger.info(f"💩 ClientProtocol Cannot connect to {host}:{port}")
+
 
     async def broadcast_block_announcement(self, block_bytes):
-        print("self.conn_in", self.conn_in)
         for client_id, client in self.conn_in.items():
-            print("SERVER: SENDING TO CLIENT: ", client_id, client)
             await client.send_block_announcement(block_bytes)

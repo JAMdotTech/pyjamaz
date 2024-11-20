@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import socket
+from typing import Dict
 
 import anyio
 
@@ -13,11 +14,13 @@ import time
 from os import path
 
 import asyncclick as click
+from anyio.streams.memory import MemoryObjectReceiveStream
 from asyncclick import BadParameter
 from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
+from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
@@ -89,11 +92,34 @@ def broadcast_block_to_file(block_dir):
 
 def broadcast_block_to_network(protocol):
     async def broadcast(block):
-        print("BROADCASTING!!!!!!!!")
         block_bytes = block.to_jam_bytes().to_bytes()
         await protocol.broadcast_block_announcement(block_bytes)
 
     return broadcast
+
+
+async def process_messages(app: PyjamazApp, traces_dir: str, receive_stream: MemoryObjectReceiveStream[Dict]) -> None:
+
+    async with receive_stream:
+
+        async for item in receive_stream:
+
+            if item["message_type"] == MESSAGE_TYPES.IMPORT_BLOCK:
+                block = Block.from_jam_bytes(JamBytes(item["data"]))
+                if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
+
+                    if traces_dir:
+                        pre_state = app.state.to_json()
+
+                    output = await app.import_block(block)
+
+                    if traces_dir:
+                        await store_trace(pre_state, block, output, app, traces_dir)
+
+                    logger.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
+                    logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
+                else:
+                    logger.info(f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {app.state.timeslot.number}, should produce block: {app.should_produce_block()})")
 
 
 @click.group(invoke_without_command=True)
@@ -155,41 +181,45 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
 
         lock = anyio.Lock()
 
+        send_stream, receive_stream = anyio.create_memory_object_stream[Dict](max_buffer_size=10)
+
         try:
             async with anyio.create_task_group() as tg:
+
+                # Create a subscriber to process incomming messages (fx from a protocol)
+                tg.start_soon(process_messages, app, traces_dir, receive_stream)
+
                 if block_dir:
                     # TODO schedule to start at 0ms of clock
                     tg.start_soon(timeslot_ticker, app, traces_dir, lock, broadcast_block_to_file(block_dir))
                     logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
                     tg.start_soon(file_block_importer, app, block_dir, traces_dir, lock)
                 else:
-                    print("LISTNEN: ", host, port)
-                    protocol = JAMNPS(host, port, certificate, private_key)
+                    protocol = JAMNPS(host, port, certificate, private_key, send_stream)
                     asyncio.create_task(protocol.listen())
+                    #tg.start_soon(protocol.listen)
                     validator_metadata = [x.metadata for x in app.state.safrole.validators]
 
                     node_port_hex = validator_metadata[0].hex()
                     node_port = int.from_bytes(bytes.fromhex(node_port_hex[32:36]), 'little')
 
-                    if node_port != port:
-                        for bin_data in validator_metadata:
-                            # TODO: ook een encoder/decoder voor maken? scale?
-                            # The validators' IP-layer endpoints are given as IPv6/port combinations,
-                            # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
-                            # the latter 2 being a little endian representation of the port.
-                            hex_data = bin_data.hex()
-                            ip_data = bytes.fromhex(hex_data[:32])
-                            port_data = bytes.fromhex(hex_data[32:36])
-                            validator_address = socket.inet_ntop(socket.AF_INET6, ip_data)
-                            validator_port = int.from_bytes(port_data, 'little')
-                            #TODO: temp hack to only the main node
-                            if validator_port == node_port:
-                                #if validator_port in (9000,):
-                                    #print("TRY TO CONNECT TO : ", validator_address, validator_port)
-                                    #asyncio.create_task(protocol.connect(validator_address, validator_port))
-                                    #print("TRY TO CONNECT TO : ", host, validator_port)
-                                validator_address = host #TODO: fix certs for ipv6
-                                asyncio.create_task(protocol.connect(validator_address, validator_port))
+                    #if node_port != port:
+                    for bin_data in validator_metadata:
+                        # TODO: create proper encoder/decoder for this..
+                        # The validators' IP-layer endpoints are given as IPv6/port combinations,
+                        # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
+                        # the latter 2 being a little endian representation of the port.
+                        hex_data = bin_data.hex()
+                        ip_data = bytes.fromhex(hex_data[:32])
+                        port_data = bytes.fromhex(hex_data[32:36])
+                        validator_address = socket.inet_ntop(socket.AF_INET6, ip_data)
+                        validator_port = int.from_bytes(port_data, 'little')
+                        if validator_port == port:
+                            continue
+
+                        #TODO: for now we hardcode all nodes to be hosted on localhost
+                        validator_address = "localhost"
+                        tg.start_soon(protocol.connect, validator_address, validator_port)
 
                     tg.start_soon(timeslot_ticker, app, traces_dir, lock, broadcast_block_to_network(protocol))
                     logger.info(f"👀 Watching network for new blocks...")
@@ -219,77 +249,6 @@ async def store_trace(pre_state: dict, block: Block, output: STFOutput, app: Pyj
 async def network_block_importer(app: PyjamazApp,  protocol, traces_dir, lock):
     pass
 
-
-async def file_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
-
-    seen_files = set()
-
-    while True:
-        # Run the directory check in a separate thread (non-blocking)
-        new_files = await anyio.to_thread.run_sync(
-            lambda: {f for f in os.listdir(block_dir) if f.startswith('block-')} - seen_files
-        )
-
-        if new_files:
-            for filename in sorted(new_files):
-                filepath = os.path.join(block_dir, filename)
-
-                try:
-                    async with lock:
-                        with open(filepath, 'r') as file:
-
-                            data = json.load(file)
-                            # TODO also import .bin jamcodec files
-                            block = Block.from_json(data)
-
-                            # TODO block.header.timeslot == 0 possible?
-                            if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
-
-                                if traces_dir:
-                                    pre_state = app.state.to_json()
-
-                                output = await app.import_block(block)
-
-                                if traces_dir:
-                                    await store_trace(pre_state, block, output, app, traces_dir)
-
-                                logger.info(f"📦 Imported: {os.path.basename(filepath)}")
-                                logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
-                            else:
-                                logger.info(f"⏭️ Skipped: {os.path.basename(filepath)}")
-
-                except Exception as e:
-                    logger.error(f"Failed to process {filepath}: {e}")
-
-            # Update the seen_files set to include the newly processed files
-            seen_files.update(new_files)
-
-        await anyio.sleep(.5)
-
-#TODO:
-# class EventQueue():
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.event_queue = asyncio.Queue()
-#
-#     def emit(self, event_name, *args, **kwargs):
-#         handlers = self.event_handlers.get(event_name, [])
-#         for handler in handlers:
-#             result = handler(*args, **kwargs)
-#             if asyncio.iscoroutine(result):
-#                 asyncio.create_task(result)
-#
-#     async def event_listener(protocol):
-#         while True:
-#             event_name, data = await protocol.event_queue.get()
-#             if event_name == 'data_received':
-#                 # Handle the event
-#                 print(f"Data received: {data.decode()}")
-#
-#             protocol.event_queue.task_done()
-#
-#
-# asyncio.create_task(event_listener(protocol))
 
 
 async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, broadcaster):
