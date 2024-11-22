@@ -219,7 +219,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
 
                 if block_dir:
                     logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    fs_protocol = FSProtocol(block_dir, traces_dir, lock, pubsub)
+                    fs_protocol = FSProtocol(block_dir, lock, pubsub)
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, fs_protocol.broadcast_block)
                     pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_JSON, create_debug_block_json(app, traces_dir))
                     tg.start_soon(fs_protocol.listen)
