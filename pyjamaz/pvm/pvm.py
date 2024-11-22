@@ -26,7 +26,7 @@ from .constants import (
 class PVM:
 
     def __init__(self):
-        self.reg = np.zeros(13, dtype=np.uint32)
+        self.reg = np.zeros(13, dtype=np.uint64)
         self.pc:np.uint32 = np.uint32(0)
         self.gas:np.uint64 = np.uint64(0)
         self.mem:npt.NDArray[np.uint8] = np.zeros(1, dtype=np.uint8)
@@ -96,7 +96,7 @@ class PVM:
         self.inst_bitmask: List[bool] = program.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_len: List[int] = []
-        self.reg = np.array(initial_regs, dtype=np.uint32)
+        self.reg = np.array(initial_regs, dtype=np.uint64)
         self.pc = np.uint32(initial_pc)
         self.gas = np.uint64(initial_gas)
         self.status = ExitCondition.none.value

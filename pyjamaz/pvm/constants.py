@@ -18,16 +18,17 @@ class InstructionType(Enum):
     """
     none: np.uint8                                      = np.uint8(0)   #GP_A.5.1
     imm: np.uint8                                       = np.uint8(1)   #GP_A.5.2
-    imm_imm: np.uint8                                   = np.uint8(2)   #GP_A.5.3
-    offset: np.uint8                                    = np.uint8(3)   #GP_A.5.4
-    reg_imm: np.uint8                                   = np.uint8(4)   #GP_A.5.5
-    reg_imm_imm: np.uint8                               = np.uint8(5)   #GP_A.5.6
-    reg_imm_offset: np.uint8                            = np.uint8(6)   #GP_A.5.7
-    reg_reg: np.uint8                                   = np.uint8(7)   #GP_A.5.8
-    reg_reg_imm: np.uint8                               = np.uint8(8)   #GP_A.5.9
-    reg_reg_offset: np.uint8                            = np.uint8(9)   #GP_A.5.10
-    reg_reg_imm_imm: np.uint8                           = np.uint8(10)  #GP_A.5.11
-    reg_reg_reg: np.uint8                               = np.uint8(11)  #GP_A.5.12
+    reg_ext_imm: np.uint8                               = np.uint8(2)  !!!!!!!!! #GP_A.5.3
+    imm_imm: np.uint8                                   = np.uint8(3)   #GP_A.5.4
+    offset: np.uint8                                    = np.uint8(4)   #GP_A.5.5
+    reg_imm: np.uint8                                   = np.uint8(5)   #GP_A.5.6
+    reg_imm_imm: np.uint8                               = np.uint8(6)   #GP_A.5.7
+    reg_imm_offset: np.uint8                            = np.uint8(7)   #GP_A.5.8
+    reg_reg: np.uint8                                   = np.uint8(8)   #GP_A.5.9
+    reg_reg_imm: np.uint8                               = np.uint8(9)   #GP_A.5.10
+    reg_reg_offset: np.uint8                            = np.uint8(10)   #GP_A.5.11
+    reg_reg_imm_imm: np.uint8                           = np.uint8(11)  #GP_A.5.12
+    reg_reg_reg: np.uint8                               = np.uint8(12)  #GP_A.5.13
 
 
 class Opcode(Enum):
@@ -36,127 +37,160 @@ class Opcode(Enum):
     """
     # GP_A.5.1
     # Instructions without Arguments (none)
-    trap: np.uint8                                      = np.uint8(0)   #V
-    fallthrough: np.uint8                               = np.uint8(17)  #V
+    trap: np.uint8                                      = np.uint8(0)
+    fallthrough: np.uint8                               = np.uint8(1)
 
     # GP_A.5.2
     # Instructions with Arguments of One Immediate (imm)
-    ecalli: np.uint8                                    = np.uint8(78)  #O
+    ecalli: np.uint8                                    = np.uint8(10)
 
     # GP_A.5.3
-    # Instructions with Arguments of two Immediates (imm_imm)
-    store_imm_u8: np.uint8                              = np.uint8(62)  #O
-    store_imm_u16: np.uint8                             = np.uint8(79)  #
-    store_imm_u32: np.uint8                             = np.uint8(38)  #
+    # Instructions with Arguments of One Register and One Extended Width Immediate (reg_ext_imm)
+    load_imm_64: np.uint8                              = np.uint8(20)   !!!!!!!!
 
     # GP_A.5.4
-    # Instructions with Arguments of One Offset (offset)
-    jump: np.uint8                                      = np.uint8(5)
+    # Instructions with Arguments of two Immediates (imm_imm)
+    store_imm_u8: np.uint8                              = np.uint8(30)
+    store_imm_u16: np.uint8                             = np.uint8(31)
+    store_imm_u32: np.uint8                             = np.uint8(32)
+    store_imm_u64: np.uint8                             = np.uint8(33)  !!!!!!!!!
 
     # GP_A.5.5
-    # Instructions with Arguments Of One Register & One Immediate (reg_imm)
-    jump_ind: np.uint8                                  = np.uint8(19)  #
-    load_imm: np.uint8                                  = np.uint8(4)
-    load_u8: np.uint8                                   = np.uint8(60)
-    load_i8: np.uint8                                   = np.uint8(74)
-    load_u16: np.uint8                                  = np.uint8(76)
-    load_i16: np.uint8                                  = np.uint8(66)
-    load_u32: np.uint8                                  = np.uint8(10)
-    store_u8: np.uint8                                  = np.uint8(71)
-    store_u16: np.uint8                                 = np.uint8(69)
-    store_u32: np.uint8                                 = np.uint8(22)
+    # Instructions with Arguments of One Offset (offset)
+    jump: np.uint8                                      = np.uint8(40)
 
     # GP_A.5.6
-    # Instructions with Arguments Of One Register & Two Immediates (reg_imm_imm)
-    store_imm_ind_u8: np.uint8                          = np.uint8(26)
-    store_imm_ind_u16: np.uint8                         = np.uint8(54)
-    store_imm_ind_u32: np.uint8                         = np.uint8(13)
+    # Instructions with Arguments Of One Register & One Immediate (reg_imm)
+    jump_ind: np.uint8                                  = np.uint8(50)  #
+    load_imm: np.uint8                                  = np.uint8(51)
+    load_u8: np.uint8                                   = np.uint8(52)
+    load_i8: np.uint8                                   = np.uint8(53)
+    load_u16: np.uint8                                  = np.uint8(54)
+    load_i16: np.uint8                                  = np.uint8(55)
+    load_u32: np.uint8                                  = np.uint8(56)
+    load_i32: np.uint8                                  = np.uint8(57)  !!!!!!!!
+    load_u64: np.uint8                                  = np.uint8(58)  !!!!!!!!
+    store_u8: np.uint8                                  = np.uint8(59)
+    store_u16: np.uint8                                 = np.uint8(60)
+    store_u32: np.uint8                                 = np.uint8(61)
+    store_u64: np.uint8                                 = np.uint8(62)  !!!!!!
 
     # GP_A.5.7
-    # Instructions with Arguments Of One Register, One Immediate and One Offset (reg_imm_offset)
-    load_imm_jump: np.uint8                             = np.uint8(6)
-    branch_eq_imm: np.uint8                             = np.uint8(7)
-    branch_ne_imm: np.uint8                             = np.uint8(15)
-    branch_lt_u_imm: np.uint8                           = np.uint8(44)
-    branch_ge_u_imm: np.uint8                           = np.uint8(52)
-    branch_le_s_imm: np.uint8                           = np.uint8(46)
-    branch_le_u_imm: np.uint8                           = np.uint8(59)
-    branch_gt_u_imm: np.uint8                           = np.uint8(50)
-    branch_lt_s_imm: np.uint8                           = np.uint8(32)
-    branch_ge_s_imm: np.uint8                           = np.uint8(45)
-    branch_gt_s_imm: np.uint8                           = np.uint8(53)
+    # Instructions with Arguments Of One Register & Two Immediates (reg_imm_imm)
+    store_imm_ind_u8: np.uint8                          = np.uint8(70)
+    store_imm_ind_u16: np.uint8                         = np.uint8(71)
+    store_imm_ind_u32: np.uint8                         = np.uint8(72)
+    store_imm_ind_u64: np.uint8                         = np.uint8(73)  !!!!!!
 
     # GP_A.5.8
-    # Instructions with Arguments Of Two Registers (reg_reg)
-    move_reg: np.uint8                                  = np.uint8(82)
-    sbrk: np.uint8                                      = np.uint8(87)
+    # Instructions with Arguments Of One Register, One Immediate and One Offset (reg_imm_offset)
+    load_imm_jump: np.uint8                             = np.uint8(80)
+    branch_eq_imm: np.uint8                             = np.uint8(81)
+    branch_ne_imm: np.uint8                             = np.uint8(82)
+    branch_lt_u_imm: np.uint8                           = np.uint8(83)
+    branch_le_u_imm: np.uint8                           = np.uint8(84)
+    branch_ge_u_imm: np.uint8                           = np.uint8(85)
+    branch_gt_u_imm: np.uint8                           = np.uint8(86)
+    branch_lt_s_imm: np.uint8                           = np.uint8(87)
+    branch_le_s_imm: np.uint8                           = np.uint8(88)
+    branch_ge_s_imm: np.uint8                           = np.uint8(89)
+    branch_gt_s_imm: np.uint8                           = np.uint8(90)
 
     # GP_A.5.9
-    # Instructions with Arguments Of Two Registers & One Immediate (reg_reg_imm)
-    store_ind_u8: np.uint8                              = np.uint8(16)
-    store_ind_u16: np.uint8                             = np.uint8(29)
-    store_ind_u32: np.uint8                             = np.uint8(3)
-    load_ind_u8: np.uint8                               = np.uint8(11)
-    load_ind_i8: np.uint8                               = np.uint8(21)
-    load_ind_u16: np.uint8                              = np.uint8(37)
-    load_ind_i16: np.uint8                              = np.uint8(33)
-    load_ind_u32: np.uint8                              = np.uint8(1)
-    add_imm: np.uint8                                   = np.uint8(2)
-    and_imm: np.uint8                                   = np.uint8(18)
-    xor_imm: np.uint8                                   = np.uint8(31)
-    or_imm: np.uint8                                    = np.uint8(49)
-    mul_imm: np.uint8                                   = np.uint8(35)
-    mul_upper_s_s_imm: np.uint8                         = np.uint8(65)
-    mul_upper_u_u_imm: np.uint8                         = np.uint8(63)
-    set_lt_u_imm: np.uint8                              = np.uint8(27)
-    set_lt_s_imm: np.uint8                              = np.uint8(56)
-    shlo_l_imm: np.uint8                                = np.uint8(9)
-    shlo_r_imm: np.uint8                                = np.uint8(14)
-    shar_r_imm: np.uint8                                = np.uint8(25)
-    neg_add_imm: np.uint8                               = np.uint8(40)
-    set_gt_u_imm: np.uint8                              = np.uint8(39)
-    set_gt_s_imm: np.uint8                              = np.uint8(61)
-    shlo_r_imm_alt: np.uint8                            = np.uint8(72)
-    shar_r_imm_alt: np.uint8                            = np.uint8(80)
-    shlo_l_imm_alt: np.uint8                            = np.uint8(75)
-    cmov_iz_imm: np.uint8                               = np.uint8(85)
-    cmov_nz_imm: np.uint8                               = np.uint8(86)
+    # Instructions with Arguments Of Two Registers (reg_reg)
+    move_reg: np.uint8                                  = np.uint8(100)
+    sbrk: np.uint8                                      = np.uint8(101)
 
     # GP_A.5.10
-    # Instructions with Arguments of Two Registers & One Offset (reg_reg_offset)
-    branch_eq: np.uint8                                 = np.uint8(24)
-    branch_ne: np.uint8                                 = np.uint8(30)
-    branch_lt_u: np.uint8                               = np.uint8(47)
-    branch_lt_s: np.uint8                               = np.uint8(48)
-    branch_ge_u: np.uint8                               = np.uint8(41)
-    branch_ge_s: np.uint8                               = np.uint8(43)
+    # Instructions with Arguments Of Two Registers & One Immediate (reg_reg_imm)
+    store_ind_u8: np.uint8                              = np.uint8(110)
+    store_ind_u16: np.uint8                             = np.uint8(111)
+    store_ind_u32: np.uint8                             = np.uint8(112)
+    store_ind_u64: np.uint8                             = np.uint8(113) !!!!!!!!!
+    load_ind_u8: np.uint8                               = np.uint8(114)
+    load_ind_i8: np.uint8                               = np.uint8(115)
+    load_ind_u16: np.uint8                              = np.uint8(116)
+    load_ind_i16: np.uint8                              = np.uint8(117)
+    load_ind_u32: np.uint8                              = np.uint8(118)
+    load_ind_i32: np.uint8                              = np.uint8(119)   !!!!!!!!
+    load_ind_u64: np.uint8                              = np.uint8(120)   !!!!!!!!
+    add_imm_32: np.uint8                                = np.uint8(121)   !!!!!!!
+    and_imm: np.uint8                                   = np.uint8(122)
+    xor_imm: np.uint8                                   = np.uint8(123)
+    or_imm: np.uint8                                    = np.uint8(124)
+    mul_imm_32: np.uint8                                = np.uint8(125) !!!!!!!!!
+    set_lt_u_imm: np.uint8                              = np.uint8(126)
+    set_lt_s_imm: np.uint8                              = np.uint8(127)
+    shlo_l_imm_32: np.uint8                             = np.uint8(128)  !!!!!!!!!
+    shlo_r_imm_32: np.uint8                             = np.uint8(129) !!!!!!!!!!
+    shar_r_imm_32: np.uint8                             = np.uint8(130)  !!!!!
+    neg_add_imm_32: np.uint8                            = np.uint8(131) !!!!!!!!
+    set_gt_u_imm: np.uint8                              = np.uint8(132)
+    set_gt_s_imm: np.uint8                              = np.uint8(133)
+    shlo_l_imm_alt_32: np.uint8                         = np.uint8(134) !!!!!!
+    shlo_r_imm_alt_32: np.uint8                         = np.uint8(135) !!!!!!!
+    shar_r_imm_alt_32: np.uint8                         = np.uint8(136) !!!!!!!
+    cmov_iz_imm: np.uint8                               = np.uint8(137)
+    cmov_nz_imm: np.uint8                               = np.uint8(138)
+
+    add_imm_64: np.uint8                                = np.uint8(139) !!!!!!!!!!!!!
+    mul_imm_64: np.uint8                                = np.uint8(139) !!!!!!!!!!!!
+    shlo_l_imm_64: np.uint8                             = np.uint8(140) !!!!!!!!!!!!
+    shlo_r_imm_64: np.uint8                             = np.uint8(141) !!!!!!!!!!!!
+    shar_r_imm_64: np.uint8                             = np.uint8(142) !!!!!!!!!!!!
+    ned_add_imm_64: np.uint8                            = np.uint8(143) !!!!!!!!!!!!
+    shlo_l_imm_alt_64: np.uint8                         = np.uint8(144) !!!!!!!!!!!!
+    shlo_r_imm_alt_64: np.uint8                         = np.uint8(145) !!!!!!!!!!!!
+    shar_r_imm_alt_64: np.uint8                         = np.uint8(146) !!!!!!!!!!!!
+
+    #mul_upper_s_s_imm: np.uint8                         = np.uint8(65) ??????????????? !!!!!!!!!!!!!!
+    #mul_upper_u_u_imm: np.uint8                         = np.uint8(63) ??????????????  !!!!!!!!!!!!!!
 
     # GP_A.5.11
-    # Instructions with Arguments Of Two Registers And Two Immediates (reg_reg_imm_imm_
-    load_imm_jump_ind: np.uint8                         = np.uint8(42)
+    # Instructions with Arguments of Two Registers & One Offset (reg_reg_offset)
+    branch_eq: np.uint8                                 = np.uint8(150)
+    branch_ne: np.uint8                                 = np.uint8(151)
+    branch_lt_u: np.uint8                               = np.uint8(152)
+    branch_lt_s: np.uint8                               = np.uint8(153)
+    branch_ge_u: np.uint8                               = np.uint8(154)
+    branch_ge_s: np.uint8                               = np.uint8(155)
 
     # GP_A.5.12
+    # Instructions with Arguments Of Two Registers And Two Immediates (reg_reg_imm_imm_
+    load_imm_jump_ind: np.uint8                         = np.uint8(160)
+
+    # GP_A.5.13
     # Instructions with Arguments Of Three Registers (reg_reg_reg)
-    add: np.uint8                                       = np.uint8(8)
-    sub: np.uint8                                       = np.uint8(20)
-    _and: np.uint8                                      = np.uint8(23)
-    xor: np.uint8                                       = np.uint8(28)
-    _or: np.uint8                                       = np.uint8(12)
-    mul: np.uint8                                       = np.uint8(34)
-    mul_upper_s_s: np.uint8                             = np.uint8(67)
-    mul_upper_u_u: np.uint8                             = np.uint8(57)
-    mul_upper_s_u: np.uint8                             = np.uint8(81)
-    div_u: np.uint8                                     = np.uint8(68)
-    div_s: np.uint8                                     = np.uint8(64)
-    rem_u: np.uint8                                     = np.uint8(73)
-    rem_s: np.uint8                                     = np.uint8(70)
-    set_lt_u: np.uint8                                  = np.uint8(36)
-    set_lt_s: np.uint8                                  = np.uint8(58)
-    shlo_l: np.uint8                                    = np.uint8(55)
-    shlo_r: np.uint8                                    = np.uint8(51)
-    shar_r: np.uint8                                    = np.uint8(77)
-    cmov_iz: np.uint8                                   = np.uint8(83)
-    cmov_nz: np.uint8                                   = np.uint8(84)
+    add_32: np.uint8                                    = np.uint8(170) !!!!!!
+    sub_32: np.uint8                                    = np.uint8(171) !!!!!!
+    mul_32: np.uint8                                    = np.uint8(172) !!!!!!
+    div_u_32: np.uint8                                  = np.uint8(173) !!!!!!
+    div_s_32: np.uint8                                  = np.uint8(174) !!!!!!
+    rem_u_32: np.uint8                                  = np.uint8(175) !!!!!!
+    rem_s_32: np.uint8                                  = np.uint8(176) !!!!!!
+    shlo_l_32: np.uint8                                 = np.uint8(177) !!!!!!
+    shlo_r_32: np.uint8                                 = np.uint8(178) !!!!!!
+    shar_r_32: np.uint8                                 = np.uint8(179) !!!!!!
+    add_64: np.uint8                                    = np.uint8(180) !!!!!!
+    sub_64: np.uint8                                    = np.uint8(181) !!!!!!
+    mul_64: np.uint8                                    = np.uint8(182) !!!!!!
+    div_u_64: np.uint8                                  = np.uint8(183) !!!!!!
+    div_s_64: np.uint8                                  = np.uint8(184) !!!!!!
+    rem_u_64: np.uint8                                  = np.uint8(185) !!!!!!
+    rem_s_64: np.uint8                                  = np.uint8(186) !!!!!!
+    shlo_l_64: np.uint8                                 = np.uint8(187) !!!!!!
+    shlo_r_64: np.uint8                                 = np.uint8(188) !!!!!!
+    shar_r_64: np.uint8                                 = np.uint8(189) !!!!!!
+    _and: np.uint8                                      = np.uint8(190)
+    xor: np.uint8                                       = np.uint8(191)
+    _or: np.uint8                                       = np.uint8(192)
+    mul_upper_s_s: np.uint8                             = np.uint8(193)
+    mul_upper_u_u: np.uint8                             = np.uint8(194)
+    mul_upper_s_u: np.uint8                             = np.uint8(195)
+    set_lt_u: np.uint8                                  = np.uint8(196)
+    set_lt_s: np.uint8                                  = np.uint8(197)
+    cmov_iz: np.uint8                                   = np.uint8(198)
+    cmov_nz: np.uint8                                   = np.uint8(199)
 
 
 """
