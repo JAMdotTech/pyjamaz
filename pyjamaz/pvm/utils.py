@@ -11,11 +11,11 @@ def pvm_X(x:np.uint32, n:np.uint8) -> np.uint32:
     """
     x = int(x)
     n = int(n)
-    # Ensure x is within the range of 2^(8*n)
-    assert 0 <= x < 2 ** (8 * int(n)), "x must be in the range of 0 to 2^(8*n) - 1"
+    # Ensure x is within the range of 2^(8*n) and never bigger than a 64 bit uint
+    assert 0 <= x < 2 ** (8 * int(n)) < 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
 
-    # Calculate the term (2^32 - 2^(8*n))
-    term = (2 ** 32 - 2 ** (8 * n))
+    # Calculate the term (2^64 - 2^(8*n))
+    term = (2 ** 64 - 2 ** (8 * n))
 
     # Calculate the floor division part: floor(x / 2^(8*n - 1))
     factor = x // (2 ** (8 * n - 1))
@@ -24,7 +24,7 @@ def pvm_X(x:np.uint32, n:np.uint8) -> np.uint32:
     return x + factor * term
 
 
-def pvm_Zn(a:np.uint32, n:np.uint8) -> np.int32:
+def pvm_Z(a:np.uint32, n:np.uint8) -> np.int32:
     """
     Transform number a signed a from unsigned int (max uint32) [0, 2^(8n)) to a signed int (range [-2^(8n-1), 2^(8n-1) - 1]).
     """
@@ -40,7 +40,7 @@ def pvm_Zn(a:np.uint32, n:np.uint8) -> np.int32:
         return a - max_value
 
 
-def pvm_Zn_inv(a:np.int32, n:np.uint8):
+def pvm_Z_inv(a:np.int32, n:np.uint8):
     """
     Transform a from the signed range [-2^(8n-1), 2^(8n-1) - 1] to unsigned range [0, 2^(8n)).
     """
@@ -49,7 +49,7 @@ def pvm_Zn_inv(a:np.int32, n:np.uint8):
     return ((2**(8*n)) + a) % (2**(8*n))
 
 
-# def pvm_Bn(x, n):
+# def pvm_B(x, n):
 #     """
 #     Transforms an integer x from the range [0, 2^(8n)) into a bit array y of length 8n.
 #     """
@@ -69,24 +69,78 @@ def pvm_Zn_inv(a:np.int32, n:np.uint8):
 
 def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
     if l == 1:
-        return np.uint32(source[addr + 0])
+        return np.uint32(source[addr + 0]) % 2**8
     elif l == 2:
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
-        return np.uint32((byte1 << 8) + byte0)
+        return np.uint32((byte1 << 8) + byte0) % 2**16
     elif l == 3:
+        #TODO: do 3 byte ints appear? (scale encoded maybe?)
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         byte2 = np.uint32(source[addr + 2])
-        return np.uint32((byte2 << 16) + (byte1 << 8) + byte0)
+        return np.uint32((byte2 << 16) + (byte1 << 8) + byte0)  % 2**32
     elif l == 4:
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         byte2 = np.uint32(source[addr + 2])
         byte3 = np.uint32(source[addr + 3])
-        return np.uint32((byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0)
+        return np.uint32(
+            (byte3 << 24) +
+            (byte2 << 16) +
+            (byte1 << 8) +
+            byte0
+        ) % 2**32
+    elif l == 8:
+        byte0 = np.uint8( source[addr + 0])
+        byte1 = np.uint16(source[addr + 1])
+        byte2 = np.uint32(source[addr + 2])
+        byte3 = np.uint32(source[addr + 3])
+        byte4 = np.uint32(source[addr + 4])
+        byte5 = np.uint32(source[addr + 5])
+        byte6 = np.uint32(source[addr + 6])
+        byte7 = np.uint32(source[addr + 7])
+        return np.uint64(
+            (byte7 << 56) +
+            (byte6 << 48) +
+            (byte5 << 40) +
+            (byte4 << 32) +
+            (byte3 << 24) +
+            (byte2 << 16) +
+            (byte1 << 8) +
+            byte0
+        )
     else:
         raise UIntValueError(f"Invalid uint length: {l}")
+
+
+def write_uint(dest: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8, val: int):
+    # Note: GP applies a modulus over the value to write denoted by their bit length
+    if l < 8:
+        val = val % (2 ** (l*8))
+
+    if l == 1:
+        dest[addr + 0] = np.uint8(val & 0xFF)
+    elif l == 2:
+        dest[addr + 0] = np.uint8( val & 0x00FF)
+        dest[addr + 1] = np.uint8((val & 0xFF00) >> 8)
+    elif l == 4:
+        dest[addr + 0] = np.uint8( val & 0x000000FF)
+        dest[addr + 1] = np.uint8((val & 0x0000FF00) >> 8)
+        dest[addr + 2] = np.uint8((val & 0x00FF0000) >> 16)
+        dest[addr + 3] = np.uint8((val & 0xFF000000) >> 24)
+    elif l == 8:
+        dest[addr + 0] = np.uint8( val & 0x00000000000000FF)
+        dest[addr + 1] = np.uint8((val & 0x000000000000FF00) >> 8)
+        dest[addr + 2] = np.uint8((val & 0x0000000000FF0000) >> 16)
+        dest[addr + 3] = np.uint8((val & 0x00000000FF000000) >> 24)
+        dest[addr + 4] = np.uint8((val & 0x000000FF00000000) >> 32)
+        dest[addr + 5] = np.uint8((val & 0x0000FF0000000000) >> 40)
+        dest[addr + 6] = np.uint8((val & 0x00FF000000000000) >> 48)
+        dest[addr + 7] = np.uint8((val & 0xFF00000000000000) >> 56)
+    else:
+        raise UIntValueError(f"Invalid uint length: {l}")
+
 
 
 # def read_i16(source: npt.NDArray[np.uint8], addr: np.uint32) -> np.int16:
