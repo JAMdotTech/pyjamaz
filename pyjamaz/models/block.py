@@ -26,6 +26,7 @@ class TicketBody(Serializable):
 # Todo: (Re)move, annotate, reference-GP
 class EpochMark(Serializable):
     entropy: bytes = field(metadata={'codec': H256})
+    tickets_entropy: bytes = field(metadata={'codec': H256})
     validators: List[bytes] = field(metadata={'codec': Array(H256, VALIDATOR_COUNT)})
 
 
