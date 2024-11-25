@@ -325,7 +325,7 @@ class WorkResult(Serializable):
 
     Attributes
     ----------
-    service: U32
+    service_id: U32
         GP-0.5.0-eq:11.6 (s) | The index of a service whose state is to be altered and thus whose refine code was
         already executed.
     code_hash: H256
@@ -333,16 +333,16 @@ class WorkResult(Serializable):
     payload_hash: H256
         GP-0.5.0-eq:11.6 (l) | The hash of the payload within the work item which was executed in the refine stage to
         give this result.
-    gas_ratio: U64
+    gas: U64
         GP-0.5.0-eq:11.6 (g) | The gas prioritization ration used when determining how much gas should be allocated to
         execute of this item's accumulate.
     result: WorkExecResult
         GP-0.5.0-eq:11.6 (o) | Output or error of the execution of the code.
     """
-    service: int = field(metadata={'codec': U32})
+    service_id: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
     payload_hash: bytes = field(metadata={'codec': H256})
-    gas_ratio: int = field(metadata={'codec': U64})
+    gas: int = field(metadata={'codec': U64})
     result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
 
 
@@ -402,6 +402,22 @@ class WorkPackageSpec(Serializable):
 
 
 @dataclass
+class SegmentRootLookupItem(Serializable):
+    """
+    GP-0.5.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
+
+    Attributes
+    ----------
+    work_package_hash: H256
+        GP-0.5.0-eq:11.2 (bold_l_key) | The segment_tree_lookup_item key.
+    segment_tree_root: H256
+        GP-0.5.0-eq:11.2 (bold_l_value) | The segment_tree_lookup_item key.
+    """
+    work_package_hash: bytes = field(metadata={'codec': H256})
+    segment_tree_root: bytes = field(metadata={'codec': H256})
+
+
+@dataclass
 class WorkReport(Serializable):
     """
     GP-0.5.0-eq:11.2 (blackboard_W) | A work report comprises several work outputs.
@@ -418,7 +434,7 @@ class WorkReport(Serializable):
         GP-0.5.0-eq:11.2 (a) | The authorizer hash.
     auth_output: Bytes
         GP-0.5.0-eq:11.2 (bold_o) | The output.
-    segment_root_lookup: Dict(H256,H256)
+    segment_root_lookup: Vec(SegmentRootLookupItem)
         GP-0.5.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
     results: Vec(WorkResult)
         GP-0.5.0-eq:11.2 (bold_r) | The results of the evaluation of each of the items inn the work package.
@@ -428,7 +444,9 @@ class WorkReport(Serializable):
     core_index: int = field(metadata={'codec': U16})
     authorizer_hash: bytes = field(metadata={'codec': H256})
     auth_output: bytes = field(metadata={'codec': Bytes})
-    segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
+    # TODO: GP-0.5.0 states this needs to be a dictionary
+    # segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
+    segment_root_lookup: List[SegmentRootLookupItem] = field(metadata={'codec': Vec(SegmentRootLookupItem.to_codec_def())})
     results: List[WorkResult] = field(metadata={'codec': Vec(WorkResult.to_codec_def())})
 
 
@@ -605,21 +623,21 @@ class Extrinsic(Serializable):
     preimages: Vec(Preimage)
         GP-0.5.0-eq:12.28 (bold_E_P) |
         Static data presently being requested to be available for workloads to be able to fetch on demand
+    guarantees: Vec(Guarantee)
+        GP-0.5.0-eq:11.22 (bold_E_G) |
+        Reports of newly completed workloads whose accuracy is guaranteed by specific validators
     assurances: Vec(Assurance)
         GP-0.5.0-eq:11.8 (bold_E_A) |
         Assurances by each validator concerning which of the input data of workloads they have correctly received and
         are storing locally
-    guarantees: Vec(Guarantee)
-        GP-0.5.0-eq:11.22 (bold_E_G) |
-        Reports of newly completed workloads whose accuracy is guaranteed by specific validators
     disputes: ExtrinsicDisputes
         GP-0.5.0-eq:10.2 (bold_E_D) |
         Votes by validators on disputes
     """
     tickets: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})
     preimages: List[Preimage] = field(metadata={'codec': Vec(Preimage.to_codec_def())})
-    assurances: List[Assurance] = field(metadata={'codec': Vec(Assurance.to_codec_def())})
     guarantees: List[Guarantee] = field(metadata={'codec': Vec(Guarantee.to_codec_def())})
+    assurances: List[Assurance] = field(metadata={'codec': Vec(Assurance.to_codec_def())})
     disputes: ExtrinsicDisputes = field(metadata={'codec': ExtrinsicDisputes.to_codec_def()})
 
     # TODO TEMP unclear, move when Extrinsic is fully defined
