@@ -424,16 +424,64 @@ class Statistic(Serializable):
 @dataclass
 class StatisticsState(State, Serializable):
     """
-    GP-0.5.0-eq:13.1 (π) | A collections of statistics for all validators for two epochs.
+    GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
 
     Attributes
     ----------
 
     statistics: Array(Array(Statistic,constant_V),2)
-        GP-0.5.0-eq:13.1 (π) | A collections of statistics for all validators for two epochs.
+        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
     """
     statistics: List[List[Statistic]] = field(
         metadata={'codec': Array(Array(Statistic.to_codec_def(), VALIDATOR_COUNT), 2)}
+    )
+
+
+@dataclass
+class UnaccumulatedWorkPackage(Serializable):
+    """
+    GP-0.5.0-eq:13.1 (ϑ) | A set of cumulative metrics for a single validator in a single epochs.
+
+    Attributes
+    ----------
+    work_report: WorkReport
+        GP-0.5.0-eq:12.3 (blackboard_W) | Work Report.
+    work_package_hash: H256
+        GP-0.5.0-eq:12.3 ({blackboard_H}) | Work Package hash.
+    """
+    work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
+    work_package_hash: bytes = field(metadata={'codec': H256})
+
+
+@dataclass
+class UnaccumulatedWorkPackagesState(State, Serializable):
+    """
+    GP-0.5.0-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
+
+    Attributes
+    ----------
+
+    unaccumulated_work_packages: Array(Vec(Statistic),constant_E)
+        GP-0.5.0-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
+    """
+    unaccumulated_work_packages: List[List[UnaccumulatedWorkPackage]] = field(
+        metadata={'codec': Array(Vec(UnaccumulatedWorkPackage.to_codec_def()), EPOCH_TIMESLOTS)}
+    )
+
+
+@dataclass
+class AccumulationHistoryState(State, Serializable):
+    """
+    GP-0.5.0-eq:12.1 (ξ) | A history of what has been accumulated.
+
+    Attributes
+    ----------
+
+    accumulation_history: Array(H256,constant_E)
+        GP-0.5.0-eq:12.1 (ξ) | A history of what has been accumulated.
+    """
+    accumulation_history: List[bytes] = field(
+        metadata={'codec': Array(H256, EPOCH_TIMESLOTS)}
     )
 
 
@@ -445,8 +493,8 @@ class BeefyCommitmentMap(Serializable):
     Attributes
     ----------
     beefy_commitment_map: Dict(U32,H256)
-        GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map dictionary. Provides accumulation result TreeRoot for
-        accumulated services.
+        GP-0.5.0-eq:12.21 (TODO: incorrect reference) (bold_C) | Beefy Commitment Map dictionary. Provides accumulation
+        result TreeRoot for accumulated services.
     """
     # Todo: Ideal situation, key of dict is a U32.
     # beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
@@ -497,6 +545,10 @@ class JamState(State, Serializable):
         GP-0.5.0-eq:4.4 (ψ) | Disputes partition of the overall state
     statistics: StatisticsState
         GP-0.5.0-eq:4.4 (π) | Statistics partition of the overall state
+    unaccumulated_work_packages: UnaccumulatedWorkPackagesState
+        GP-0.5.0-eq:4.4 (ϑ) | UnaccumulatedWorkPackages partition of the overall state
+    accumulation_history: AccumulationHistoryState
+        GP-0.5.0-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
@@ -512,6 +564,8 @@ class JamState(State, Serializable):
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
     disputes: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
+    unaccumulated_work_packages: UnaccumulatedWorkPackagesState = field(metadata={'codec': UnaccumulatedWorkPackagesState.to_codec_def()})
+    accumulation_history: AccumulationHistoryState = field(metadata={'codec': AccumulationHistoryState.to_codec_def()})
 
     @classmethod
     def create_genesis_state(cls, validators: Optional[List[ValidatorData]] = None):
@@ -581,7 +635,17 @@ class JamState(State, Serializable):
                     [
                         Statistic(0, 0, 0, 0, 0, 0),
                     ] * VALIDATOR_COUNT
-                ] * 2
+                ] * EPOCH_TIMESLOTS
             ),
+            unaccumulated_work_packages=UnaccumulatedWorkPackagesState(
+                unaccumulated_work_packages=[
+                    []
+                ] * EPOCH_TIMESLOTS
+            ),
+            accumulation_history=AccumulationHistoryState(
+                accumulation_history=[
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                ] * EPOCH_TIMESLOTS
+            )
         )
 
