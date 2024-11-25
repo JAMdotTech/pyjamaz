@@ -4,9 +4,9 @@ from functools import cached_property
 
 from bandersnatch_vrfs import ietf_vrf_verify
 from math import floor
-from typing import List, Optional, Dict
+from typing import List, Optional
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Null, BitArray, Map
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Null, BitArray
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.signing import Ed25519Keypair
