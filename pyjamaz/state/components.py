@@ -361,6 +361,7 @@ class Safrole(StateComponent):
             # Create epoch mark
             epoch_mark = EpochMark(
                 entropy=post_state_entropy.entropy[1],
+                tickets_entropy=post_state_entropy.entropy[2],
                 validators=[validator.bandersnatch for validator in self.post_state_safrole.validators]
             )
             logging.debug(f"Epoch Mark generated")
