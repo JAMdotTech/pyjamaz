@@ -797,7 +797,11 @@
 <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>pyjamaz
 </code></pre></div></td></tr></table></div>
 <h2 id="run-conformance-test">Run conformance test<a class="headerlink" href="#run-conformance-test" title="Permanent link">&para;</a></h2>
-<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>pyjamaz<span class="w"> </span>import-blocks<span class="w"> </span>./initial-state.json<span class="w"> </span>./blocks/
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span></pre></div></td><td class="code"><div><pre><span></span><code>pyjamaz<span class="w"> </span>init<span class="w"> </span>--initial-state<span class="o">=</span>./initial-state.json
+pyjamaz<span class="w"> </span>import<span class="w"> </span>./block_data
+pyjamaz<span class="w"> </span>dump<span class="w"> </span>&gt;<span class="w"> </span>current_state.json
 </code></pre></div></td></tr></table></div>
 
 

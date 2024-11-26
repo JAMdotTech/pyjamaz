@@ -1091,12 +1091,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">28</span>
-<span class="normal">29</span>
-<span class="normal">30</span>
-<span class="normal">31</span>
-<span class="normal">32</span>
-<span class="normal">33</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">33</span>
 <span class="normal">34</span>
 <span class="normal">35</span>
 <span class="normal">36</span>
@@ -1120,7 +1115,14 @@
 <span class="normal">54</span>
 <span class="normal">55</span>
 <span class="normal">56</span>
-<span class="normal">57</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Timeslot</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Timeslot</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">11</span>
 
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
@@ -1128,12 +1130,12 @@
             <span class="n">header</span><span class="p">:</span> <span class="n">Header</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeslotOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:45 (τ&#39;) | State transition function for the state&#39;s timeslot.</span>
+<span class="sd">        GP-0.5.0-eq:6.1 (τ&#39;) | State transition function for the state&#39;s timeslot.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            Input parameter 1 | GP-0.3.8-eq:16 (bold_H)</span>
+<span class="sd">            GP-0.5.0-eq:4.5 (bold_H)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1149,6 +1151,8 @@
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeslotState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No storage found in DB for Component ID </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">component_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">TimeslotState</span><span class="o">.</span><span class="n">from_jam_bytes</span><span class="p">(</span><span class="n">JamBytes</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
               </details>
@@ -1176,7 +1180,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:45 (τ') | State transition function for the state's timeslot.</p>
+        <p>GP-0.5.0-eq:6.1 (τ') | State transition function for the state's timeslot.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1193,11 +1197,11 @@
           <tr class="doc-section-item">
             <td><code>header</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.Header" href="../../types/types_blocks/#pyjamaz.types.block.Header">Header</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.block.Header" href="../../types/types_blocks/#pyjamaz.models.block.Header">Header</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 1 | GP-0.3.8-eq:16 (bold_H)</p>
+                <p>GP-0.5.0-eq:4.5 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1219,7 +1223,7 @@
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.TimeslotOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.TimeslotOutput">TimeslotOutput</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.stf_output.TimeslotOutput" href="../../types/types_stf_output/#pyjamaz.models.stf_output.TimeslotOutput">TimeslotOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1232,12 +1236,7 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">31</span>
-<span class="normal">32</span>
-<span class="normal">33</span>
-<span class="normal">34</span>
-<span class="normal">35</span>
-<span class="normal">36</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">36</span>
 <span class="normal">37</span>
 <span class="normal">38</span>
 <span class="normal">39</span>
@@ -1254,17 +1253,22 @@
 <span class="normal">50</span>
 <span class="normal">51</span>
 <span class="normal">52</span>
-<span class="normal">53</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeslotOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:45 (τ&#39;) | State transition function for the state&#39;s timeslot.</span>
+<span class="sd">    GP-0.5.0-eq:6.1 (τ&#39;) | State transition function for the state&#39;s timeslot.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        Input parameter 1 | GP-0.3.8-eq:16 (bold_H)</span>
+<span class="sd">        GP-0.5.0-eq:4.5 (bold_H)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>

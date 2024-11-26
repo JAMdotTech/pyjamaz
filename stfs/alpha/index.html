@@ -1091,44 +1091,44 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">420</span>
-<span class="normal">421</span>
-<span class="normal">422</span>
-<span class="normal">423</span>
-<span class="normal">424</span>
-<span class="normal">425</span>
-<span class="normal">426</span>
-<span class="normal">427</span>
-<span class="normal">428</span>
-<span class="normal">429</span>
-<span class="normal">430</span>
-<span class="normal">431</span>
-<span class="normal">432</span>
-<span class="normal">433</span>
-<span class="normal">434</span>
-<span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span>
-<span class="normal">443</span>
-<span class="normal">444</span>
-<span class="normal">445</span>
-<span class="normal">446</span>
-<span class="normal">447</span>
-<span class="normal">448</span>
-<span class="normal">449</span>
-<span class="normal">450</span>
-<span class="normal">451</span>
-<span class="normal">452</span>
-<span class="normal">453</span>
-<span class="normal">454</span>
-<span class="normal">455</span>
-<span class="normal">456</span>
-<span class="normal">457</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">AuthorizerPools</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">456</span>
+<span class="normal">457</span>
+<span class="normal">458</span>
+<span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span>
+<span class="normal">469</span>
+<span class="normal">470</span>
+<span class="normal">471</span>
+<span class="normal">472</span>
+<span class="normal">473</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
+<span class="normal">482</span>
+<span class="normal">483</span>
+<span class="normal">484</span>
+<span class="normal">485</span>
+<span class="normal">486</span>
+<span class="normal">487</span>
+<span class="normal">488</span>
+<span class="normal">489</span>
+<span class="normal">490</span>
+<span class="normal">491</span>
+<span class="normal">492</span>
+<span class="normal">493</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">AuthorizerPools</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">1</span>
 
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
@@ -1139,18 +1139,18 @@
             <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:85,86 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
+<span class="sd">        GP-0.5.0-eq:8.2,8.3 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            Input parameter 1 | GP-0.3.8-eq:29 (bold_H)</span>
+<span class="sd">            GP-0.5.0-eq:4.19 (bold_H)</span>
 <span class="sd">        extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:29 (bold_E_G)</span>
+<span class="sd">            GP-0.5.0-eq:4.19 (bold_E_G)</span>
 <span class="sd">        post_state_authorizer_queues: AuthorizerQueuesState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.8-eq:29 (φ&#39;)</span>
+<span class="sd">            GP-0.5.0-eq:4.19 (φ&#39;)</span>
 <span class="sd">        pre_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">            Input parameter 4 | GP-0.3.8-eq:29 (α)</span>
+<span class="sd">            GP-0.5.0-eq:4.19 (α)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1192,7 +1192,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:85,86 (α') | State transition function for the state's authorizer pools.</p>
+        <p>GP-0.5.0-eq:8.2,8.3 (α') | State transition function for the state's authorizer pools.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1209,11 +1209,11 @@
           <tr class="doc-section-item">
             <td><code>header</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.Header" href="../../types/types_blocks/#pyjamaz.types.block.Header">Header</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.block.Header" href="../../types/types_blocks/#pyjamaz.models.block.Header">Header</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 1 | GP-0.3.8-eq:29 (bold_H)</p>
+                <p>GP-0.5.0-eq:4.19 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1223,11 +1223,11 @@
           <tr class="doc-section-item">
             <td><code>extrinsic_guarantees</code></td>
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Guarantee" href="../../types/types_blocks/#pyjamaz.types.block.Guarantee">Guarantee</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.models.block.Guarantee" href="../../types/types_blocks/#pyjamaz.models.block.Guarantee">Guarantee</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.8-eq:29 (bold_E_G)</p>
+                <p>GP-0.5.0-eq:4.19 (bold_E_G)</p>
               </div>
             </td>
             <td>
@@ -1237,11 +1237,11 @@
           <tr class="doc-section-item">
             <td><code>post_state_authorizer_queues</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AuthorizerQueuesState" href="../../types/types_state/#pyjamaz.types.state.AuthorizerQueuesState">AuthorizerQueuesState</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.AuthorizerQueuesState" href="../../types/types_state/#pyjamaz.models.state.AuthorizerQueuesState">AuthorizerQueuesState</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.8-eq:29 (φ')</p>
+                <p>GP-0.5.0-eq:4.19 (φ')</p>
               </div>
             </td>
             <td>
@@ -1251,11 +1251,11 @@
           <tr class="doc-section-item">
             <td><code>pre_state_authorizer_pools</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.AuthorizerPoolsState" href="../../types/types_state/#pyjamaz.types.state.AuthorizerPoolsState">AuthorizerPoolsState</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.AuthorizerPoolsState" href="../../types/types_state/#pyjamaz.models.state.AuthorizerPoolsState">AuthorizerPoolsState</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 4 | GP-0.3.8-eq:29 (α)</p>
+                <p>GP-0.5.0-eq:4.19 (α)</p>
               </div>
             </td>
             <td>
@@ -1277,7 +1277,7 @@
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.AuthorizerPoolsOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.AuthorizerPoolsOutput">AuthorizerPoolsOutput</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.stf_output.AuthorizerPoolsOutput" href="../../types/types_stf_output/#pyjamaz.models.stf_output.AuthorizerPoolsOutput">AuthorizerPoolsOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1290,37 +1290,37 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">423</span>
-<span class="normal">424</span>
-<span class="normal">425</span>
-<span class="normal">426</span>
-<span class="normal">427</span>
-<span class="normal">428</span>
-<span class="normal">429</span>
-<span class="normal">430</span>
-<span class="normal">431</span>
-<span class="normal">432</span>
-<span class="normal">433</span>
-<span class="normal">434</span>
-<span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span>
-<span class="normal">443</span>
-<span class="normal">444</span>
-<span class="normal">445</span>
-<span class="normal">446</span>
-<span class="normal">447</span>
-<span class="normal">448</span>
-<span class="normal">449</span>
-<span class="normal">450</span>
-<span class="normal">451</span>
-<span class="normal">452</span>
-<span class="normal">453</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span>
+<span class="normal">469</span>
+<span class="normal">470</span>
+<span class="normal">471</span>
+<span class="normal">472</span>
+<span class="normal">473</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
+<span class="normal">482</span>
+<span class="normal">483</span>
+<span class="normal">484</span>
+<span class="normal">485</span>
+<span class="normal">486</span>
+<span class="normal">487</span>
+<span class="normal">488</span>
+<span class="normal">489</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
         <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
@@ -1328,18 +1328,18 @@
         <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:85,86 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
+<span class="sd">    GP-0.5.0-eq:8.2,8.3 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        Input parameter 1 | GP-0.3.8-eq:29 (bold_H)</span>
+<span class="sd">        GP-0.5.0-eq:4.19 (bold_H)</span>
 <span class="sd">    extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:29 (bold_E_G)</span>
+<span class="sd">        GP-0.5.0-eq:4.19 (bold_E_G)</span>
 <span class="sd">    post_state_authorizer_queues: AuthorizerQueuesState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.8-eq:29 (φ&#39;)</span>
+<span class="sd">        GP-0.5.0-eq:4.19 (φ&#39;)</span>
 <span class="sd">    pre_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">        Input parameter 4 | GP-0.3.8-eq:29 (α)</span>
+<span class="sd">        GP-0.5.0-eq:4.19 (α)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>

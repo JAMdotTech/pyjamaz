@@ -1091,29 +1091,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">142</span>
 <span class="normal">143</span>
 <span class="normal">144</span>
 <span class="normal">145</span>
@@ -1134,7 +1112,26 @@
 <span class="normal">160</span>
 <span class="normal">161</span>
 <span class="normal">162</span>
-<span class="normal">163</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorPool</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorPool</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">8</span>
 
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
@@ -1142,24 +1139,21 @@
             <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
             <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
             <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span>
-            <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">,</span>
-            <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span>
+            <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:57 (κ&#39;) | State transition function for the state&#39;s current validator set. Occurs on epoch change.</span>
+<span class="sd">        GP-0.5.0-eq:6.13 (κ&#39;) | State transition function for the state&#39;s current validator set. Occurs on epoch change.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            Input parameter 1 | GP-0.3.8-eq:21 (bold_H)</span>
+<span class="sd">            GP-0.5.0-eq:4.10 (bold_H)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:21 (τ)</span>
+<span class="sd">            GP-0.5.0-eq:4.10 (τ)</span>
 <span class="sd">        pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            Input parameter 3 | GP-0.3.8-eq:21 (κ)</span>
+<span class="sd">            GP-0.5.0-eq:4.10 (κ)</span>
 <span class="sd">        pre_state_safrole: SafroleState</span>
-<span class="sd">            Input parameter 4 | GP-0.3.8-eq:21 (η)</span>
-<span class="sd">        post_state_disputes: DisputesState</span>
-<span class="sd">            Input parameter 5 | GP-0.3.8-eq:21 (ψ&#39;)</span>
+<span class="sd">            GP-0.5.0-eq:4.10 (η)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1197,14 +1191,14 @@
 
 
 <h2 id="pyjamaz.state.components.ValidatorPool.state_transition" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span> <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span> <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">,</span> <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolOutput</span></code>
+            <code class="highlight language-python"><span class="n">state_transition</span><span class="p">(</span><span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span> <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span> <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span> <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolOutput</span></code>
 
 <a href="#pyjamaz.state.components.ValidatorPool.state_transition" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:57 (κ') | State transition function for the state's current validator set. Occurs on epoch change.</p>
+        <p>GP-0.5.0-eq:6.13 (κ') | State transition function for the state's current validator set. Occurs on epoch change.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1221,11 +1215,11 @@
           <tr class="doc-section-item">
             <td><code>header</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.Header" href="../../types/types_blocks/#pyjamaz.types.block.Header">Header</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.block.Header" href="../../types/types_blocks/#pyjamaz.models.block.Header">Header</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 1 | GP-0.3.8-eq:21 (bold_H)</p>
+                <p>GP-0.5.0-eq:4.10 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1235,11 +1229,11 @@
           <tr class="doc-section-item">
             <td><code>pre_state_timeslot</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.TimeslotState" href="../../types/types_state/#pyjamaz.types.state.TimeslotState">TimeslotState</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.TimeslotState" href="../../types/types_state/#pyjamaz.models.state.TimeslotState">TimeslotState</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.8-eq:21 (τ)</p>
+                <p>GP-0.5.0-eq:4.10 (τ)</p>
               </div>
             </td>
             <td>
@@ -1249,11 +1243,11 @@
           <tr class="doc-section-item">
             <td><code>pre_state_validator_pool</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.ValidatorPoolState" href="../../types/types_state/#pyjamaz.types.state.ValidatorPoolState">ValidatorPoolState</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.ValidatorPoolState" href="../../types/types_state/#pyjamaz.models.state.ValidatorPoolState">ValidatorPoolState</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.8-eq:21 (κ)</p>
+                <p>GP-0.5.0-eq:4.10 (κ)</p>
               </div>
             </td>
             <td>
@@ -1263,25 +1257,11 @@
           <tr class="doc-section-item">
             <td><code>pre_state_safrole</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.SafroleState" href="../../types/types_state/#pyjamaz.types.state.SafroleState">SafroleState</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.SafroleState" href="../../types/types_state/#pyjamaz.models.state.SafroleState">SafroleState</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 4 | GP-0.3.8-eq:21 (η)</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>post_state_disputes</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.DisputesState" href="../../types/types_state/#pyjamaz.types.state.DisputesState">DisputesState</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Input parameter 5 | GP-0.3.8-eq:21 (ψ')</p>
+                <p>GP-0.5.0-eq:4.10 (η)</p>
               </div>
             </td>
             <td>
@@ -1303,7 +1283,7 @@
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.ValidatorPoolOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.ValidatorPoolOutput">ValidatorPoolOutput</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.stf_output.ValidatorPoolOutput" href="../../types/types_stf_output/#pyjamaz.models.stf_output.ValidatorPoolOutput">ValidatorPoolOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1316,29 +1296,7 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span>
-<span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">145</span>
 <span class="normal">146</span>
 <span class="normal">147</span>
 <span class="normal">148</span>
@@ -1352,29 +1310,45 @@
 <span class="normal">156</span>
 <span class="normal">157</span>
 <span class="normal">158</span>
-<span class="normal">159</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
         <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
         <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">,</span>
-        <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span><span class="p">,</span>
-        <span class="n">post_state_disputes</span><span class="p">:</span> <span class="n">DisputesState</span>
+        <span class="n">pre_state_safrole</span><span class="p">:</span> <span class="n">SafroleState</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorPoolOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:57 (κ&#39;) | State transition function for the state&#39;s current validator set. Occurs on epoch change.</span>
+<span class="sd">    GP-0.5.0-eq:6.13 (κ&#39;) | State transition function for the state&#39;s current validator set. Occurs on epoch change.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        Input parameter 1 | GP-0.3.8-eq:21 (bold_H)</span>
+<span class="sd">        GP-0.5.0-eq:4.10 (bold_H)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:21 (τ)</span>
+<span class="sd">        GP-0.5.0-eq:4.10 (τ)</span>
 <span class="sd">    pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        Input parameter 3 | GP-0.3.8-eq:21 (κ)</span>
+<span class="sd">        GP-0.5.0-eq:4.10 (κ)</span>
 <span class="sd">    pre_state_safrole: SafroleState</span>
-<span class="sd">        Input parameter 4 | GP-0.3.8-eq:21 (η)</span>
-<span class="sd">    post_state_disputes: DisputesState</span>
-<span class="sd">        Input parameter 5 | GP-0.3.8-eq:21 (ψ&#39;)</span>
+<span class="sd">        GP-0.5.0-eq:4.10 (η)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>

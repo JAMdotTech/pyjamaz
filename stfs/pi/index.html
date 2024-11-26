@@ -1091,59 +1091,59 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">702</span>
-<span class="normal">703</span>
-<span class="normal">704</span>
-<span class="normal">705</span>
-<span class="normal">706</span>
-<span class="normal">707</span>
-<span class="normal">708</span>
-<span class="normal">709</span>
-<span class="normal">710</span>
-<span class="normal">711</span>
-<span class="normal">712</span>
-<span class="normal">713</span>
-<span class="normal">714</span>
-<span class="normal">715</span>
-<span class="normal">716</span>
-<span class="normal">717</span>
-<span class="normal">718</span>
-<span class="normal">719</span>
-<span class="normal">720</span>
-<span class="normal">721</span>
-<span class="normal">722</span>
-<span class="normal">723</span>
-<span class="normal">724</span>
-<span class="normal">725</span>
-<span class="normal">726</span>
-<span class="normal">727</span>
-<span class="normal">728</span>
-<span class="normal">729</span>
-<span class="normal">730</span>
-<span class="normal">731</span>
-<span class="normal">732</span>
-<span class="normal">733</span>
-<span class="normal">734</span>
-<span class="normal">735</span>
-<span class="normal">736</span>
-<span class="normal">737</span>
-<span class="normal">738</span>
-<span class="normal">739</span>
-<span class="normal">740</span>
-<span class="normal">741</span>
-<span class="normal">742</span>
-<span class="normal">743</span>
-<span class="normal">744</span>
-<span class="normal">745</span>
-<span class="normal">746</span>
-<span class="normal">747</span>
-<span class="normal">748</span>
-<span class="normal">749</span>
-<span class="normal">750</span>
-<span class="normal">751</span>
-<span class="normal">752</span>
-<span class="normal">753</span>
-<span class="normal">754</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Statistics</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1023</span>
+<span class="normal">1024</span>
+<span class="normal">1025</span>
+<span class="normal">1026</span>
+<span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
+<span class="normal">1046</span>
+<span class="normal">1047</span>
+<span class="normal">1048</span>
+<span class="normal">1049</span>
+<span class="normal">1050</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span>
+<span class="normal">1058</span>
+<span class="normal">1059</span>
+<span class="normal">1060</span>
+<span class="normal">1061</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span>
+<span class="normal">1064</span>
+<span class="normal">1065</span>
+<span class="normal">1066</span>
+<span class="normal">1067</span>
+<span class="normal">1068</span>
+<span class="normal">1069</span>
+<span class="normal">1070</span>
+<span class="normal">1071</span>
+<span class="normal">1072</span>
+<span class="normal">1073</span>
+<span class="normal">1074</span>
+<span class="normal">1075</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Statistics</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">13</span>
 
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
@@ -1159,28 +1159,28 @@
             <span class="n">header</span><span class="p">:</span> <span class="n">Header</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatisticsOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.3.8-eq:171,172 (π&#39;) | State transition function for the state&#39;s statistics.</span>
+<span class="sd">        GP-0.5.0-eq:13.3,13.4 (π&#39;) | State transition function for the state&#39;s statistics.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">            Input parameter 1 | GP-0.3.8-eq:30 (bold_E_G)</span>
+<span class="sd">            GP-0.5.0-eq:4.20 (bold_E_G)</span>
 <span class="sd">        extrinsic_preimages: List[Preimage]</span>
-<span class="sd">            Input parameter 2 | GP-0.3.8-eq:30 (bold_E_P)</span>
+<span class="sd">            GP-0.5.0-eq:4.20 (bold_E_P)</span>
 <span class="sd">        extrinsic_assurances: List[Assurance]</span>
-<span class="sd">            Input parameter 3 | GP-0.3.8-eq:30 (bold_E_A)</span>
+<span class="sd">            GP-0.5.0-eq:4.20 (bold_E_A)</span>
 <span class="sd">        extrinsic_tickets: List[TicketEnvelope]</span>
-<span class="sd">            Input parameter 4 | GP-0.3.8-eq:30 (bold_E_T)</span>
+<span class="sd">            GP-0.5.0-eq:4.20 (bold_E_T)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 5 | GP-0.3.8-eq:30 (τ)</span>
+<span class="sd">            GP-0.5.0-eq:4.20 (τ)</span>
 <span class="sd">        post_state_timeslot: TimeslotState</span>
-<span class="sd">            Input parameter 6 | GP-0.3.8-eq:30 (τ&#39;)</span>
+<span class="sd">            GP-0.5.0-eq:4.20 (τ&#39;)</span>
 <span class="sd">        post_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            Input parameter 7 | GP-0.3.8-eq:30 (κ&#39;)</span>
+<span class="sd">            GP-0.5.0-eq:4.20 (κ&#39;)</span>
 <span class="sd">        pre_state_statistics: StatisticsState</span>
-<span class="sd">            Input parameter 8 | GP-0.3.8-eq:30 (π)</span>
+<span class="sd">            GP-0.5.0-eq:4.20 (π)</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            Input parameter 9 | GP-0.3.8-eq:30 (bold_H)</span>
+<span class="sd">            GP-0.5.0-eq:4.20 (bold_H)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1222,7 +1222,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.3.8-eq:171,172 (π') | State transition function for the state's statistics.</p>
+        <p>GP-0.5.0-eq:13.3,13.4 (π') | State transition function for the state's statistics.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1239,11 +1239,11 @@
           <tr class="doc-section-item">
             <td><code>extrinsic_guarantees</code></td>
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Guarantee" href="../../types/types_blocks/#pyjamaz.types.block.Guarantee">Guarantee</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.models.block.Guarantee" href="../../types/types_blocks/#pyjamaz.models.block.Guarantee">Guarantee</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 1 | GP-0.3.8-eq:30 (bold_E_G)</p>
+                <p>GP-0.5.0-eq:4.20 (bold_E_G)</p>
               </div>
             </td>
             <td>
@@ -1253,11 +1253,11 @@
           <tr class="doc-section-item">
             <td><code>extrinsic_preimages</code></td>
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Preimage" href="../../types/types_blocks/#pyjamaz.types.block.Preimage">Preimage</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.models.block.Preimage" href="../../types/types_blocks/#pyjamaz.models.block.Preimage">Preimage</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 2 | GP-0.3.8-eq:30 (bold_E_P)</p>
+                <p>GP-0.5.0-eq:4.20 (bold_E_P)</p>
               </div>
             </td>
             <td>
@@ -1267,11 +1267,11 @@
           <tr class="doc-section-item">
             <td><code>extrinsic_assurances</code></td>
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.Assurance" href="../../types/types_blocks/#pyjamaz.types.block.Assurance">Assurance</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.models.block.Assurance" href="../../types/types_blocks/#pyjamaz.models.block.Assurance">Assurance</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 3 | GP-0.3.8-eq:30 (bold_E_A)</p>
+                <p>GP-0.5.0-eq:4.20 (bold_E_A)</p>
               </div>
             </td>
             <td>
@@ -1281,11 +1281,11 @@
           <tr class="doc-section-item">
             <td><code>extrinsic_tickets</code></td>
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.types.block.TicketEnvelope" href="../../types/types_blocks/#pyjamaz.types.block.TicketEnvelope">TicketEnvelope</a>]</code>
+                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.models.block.TicketEnvelope" href="../../types/types_blocks/#pyjamaz.models.block.TicketEnvelope">TicketEnvelope</a>]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 4 | GP-0.3.8-eq:30 (bold_E_T)</p>
+                <p>GP-0.5.0-eq:4.20 (bold_E_T)</p>
               </div>
             </td>
             <td>
@@ -1295,11 +1295,11 @@
           <tr class="doc-section-item">
             <td><code>pre_state_timeslot</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.TimeslotState" href="../../types/types_state/#pyjamaz.types.state.TimeslotState">TimeslotState</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.TimeslotState" href="../../types/types_state/#pyjamaz.models.state.TimeslotState">TimeslotState</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 5 | GP-0.3.8-eq:30 (τ)</p>
+                <p>GP-0.5.0-eq:4.20 (τ)</p>
               </div>
             </td>
             <td>
@@ -1309,11 +1309,11 @@
           <tr class="doc-section-item">
             <td><code>post_state_timeslot</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.TimeslotState" href="../../types/types_state/#pyjamaz.types.state.TimeslotState">TimeslotState</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.TimeslotState" href="../../types/types_state/#pyjamaz.models.state.TimeslotState">TimeslotState</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 6 | GP-0.3.8-eq:30 (τ')</p>
+                <p>GP-0.5.0-eq:4.20 (τ')</p>
               </div>
             </td>
             <td>
@@ -1323,11 +1323,11 @@
           <tr class="doc-section-item">
             <td><code>post_state_validator_pool</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.ValidatorPoolState" href="../../types/types_state/#pyjamaz.types.state.ValidatorPoolState">ValidatorPoolState</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.ValidatorPoolState" href="../../types/types_state/#pyjamaz.models.state.ValidatorPoolState">ValidatorPoolState</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 7 | GP-0.3.8-eq:30 (κ')</p>
+                <p>GP-0.5.0-eq:4.20 (κ')</p>
               </div>
             </td>
             <td>
@@ -1337,11 +1337,11 @@
           <tr class="doc-section-item">
             <td><code>pre_state_statistics</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.state.StatisticsState" href="../../types/types_state/#pyjamaz.types.state.StatisticsState">StatisticsState</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.StatisticsState" href="../../types/types_state/#pyjamaz.models.state.StatisticsState">StatisticsState</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 8 | GP-0.3.8-eq:30 (π)</p>
+                <p>GP-0.5.0-eq:4.20 (π)</p>
               </div>
             </td>
             <td>
@@ -1351,11 +1351,11 @@
           <tr class="doc-section-item">
             <td><code>header</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.block.Header" href="../../types/types_blocks/#pyjamaz.types.block.Header">Header</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.block.Header" href="../../types/types_blocks/#pyjamaz.models.block.Header">Header</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input parameter 9 | GP-0.3.8-eq:30 (bold_H)</p>
+                <p>GP-0.5.0-eq:4.20 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1377,7 +1377,7 @@
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.types.stf_output.StatisticsOutput" href="../../types/types_stf_output/#pyjamaz.types.stf_output.StatisticsOutput">StatisticsOutput</a></code>
+                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.stf_output.StatisticsOutput" href="../../types/types_stf_output/#pyjamaz.models.stf_output.StatisticsOutput">StatisticsOutput</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1390,52 +1390,52 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">705</span>
-<span class="normal">706</span>
-<span class="normal">707</span>
-<span class="normal">708</span>
-<span class="normal">709</span>
-<span class="normal">710</span>
-<span class="normal">711</span>
-<span class="normal">712</span>
-<span class="normal">713</span>
-<span class="normal">714</span>
-<span class="normal">715</span>
-<span class="normal">716</span>
-<span class="normal">717</span>
-<span class="normal">718</span>
-<span class="normal">719</span>
-<span class="normal">720</span>
-<span class="normal">721</span>
-<span class="normal">722</span>
-<span class="normal">723</span>
-<span class="normal">724</span>
-<span class="normal">725</span>
-<span class="normal">726</span>
-<span class="normal">727</span>
-<span class="normal">728</span>
-<span class="normal">729</span>
-<span class="normal">730</span>
-<span class="normal">731</span>
-<span class="normal">732</span>
-<span class="normal">733</span>
-<span class="normal">734</span>
-<span class="normal">735</span>
-<span class="normal">736</span>
-<span class="normal">737</span>
-<span class="normal">738</span>
-<span class="normal">739</span>
-<span class="normal">740</span>
-<span class="normal">741</span>
-<span class="normal">742</span>
-<span class="normal">743</span>
-<span class="normal">744</span>
-<span class="normal">745</span>
-<span class="normal">746</span>
-<span class="normal">747</span>
-<span class="normal">748</span>
-<span class="normal">749</span>
-<span class="normal">750</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1026</span>
+<span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
+<span class="normal">1046</span>
+<span class="normal">1047</span>
+<span class="normal">1048</span>
+<span class="normal">1049</span>
+<span class="normal">1050</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span>
+<span class="normal">1058</span>
+<span class="normal">1059</span>
+<span class="normal">1060</span>
+<span class="normal">1061</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span>
+<span class="normal">1064</span>
+<span class="normal">1065</span>
+<span class="normal">1066</span>
+<span class="normal">1067</span>
+<span class="normal">1068</span>
+<span class="normal">1069</span>
+<span class="normal">1070</span>
+<span class="normal">1071</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
         <span class="n">extrinsic_preimages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Preimage</span><span class="p">],</span>
@@ -1448,28 +1448,28 @@
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatisticsOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.3.8-eq:171,172 (π&#39;) | State transition function for the state&#39;s statistics.</span>
+<span class="sd">    GP-0.5.0-eq:13.3,13.4 (π&#39;) | State transition function for the state&#39;s statistics.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">        Input parameter 1 | GP-0.3.8-eq:30 (bold_E_G)</span>
+<span class="sd">        GP-0.5.0-eq:4.20 (bold_E_G)</span>
 <span class="sd">    extrinsic_preimages: List[Preimage]</span>
-<span class="sd">        Input parameter 2 | GP-0.3.8-eq:30 (bold_E_P)</span>
+<span class="sd">        GP-0.5.0-eq:4.20 (bold_E_P)</span>
 <span class="sd">    extrinsic_assurances: List[Assurance]</span>
-<span class="sd">        Input parameter 3 | GP-0.3.8-eq:30 (bold_E_A)</span>
+<span class="sd">        GP-0.5.0-eq:4.20 (bold_E_A)</span>
 <span class="sd">    extrinsic_tickets: List[TicketEnvelope]</span>
-<span class="sd">        Input parameter 4 | GP-0.3.8-eq:30 (bold_E_T)</span>
+<span class="sd">        GP-0.5.0-eq:4.20 (bold_E_T)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 5 | GP-0.3.8-eq:30 (τ)</span>
+<span class="sd">        GP-0.5.0-eq:4.20 (τ)</span>
 <span class="sd">    post_state_timeslot: TimeslotState</span>
-<span class="sd">        Input parameter 6 | GP-0.3.8-eq:30 (τ&#39;)</span>
+<span class="sd">        GP-0.5.0-eq:4.20 (τ&#39;)</span>
 <span class="sd">    post_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        Input parameter 7 | GP-0.3.8-eq:30 (κ&#39;)</span>
+<span class="sd">        GP-0.5.0-eq:4.20 (κ&#39;)</span>
 <span class="sd">    pre_state_statistics: StatisticsState</span>
-<span class="sd">        Input parameter 8 | GP-0.3.8-eq:30 (π)</span>
+<span class="sd">        GP-0.5.0-eq:4.20 (π)</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        Input parameter 9 | GP-0.3.8-eq:30 (bold_H)</span>
+<span class="sd">        GP-0.5.0-eq:4.20 (bold_H)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
