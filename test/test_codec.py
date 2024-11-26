@@ -10,7 +10,7 @@ from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
     ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, BeefyCommitmentMap, \
-    UnaccumulatedWorkPackagesState, AccumulationHistoryState
+    AccumulationQueueState, AccumulationHistoryState
 from test.test_safrole import SafroleTestOutput, SafroleOutputMarks
 
 
@@ -192,15 +192,15 @@ class TestCodec(unittest.TestCase):
            jam_data = f.read()
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 
-    def test_jdt_state_unaccumulated_work_packages(self):
-        with open(path.join(self.test_vector_jdt_dir, f'state_unaccumulated_work_packages.json')) as f:
+    def test_jdt_state_accumulation_queue(self):
+        with open(path.join(self.test_vector_jdt_dir, f'state_accumulation_queue.json')) as f:
             test_vector = json.load(f)
 
-        state = UnaccumulatedWorkPackagesState.from_json(test_vector)
+        state = AccumulationQueueState.from_json(test_vector)
         value = state.serialize()
         self.assertDictEqual(test_vector, value)
 
-        with open(path.join(self.test_vector_jdt_dir, f'state_unaccumulated_work_packages.bin'), "rb") as f:
+        with open(path.join(self.test_vector_jdt_dir, f'state_accumulation_queue.bin'), "rb") as f:
            jam_data = f.read()
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 

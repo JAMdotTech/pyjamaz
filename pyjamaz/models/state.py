@@ -438,9 +438,9 @@ class StatisticsState(State, Serializable):
 
 
 @dataclass
-class UnaccumulatedWorkPackage(Serializable):
+class AccumulationQueueWorkPackage(Serializable):
     """
-    GP-0.5.0-eq:13.1 (ϑ) | A set of cumulative metrics for a single validator in a single epochs.
+    GP-0.5.0-eq:13.1 (ϑ) | A not yet accumulated work package.
 
     Attributes
     ----------
@@ -454,18 +454,18 @@ class UnaccumulatedWorkPackage(Serializable):
 
 
 @dataclass
-class UnaccumulatedWorkPackagesState(State, Serializable):
+class AccumulationQueueState(State, Serializable):
     """
     GP-0.5.0-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
 
     Attributes
     ----------
 
-    unaccumulated_work_packages: Array(Vec(Statistic),constant_E)
+    accumulation_queue: Array(Vec(AccumulationQueueWorkPackage),constant_E)
         GP-0.5.0-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
     """
-    unaccumulated_work_packages: List[List[UnaccumulatedWorkPackage]] = field(
-        metadata={'codec': Array(Vec(UnaccumulatedWorkPackage.to_codec_def()), EPOCH_TIMESLOTS)}
+    accumulation_queue: List[List[AccumulationQueueWorkPackage]] = field(
+        metadata={'codec': Array(Vec(AccumulationQueueWorkPackage.to_codec_def()), EPOCH_TIMESLOTS)}
     )
 
 
@@ -545,8 +545,8 @@ class JamState(State, Serializable):
         GP-0.5.0-eq:4.4 (ψ) | Disputes partition of the overall state
     statistics: StatisticsState
         GP-0.5.0-eq:4.4 (π) | Statistics partition of the overall state
-    unaccumulated_work_packages: UnaccumulatedWorkPackagesState
-        GP-0.5.0-eq:4.4 (ϑ) | UnaccumulatedWorkPackages partition of the overall state
+    accumulation_queue: AccumulationQueueState
+        GP-0.5.0-eq:4.4 (ϑ) | AccumulationQueue partition of the overall state
     accumulation_history: AccumulationHistoryState
         GP-0.5.0-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
     """
@@ -564,7 +564,7 @@ class JamState(State, Serializable):
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
     disputes: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
-    unaccumulated_work_packages: UnaccumulatedWorkPackagesState = field(metadata={'codec': UnaccumulatedWorkPackagesState.to_codec_def()})
+    accumulation_queue: AccumulationQueueState = field(metadata={'codec': AccumulationQueueState.to_codec_def()})
     accumulation_history: AccumulationHistoryState = field(metadata={'codec': AccumulationHistoryState.to_codec_def()})
 
     @classmethod
@@ -637,8 +637,8 @@ class JamState(State, Serializable):
                     ] * VALIDATOR_COUNT
                 ] * EPOCH_TIMESLOTS
             ),
-            unaccumulated_work_packages=UnaccumulatedWorkPackagesState(
-                unaccumulated_work_packages=[
+            accumulation_queue=AccumulationQueueState(
+                accumulation_queue=[
                     []
                 ] * EPOCH_TIMESLOTS
             ),
