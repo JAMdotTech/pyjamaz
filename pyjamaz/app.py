@@ -18,7 +18,7 @@ from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchiv
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState, Statistic, \
-    BeefyCommitmentMap
+    BeefyCommitmentMap, UnaccumulatedWorkPackagesState, AccumulationHistoryState
 from pyjamaz.models.stf_output import STFOutput
 
 T = TypeVar('T')
@@ -88,6 +88,12 @@ class PyjamazApp:
                         Statistic(0, 0, 0, 0, 0, 0),
                     ] * VALIDATOR_COUNT
                 ] * 2
+            ),
+            unaccumulated_work_packages=UnaccumulatedWorkPackagesState(
+                unaccumulated_work_packages=[[]] * EPOCH_TIMESLOTS
+            ),
+            accumulation_history=AccumulationHistoryState(
+                accumulation_history=[bytes(32)] * EPOCH_TIMESLOTS
             )
         )
 

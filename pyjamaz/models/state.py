@@ -644,7 +644,7 @@ class JamState(State, Serializable):
             ),
             accumulation_history=AccumulationHistoryState(
                 accumulation_history=[
-                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                    bytes(32)
                 ] * EPOCH_TIMESLOTS
             )
         )
