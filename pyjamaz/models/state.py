@@ -204,6 +204,8 @@ class RecentBlock(Serializable):
     header_hash: bytes = field(metadata={'codec': H256})
     mmr: Mmr = field(metadata={'codec': Mmr.to_codec_def()})
     state_root: bytes = field(metadata={'codec': H256})
+    # TODO: GP-0.5.0-eq:7.1 states bold_p needs to be a dictionary, GP-0.5.0-eq:D.2 states bold_p needs to have a
+    # length prefix encoding.
     reported: List[bytes] = field(metadata={'codec': Vec(H256)})
 
     def __post_init__(self):
