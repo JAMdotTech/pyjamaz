@@ -5,6 +5,7 @@ import numpy as np
 import numpy.typing as npt
 
 from .exceptions import InvalidOpcode
+from .host_calls import invoke_host_call_pvm
 from .types import PVMProgram
 
 from .utils import (
@@ -177,8 +178,11 @@ class PVM:
                             #TODO: NO_TESTS
                             l_x = min(4, max(0, skip_len - 2))
                             v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
-                            self.status = ExitCondition.host_halt.value
-                            self.invoke_host_call(v_x)
+                            self.status = ExitCondition.host.value
+                            #TODO: we do not exit the main loop on this, since the program may be continued?
+                            # or is this also a exit condition which we handfle differently?
+                            #TODO: self.pc += skip_len for resuming later?
+                            result = invoke_host_call_pvm(self, v_x)
 
                         case _:
                             raise InvalidOpcode(f"Invalid imm opcode: {opcode} for instruction type {inst_type}")
