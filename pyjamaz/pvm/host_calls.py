@@ -152,8 +152,9 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.pvm.constants import HostCallGeneral, HostCallResult
 from pyjamaz.pvm.exceptions import InvalidHostCall
 
-
-def invoke_host_call_pvm(pvm, db, host_call):
+#TODO: add typings
+#TODO: retrieve db connection through event call?
+def invoke_host_call_pvm(pvm, db, host_call, service_index=None):
 
     # GP_B.6 General Functions
 
@@ -165,7 +166,7 @@ def invoke_host_call_pvm(pvm, db, host_call):
             pvm.reg[7] = pvm.gas
 
         case HostCallGeneral.lookup.value:
-            s = 0                               #TODO: service_index waar komt deze vandaan?
+            s = service_index                   #TODO: service_index waar komt deze vandaan in het geval van ecalli invocation?
             d = pvm.reg[7]                      #TODO: wat is d[w7] uit GP???
             a = s if s in (d, 2**64-1,) else d
             
@@ -175,7 +176,7 @@ def invoke_host_call_pvm(pvm, db, host_call):
             
             # TODO: gebruik mem calls, check out of bounds
             preimage_hash = blake2b_256_hash(pvm.mem[h_o:h_o+32])
-            preimage = db.get(b'preimage:' + int.to_bytes(s, byteorder='little', length=1) + preimage_hash)
+            preimage = db.get(b'preimage:' + int.to_bytes(a, byteorder='little', length=1) + preimage_hash)
 
             #TODO: check of memory wel te beschrijven is
             if preimage_hash is not None:
