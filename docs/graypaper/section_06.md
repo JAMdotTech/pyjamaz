@@ -1,66 +1,66 @@
 # 6. Block Production and Chain Growth
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.3.8. 
+This section has been updated to match Graypaper version 0.5.0. 
 
 ## 6.1. Timekeeping 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 45         |   0% |             0% |          0% |            0% |
-| Equation 46         |   0% |             0% |          0% |            0% |
+| Equation 6.1        |   0% |             0% |          0% |            0% |
+| Equation 6.2        |   0% |             0% |          0% |            0% |
 
 ## 6.2. Safrole Basic State 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 47         |   0% |             0% |          0% |            0% |
-| Equation 48         |   0% |             0% |          0% |            0% |
-| Equation 49         |   0% |             0% |          0% |            0% |
-| Equation 50         |   0% |             0% |          0% |            0% |
+| Equation 6.3        |   0% |             0% |          0% |            0% |
+| Equation 6.4        |   0% |             0% |          0% |            0% |
+| Equation 6.5        |   0% |             0% |          0% |            0% |
+| Equation 6.6        |   0% |             0% |          0% |            0% |
 
 ## 6.3. Key Rotation 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 51         |   0% |             0% |          0% |            0% |
-| Equation 52         |   0% |             0% |          0% |            0% |
-| Equation 53         |   0% |             0% |          0% |            0% |
-| Equation 54         |   0% |             0% |          0% |            0% |
-| Equation 55         |   0% |             0% |          0% |            0% |
-| Equation 56         |   0% |             0% |          0% |            0% |
-| Equation 57         |   0% |             0% |          0% |            0% |
-| Equation 58         |   0% |             0% |          0% |            0% |
+| Equation 6.7        |   0% |             0% |          0% |            0% |
+| Equation 6.8        |   0% |             0% |          0% |            0% |
+| Equation 6.9        |   0% |             0% |          0% |            0% |
+| Equation 6.10       |   0% |             0% |          0% |            0% |
+| Equation 6.11       |   0% |             0% |          0% |            0% |
+| Equation 6.12       |   0% |             0% |          0% |            0% |
+| Equation 6.13       |   0% |             0% |          0% |            0% |
+| Equation 6.14       |   0% |             0% |          0% |            0% |
 
 ## 6.4. Sealing and Entropy Accumulation 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 59         |   0% |             0% |          0% |            0% |
-| Equation 60         |   0% |             0% |          0% |            0% |
-| Equation 61         |   0% |             0% |          0% |            0% |
-| Equation 62         |   0% |             0% |          0% |            0% |
-| Equation 63         |   0% |             0% |          0% |            0% |
-| Equation 64         |   0% |             0% |          0% |            0% |
-| Equation 65         |   0% |             0% |          0% |            0% |
-| Equation 66         |   0% |             0% |          0% |            0% |
-| Equation 67         |   0% |             0% |          0% |            0% |
+| Equation 6.15       |   0% |             0% |          0% |            0% |
+| Equation 6.16       |   0% |             0% |          0% |            0% |
+| Equation 6.17       |   0% |             0% |          0% |            0% |
+| Equation 6.18       |   0% |             0% |          0% |            0% |
+| Equation 6.19       |   0% |             0% |          0% |            0% |
+| Equation 6.20       |   0% |             0% |          0% |            0% |
+| Equation 6.21       |   0% |             0% |          0% |            0% |
+| Equation 6.22       |   0% |             0% |          0% |            0% |
+| Equation 6.23       |   0% |             0% |          0% |            0% |
 
 ## 6.5. The Slot Key Sequence 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 68         |   0% |             0% |          0% |            0% |
-| Equation 69         |   0% |             0% |          0% |            0% |
-| Equation 70         |   0% |             0% |          0% |            0% |
+| Equation 6.24       |   0% |             0% |          0% |            0% |
+| Equation 6.25       |   0% |             0% |          0% |            0% |
+| Equation 6.26       |   0% |             0% |          0% |            0% |
 
 ## 6.6. The Markers 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 71         |   0% |             0% |          0% |            0% |
-| Equation 72         |   0% |             0% |          0% |            0% |
+| Equation 6.27       |   0% |             0% |          0% |            0% |
+| Equation 6.28       |   0% |             0% |          0% |            0% |
 
 ## 6.7. The Extrinsic and Tickets 
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
 |---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 73         |   0% |             0% |          0% |            0% |
-| Equation 74         |   0% |             0% |          0% |            0% |
-| Equation 75         |   0% |             0% |          0% |            0% |
-| Equation 76         |   0% |             0% |          0% |            0% |
-| Equation 77         |   0% |             0% |          0% |            0% |
-| Equation 78         |   0% |             0% |          0% |            0% |
-| Equation 79         |   0% |             0% |          0% |            0% |
+| Equation 6.29       |   0% |             0% |          0% |            0% |
+| Equation 6.30       |   0% |             0% |          0% |            0% |
+| Equation 6.31       |   0% |             0% |          0% |            0% |
+| Equation 6.32       |   0% |             0% |          0% |            0% |
+| Equation 6.33       |   0% |             0% |          0% |            0% |
+| Equation 6.34       |   0% |             0% |          0% |            0% |
+| Equation 6.35       |   0% |             0% |          0% |            0% |

@@ -9,7 +9,8 @@ from pyjamaz.models.block import Header, Extrinsic, Assurance, ExtrinsicDisputes
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
-    ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, BeefyCommitmentMap
+    ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, BeefyCommitmentMap, \
+    AccumulationQueueState, AccumulationHistoryState
 from test.test_safrole import SafroleTestOutput, SafroleOutputMarks
 
 
@@ -30,6 +31,18 @@ class TestCodec(unittest.TestCase):
         self.assertDictEqual(test_vector, value)
 
         with open(path.join(self.test_vector_jdt_dir, f'beefy_commitment_map.bin'), "rb") as f:
+           jam_data = f.read()
+        self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
+
+    def test_jdt_state_accumulation_history(self):
+        with open(path.join(self.test_vector_jdt_dir, f'state_accumulation_history.json')) as f:
+            test_vector = json.load(f)
+
+        state = AccumulationHistoryState.from_json(test_vector)
+        value = state.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_jdt_dir, f'state_accumulation_history.bin'), "rb") as f:
            jam_data = f.read()
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 
@@ -176,6 +189,18 @@ class TestCodec(unittest.TestCase):
         self.assertDictEqual(test_vector, value)
 
         with open(path.join(self.test_vector_jdt_dir, f'state_timeslot.bin'), "rb") as f:
+           jam_data = f.read()
+        self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
+
+    def test_jdt_state_accumulation_queue(self):
+        with open(path.join(self.test_vector_jdt_dir, f'state_accumulation_queue.json')) as f:
+            test_vector = json.load(f)
+
+        state = AccumulationQueueState.from_json(test_vector)
+        value = state.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_jdt_dir, f'state_accumulation_queue.bin'), "rb") as f:
            jam_data = f.read()
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 

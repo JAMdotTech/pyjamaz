@@ -63,15 +63,18 @@ class TestBlockHistory(unittest.TestCase):
                 report=WorkReport(
                     package_spec=WorkPackageSpec(
                         hash=bytes.fromhex(w[2:]),
-                        len=0,
+                        length=0,
                         erasure_root=bytes(32),
                         exports_root=bytes(32),
+                        exports_count=0
                     ),
                     context=None,
                     core_index=0,
                     authorizer_hash=bytes(32),
                     auth_output=bytes(),
-                    results=[]),
+                    results=[],
+                    segment_root_lookup=[]
+                ),
                 slot=0,
                 signatures=[]
             ) for w in test_vector["input"]["work_packages"]
