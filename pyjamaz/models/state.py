@@ -5,7 +5,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
-from pyjamaz.merkle import MerkleTree
+from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.block import WorkReport, TicketBody
 from pyjamaz.models.common import ValidatorData
 
@@ -507,7 +507,7 @@ class BeefyCommitmentMap(Serializable):
 
     def get_accumulate_root(self):
         data = [(k.to_bytes(4, byteorder='little'), v) for k, v in self.beefy_commitment_map.items()]
-        return MerkleTree(data).root()
+        return PatriciaMerkleTrie(data).root()
 
 
 @dataclass

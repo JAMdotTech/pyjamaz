@@ -9,7 +9,7 @@ import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.merkle import MerkleMountainRange, MerkleTree
+from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Keypair, Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.storage import StorageEngine
 from pyjamaz.models.common import ValidatorData
