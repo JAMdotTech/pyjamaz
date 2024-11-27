@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from pyjamaz.merkle import MerkleTree, MerkleMountainRange
+from pyjamaz.merkle import MerkleMountainRange
 
 
 class TestMerkleMountainRange(unittest.TestCase):
