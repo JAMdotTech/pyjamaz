@@ -7,10 +7,12 @@ from bandersnatch_vrfs import ietf_vrf_sign
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
+
 from pyjamaz.exceptions import BlockValidationError, PyjamazAppError, BlockValidationErrorCode
 from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD
+from pyjamaz.hostcalls import HostCalls
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.storage import StorageEngine, Transaction
 
@@ -20,6 +22,7 @@ from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Ti
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState, Statistic, \
     BeefyCommitmentMap, AccumulationQueueState, AccumulationHistoryState
 from pyjamaz.models.stf_output import STFOutput
+from pyjamaz.types import AppType
 
 T = TypeVar('T')
 
@@ -46,7 +49,7 @@ class AppConfig:
     create_traces: bool = field(default=False)
 
 
-class PyjamazApp:
+class PyjamazApp(AppType):
     def __init__(self, config: AppConfig):
         self.config = config
 
@@ -55,6 +58,7 @@ class PyjamazApp:
         self.state_db: StorageEngine = config.storage_engine.namespace(b"state")
         self.block_db: StorageEngine = config.storage_engine.namespace(b"block")
         self.app_db: StorageEngine = config.storage_engine.namespace(b"app")
+        self.service_db: StorageEngine = config.storage_engine.namespace(b"service")
 
         self.components = StateComponents(self.state_db, config=self.config)
 
@@ -62,7 +66,14 @@ class PyjamazApp:
 
         self.state: Optional[JamState] = None
 
+        self.hostcalls:HostCalls = HostCalls(self)
+
         self.latest_epoch = None
+
+    #TODO: add proper typings
+    def get_service_db(self):
+        return self.service_db
+
 
     def retrieve_jam_state(self):
         return JamState(

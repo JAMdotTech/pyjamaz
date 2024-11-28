@@ -5,8 +5,7 @@ import numpy as np
 import numpy.typing as npt
 
 from .exceptions import InvalidOpcode
-from .host_calls import invoke_host_call_pvm
-from .types import PVMProgram
+from .codec import PVMProgram
 
 from .utils import (
     pvm_Zn,
@@ -23,10 +22,13 @@ from .constants import (
     MemOps
 )
 
+from ..app import PyjamazApp
+
 
 class PVM:
 
-    def __init__(self):
+    def __init__(self, app:PyjamazApp):
+        self.app = app
         self.reg = np.zeros(13, dtype=np.uint32)
         self.pc:np.uint32 = np.uint32(0)
         self.gas:np.uint64 = np.uint64(0)
@@ -182,7 +184,7 @@ class PVM:
                             #TODO: we do not exit the main loop on this, since the program may be continued?
                             # or is this also a exit condition which we handfle differently?
                             #TODO: self.pc += skip_len for resuming later?
-                            result = invoke_host_call_pvm(self, v_x)
+                            result = self.app.hostcalls.invoke_pvm(self, v_x)
 
                         case _:
                             raise InvalidOpcode(f"Invalid imm opcode: {opcode} for instruction type {inst_type}")
