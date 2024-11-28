@@ -50,6 +50,7 @@ class SafroleTestState(Serializable):
     gamma_s: SlotSealerSeries = field(
         metadata={'codec': SlotSealerSeries.to_codec_def()})  # Sealing-key series of the current epoch.
     gamma_z: bytes = field(metadata={'codec': Array(U8, 144)})  # Bandersnatch ring commitment.
+    post_offenders: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -81,7 +82,6 @@ class SafroleInput(Serializable):
     slot: int = field(metadata={'codec': U32})  # Current slot. U32
     entropy: bytes = field(metadata={'codec': H256})  # Per block entropy (originated from block entropy source VRF)
     extrinsic: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})  # Safrole extrinsic. SEQUENCE (SIZE(0..16)) OF TicketEnvelope
-    post_offenders: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -176,7 +176,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         jam_state.validator_archive = ValidatorArchiveState(
             validators=test_case.pre_state.lambda_
         )
-        jam_state.disputes.offenders = test_case.input.post_offenders
+        jam_state.disputes.offenders = test_case.pre_state.post_offenders
 
         # Convert test case input to block
         test_case_input = deepcopy(test_case.input)
