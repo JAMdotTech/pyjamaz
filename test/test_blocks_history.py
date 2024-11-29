@@ -62,10 +62,10 @@ class TestBlockHistory(unittest.TestCase):
             Guarantee(
                 report=WorkReport(
                     package_spec=WorkPackageSpec(
-                        hash=bytes.fromhex(w["hash"][2:]),
+                        hash=bytes.fromhex(work_package['hash'][2:]),
                         length=0,
                         erasure_root=bytes(32),
-                        exports_root=bytes.fromhex(w["exports_root"][2:]),
+                        exports_root=bytes.fromhex(work_package['exports_root'][2:]),
                         exports_count=0
                     ),
                     context=RefinementContext(
@@ -84,7 +84,7 @@ class TestBlockHistory(unittest.TestCase):
         ),
                 slot=0,
                 signatures=[]
-            ) for w in test_vector["input"]["work_packages"]
+            ) for work_package in test_vector["input"]["work_packages"]
         ]
 
         # TODO How to determine this from extrinsic? Merkle root of WorkPackageSpec.roots?
