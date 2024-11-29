@@ -9,7 +9,7 @@ from parameterized import parameterized
 
 from pyjamaz.state.components import RecentHistory
 from pyjamaz.storage import JSONStorage, InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee, WorkReport, WorkPackageSpec
+from pyjamaz.models.block import Header, Guarantee, WorkReport, WorkPackageSpec, RefinementContext
 from pyjamaz.models.state import RecentHistoryState
 
 
@@ -62,22 +62,29 @@ class TestBlockHistory(unittest.TestCase):
             Guarantee(
                 report=WorkReport(
                     package_spec=WorkPackageSpec(
-                        hash=bytes.fromhex(w[2:]),
+                        hash=bytes.fromhex(work_package['hash'][2:]),
                         length=0,
                         erasure_root=bytes(32),
-                        exports_root=bytes(32),
+                        exports_root=bytes.fromhex(work_package['exports_root'][2:]),
                         exports_count=0
                     ),
-                    context=None,
+                    context=RefinementContext(
+                        anchor=bytes(32),
+                        state_root=bytes(32),
+                        beefy_root=bytes(32),
+                        lookup_anchor=bytes(32),
+                        lookup_anchor_slot=0,
+                        prerequisites=[]
+                    ),
                     core_index=0,
                     authorizer_hash=bytes(32),
                     auth_output=bytes(),
-                    results=[],
-                    segment_root_lookup=[]
-                ),
+                    segment_root_lookup=[],
+                    results=[]
+        ),
                 slot=0,
                 signatures=[]
-            ) for w in test_vector["input"]["work_packages"]
+            ) for work_package in test_vector["input"]["work_packages"]
         ]
 
         # TODO How to determine this from extrinsic? Merkle root of WorkPackageSpec.roots?

@@ -26,7 +26,7 @@ from pyjamaz.models.block import TicketBody, EpochMark, Header, TicketEnvelope, 
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
-    SlotSealerSeries, BeefyCommitmentMap
+    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -554,11 +554,16 @@ class RecentHistory(StateComponent):
         """
         post_state_recent_history = deepcopy(intermediate_state_recent_history)
 
-        work_report_hashes = [g.report.package_spec.hash for g in extrinsic_guarantees]
+        reported_work_packages = [
+            ReportedWorkPackage(
+                hash=g.report.package_spec.hash,
+                exports_root=g.report.package_spec.exports_root
+            ) for g in extrinsic_guarantees
+        ]
 
         # No more work reports than number of cores GP-0.5.0-eq:7.1
         # TODO: implicit limit to work-reports. GP-0.5.0 has a model change making bold_p a dictionary.
-        if work_report_hashes and len(work_report_hashes) > gp_const.CORE_COUNT:
+        if len(reported_work_packages) > gp_const.CORE_COUNT:
             raise StateTransitionError(f"Work reports must be less than number of cores ({gp_const.CORE_COUNT})")
 
         if len(intermediate_state_recent_history.recent_history) > 0:
@@ -581,7 +586,7 @@ class RecentHistory(StateComponent):
                 peaks=mmr.peaks
             ),
             state_root=bytes(32),
-            reported=work_report_hashes
+            reported=reported_work_packages
         )
 
         post_state_recent_history.recent_history.append(recent_block)
