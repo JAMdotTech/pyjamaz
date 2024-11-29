@@ -184,6 +184,23 @@ class Mmr(Serializable):
 
 
 @dataclass
+class ReportedWorkPackage(Serializable):
+    """
+    GP-0.5.0-eq:7.1 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
+    of cores (constant_c=341)
+
+    Attributes
+    ----------
+    hash: H256
+        GP-0.5.0-eq:7.1 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+    exports_root: H256
+        GP-0.5.0-eq:7.1 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+    """
+    hash: bytes = field(metadata={'codec': H256})
+    exports_root: bytes = field(metadata={'codec': H256})
+
+
+@dataclass
 class RecentBlock(Serializable):
     """
     GP-0.5.0-eq:7.1 (β) | A single item in the RecentHistory partition of the overall state.
@@ -197,16 +214,16 @@ class RecentBlock(Serializable):
         GP-0.5.0-eq:7.1 (bold_b) | Accumulation result Merkle Mountain Range of the recent block.
     state_root: H256
         GP-0.5.0-eq:7.1 (s, blackboard_H) | State root of the recent block.
-    reported: Vec(H256)
-        GP-0.5.0-eq:7.1 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
-        of cores (constant_c=341)
+    reported: Vec(ReportedWorkPackage)
+        GP-0.5.0-eq:7.1 (bold_p) | A collection of ReportedWorkPackage for each work-report made into the MMR, limited
+        to the number of cores (constant_c=341)
     """
     header_hash: bytes = field(metadata={'codec': H256})
     mmr: Mmr = field(metadata={'codec': Mmr.to_codec_def()})
     state_root: bytes = field(metadata={'codec': H256})
     # TODO: GP-0.5.0-eq:7.1 states bold_p needs to be a dictionary, GP-0.5.0-eq:D.2 states bold_p needs to have a
     # length prefix encoding.
-    reported: List[bytes] = field(metadata={'codec': Vec(H256)})
+    reported: List[ReportedWorkPackage] = field(metadata={'codec': Vec(ReportedWorkPackage.to_codec_def())})
 
     def __post_init__(self):
         # Todo: 'reported' attribute is allowed to have up to constant_C (CORES=341) items.

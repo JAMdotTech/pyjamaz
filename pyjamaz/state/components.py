@@ -554,6 +554,7 @@ class RecentHistory(StateComponent):
         """
         post_state_recent_history = deepcopy(intermediate_state_recent_history)
 
+        # TODO: process `hash` and `exports_root` from `extrinsic_guarantees`.`work_package_spec`
         work_report_hashes = [g.report.package_spec.hash for g in extrinsic_guarantees]
 
         # No more work reports than number of cores GP-0.5.0-eq:7.1
@@ -581,6 +582,7 @@ class RecentHistory(StateComponent):
                 peaks=mmr.peaks
             ),
             state_root=bytes(32),
+            # TODO: process `hash` and `exports_root` from `extrinsic_guarantees`.`work_package_spec`
             reported=work_report_hashes
         )
 
