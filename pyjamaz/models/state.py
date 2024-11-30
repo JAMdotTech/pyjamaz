@@ -583,12 +583,15 @@ class JamState(State, Serializable):
         return cls(
             timeslot=TimeslotState(number=0),
             entropy=EntropyState(
-                entropy=[bytes(32), bytes(32), bytes(32), bytes(32)]
+                entropy=[
+                    validators[0].bandersnatch, validators[1].bandersnatch,
+                    validators[2].bandersnatch, validators[3].bandersnatch
+                ]
             ),
             safrole=SafroleState(
                 ticket_accumulator=[],
                 validators=validators,
-                slot_sealer_series=SlotSealerSeries(keys=[bytes(32)] * EPOCH_TIMESLOTS),
+                slot_sealer_series=SlotSealerSeries(keys=[validators[0].bandersnatch] * EPOCH_TIMESLOTS),
                 ring_commitment=bytes(144),
             ),
             validator_queue=ValidatorQueueState(
