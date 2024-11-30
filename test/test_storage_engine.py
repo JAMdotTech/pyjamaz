@@ -1,6 +1,6 @@
 import shutil
 import unittest
-from os import path
+from os import path, makedirs
 
 from pyjamaz.models.state import TimeslotState
 from pyjamaz.state.components import Timeslot
@@ -12,6 +12,7 @@ class TestLevelDBStorage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         db_path = path.join(path.dirname(path.abspath(__file__)), '..', 'data', 'testdb')
+        makedirs(db_path, exist_ok=True)
         shutil.rmtree(db_path)  # Clear DB
         cls.storage = LevelDBStorage.create_from_file(db_path)
 
