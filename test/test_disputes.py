@@ -113,7 +113,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
 
         # Initialize app
         app = PyjamazApp(config=self.config)
-        app.store_jam_state(pre_state)
+        await app.store_jam_state(pre_state)
 
         # Process block
         try:

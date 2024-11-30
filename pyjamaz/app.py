@@ -11,6 +11,7 @@ from pyjamaz.exceptions import BlockValidationError, PyjamazAppError, BlockValid
 from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD
+from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.storage import StorageEngine, Transaction
 
@@ -61,6 +62,7 @@ class PyjamazApp:
         self.extrinsic = ExtrinsicAccumulator(self.config.ring_data)
 
         self.state: Optional[JamState] = None
+        self.state_trie_root = bytes(32)
 
         self.latest_epoch = None
 
@@ -97,7 +99,7 @@ class PyjamazApp:
             )
         )
 
-    def store_jam_state(self, state: JamState, transaction: Optional[Transaction] = None):
+    async def store_jam_state(self, state: JamState, transaction: Optional[Transaction] = None):
         self.components.timeslot.store_state(state.timeslot, transaction)
         self.components.recent_history.store_state(state.recent_history, transaction)
         self.components.entropy.store_state(state.entropy, transaction)
@@ -112,6 +114,16 @@ class PyjamazApp:
         # self.state_manager.get(AuthorizerQueues).store_state(state.authorizer_queues, transaction)
         self.components.privileged_services.store_state(state.privileged_services, transaction)
         self.components.authorizer_pools.store_state(state.authorizer_pools, transaction)
+
+    async def update_state_trie(self):
+        """
+        Updated the Patricia state trie.
+
+        TODO create separate DB and only update affected branches for performance; now the whole state have to be
+          in memory
+        """
+        state_trie = PatriciaMerkleTrie(list(self.state_db))
+        self.state_trie_root = state_trie.root()
 
     async def process_timeslot(self, timeslot: int):
         if self.is_epoch_change(timeslot):
@@ -614,7 +626,7 @@ class PyjamazApp:
 
         header = Header(
             parent=self.retrieve_block_hash(self.state.timeslot.number) or bytes(32),
-            parent_state_root=bytes(32),
+            parent_state_root=self.state_trie_root,
             extrinsic_hash=extrinsic.generate_extrinsic_hash(),
             timeslot=timeslot,
             # Placeholder
@@ -659,6 +671,7 @@ class PyjamazApp:
 
             # self.validate_block(block)
 
+        await self.update_state_trie()
         await self.store_block(block)
         # await self.send_block(block)
 

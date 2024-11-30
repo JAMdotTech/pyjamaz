@@ -1,3 +1,4 @@
+import shutil
 import unittest
 from os import path
 
@@ -8,10 +9,11 @@ from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 
 class TestLevelDBStorage(unittest.TestCase):
 
-    def setUp(self):
-        db_path = path.join(path.dirname(path.abspath(__file__)), '..', 'data')
-
-        self.storage = LevelDBStorage.create_from_file(db_path)
+    @classmethod
+    def setUpClass(cls):
+        db_path = path.join(path.dirname(path.abspath(__file__)), '..', 'data', 'testdb')
+        shutil.rmtree(db_path)  # Clear DB
+        cls.storage = LevelDBStorage.create_from_file(db_path)
 
     def test_state_storage(self):
 
@@ -35,11 +37,23 @@ class TestLevelDBStorage(unittest.TestCase):
         self.assertEqual(b'state', state_db.get(b'test'))
         self.assertEqual(b'block', block_db.get(b'test'))
 
+    def test_iter(self):
+        state_db = self.storage.namespace(b'state')
+        state_db.put(b'test', b'state')
+        state_db.put(b'test2', b'state2')
+        state_db.put(b'test3', b'state3')
+
+        all_items = list(state_db)
+
+        self.assertEqual(len(all_items), 3)
+
+
 
 class TestInMemoryStorage(TestLevelDBStorage):
 
-    def setUp(self):
-        self.storage = InMemoryStorage()
+    @classmethod
+    def setUpClass(cls):
+        cls.storage = InMemoryStorage()
 
 
 if __name__ == '__main__':

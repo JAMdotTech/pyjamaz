@@ -322,7 +322,7 @@ async def init(initial_state, genesis, custom_db_path, force_overwrite):
             )
 
     app = initialize_app(read_state=False, custom_db_path=custom_db_path, common_era=common_era)
-    app.store_jam_state(jam_state)
+    await app.store_jam_state(jam_state)
     click.echo(f"✅ Initialization complete.")
 
 
