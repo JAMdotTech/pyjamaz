@@ -32,7 +32,7 @@ default_db_path = path.join(data_dir, 'db')
 logger = logging.getLogger(__name__)
 
 
-def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=None, custom_db_path=None) -> PyjamazApp:
+async def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=None, custom_db_path=None) -> PyjamazApp:
 
     # Load SRS
     with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
@@ -66,6 +66,7 @@ def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=
     if read_state:
         app.state = app.retrieve_jam_state()
         app.latest_epoch = app.state.timeslot.epoch_number()
+        await app.update_state_trie()
 
     return app
 
@@ -107,7 +108,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
             ts = int(current_time - (current_time % 12) + 12)
 
         try:
-            app = initialize_app(
+            app = await initialize_app(
                 keys=Keys.from_seed(bytes.fromhex(seed[2:])),
                 custom_db_path=custom_db_path
             )
@@ -119,6 +120,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, traces_dir, custom
         logger.info(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
         logger.info(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
         logger.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
+        logger.info(f'🌲 State trie root: 0x{app.state_trie_root.hex()}')
         logger.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
         logger.info(
@@ -179,12 +181,14 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
                             block = Block.from_json(data)
 
                             # TODO block.header.timeslot == 0 possible?
-                            if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
+                            if block.header.timeslot > app.state.timeslot.number:
 
                                 if traces_dir:
                                     pre_state = app.state.to_json()
 
                                 output = await app.import_block(block)
+
+                                app.latest_epoch = block.header.timeslot // EPOCH_TIMESLOTS
 
                                 if traces_dir:
                                     await store_trace(pre_state, block, output, app, traces_dir)
@@ -321,8 +325,8 @@ async def init(initial_state, genesis, custom_db_path, force_overwrite):
                 validators=[ValidatorData.from_json(v) for v in genesis_data['validators']],
             )
 
-    app = initialize_app(read_state=False, custom_db_path=custom_db_path, common_era=common_era)
-    app.store_jam_state(jam_state)
+    app = await initialize_app(read_state=False, custom_db_path=custom_db_path, common_era=common_era)
+    await app.store_jam_state(jam_state)
     click.echo(f"✅ Initialization complete.")
 
 
@@ -339,7 +343,7 @@ async def dump_state(output_format):
     Dumps current state to stdout
 
     """
-    app = initialize_app()
+    app = await initialize_app()
 
     if output_format == 'json':
         click.echo(json.dumps(app.state.to_json(), indent=2))

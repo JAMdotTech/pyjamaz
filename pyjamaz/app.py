@@ -11,6 +11,7 @@ from pyjamaz.exceptions import BlockValidationError, PyjamazAppError, BlockValid
 from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD
+from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.storage import StorageEngine, Transaction
 
@@ -19,7 +20,7 @@ from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchiv
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState, Statistic, \
     BeefyCommitmentMap, AccumulationQueueState, AccumulationHistoryState
-from pyjamaz.models.stf_output import STFOutput
+from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
 
 T = TypeVar('T')
 
@@ -61,6 +62,7 @@ class PyjamazApp:
         self.extrinsic = ExtrinsicAccumulator(self.config.ring_data)
 
         self.state: Optional[JamState] = None
+        self.state_trie_root = bytes(32)
 
         self.latest_epoch = None
 
@@ -97,7 +99,7 @@ class PyjamazApp:
             )
         )
 
-    def store_jam_state(self, state: JamState, transaction: Optional[Transaction] = None):
+    async def store_jam_state(self, state: JamState, transaction: Optional[Transaction] = None):
         self.components.timeslot.store_state(state.timeslot, transaction)
         self.components.recent_history.store_state(state.recent_history, transaction)
         self.components.entropy.store_state(state.entropy, transaction)
@@ -112,6 +114,16 @@ class PyjamazApp:
         # self.state_manager.get(AuthorizerQueues).store_state(state.authorizer_queues, transaction)
         self.components.privileged_services.store_state(state.privileged_services, transaction)
         self.components.authorizer_pools.store_state(state.authorizer_pools, transaction)
+
+    async def update_state_trie(self):
+        """
+        Updated the Patricia state trie.
+
+        TODO create separate DB and only update affected branches for performance; now the whole state have to be
+          in memory
+        """
+        state_trie = PatriciaMerkleTrie(list(self.state_db))
+        self.state_trie_root = state_trie.root()
 
     async def process_timeslot(self, timeslot: int):
         if self.is_epoch_change(timeslot):
@@ -149,8 +161,22 @@ class PyjamazApp:
             logging.debug(f"Current tickets {[i.hex() for i in self.extrinsic.own_tickets_current]}")
 
     def validate_header(self, header: Header):
-        # if 0 < header.timeslot <= self.state.timeslot.number or header.timeslot > self.current_timeslot():
-        #     raise BlockValidationError(SafroleErrorCode.bad_slot)
+
+        if 0 < header.timeslot <= self.state.timeslot.number or header.timeslot > self.current_timeslot():
+            raise BlockValidationError(SafroleErrorCode.bad_slot)
+
+        parent_hash = self.retrieve_block_hash(self.state.timeslot.number) or bytes(32)
+
+        if header.parent != parent_hash:
+            raise BlockValidationError(
+                f"Parent hash {header.parent.hex()} does not match latest block in state 0x{parent_hash.hex()}"
+            )
+
+        if header.parent_state_root != self.state_trie_root:
+            raise BlockValidationError(
+                f"Parent state root {header.parent_state_root.hex()} does not match with  0x{self.state_trie_root.hex()}"
+            )
+
 
         # Validate seal
         author_key = self.get_author_bandersnatch_key(header.author_index)
@@ -190,10 +216,13 @@ class PyjamazApp:
         bool
             `True` when epoch has changed, `False` otherwise.
 
-        TODO duplicate code, move to dedicated until package?
+        TODO duplicate code, move to dedicated package?
         """
         if slotnumber is None:
             slotnumber = self.current_timeslot()
+
+        if self.state.timeslot.number == 0 and slotnumber % EPOCH_TIMESLOTS != 0:
+            return False
 
         return self.latest_epoch != slotnumber // EPOCH_TIMESLOTS
 
@@ -206,10 +235,7 @@ class PyjamazApp:
         #     prev_validators=self.state.validator_archive.validators
         # )
 
-    def validate_block(self, block: Block, parent_hash: bytes):
-
-        if block.header.parent != parent_hash:
-            raise BlockValidationError(f"Parent hash {block.header.parent.hex()} does not match latest block in state 0x{parent_hash.hex()}")
+    def validate_block(self, block: Block):
 
         # Check extrinsic hash
         if block.header.extrinsic_hash != block.extrinsic.generate_extrinsic_hash():
@@ -218,7 +244,7 @@ class PyjamazApp:
         self.validate_header(block.header)
         self.validate_extrinsic(block.extrinsic)
 
-    async def state_transition(self, block: 'Block', transaction) -> 'STFOutput':
+    async def state_transition(self, block: 'Block', transaction, dry_run=False) -> 'STFOutput':
         """
         GP-0.5.0-eq:4.1 (Υ, σ') | Block Level State Transition Function for the JAM state.
 
@@ -375,27 +401,28 @@ class PyjamazApp:
         )
 
         # All state transitions successful, commit state changes
-        self.state.timeslot = timeslot_output.post_state
-        self.state.entropy = entropy_output.post_state
-        self.state.disputes = disputes_output.post_state
-        self.state.validator_pool = validator_pool_output.post_state
-        self.state.validator_archive = validator_archive_output.post_state
-        self.state.safrole = safrole_output.post_state
-        self.state.assurances = assurances_output.post_state
-        self.state.recent_history = recent_history_output.post_state
+        if not dry_run:
+            self.state.timeslot = timeslot_output.post_state
+            self.state.entropy = entropy_output.post_state
+            self.state.disputes = disputes_output.post_state
+            self.state.validator_pool = validator_pool_output.post_state
+            self.state.validator_archive = validator_archive_output.post_state
+            self.state.safrole = safrole_output.post_state
+            self.state.assurances = assurances_output.post_state
+            self.state.recent_history = recent_history_output.post_state
 
-        # TODO only set local memory self.state not write to DB
-        self.components.timeslot.store_state(timeslot_output.post_state, transaction)
-        self.components.entropy.store_state(entropy_output.post_state, transaction)
-        self.components.disputes.store_state(disputes_output.post_state, transaction)
-        self.components.validator_pool.store_state(validator_pool_output.post_state, transaction)
-        self.components.validator_archive.store_state(validator_archive_output.post_state, transaction)
-        self.components.safrole.store_state(safrole_output.post_state, transaction)
-        self.components.assurances.store_state(assurances_output.post_state, transaction)
-        # Todo: add remaining state components: recent_history, services, authorizer_pools, statistics
-        # Todo: research but likely also add posterior state of privileged services output (validator_queue, authorization_queues, privileged_services)
-        # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root (deprecated by previous todo)
-        self.components.recent_history.store_state(recent_history_output.post_state, transaction)
+            # TODO only set local memory self.state not write to DB
+            self.components.timeslot.store_state(timeslot_output.post_state, transaction)
+            self.components.entropy.store_state(entropy_output.post_state, transaction)
+            self.components.disputes.store_state(disputes_output.post_state, transaction)
+            self.components.validator_pool.store_state(validator_pool_output.post_state, transaction)
+            self.components.validator_archive.store_state(validator_archive_output.post_state, transaction)
+            self.components.safrole.store_state(safrole_output.post_state, transaction)
+            self.components.assurances.store_state(assurances_output.post_state, transaction)
+            # Todo: add remaining state components: recent_history, services, authorizer_pools, statistics
+            # Todo: research but likely also add posterior state of privileged services output (validator_queue, authorization_queues, privileged_services)
+            # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root (deprecated by previous todo)
+            self.components.recent_history.store_state(recent_history_output.post_state, transaction)
 
         return STFOutput(
             epoch_mark=safrole_output.epoch_mark,
@@ -406,13 +433,13 @@ class PyjamazApp:
     async def import_block(self, block: Block, validate=True) -> STFOutput:
         try:
             with self.state_db.transaction() as transaction:
-                parent_hash = self.retrieve_block_hash(self.state.timeslot.number) or bytes(32)
+
+                if validate:
+                    self.validate_block(block)
 
                 output = await self.state_transition(block, transaction)
-                if validate:
-                    # Todo move validate block before state transition
-                    self.validate_block(block, parent_hash)
 
+            await self.update_state_trie()
             await self.store_block(block)
             return output
 
@@ -581,10 +608,6 @@ class PyjamazApp:
 
     async def produce_block(self, timeslot: int) -> Block:
 
-        # if self.is_epoch_change(timeslot):
-        #     entropy = self.state.entropy.entropy[1]
-        # else:
-        #     entropy = self.state.entropy.entropy[2]
         if timeslot % EPOCH_TIMESLOTS > 0:
             entropy = self.state.entropy.entropy[2]
 
@@ -614,7 +637,7 @@ class PyjamazApp:
 
         header = Header(
             parent=self.retrieve_block_hash(self.state.timeslot.number) or bytes(32),
-            parent_state_root=bytes(32),
+            parent_state_root=self.state_trie_root,
             extrinsic_hash=extrinsic.generate_extrinsic_hash(),
             timeslot=timeslot,
             # Placeholder
@@ -637,9 +660,8 @@ class PyjamazApp:
             extrinsic=extrinsic
         )
         with self.state_db.transaction() as transaction:
-            parent_hash = self.retrieve_block_hash(self.state.timeslot.number) or bytes(32)
 
-            output = await self.state_transition(block, transaction)
+            output = await self.state_transition(block, transaction, dry_run=True)
 
             block.header.epoch_marker = output.epoch_mark
             block.header.tickets_marker = output.tickets_mark
@@ -647,20 +669,6 @@ class PyjamazApp:
             block.header.author_index = self.get_author_index()
 
             block.header.seal = self.generate_block_seal(block.header)
-
-            # TEMP Check if block should be produced after all
-            self.validate_block(block, parent_hash)
-
-            # if not self.should_produce_block():
-            #     raise BlockValidationError("Shouldn't produce block")
-
-            # TODO circular ref?
-            # block.header.entropy_source = self.generate_entropy_source(block.header.seal)
-
-            # self.validate_block(block)
-
-        await self.store_block(block)
-        # await self.send_block(block)
 
         return block
 

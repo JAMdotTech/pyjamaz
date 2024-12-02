@@ -244,6 +244,7 @@ class Safrole(StateComponent):
         aux_data = b''
 
         try:
+            logging.debug(f'Validating ticket in STF with entropy {entropy.hex()}')
             ring_vrf_output = ring_vrf_verify(
                 self.ring_data, ring_public_keys, vrf_input_data, aux_data, ticket_data.signature
             )

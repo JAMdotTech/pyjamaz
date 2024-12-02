@@ -208,7 +208,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         # Initialize app
         app = PyjamazApp(config=self.config)
         # app.state = jam_state
-        app.store_jam_state(jam_state)
+        await app.store_jam_state(jam_state)
 
         # Process block
         try:

@@ -71,7 +71,7 @@ class ExtrinsicAccumulator:
         ticket_id = vrf_output(keypair.private_key, vrf_input_data)
 
         logging.info(f'🎫 Generated ticket: 0x{ticket_id.hex()}')
-        # logging.debug(f'Generated ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
+        logging.debug(f'Generated ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
 
         self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)

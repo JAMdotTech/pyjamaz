@@ -84,6 +84,10 @@ class InMemoryStorage(StorageEngine):
     def namespace(self, prefix: bytes) -> 'InMemoryStorage':
         return InMemoryStorage(storage=self.storage, prefix=prefix + b'-')
 
+    def __iter__(self):
+        prefixed_db = {k[len(self.prefix):]: v for k, v in self.storage.items() if k.startswith(self.prefix)}
+        return iter(prefixed_db.items())
+
 
 class JSONTransaction(Transaction):
     def __init__(self, json_storage: 'JSONStorage'):
@@ -224,3 +228,6 @@ class LevelDBStorage(StorageEngine):
 
     def namespace(self, prefix: bytes) -> 'LevelDBStorage':
         return LevelDBStorage(db=self.db.prefixed_db(prefix + b'-'))
+
+    def __iter__(self):
+        return self.db.__iter__()
