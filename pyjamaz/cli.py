@@ -363,7 +363,7 @@ async def replay_traces(traces_dir, custom_db_path, force_overwrite, trace_forma
                         if trace_format == 'duna':
                             trace_state_data = convert_duna_state_trace(trace_state_data)
 
-                        state_diff = DeepDiff(app.state.to_json(), trace_state_data, ignore_order=True)
+                        state_diff = DeepDiff(trace_state_data, app.state.to_json(), ignore_order=True)
                         if state_diff:
                             logger.error(f'State after import is inconsistent, dumping diff below:')
                             click.echo(json.dumps(state_diff, indent=2))

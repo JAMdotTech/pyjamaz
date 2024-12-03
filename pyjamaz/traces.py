@@ -13,7 +13,12 @@ def convert_duna_state_trace(trace_data: dict) -> dict:
     trace_data["validator_pool"] = {"validators": trace_data.pop("kappa")}
     trace_data["validator_archive"] = {"validators": trace_data.pop("lambda")}
     trace_data["authorizer_pools"] = {"authorizer_pools": trace_data.pop("alpha")}
-    trace_data["recent_history"] = {"recent_history": trace_data.pop("beta") or []}
+    trace_data["recent_history"] = {"recent_history": [{
+        "header_hash": b["header_hash"],
+        "mmr": {"peaks": b["mmr"]["Peaks"]},
+        "state_root": b["state_root"],
+        "reported": b["reported"]
+    } for b in trace_data.pop("beta")] or []}
 
     trace_data["authorizer_queues"] = {"authorizer_queues": trace_data.pop("varphi")}
     trace_data["disputes"] = {
