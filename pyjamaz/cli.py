@@ -261,7 +261,7 @@ def generate(seed):
 
 @main.command()
 @click.option('--initial-state', type=click.Path(exists=True))
-@click.option('--genesis', type=click.Path())
+@click.option('--genesis', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 async def init(initial_state, genesis, custom_db_path, force_overwrite):
@@ -377,7 +377,7 @@ async def replay_traces(traces_dir, custom_db_path, force_overwrite, trace_forma
                 break
 
 
-@main.command('dump')
+@main.command('dump_state')
 @click.option(
     '--format', 'output_format',
     type=click.Choice(['json', 'bin'], case_sensitive=False),
@@ -397,6 +397,32 @@ async def dump_state(output_format):
     elif output_format == 'bin':
         click.echo(app.state.to_jam_bytes().to_bytes(), file=click.get_binary_stream('stdout'), nl=False)
 
+
+@main.command('dump_block')
+@click.argument('timeslot', type=int)
+@click.option(
+    '--format', 'output_format',
+    type=click.Choice(['json', 'bin'], case_sensitive=False),
+    default='json',
+    show_default=True,
+    help='Choose the output format: JSON or JAM-bytes'
+)
+async def dump_block(timeslot, output_format):
+    """
+    Dumps current state to stdout
+
+    """
+    app = await initialize_app()
+
+    block = app.block_db.get(b'block:' + timeslot.to_bytes(length=4, byteorder='little'))
+
+    if block is None:
+        click.echo('Block not found', err=True)
+    else:
+        if output_format == 'json':
+            click.echo(json.dumps(Block.from_jam_bytes(JamBytes(block)).to_json(), indent=2))
+        elif output_format == 'bin':
+            click.echo(block, file=click.get_binary_stream('stdout'), nl=False)
 
 if __name__ == '__main__':
     main(_anyio_backend="asyncio")
