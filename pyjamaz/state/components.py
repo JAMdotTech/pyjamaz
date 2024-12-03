@@ -246,7 +246,7 @@ class Safrole(StateComponent):
         try:
             logging.debug(f'Validating ticket in STF with entropy {entropy.hex()}')
             ring_vrf_output = ring_vrf_verify(
-                self.ring_data, ring_public_keys, vrf_input_data, aux_data, ticket_data.signature
+                self.ring_data, ring_public_keys, vrf_input_data, aux_data, bytes(ticket_data.signature)
             )
         except ValueError as e:
             raise StateTransitionError(SafroleErrorCode.bad_ticket_proof)

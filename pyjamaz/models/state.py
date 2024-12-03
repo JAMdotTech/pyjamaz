@@ -644,7 +644,7 @@ class JamState(State, Serializable):
                 empower_service=0,
                 assign_service=0,
                 designate_service=0,
-                auto_accumulate_services={}
+                auto_accumulate_services=[]
             ),
             disputes=DisputesState(
                 good_set=[],
@@ -657,7 +657,7 @@ class JamState(State, Serializable):
                     [
                         Statistic(0, 0, 0, 0, 0, 0),
                     ] * VALIDATOR_COUNT
-                ] * EPOCH_TIMESLOTS
+                ] * 2
             ),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[

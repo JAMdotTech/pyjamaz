@@ -28,7 +28,7 @@ class ExtrinsicAccumulator:
 
         try:
             ring_vrf_output = ring_vrf_verify(
-                self.ring_data, ring_public_keys, vrf_input_data, aux_data, ticket_data.signature
+                self.ring_data, ring_public_keys, vrf_input_data, aux_data, bytes(ticket_data.signature)
             )
         except ValueError as e:
             raise ValueError(SafroleErrorCode.bad_ticket_proof)

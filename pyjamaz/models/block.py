@@ -555,7 +555,7 @@ class Header(Serializable):
         if getattr(self, '_hash', None) is not None:
             return getattr(self, '_hash')
 
-        return blake2b_256_hash(self.get_unsigned_payload())
+        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
     def get_unsigned_payload(self) -> bytes:
         """
@@ -576,7 +576,7 @@ class Header(Serializable):
             bytes(bandersnatch_key),
             b"jam_ticket_seal" + entropy + int.to_bytes(ticket_body.attempt, byteorder='little', length=1),
             self.get_unsigned_payload(),
-            self.seal
+            bytes(self.seal)
         )
 
         return ticket_body.id == vrf_output
@@ -586,7 +586,7 @@ class Header(Serializable):
             bytes(sealer_key),
             b"jam_fallback_seal" + entropy,
             self.get_unsigned_payload(),
-            self.seal
+            bytes(self.seal)
         )
 
     @classmethod
