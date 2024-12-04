@@ -183,7 +183,6 @@ class PyjamazApp:
 
         # Validate seal
         author_key = self.get_author_bandersnatch_key(header.author_index)
-        entropy = self.state.entropy.entropy[2]
 
         if self.state.safrole.slot_sealer_series.tickets is not None:
             ticket = self.state.safrole.slot_sealer_series.tickets[header.timeslot % EPOCH_TIMESLOTS]
@@ -197,15 +196,15 @@ class PyjamazApp:
             sealer_key = self.state.safrole.slot_sealer_series.keys[header.timeslot % EPOCH_TIMESLOTS]
 
             logging.debug(
-                f'Validate key | Timeslot: {header.timeslot} |  Author: {sealer_key.hex()} | Entropy: {entropy.hex()}'
+                f'Validate key | Timeslot: {header.timeslot} |  Author: {sealer_key.hex()} | Entropy: {self.state.entropy.entropy[2].hex()}'
                 )
 
             if author_key != sealer_key:
                 raise BlockValidationError("Invalid author key")
             try:
 
-                logging.debug(f"Validate Seal with entropy {entropy.hex()}")
-                header.verify_fallback_seal(sealer_key, entropy)
+                logging.debug(f"Validate Seal with entropy {self.state.entropy.entropy[2].hex()}")
+                header.verify_fallback_seal(sealer_key, self.state.entropy.entropy[2])
 
             except ValueError:
                 raise BlockValidationError("Invalid seal key")
@@ -270,8 +269,8 @@ class PyjamazApp:
         pre_state_validator_pool = self.state.validator_pool
         pre_state_validator_archive = self.state.validator_archive
         pre_state_validator_queue = self.state.validator_queue
+        pre_state_statistics = self.state.statistics
         # Todo: implement state component key (well known)
-        # pre_state_statistics = self.state.statistics
         # pre_state_services = self.state.services
         # pre_state_authorizer_queues = self.state.authorizer_queues
         pre_state_privileged_services = self.state.privileged_services
@@ -341,17 +340,17 @@ class PyjamazApp:
         )
 
         # Statistics STF Block Data | GP-0.5.0-eq:4.20
-        #statistics_output = statistics.state_transition(
-        #    extrinsic_guarantees=block.extrinsic.guarantees,
-        #    extrinsic_preimages=block.extrinsic.preimages,
-        #    extrinsic_assurances=block.extrinsic.assurances,
-        #    extrinsic_tickets=block.extrinsic.tickets,
-        #    pre_state_timeslot=pre_state_timeslot,
-        #    post_state_timeslot=timeslot_output.post_state,
-        #    post_state_validator_pool=validator_pool_output.post_state,
-        #    pre_state_statistics=pre_state_statistics,
-        #    header=block.header
-        #)
+        statistics_output = self.components.statistics.state_transition(
+           extrinsic_guarantees=block.extrinsic.guarantees,
+           extrinsic_preimages=block.extrinsic.preimages,
+           extrinsic_assurances=block.extrinsic.assurances,
+           extrinsic_tickets=block.extrinsic.tickets,
+           pre_state_timeslot=pre_state_timeslot,
+           post_state_timeslot=timeslot_output.post_state,
+           post_state_validator_pool=validator_pool_output.post_state,
+           pre_state_statistics=pre_state_statistics,
+           header=block.header
+        )
 
         # Assurances After Assurances STF Block Data | GP-0.5.0-eq:4.14
         assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
@@ -413,8 +412,9 @@ class PyjamazApp:
             self.state.safrole = safrole_output.post_state
             self.state.assurances = assurances_output.post_state
             self.state.recent_history = recent_history_output.post_state
+            self.state.statistics = statistics_output.post_state
 
-            # TODO only set local memory self.state not write to DB
+            # TODO only set local memory self.state not write to DB if not finalized
             self.components.timeslot.store_state(timeslot_output.post_state, transaction)
             self.components.entropy.store_state(entropy_output.post_state, transaction)
             self.components.disputes.store_state(disputes_output.post_state, transaction)
@@ -422,7 +422,8 @@ class PyjamazApp:
             self.components.validator_archive.store_state(validator_archive_output.post_state, transaction)
             self.components.safrole.store_state(safrole_output.post_state, transaction)
             self.components.assurances.store_state(assurances_output.post_state, transaction)
-            # Todo: add remaining state components: recent_history, services, authorizer_pools, statistics
+            self.components.statistics.store_state(statistics_output.post_state, transaction)
+            # Todo: add remaining state components: recent_history, services, authorizer_pools
             # Todo: research but likely also add posterior state of privileged services output (validator_queue, authorization_queues, privileged_services)
             # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root (deprecated by previous todo)
             self.components.recent_history.store_state(recent_history_output.post_state, transaction)

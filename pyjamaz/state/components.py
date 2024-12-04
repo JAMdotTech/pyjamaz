@@ -26,7 +26,7 @@ from pyjamaz.models.block import TicketBody, EpochMark, Header, TicketEnvelope, 
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
-    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage
+    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, Statistic
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -94,7 +94,9 @@ class Entropy(StateComponent):
         post_state_entropy = deepcopy(pre_state_entropy)
 
         # GP-0.5.0-eq:6.22 (η'[0]) | State transition for first index of the entropy.
-        eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(header.entropy_source))
+        eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(
+            header.entropy_source, header.seal
+        ))
 
         # GP-0.5.0-eq:6.23 (η'[1-3]) | State transition for last three indices of the entropy.
         # State transition happen on epoch change.
@@ -1070,8 +1072,27 @@ class Statistics(StateComponent):
         StatisticsOutput
             Output containing: Posterior state of StatisticsState (π')
         """
-        # Todo: properly set post_state by implementing STF
-        post_state = pre_state_statistics
+        post_state = deepcopy(pre_state_statistics)
+
+        # GP-0.5.0-eq:13.3
+        if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
+            post_state.statistics = [[Statistic(
+                blocks=0,
+                tickets=0,
+                preimages=0,
+                preimage_bytes=0,
+                guarantees=0,
+                assurances=0
+            ) for _ in range(gp_const.VALIDATOR_COUNT)], pre_state_statistics.statistics[0]]
+
+        # GP-0.5.0-eq:13.4
+        post_state.statistics[0][header.author_index].blocks += 1
+        post_state.statistics[0][header.author_index].tickets += len(extrinsic_tickets)
+        post_state.statistics[0][header.author_index].preimages += len(extrinsic_preimages)
+        post_state.statistics[0][header.author_index].preimage_bytes += sum([len(p.blob) for p in extrinsic_preimages])
+
+        # Todo: Implement remaining guarantees and assurances stats
+
         return StatisticsOutput(
             post_state=post_state
         )
