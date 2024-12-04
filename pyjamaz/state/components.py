@@ -95,7 +95,7 @@ class Entropy(StateComponent):
 
         # GP-0.5.0-eq:6.22 (η'[0]) | State transition for first index of the entropy.
         eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(
-            header.entropy_source, header.seal
+            header.entropy_source
         ))
 
         # GP-0.5.0-eq:6.23 (η'[1-3]) | State transition for last three indices of the entropy.
