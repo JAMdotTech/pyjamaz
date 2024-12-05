@@ -39,6 +39,9 @@ class StorageEngine:
     def get(self, key):
         raise NotImplementedError
 
+    def delete(self, key):
+        raise NotImplementedError
+
     def transaction(self):
         raise NotImplementedError
 
@@ -77,6 +80,9 @@ class InMemoryStorage(StorageEngine):
 
     def get(self, key: bytes) -> bytes:
         return self.storage.get(self.prefix + key)
+
+    def delete(self, key: bytes):
+        del self.storage[self.prefix + key]
 
     def transaction(self) -> InMemoryTransaction:
         return InMemoryTransaction(self)
@@ -125,6 +131,9 @@ class JSONStorage(StorageEngine):
     def get(self, key: bytes) -> bytes:
         return self.storage.get(key)
 
+    def delete(self, key: bytes):
+        del self.storage[key]
+
     def transaction(self) -> JSONTransaction:
         return JSONTransaction(self)
 
@@ -166,6 +175,9 @@ class RocksDBStorage(StorageEngine):
 
     def get(self, key: bytes) -> bytes:
         return self.db.get(key)
+
+    def delete(self, key: bytes):
+        return self.db.delete(key)
 
     def close(self):
         del self.db
@@ -215,6 +227,9 @@ class LevelDBStorage(StorageEngine):
 
     def get(self, key: bytes) -> bytes:
         return self.db.get(key)
+
+    def delete(self, key: bytes):
+        return self.db.delete(key)
 
     def close(self):
         self.db.close()

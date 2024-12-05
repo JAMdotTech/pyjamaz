@@ -22,12 +22,12 @@ from .constants import (
     MemOps
 )
 
-from ..app import PyjamazApp
+from pyjamaz.types import AppType
 
 
 class PVM:
 
-    def __init__(self, app:PyjamazApp):
+    def __init__(self, app:AppType):
         self.app = app
         self.reg = np.zeros(13, dtype=np.uint32)
         self.pc:np.uint32 = np.uint32(0)
@@ -178,8 +178,8 @@ class PVM:
                     match opcode:
                         case op.ecalli.value:
                             #TODO: NO_TESTS
-                            l_x = min(4, max(0, skip_len - 2))
-                            v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                            l_x = min(4, max(0, skip_len - 1))
+                            v_x = pvm_X(read_uint(self.rom, self.pc + 1, l_x), l_x)
                             self.status = ExitCondition.host.value
                             #TODO: we do not exit the main loop on this, since the program may be continued?
                             # or is this also a exit condition which we handfle differently?

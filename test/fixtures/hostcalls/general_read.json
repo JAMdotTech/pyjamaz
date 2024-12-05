@@ -1,0 +1,35 @@
+{
+  "name": "hostcall_read",
+  "preimages": {
+      "123": [1, 1, 1, 1]
+  },
+  "initial-regs": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "initial-pc": 0,
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 27,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        0,
+        1, 1, 1, 1
+      ]
+    }
+  ],
+  "initial-gas": 10000,
+  "program": [0,0,18,4,7,123,4,8,1,4,9,4,4,10,5,4,11,154,2,78,2,73,18,1],
+  "expected-status": "trap",
+  "expected-regs": [
+    0, 0, 0, 0, 0, 0, 0, 21, 1, 4, 5, 666, 0
+  ],
+  "expected-pc": 16,
+  "expected-memory": [
+    0, 1, 1, 1, 1, 83, 69, 82, 86, 73, 67, 69, 45, 49, 50, 51, 45, 84, 69, 83, 84, 45, 68, 65, 84, 65, 0
+  ],
+  "expected-gas": 9984
+}
