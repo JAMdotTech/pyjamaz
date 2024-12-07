@@ -21,7 +21,7 @@ from pyjamaz.storage import StorageEngine, Transaction
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
-from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, StatisticsState, Statistic, \
+from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, \
     BeefyCommitmentMap, AccumulationQueueState, AccumulationHistoryState
 from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
 
@@ -87,13 +87,7 @@ class PyjamazApp:
             ),
             privileged_services=self.components.privileged_services.retrieve_state(),
             disputes=self.components.disputes.retrieve_state(),
-            statistics=StatisticsState(
-                statistics=[
-                    [
-                        Statistic(0, 0, 0, 0, 0, 0),
-                    ] * VALIDATOR_COUNT
-                ] * 2
-            ),
+            statistics=self.components.statistics.retrieve_state(),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[[]] * EPOCH_TIMESLOTS
             ),
@@ -112,7 +106,7 @@ class PyjamazApp:
         self.components.validator_queue.store_state(state.validator_queue, transaction)
         self.components.validator_pool.store_state(state.validator_pool, transaction)
         self.components.safrole.store_state(state.safrole, transaction)
-        # self.state_manager.get(Statistics).store_state(state.statistics, transaction)
+        self.components.statistics.store_state(state.statistics, transaction)
         # self.state_manager.get(Services).store_state(state.services, transaction)
         # self.state_manager.get(AuthorizerQueues).store_state(state.authorizer_queues, transaction)
         self.components.privileged_services.store_state(state.privileged_services, transaction)

@@ -26,7 +26,7 @@ from pyjamaz.models.block import TicketBody, EpochMark, Header, TicketEnvelope, 
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
-    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, Statistic
+    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -349,6 +349,7 @@ class Safrole(StateComponent):
                 tickets_mark = reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 logging.debug(f"Tickets Mark generated")
 
+        # TODO check conditions when epoch should be mark as changed
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # Epoch change
 
@@ -1076,22 +1077,33 @@ class Statistics(StateComponent):
 
         # GP-0.5.0-eq:13.3
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
-            post_state.statistics = [[Statistic(
+            post_state.last = post_state.current
+            post_state.current = [ActivityRecord(
                 blocks=0,
                 tickets=0,
-                preimages=0,
-                preimage_bytes=0,
+                pre_images=0,
+                pre_images_size=0,
                 guarantees=0,
                 assurances=0
-            ) for _ in range(gp_const.VALIDATOR_COUNT)], pre_state_statistics.statistics[0]]
+            ) for _ in range(gp_const.VALIDATOR_COUNT)]
 
         # GP-0.5.0-eq:13.4
-        post_state.statistics[0][header.author_index].blocks += 1
-        post_state.statistics[0][header.author_index].tickets += len(extrinsic_tickets)
-        post_state.statistics[0][header.author_index].preimages += len(extrinsic_preimages)
-        post_state.statistics[0][header.author_index].preimage_bytes += sum([len(p.blob) for p in extrinsic_preimages])
+        post_state.current[header.author_index].blocks += 1
+        post_state.current[header.author_index].tickets += len(extrinsic_tickets)
+        post_state.current[header.author_index].pre_images += len(extrinsic_preimages)
+        post_state.current[header.author_index].pre_images_size += sum([len(p.blob) for p in extrinsic_preimages])
 
-        # Todo: Implement remaining guarantees and assurances stats
+        for assurance in extrinsic_assurances:
+            post_state.current[assurance.validator_index].assurances += 1
+
+        for guarantee in extrinsic_guarantees:
+            for signature in guarantee.signatures:
+                # TODO It seems during epoch change guarantee stats are not counted
+                # TODO see https://github.com/w3f/jamtestvectors/pull/25#issuecomment-2521459051
+                if not self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
+                    post_state.current[signature.validator_index].guarantees += 1
+
+
 
         return StatisticsOutput(
             post_state=post_state
