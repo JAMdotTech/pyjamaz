@@ -413,7 +413,7 @@ class DisputesState(State, Serializable):
 
 
 @dataclass
-class Statistic(Serializable):
+class ActivityRecord(Serializable):
     """
     GP-0.5.0-eq:13.1 (π.0.V) | A set of cumulative metrics for a single validator in a single epochs.
 
@@ -423,9 +423,9 @@ class Statistic(Serializable):
         GP-0.5.0-eq:13.1 (b) | The number of blocks produced by the validator.
     tickets: U32
         GP-0.5.0-eq:13.1 (t) | The number of tickets introduced by the validator.
-    preimages: U32
+    pre_images: U32
         GP-0.5.0-eq:13.1 (p) | The number of preimages introduced by the validator.
-    preimage_bytes: U32
+    pre_images_size: U32
         GP-0.5.0-eq:13.1 (d) | The number of total number of bytes across all preimages introduced by the validator.
     guarantees: U32
         GP-0.5.0-eq:13.1 (g) | The number of reports guaranteed by the validator.
@@ -434,8 +434,8 @@ class Statistic(Serializable):
     """
     blocks: int = field(metadata={'codec': U32})
     tickets: int = field(metadata={'codec': U32})
-    preimages: int = field(metadata={'codec': U32})
-    preimage_bytes: int = field(metadata={'codec': U32})
+    pre_images: int = field(metadata={'codec': U32})
+    pre_images_size: int = field(metadata={'codec': U32})
     guarantees: int = field(metadata={'codec': U32})
     assurances: int = field(metadata={'codec': U32})
 
@@ -448,12 +448,14 @@ class StatisticsState(State, Serializable):
     Attributes
     ----------
 
-    statistics: Array(Array(Statistic,constant_V),2)
-        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
+    current: Array(Statistic,constant_V)
+        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for current epoch.
+    last: Array(Statistic,constant_V)
+        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for last epoch.
     """
-    statistics: List[List[Statistic]] = field(
-        metadata={'codec': Array(Array(Statistic.to_codec_def(), VALIDATOR_COUNT), 2)}
-    )
+    current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+    last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+
 
 
 @dataclass
@@ -653,11 +655,8 @@ class JamState(State, Serializable):
                 offenders=[],
             ),
             statistics=StatisticsState(
-                statistics=[
-                    [
-                        Statistic(0, 0, 0, 0, 0, 0),
-                    ] * VALIDATOR_COUNT
-                ] * 2
+                current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+                last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
             ),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[

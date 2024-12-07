@@ -26,7 +26,7 @@ from pyjamaz.models.block import TicketBody, EpochMark, Header, TicketEnvelope, 
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
-    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage
+    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -94,7 +94,9 @@ class Entropy(StateComponent):
         post_state_entropy = deepcopy(pre_state_entropy)
 
         # GP-0.5.0-eq:6.22 (η'[0]) | State transition for first index of the entropy.
-        eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(header.entropy_source))
+        eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(
+            header.entropy_source
+        ))
 
         # GP-0.5.0-eq:6.23 (η'[1-3]) | State transition for last three indices of the entropy.
         # State transition happen on epoch change.
@@ -347,6 +349,7 @@ class Safrole(StateComponent):
                 tickets_mark = reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 logging.debug(f"Tickets Mark generated")
 
+        # TODO check conditions when epoch should be mark as changed
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # Epoch change
 
@@ -1070,8 +1073,38 @@ class Statistics(StateComponent):
         StatisticsOutput
             Output containing: Posterior state of StatisticsState (π')
         """
-        # Todo: properly set post_state by implementing STF
-        post_state = pre_state_statistics
+        post_state = deepcopy(pre_state_statistics)
+
+        # GP-0.5.0-eq:13.3
+        if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
+            post_state.last = post_state.current
+            post_state.current = [ActivityRecord(
+                blocks=0,
+                tickets=0,
+                pre_images=0,
+                pre_images_size=0,
+                guarantees=0,
+                assurances=0
+            ) for _ in range(gp_const.VALIDATOR_COUNT)]
+
+        # GP-0.5.0-eq:13.4
+        post_state.current[header.author_index].blocks += 1
+        post_state.current[header.author_index].tickets += len(extrinsic_tickets)
+        post_state.current[header.author_index].pre_images += len(extrinsic_preimages)
+        post_state.current[header.author_index].pre_images_size += sum([len(p.blob) for p in extrinsic_preimages])
+
+        for assurance in extrinsic_assurances:
+            post_state.current[assurance.validator_index].assurances += 1
+
+        for guarantee in extrinsic_guarantees:
+            for signature in guarantee.signatures:
+                # TODO It seems during epoch change guarantee stats are not counted
+                # TODO see https://github.com/w3f/jamtestvectors/pull/25#issuecomment-2521459051
+                if not self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
+                    post_state.current[signature.validator_index].guarantees += 1
+
+
+
         return StatisticsOutput(
             post_state=post_state
         )
