@@ -54,7 +54,7 @@ pyjamaz init --genesis ./pyjamaz/data/genesis.json
 pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --block-dir ./data/blocks
 ```
 
-### Run and record trace (genesis is current state)
+### Run and record each block as a replayable file in given folder
 
 ```bash
 pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --block-dir ./data/blocks --record-trace ./data/trace
@@ -66,17 +66,18 @@ pyjamaz --seed 0x000000000000000000000000000000000000000000000000000000000000000
 pyjamaz replay_traces ./test/fixtures/traces/pyjamaz
 ```
 
-### Replay and validate a recorded trace (Duna format)
-
-```bash
-pyjamaz replay_traces ./test/fixtures/traces/duna --format=duna
-```
-
 ### Replay a recorded trace and skip block validation
 
 ```bash
-pyjamaz replay_traces ./test/fixtures/traces/duna --format=duna --skip-block-validation
+pyjamaz replay_traces ./test/fixtures/traces/duna --skip-block-validation
 ```
+
+### Replay a recorded trace and only import block data, skip pre-state import and post-state validation
+
+```bash
+pyjamaz replay_traces ./test/fixtures/traces/duna --only-block-import
+```
+
 
 ### Dump current state to stdout
 
