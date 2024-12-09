@@ -15,6 +15,7 @@ from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD
 from pyjamaz.merkle import PatriciaMerkleTrie
+from pyjamaz.models.trace import StateDump, Trace
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.storage import StorageEngine, Transaction
 
@@ -679,39 +680,29 @@ class PyjamazApp:
     async def send_ticket(self, ticket: TicketEnvelope):
         pass
 
-    async def initialize_traces(self, traces_dir: str):
-        os.makedirs(os.path.join(traces_dir, 'blocks'), exist_ok=True)
-        os.makedirs(os.path.join(traces_dir, 'traces'), exist_ok=True)
-        os.makedirs(os.path.join(traces_dir, 'state_snapshots'), exist_ok=True)
+    async def create_state_dump(self) -> StateDump:
+        return StateDump(
+            state_root=self.state_trie_root,
+            keyvals=[(k, v) for k, v in self.state_db.db]
+        )
 
-        # Store genesis
-        with open(os.path.join(traces_dir, 'traces', f'genesis.bin'), 'wb') as file:
-            file.write(self.state_db.dump_to_jam_bytes().to_bytes())
-
-        with open(os.path.join(traces_dir, 'state_snapshots', f'genesis.json'), 'w') as file:
-            json.dump(self.state.to_json(), file, indent=2)
-
-        with open(os.path.join(traces_dir, 'state_snapshots', f'genesis.bin'), 'wb') as file:
-            file.write(self.state.to_jam_bytes().to_bytes())
-
-    async def store_trace(self, block: Block, traces_dir: str):
+    async def store_trace(self, pre_state: StateDump, block: Block, traces_dir: str):
 
         base_filename = f'{block.header.timeslot // EPOCH_TIMESLOTS}_{block.header.timeslot % EPOCH_TIMESLOTS:03}'
 
-        with open(os.path.join(traces_dir, 'traces', f'{base_filename}.bin'), 'wb') as file:
-            file.write(self.state_db.dump_to_jam_bytes().to_bytes())
+        post_state = await self.create_state_dump()
 
-        with open(os.path.join(traces_dir, 'state_snapshots', f'{base_filename}.json'), 'w') as file:
-            json.dump(self.state.to_json(), file, indent=2)
+        trace = Trace(
+            pre_state=pre_state,
+            block=block,
+            post_state=post_state
+        )
 
-        with open(os.path.join(traces_dir, 'state_snapshots', f'{base_filename}.bin'), 'wb') as file:
-            file.write(self.state.to_jam_bytes().to_bytes())
+        with open(os.path.join(traces_dir, f'{base_filename}.json'), 'w') as file:
+            json.dump(trace.to_json(), file, indent=2)
 
-        with open(os.path.join(traces_dir, 'blocks', f'{base_filename}.json'), 'w') as file:
-            json.dump(block.to_json(), file, indent=2)
-
-        with open(os.path.join(traces_dir, 'blocks', f'{base_filename}.bin'), 'wb') as file:
-            file.write(block.to_jam_bytes().to_bytes())
+        with open(os.path.join(traces_dir, f'{base_filename}.bin'), 'wb') as file:
+            file.write(trace.to_jam_bytes().to_bytes())
 
         logging.debug(f"Succesfully stored trace data for #{block.header.timeslot}")
 
