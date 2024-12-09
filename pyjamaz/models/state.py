@@ -255,28 +255,31 @@ class RecentHistoryState(State, Serializable):
 @dataclass
 class ServiceAccount(Serializable):
     """
-    GP-0.5.0-eq:9.3 (blackboard_A) | A service account.
+    GP-0.5.2-eq:9.3 (blackboard_A) | A service account.
 
     Attributes
     ----------
     code_hash: H256
-        GP-0.5.0-eq:9.3 (c) | Hash of the service account's code
+        GP-0.5.2-eq:9.3 (c) | Hash of the service account's code
     balance: U64
-        GP-0.5.0-eq:9.3 (b) | Balance of a service account
+        GP-0.5.2-eq:9.3 (b) | Balance of a service account
     gas_limit_accumulate: U64
-        GP-0.5.0-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
+        GP-0.5.2-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
     gas_limit_on_transfer: U64
-        GP-0.5.0-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
+        GP-0.5.2-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
     footprint_storage_items: U64
-        GP-0.5.0-eq:9.8 (a_l) | Storage footprint of the service account. The number of items in storage.
+        GP-0.5.2-eq:9.8 (a_l) | Storage footprint of the service account. The number of items in storage.
     footprint_storage_bytes: U32
-        GP-0.5.0-eq:9.8 (a_i) | Storage footprint of the service account. The total number of bytes used in storage.
+        GP-0.5.2-eq:9.8 (a_i) | Storage footprint of the service account. The total number of bytes used in storage.
+    threshold_balance: U64
+        GP-0.5.2-eq:9.8 (a_t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
+        footprint.
     storage_items: Dict(H256,Bytes)
-        GP-0.5.0-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
+        GP-0.5.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
     preimages: Dict(H256,Bytes)
-        GP-0.5.0-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
+        GP-0.5.2-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
     preimage_availability: Dict(Tuple(H256,U32),Bytes)
-        GP-0.5.0-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
+        GP-0.5.2-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
     """
     # Remark: Only the following field need to be serialized/deserialized
     code_hash: bytes = field(metadata={'codec': H256})
@@ -285,6 +288,7 @@ class ServiceAccount(Serializable):
     gas_limit_on_transfer: int = field(metadata={'codec': U64})
     footprint_storage_items: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U32})
+    threshold_balance: int = field(metadata={'codec': U64})
     storage_items: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
     preimages: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
     # Todo: GP states the Dict has a tuple as key. Needs to be resolved when getter function for preimage_availability
@@ -292,16 +296,27 @@ class ServiceAccount(Serializable):
     # preimage_availability: Dict[PyTuple[bytes, int], List[int]] = field(metadata={'codec': Map(Tuple(H256, U32), Vec(U32))})
     preimage_availability: Dict[bytes, List[int]] = field(metadata={'codec': Map(Array(U8, 36), Vec(U32))})
 
+    # placeholder for storage item getter; host-function: OMEGA_R (read)
+    def get_storage_item(self):
+        pass
+
+    # placeholder for storage item setter; host-function: OMEGA_W (write)
+    def set_storage_item(self):
+        pass
+
+    # placeholder for preimage getter; host-function: OMEGA_L (lookup)
+    def get_preimage(self):
+        pass
 
 @dataclass
 class ServicesState(State, Serializable):
     """
-    GP-0.5.0-eq:9.2 (δ) | Services partition of the overall state.
+    GP-0.5.2-eq:9.2 (δ) | Services partition of the overall state.
 
     Attributes
     ----------
     services: Dict(U32,ServiceAccount)
-        GP-0.5.0-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
+        GP-0.5.2-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
         service account index.
     """
     # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
