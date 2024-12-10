@@ -6,8 +6,8 @@ from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, E
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
 from pyjamaz.merkle import PatriciaMerkleTrie
-from pyjamaz.models.block import WorkReport, TicketBody
-from pyjamaz.models.common import ValidatorData
+from pyjamaz.models.block import TicketBody
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport
 
 from pyjamaz.state.base import State
 
@@ -327,23 +327,6 @@ class ServicesState(State, Serializable):
     services: Dict[int, ServiceAccount] = field(
         metadata={'codec': Map(Array(U8,4), ServiceAccount.to_codec_def())}
     )
-
-
-@dataclass
-class Assurance(Serializable):
-    """
-    GP-0.3.8-eq:116 (ρ[c]) | An assurance for a single core.
-
-    Attributes
-    ----------
-    work_report: WorkReport
-        GP-0.5.0-eq:11.1 (w) | A work report.
-    timeslot: U32
-        GP-0.5.0-eq:11.1 (t) | A timeslot.
-    """
-    # Todo: Move WorkReport and related models from Block to Common section.
-    work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
-    timeslot: int = field(metadata={'codec': U32})
 
 
 @dataclass

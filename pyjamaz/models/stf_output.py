@@ -6,6 +6,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import Option, Vec, H256, Array
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
 from pyjamaz.models.block import OutputMarks, EpochMark, TicketsMark, TicketBody
+from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
     BeefyCommitmentMap
@@ -189,10 +190,13 @@ class AssurancesAfterAssurancesOutput(Serializable):
 
     Attributes
     ----------
-    intermediate_state_after_assurances:AssurancesState
+    intermediate_state_after_assurances: AssurancesState
         GP-0.5.0-eq:4.14 (ρ‡) | Primary output of AssurancesAfterAssurances STF.
+    reported: List[WorkReport]
+        Items removed from ρ† to get ρ'
     """
     intermediate_state_after_assurances: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+    reported: List[WorkReport] = field(metadata={'codec': Vec(WorkReport.to_codec_def())})
 
 
 @dataclass
@@ -206,6 +210,15 @@ class AssurancesAfterGuaranteesOutput(Serializable):
         GP-0.5.0-eq:4.15 (ρ') | Primary output of AssurancesAfterGuarantees STF.
     """
     post_state: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+
+
+class AssurancesErrorCode(Serializable, enum.Enum):
+    report_timeout = 0
+    bad_attestation_parent = 1
+    bad_validator_index = 2
+    core_not_engaged = 3
+    bad_signature = 4
+    not_sorted_or_unique_assurers = 5
 
 
 @dataclass

@@ -8,8 +8,9 @@ from typing import Optional
 from parameterized import parameterized
 
 from pyjamaz.state.components import RecentHistory
-from pyjamaz.storage import JSONStorage, InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee, WorkReport, WorkPackageSpec, RefinementContext
+from pyjamaz.storage import InMemoryStorage
+from pyjamaz.models.block import Header, Guarantee
+from pyjamaz.models.common import RefinementContext, WorkPackageSpec, WorkReport
 from pyjamaz.models.state import RecentHistoryState
 
 

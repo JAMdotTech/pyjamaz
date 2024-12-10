@@ -3,7 +3,7 @@ import logging
 from copy import deepcopy, copy
 from typing import List, Union
 
-from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ring_vrf_sign
+from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ring_vrf_sign, ietf_vrf_verify
 
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
@@ -17,7 +17,7 @@ from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, Validator
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
     AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput, \
-    DisputesErrorCode
+    DisputesErrorCode, AssurancesErrorCode
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError
@@ -641,7 +641,8 @@ class Assurances(StateComponent):
     def state_transition_after_assurances(
             self,
             extrinsic_assurances: List[Assurance],
-            intermediate_state_assurances_after_disputes: AssurancesState
+            intermediate_state_assurances_after_disputes: AssurancesState,
+            post_state_validator_pool: ValidatorPoolState
     ) -> AssurancesAfterAssurancesOutput:
         """
         GP-0.5.0-eq:11.28 (ρ‡) | Intermediate state transition function for the state's assurances that processes
@@ -659,10 +660,17 @@ class Assurances(StateComponent):
         AssurancesAfterAssurancesOutput
             Output Containing: Intermediate state after processing assurances of AssurancesState (ρ‡)
         """
-        # Todo: properly set intermediate_state_assurances_after_assurances by implementing STF
-        intermediate_state_assurances_after_assurances = intermediate_state_assurances_after_disputes
+        intermediate_state_assurances_after_assurances = deepcopy(intermediate_state_assurances_after_disputes)
+
+        for assurance in extrinsic_assurances:
+            try:
+                validator = post_state_validator_pool.validators[assurance.validator_index]
+            except IndexError:
+                raise StateTransitionError(AssurancesErrorCode.bad_validator_index)
+
         return AssurancesAfterAssurancesOutput(
-            intermediate_state_after_assurances=intermediate_state_assurances_after_assurances
+            intermediate_state_after_assurances=intermediate_state_assurances_after_assurances,
+            reported=[]
         )
 
     def state_transition_after_guarantees(
