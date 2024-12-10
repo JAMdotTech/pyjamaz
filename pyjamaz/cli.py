@@ -15,19 +15,19 @@ from asyncclick import BadParameter
 from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
+
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
+from pyjamaz.models.trace import Trace
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block
 from pyjamaz.models.state import JamState
-from pyjamaz.traces import convert_duna_state_trace
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
-
 
 logger = logging.getLogger(__name__)
 
@@ -115,9 +115,6 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
         except StateKeyNoResult:
             raise BadParameter(f'DB is not yet initialized; run init first')
 
-        if record_traces:
-            await app.initialize_traces(record_traces)
-
         logger.info(f'🥋 Starting PyJAMaz client, listening on port {port}')
         logger.info(f'💾 Storage path: {db_path}')
         logger.info(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
@@ -171,12 +168,15 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
                             # TODO block.header.timeslot == 0 possible?
                             if block.header.timeslot > app.state.timeslot.number:
 
+                                if traces_dir:
+                                    pre_state = await app.create_state_dump()
+
                                 await app.import_block(block)
 
                                 app.latest_epoch = block.header.timeslot // EPOCH_TIMESLOTS
 
                                 if traces_dir:
-                                    await app.store_trace(block, traces_dir)
+                                    await app.store_trace(pre_state, block, traces_dir)
 
                                 logger.info(f"📦 Imported: {os.path.basename(filepath)}")
                                 logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
@@ -314,6 +314,7 @@ async def init(initial_state, genesis, custom_db_path, force_overwrite):
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--skip-block-validation', is_flag=True, help="Skip block validation before import")
+@click.option('--only-block-import', is_flag=True, help="Only import block data and no import of pre-state")
 @click.option(
     '--format', 'trace_format',
     type=click.Choice(['pyjamaz', 'duna'], case_sensitive=False),
@@ -321,7 +322,9 @@ async def init(initial_state, genesis, custom_db_path, force_overwrite):
     show_default=True,
     help='Choose the source format of the trace data'
 )
-async def replay_traces(traces_dir, custom_db_path, force_overwrite, trace_format, skip_block_validation):
+async def replay_traces(
+        traces_dir, custom_db_path, force_overwrite, skip_block_validation, only_block_import, trace_format
+):
 
     # Flush database and import genesis state
     db_path = custom_db_path or default_db_path
@@ -335,47 +338,56 @@ async def replay_traces(traces_dir, custom_db_path, force_overwrite, trace_forma
 
     app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
 
-    with open(os.path.join(traces_dir, 'traces', 'genesis.bin'), 'rb') as fp:
-        data = fp.read()
-        app.state_db.restore_from_jam_bytes(JamBytes(data))
-
-    app.state = app.retrieve_jam_state()
-    app.latest_epoch = app.state.timeslot.epoch_number()
-    await app.update_state_trie()
-
-    block_files = await anyio.to_thread.run_sync(
-        lambda: sorted({f for f in os.listdir(os.path.join(traces_dir, 'blocks')) if f.endswith('.bin')})
+    traces_files = await anyio.to_thread.run_sync(
+        lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin')})
     )
 
-    for block_file in block_files:
-        with open(os.path.join(traces_dir, 'blocks', block_file), 'rb') as fp:
-            block = Block.from_jam_bytes(JamBytes(fp.read()))
-            logger.info(f'⚙️ Processing block {block.header.timeslot} (hash: 0x{block.header.hash.hex()})..')
-            try:
-                await app.import_block(block, validate=not skip_block_validation)
-                logger.info(f'✅ Block {block.header.timeslot} succesfully imported.')
+    for block_file in traces_files:
+        with open(os.path.join(traces_dir, block_file), 'rb') as fp:
+            trace = Trace.from_jam_bytes(JamBytes(fp.read()))
 
-                # Compare current state with trace
-                try:
-                    with open(os.path.join(traces_dir, 'state_snapshots', block_file.replace('.bin', '.json')), 'r') as fp:
-                        trace_state_data = json.load(fp)
+        if not only_block_import or app.state_trie_root == bytes(32):
 
-                        if trace_format == 'duna':
-                            trace_state_data = convert_duna_state_trace(trace_state_data)
+            for k, v in trace.pre_state.keyvals:
+                app.state_db.put(bytes(k.value_object), bytes(v.value_object))
 
-                        state_diff = DeepDiff(trace_state_data, app.state.to_json(), ignore_order=True)
-                        if state_diff:
-                            logger.error(f'State after import is inconsistent, dumping diff below:')
-                            click.echo(json.dumps(state_diff, indent=2))
-                            break
-                except FileNotFoundError:
-                    logger.info(f'🫥 State compare file not found, skipped.')
-                    pass
+            app.state = app.retrieve_jam_state()
+            await app.update_state_trie()
+            app.latest_epoch = app.state.timeslot.epoch_number()
 
-            except TransactionRolledBack as e:
-                logger.error(f'Failed to import block {block.header.timeslot}: {e}')
-                break
+            assert app.state_trie_root == trace.pre_state.state_root
+            logger.info(f'🎬 Genesis succesfully saved (state root: 0x{app.state_trie_root.hex()})')
 
+        logger.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: 0x{trace.block.header.hash.hex()})..')
+        try:
+            await app.import_block(trace.block, validate=not skip_block_validation)
+            logger.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
+
+        except TransactionRolledBack as e:
+            logger.error(f'Failed to import block {trace.block.header.timeslot}: {e}')
+            break
+
+        if not only_block_import:
+
+            if app.state_trie_root == trace.post_state.state_root:
+                logger.info(f'✅ State trie root matches (0x{trace.post_state.state_root.hex()})')
+            else:
+                logger.error(f'State root of trace {trace.post_state.state_root.hex()} does not match with current state {app.state_trie_root.hex()}')
+                logger.info('Dumping state differences:')
+                actual_state = app.state.to_json()
+
+                for k, v in trace.post_state.keyvals:
+                    app.state_db.put(bytes(k.value_object), bytes(v.value_object))
+
+                app.state = app.retrieve_jam_state()
+
+                state_diff = DeepDiff(app.state.to_json(), actual_state, ignore_order=True)
+                if state_diff:
+                    click.echo(json.dumps(state_diff, indent=2))
+                    response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                    if response.lower() == 'q':
+                        logger.info('✋ User aborted.')
+                        break
 
 @main.command('dump_state')
 @click.option(
