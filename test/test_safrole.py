@@ -1,4 +1,4 @@
-TEST_SUITE = 'full'
+TEST_SUITE = 'tiny'
 import pyjamaz.graypaper_constants as gp_const
 
 
@@ -131,7 +131,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
         if directory == 'tiny':
             # Set graypaper constants confirm test vectors setup
-            gp_const.TICKET_ENTRIES = 2
+            gp_const.TICKET_ENTRIES = 3
             gp_const.EPOCH_TIMESLOTS = 12  # E
             gp_const.TICKET_SUBMISSION_END_SLOT = 10  # Y
             gp_const.VALIDATOR_COUNT = 6  # V
