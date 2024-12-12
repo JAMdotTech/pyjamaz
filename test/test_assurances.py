@@ -46,7 +46,7 @@ class TestAssurances(unittest.TestCase):
         header = Header.default()
 
         header.timeslot = test_vector["input"]["slot"]
-        header.parent = test_vector["input"]["parent"]
+        header.parent = bytes.fromhex(test_vector["input"]["parent"][2:])
 
         extrinsic_assurances = [Assurance.from_json(a) for a in test_vector["input"]["assurances"]]
         pre_state_assurances = AssurancesState.from_json({"assurances": test_vector["pre_state"]["avail_assignments"]})
@@ -59,7 +59,8 @@ class TestAssurances(unittest.TestCase):
             output = assurances.state_transition_after_assurances(
                 extrinsic_assurances=extrinsic_assurances,
                 intermediate_state_assurances_after_disputes=pre_state_assurances,
-                post_state_validator_pool=post_state_validator_pool
+                post_state_validator_pool=post_state_validator_pool,
+                header=header,
             )
             assurances_output = {'ok': {'reported': output.to_json()['reported']}}
             post_state = output.intermediate_state_after_assurances.to_json()

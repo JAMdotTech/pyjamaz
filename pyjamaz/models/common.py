@@ -74,7 +74,7 @@ class WorkResult(Serializable):
     payload_hash: H256
         GP-0.5.0-eq:11.6 (l) | The hash of the payload within the work item which was executed in the refine stage to
         give this result.
-    gas: U64
+    accumulate_gas: U64
         GP-0.5.0-eq:11.6 (g) | The gas prioritization ration used when determining how much gas should be allocated to
         execute of this item's accumulate.
     result: WorkExecResult
@@ -83,7 +83,7 @@ class WorkResult(Serializable):
     service_id: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
     payload_hash: bytes = field(metadata={'codec': H256})
-    gas: int = field(metadata={'codec': U64})
+    accumulate_gas: int = field(metadata={'codec': U64})
     result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
 
 

@@ -350,7 +350,9 @@ class PyjamazApp:
         # Assurances After Assurances STF Block Data | GP-0.5.0-eq:4.14
         assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
             extrinsic_assurances=block.extrinsic.assurances,
-            intermediate_state_assurances_after_disputes=assurances_after_disputes_output.intermediate_state_after_disputes
+            intermediate_state_assurances_after_disputes=assurances_after_disputes_output.intermediate_state_after_disputes,
+            post_state_validator_pool=validator_pool_output.post_state,
+            header=block.header
         )
 
         # Services After Preimages STF Block Data | GP-0.5.0-eq:??
