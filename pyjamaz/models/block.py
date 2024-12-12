@@ -551,24 +551,27 @@ class WorkItem(Serializable):
     Attributes
     ----------
     service: U32
-        GP-0.5.0-eq:14.3 (s) | The index of a service to which it relates.
+        GP-0.5.2-eq:14.3 (s) | The index of a service to which it relates.
     code_hash: H256
-        GP-0.5.0-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
+        GP-0.5.2-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
     payload: Bytes
-        GP-0.5.0-eq:14.3 (bold_y) | A payload blob.
-    gas_limit: U64
-        GP-0.5.0-eq:14.3 (g) | The gas limit.
+        GP-0.5.2-eq:14.3 (bold_y) | A payload blob.
+    refine_gas_limit: U64
+        GP-0.5.2-eq:14.3 (g) | The gas limit.
+    accumulate_gas_limit: U64
+        GP-0.5.2-eq:14.3 (a) | The gas limit.
     import_segments: Vec(ImportSegment)
-        GP-0.5.0-eq:14.3 (bold_i) | Imported data segments.
+        GP-0.5.2-eq:14.3 (bold_i) | Imported data segments.
     extrinsic: Vec(WorkItemExtrinsic)
-        GP-0.5.0-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
+        GP-0.5.2-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
     export_count: U16
-        GP-0.5.0-eq:14.3 (e) | The number of data segments exported by this work item.
+        GP-0.5.2-eq:14.3 (e) | The number of data segments exported by this work item.
     """
     service: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
     payload: bytes = field(metadata={'codec': Bytes})
-    gas_limit: int = field(metadata={'codec': U64})
+    refine_gas_limit: int = field(metadata={'codec': U64})
+    accumulate_gas_limit: int = field(metadata={'codec': U64})
     import_segments: List[ImportSegment] = field(metadata={'codec': Vec(ImportSegment.to_codec_def())})
     extrinsic: List[WorkItemExtrinsic] = field(metadata={'codec': Vec(WorkItemExtrinsic.to_codec_def())})
     export_count: int = field(metadata={'codec': U16})
