@@ -22,7 +22,7 @@ class TestCodec(unittest.TestCase):
         cls.test_vector_w3f_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec', 'w3f')
         cls.test_vector_jdt_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec', 'jdt')
 
-    def test_jdt_accumulate_state_components(self):
+    def test_jdt_accumulation_state_components(self):
         with open(path.join(self.test_vector_jdt_dir, f'accumulation_state_components.json')) as f:
             test_vector = json.load(f)
 
