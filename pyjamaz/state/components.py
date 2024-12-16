@@ -677,14 +677,40 @@ class Assurances(StateComponent):
 
         intermediate_state_assurances_after_assurances = deepcopy(intermediate_state_assurances_after_disputes)
 
+        # Check for stale reports
+        for idx, assurance in enumerate(intermediate_state_assurances_after_disputes.assurances):
+            if assurance and assurance.timeout < header.timeslot - 1:
+                intermediate_state_assurances_after_assurances.assurances[idx] = None
+
+        total_assurances_per_core = {c: 0 for c in range(0, gp_const.CORE_COUNT)}
+        reported = []
+
         for assurance in extrinsic_assurances:
             validator = post_state_validator_pool.validators[assurance.validator_index]
+
             if not self.has_valid_signature(assurance, validator):
                 raise StateTransitionError(AssurancesErrorCode.bad_signature)
 
+            for core in assurance.cores_engaged:
+                if intermediate_state_assurances_after_disputes.assurances[core] is None:
+                    raise StateTransitionError(AssurancesErrorCode.core_not_engaged)
+                else:
+                    total_assurances_per_core[core] += 1
+
+        # Check for available reports
+        for idx, assurance in enumerate(intermediate_state_assurances_after_disputes.assurances):
+            if assurance:
+                if total_assurances_per_core[assurance.report.core_index] > 2 / 3 * gp_const.VALIDATOR_COUNT:
+                    # GP-0.5.2-eq:11.17 | Work report becomes available
+                    reported.append(intermediate_state_assurances_after_disputes.assurances[idx].report)
+
+                    # GP-0.5.2-eq:11.18 | Remove from assurances
+                    if assurance.report.core_index == assurance.report.core_index:
+                        intermediate_state_assurances_after_assurances.assurances[idx] = None
+
         return AssurancesAfterAssurancesOutput(
             intermediate_state_after_assurances=intermediate_state_assurances_after_assurances,
-            reported=[]
+            reported=reported
         )
 
     @staticmethod
@@ -731,7 +757,7 @@ class Assurances(StateComponent):
 
     @staticmethod
     def has_valid_signature(assurance: Assurance, validator: ValidatorData) -> bool:
-        data = b"jam_available" + blake2b_256_hash(assurance.anchor + assurance.bitfield)
+        data = b"jam_available" + blake2b_256_hash(assurance.anchor + assurance.bitfield_bytes)
         return ed_verify(bytes(assurance.signature), data, validator.ed25519)
 
     def state_transition_after_guarantees(

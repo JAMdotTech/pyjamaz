@@ -286,6 +286,14 @@ class Assurance(Serializable):
     validator_index: int = field(metadata={'codec': U16})
     signature: bytes = field(metadata={'codec': H512})
 
+    @property
+    def bitfield_bytes(self) -> bytes:
+        return BitArray(CORE_COUNT).encode(self.bitfield).to_bytes()
+
+    @property
+    def cores_engaged(self) -> list:
+        return [c for c, e in enumerate(self.bitfield) if e == True]
+
 
 @dataclass
 class Credential(Serializable):
