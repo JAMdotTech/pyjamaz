@@ -7,6 +7,7 @@ from typing import Optional
 from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
+from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.block import Header, Assurance
@@ -16,7 +17,7 @@ from pyjamaz.models.state import AssurancesState, ValidatorPoolState
 def get_test_vector_files(file_filter: Optional[str] = None):
     test_vectors = []
 
-    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'assurances', 'tiny')
+    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'assurances', TEST_SUITE)
     for filename in os.listdir(str(abs_dir)):
         if filename.endswith('.json'):
             if file_filter is None or file_filter in filename:
@@ -33,7 +34,7 @@ class TestAssurances(unittest.TestCase):
     @staticmethod
     def load_test_vector_data(test_vector_file):
         test_vector_file = path.join(
-            path.dirname(path.abspath(__file__)), 'fixtures', 'assurances', 'tiny', test_vector_file
+            path.dirname(path.abspath(__file__)), 'fixtures', 'assurances', TEST_SUITE, test_vector_file
         )
         with open(test_vector_file) as f:
             return json.load(f)
@@ -70,7 +71,7 @@ class TestAssurances(unittest.TestCase):
                 "assurances": test_vector['pre_state']['avail_assignments'],
             }
 
-        self.assertEqual(test_vector['output'], assurances_output)
+        self.assertDictEqual(test_vector['output'], assurances_output)
 
         self.assertListEqual(
             test_vector['post_state']['avail_assignments'], post_state['assurances'], f'{name} fails'

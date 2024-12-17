@@ -6,6 +6,7 @@ from typing import Optional
 
 from parameterized import parameterized
 
+from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.components import Statistics
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.block import Header, Extrinsic
@@ -15,7 +16,7 @@ from pyjamaz.models.state import StatisticsState, TimeslotState, ValidatorPoolSt
 def get_test_vector_files(file_filter: Optional[str] = None):
     test_vectors = []
 
-    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'statistics', 'tiny')
+    abs_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'statistics', TEST_SUITE)
     for filename in os.listdir(str(abs_dir)):
         if filename.endswith('.json'):
             if file_filter is None or file_filter in filename:
@@ -32,7 +33,7 @@ class TestStatistics(unittest.TestCase):
     @staticmethod
     def load_test_vector_data(test_vector_file):
         test_vector_file = path.join(
-            path.dirname(path.abspath(__file__)), 'fixtures', 'statistics', 'tiny', test_vector_file
+            path.dirname(path.abspath(__file__)), 'fixtures', 'statistics', TEST_SUITE, test_vector_file
             )
         with open(test_vector_file) as f:
             return json.load(f)

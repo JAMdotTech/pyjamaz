@@ -1193,10 +1193,7 @@ class Statistics(StateComponent):
 
         for guarantee in extrinsic_guarantees:
             for signature in guarantee.signatures:
-                # TODO It seems during epoch change guarantee stats are not counted
-                # TODO see https://github.com/w3f/jamtestvectors/pull/25#issuecomment-2521459051
-                if not self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
-                    post_state.current[signature.validator_index].guarantees += 1
+                post_state.current[signature.validator_index].guarantees += 1
 
 
 

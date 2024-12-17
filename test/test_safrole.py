@@ -1,4 +1,3 @@
-TEST_SUITE = 'tiny'
 import pyjamaz.graypaper_constants as gp_const
 
 
@@ -17,6 +16,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum
 from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.exceptions import PyjamazAppError
+from pyjamaz.settings import TEST_SUITE
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import SafroleErrorCode
@@ -126,24 +126,8 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         with open(test_vector_file) as f:
             return json.load(f)
 
-    @parameterized.expand(get_test_vector_files(['tiny'], file_filter=''))
+    @parameterized.expand(get_test_vector_files([TEST_SUITE], file_filter=''))
     async def test_vector(self, name, directory, test_file):
-
-        if directory == 'tiny':
-            # Set graypaper constants confirm test vectors setup
-            gp_const.TICKET_ENTRIES = 3
-            gp_const.EPOCH_TIMESLOTS = 12  # E
-            gp_const.TICKET_SUBMISSION_END_SLOT = 10  # Y
-            gp_const.VALIDATOR_COUNT = 6  # V
-            gp_const.CORE_COUNT = 2  # C
-            gp_const.SLOT_PERIOD = 6  # P
-        else:
-            gp_const.TICKET_ENTRIES = 2
-            gp_const.EPOCH_TIMESLOTS = 600  # E
-            gp_const.TICKET_SUBMISSION_END_SLOT = 500  # Y
-            gp_const.VALIDATOR_COUNT = 1023  # V
-            gp_const.CORE_COUNT = 341  # C
-            gp_const.SLOT_PERIOD = 6  # P
 
         test_vector = self.load_test_vector_data(directory, test_file)
 

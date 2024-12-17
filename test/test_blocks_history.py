@@ -1,7 +1,6 @@
 import json
 import os
 import unittest
-from copy import deepcopy
 from os import path
 from typing import Optional
 

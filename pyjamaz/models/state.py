@@ -608,7 +608,7 @@ class JamState(State, Serializable):
             safrole=SafroleState(
                 ticket_accumulator=[],
                 validators=validators,
-                slot_sealer_series=SlotSealerSeries(keys=[validators[0].bandersnatch] * EPOCH_TIMESLOTS),
+                slot_sealer_series=SlotSealerSeries(keys=[validators[0].bandersnatch for _ in range(EPOCH_TIMESLOTS)]),
                 ring_commitment=bytes(144),
             ),
             validator_queue=ValidatorQueueState(
@@ -622,8 +622,7 @@ class JamState(State, Serializable):
             ),
             authorizer_pools=AuthorizerPoolsState(
                 authorizer_pools=[
-                    [],
-                    []
+                    [] for _ in range(CORE_COUNT)
                 ]
             ),
             recent_history=RecentHistoryState(
@@ -631,14 +630,12 @@ class JamState(State, Serializable):
             ),
             services=ServicesState(services={}),
             assurances=AssurancesState(
-                assurances=[
-                    None,
-                    None
-                ]
+                assurances=[None for _ in range(CORE_COUNT)]
             ),
             authorizer_queues=AuthorizerQueuesState(
-                authorizer_queues=[[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
-
+                authorizer_queues=[
+                    [bytes(32) for _ in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS)] for _ in range(CORE_COUNT)
+                ]
             ),
             privileged_services=PrivilegedServicesState(
                 empower_service=0,
