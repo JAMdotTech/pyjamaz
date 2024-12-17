@@ -4,7 +4,7 @@ from typing import List, Optional, Dict
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
-    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
+    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.block import WorkReport, TicketBody
 from pyjamaz.models.common import ValidatorData
@@ -684,4 +684,65 @@ class JamState(State, Serializable):
                 ] * EPOCH_TIMESLOTS
             )
         )
+
+
+@dataclass
+class DeferredTransfer(Serializable):
+    """
+    GP-0.5.2-eq:12.14 (blackboard_T) | A single deferred transfer.
+
+    Attributes
+    ----------
+    sender: U32
+        GP-0.5.2-eq:12.14 (s) | Sender of a deferred transfer.
+    receiver: U32
+        GP-0.5.2-eq:12.14 (d) | Receiver of a deferred transfer (destination).
+    amount: U64
+        GP-0.5.2-eq:12.14 (a) | Balance to be transferred (amount) of the deferred transfer.
+    memo: Array(U8, SIZE_TRANSFER_MEMO)
+        GP-0.5.2-eq:12.14 (m) | Constant length memo blob of the deferred transfer.
+    gas_limit: U64
+        GP-0.5.2-eq:12.14 (g) | Gas limit of the deferred transfer.
+    """
+    sender: int = field(metadata={'codec': U32})
+    receiver: int = field(metadata={'codec': U32})
+    amount: int = field(metadata={'codec': U64})
+    memo: bytes = field(metadata={'codec': Array(U8, SIZE_TRANSFER_MEMO)})
+    gas_limit: int = field(metadata={'codec': U64})
+
+
+@dataclass
+class DeferredTransfers(Serializable):
+    """
+    GP-0.5.2-eq:12.23 (Vec(blackboard_T)) | A collection of deferred transfers.
+
+    Attributes
+    ----------
+
+    deferred_transfers: Vec(DeferredTransfer)
+        GP-0.5.2-eq:12.23 (Vec(blackboard_T)) | A collection of deferred transfers.
+    """
+    deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
+
+
+@dataclass
+class AccumulationStateComponents(Serializable):
+    """
+    GP-0.5.2-eq:12.13 (blackboard_U) | State components which are needed and mutable by the accumulation process.
+
+    Attributes
+    ----------
+    services: ServicesState
+        GP-0.5.2-eq:12.13 (bold_d) | Dictionary with services state.
+    validator_queue: ValidatorQueueState
+        GP-0.5.2-eq:12.13 (bold_i) | Validator Queue state.
+    authorizer_queues: AuthorizerQueuesState
+        GP-0.5.2-eq:12.13 (bold_q) | Authorizer Queues state.
+    privileged_services: PrivilegedServicesState
+        GP-0.5.2-eq:12.13 (bold_x) | Privileged Services state.
+    """
+    services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+    validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
+    authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
+    privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
 
