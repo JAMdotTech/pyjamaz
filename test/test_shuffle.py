@@ -14,7 +14,7 @@ class TestShuffle(unittest.TestCase):
 
         for item in test_vector:
             output = entropy_shuffle(list(range(int(item["input"]))), bytes.fromhex(item["entropy"]))
-            self.assertEqual(item['output'], output, f'{item['input']} fails')
+            self.assertEqual(item['output'], output, f'{item["input"]} fails')
 
 
 if __name__ == '__main__':
