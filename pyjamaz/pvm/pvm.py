@@ -115,6 +115,13 @@ class PVM:
 
         self.create_instruction_lookup()
 
+    def is_readable(self, mem, offset, length):
+        # TODO: support pages, readable book keeping
+        return offset < len(mem) >= offset + length
+
+    def is_writable(self, mem, offset, length):
+        #TODO: support pages, writable book keeping
+        return offset < len(mem) >= offset + length
 
     def invoke(
         self,
@@ -184,7 +191,7 @@ class PVM:
                             #TODO: we do not exit the main loop on this, since the program may be continued?
                             # or is this also a exit condition which we handfle differently?
                             #TODO: self.pc += skip_len for resuming later?
-                            result = self.app.hostcalls.invoke_pvm(self, v_x)
+                            result = self.app.hostcalls.invoke_from_pvm(self, v_x)
 
                         case _:
                             raise InvalidOpcode(f"Invalid imm opcode: {opcode} for instruction type {inst_type}")

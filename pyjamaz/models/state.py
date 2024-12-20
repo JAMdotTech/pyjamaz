@@ -363,7 +363,7 @@ class PrivilegedServicesState(State, Serializable):
     auto_accumulate_services: Dict(U32,U64)
         GP-0.5.0-eq:9.9 (χ_g) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
-    empower_service: int = field(metadata={'codec': U32})
+    empower_service: int = field(metadata={'codec': U32})   #TODO: rename to blessed_service
     assign_service: int = field(metadata={'codec': U32})
     designate_service: int = field(metadata={'codec': U32})
     # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
