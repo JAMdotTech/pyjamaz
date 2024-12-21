@@ -12,8 +12,8 @@ from os import path
 
 from pyjamaz.app import PyjamazApp, AppConfig
 from pyjamaz.exceptions import PyjamazAppError
+from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.base import State
-from pyjamaz.state.components import Disputes
 from pyjamaz.storage import InMemoryStorage
 
 from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes, Block
@@ -102,7 +102,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
 
         return jam_state
 
-    @parameterized.expand(get_test_vector_files(['tiny'], file_filter=''))
+    @parameterized.expand(get_test_vector_files([TEST_SUITE], file_filter=''))
     async def test_vector(self, name, directory, test_file):
         with open(path.join(self.test_vector_dir, directory, test_file)) as f:
             test_vector = json.load(f)

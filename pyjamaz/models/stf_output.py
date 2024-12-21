@@ -6,6 +6,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import Option, Vec, H256, Array
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
 from pyjamaz.models.block import OutputMarks, EpochMark, TicketsMark, TicketBody
+from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
     BeefyCommitmentMap
@@ -189,10 +190,13 @@ class AssurancesAfterAssurancesOutput(Serializable):
 
     Attributes
     ----------
-    intermediate_state_after_assurances:AssurancesState
+    intermediate_state_after_assurances: AssurancesState
         GP-0.5.0-eq:4.14 (ρ‡) | Primary output of AssurancesAfterAssurances STF.
+    reported: List[WorkReport]
+        Items removed from ρ† to get ρ'
     """
     intermediate_state_after_assurances: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+    reported: List[WorkReport] = field(metadata={'codec': Vec(WorkReport.to_codec_def())})
 
 
 @dataclass
@@ -206,6 +210,41 @@ class AssurancesAfterGuaranteesOutput(Serializable):
         GP-0.5.0-eq:4.15 (ρ') | Primary output of AssurancesAfterGuarantees STF.
     """
     post_state: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+    reporters: List[bytes] = field(metadata={'codec': Vec(H256)})
+
+
+class AssurancesErrorCode(Serializable, enum.Enum):
+    report_timeout = 0
+    bad_attestation_parent = 1
+    bad_validator_index = 2
+    core_not_engaged = 3
+    bad_signature = 4
+    not_sorted_or_unique_assurers = 5
+
+class GuaranteeErrorCode(Serializable, enum.Enum):
+    bad_core_index = 0,
+    future_report_slot = 1,
+    report_epoch_before_last = 2,
+    insufficient_guarantees = 3,
+    out_of_order_guarantee = 4,
+    not_sorted_or_unique_guarantors = 5,
+    wrong_assignment = 6,
+    core_engaged = 7,
+    anchor_not_recent = 8,
+    bad_service_id = 9,
+    bad_code_hash = 10,
+    dependency_missing = 11,
+    duplicate_package = 12,
+    bad_state_root = 13,
+    bad_beefy_mmr_root = 14,
+    core_unauthorized = 15,
+    bad_validator_index = 16,
+    work_report_gas_too_high = 17,
+    service_item_gas_too_low = 18,
+    too_many_dependencies = 19,
+    segment_root_lookup_invalid = 20,
+    bad_signature = 21,
+    work_report_too_big = 22
 
 
 @dataclass

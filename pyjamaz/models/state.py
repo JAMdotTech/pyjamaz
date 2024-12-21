@@ -6,8 +6,8 @@ from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, E
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO
 from pyjamaz.merkle import PatriciaMerkleTrie
-from pyjamaz.models.block import WorkReport, TicketBody
-from pyjamaz.models.common import ValidatorData
+from pyjamaz.models.block import TicketBody
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport
 
 from pyjamaz.state.base import State
 
@@ -330,23 +330,6 @@ class ServicesState(State, Serializable):
 
 
 @dataclass
-class Assurance(Serializable):
-    """
-    GP-0.3.8-eq:116 (ρ[c]) | An assurance for a single core.
-
-    Attributes
-    ----------
-    work_report: WorkReport
-        GP-0.5.0-eq:11.1 (w) | A work report.
-    timeslot: U32
-        GP-0.5.0-eq:11.1 (t) | A timeslot.
-    """
-    # Todo: Move WorkReport and related models from Block to Common section.
-    work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
-    timeslot: int = field(metadata={'codec': U32})
-
-
-@dataclass
 class AssurancesState(State, Serializable):
     """
     GP-0.5.0-eq:11.1 (ρ) | Assurances partition of the overall state.
@@ -625,7 +608,7 @@ class JamState(State, Serializable):
             safrole=SafroleState(
                 ticket_accumulator=[],
                 validators=validators,
-                slot_sealer_series=SlotSealerSeries(keys=[validators[0].bandersnatch] * EPOCH_TIMESLOTS),
+                slot_sealer_series=SlotSealerSeries(keys=[validators[0].bandersnatch for _ in range(EPOCH_TIMESLOTS)]),
                 ring_commitment=bytes(144),
             ),
             validator_queue=ValidatorQueueState(
@@ -639,8 +622,7 @@ class JamState(State, Serializable):
             ),
             authorizer_pools=AuthorizerPoolsState(
                 authorizer_pools=[
-                    [],
-                    []
+                    [] for _ in range(CORE_COUNT)
                 ]
             ),
             recent_history=RecentHistoryState(
@@ -648,14 +630,12 @@ class JamState(State, Serializable):
             ),
             services=ServicesState(services={}),
             assurances=AssurancesState(
-                assurances=[
-                    None,
-                    None
-                ]
+                assurances=[None for _ in range(CORE_COUNT)]
             ),
             authorizer_queues=AuthorizerQueuesState(
-                authorizer_queues=[[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
-
+                authorizer_queues=[
+                    [bytes(32) for _ in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS)] for _ in range(CORE_COUNT)
+                ]
             ),
             privileged_services=PrivilegedServicesState(
                 empower_service=0,

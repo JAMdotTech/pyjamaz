@@ -4,8 +4,8 @@ from os import path
 
 from jamcodec.types import Vec
 
-from pyjamaz.models.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, RefinementContext, WorkReport, \
-    WorkResult, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
+from pyjamaz.models.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
+from pyjamaz.models.common import WorkResult, RefinementContext, WorkReport
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
