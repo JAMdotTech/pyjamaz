@@ -11,7 +11,7 @@ from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.block import Header, Assurance
-from pyjamaz.models.state import AssurancesState, ValidatorPoolState
+from pyjamaz.models.state import AssurancesState, ValidatorPoolState, TimeslotState
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -55,16 +55,32 @@ class TestAssurances(unittest.TestCase):
             {"validators": test_vector["pre_state"]["curr_validators"]}
         )
 
+        post_state_timeslot = TimeslotState(number=header.timeslot)
+
         assurances = Assurances(self.storage_engine)
         try:
-            output = assurances.state_transition_after_assurances(
+
+            assurances.validate_after_disputes(
                 extrinsic_assurances=extrinsic_assurances,
-                intermediate_state_assurances_after_disputes=pre_state_assurances,
                 post_state_validator_pool=post_state_validator_pool,
                 header=header,
             )
-            assurances_output = {'ok': {'reported': output.to_json()['reported']}}
-            post_state = output.intermediate_state_after_assurances.to_json()
+
+            intermediate_output = assurances.state_transition_after_assurances(
+                extrinsic_assurances=extrinsic_assurances,
+                intermediate_state_assurances_after_disputes=pre_state_assurances
+            )
+
+            output = assurances.state_transition_after_guarantees(
+                extrinsic_guarantees=[],
+                intermediate_state_assurances_after_assurances=intermediate_output.intermediate_state_after_assurances,
+                post_state_timeslot=post_state_timeslot,
+                pre_state_validator_pool=post_state_validator_pool
+            )
+
+
+            assurances_output = {'ok': {'reported': intermediate_output.to_json()['reported']}}
+            post_state = output.post_state.to_json()
         except StateTransitionError as e:
             assurances_output = {'err': e.custom_error_code.name}
             post_state = {

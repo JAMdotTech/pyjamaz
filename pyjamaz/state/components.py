@@ -3,7 +3,7 @@ import logging
 from copy import deepcopy, copy
 from typing import List, Union
 
-from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ring_vrf_sign, ietf_vrf_verify
+from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 from ed25519_zebra import ed_verify
 
 import pyjamaz.graypaper_constants as gp_const
@@ -11,14 +11,14 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
-from pyjamaz.signing import Keypair, Ed25519Keypair, BandersnatchKeypair
+from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
     AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput, \
-    DisputesErrorCode, AssurancesErrorCode
+    DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError
@@ -639,12 +639,50 @@ class Assurances(StateComponent):
             intermediate_state_after_disputes=intermediate_state_assurances_after_disputes
         )
 
+    def validate_after_disputes(
+            self,
+            extrinsic_assurances: List[Assurance],
+            post_state_validator_pool: ValidatorPoolState,
+            header: Header
+    ):
+        """
+        Validation of Assurances input data after disputes.
+
+        Parameters
+        ----------
+        extrinsic_assurances
+        post_state_validator_pool
+        header
+
+        Returns
+        -------
+
+        """
+
+        if not self.have_valid_validators(extrinsic_assurances, post_state_validator_pool):
+            raise StateTransitionError(AssurancesErrorCode.bad_validator_index)
+
+        if not self.are_assurances_sorted(extrinsic_assurances):
+            raise StateTransitionError(AssurancesErrorCode.not_sorted_or_unique_assurers)
+
+        if self.has_duplicated_validators(extrinsic_assurances):
+            raise StateTransitionError(AssurancesErrorCode.not_sorted_or_unique_assurers)
+
+        for assurance in extrinsic_assurances:
+
+            if assurance.anchor != header.parent:
+                raise StateTransitionError(AssurancesErrorCode.bad_attestation_parent)
+
+            validator = post_state_validator_pool.validators[assurance.validator_index]
+
+            if not self.has_valid_signature(assurance, validator):
+                raise StateTransitionError(AssurancesErrorCode.bad_signature)
+
+
     def state_transition_after_assurances(
             self,
             extrinsic_assurances: List[Assurance],
-            intermediate_state_assurances_after_disputes: AssurancesState,
-            post_state_validator_pool: ValidatorPoolState,
-            header: Header
+            intermediate_state_assurances_after_disputes: AssurancesState
     ) -> AssurancesAfterAssurancesOutput:
         """
         GP-0.5.0-eq:11.28 (ρ‡) | Intermediate state transition function for the state's assurances that processes
@@ -663,33 +701,13 @@ class Assurances(StateComponent):
             Output Containing: Intermediate state after processing assurances of AssurancesState (ρ‡)
         """
 
-        if not self.have_valid_validators(extrinsic_assurances, post_state_validator_pool):
-            raise StateTransitionError(AssurancesErrorCode.bad_validator_index)
-
-        if not self.are_assurances_sorted(extrinsic_assurances):
-            raise StateTransitionError(AssurancesErrorCode.not_sorted_or_unique_assurers)
-
-        if self.has_duplicated_validators(extrinsic_assurances):
-            raise StateTransitionError(AssurancesErrorCode.not_sorted_or_unique_assurers)
-
-        if not self.all_anchored_on_parent(extrinsic_assurances, header):
-            raise StateTransitionError(AssurancesErrorCode.bad_attestation_parent)
-
         intermediate_state_assurances_after_assurances = deepcopy(intermediate_state_assurances_after_disputes)
-
-        # Check for stale reports
-        for idx, assurance in enumerate(intermediate_state_assurances_after_disputes.assurances):
-            if assurance and assurance.timeout < header.timeslot - 1:
-                intermediate_state_assurances_after_assurances.assurances[idx] = None
 
         total_assurances_per_core = {c: 0 for c in range(0, gp_const.CORE_COUNT)}
         reported = []
 
         for assurance in extrinsic_assurances:
-            validator = post_state_validator_pool.validators[assurance.validator_index]
 
-            if not self.has_valid_signature(assurance, validator):
-                raise StateTransitionError(AssurancesErrorCode.bad_signature)
 
             for core in assurance.cores_engaged:
                 if intermediate_state_assurances_after_disputes.assurances[core] is None:
@@ -705,8 +723,7 @@ class Assurances(StateComponent):
                     reported.append(intermediate_state_assurances_after_disputes.assurances[idx].report)
 
                     # GP-0.5.2-eq:11.18 | Remove from assurances
-                    if assurance.report.core_index == assurance.report.core_index:
-                        intermediate_state_assurances_after_assurances.assurances[idx] = None
+                    intermediate_state_assurances_after_assurances.assurances[idx] = None
 
         return AssurancesAfterAssurancesOutput(
             intermediate_state_after_assurances=intermediate_state_assurances_after_assurances,
@@ -752,10 +769,6 @@ class Assurances(StateComponent):
         return len(validator_indexes) != len(set(validator_indexes))
 
     @staticmethod
-    def all_anchored_on_parent(assurances: List[Assurance], header: Header) -> bool:
-        return all([a.anchor == header.parent for a in assurances])
-
-    @staticmethod
     def has_valid_signature(assurance: Assurance, validator: ValidatorData) -> bool:
         data = b"jam_available" + blake2b_256_hash(assurance.anchor + assurance.bitfield_bytes)
         return ed_verify(bytes(assurance.signature), data, validator.ed25519)
@@ -787,11 +800,59 @@ class Assurances(StateComponent):
         AssurancesAfterGuaranteesOutput
             Output containing: Posterior state after processing guarantees of AssurancesState (ρ')
         """
-        # Todo: properly set post_state by implementing STF
-        post_state_assurances = intermediate_state_assurances_after_assurances
+        post_state_assurances = deepcopy(intermediate_state_assurances_after_assurances)
+
+        self.process_stale_reports(post_state_assurances, post_state_timeslot)
+
+        for guarantee in extrinsic_guarantees:
+
+            if guarantee.report.core_index > len(intermediate_state_assurances_after_assurances.assurances):
+                raise StateTransitionError(GuaranteeErrorCode.bad_core_index)
+
+            if not self.valid_guarantee_signatures(guarantee, pre_state_validator_pool.validators):
+                raise StateTransitionError(GuaranteeErrorCode.bad_signature)
+
+
+
         return AssurancesAfterGuaranteesOutput(
-            post_state=post_state_assurances
+            post_state=post_state_assurances,
+            reporters=[]
         )
+
+    @staticmethod
+    def process_stale_reports(post_state_assurances: AssurancesState, post_state_timeslot: TimeslotState):
+        """
+        GP-0.5.2-eq:11.30 | Check for stale reports
+
+        Parameters
+        ----------
+        post_state_assurances: AssurancesState
+        post_state_timeslot: TimeslotState
+
+        Returns
+        -------
+
+        """
+        for idx, assurance in enumerate(post_state_assurances.assurances):
+            if assurance and post_state_timeslot.number >= assurance.timeout + gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD:
+                post_state_assurances.assurances[idx] = None
+
+    @staticmethod
+    def valid_guarantee_signatures(guarantee: Guarantee, curr_validators: List[ValidatorData]) -> bool:
+        for credential in guarantee.signatures:
+
+            try:
+                validator = curr_validators[credential.validator_index]
+            except IndexError:
+                raise StateTransitionError(GuaranteeErrorCode.bad_validator_index)
+
+            data = b"jam_guarantee" + blake2b_256_hash(guarantee.report.to_jam_bytes().to_bytes())
+            if not ed_verify(
+                    bytes(credential.signature), data, validator.ed25519
+            ):
+                return False
+
+        return True
 
     def retrieve_state(self) -> AssurancesState:
         value = self.retrieve()
