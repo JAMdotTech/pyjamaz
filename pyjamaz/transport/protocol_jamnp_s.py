@@ -106,7 +106,7 @@ class ServerProtocol(JAMNPSProtocol):
 class ClientProtocol(JAMNPSProtocol):
 
     def quic_event_received(self, event: QuicEvent) -> None:
-        logger.debug(f'ClientProtocol received data {event}')
+        logger.debug(f'ClientProtocol received data')
 
         if isinstance(event, StreamDataReceived):
 
@@ -247,4 +247,5 @@ class JAMNPS(object):
     async def broadcast_block(self, block):
         block_bytes = block.to_jam_bytes().to_bytes()
         for client_id, client in self.conn_in.items():
+            logger.debug(f"send block to client {client}")
             await client.send_block_announcement(block_bytes)

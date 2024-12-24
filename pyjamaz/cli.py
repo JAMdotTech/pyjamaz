@@ -105,25 +105,32 @@ class PubSub(object):
                     tg.start_soon(subscriber, item["data"])
 
 
+async def import_block(app, traces_dir, block):
+    if block.header.timeslot > app.state.timeslot.number or (
+            app.state.timeslot.number == 0 and not app.should_produce_block()):
+
+        if traces_dir:
+            pre_state = await app.create_state_dump()
+
+        await app.import_block(block)
+
+        app.latest_epoch = block.header.timeslot // EPOCH_TIMESLOTS
+
+        if traces_dir:
+            await app.store_trace(pre_state, block, traces_dir)
+
+        logger.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
+        logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
+    else:
+        logger.info(
+            f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {app.state.timeslot.number}, should produce block: {app.should_produce_block()})")
+
+
 def create_debug_block_bytes(app: PyjamazApp, traces_dir: str):
     async def debug_import_block(data):
         logger.debug(f"📦 Importing block from bytes")
         block = Block.from_jam_bytes(JamBytes(data))
-
-        if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
-
-            if traces_dir:
-                pre_state = app.state.to_json()
-
-            output = await app.import_block(block)
-
-            if traces_dir:
-                await store_trace(pre_state, block, output, app, traces_dir)
-
-            logger.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
-            logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
-        else:
-            logger.info(f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {app.state.timeslot.number}, should produce block: {app.should_produce_block()})")
+        await import_block(app, traces_dir, block)
 
     return debug_import_block
 
@@ -132,21 +139,7 @@ def create_debug_block_json(app: PyjamazApp, traces_dir: str):
     async def debug_import_block(data):
         logger.debug(f"📦 Importing block from json")
         block = Block.from_json(data)
-
-        if block.header.timeslot > app.state.timeslot.number or (app.state.timeslot.number == 0 and not app.should_produce_block()):
-
-            if traces_dir:
-                pre_state = app.state.to_json()
-
-            output = await app.import_block(block)
-
-            if traces_dir:
-                await store_trace(pre_state, block, output, app, traces_dir)
-
-            logger.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
-            logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
-        else:
-            logger.info(f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {app.state.timeslot.number}, should produce block: {app.should_produce_block()})")
+        await import_block(app, traces_dir, block)
 
     return debug_import_block
 
@@ -186,7 +179,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
         if not ts:
             # default start ts
             current_time = time.time()
-            ts = int(current_time - (current_time % 12) + 12)
+            ts = int(current_time - (current_time % 6) + 12)
 
         try:
             app = await initialize_app(
@@ -207,9 +200,6 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
         logger.info(
             f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}'
             )
-        await anyio.sleep(ts - time.time())
-
-        lock = anyio.Lock()
 
         pubsub = PubSub()
 
@@ -220,19 +210,15 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                 tg.start_soon(pubsub.process_messages)
 
                 if block_dir:
-                    #tg.start_soon(timeslot_ticker, app, block_dir, lock)
-                    #logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    #tg.start_soon(local_block_importer, app, block_dir, record_traces, lock)
-
                     logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    fs_protocol = FSProtocol(block_dir, lock, pubsub)
+                    fs_protocol = FSProtocol(block_dir, pubsub)
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, fs_protocol.broadcast_block)
-                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_JSON, create_debug_block_json(app, traces_dir))
+                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_JSON, create_debug_block_json(app, record_traces))
                     tg.start_soon(fs_protocol.listen)
                 else:
                     nps_protocol = JAMNPS(host, port, certificate, private_key, pubsub)
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, nps_protocol.broadcast_block)
-                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_BYTES, create_debug_block_bytes(app, traces_dir))
+                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_BYTES, create_debug_block_bytes(app, record_traces))
                     tg.start_soon(nps_protocol.listen)
                     validator_metadata = [x.metadata for x in app.state.safrole.validators]
 
@@ -257,88 +243,15 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                         validator_address = "localhost"
                         tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
-                    logger.info(f"👀 Watching network for new blocks...")
-                    tg.start_soon(network_block_importer, app, block_dir, traces_dir, lock)
-
-                tg.start_soon(timeslot_ticker, app, traces_dir, lock, pubsub)
-
+                await anyio.sleep(ts - time.time())
+                tg.start_soon(timeslot_ticker, app, pubsub)
         except (KeyboardInterrupt, CancelledError):
             logger.info("Stopping node...")
         finally:
             logger.info(f'Node stopped.')
 
 
-async def store_trace(pre_state: dict, block: Block, output: STFOutput, app: PyjamazApp, traces_dir: str):
-    state_diff = DeepDiff(pre_state, app.state.to_json(), ignore_order=True)
-
-    with open(os.path.join(traces_dir, f'state-diff-{block.header.timeslot:06}.json'), 'w') as file:
-        json.dump(state_diff, file, indent=2)
-
-    state_data = app.state.to_json()
-
-    with open(os.path.join(traces_dir, f'state-{block.header.timeslot:06}.json'), 'w') as file:
-        json.dump(state_data, file, indent=2)
-
-    with open(os.path.join(traces_dir, f'block-{block.header.timeslot:06}.json'), 'w') as file:
-        json.dump(block.to_json(), file, indent=2)
-
-
-async def network_block_importer(app: PyjamazApp,  protocol, traces_dir, lock):
-    pass
-
-# async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
-#
-#     seen_files = set()
-#
-#     while True:
-#         # Run the directory check in a separate thread (non-blocking)
-#         new_files = await anyio.to_thread.run_sync(
-#             lambda: {f for f in os.listdir(block_dir) if f.startswith('block-')} - seen_files
-#         )
-#
-#         if new_files:
-#             for filename in sorted(new_files):
-#                 filepath = os.path.join(block_dir, filename)
-#
-#                 try:
-#                     async with lock:
-#                         with open(filepath, 'r') as file:
-#
-#                             data = json.load(file)
-#                             # TODO also import .bin jamcodec files
-#                             block = Block.from_json(data)
-#
-#                             # TODO block.header.timeslot == 0 possible?
-#                             if block.header.timeslot > app.state.timeslot.number:
-#
-#                                 if traces_dir:
-#                                     pre_state = await app.create_state_dump()
-#
-#                                 await app.import_block(block)
-#
-#                                 app.latest_epoch = block.header.timeslot // EPOCH_TIMESLOTS
-#
-#                                 if traces_dir:
-#                                     await app.store_trace(pre_state, block, traces_dir)
-#
-#                                 logger.info(f"📦 Imported: {os.path.basename(filepath)}")
-#                                 logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
-#                             else:
-#                                 logger.info(f"⏭️ Skipped: {os.path.basename(filepath)}")
-#
-#                 except Exception as e:
-#                     logger.error(f"Failed to process {filepath}: {e}")
-#
-#             # Update the seen_files set to include the newly processed files
-#             seen_files.update(new_files)
-#
-#         await anyio.sleep(.5)
-#
-#
-# async def timeslot_ticker(app: PyjamazApp, block_dir, lock):
-
-
-async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, pubsub: PubSub):
+async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
 
     while True:
         timeslot = app.current_timeslot()
@@ -352,35 +265,27 @@ async def timeslot_ticker(app: PyjamazApp, traces_dir, lock, pubsub: PubSub):
 
         if app.should_produce_block():
 
-            async with lock:
-                try:
+            try:
 
-                    block = await app.produce_block(timeslot)
+                block = await app.produce_block(timeslot)
 
-                    # # write block to dir
-                    # filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
-                    # with open(filepath, 'w') as file:
-                    #     json.dump(block.to_json(), file, indent=2)
+                # Notify listeners a new block is produced
+                pubsub.send_stream.send_nowait(
+                    {"message_type": MESSAGE_TYPES.IMPORT_BLOCK_BYTES, "data": block.to_jam_bytes().to_bytes()})
+                pubsub.send_stream.send_nowait({"message_type": MESSAGE_TYPES.PRODUCED_BLOCK, "data": block})
 
-                    if traces_dir:
-                        await store_trace(pre_state, block, None, app, traces_dir)
-
-                    if pubsub:
-                        pubsub.send_stream.send_nowait({"message_type": MESSAGE_TYPES.PRODUCED_BLOCK, "data": block})
-
-                    logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
-                except Exception as e:
-                    raise
-                    logger.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
-                    # Rollback state from DB
-                    app.state = app.retrieve_jam_state()
-                    # TODO Make transactional
-                    app.extrinsic.clear_tickets()
+                logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
+            except Exception as e:
+                logger.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
+                # Rollback state from DB
+                app.state = app.retrieve_jam_state()
+                # TODO Make transactional
+                app.extrinsic.clear_tickets()
 
         else:
             logger.info(f'💤 Waiting for block #{app.current_timeslot()} | epoch #{app.current_epoch()} | phase #{app.current_slot_phase_index()}')
 
-        await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01)
+        await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
 
 
 @main.group()
@@ -583,6 +488,7 @@ async def replay_traces(
                         logger.info('✋ User aborted.')
                         break
 
+
 @main.command('dump_state')
 @click.option(
     '--format', 'output_format',
@@ -629,6 +535,7 @@ async def dump_block(timeslot, output_format):
             click.echo(json.dumps(Block.from_jam_bytes(JamBytes(block)).to_json(), indent=2))
         elif output_format == 'bin':
             click.echo(block, file=click.get_binary_stream('stdout'), nl=False)
+
 
 if __name__ == '__main__':
     main(_anyio_backend="asyncio")

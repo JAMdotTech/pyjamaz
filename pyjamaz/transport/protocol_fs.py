@@ -11,9 +11,9 @@ logger = logging.getLogger("FSProtocol")
 
 class FSProtocol(object):
 
-    def __init__(self, block_dir, lock, pubsub):
+    def __init__(self, block_dir, pubsub):
         self.block_dir = block_dir
-        self.lock = lock
+        self.lock = anyio.Lock()
         self.pubsub = pubsub
 
     async def listen(self):
@@ -50,6 +50,7 @@ class FSProtocol(object):
 
     async def broadcast_block(self, block):
         # write block to dir
-        filepath = os.path.join(self.block_dir, f'block-{block.header.timeslot:06}.json')
-        with open(filepath, 'w') as file:
-            json.dump(block.to_json(), file, indent=2)
+        async with self.lock:
+            filepath = os.path.join(self.block_dir, f'block-{block.header.timeslot:06}.json')
+            with open(filepath, 'w') as file:
+                json.dump(block.to_json(), file, indent=2)

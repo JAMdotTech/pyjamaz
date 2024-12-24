@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import TypeVar, Optional
@@ -705,6 +706,7 @@ class PyjamazApp:
             file.write(trace.to_jam_bytes().to_bytes())
 
         logging.debug(f"Succesfully stored trace data for #{block.header.timeslot}")
+
 
 class StateComponents:
 
