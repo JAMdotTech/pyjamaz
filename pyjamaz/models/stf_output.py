@@ -6,6 +6,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import Option, Vec, H256, Array
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
 from pyjamaz.models.block import OutputMarks, EpochMark, TicketsMark, TicketBody
+from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
     BeefyCommitmentMap
@@ -14,12 +15,12 @@ from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState
 @dataclass
 class TimeslotOutput(Serializable):
     """
-    GP-0.3.8-eq:16 (τ') | Output of Timeslot STF.
+    GP-0.5.0-eq:4.5 (τ') | Output of Timeslot STF.
 
     Attributes
     ----------
     post_state: TimeslotState
-        GP-0.3.8-eq:16 (τ') | Primary output of Timeslot STF.
+        GP-0.5.0-eq:4.5 (τ') | Primary output of Timeslot STF.
     """
     post_state: TimeslotState = field(metadata={'codec': TimeslotState.to_codec_def()})
 
@@ -27,12 +28,12 @@ class TimeslotOutput(Serializable):
 @dataclass
 class EntropyOutput(Serializable):
     """
-    GP-0.3.8-eq:20 (η') | Output of Entropy STF.
+    GP-0.5.0-eq:4.9 (η') | Output of Entropy STF.
 
     Attributes
     ----------
     post_state: EntropyState
-        GP-0.3.8-eq:20 (η') | Primary output of Entropy STF.
+        GP-0.5.0-eq:4.9 (η') | Primary output of Entropy STF.
     """
     post_state: EntropyState = field(metadata={'codec': EntropyState.to_codec_def()})
 
@@ -57,14 +58,14 @@ class DisputesErrorCode(Serializable, enum.Enum):
 @dataclass
 class DisputesOutput(Serializable):
     """
-    GP-0.3.8-eq:23 (ψ') | Output of Disputes STF.
+    GP-0.5.0-eq:4.12 (ψ') | Output of Disputes STF.
 
     Attributes
     ----------
     post_state: DisputesState
-        GP-0.3.8-eq:23 (ψ') | Primary output of Disputes STF.
-    output_marks: OutputMarks
-        GP-0.3.8-eq:115 (ψ') | Secondary output of Disputes STF.
+        GP-0.5.0-eq:4.12 (ψ') | Primary output of Disputes STF.
+    offenders_mark: Vec(H256)
+        GP-0.5.0-eq:10.20 (bold_H_o) | Secondary output of Disputes STF.
     """
     post_state: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
     offenders_mark: List[bytes] = field(default_factory=list, metadata={'codec': Vec(H256)})
@@ -73,12 +74,12 @@ class DisputesOutput(Serializable):
 @dataclass
 class ValidatorArchiveOutput(Serializable):
     """
-    GP-0.3.8-eq:22 (λ') | Output of ValidatorArchive STF.
+    GP-0.5.0-eq:4.11 (λ') | Output of ValidatorArchive STF.
 
     Attributes
     ----------
     post_state: ValidatorArchiveState
-        GP-0.3.8-eq:22 (λ') | Primary output of ValidatorArchive STF.
+        GP-0.5.0-eq:4.11 (λ') | Primary output of ValidatorArchive STF.
     """
     post_state: ValidatorArchiveState = field(metadata={'codec': ValidatorArchiveState.to_codec_def()})
 
@@ -86,12 +87,12 @@ class ValidatorArchiveOutput(Serializable):
 @dataclass
 class ValidatorPoolOutput(Serializable):
     """
-    GP-0.3.8-eq:21 (κ') | Output of ValidatorPool STF.
+    GP-0.5.0-eq:4.10 (κ') | Output of ValidatorPool STF.
 
     Attributes
     ----------
     post_state:ValidatorPoolState
-        GP-0.3.8-eq:21 (κ') | Primary output of ValidatorPool STF.
+        GP-0.5.0-eq:4.10 (κ') | Primary output of ValidatorPool STF.
     """
     post_state: ValidatorPoolState = field(metadata={'codec': ValidatorPoolState.to_codec_def()})
 
@@ -99,12 +100,12 @@ class ValidatorPoolOutput(Serializable):
 @dataclass
 class RecentHistoryIntermediateOutput(Serializable):
     """
-    GP-0.3.8-eq:17 (β†) | Output of RecentHistoryIntermediate STF.
+    GP-0.5.0-eq:4.6 (β†) | Output of RecentHistoryIntermediate STF.
 
     Attributes
     ----------
     intermediate_state:RecentHistoryState
-        GP-0.3.8-eq:17 (β†) | Primary output of RecentHistoryIntermediate STF.
+        GP-0.5.0-eq:4.6 (β†) | Primary output of RecentHistoryIntermediate STF.
     """
     intermediate_state: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
 
@@ -112,12 +113,12 @@ class RecentHistoryIntermediateOutput(Serializable):
 @dataclass
 class RecentHistoryOutput(Serializable):
     """
-    GP-0.3.8-eq:18 (β†) | Output of RecentHistory STF.
+    GP-0.5.0-eq:4.7 (β') | Output of RecentHistory STF.
 
     Attributes
     ----------
     post_state:RecentHistoryState
-        GP-0.3.8-eq:18 (β†) | Primary output of RecentHistory STF.
+        GP-0.5.0-eq:4.7 (β') | Primary output of RecentHistory STF.
     """
     post_state: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
 
@@ -136,33 +137,35 @@ class SafroleErrorCode(Serializable, enum.Enum):
 @dataclass
 class SafroleOutput(Serializable):
     """
-    GP-0.3.8-eq:19 (γ') | Output of Safrole STF.
+    GP-0.5.0-eq:4.8 (γ') | Output of Safrole STF.
 
     Attributes
     ----------
     post_state: SafroleState
-        GP-0.3.8-eq:19 (γ') | Primary output of Safrole STF.
-    output_marks: OutputMarks
-        GP-0.3.8-eq:71.72 (bold_H_e, bold_H_w) | Secondary output of Safrole STF.
+        GP-0.5.0-eq:4.8 (γ') | Primary output of Safrole STF.
+    epoch_mark: Option(EpochMark)
+        GP-0.5.0-eq:4.27 (bold_H_e) | Secondary output of Safrole STF.
+    tickets_mark: Option(Array(TicketBody, EPOCH_TIMESLOTS))
+        GP-0.5.0-eq:4.28 (bold_H_w) | Secondary output of Safrole STF.
     """
     post_state: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
     epoch_mark: Optional[EpochMark] = field(
         default=None, metadata={'codec': Option(EpochMark.to_codec_def())}
-        )  # New epoch signal. OPTIONAL
+    )  # New epoch signal. OPTIONAL
     tickets_mark: Optional[TicketsMark] = field(
         default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
-        )  # Tickets signal. OPTIONAL
+    )  # Tickets signal. OPTIONAL
 
 
 @dataclass
 class AuthorizerPoolsOutput(Serializable):
     """
-    GP-0.3.8-eq:29 (α') | Output of AuthorizerPools STF.
+    GP-0.5.0-eq:4.19 (α') | Output of AuthorizerPools STF.
 
     Attributes
     ----------
     post_state:AuthorizerPoolsState
-        GP-0.3.8-eq:29 (α') | Primary output of AuthorizerPools STF.
+        GP-0.5.0-eq:4.19 (α') | Primary output of AuthorizerPools STF.
     """
     post_state: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
 
@@ -170,12 +173,12 @@ class AuthorizerPoolsOutput(Serializable):
 @dataclass
 class AssurancesAfterDisputesOutput(Serializable):
     """
-    GP-0.3.8-eq:25 (ρ†) | Output of AssurancesAfterDisputes STF.
+    GP-0.5.0-eq:4.13 (ρ†) | Output of AssurancesAfterDisputes STF.
 
     Attributes
     ----------
     intermediate_state_after_disputes:AssurancesState
-        GP-0.3.8-eq:25 (ρ†) | Primary output of AssurancesAfterDisputes STF.
+        GP-0.5.0-eq:4.13 (ρ†) | Primary output of AssurancesAfterDisputes STF.
     """
     intermediate_state_after_disputes: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
 
@@ -183,66 +186,119 @@ class AssurancesAfterDisputesOutput(Serializable):
 @dataclass
 class AssurancesAfterAssurancesOutput(Serializable):
     """
-    GP-0.3.8-eq:26 (ρ‡) | Output of AssurancesAfterAssurances STF.
+    GP-0.5.0-eq:4.14 (ρ‡) | Output of AssurancesAfterAssurances STF.
 
     Attributes
     ----------
-    intermediate_state_after_assurances:AssurancesState
-        GP-0.3.8-eq:26 (ρ‡) | Primary output of AssurancesAfterAssurances STF.
+    intermediate_state_after_assurances: AssurancesState
+        GP-0.5.0-eq:4.14 (ρ‡) | Primary output of AssurancesAfterAssurances STF.
+    reported: List[WorkReport]
+        Items removed from ρ† to get ρ'
     """
     intermediate_state_after_assurances: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+    reported: List[WorkReport] = field(metadata={'codec': Vec(WorkReport.to_codec_def())})
 
 
 @dataclass
 class AssurancesAfterGuaranteesOutput(Serializable):
     """
-    GP-0.3.8-eq:27 (ρ') | Output of AssurancesAfterGuarantees STF.
+    GP-0.5.0-eq:4.15 (ρ') | Output of AssurancesAfterGuarantees STF.
 
     Attributes
     ----------
     post_state:AssurancesState
-        GP-0.3.8-eq:27 (ρ') | Primary output of AssurancesAfterGuarantees STF.
+        GP-0.5.0-eq:4.15 (ρ') | Primary output of AssurancesAfterGuarantees STF.
     """
     post_state: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+    reporters: List[bytes] = field(metadata={'codec': Vec(H256)})
+
+
+class AssurancesErrorCode(Serializable, enum.Enum):
+    report_timeout = 0
+    bad_attestation_parent = 1
+    bad_validator_index = 2
+    core_not_engaged = 3
+    bad_signature = 4
+    not_sorted_or_unique_assurers = 5
+
+class GuaranteeErrorCode(Serializable, enum.Enum):
+    bad_core_index = 0,
+    future_report_slot = 1,
+    report_epoch_before_last = 2,
+    insufficient_guarantees = 3,
+    out_of_order_guarantee = 4,
+    not_sorted_or_unique_guarantors = 5,
+    wrong_assignment = 6,
+    core_engaged = 7,
+    anchor_not_recent = 8,
+    bad_service_id = 9,
+    bad_code_hash = 10,
+    dependency_missing = 11,
+    duplicate_package = 12,
+    bad_state_root = 13,
+    bad_beefy_mmr_root = 14,
+    core_unauthorized = 15,
+    bad_validator_index = 16,
+    work_report_gas_too_high = 17,
+    service_item_gas_too_low = 18,
+    too_many_dependencies = 19,
+    segment_root_lookup_invalid = 20,
+    bad_signature = 21,
+    work_report_too_big = 22
 
 
 @dataclass
 class StatisticsOutput(Serializable):
     """
-    GP-0.3.8-eq:30 (π') | Output of Statistics STF.
+    GP-0.5.0-eq:4.20 (π') | Output of Statistics STF.
 
     Attributes
     ----------
     post_state:StatisticsState
-        GP-0.3.8-eq:30 (π') | Primary output of Statistics STF.
+        GP-0.5.0-eq:4.20 (π') | Primary output of Statistics STF.
     """
     post_state: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
 
 
 @dataclass
+# TODO: Possibly deprecated since GP-0.5.0
 class ServicesAfterPreimagesOutput(Serializable):
     """
-    GP-0.3.8-eq:24 (δ†) | Output of ServicesAfterPreimages STF.
+    GP-0.5.0-eq:4.?? (δ†) | Output of ServicesAfterPreimages STF.
 
     Attributes
     ----------
     intermediate_state_after_preimages:ServicesState
-        GP-0.3.8-eq:24 (δ†) | Primary output of ServicesAfterPreimages STF.
+        GP-0.5.0-eq:4.?? (δ†) | Primary output of ServicesAfterPreimages STF.
     """
     intermediate_state_after_preimages: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
 
 
 @dataclass
+class ServicesAfterGuaranteesOutput(Serializable):
+    """
+    GP-0.5.0-eq:4.17 (δ‡) | Output of ServicesAfterGuarantees STF.
+
+    Attributes
+    ----------
+    intermediate_state_after_guarantees:ServicesState
+        GP-0.5.0-eq:4.17 (δ‡) | Primary output of ServicesAfterGuarantees STF.
+    """
+    intermediate_state_after_guarantees: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+
+
+@dataclass
+# TODO: Unknown Where BeefyCommitmentMap is defined in GP-0.5.0
 class ServicesOutput(Serializable):
     """
-    GP-0.3.8-eq:28 (δ') | Output of Services STF.
+    GP-0.5.0-eq:4.18 (δ') | Output of Services STF.
 
     Attributes
     ----------
     post_state:ServicesState
-        GP-0.3.8-eq:28 (δ') | Primary output of Services STF.
+        GP-0.5.0-eq:4.18 (δ') | Primary output of Services STF.
     beefy_commitment_map:BeefyCommitmentMap
-        GP-0.3.8-eq:163 (bold_C) | Secondary output of Services STF, BeefyCommitmentMap.
+        GP-0.5.0-eq:?? (bold_C) | Secondary output of Services STF, BeefyCommitmentMap.
     """
     post_state: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     # BeefyCommitmentMap
@@ -256,8 +312,8 @@ class ServicesOutput(Serializable):
 class STFOutput(Serializable):
     epoch_mark: Optional[EpochMark] = field(
         default=None, metadata={'codec': Option(EpochMark.to_codec_def())}
-        )  # New epoch signal. OPTIONAL
+    )  # New epoch signal. OPTIONAL
     tickets_mark: Optional[TicketsMark] = field(
         default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
-        )  # Tickets signal. OPTIONAL
+    )  # Tickets signal. OPTIONAL
     offenders_mark: List[bytes] = field(default_factory=list, metadata={'codec': Vec(H256)})

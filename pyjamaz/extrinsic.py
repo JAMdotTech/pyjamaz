@@ -27,8 +27,9 @@ class ExtrinsicAccumulator:
         aux_data = b''
 
         try:
+            logging.debug(f'Validating ticket with entropy {entropy.hex()}')
             ring_vrf_output = ring_vrf_verify(
-                self.ring_data, ring_public_keys, vrf_input_data, aux_data, ticket_data.signature
+                self.ring_data, ring_public_keys, vrf_input_data, aux_data, bytes(ticket_data.signature)
             )
         except ValueError as e:
             raise ValueError(SafroleErrorCode.bad_ticket_proof)
@@ -71,7 +72,7 @@ class ExtrinsicAccumulator:
         ticket_id = vrf_output(keypair.private_key, vrf_input_data)
 
         logging.info(f'🎫 Generated ticket: 0x{ticket_id.hex()}')
-        # logging.debug(f'Generated ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
+        logging.debug(f'Generated ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
 
         self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)

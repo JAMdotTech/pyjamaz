@@ -1,4 +1,3 @@
-TEST_SUITE = 'full'
 import pyjamaz.graypaper_constants as gp_const
 
 
@@ -17,6 +16,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum
 from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.exceptions import PyjamazAppError
+from pyjamaz.settings import TEST_SUITE
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.stf_output import SafroleErrorCode
@@ -50,6 +50,7 @@ class SafroleTestState(Serializable):
     gamma_s: SlotSealerSeries = field(
         metadata={'codec': SlotSealerSeries.to_codec_def()})  # Sealing-key series of the current epoch.
     gamma_z: bytes = field(metadata={'codec': Array(U8, 144)})  # Bandersnatch ring commitment.
+    post_offenders: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -81,7 +82,6 @@ class SafroleInput(Serializable):
     slot: int = field(metadata={'codec': U32})  # Current slot. U32
     entropy: bytes = field(metadata={'codec': H256})  # Per block entropy (originated from block entropy source VRF)
     extrinsic: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})  # Safrole extrinsic. SEQUENCE (SIZE(0..16)) OF TicketEnvelope
-    post_offenders: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -126,24 +126,8 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         with open(test_vector_file) as f:
             return json.load(f)
 
-    @parameterized.expand(get_test_vector_files(['tiny'], file_filter=''))
+    @parameterized.expand(get_test_vector_files([TEST_SUITE], file_filter=''))
     async def test_vector(self, name, directory, test_file):
-
-        if directory == 'tiny':
-            # Set graypaper constants confirm test vectors setup
-            gp_const.TICKET_ENTRIES = 2
-            gp_const.EPOCH_TIMESLOTS = 12  # E
-            gp_const.TICKET_SUBMISSION_END_SLOT = 10  # Y
-            gp_const.VALIDATOR_COUNT = 6  # V
-            gp_const.CORE_COUNT = 2  # C
-            gp_const.SLOT_PERIOD = 6  # P
-        else:
-            gp_const.TICKET_ENTRIES = 2
-            gp_const.EPOCH_TIMESLOTS = 600  # E
-            gp_const.TICKET_SUBMISSION_END_SLOT = 500  # Y
-            gp_const.VALIDATOR_COUNT = 1023  # V
-            gp_const.CORE_COUNT = 341  # C
-            gp_const.SLOT_PERIOD = 6  # P
 
         test_vector = self.load_test_vector_data(directory, test_file)
 
@@ -176,7 +160,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         jam_state.validator_archive = ValidatorArchiveState(
             validators=test_case.pre_state.lambda_
         )
-        jam_state.disputes.offenders = test_case.input.post_offenders
+        jam_state.disputes.offenders = test_case.pre_state.post_offenders
 
         # Convert test case input to block
         test_case_input = deepcopy(test_case.input)
@@ -208,7 +192,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         # Initialize app
         app = PyjamazApp(config=self.config)
         # app.state = jam_state
-        app.store_jam_state(jam_state)
+        await app.store_jam_state(jam_state)
 
         # Process block
         try:
