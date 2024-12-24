@@ -717,7 +717,7 @@ class PVM:
                             # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_X((w_a + 2**32 - (w_b % 2**32)) % 2**32, 4)
 
-                        case op.mul.value:
+                        case op.mul_32.value:
                             # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_X((w_a * w_b) % 2**32, 4)
 

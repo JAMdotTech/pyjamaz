@@ -69,23 +69,23 @@ def pvm_Z_inv(a:np.int32, n:np.uint8):
 
 def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
     if l == 1:
-        return np.uint32(source[addr + 0]) % 2**8
+        return np.uint64(source[addr + 0]) % 2**8
     elif l == 2:
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
-        return np.uint32((byte1 << 8) + byte0) % 2**16
+        return np.uint64((byte1 << 8) + byte0) % 2**16
     elif l == 3:
         #TODO: do 3 byte ints appear? (scale encoded maybe?)
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         byte2 = np.uint32(source[addr + 2])
-        return np.uint32((byte2 << 16) + (byte1 << 8) + byte0)  % 2**32
+        return np.uint64((byte2 << 16) + (byte1 << 8) + byte0)  % 2**32
     elif l == 4:
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         byte2 = np.uint32(source[addr + 2])
         byte3 = np.uint32(source[addr + 3])
-        return np.uint32(
+        return np.uint64(
             (byte3 << 24) +
             (byte2 << 16) +
             (byte1 << 8) +
