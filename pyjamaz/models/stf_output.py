@@ -200,6 +200,12 @@ class AssurancesAfterAssurancesOutput(Serializable):
 
 
 @dataclass
+class ReportedPackage(Serializable):
+    work_package_hash: bytes = field(metadata={'codec': H256})
+    segment_tree_root: bytes = field(metadata={'codec': H256})
+
+
+@dataclass
 class AssurancesAfterGuaranteesOutput(Serializable):
     """
     GP-0.5.0-eq:4.15 (ρ') | Output of AssurancesAfterGuarantees STF.
@@ -210,6 +216,7 @@ class AssurancesAfterGuaranteesOutput(Serializable):
         GP-0.5.0-eq:4.15 (ρ') | Primary output of AssurancesAfterGuarantees STF.
     """
     post_state: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+    reported: List[ReportedPackage] = field(metadata={'codec': Vec(ReportedPackage.to_codec_def())})
     reporters: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 

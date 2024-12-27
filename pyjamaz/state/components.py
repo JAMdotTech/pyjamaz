@@ -18,16 +18,16 @@ from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, Validator
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
     AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput, \
-    DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode
+    DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError
 from pyjamaz.models.block import TicketBody, EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault
+    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
-    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord
+    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -119,7 +119,7 @@ class Entropy(StateComponent):
         """
         GP-0.5.0-eq:G.5
         TODO check if output is indeed the first 32 bytes or a hash of the first 32 bytes
-
+        TODO refactor to vrf_output of entropy signature
         Parameters
         ----------
         entropy_source
@@ -128,6 +128,13 @@ class Entropy(StateComponent):
         -------
         bytes
         """
+
+        # vrf_output = ietf_vrf_verify(
+        #     bytes(sealer_key),
+        #     b"jam_entropy" + self.get_block_seal_vrf_input(),
+        #     b'',
+        #     bytes(seal)
+        # )
         return entropy_source[:32]
 
 
@@ -773,6 +780,29 @@ class Assurances(StateComponent):
         data = b"jam_available" + blake2b_256_hash(assurance.anchor + assurance.bitfield_bytes)
         return ed_verify(bytes(assurance.signature), data, validator.ed25519)
 
+    def validate_guarantees(
+            self,
+            extrinsic_guarantees: List[Guarantee],
+            pre_services_state: ServicesState,
+            pre_block_history: RecentHistoryState,
+    ):
+        for guarantee in extrinsic_guarantees:
+
+            for block in pre_block_history.recent_history:
+                if block.header_hash == guarantee.report.context.anchor:
+                    if block.state_root != guarantee.report.context.state_root:
+                        raise StateTransitionError(GuaranteeErrorCode.bad_state_root)
+
+
+            for result in guarantee.report.results:
+                if result.service_id not in pre_services_state.services:
+                    raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
+
+                service = pre_services_state.services[result.service_id]
+
+                if result.code_hash != service.code_hash:
+                    raise StateTransitionError(GuaranteeErrorCode.bad_code_hash)
+
     def state_transition_after_guarantees(
             self,
             extrinsic_guarantees: List[Guarantee],
@@ -804,19 +834,54 @@ class Assurances(StateComponent):
 
         self.process_stale_reports(post_state_assurances, post_state_timeslot)
 
+        reported = []
+        reporters = []
+
+        if not self.are_guarentees_sorted(extrinsic_guarantees):
+            raise StateTransitionError(GuaranteeErrorCode.out_of_order_guarantee)
+
+        if self.has_duplicated_guarentees(extrinsic_guarantees):
+            raise StateTransitionError(GuaranteeErrorCode.out_of_order_guarantee)
+
         for guarantee in extrinsic_guarantees:
 
             if guarantee.report.core_index > len(intermediate_state_assurances_after_assurances.assurances):
                 raise StateTransitionError(GuaranteeErrorCode.bad_core_index)
 
+            # GP-0.5.2-eq:11.30
+            if intermediate_state_assurances_after_assurances.assurances[guarantee.report.core_index] is not None:
+                raise StateTransitionError(GuaranteeErrorCode.core_engaged)
+
+            if not self.are_guarentee_signatures_sorted(guarantee.signatures):
+                raise StateTransitionError(GuaranteeErrorCode.not_sorted_or_unique_guarantors)
+
+            # GP-0.5.2-eq:11.24
+            if len(guarantee.signatures) < 2 or len(guarantee.signatures) > 3:
+                raise StateTransitionError(GuaranteeErrorCode.insufficient_guarantees)
+
             if not self.valid_guarantee_signatures(guarantee, pre_state_validator_pool.validators):
                 raise StateTransitionError(GuaranteeErrorCode.bad_signature)
 
+            # Assign work report to core
+            reported.append(
+                ReportedPackage(
+                    work_package_hash=guarantee.report.package_spec.hash,
+                    segment_tree_root=guarantee.report.package_spec.exports_root
+                )
+            )
+            post_state_assurances.assurances[guarantee.report.core_index] = AssuranceStateItem(
+                report=guarantee.report,
+                timeout=guarantee.slot
+            )
+
+            for signature in guarantee.signatures:
+                reporters.append(pre_state_validator_pool.validators[signature.validator_index].ed25519)
 
 
         return AssurancesAfterGuaranteesOutput(
             post_state=post_state_assurances,
-            reporters=[]
+            reported=reported,
+            reporters=reporters
         )
 
     @staticmethod
@@ -839,6 +904,18 @@ class Assurances(StateComponent):
 
     @staticmethod
     def valid_guarantee_signatures(guarantee: Guarantee, curr_validators: List[ValidatorData]) -> bool:
+        """
+        GP-0.5.2-eq:11.27 | Valid signatures for guarantee
+
+        Parameters
+        ----------
+        guarantee
+        curr_validators
+
+        Returns
+        -------
+        bool
+        """
         for credential in guarantee.signatures:
 
             try:
@@ -853,6 +930,56 @@ class Assurances(StateComponent):
                 return False
 
         return True
+
+    @staticmethod
+    def are_guarentees_sorted(guarantees: List[Guarantee]) -> bool:
+        """
+        GP-0.5.2-eq:11.25 | The core index of guarantees must be in ascending order
+
+        Parameters
+        ----------
+        guarantees: List[Guarantee]
+
+        Returns
+        -------
+        bool
+        """
+        return all(
+            guarantees[i].report.core_index <= guarantees[i + 1].report.core_index for i in range(len(guarantees) - 1)
+        )
+
+    @staticmethod
+    def has_duplicated_guarentees(guarantees: List[Guarantee]) -> bool:
+        """
+        GP-0.5.2-eq:11.25 | The core index of each guarantee must be unique
+
+        Parameters
+        ----------
+        guarantees
+
+        Returns
+        -------
+        bool
+        """
+        core_indices = [g.report.core_index for g in guarantees]
+        return len(core_indices) != len(set(core_indices))
+
+    @staticmethod
+    def are_guarentee_signatures_sorted(signatures: List[Credential]) -> bool:
+        """
+        GP-0.5.2-eq:11.26 | Are signatures correctly sorted by validator index
+
+        Parameters
+        ----------
+        signatures: List[Credential]
+
+        Returns
+        -------
+        bool
+        """
+        return all(
+            signatures[i].validator_index <= signatures[i + 1].validator_index for i in range(len(signatures) - 1)
+        )
 
     def retrieve_state(self) -> AssurancesState:
         value = self.retrieve()

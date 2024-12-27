@@ -52,6 +52,7 @@ class WorkExecResult(Serializable):
     ok: bytes = field(default=None, metadata={'codec': Bytes})
     out_of_gas: None = field(default=None, metadata={'codec': Null})
     panic: None = field(default=None, metadata={'codec': Null})
+    bad_exports: None = field(default=None, metadata={'codec': Null})
     bad_code: None = field(default=None, metadata={'codec': Null})
     code_oversize: None = field(default=None, metadata={'codec': Null})
 

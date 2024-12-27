@@ -325,7 +325,7 @@ class ServicesState(State, Serializable):
     # Todo: Workaround for lack of support for int value dict-keys in JSON.
     #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
     services: Dict[int, ServiceAccount] = field(
-        metadata={'codec': Map(Array(U8,4), ServiceAccount.to_codec_def())}
+        metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
     )
 
 
