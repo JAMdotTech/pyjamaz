@@ -10,9 +10,9 @@ from parameterized import parameterized
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Assurance, Guarantee
+from pyjamaz.models.block import Header, Guarantee
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState
+    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -49,6 +49,7 @@ class TestReports(unittest.TestCase):
 
         header.timeslot = test_vector["input"]["slot"]
 
+        # Set up pre-state
         post_state_timeslot = TimeslotState(number=header.timeslot)
 
         extrinsic_guarantees = [Guarantee.from_json(a) for a in test_vector["input"]["guarantees"]]
@@ -77,15 +78,27 @@ class TestReports(unittest.TestCase):
             } for s in test_vector["pre_state"]["services"]}}
         )
 
-        pre_block_history = RecentHistoryState.from_json({"recent_history": test_vector["pre_state"]["recent_blocks"]})
+        intermediate_state_recent_history = RecentHistoryState.from_json(
+            {"recent_history": test_vector["pre_state"]["recent_blocks"]}
+        )
 
+        pre_authorizer_pools = AuthorizerPoolsState.from_json(
+            {"authorizer_pools": test_vector["pre_state"]["auth_pools"]}
+        )
+
+        pre_accumulation_history = AccumulationHistoryState(accumulation_history=[])
 
         assurances = Assurances(self.storage_engine)
         try:
             assurances.validate_guarantees(
                 extrinsic_guarantees=extrinsic_guarantees,
                 pre_services_state=pre_services,
-                pre_block_history=pre_block_history
+                intermediate_state_recent_history=intermediate_state_recent_history,
+                pre_authorizer_pools=pre_authorizer_pools,
+                intermediate_state_assurances_after_assurances=pre_state_assurances,
+                pre_state_validator_pool=pre_state_validator_pool,
+                header=header,
+                pre_accumulation_history=pre_accumulation_history
             )
 
             output = assurances.state_transition_after_guarantees(

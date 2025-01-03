@@ -1,7 +1,7 @@
 {
-  "beefy_commitment_map": {
-    "0x01000000": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "0x02000000": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "0x03000000": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-  }
+  "beefy_commitment_map": [
+    ["0x01000000", "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+    ["0x02000000", "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+    ["0x03000000", "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+  ]
 }

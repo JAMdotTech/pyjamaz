@@ -95,6 +95,7 @@ class PyjamazApp:
             accumulation_history=AccumulationHistoryState(
                 accumulation_history=[bytes(32)] * EPOCH_TIMESLOTS
             )
+            # TODO retrieve accumulation_queue and accumulation_history from DB
         )
 
     async def store_jam_state(self, state: JamState, transaction: Optional[Transaction] = None):
@@ -109,9 +110,11 @@ class PyjamazApp:
         self.components.safrole.store_state(state.safrole, transaction)
         self.components.statistics.store_state(state.statistics, transaction)
         # self.state_manager.get(Services).store_state(state.services, transaction)
-        # self.state_manager.get(AuthorizerQueues).store_state(state.authorizer_queues, transaction)
+        self.components.authorizer_queues.store_state(state.authorizer_queues, transaction)
         self.components.privileged_services.store_state(state.privileged_services, transaction)
         self.components.authorizer_pools.store_state(state.authorizer_pools, transaction)
+        # TODO store accumulation_queue and accumulation_history
+
 
     async def update_state_trie(self):
         """

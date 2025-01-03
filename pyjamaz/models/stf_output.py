@@ -193,7 +193,7 @@ class AssurancesAfterAssurancesOutput(Serializable):
     intermediate_state_after_assurances: AssurancesState
         GP-0.5.0-eq:4.14 (ρ‡) | Primary output of AssurancesAfterAssurances STF.
     reported: List[WorkReport]
-        Items removed from ρ† to get ρ'
+        GP-0.5.2-eq:11.17 (bold_W) | Items removed from ρ† to get ρ'
     """
     intermediate_state_after_assurances: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
     reported: List[WorkReport] = field(metadata={'codec': Vec(WorkReport.to_codec_def())})
@@ -212,8 +212,12 @@ class AssurancesAfterGuaranteesOutput(Serializable):
 
     Attributes
     ----------
-    post_state:AssurancesState
+    post_state: AssurancesState
         GP-0.5.0-eq:4.15 (ρ') | Primary output of AssurancesAfterGuarantees STF.
+    reported: List[ReportedPackage]
+        GP-0.5.2-eq:11.29 (bold_w) | The set of work reports in the current extrinsic
+    reporters: List[bytes]
+        GP-0.5.2-eq:11.27 (bold_R) | Ed25519 keys of validators in the current extrinsic
     """
     post_state: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
     reported: List[ReportedPackage] = field(metadata={'codec': Vec(ReportedPackage.to_codec_def())})

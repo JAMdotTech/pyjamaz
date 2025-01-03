@@ -1,11 +1,13 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
+from pyjamaz.hashing import keccak_256_hash
+
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO
-from pyjamaz.merkle import PatriciaMerkleTrie
+from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.block import TicketBody
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport
 
@@ -181,6 +183,11 @@ class Mmr(Serializable):
         GP-0.5.0-eq:7.1 (bold_b) | A collection of optional peaks in a Merkle Mountain Range
     """
     peaks: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
+
+    def super_peak(self) -> bytes:
+        mmr = MerkleMountainRange(self.peaks)
+        return mmr.super_peak()
+
 
 
 @dataclass
@@ -523,8 +530,8 @@ class BeefyCommitmentMap(Serializable):
     beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(Array(U8, 4), H256)})
 
     def get_accumulate_root(self):
-        data = [(k.to_bytes(4, byteorder='little'), v) for k, v in self.beefy_commitment_map.items()]
-        return PatriciaMerkleTrie(data).root()
+        data = [k.to_bytes(4, byteorder='little') + v for k, v in self.beefy_commitment_map.items()]
+        return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
 
 @dataclass
@@ -655,13 +662,11 @@ class JamState(State, Serializable):
             ),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[
-                    []
-                ] * EPOCH_TIMESLOTS
+                    [] for _ in range(EPOCH_TIMESLOTS)
+                ]
             ),
             accumulation_history=AccumulationHistoryState(
-                accumulation_history=[
-                    bytes(32)
-                ] * EPOCH_TIMESLOTS
+                accumulation_history=[bytes(32) for _ in range(EPOCH_TIMESLOTS)]
             )
         )
 
