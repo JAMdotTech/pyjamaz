@@ -13,7 +13,7 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine
-from pyjamaz.models.common import ValidatorData, SegmentRootLookupItem
+from pyjamaz.models.common import ValidatorData, SegmentRootLookupItem, WorkReport
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
@@ -28,8 +28,8 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
-    AccumulationHistoryState
-from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
+    AccumulationHistoryState, ServiceAccount, BlockContext, GuarantorAssignment
+from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates, guarantor_permute
 
 
 class Timeslot(StateComponent):
@@ -241,8 +241,8 @@ class ValidatorArchive(StateComponent):
 class Safrole(StateComponent):
     component_id = 4
 
-    def __init__(self, storage_engine: StorageEngine, ring_data: bytes):
-        super().__init__(storage_engine)
+    def __init__(self, storage_engine: StorageEngine, block_context: BlockContext, ring_data: bytes):
+        super().__init__(storage_engine, block_context)
         self.ring_data = ring_data
         self.post_state_safrole = None
 
@@ -790,11 +790,20 @@ class Assurances(StateComponent):
             intermediate_state_assurances_after_assurances: AssurancesState,
             pre_state_validator_pool: ValidatorPoolState,
             header: Header,
-            pre_accumulation_history: AccumulationHistoryState
+            pre_accumulation_history: AccumulationHistoryState,
+            post_entropy: EntropyState,
+            post_state_timeslot: TimeslotState,
+            post_state_validator_archive: ValidatorArchiveState
     ):
 
         # GP-0.5.3-eq:11.28 (w)
         work_reports = [g.report for g in extrinsic_guarantees]
+
+        for w in work_reports:
+            # GP-0.5.3-eq:11.8 | Work report respects gas requirements
+            self.check_size_limit(w)
+            # GP-0.5.3-eq:11.30 | Work report respects gas requirements
+            self.check_gas_requirements(w, pre_services_state)
 
         if not self.are_guarentees_sorted(extrinsic_guarantees):
             raise StateTransitionError(GuaranteeErrorCode.out_of_order_guarantee)
@@ -840,10 +849,17 @@ class Assurances(StateComponent):
 
         for guarantee in extrinsic_guarantees:
 
+            # GP-0.5.3-eq:11.26 | Check validity time slot
+            if guarantee.slot > post_state_timeslot.number:
+                raise StateTransitionError(GuaranteeErrorCode.future_report_slot)
+
+            if guarantee.slot < gp_const.ROTATION_PERIOD_CORE * (post_state_timeslot.number // gp_const.ROTATION_PERIOD_CORE - 1) :
+                raise StateTransitionError(GuaranteeErrorCode.report_epoch_before_last)
+
+            guarantor_assignments = self.get_guarantor_assignments(guarantee, post_state_timeslot)
+
             if guarantee.report.core_index > len(intermediate_state_assurances_after_assurances.assurances):
                 raise StateTransitionError(GuaranteeErrorCode.bad_core_index)
-
-
 
             if not self.are_guarentee_signatures_sorted(guarantee.signatures):
                 raise StateTransitionError(GuaranteeErrorCode.not_sorted_or_unique_guarantors)
@@ -852,8 +868,19 @@ class Assurances(StateComponent):
             if len(guarantee.signatures) < 2 or len(guarantee.signatures) > 3:
                 raise StateTransitionError(GuaranteeErrorCode.insufficient_guarantees)
 
-            if not self.valid_guarantee_signatures(guarantee, pre_state_validator_pool.validators):
-                raise StateTransitionError(GuaranteeErrorCode.bad_signature)
+            for credential in guarantee.signatures:
+
+                if credential.validator_index >= gp_const.VALIDATOR_COUNT:
+                    raise StateTransitionError(GuaranteeErrorCode.bad_validator_index)
+
+                # GP-0.5.3-eq:11.26 | Check for valid assignment
+                guarantor_assignment = guarantor_assignments[credential.validator_index]
+
+                if guarantor_assignment.core_index != guarantee.report.core_index:
+                    raise StateTransitionError(GuaranteeErrorCode.wrong_assignment)
+
+                if not self.valid_guarantee_signature(credential, guarantee, guarantor_assignment.validator_ed25519):
+                    raise StateTransitionError(GuaranteeErrorCode.bad_signature)
 
             # GP-0.5.3-eq:11.29 | Check if core is available
             if intermediate_state_assurances_after_assurances.assurances[guarantee.report.core_index] is not None:
@@ -867,20 +894,95 @@ class Assurances(StateComponent):
                 if not self.valid_segment_root_lookup(item, intermediate_state_recent_history):
                     raise StateTransitionError(GuaranteeErrorCode.segment_root_lookup_invalid)
 
-            for result in guarantee.report.results:
-                if result.service_id not in pre_services_state.services:
-                    raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
+            # for result in guarantee.report.results:
+            #     if result.service_id not in pre_services_state.services:
+            #         raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
+            #
+            #     service = pre_services_state.services[result.service_id]
+            #
+            #     if result.code_hash != service.code_hash:
+            #         raise StateTransitionError(GuaranteeErrorCode.bad_code_hash)
 
-                service = pre_services_state.services[result.service_id]
 
-                if result.code_hash != service.code_hash:
-                    raise StateTransitionError(GuaranteeErrorCode.bad_code_hash)
+    def get_guarantor_assignments(
+            self, guarantee: Guarantee, post_state_timeslot: TimeslotState
+    ) -> List[GuarantorAssignment]:
+        """
+        GP-0.5.3-eq:11.26 | Get applicable mapping (G or G*) of Validator ED25519 and assigned core index
+
+        Parameters
+        ----------
+        guarantee
+        post_state_timeslot
+
+        Returns
+        -------
+        Dict[bytes, int] Mapping of Validator ED25519 and assigned core index
+        """
+        if post_state_timeslot.number // gp_const.ROTATION_PERIOD_CORE == \
+                guarantee.slot // gp_const.ROTATION_PERIOD_CORE:
+            return self.block_context.guarantor_assignments
+        else:
+            return self.block_context.prev_guarantor_assignments
 
     @staticmethod
     def get_recent_block(block_hash, recent_history_state: RecentHistoryState) -> Optional[RecentBlock]:
         for block in recent_history_state.recent_history:
             if block.header_hash == block_hash:
                 return block
+
+    @staticmethod
+    def check_size_limit(work_report: WorkReport):
+        """
+        GP-0.5.3-eq:11.8 | Work report respects size limit
+
+        Parameters
+        ----------
+        work_report
+
+        Returns
+        -------
+
+        """
+        if (len(work_report.auth_output) + sum([len(r.result.ok or bytes(0)) for r in work_report.results])
+                > gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT):
+            raise StateTransitionError(GuaranteeErrorCode.work_report_too_big)
+
+    @staticmethod
+    def check_gas_requirements(work_report: WorkReport, services_state: ServicesState):
+        """
+        GP-0.5.3-eq:11.30 | Work report respects gas requirements
+
+        Parameters
+        ----------
+        work_report
+        services_state
+
+        Returns
+        -------
+
+        """
+        total_gas = 0
+
+        for result in work_report.results:
+            if result.service_id not in services_state.services:
+                raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
+
+            service = services_state.services[result.service_id]
+
+            if result.code_hash != service.code_hash:
+                raise StateTransitionError(GuaranteeErrorCode.bad_code_hash)
+
+            # GP-0.5.3-eq:11.30 | Work report respects gas requirements
+
+            if result.accumulate_gas < services_state.services[result.service_id].gas_limit_accumulate:
+                raise StateTransitionError(GuaranteeErrorCode.service_item_gas_too_low)
+
+            total_gas += result.accumulate_gas
+            if total_gas > gp_const.GAS_ACCUMULATION:
+                raise StateTransitionError(GuaranteeErrorCode.work_report_gas_too_high)
+
+
 
     @staticmethod
     def work_packages_exists_in_pipeline(
@@ -1017,33 +1119,23 @@ class Assurances(StateComponent):
                 post_state_assurances.assurances[idx] = None
 
     @staticmethod
-    def valid_guarantee_signatures(guarantee: Guarantee, curr_validators: List[ValidatorData]) -> bool:
+    def valid_guarantee_signature(credential: Credential, guarantee: Guarantee, validator_ed25519: bytes) -> bool:
         """
         GP-0.5.2-eq:11.27 | Valid signatures for guarantee
 
         Parameters
         ----------
+        credential
         guarantee
-        curr_validators
+        validator_ed25519
 
         Returns
         -------
         bool
         """
-        for credential in guarantee.signatures:
 
-            try:
-                validator = curr_validators[credential.validator_index]
-            except IndexError:
-                raise StateTransitionError(GuaranteeErrorCode.bad_validator_index)
-
-            data = b"jam_guarantee" + blake2b_256_hash(guarantee.report.to_jam_bytes().to_bytes())
-            if not ed_verify(
-                    bytes(credential.signature), data, validator.ed25519
-            ):
-                return False
-
-        return True
+        data = b"jam_guarantee" + blake2b_256_hash(guarantee.report.to_jam_bytes().to_bytes())
+        return ed_verify(bytes(credential.signature), data, validator_ed25519)
 
     @staticmethod
     def are_guarentees_sorted(guarantees: List[Guarantee]) -> bool:
@@ -1124,6 +1216,7 @@ class Disputes(StateComponent):
     ) -> DisputesOutput:
         """
         GP-0.5.0-eq:10.16,10.17,10.18,10.19 (ψ') | State transition function for the state's disputes.
+        TODO move validation logic and non specified state components to separate validate_extrinsic()
 
         Parameters
         ----------

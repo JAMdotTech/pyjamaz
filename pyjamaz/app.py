@@ -23,7 +23,7 @@ from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchiv
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, \
-    BeefyCommitmentMap, AccumulationQueueState, AccumulationHistoryState
+    BeefyCommitmentMap, AccumulationQueueState, AccumulationHistoryState, BlockContext
 from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
 
 T = TypeVar('T')
@@ -61,7 +61,11 @@ class PyjamazApp:
         self.block_db: StorageEngine = config.storage_engine.namespace(b"block")
         self.app_db: StorageEngine = config.storage_engine.namespace(b"app")
 
-        self.components = StateComponents(self.state_db, config=self.config)
+        self.block_context = BlockContext()
+
+        self.components = StateComponents(
+            storage_engine=self.state_db, config=self.config, block_context=self.block_context
+        )
 
         self.extrinsic = ExtrinsicAccumulator(self.config.ring_data)
 
@@ -718,19 +722,19 @@ class PyjamazApp:
 
 class StateComponents:
 
-    def __init__(self, storage_engine: StorageEngine, config: AppConfig):
+    def __init__(self, storage_engine: StorageEngine, config: AppConfig, block_context: BlockContext):
 
-        self.timeslot = Timeslot(storage_engine)
-        self.recent_history = RecentHistory(storage_engine)
-        self.entropy = Entropy(storage_engine)
-        self.disputes = Disputes(storage_engine)
-        self.assurances = Assurances(storage_engine)
-        self.validator_archive = ValidatorArchive(storage_engine)
-        self.validator_pool = ValidatorPool(storage_engine)
-        self.safrole = Safrole(storage_engine, config.ring_data)
-        self.validator_queue = ValidatorQueue(storage_engine)
-        self.statistics = Statistics(storage_engine)
-        self.services = Services(storage_engine)
-        self.authorizer_queues = AuthorizerQueues(storage_engine)
-        self.privileged_services = PrivilegedServices(storage_engine)
-        self.authorizer_pools = AuthorizerPools(storage_engine)
+        self.timeslot = Timeslot(storage_engine, block_context)
+        self.recent_history = RecentHistory(storage_engine, block_context)
+        self.entropy = Entropy(storage_engine, block_context)
+        self.disputes = Disputes(storage_engine, block_context)
+        self.assurances = Assurances(storage_engine, block_context)
+        self.validator_archive = ValidatorArchive(storage_engine, block_context)
+        self.validator_pool = ValidatorPool(storage_engine, block_context)
+        self.safrole = Safrole(storage_engine, block_context, config.ring_data)
+        self.validator_queue = ValidatorQueue(storage_engine, block_context)
+        self.statistics = Statistics(storage_engine, block_context)
+        self.services = Services(storage_engine, block_context)
+        self.authorizer_queues = AuthorizerQueues(storage_engine, block_context)
+        self.privileged_services = PrivilegedServices(storage_engine, block_context)
+        self.authorizer_pools = AuthorizerPools(storage_engine, block_context)

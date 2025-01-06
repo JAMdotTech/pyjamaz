@@ -6,12 +6,13 @@ from pyjamaz.hashing import keccak_256_hash
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
-    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO
+    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, ROTATION_PERIOD_CORE
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.block import TicketBody
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport
 
 from pyjamaz.state.base import State
+from pyjamaz.utils import guarantor_permute
 
 
 @dataclass
@@ -326,14 +327,7 @@ class ServicesState(State, Serializable):
         GP-0.5.2-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
         service account index.
     """
-    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
-    # services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
-
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    services: Dict[int, ServiceAccount] = field(
-        metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
-    )
+    services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
 
 
 @dataclass
@@ -522,12 +516,7 @@ class BeefyCommitmentMap(Serializable):
         GP-0.5.0-eq:12.21 (TODO: incorrect reference) (bold_C) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
-    # Todo: Ideal situation, key of dict is a U32.
-    # beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
-
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(Array(U8, 4), H256)})
+    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
     def get_accumulate_root(self):
         data = [k.to_bytes(4, byteorder='little') + v for k, v in self.beefy_commitment_map.items()]
@@ -731,3 +720,82 @@ class AccumulationStateComponents(Serializable):
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
 
+
+@dataclass
+class GuarantorAssignment:
+    core_index: int
+    validator_ed25519: bytes
+
+@dataclass
+class BlockContext:
+    guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+    prev_guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+
+    def initialize(self):
+        self.guarantor_assignments = None
+        self.prev_guarantor_assignments = None
+
+
+    def set_guarantor_assignments(self,
+                       post_entropy: EntropyState,
+                       post_timeslot: TimeslotState,
+                       post_validator_pool: ValidatorPoolState
+                       ):
+        """
+        GP-0.5.3-eq:11.21 (G) | Sets guarantor assignments for current rotation
+
+        Parameters
+        ----------
+        post_entropy
+        post_timeslot
+        post_validator_pool
+
+        Returns
+        -------
+
+        """
+        assignments = guarantor_permute(post_entropy.entropy[2], post_timeslot.number)
+
+        self.guarantor_assignments = [
+            GuarantorAssignment(
+                core_index=core_index,
+                validator_ed25519=post_validator_pool.validators[validator_index].ed25519
+            ) for validator_index, core_index in enumerate(assignments)
+        ]
+
+    def set_prev_guarantor_assignments(
+            self,
+            post_entropy: EntropyState,
+            post_timeslot: TimeslotState,
+            post_validator_pool: ValidatorPoolState,
+            post_validator_archive: ValidatorArchiveState
+    ):
+        """
+        GP-0.5.3-eq:11.22 (G*) | Sets guarantor assignments for previous rotation
+
+        Parameters
+        ----------
+        post_entropy
+        post_timeslot
+        post_validator_pool
+        post_validator_archive
+
+        Returns
+        -------
+
+        """
+        if (post_timeslot.number - ROTATION_PERIOD_CORE) // EPOCH_TIMESLOTS == post_timeslot.number // EPOCH_TIMESLOTS:
+            entropy = post_entropy.entropy[2]
+            validators = post_validator_pool.validators
+        else:
+            entropy = post_entropy.entropy[3]
+            validators = post_validator_archive.validators
+
+        assignments = guarantor_permute(entropy, post_timeslot.number - ROTATION_PERIOD_CORE)
+
+        self.prev_guarantor_assignments = [
+            GuarantorAssignment(
+                core_index=core_index,
+                validator_ed25519=validators[validator_index].ed25519
+            ) for validator_index, core_index in enumerate(assignments)
+        ]

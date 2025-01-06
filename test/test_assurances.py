@@ -11,7 +11,7 @@ from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.block import Header, Assurance
-from pyjamaz.models.state import AssurancesState, ValidatorPoolState, TimeslotState
+from pyjamaz.models.state import AssurancesState, ValidatorPoolState, TimeslotState, BlockContext
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -57,7 +57,11 @@ class TestAssurances(unittest.TestCase):
 
         post_state_timeslot = TimeslotState(number=header.timeslot)
 
-        assurances = Assurances(self.storage_engine)
+        # Prepare block context
+        block_context = BlockContext()
+        block_context.initialize()
+
+        assurances = Assurances(self.storage_engine, block_context)
         try:
 
             assurances.validate_after_disputes(

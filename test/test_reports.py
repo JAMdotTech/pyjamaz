@@ -12,7 +12,7 @@ from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.block import Header, Guarantee
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState
+    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, BlockContext
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -31,6 +31,7 @@ class TestReports(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.storage_engine = InMemoryStorage()
+        cls.block_context = BlockContext()
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -54,11 +55,11 @@ class TestReports(unittest.TestCase):
 
         extrinsic_guarantees = [Guarantee.from_json(a) for a in test_vector["input"]["guarantees"]]
         pre_state_assurances = AssurancesState.from_json({"assurances": test_vector["pre_state"]["avail_assignments"]})
-        pre_state_validator_pool = ValidatorPoolState.from_json(
+        post_state_validator_pool = ValidatorPoolState.from_json(
             {"validators": test_vector["pre_state"]["curr_validators"]}
         )
 
-        pre_state_validator_archive = ValidatorArchiveState.from_json(
+        post_state_validator_archive = ValidatorArchiveState.from_json(
             {"validators": test_vector["pre_state"]["prev_validators"]}
         )
 
@@ -66,10 +67,10 @@ class TestReports(unittest.TestCase):
             {"services": {s["id"]: {
                 "code_hash": bytes.fromhex(s["info"]["code_hash"][2:]),
                 "balance": s["info"]["balance"],
-                "gas_limit_accumulate": 0,
-                "gas_limit_on_transfer": 0,
-                "footprint_storage_items": 0,
-                "footprint_storage_bytes": 0,
+                "gas_limit_accumulate": s["info"]["min_item_gas"],
+                "gas_limit_on_transfer": s["info"]["min_memo_gas"],
+                "footprint_storage_items": s["info"]["items"],
+                "footprint_storage_bytes": s["info"]["bytes"],
                 "threshold_balance": 0,
                 "storage_items": {},
                 "preimages": {},
@@ -88,7 +89,24 @@ class TestReports(unittest.TestCase):
 
         pre_accumulation_history = AccumulationHistoryState(accumulation_history=[])
 
-        assurances = Assurances(self.storage_engine)
+        post_entropy = EntropyState.from_json({"entropy": test_vector["pre_state"]["entropy"]})
+
+        # Prepare block context
+        self.block_context.initialize()
+        self.block_context.set_guarantor_assignments(
+            post_entropy=post_entropy,
+            post_timeslot=post_state_timeslot,
+            post_validator_pool=post_state_validator_pool
+        )
+        self.block_context.set_prev_guarantor_assignments(
+            post_entropy=post_entropy,
+            post_timeslot=post_state_timeslot,
+            post_validator_pool=post_state_validator_pool,
+            post_validator_archive=post_state_validator_archive
+        )
+
+
+        assurances = Assurances(self.storage_engine, self.block_context)
         try:
             assurances.validate_guarantees(
                 extrinsic_guarantees=extrinsic_guarantees,
@@ -96,15 +114,18 @@ class TestReports(unittest.TestCase):
                 intermediate_state_recent_history=intermediate_state_recent_history,
                 pre_authorizer_pools=pre_authorizer_pools,
                 intermediate_state_assurances_after_assurances=pre_state_assurances,
-                pre_state_validator_pool=pre_state_validator_pool,
+                pre_state_validator_pool=post_state_validator_pool,
                 header=header,
-                pre_accumulation_history=pre_accumulation_history
+                pre_accumulation_history=pre_accumulation_history,
+                post_entropy=post_entropy,
+                post_state_timeslot=post_state_timeslot,
+                post_state_validator_archive=post_state_validator_archive
             )
 
             output = assurances.state_transition_after_guarantees(
                 extrinsic_guarantees=extrinsic_guarantees,
                 intermediate_state_assurances_after_assurances=pre_state_assurances,
-                pre_state_validator_pool=pre_state_validator_pool,
+                pre_state_validator_pool=post_state_validator_pool,
                 post_state_timeslot=post_state_timeslot
             )
             assurances_output = {
