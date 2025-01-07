@@ -5,7 +5,8 @@ from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify, v
 
 from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
     EPOCH_TIMESLOTS
-from pyjamaz.models.block import TicketEnvelope, TicketBody
+from pyjamaz.models.block import TicketEnvelope
+from pyjamaz.models.common import TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
 

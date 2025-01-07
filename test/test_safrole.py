@@ -18,10 +18,9 @@ from pyjamaz.app import AppConfig, PyjamazApp
 from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.common import ValidatorData
+from pyjamaz.models.common import ValidatorData, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
-from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, TicketBody, \
-    EpochMark, TicketsMark
+from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, EpochMark
 from pyjamaz.models.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState, SlotSealerSeries
 
@@ -57,7 +56,7 @@ class SafroleTestState(Serializable):
 # Todo: (Re)move, annotate, reference-GP
 class SafroleOutputMarks(Serializable):
     epoch_mark: Optional[EpochMark] = field(default=None, metadata={'codec': Option(EpochMark.to_codec_def())})   # New epoch signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), gp_const.EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
+    tickets_mark: Optional[List[TicketBody]] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), gp_const.EPOCH_TIMESLOTS))})  # Tickets signal. OPTIONAL
 
 
 @dataclass

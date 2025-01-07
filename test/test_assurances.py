@@ -10,7 +10,7 @@ from parameterized import parameterized
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Assurance
+from pyjamaz.models.block import Header, Assurance, BlockContext
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, TimeslotState
 
 
@@ -57,7 +57,11 @@ class TestAssurances(unittest.TestCase):
 
         post_state_timeslot = TimeslotState(number=header.timeslot)
 
-        assurances = Assurances(self.storage_engine)
+        # Prepare block context
+        block_context = BlockContext()
+        block_context.initialize()
+
+        assurances = Assurances(self.storage_engine, block_context)
         try:
 
             assurances.validate_after_disputes(
