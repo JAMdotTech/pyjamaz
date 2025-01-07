@@ -5,7 +5,8 @@ from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify, v
 
 from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
     EPOCH_TIMESLOTS
-from pyjamaz.models.block import TicketEnvelope, TicketBody
+from pyjamaz.models.block import TicketEnvelope
+from pyjamaz.models.common import TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
 
@@ -27,8 +28,9 @@ class ExtrinsicAccumulator:
         aux_data = b''
 
         try:
+            logging.debug(f'Validating ticket with entropy {entropy.hex()}')
             ring_vrf_output = ring_vrf_verify(
-                self.ring_data, ring_public_keys, vrf_input_data, aux_data, ticket_data.signature
+                self.ring_data, ring_public_keys, vrf_input_data, aux_data, bytes(ticket_data.signature)
             )
         except ValueError as e:
             raise ValueError(SafroleErrorCode.bad_ticket_proof)
@@ -71,7 +73,7 @@ class ExtrinsicAccumulator:
         ticket_id = vrf_output(keypair.private_key, vrf_input_data)
 
         logging.info(f'🎫 Generated ticket: 0x{ticket_id.hex()}')
-        # logging.debug(f'Generated ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
+        logging.debug(f'Generated ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
 
         self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)

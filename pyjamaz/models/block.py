@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass, field
 from functools import cached_property
 
@@ -6,20 +5,16 @@ from bandersnatch_vrfs import ietf_vrf_verify
 from math import floor
 from typing import List, Optional
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, Null, BitArray
-from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
+from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState, ValidatorArchiveState
+
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray
+from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT, ROTATION_PERIOD_CORE
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody
 from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
-
-
-# TODO: move and annotate Marker DataClasses
-@dataclass
-# Todo: (Re)move, annotate, reference-GP
-class TicketBody(Serializable):
-    id: bytes = field(metadata={'codec': H256})
-    attempt: int = field(metadata={'codec': U8})
+from pyjamaz.utils import guarantor_permute
 
 
 @dataclass
@@ -73,29 +68,6 @@ class TicketEnvelope(Serializable):
         vrf_input_data += int.to_bytes(self.attempt, byteorder='little', length=1)
 
         return vrf_input_data
-
-
-# Todo: (Re)move, annotate, reference-GP
-TicketsMark = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
-
-
-@dataclass
-# Todo: (Re)move, annotate, reference-GP
-class OutputMarks(Serializable):
-    # New epoch signal. OPTIONAL
-    epoch_mark: Optional[EpochMark] = field(
-        default=None,
-        metadata={'codec': Option(EpochMark.to_codec_def())}
-    )   # New epoch signal. OPTIONAL
-    # Tickets signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(
-        default=None,
-        metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
-    )  # Tickets signal. OPTIONAL
-    offenders_mark: List[bytes] = field(
-        default_factory=list,
-        metadata={'codec': Vec(H256)}
-    )
 
 
 @dataclass
@@ -286,168 +258,13 @@ class Assurance(Serializable):
     validator_index: int = field(metadata={'codec': U16})
     signature: bytes = field(metadata={'codec': H512})
 
+    @property
+    def bitfield_bytes(self) -> bytes:
+        return BitArray(CORE_COUNT).encode(self.bitfield).to_bytes()
 
-@dataclass
-class WorkExecResult(Serializable):
-    """
-    GP-0.5.0-eq:11.6 (o) | Work result output or error of the execution of the code in the refine stage. Either a byte
-    sequence in case it was successful or one of the possible errors
-
-    Attributes
-    ----------
-    ok: Bytes
-        GP-0.5.0-eq:11.6 (blackboard_Y) | The index of a service whose state is to be altered and thus whose refine
-        code was already executed.
-    out_of_gas: None
-        GP-0.5.0-eq:11.7 (sign_INFINITY) | Out of gas error.
-    panic: None
-        GP-0.5.0-eq:11.7 (sign_LIGHTNING) | Panic error.
-    bad_code: None
-        GP-0.5.0-eq:11.7 (BAD) | Bad code error.
-    code_oversize: None
-        GP-0.5.0-eq:11.7 (BIG) | Code oversize error.
-    """
-    # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-oversize) don't match
-    ok: bytes = field(default=None, metadata={'codec': Bytes})
-    out_of_gas: None = field(default=None, metadata={'codec': Null})
-    panic: None = field(default=None, metadata={'codec': Null})
-    bad_code: None = field(default=None, metadata={'codec': Null})
-    code_oversize: None = field(default=None, metadata={'codec': Null})
-
-    _codec_enum = True
-
-
-@dataclass
-class WorkResult(Serializable):
-    """
-    GP-0.5.0-eq:11.6 (blackboard_L) | A work result is the data conduit by which services' states may be altered through
-    the computation done within a work-package.
-
-    Attributes
-    ----------
-    service_id: U32
-        GP-0.5.0-eq:11.6 (s) | The index of a service whose state is to be altered and thus whose refine code was
-        already executed.
-    code_hash: H256
-        GP-0.5.0-eq:11.6 (c) | The hash of the code  of the service at the time of being reported.
-    payload_hash: H256
-        GP-0.5.0-eq:11.6 (l) | The hash of the payload within the work item which was executed in the refine stage to
-        give this result.
-    gas: U64
-        GP-0.5.0-eq:11.6 (g) | The gas prioritization ration used when determining how much gas should be allocated to
-        execute of this item's accumulate.
-    result: WorkExecResult
-        GP-0.5.0-eq:11.6 (o) | Output or error of the execution of the code.
-    """
-    service_id: int = field(metadata={'codec': U32})
-    code_hash: bytes = field(metadata={'codec': H256})
-    payload_hash: bytes = field(metadata={'codec': H256})
-    gas: int = field(metadata={'codec': U64})
-    result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
-
-
-@dataclass
-class RefinementContext(Serializable):
-    """
-    GP-0.5.0-eq:11.4 (blackboard_X) | A refinement context describes the context of the chain at the point that the
-    report's corresponding work-package was evaluated.
-
-    Attributes
-    ----------
-    anchor: H256
-        GP-0.5.0-eq:11.4 (a) | The anchor header_hash.
-    state_root: H256
-        GP-0.5.0-eq:11.4 (s) | The anchor header's block associated posterior state-root.
-    beefy_root: H256
-        GP-0.5.0-eq:11.4 (b) | The anchor header's block associated posterior beefy-root.
-    lookup_anchor: H256
-        GP-0.5.0-eq:11.4 (l) | The lookup-anchor header_hash.
-    lookup_anchor_slot: U32
-        GP-0.5.0-eq:11.4 (t) | The lookup-anchor header's associated timeslot.
-    prerequisites: Vec(H256)
-        GP-0.5.0-eq:11.4 (bold_p) | An optional prerequisite work-package.
-    """
-    anchor: bytes = field(metadata={'codec': H256})
-    state_root: bytes = field(metadata={'codec': H256})
-    beefy_root: bytes = field(metadata={'codec': H256})
-    lookup_anchor: bytes = field(metadata={'codec': H256})
-    lookup_anchor_slot: int = field(metadata={'codec': U32})
-    prerequisites: List[bytes] = field(metadata={'codec': Vec(H256)})
-
-
-@dataclass
-class WorkPackageSpec(Serializable):
-    """
-    GP-0.5.0-eq:11.5 (blackboard_S) | Availability specification are used to ensure correct reconstruction and auditing
-    the purported ramifications of any reported work-package.
-
-    Attributes
-    ----------
-    hash: H256
-        GP-0.5.0-eq:11.5 (h) | The work-package hash.
-    length: U32
-        GP-0.5.0-eq:11.5 (l) | The work bundle length.
-    erasure_root: H256
-        GP-0.5.0-eq:11.5 (u) | The erasure-root.
-    exports_root: H256
-        GP-0.5.0-eq:11.5 (e) | The segment-root.
-    exports_count: U16
-        GP-0.5.0-eq:11.5 (n) | The segment-count.
-    """
-    hash: bytes = field(metadata={'codec': H256})
-    length: int = field(metadata={'codec': U32})
-    erasure_root: bytes = field(metadata={'codec': H256})
-    exports_root: bytes = field(metadata={'codec': H256})
-    exports_count: int = field(metadata={'codec': U16})
-
-
-@dataclass
-class SegmentRootLookupItem(Serializable):
-    """
-    GP-0.5.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
-
-    Attributes
-    ----------
-    work_package_hash: H256
-        GP-0.5.0-eq:11.2 (bold_l_key) | The segment_tree_lookup_item key.
-    segment_tree_root: H256
-        GP-0.5.0-eq:11.2 (bold_l_value) | The segment_tree_lookup_item key.
-    """
-    work_package_hash: bytes = field(metadata={'codec': H256})
-    segment_tree_root: bytes = field(metadata={'codec': H256})
-
-
-@dataclass
-class WorkReport(Serializable):
-    """
-    GP-0.5.0-eq:11.2 (blackboard_W) | A work report comprises several work outputs.
-
-    Attributes
-    ----------
-    package_spec: WorkPackageSpec
-        GP-0.5.0-eq:11.2 (s) | The work package specification.
-    context: RefinementContext
-        GP-0.5.0-eq:11.2 (x) | The refinement context.
-    core_index: U16
-        GP-0.5.0-eq:11.2 (c) | The core-index.
-    authorizer_hash: H256
-        GP-0.5.0-eq:11.2 (a) | The authorizer hash.
-    auth_output: Bytes
-        GP-0.5.0-eq:11.2 (bold_o) | The output.
-    segment_root_lookup: Vec(SegmentRootLookupItem)
-        GP-0.5.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
-    results: Vec(WorkResult)
-        GP-0.5.0-eq:11.2 (bold_r) | The results of the evaluation of each of the items inn the work package.
-    """
-    package_spec: WorkPackageSpec = field(metadata={'codec': WorkPackageSpec.to_codec_def()})
-    context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
-    core_index: int = field(metadata={'codec': U16})
-    authorizer_hash: bytes = field(metadata={'codec': H256})
-    auth_output: bytes = field(metadata={'codec': Bytes})
-    # TODO: GP-0.5.0 states this needs to be a dictionary
-    # segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
-    segment_root_lookup: List[SegmentRootLookupItem] = field(metadata={'codec': Vec(SegmentRootLookupItem.to_codec_def())})
-    results: List[WorkResult] = field(metadata={'codec': Vec(WorkResult.to_codec_def())})
+    @property
+    def cores_engaged(self) -> list:
+        return [c for c, e in enumerate(self.bitfield) if e == True]
 
 
 @dataclass
@@ -475,7 +292,7 @@ class Guarantee(Serializable):
 
     Attributes
     ----------
-    report: WorkReport
+    report: pyjamaz.models.common.WorkReport
         GP-0.5.0-eq:11.22 (w) | A work report.
     slot: U32
         GP-0.5.0-eq:11.22 (t) | A timeslot.
@@ -532,7 +349,7 @@ class Header(Serializable):
     extrinsic_hash: bytes = field(metadata={'codec': H256})
     timeslot: int = field(metadata={'codec': U32})
     epoch_marker: Optional[EpochMark] = field(metadata={'codec': Option(EpochMark.to_codec_def())})
-    tickets_marker: Optional[TicketsMark] = field(
+    tickets_marker: Optional[List[TicketBody]] = field(
         metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
     )
     offenders_marker: List[bytes] = field(metadata={'codec': Vec(H256)})
@@ -555,7 +372,7 @@ class Header(Serializable):
         if getattr(self, '_hash', None) is not None:
             return getattr(self, '_hash')
 
-        return blake2b_256_hash(self.get_unsigned_payload())
+        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
     def get_unsigned_payload(self) -> bytes:
         """
@@ -576,7 +393,7 @@ class Header(Serializable):
             bytes(bandersnatch_key),
             b"jam_ticket_seal" + entropy + int.to_bytes(ticket_body.attempt, byteorder='little', length=1),
             self.get_unsigned_payload(),
-            self.seal
+            bytes(self.seal)
         )
 
         return ticket_body.id == vrf_output
@@ -586,7 +403,7 @@ class Header(Serializable):
             bytes(sealer_key),
             b"jam_fallback_seal" + entropy,
             self.get_unsigned_payload(),
-            self.seal
+            bytes(self.seal)
         )
 
     @classmethod
@@ -714,24 +531,27 @@ class WorkItem(Serializable):
     Attributes
     ----------
     service: U32
-        GP-0.5.0-eq:14.3 (s) | The index of a service to which it relates.
+        GP-0.5.2-eq:14.3 (s) | The index of a service to which it relates.
     code_hash: H256
-        GP-0.5.0-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
+        GP-0.5.2-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
     payload: Bytes
-        GP-0.5.0-eq:14.3 (bold_y) | A payload blob.
-    gas_limit: U64
-        GP-0.5.0-eq:14.3 (g) | The gas limit.
+        GP-0.5.2-eq:14.3 (bold_y) | A payload blob.
+    refine_gas_limit: U64
+        GP-0.5.2-eq:14.3 (g) | The gas limit.
+    accumulate_gas_limit: U64
+        GP-0.5.2-eq:14.3 (a) | The gas limit.
     import_segments: Vec(ImportSegment)
-        GP-0.5.0-eq:14.3 (bold_i) | Imported data segments.
+        GP-0.5.2-eq:14.3 (bold_i) | Imported data segments.
     extrinsic: Vec(WorkItemExtrinsic)
-        GP-0.5.0-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
+        GP-0.5.2-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
     export_count: U16
-        GP-0.5.0-eq:14.3 (e) | The number of data segments exported by this work item.
+        GP-0.5.2-eq:14.3 (e) | The number of data segments exported by this work item.
     """
     service: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
     payload: bytes = field(metadata={'codec': Bytes})
-    gas_limit: int = field(metadata={'codec': U64})
+    refine_gas_limit: int = field(metadata={'codec': U64})
+    accumulate_gas_limit: int = field(metadata={'codec': U64})
     import_segments: List[ImportSegment] = field(metadata={'codec': Vec(ImportSegment.to_codec_def())})
     extrinsic: List[WorkItemExtrinsic] = field(metadata={'codec': Vec(WorkItemExtrinsic.to_codec_def())})
     export_count: int = field(metadata={'codec': U16})
@@ -768,7 +588,7 @@ class WorkPackage(Serializable):
     # TODO: This impacts the structure of JSON (not JAM-codec).
     authorizer: Authorizer
         GP-0.5.0-eq:14.2 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob.
-    context: RefinementContext
+    context: pyjamaz.models.common.RefinementContext
         GP-0.5.0-eq:14.2 (bold_x) | The refinement context.
     items: Vec(WorkItem)
         GP-0.5.0-eq:14.2 (bold_w) | A sequence of work items.
@@ -780,3 +600,84 @@ class WorkPackage(Serializable):
     authorizer: Authorizer = field(metadata={'codec': Authorizer.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
     items: List[WorkItem] = field(metadata={'codec': Vec(WorkItem.to_codec_def())})
+
+
+@dataclass
+class GuarantorAssignment:
+    core_index: int
+    validator_ed25519: bytes
+
+
+@dataclass
+class BlockContext:
+    guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+    prev_guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+
+    def initialize(self):
+        self.guarantor_assignments = None
+        self.prev_guarantor_assignments = None
+
+
+    def set_guarantor_assignments(self,
+                       post_entropy: EntropyState,
+                       post_timeslot: TimeslotState,
+                       post_validator_pool: ValidatorPoolState
+                       ):
+        """
+        GP-0.5.3-eq:11.21 (G) | Sets guarantor assignments for current rotation
+
+        Parameters
+        ----------
+        post_entropy
+        post_timeslot
+        post_validator_pool
+
+        Returns
+        -------
+
+        """
+        assignments = guarantor_permute(post_entropy.entropy[2], post_timeslot.number)
+
+        self.guarantor_assignments = [
+            GuarantorAssignment(
+                core_index=core_index,
+                validator_ed25519=post_validator_pool.validators[validator_index].ed25519
+            ) for validator_index, core_index in enumerate(assignments)
+        ]
+
+    def set_prev_guarantor_assignments(
+            self,
+            post_entropy: EntropyState,
+            post_timeslot: TimeslotState,
+            post_validator_pool: ValidatorPoolState,
+            post_validator_archive: ValidatorArchiveState
+    ):
+        """
+        GP-0.5.3-eq:11.22 (G*) | Sets guarantor assignments for previous rotation
+
+        Parameters
+        ----------
+        post_entropy
+        post_timeslot
+        post_validator_pool
+        post_validator_archive
+
+        Returns
+        -------
+
+        """
+        if (post_timeslot.number - ROTATION_PERIOD_CORE) // EPOCH_TIMESLOTS == post_timeslot.number // EPOCH_TIMESLOTS:
+            entropy = post_entropy.entropy[2]
+            validators = post_validator_pool.validators
+        else:
+            entropy = post_entropy.entropy[3]
+            validators = post_validator_archive.validators
+
+        assignments = guarantor_permute(entropy, post_timeslot.number - ROTATION_PERIOD_CORE)
+
+        self.prev_guarantor_assignments = [
+            GuarantorAssignment(
+                core_index=core_index,
+                validator_ed25519=validators[validator_index].ed25519
+            ) for validator_index, core_index in enumerate(assignments)
+        ]

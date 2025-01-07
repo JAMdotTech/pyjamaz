@@ -4,13 +4,13 @@ from os import path
 
 from jamcodec.types import Vec
 
-from pyjamaz.models.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, RefinementContext, WorkReport, \
-    WorkResult, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
+from pyjamaz.models.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
+from pyjamaz.models.common import WorkResult, RefinementContext, WorkReport
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
     ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, BeefyCommitmentMap, \
-    AccumulationQueueState, AccumulationHistoryState
+    AccumulationQueueState, AccumulationHistoryState, DeferredTransfers, DeferredTransfer, AccumulationStateComponents
 from test.test_safrole import SafroleTestOutput, SafroleOutputMarks
 
 
@@ -22,15 +22,51 @@ class TestCodec(unittest.TestCase):
         cls.test_vector_w3f_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec', 'w3f')
         cls.test_vector_jdt_dir = path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'codec', 'jdt')
 
+    def test_jdt_accumulation_state_components(self):
+        with open(path.join(self.test_vector_jdt_dir, f'accumulation_state_components.json')) as f:
+            test_vector = json.load(f)
+
+        state = AccumulationStateComponents.from_json(test_vector)
+        value = json.loads(json.dumps(state.serialize()))
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_jdt_dir, f'accumulation_state_components.bin'), "rb") as f:
+           jam_data = f.read()
+        self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
+
     def test_jdt_beefy_commitment_map(self):
         with open(path.join(self.test_vector_jdt_dir, f'beefy_commitment_map.json')) as f:
             test_vector = json.load(f)
 
         state = BeefyCommitmentMap.from_json(test_vector)
-        value = state.serialize()
+        value = json.loads(json.dumps(state.serialize()))
         self.assertDictEqual(test_vector, value)
 
         with open(path.join(self.test_vector_jdt_dir, f'beefy_commitment_map.bin'), "rb") as f:
+           jam_data = f.read()
+        self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
+
+    def test_jdt_deferred_transfer(self):
+        with open(path.join(self.test_vector_jdt_dir, f'deferred_transfer.json')) as f:
+            test_vector = json.load(f)
+
+        state = DeferredTransfer.from_json(test_vector)
+        value = state.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_jdt_dir, f'deferred_transfer.bin'), "rb") as f:
+           jam_data = f.read()
+        self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
+
+    def test_jdt_deferred_transfers(self):
+        with open(path.join(self.test_vector_jdt_dir, f'deferred_transfers.json')) as f:
+            test_vector = json.load(f)
+
+        state = DeferredTransfers.from_json(test_vector)
+        value = state.serialize()
+        self.assertDictEqual(test_vector, value)
+
+        with open(path.join(self.test_vector_jdt_dir, f'deferred_transfers.bin'), "rb") as f:
            jam_data = f.read()
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 
@@ -111,7 +147,7 @@ class TestCodec(unittest.TestCase):
             test_vector = json.load(f)
 
         state = PrivilegedServicesState.from_json(test_vector)
-        value = state.serialize()
+        value = json.loads(json.dumps(state.serialize()))
         self.assertDictEqual(test_vector, value)
 
         with open(path.join(self.test_vector_jdt_dir, f'state_privileged_services.bin'), "rb") as f:
@@ -147,7 +183,7 @@ class TestCodec(unittest.TestCase):
             test_vector = json.load(f)
 
         state = ServiceAccount.from_json(test_vector)
-        value = state.serialize()
+        value = json.loads(json.dumps(state.serialize()))
         self.assertDictEqual(test_vector, value)
 
         with open(path.join(self.test_vector_jdt_dir, f'state_service_account.bin'), "rb") as f:
@@ -160,13 +196,12 @@ class TestCodec(unittest.TestCase):
             test_vector = json.load(f)
 
         state = ServicesState.from_json(test_vector)
-        value = state.serialize()
+        value = json.loads(json.dumps(state.serialize()))
         self.assertDictEqual(test_vector, value)
 
         with open(path.join(self.test_vector_jdt_dir, f'state_services.bin'), "rb") as f:
            jam_data = f.read()
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
-        pass
 
     def test_jdt_state_statistics(self):
         with open(path.join(self.test_vector_jdt_dir, f'state_statistics.json')) as f:

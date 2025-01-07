@@ -2,7 +2,7 @@ import json
 import unittest
 from os import path
 
-from pyjamaz.merkle import MerkleTree
+from pyjamaz.merkle import PatriciaMerkleTrie
 
 
 class TestMerkleTrie(unittest.TestCase):
@@ -14,7 +14,7 @@ class TestMerkleTrie(unittest.TestCase):
         for item in test_vector:
             data_tree = [(bytes.fromhex(k), bytes.fromhex(v)) for k, v in item['input'].items()]
 
-            output = MerkleTree(data_tree).root()
+            output = PatriciaMerkleTrie(data_tree).root()
             self.assertEqual(item['output'], output.hex())
 
 

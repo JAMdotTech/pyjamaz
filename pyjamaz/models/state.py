@@ -1,13 +1,14 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
+from pyjamaz.hashing import keccak_256_hash
+
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
-    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
-from pyjamaz.merkle import MerkleTree
-from pyjamaz.models.block import WorkReport, TicketBody
-from pyjamaz.models.common import ValidatorData
+    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO
+from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 
 from pyjamaz.state.base import State
 
@@ -182,6 +183,28 @@ class Mmr(Serializable):
     """
     peaks: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
 
+    def super_peak(self) -> bytes:
+        mmr = MerkleMountainRange(self.peaks)
+        return mmr.super_peak()
+
+
+
+@dataclass
+class ReportedWorkPackage(Serializable):
+    """
+    GP-0.5.0-eq:7.1 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
+    of cores (constant_c=341)
+
+    Attributes
+    ----------
+    hash: H256
+        GP-0.5.0-eq:7.1 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+    exports_root: H256
+        GP-0.5.0-eq:7.1 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+    """
+    hash: bytes = field(metadata={'codec': H256})
+    exports_root: bytes = field(metadata={'codec': H256})
+
 
 @dataclass
 class RecentBlock(Serializable):
@@ -197,16 +220,16 @@ class RecentBlock(Serializable):
         GP-0.5.0-eq:7.1 (bold_b) | Accumulation result Merkle Mountain Range of the recent block.
     state_root: H256
         GP-0.5.0-eq:7.1 (s, blackboard_H) | State root of the recent block.
-    reported: Vec(H256)
-        GP-0.5.0-eq:7.1 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
-        of cores (constant_c=341)
+    reported: Vec(ReportedWorkPackage)
+        GP-0.5.0-eq:7.1 (bold_p) | A collection of ReportedWorkPackage for each work-report made into the MMR, limited
+        to the number of cores (constant_c=341)
     """
     header_hash: bytes = field(metadata={'codec': H256})
     mmr: Mmr = field(metadata={'codec': Mmr.to_codec_def()})
     state_root: bytes = field(metadata={'codec': H256})
     # TODO: GP-0.5.0-eq:7.1 states bold_p needs to be a dictionary, GP-0.5.0-eq:D.2 states bold_p needs to have a
     # length prefix encoding.
-    reported: List[bytes] = field(metadata={'codec': Vec(H256)})
+    reported: List[ReportedWorkPackage] = field(metadata={'codec': Vec(ReportedWorkPackage.to_codec_def())})
 
     def __post_init__(self):
         # Todo: 'reported' attribute is allowed to have up to constant_C (CORES=341) items.
@@ -238,28 +261,31 @@ class RecentHistoryState(State, Serializable):
 @dataclass
 class ServiceAccount(Serializable):
     """
-    GP-0.5.0-eq:9.3 (blackboard_A) | A service account.
+    GP-0.5.2-eq:9.3 (blackboard_A) | A service account.
 
     Attributes
     ----------
     code_hash: H256
-        GP-0.5.0-eq:9.3 (c) | Hash of the service account's code
+        GP-0.5.2-eq:9.3 (c) | Hash of the service account's code
     balance: U64
-        GP-0.5.0-eq:9.3 (b) | Balance of a service account
+        GP-0.5.2-eq:9.3 (b) | Balance of a service account
     gas_limit_accumulate: U64
-        GP-0.5.0-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
+        GP-0.5.2-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
     gas_limit_on_transfer: U64
-        GP-0.5.0-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
+        GP-0.5.2-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
     footprint_storage_items: U64
-        GP-0.5.0-eq:9.8 (a_l) | Storage footprint of the service account. The number of items in storage.
+        GP-0.5.2-eq:9.8 (a_l) | Storage footprint of the service account. The number of items in storage.
     footprint_storage_bytes: U32
-        GP-0.5.0-eq:9.8 (a_i) | Storage footprint of the service account. The total number of bytes used in storage.
+        GP-0.5.2-eq:9.8 (a_i) | Storage footprint of the service account. The total number of bytes used in storage.
+    threshold_balance: U64
+        GP-0.5.2-eq:9.8 (a_t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
+        footprint.
     storage_items: Dict(H256,Bytes)
-        GP-0.5.0-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
+        GP-0.5.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
     preimages: Dict(H256,Bytes)
-        GP-0.5.0-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
+        GP-0.5.2-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
     preimage_availability: Dict(Tuple(H256,U32),Bytes)
-        GP-0.5.0-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
+        GP-0.5.2-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
     """
     # Remark: Only the following field need to be serialized/deserialized
     code_hash: bytes = field(metadata={'codec': H256})
@@ -268,6 +294,7 @@ class ServiceAccount(Serializable):
     gas_limit_on_transfer: int = field(metadata={'codec': U64})
     footprint_storage_items: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U32})
+    threshold_balance: int = field(metadata={'codec': U64})
     storage_items: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
     preimages: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
     # Todo: GP states the Dict has a tuple as key. Needs to be resolved when getter function for preimage_availability
@@ -275,43 +302,30 @@ class ServiceAccount(Serializable):
     # preimage_availability: Dict[PyTuple[bytes, int], List[int]] = field(metadata={'codec': Map(Tuple(H256, U32), Vec(U32))})
     preimage_availability: Dict[bytes, List[int]] = field(metadata={'codec': Map(Array(U8, 36), Vec(U32))})
 
+    # placeholder for storage item getter; host-function: OMEGA_R (read)
+    def get_storage_item(self):
+        pass
+
+    # placeholder for storage item setter; host-function: OMEGA_W (write)
+    def set_storage_item(self):
+        pass
+
+    # placeholder for preimage getter; host-function: OMEGA_L (lookup)
+    def get_preimage(self):
+        pass
 
 @dataclass
 class ServicesState(State, Serializable):
     """
-    GP-0.5.0-eq:9.2 (δ) | Services partition of the overall state.
+    GP-0.5.2-eq:9.2 (δ) | Services partition of the overall state.
 
     Attributes
     ----------
     services: Dict(U32,ServiceAccount)
-        GP-0.5.0-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
+        GP-0.5.2-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
         service account index.
     """
-    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
-    # services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
-
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    services: Dict[int, ServiceAccount] = field(
-        metadata={'codec': Map(Array(U8,4), ServiceAccount.to_codec_def())}
-    )
-
-
-@dataclass
-class Assurance(Serializable):
-    """
-    GP-0.3.8-eq:116 (ρ[c]) | An assurance for a single core.
-
-    Attributes
-    ----------
-    work_report: WorkReport
-        GP-0.5.0-eq:11.1 (w) | A work report.
-    timeslot: U32
-        GP-0.5.0-eq:11.1 (t) | A timeslot.
-    """
-    # Todo: Move WorkReport and related models from Block to Common section.
-    work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
-    timeslot: int = field(metadata={'codec': U32})
+    services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
 
 
 @dataclass
@@ -396,7 +410,7 @@ class DisputesState(State, Serializable):
 
 
 @dataclass
-class Statistic(Serializable):
+class ActivityRecord(Serializable):
     """
     GP-0.5.0-eq:13.1 (π.0.V) | A set of cumulative metrics for a single validator in a single epochs.
 
@@ -406,9 +420,9 @@ class Statistic(Serializable):
         GP-0.5.0-eq:13.1 (b) | The number of blocks produced by the validator.
     tickets: U32
         GP-0.5.0-eq:13.1 (t) | The number of tickets introduced by the validator.
-    preimages: U32
+    pre_images: U32
         GP-0.5.0-eq:13.1 (p) | The number of preimages introduced by the validator.
-    preimage_bytes: U32
+    pre_images_size: U32
         GP-0.5.0-eq:13.1 (d) | The number of total number of bytes across all preimages introduced by the validator.
     guarantees: U32
         GP-0.5.0-eq:13.1 (g) | The number of reports guaranteed by the validator.
@@ -417,8 +431,8 @@ class Statistic(Serializable):
     """
     blocks: int = field(metadata={'codec': U32})
     tickets: int = field(metadata={'codec': U32})
-    preimages: int = field(metadata={'codec': U32})
-    preimage_bytes: int = field(metadata={'codec': U32})
+    pre_images: int = field(metadata={'codec': U32})
+    pre_images_size: int = field(metadata={'codec': U32})
     guarantees: int = field(metadata={'codec': U32})
     assurances: int = field(metadata={'codec': U32})
 
@@ -431,12 +445,14 @@ class StatisticsState(State, Serializable):
     Attributes
     ----------
 
-    statistics: Array(Array(Statistic,constant_V),2)
-        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
+    current: Array(Statistic,constant_V)
+        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for current epoch.
+    last: Array(Statistic,constant_V)
+        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for last epoch.
     """
-    statistics: List[List[Statistic]] = field(
-        metadata={'codec': Array(Array(Statistic.to_codec_def(), VALIDATOR_COUNT), 2)}
-    )
+    current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+    last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+
 
 
 @dataclass
@@ -498,16 +514,11 @@ class BeefyCommitmentMap(Serializable):
         GP-0.5.0-eq:12.21 (TODO: incorrect reference) (bold_C) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
-    # Todo: Ideal situation, key of dict is a U32.
-    # beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
-
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(Array(U8, 4), H256)})
+    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
     def get_accumulate_root(self):
-        data = [(k.to_bytes(4, byteorder='little'), v) for k, v in self.beefy_commitment_map.items()]
-        return MerkleTree(data).root()
+        data = [k.to_bytes(4, byteorder='little') + v for k, v in self.beefy_commitment_map.items()]
+        return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
 
 @dataclass
@@ -583,12 +594,15 @@ class JamState(State, Serializable):
         return cls(
             timeslot=TimeslotState(number=0),
             entropy=EntropyState(
-                entropy=[bytes(32), bytes(32), bytes(32), bytes(32)]
+                entropy=[
+                    validators[0].bandersnatch, validators[1].bandersnatch,
+                    validators[2].bandersnatch, validators[3].bandersnatch
+                ]
             ),
             safrole=SafroleState(
                 ticket_accumulator=[],
                 validators=validators,
-                slot_sealer_series=SlotSealerSeries(keys=[bytes(32)] * EPOCH_TIMESLOTS),
+                slot_sealer_series=SlotSealerSeries(keys=[validators[0].bandersnatch for _ in range(EPOCH_TIMESLOTS)]),
                 ring_commitment=bytes(144),
             ),
             validator_queue=ValidatorQueueState(
@@ -602,8 +616,7 @@ class JamState(State, Serializable):
             ),
             authorizer_pools=AuthorizerPoolsState(
                 authorizer_pools=[
-                    [],
-                    []
+                    [] for _ in range(CORE_COUNT)
                 ]
             ),
             recent_history=RecentHistoryState(
@@ -611,20 +624,18 @@ class JamState(State, Serializable):
             ),
             services=ServicesState(services={}),
             assurances=AssurancesState(
-                assurances=[
-                    None,
-                    None
-                ]
+                assurances=[None for _ in range(CORE_COUNT)]
             ),
             authorizer_queues=AuthorizerQueuesState(
-                authorizer_queues=[[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
-
+                authorizer_queues=[
+                    [bytes(32) for _ in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS)] for _ in range(CORE_COUNT)
+                ]
             ),
             privileged_services=PrivilegedServicesState(
                 empower_service=0,
                 assign_service=0,
                 designate_service=0,
-                auto_accumulate_services={}
+                auto_accumulate_services=[]
             ),
             disputes=DisputesState(
                 good_set=[],
@@ -633,21 +644,78 @@ class JamState(State, Serializable):
                 offenders=[],
             ),
             statistics=StatisticsState(
-                statistics=[
-                    [
-                        Statistic(0, 0, 0, 0, 0, 0),
-                    ] * VALIDATOR_COUNT
-                ] * EPOCH_TIMESLOTS
+                current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+                last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
             ),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[
-                    []
-                ] * EPOCH_TIMESLOTS
+                    [] for _ in range(EPOCH_TIMESLOTS)
+                ]
             ),
             accumulation_history=AccumulationHistoryState(
-                accumulation_history=[
-                    bytes(32)
-                ] * EPOCH_TIMESLOTS
+                accumulation_history=[bytes(32) for _ in range(EPOCH_TIMESLOTS)]
             )
         )
+
+
+@dataclass
+class DeferredTransfer(Serializable):
+    """
+    GP-0.5.2-eq:12.14 (blackboard_T) | A single deferred transfer.
+
+    Attributes
+    ----------
+    sender: U32
+        GP-0.5.2-eq:12.14 (s) | Sender of a deferred transfer.
+    receiver: U32
+        GP-0.5.2-eq:12.14 (d) | Receiver of a deferred transfer (destination).
+    amount: U64
+        GP-0.5.2-eq:12.14 (a) | Balance to be transferred (amount) of the deferred transfer.
+    memo: Array(U8, SIZE_TRANSFER_MEMO)
+        GP-0.5.2-eq:12.14 (m) | Constant length memo blob of the deferred transfer.
+    gas_limit: U64
+        GP-0.5.2-eq:12.14 (g) | Gas limit of the deferred transfer.
+    """
+    sender: int = field(metadata={'codec': U32})
+    receiver: int = field(metadata={'codec': U32})
+    amount: int = field(metadata={'codec': U64})
+    memo: bytes = field(metadata={'codec': Array(U8, SIZE_TRANSFER_MEMO)})
+    gas_limit: int = field(metadata={'codec': U64})
+
+
+@dataclass
+class DeferredTransfers(Serializable):
+    """
+    GP-0.5.2-eq:12.23 (Vec(blackboard_T)) | A collection of deferred transfers.
+
+    Attributes
+    ----------
+
+    deferred_transfers: Vec(DeferredTransfer)
+        GP-0.5.2-eq:12.23 (Vec(blackboard_T)) | A collection of deferred transfers.
+    """
+    deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
+
+
+@dataclass
+class AccumulationStateComponents(Serializable):
+    """
+    GP-0.5.2-eq:12.13 (blackboard_U) | State components which are needed and mutable by the accumulation process.
+
+    Attributes
+    ----------
+    services: ServicesState
+        GP-0.5.2-eq:12.13 (bold_d) | Dictionary with services state.
+    validator_queue: ValidatorQueueState
+        GP-0.5.2-eq:12.13 (bold_i) | Validator Queue state.
+    authorizer_queues: AuthorizerQueuesState
+        GP-0.5.2-eq:12.13 (bold_q) | Authorizer Queues state.
+    privileged_services: PrivilegedServicesState
+        GP-0.5.2-eq:12.13 (bold_x) | Privileged Services state.
+    """
+    services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+    validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
+    authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
+    privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
+
 
