@@ -9,7 +9,7 @@ from parameterized import parameterized
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.components import Statistics
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Extrinsic
+from pyjamaz.models.block import Header, Extrinsic, BlockContext
 from pyjamaz.models.state import StatisticsState, TimeslotState, ValidatorPoolState
 
 
@@ -29,6 +29,7 @@ class TestStatistics(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.storage_engine = InMemoryStorage()
+        cls.block_context = BlockContext()
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -56,7 +57,7 @@ class TestStatistics(unittest.TestCase):
         post_state_timeslot = TimeslotState(number=test_vector["post_state"]["tau"])
         post_state_validator_pool = ValidatorPoolState.from_json({"validators": test_vector["post_state"]["kappa_prime"]})
 
-        statistics = Statistics(self.storage_engine)
+        statistics = Statistics(self.storage_engine, self.block_context)
 
         output = statistics.state_transition(
             extrinsic_guarantees=extrinsic.guarantees,

@@ -5,21 +5,16 @@ from bandersnatch_vrfs import ietf_vrf_verify
 from math import floor
 from typing import List, Optional
 
+from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState, ValidatorArchiveState
+
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray
-from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
+from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT, ROTATION_PERIOD_CORE
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import RefinementContext, WorkReport
+from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody
 from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
-
-
-# TODO: move and annotate Marker DataClasses
-@dataclass
-# Todo: (Re)move, annotate, reference-GP
-class TicketBody(Serializable):
-    id: bytes = field(metadata={'codec': H256})
-    attempt: int = field(metadata={'codec': U8})
+from pyjamaz.utils import guarantor_permute
 
 
 @dataclass
@@ -73,29 +68,6 @@ class TicketEnvelope(Serializable):
         vrf_input_data += int.to_bytes(self.attempt, byteorder='little', length=1)
 
         return vrf_input_data
-
-
-# Todo: (Re)move, annotate, reference-GP
-TicketsMark = List[TicketBody]  # SEQUENCE (SIZE(epoch-length)) OF TicketBody
-
-
-@dataclass
-# Todo: (Re)move, annotate, reference-GP
-class OutputMarks(Serializable):
-    # New epoch signal. OPTIONAL
-    epoch_mark: Optional[EpochMark] = field(
-        default=None,
-        metadata={'codec': Option(EpochMark.to_codec_def())}
-    )   # New epoch signal. OPTIONAL
-    # Tickets signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(
-        default=None,
-        metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
-    )  # Tickets signal. OPTIONAL
-    offenders_mark: List[bytes] = field(
-        default_factory=list,
-        metadata={'codec': Vec(H256)}
-    )
 
 
 @dataclass
@@ -377,7 +349,7 @@ class Header(Serializable):
     extrinsic_hash: bytes = field(metadata={'codec': H256})
     timeslot: int = field(metadata={'codec': U32})
     epoch_marker: Optional[EpochMark] = field(metadata={'codec': Option(EpochMark.to_codec_def())})
-    tickets_marker: Optional[TicketsMark] = field(
+    tickets_marker: Optional[List[TicketBody]] = field(
         metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
     )
     offenders_marker: List[bytes] = field(metadata={'codec': Vec(H256)})
@@ -628,3 +600,84 @@ class WorkPackage(Serializable):
     authorizer: Authorizer = field(metadata={'codec': Authorizer.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
     items: List[WorkItem] = field(metadata={'codec': Vec(WorkItem.to_codec_def())})
+
+
+@dataclass
+class GuarantorAssignment:
+    core_index: int
+    validator_ed25519: bytes
+
+
+@dataclass
+class BlockContext:
+    guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+    prev_guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+
+    def initialize(self):
+        self.guarantor_assignments = None
+        self.prev_guarantor_assignments = None
+
+
+    def set_guarantor_assignments(self,
+                       post_entropy: EntropyState,
+                       post_timeslot: TimeslotState,
+                       post_validator_pool: ValidatorPoolState
+                       ):
+        """
+        GP-0.5.3-eq:11.21 (G) | Sets guarantor assignments for current rotation
+
+        Parameters
+        ----------
+        post_entropy
+        post_timeslot
+        post_validator_pool
+
+        Returns
+        -------
+
+        """
+        assignments = guarantor_permute(post_entropy.entropy[2], post_timeslot.number)
+
+        self.guarantor_assignments = [
+            GuarantorAssignment(
+                core_index=core_index,
+                validator_ed25519=post_validator_pool.validators[validator_index].ed25519
+            ) for validator_index, core_index in enumerate(assignments)
+        ]
+
+    def set_prev_guarantor_assignments(
+            self,
+            post_entropy: EntropyState,
+            post_timeslot: TimeslotState,
+            post_validator_pool: ValidatorPoolState,
+            post_validator_archive: ValidatorArchiveState
+    ):
+        """
+        GP-0.5.3-eq:11.22 (G*) | Sets guarantor assignments for previous rotation
+
+        Parameters
+        ----------
+        post_entropy
+        post_timeslot
+        post_validator_pool
+        post_validator_archive
+
+        Returns
+        -------
+
+        """
+        if (post_timeslot.number - ROTATION_PERIOD_CORE) // EPOCH_TIMESLOTS == post_timeslot.number // EPOCH_TIMESLOTS:
+            entropy = post_entropy.entropy[2]
+            validators = post_validator_pool.validators
+        else:
+            entropy = post_entropy.entropy[3]
+            validators = post_validator_archive.validators
+
+        assignments = guarantor_permute(entropy, post_timeslot.number - ROTATION_PERIOD_CORE)
+
+        self.prev_guarantor_assignments = [
+            GuarantorAssignment(
+                core_index=core_index,
+                validator_ed25519=validators[validator_index].ed25519
+            ) for validator_index, core_index in enumerate(assignments)
+        ]

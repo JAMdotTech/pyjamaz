@@ -1,3 +1,4 @@
+from math import ceil
 from typing import List, Tuple, Optional
 from pyjamaz.hashing import blake2b_256_hash, keccak_256_hash
 
@@ -129,3 +130,62 @@ class MerkleMountainRange:
                     else:
                         self.peaks[idx + 1] = self.peaks[idx]
                         self.peaks[idx] = None
+
+    def super_peak(self, peaks: Optional[List[bytes]] = None) -> bytes:
+        """
+        GP-0.5.3-eq:E.10 (M_R) | Calculate the MMR super peak
+
+        Returns
+        -------
+        bytes
+        """
+        if peaks is None:
+            peaks = [peak for peak in self.peaks if peak is not None]
+
+        if len(peaks) == 0:
+            return bytes(32)
+        elif len(peaks) == 1:
+            return peaks[0]
+        else:
+            return keccak_256_hash(b'node' + self.super_peak(peaks[:-1]) + peaks[-1])
+
+
+class BinaryMerkleTree:
+    def __init__(self, data: List[bytes], hash_function=keccak_256_hash):
+        self.data: List[bytes] = data
+        self.hash_function = hash_function
+
+    def node(self, nodes: List[bytes]) -> bytes:
+        """
+        GP-0.5.3-eq:E.1 | Node function
+
+        Parameters
+        ----------
+        nodes
+
+        Returns
+        -------
+        bytes
+        """
+        if len(nodes) == 0:
+            return bytes(32)
+        elif len(nodes) == 1:
+            return nodes[0]
+        else:
+            node_limit = ceil(len(nodes)/2)
+            return self.hash_function(b'node' + self.node(nodes[:node_limit]) + self.node(nodes[node_limit:]))
+
+
+class WellBalancedMerkleTree(BinaryMerkleTree):
+    def root(self):
+        """
+        GP-0.5.3-eq:E.3 | well-balanced merkle tree root hash
+
+        Returns
+        -------
+        bytes
+        """
+        if len(self.data) == 1:
+            return self.hash_function(self.data[0])
+        else:
+            return self.node(self.data)

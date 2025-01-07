@@ -1,4 +1,7 @@
+from math import floor
 from typing import List
+
+from pyjamaz.graypaper_constants import CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, ROTATION_PERIOD_CORE
 
 from pyjamaz.hashing import blake2b_256_hash
 
@@ -76,3 +79,36 @@ def fisher_yates_shuffle(data: List[int], sequence: List[int]) -> List[int]:
     return [head] + fisher_yates_shuffle(data_post[:-1], sequence[1:])
 
 
+def guarantor_rotation(core_indices: List[int], rotation_offset: int) -> List[int]:
+    """
+    GP-0.5.3-eq:11.19 (R) | Guarantor assigment rotation function
+
+    Parameters
+    ----------
+    core_indices
+    rotation_offset
+
+    Returns
+    -------
+    List[int]
+    """
+    return [(x+rotation_offset) % CORE_COUNT for x in core_indices]
+
+def guarantor_permute(entropy: bytes, timeslot: int) -> List[int]:
+    """
+    GP-0.5.3-eq:11.20 (P) | Guarantor assigment permute function
+
+    Parameters
+    ----------
+    entropy
+    timeslot
+
+    Returns
+    -------
+    List[int]
+    """
+    core_indices = entropy_shuffle(
+        data=[floor(CORE_COUNT * i / VALIDATOR_COUNT) for i in range (0, VALIDATOR_COUNT)],
+        entropy=entropy
+    )
+    return guarantor_rotation(core_indices, floor(timeslot % EPOCH_TIMESLOTS / ROTATION_PERIOD_CORE))

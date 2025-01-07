@@ -1,13 +1,14 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
+from pyjamaz.hashing import keccak_256_hash
+
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO
-from pyjamaz.merkle import PatriciaMerkleTrie
-from pyjamaz.models.block import TicketBody
-from pyjamaz.models.common import ValidatorData, Assurance, WorkReport
+from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 
 from pyjamaz.state.base import State
 
@@ -182,6 +183,11 @@ class Mmr(Serializable):
     """
     peaks: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
 
+    def super_peak(self) -> bytes:
+        mmr = MerkleMountainRange(self.peaks)
+        return mmr.super_peak()
+
+
 
 @dataclass
 class ReportedWorkPackage(Serializable):
@@ -319,14 +325,7 @@ class ServicesState(State, Serializable):
         GP-0.5.2-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
         service account index.
     """
-    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
-    # services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
-
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    services: Dict[int, ServiceAccount] = field(
-        metadata={'codec': Map(Array(U8,4), ServiceAccount.to_codec_def())}
-    )
+    services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
 
 
 @dataclass
@@ -515,16 +514,11 @@ class BeefyCommitmentMap(Serializable):
         GP-0.5.0-eq:12.21 (TODO: incorrect reference) (bold_C) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
-    # Todo: Ideal situation, key of dict is a U32.
-    # beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
-
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(Array(U8, 4), H256)})
+    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
     def get_accumulate_root(self):
-        data = [(k.to_bytes(4, byteorder='little'), v) for k, v in self.beefy_commitment_map.items()]
-        return PatriciaMerkleTrie(data).root()
+        data = [k.to_bytes(4, byteorder='little') + v for k, v in self.beefy_commitment_map.items()]
+        return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
 
 @dataclass
@@ -655,13 +649,11 @@ class JamState(State, Serializable):
             ),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[
-                    []
-                ] * EPOCH_TIMESLOTS
+                    [] for _ in range(EPOCH_TIMESLOTS)
+                ]
             ),
             accumulation_history=AccumulationHistoryState(
-                accumulation_history=[
-                    bytes(32)
-                ] * EPOCH_TIMESLOTS
+                accumulation_history=[bytes(32) for _ in range(EPOCH_TIMESLOTS)]
             )
         )
 
@@ -725,4 +717,5 @@ class AccumulationStateComponents(Serializable):
     validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
+
 

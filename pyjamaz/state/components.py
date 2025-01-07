@@ -1,7 +1,7 @@
 import bisect
 import logging
 from copy import deepcopy, copy
-from typing import List, Union
+from typing import List, Union, Optional, Set
 
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 from ed25519_zebra import ed_verify
@@ -13,21 +13,22 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine
-from pyjamaz.models.common import ValidatorData
+from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
     AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput, \
-    DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode
+    DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError
-from pyjamaz.models.block import TicketBody, EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault
+from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
+    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
-    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord
+    SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
+    AccumulationHistoryState
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -119,7 +120,7 @@ class Entropy(StateComponent):
         """
         GP-0.5.0-eq:G.5
         TODO check if output is indeed the first 32 bytes or a hash of the first 32 bytes
-
+        TODO refactor to vrf_output of entropy signature
         Parameters
         ----------
         entropy_source
@@ -128,6 +129,13 @@ class Entropy(StateComponent):
         -------
         bytes
         """
+
+        # vrf_output = ietf_vrf_verify(
+        #     bytes(sealer_key),
+        #     b"jam_entropy" + self.get_block_seal_vrf_input(),
+        #     b'',
+        #     bytes(seal)
+        # )
         return entropy_source[:32]
 
 
@@ -233,8 +241,8 @@ class ValidatorArchive(StateComponent):
 class Safrole(StateComponent):
     component_id = 4
 
-    def __init__(self, storage_engine: StorageEngine, ring_data: bytes):
-        super().__init__(storage_engine)
+    def __init__(self, storage_engine: StorageEngine, block_context: BlockContext, ring_data: bytes):
+        super().__init__(storage_engine, block_context)
         self.ring_data = ring_data
         self.post_state_safrole = None
 
@@ -773,6 +781,256 @@ class Assurances(StateComponent):
         data = b"jam_available" + blake2b_256_hash(assurance.anchor + assurance.bitfield_bytes)
         return ed_verify(bytes(assurance.signature), data, validator.ed25519)
 
+    def validate_guarantees(
+            self,
+            extrinsic_guarantees: List[Guarantee],
+            pre_services_state: ServicesState,
+            intermediate_state_recent_history: RecentHistoryState,
+            pre_authorizer_pools: AuthorizerPoolsState,
+            intermediate_state_assurances_after_assurances: AssurancesState,
+            post_state_validator_pool: ValidatorPoolState,
+            header: Header,
+            pre_accumulation_history: AccumulationHistoryState,
+            post_entropy: EntropyState,
+            post_state_timeslot: TimeslotState,
+            post_state_validator_archive: ValidatorArchiveState
+    ):
+
+        # GP-0.5.3-eq:11.28 (w)
+        work_reports = [g.report for g in extrinsic_guarantees]
+
+        # GP-0.5.3-eq:11.40 | Segment-root lookup
+        segment_root_lookup = {g.report.package_spec.hash: g.report.package_spec.exports_root for g in extrinsic_guarantees}
+
+        # Extend segment-root lookup with recent history (GP-0.5.3-eq:11.41)
+        for b in intermediate_state_recent_history.recent_history:
+            segment_root_lookup.update({r.hash: r.exports_root for r in b.reported})
+
+        for w in work_reports:
+            # GP-0.5.3-eq:11.8 | Work report respects gas requirements
+            self.check_size_limit(w)
+            # GP-0.5.3-eq:11.30 | Work report respects gas requirements
+            self.check_gas_requirements(w, pre_services_state)
+            # GP-0.5.3-eq:11.3 | Work report respects dependency limit
+            if w.dependency_count() > gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT:
+                raise StateTransitionError(GuaranteeErrorCode.too_many_dependencies)
+            # GP-0.5.3-eq:11.41 | Verify if segment roots mentioned in work-package are correct
+            if not all([
+                segment_root_lookup.get(s.work_package_hash, None) == s.segment_tree_root for s in w.segment_root_lookup
+            ]):
+                raise StateTransitionError(GuaranteeErrorCode.segment_root_lookup_invalid)
+
+        if not self.are_guarentees_sorted(extrinsic_guarantees):
+            raise StateTransitionError(GuaranteeErrorCode.out_of_order_guarantee)
+
+        if self.has_duplicated_guarentees(extrinsic_guarantees):
+            raise StateTransitionError(GuaranteeErrorCode.out_of_order_guarantee)
+
+        # GP-0.5.3-eq:11.31 (x)
+        context_items = [w.context for w in work_reports]
+        # GP-0.5.3-eq:11.31 (p)
+        extrinsic_work_package_hashes = {w.package_spec.hash for w in work_reports}
+
+        recent_history_work_package_hashes = [
+            h.hash for b in intermediate_state_recent_history.recent_history for h in b.reported
+        ]
+
+        # GP-0.5.3-eq:11.32 | Check for duplicate
+        if len(extrinsic_work_package_hashes) != len(work_reports):
+            raise StateTransitionError(GuaranteeErrorCode.duplicate_package)
+
+        # GP-0.5.3-eq:11.38 | Check if work-package appear in pipeline
+        if self.work_packages_exists_in_pipeline(
+                extrinsic_work_package_hashes,
+                intermediate_state_recent_history,
+                pre_accumulation_history
+        ):
+            raise StateTransitionError(GuaranteeErrorCode.duplicate_package)
+
+
+        for context in context_items:
+            # GP-0.5.3-eq:11.35 | Check for expired lookup anchors
+            if context.lookup_anchor_slot < header.timeslot - gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR:
+                raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
+
+            # GP-0.5.3-eq:11.35 | Anchor must be in recent history
+            recent_block = self.get_recent_block(context.anchor, intermediate_state_recent_history)
+
+            if not recent_block:
+                raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
+
+            if recent_block.state_root != context.state_root:
+                raise StateTransitionError(GuaranteeErrorCode.bad_state_root)
+
+            if recent_block.mmr.super_peak() != context.beefy_root:
+                raise StateTransitionError(GuaranteeErrorCode.bad_beefy_mmr_root)
+
+
+        for guarantee in extrinsic_guarantees:
+
+            # GP-0.5.3-eq:11.26 | Check validity time slot
+            if guarantee.slot > post_state_timeslot.number:
+                raise StateTransitionError(GuaranteeErrorCode.future_report_slot)
+
+            if guarantee.slot < gp_const.ROTATION_PERIOD_CORE * (post_state_timeslot.number // gp_const.ROTATION_PERIOD_CORE - 1) :
+                raise StateTransitionError(GuaranteeErrorCode.report_epoch_before_last)
+
+            guarantor_assignments = self.get_guarantor_assignments(guarantee, post_state_timeslot)
+
+            if guarantee.report.core_index > len(intermediate_state_assurances_after_assurances.assurances):
+                raise StateTransitionError(GuaranteeErrorCode.bad_core_index)
+
+            if not self.are_guarentee_signatures_sorted(guarantee.signatures):
+                raise StateTransitionError(GuaranteeErrorCode.not_sorted_or_unique_guarantors)
+
+            # GP-0.5.3-eq:11.23
+            if len(guarantee.signatures) < 2 or len(guarantee.signatures) > 3:
+                raise StateTransitionError(GuaranteeErrorCode.insufficient_guarantees)
+
+            for credential in guarantee.signatures:
+
+                if credential.validator_index >= gp_const.VALIDATOR_COUNT:
+                    raise StateTransitionError(GuaranteeErrorCode.bad_validator_index)
+
+                # GP-0.5.3-eq:11.26 | Check for valid assignment
+                guarantor_assignment = guarantor_assignments[credential.validator_index]
+
+                if guarantor_assignment.core_index != guarantee.report.core_index:
+                    raise StateTransitionError(GuaranteeErrorCode.wrong_assignment)
+
+                if not self.valid_guarantee_signature(credential, guarantee, guarantor_assignment.validator_ed25519):
+                    raise StateTransitionError(GuaranteeErrorCode.bad_signature)
+
+            # GP-0.5.3-eq:11.29 | Check if core is available
+            if intermediate_state_assurances_after_assurances.assurances[guarantee.report.core_index] is not None:
+                raise StateTransitionError(GuaranteeErrorCode.core_engaged)
+
+            # GP-0.5.3-eq:11.29 | Check if authorizer hash is present in authorizer pool of core
+            if guarantee.report.authorizer_hash not in pre_authorizer_pools.authorizer_pools[guarantee.report.core_index]:
+                raise StateTransitionError(GuaranteeErrorCode.core_unauthorized)
+
+            # GP-0.5.3-eq:11.39 | Check work-package prerequisites
+            for prerequisite in guarantee.report.context.prerequisites:
+                if (
+                    prerequisite not in recent_history_work_package_hashes and
+                    prerequisite not in extrinsic_work_package_hashes
+                ):
+                    raise StateTransitionError(GuaranteeErrorCode.dependency_missing)
+
+
+    def get_guarantor_assignments(
+            self, guarantee: Guarantee, post_state_timeslot: TimeslotState
+    ) -> List[GuarantorAssignment]:
+        """
+        GP-0.5.3-eq:11.26 | Get applicable mapping (G or G*) of Validator ED25519 and assigned core index
+
+        Parameters
+        ----------
+        guarantee
+        post_state_timeslot
+
+        Returns
+        -------
+        Dict[bytes, int] Mapping of Validator ED25519 and assigned core index
+        """
+        if post_state_timeslot.number // gp_const.ROTATION_PERIOD_CORE == \
+                guarantee.slot // gp_const.ROTATION_PERIOD_CORE:
+            return self.block_context.guarantor_assignments
+        else:
+            return self.block_context.prev_guarantor_assignments
+
+    @staticmethod
+    def get_recent_block(block_hash, recent_history_state: RecentHistoryState) -> Optional[RecentBlock]:
+        for block in recent_history_state.recent_history:
+            if block.header_hash == block_hash:
+                return block
+
+    @staticmethod
+    def check_size_limit(work_report: WorkReport):
+        """
+        GP-0.5.3-eq:11.8 | Work report respects size limit
+
+        Parameters
+        ----------
+        work_report
+
+        Returns
+        -------
+
+        """
+        if (len(work_report.auth_output) + sum([len(r.result.ok or bytes(0)) for r in work_report.results])
+                > gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT):
+            raise StateTransitionError(GuaranteeErrorCode.work_report_too_big)
+
+    @staticmethod
+    def check_gas_requirements(work_report: WorkReport, services_state: ServicesState):
+        """
+        GP-0.5.3-eq:11.30 | Work report respects gas requirements
+
+        Parameters
+        ----------
+        work_report
+        services_state
+
+        Returns
+        -------
+
+        """
+        total_gas = 0
+
+        for result in work_report.results:
+            if result.service_id not in services_state.services:
+                raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
+
+            service = services_state.services[result.service_id]
+
+            if result.code_hash != service.code_hash:
+                raise StateTransitionError(GuaranteeErrorCode.bad_code_hash)
+
+            # GP-0.5.3-eq:11.30 | Work report respects gas requirements
+
+            if result.accumulate_gas < services_state.services[result.service_id].gas_limit_accumulate:
+                raise StateTransitionError(GuaranteeErrorCode.service_item_gas_too_low)
+
+            total_gas += result.accumulate_gas
+            if total_gas > gp_const.GAS_ACCUMULATION:
+                raise StateTransitionError(GuaranteeErrorCode.work_report_gas_too_high)
+
+
+
+    @staticmethod
+    def work_packages_exists_in_pipeline(
+            work_package_hashes: Set[bytes],
+            recent_history_state: RecentHistoryState,
+            accumulation_history: AccumulationHistoryState
+    ) -> bool:
+        """
+        GP-0.5.3-eq:11.38 | Check if work-packages appear in pipeline
+        TODO finish additional checks 11.36 and 11.37
+        Parameters
+        ----------
+        work_package_hashes
+        recent_history_state
+        accumulation_history
+
+        Returns
+        -------
+        bool
+        """
+
+        if any(w in accumulation_history.accumulation_history for w in work_package_hashes):
+            return True
+
+        for recent_block in recent_history_state.recent_history:
+            for item in recent_block.reported:
+                if item.hash in work_package_hashes:
+                    return True
+
+        # TODO q = prerequisites acc. queue -> add state
+        # TODO a zoek in pre_state_assurances
+
+        return False
+
     def state_transition_after_guarantees(
             self,
             extrinsic_guarantees: List[Guarantee],
@@ -804,19 +1062,37 @@ class Assurances(StateComponent):
 
         self.process_stale_reports(post_state_assurances, post_state_timeslot)
 
+        reported = []
+        reporters = []
+
         for guarantee in extrinsic_guarantees:
 
-            if guarantee.report.core_index > len(intermediate_state_assurances_after_assurances.assurances):
-                raise StateTransitionError(GuaranteeErrorCode.bad_core_index)
+            # GP-0.5.3-eq:11.43 | Assign work report to core
+            post_state_assurances.assurances[guarantee.report.core_index] = AssuranceStateItem(
+                report=guarantee.report,
+                timeout=post_state_timeslot.number
+            )
 
-            if not self.valid_guarantee_signatures(guarantee, pre_state_validator_pool.validators):
-                raise StateTransitionError(GuaranteeErrorCode.bad_signature)
+            reported.append(
+                ReportedPackage(
+                    work_package_hash=guarantee.report.package_spec.hash,
+                    segment_tree_root=guarantee.report.package_spec.exports_root
+                )
+            )
 
+            guarantor_assignments = self.get_guarantor_assignments(guarantee, post_state_timeslot)
 
+            for signature in guarantee.signatures:
+                reporters.append(guarantor_assignments[signature.validator_index].validator_ed25519)
+
+        # Sort output lists
+        reported.sort(key=lambda rp: rp.work_package_hash)
+        reporters.sort()
 
         return AssurancesAfterGuaranteesOutput(
             post_state=post_state_assurances,
-            reporters=[]
+            reported=reported,
+            reporters=reporters
         )
 
     @staticmethod
@@ -838,21 +1114,73 @@ class Assurances(StateComponent):
                 post_state_assurances.assurances[idx] = None
 
     @staticmethod
-    def valid_guarantee_signatures(guarantee: Guarantee, curr_validators: List[ValidatorData]) -> bool:
-        for credential in guarantee.signatures:
+    def valid_guarantee_signature(credential: Credential, guarantee: Guarantee, validator_ed25519: bytes) -> bool:
+        """
+        GP-0.5.2-eq:11.27 | Valid signatures for guarantee
 
-            try:
-                validator = curr_validators[credential.validator_index]
-            except IndexError:
-                raise StateTransitionError(GuaranteeErrorCode.bad_validator_index)
+        Parameters
+        ----------
+        credential
+        guarantee
+        validator_ed25519
 
-            data = b"jam_guarantee" + blake2b_256_hash(guarantee.report.to_jam_bytes().to_bytes())
-            if not ed_verify(
-                    bytes(credential.signature), data, validator.ed25519
-            ):
-                return False
+        Returns
+        -------
+        bool
+        """
 
-        return True
+        data = b"jam_guarantee" + blake2b_256_hash(guarantee.report.to_jam_bytes().to_bytes())
+        return ed_verify(bytes(credential.signature), data, validator_ed25519)
+
+    @staticmethod
+    def are_guarentees_sorted(guarantees: List[Guarantee]) -> bool:
+        """
+        GP-0.5.2-eq:11.25 | The core index of guarantees must be in ascending order
+
+        Parameters
+        ----------
+        guarantees: List[Guarantee]
+
+        Returns
+        -------
+        bool
+        """
+        return all(
+            guarantees[i].report.core_index <= guarantees[i + 1].report.core_index for i in range(len(guarantees) - 1)
+        )
+
+    @staticmethod
+    def has_duplicated_guarentees(guarantees: List[Guarantee]) -> bool:
+        """
+        GP-0.5.2-eq:11.25 | The core index of each guarantee must be unique
+
+        Parameters
+        ----------
+        guarantees
+
+        Returns
+        -------
+        bool
+        """
+        core_indices = [g.report.core_index for g in guarantees]
+        return len(core_indices) != len(set(core_indices))
+
+    @staticmethod
+    def are_guarentee_signatures_sorted(signatures: List[Credential]) -> bool:
+        """
+        GP-0.5.2-eq:11.26 | Are signatures correctly sorted by validator index
+
+        Parameters
+        ----------
+        signatures: List[Credential]
+
+        Returns
+        -------
+        bool
+        """
+        return all(
+            signatures[i].validator_index <= signatures[i + 1].validator_index for i in range(len(signatures) - 1)
+        )
 
     def retrieve_state(self) -> AssurancesState:
         value = self.retrieve()
@@ -876,10 +1204,7 @@ class Disputes(StateComponent):
     def state_transition(
             self,
             extrinsic_disputes: ExtrinsicDisputes,
-            pre_state_disputes: DisputesState,
-            pre_state_timeslot: TimeslotState,
-            pre_state_validator_pool: ValidatorPoolState,
-            pre_state_validator_archive: ValidatorArchiveState
+            pre_state_disputes: DisputesState
     ) -> DisputesOutput:
         """
         GP-0.5.0-eq:10.16,10.17,10.18,10.19 (ψ') | State transition function for the state's disputes.
@@ -918,14 +1243,6 @@ class Disputes(StateComponent):
 
         if self.has_duplicate_report_hashes(extrinsic_disputes.verdicts):
             raise StateTransitionError(DisputesErrorCode.verdicts_not_sorted_unique)
-
-        # Validate dispute extrinsic
-        self.validate_extrinsic_disputes(
-            disputes=extrinsic_disputes,
-            current_epoch=pre_state_timeslot.epoch_number(),
-            current_validators=pre_state_validator_pool.validators,
-            prev_validators=pre_state_validator_archive.validators
-        )
 
         # Process verdicts
         for verdict in extrinsic_disputes.verdicts:

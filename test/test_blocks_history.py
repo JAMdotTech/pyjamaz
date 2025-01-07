@@ -8,7 +8,7 @@ from parameterized import parameterized
 
 from pyjamaz.state.components import RecentHistory
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee
+from pyjamaz.models.block import Header, Guarantee, BlockContext
 from pyjamaz.models.common import RefinementContext, WorkPackageSpec, WorkReport
 from pyjamaz.models.state import RecentHistoryState
 
@@ -29,6 +29,7 @@ class TestBlockHistory(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.storage_engine = InMemoryStorage()
+        cls.block_context = BlockContext()
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -92,7 +93,7 @@ class TestBlockHistory(unittest.TestCase):
 
         pre_state = RecentHistoryState.from_json({'recent_history': test_vector["pre_state"]["beta"]})
 
-        blocks_history = RecentHistory(self.storage_engine)
+        blocks_history = RecentHistory(self.storage_engine, self.block_context)
 
         intermediate_state_recent_history = blocks_history.state_transition_intermediate(
             header=header,

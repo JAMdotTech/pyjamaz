@@ -5,8 +5,8 @@ from typing import Optional, List
 from jamcodec.mixins import Serializable
 from jamcodec.types import Option, Vec, H256, Array
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
-from pyjamaz.models.block import OutputMarks, EpochMark, TicketsMark, TicketBody
-from pyjamaz.models.common import WorkReport
+from pyjamaz.models.block import EpochMark
+from pyjamaz.models.common import WorkReport, TicketBody
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
     BeefyCommitmentMap
@@ -152,7 +152,7 @@ class SafroleOutput(Serializable):
     epoch_mark: Optional[EpochMark] = field(
         default=None, metadata={'codec': Option(EpochMark.to_codec_def())}
     )  # New epoch signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(
+    tickets_mark: Optional[List[TicketBody]] = field(
         default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
     )  # Tickets signal. OPTIONAL
 
@@ -193,10 +193,16 @@ class AssurancesAfterAssurancesOutput(Serializable):
     intermediate_state_after_assurances: AssurancesState
         GP-0.5.0-eq:4.14 (ρ‡) | Primary output of AssurancesAfterAssurances STF.
     reported: List[WorkReport]
-        Items removed from ρ† to get ρ'
+        GP-0.5.2-eq:11.17 (bold_W) | Items removed from ρ† to get ρ'
     """
     intermediate_state_after_assurances: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
     reported: List[WorkReport] = field(metadata={'codec': Vec(WorkReport.to_codec_def())})
+
+
+@dataclass
+class ReportedPackage(Serializable):
+    work_package_hash: bytes = field(metadata={'codec': H256})
+    segment_tree_root: bytes = field(metadata={'codec': H256})
 
 
 @dataclass
@@ -206,10 +212,15 @@ class AssurancesAfterGuaranteesOutput(Serializable):
 
     Attributes
     ----------
-    post_state:AssurancesState
+    post_state: AssurancesState
         GP-0.5.0-eq:4.15 (ρ') | Primary output of AssurancesAfterGuarantees STF.
+    reported: List[ReportedPackage]
+        GP-0.5.2-eq:11.29 (bold_w) | The set of work reports in the current extrinsic
+    reporters: List[bytes]
+        GP-0.5.2-eq:11.27 (bold_R) | Ed25519 keys of validators in the current extrinsic
     """
     post_state: AssurancesState = field(metadata={'codec': AssurancesState.to_codec_def()})
+    reported: List[ReportedPackage] = field(metadata={'codec': Vec(ReportedPackage.to_codec_def())})
     reporters: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
@@ -313,7 +324,7 @@ class STFOutput(Serializable):
     epoch_mark: Optional[EpochMark] = field(
         default=None, metadata={'codec': Option(EpochMark.to_codec_def())}
     )  # New epoch signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(
+    tickets_mark: Optional[List[TicketBody]] = field(
         default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
     )  # Tickets signal. OPTIONAL
     offenders_mark: List[bytes] = field(default_factory=list, metadata={'codec': Vec(H256)})
