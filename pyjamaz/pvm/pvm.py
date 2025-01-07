@@ -116,10 +116,12 @@ class PVM:
         self.create_instruction_lookup()
 
     def is_readable(self, mem, offset, length):
+        # TODO: take into account for negative indices?
         # TODO: support pages, readable book keeping
         return offset < len(mem) >= offset + length
 
     def is_writable(self, mem, offset, length):
+        # TODO: take into account for negative indices?
         #TODO: support pages, writable book keeping
         return offset < len(mem) >= offset + length
 
