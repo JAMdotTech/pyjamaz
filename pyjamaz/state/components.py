@@ -13,7 +13,7 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine
-from pyjamaz.models.common import ValidatorData, SegmentRootLookupItem, WorkReport
+from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
@@ -22,14 +22,14 @@ from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, Validator
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError
-from pyjamaz.models.block import TicketBody, EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential
+from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
+    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
-    AccumulationHistoryState, ServiceAccount, BlockContext, GuarantorAssignment
-from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates, guarantor_permute
+    AccumulationHistoryState
+from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
 class Timeslot(StateComponent):
@@ -788,7 +788,7 @@ class Assurances(StateComponent):
             intermediate_state_recent_history: RecentHistoryState,
             pre_authorizer_pools: AuthorizerPoolsState,
             intermediate_state_assurances_after_assurances: AssurancesState,
-            pre_state_validator_pool: ValidatorPoolState,
+            post_state_validator_pool: ValidatorPoolState,
             header: Header,
             pre_accumulation_history: AccumulationHistoryState,
             post_entropy: EntropyState,
@@ -799,11 +799,26 @@ class Assurances(StateComponent):
         # GP-0.5.3-eq:11.28 (w)
         work_reports = [g.report for g in extrinsic_guarantees]
 
+        # GP-0.5.3-eq:11.40 | Segment-root lookup
+        segment_root_lookup = {g.report.package_spec.hash: g.report.package_spec.exports_root for g in extrinsic_guarantees}
+
+        # Extend segment-root lookup with recent history (GP-0.5.3-eq:11.41)
+        for b in intermediate_state_recent_history.recent_history:
+            segment_root_lookup.update({r.hash: r.exports_root for r in b.reported})
+
         for w in work_reports:
             # GP-0.5.3-eq:11.8 | Work report respects gas requirements
             self.check_size_limit(w)
             # GP-0.5.3-eq:11.30 | Work report respects gas requirements
             self.check_gas_requirements(w, pre_services_state)
+            # GP-0.5.3-eq:11.3 | Work report respects dependency limit
+            if w.dependency_count() > gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT:
+                raise StateTransitionError(GuaranteeErrorCode.too_many_dependencies)
+            # GP-0.5.3-eq:11.41 | Verify if segment roots mentioned in work-package are correct
+            if not all([
+                segment_root_lookup.get(s.work_package_hash, None) == s.segment_tree_root for s in w.segment_root_lookup
+            ]):
+                raise StateTransitionError(GuaranteeErrorCode.segment_root_lookup_invalid)
 
         if not self.are_guarentees_sorted(extrinsic_guarantees):
             raise StateTransitionError(GuaranteeErrorCode.out_of_order_guarantee)
@@ -814,15 +829,19 @@ class Assurances(StateComponent):
         # GP-0.5.3-eq:11.31 (x)
         context_items = [w.context for w in work_reports]
         # GP-0.5.3-eq:11.31 (p)
-        work_package_hashes = {w.package_spec.hash for w in work_reports}
+        extrinsic_work_package_hashes = {w.package_spec.hash for w in work_reports}
+
+        recent_history_work_package_hashes = [
+            h.hash for b in intermediate_state_recent_history.recent_history for h in b.reported
+        ]
 
         # GP-0.5.3-eq:11.32 | Check for duplicate
-        if len(work_package_hashes) != len(work_reports):
+        if len(extrinsic_work_package_hashes) != len(work_reports):
             raise StateTransitionError(GuaranteeErrorCode.duplicate_package)
 
         # GP-0.5.3-eq:11.38 | Check if work-package appear in pipeline
         if self.work_packages_exists_in_pipeline(
-                work_package_hashes,
+                extrinsic_work_package_hashes,
                 intermediate_state_recent_history,
                 pre_accumulation_history
         ):
@@ -890,18 +909,13 @@ class Assurances(StateComponent):
             if guarantee.report.authorizer_hash not in pre_authorizer_pools.authorizer_pools[guarantee.report.core_index]:
                 raise StateTransitionError(GuaranteeErrorCode.core_unauthorized)
 
-            for item in guarantee.report.segment_root_lookup:
-                if not self.valid_segment_root_lookup(item, intermediate_state_recent_history):
-                    raise StateTransitionError(GuaranteeErrorCode.segment_root_lookup_invalid)
-
-            # for result in guarantee.report.results:
-            #     if result.service_id not in pre_services_state.services:
-            #         raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
-            #
-            #     service = pre_services_state.services[result.service_id]
-            #
-            #     if result.code_hash != service.code_hash:
-            #         raise StateTransitionError(GuaranteeErrorCode.bad_code_hash)
+            # GP-0.5.3-eq:11.39 | Check work-package prerequisites
+            for prerequisite in guarantee.report.context.prerequisites:
+                if (
+                    prerequisite not in recent_history_work_package_hashes and
+                    prerequisite not in extrinsic_work_package_hashes
+                ):
+                    raise StateTransitionError(GuaranteeErrorCode.dependency_missing)
 
 
     def get_guarantor_assignments(
@@ -1017,31 +1031,6 @@ class Assurances(StateComponent):
 
         return False
 
-
-    @staticmethod
-    def valid_segment_root_lookup(
-            segment_root_lookup: SegmentRootLookupItem,
-            block_history: RecentHistoryState
-    ) -> bool:
-        """
-        GP-0.5.2-eq:11.40,11.41 | Check if segment root lookups are correct
-
-        Parameters
-        ----------
-        segment_root_lookup
-        block_history
-
-        Returns
-        -------
-        bool
-        """
-        for block in block_history.recent_history:
-            for reported_package in block.reported:
-                if reported_package.hash == segment_root_lookup.work_package_hash:
-                    if reported_package.exports_root == segment_root_lookup.segment_tree_root:
-                        return True
-        return False
-
     def state_transition_after_guarantees(
             self,
             extrinsic_guarantees: List[Guarantee],
@@ -1078,21 +1067,27 @@ class Assurances(StateComponent):
 
         for guarantee in extrinsic_guarantees:
 
-            # Assign work report to core
+            # GP-0.5.3-eq:11.43 | Assign work report to core
+            post_state_assurances.assurances[guarantee.report.core_index] = AssuranceStateItem(
+                report=guarantee.report,
+                timeout=post_state_timeslot.number
+            )
+
             reported.append(
                 ReportedPackage(
                     work_package_hash=guarantee.report.package_spec.hash,
                     segment_tree_root=guarantee.report.package_spec.exports_root
                 )
             )
-            post_state_assurances.assurances[guarantee.report.core_index] = AssuranceStateItem(
-                report=guarantee.report,
-                timeout=guarantee.slot
-            )
+
+            guarantor_assignments = self.get_guarantor_assignments(guarantee, post_state_timeslot)
 
             for signature in guarantee.signatures:
-                reporters.append(pre_state_validator_pool.validators[signature.validator_index].ed25519)
+                reporters.append(guarantor_assignments[signature.validator_index].validator_ed25519)
 
+        # Sort output lists
+        reported.sort(key=lambda rp: rp.work_package_hash)
+        reporters.sort()
 
         return AssurancesAfterGuaranteesOutput(
             post_state=post_state_assurances,
@@ -1209,14 +1204,10 @@ class Disputes(StateComponent):
     def state_transition(
             self,
             extrinsic_disputes: ExtrinsicDisputes,
-            pre_state_disputes: DisputesState,
-            pre_state_timeslot: TimeslotState,
-            pre_state_validator_pool: ValidatorPoolState,
-            pre_state_validator_archive: ValidatorArchiveState
+            pre_state_disputes: DisputesState
     ) -> DisputesOutput:
         """
         GP-0.5.0-eq:10.16,10.17,10.18,10.19 (ψ') | State transition function for the state's disputes.
-        TODO move validation logic and non specified state components to separate validate_extrinsic()
 
         Parameters
         ----------
@@ -1252,14 +1243,6 @@ class Disputes(StateComponent):
 
         if self.has_duplicate_report_hashes(extrinsic_disputes.verdicts):
             raise StateTransitionError(DisputesErrorCode.verdicts_not_sorted_unique)
-
-        # Validate dispute extrinsic
-        self.validate_extrinsic_disputes(
-            disputes=extrinsic_disputes,
-            current_epoch=pre_state_timeslot.epoch_number(),
-            current_validators=pre_state_validator_pool.validators,
-            prev_validators=pre_state_validator_archive.validators
-        )
 
         # Process verdicts
         for verdict in extrinsic_disputes.verdicts:

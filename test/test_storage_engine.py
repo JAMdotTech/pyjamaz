@@ -2,7 +2,8 @@ import shutil
 import unittest
 from os import path, makedirs
 
-from pyjamaz.models.state import TimeslotState, BlockContext
+from pyjamaz.models.state import TimeslotState
+from pyjamaz.models.block import BlockContext
 from pyjamaz.state.components import Timeslot
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 

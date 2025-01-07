@@ -8,7 +8,7 @@ from pyjamaz.exceptions import StateComponentNotFound, StateKeyNoResult
 from pyjamaz.storage import StorageEngine, Transaction
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.models.state import BlockContext
+    from pyjamaz.models.block import BlockContext
 
 T = TypeVar('T')
 

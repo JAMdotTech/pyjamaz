@@ -10,9 +10,9 @@ from parameterized import parameterized
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee
+from pyjamaz.models.block import Header, Guarantee, BlockContext
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, BlockContext
+    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -114,7 +114,7 @@ class TestReports(unittest.TestCase):
                 intermediate_state_recent_history=intermediate_state_recent_history,
                 pre_authorizer_pools=pre_authorizer_pools,
                 intermediate_state_assurances_after_assurances=pre_state_assurances,
-                pre_state_validator_pool=post_state_validator_pool,
+                post_state_validator_pool=post_state_validator_pool,
                 header=header,
                 pre_accumulation_history=pre_accumulation_history,
                 post_entropy=post_entropy,

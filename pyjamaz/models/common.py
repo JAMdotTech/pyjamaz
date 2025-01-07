@@ -191,6 +191,17 @@ class WorkReport(Serializable):
     segment_root_lookup: List[SegmentRootLookupItem] = field(metadata={'codec': Vec(SegmentRootLookupItem.to_codec_def())})
     results: List[WorkResult] = field(metadata={'codec': Vec(WorkResult.to_codec_def())})
 
+    def dependency_count(self) -> int:
+        """
+        Returns the sum of segment-root lookups and prerequisites
+
+        Returns
+        -------
+        int
+        """
+        return len(self.segment_root_lookup) + len(self.context.prerequisites)
+
+
 
 @dataclass
 class Assurance(Serializable):
@@ -206,3 +217,10 @@ class Assurance(Serializable):
     """
     report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
     timeout: int = field(metadata={'codec': U32})
+
+
+@dataclass
+# Todo: (Re)move, annotate, reference-GP
+class TicketBody(Serializable):
+    id: bytes = field(metadata={'codec': H256})
+    attempt: int = field(metadata={'codec': U8})

@@ -6,13 +6,11 @@ from pyjamaz.hashing import keccak_256_hash
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
-    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, ROTATION_PERIOD_CORE
+    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
-from pyjamaz.models.block import TicketBody
-from pyjamaz.models.common import ValidatorData, Assurance, WorkReport
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 
 from pyjamaz.state.base import State
-from pyjamaz.utils import guarantor_permute
 
 
 @dataclass
@@ -721,81 +719,3 @@ class AccumulationStateComponents(Serializable):
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
 
 
-@dataclass
-class GuarantorAssignment:
-    core_index: int
-    validator_ed25519: bytes
-
-@dataclass
-class BlockContext:
-    guarantor_assignments: Optional[List[GuarantorAssignment]] = None
-    prev_guarantor_assignments: Optional[List[GuarantorAssignment]] = None
-
-    def initialize(self):
-        self.guarantor_assignments = None
-        self.prev_guarantor_assignments = None
-
-
-    def set_guarantor_assignments(self,
-                       post_entropy: EntropyState,
-                       post_timeslot: TimeslotState,
-                       post_validator_pool: ValidatorPoolState
-                       ):
-        """
-        GP-0.5.3-eq:11.21 (G) | Sets guarantor assignments for current rotation
-
-        Parameters
-        ----------
-        post_entropy
-        post_timeslot
-        post_validator_pool
-
-        Returns
-        -------
-
-        """
-        assignments = guarantor_permute(post_entropy.entropy[2], post_timeslot.number)
-
-        self.guarantor_assignments = [
-            GuarantorAssignment(
-                core_index=core_index,
-                validator_ed25519=post_validator_pool.validators[validator_index].ed25519
-            ) for validator_index, core_index in enumerate(assignments)
-        ]
-
-    def set_prev_guarantor_assignments(
-            self,
-            post_entropy: EntropyState,
-            post_timeslot: TimeslotState,
-            post_validator_pool: ValidatorPoolState,
-            post_validator_archive: ValidatorArchiveState
-    ):
-        """
-        GP-0.5.3-eq:11.22 (G*) | Sets guarantor assignments for previous rotation
-
-        Parameters
-        ----------
-        post_entropy
-        post_timeslot
-        post_validator_pool
-        post_validator_archive
-
-        Returns
-        -------
-
-        """
-        if (post_timeslot.number - ROTATION_PERIOD_CORE) // EPOCH_TIMESLOTS == post_timeslot.number // EPOCH_TIMESLOTS:
-            entropy = post_entropy.entropy[2]
-            validators = post_validator_pool.validators
-        else:
-            entropy = post_entropy.entropy[3]
-            validators = post_validator_archive.validators
-
-        assignments = guarantor_permute(entropy, post_timeslot.number - ROTATION_PERIOD_CORE)
-
-        self.prev_guarantor_assignments = [
-            GuarantorAssignment(
-                core_index=core_index,
-                validator_ed25519=validators[validator_index].ed25519
-            ) for validator_index, core_index in enumerate(assignments)
-        ]

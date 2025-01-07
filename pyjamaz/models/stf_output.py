@@ -5,8 +5,8 @@ from typing import Optional, List
 from jamcodec.mixins import Serializable
 from jamcodec.types import Option, Vec, H256, Array
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
-from pyjamaz.models.block import OutputMarks, EpochMark, TicketsMark, TicketBody
-from pyjamaz.models.common import WorkReport
+from pyjamaz.models.block import EpochMark
+from pyjamaz.models.common import WorkReport, TicketBody
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
     BeefyCommitmentMap
@@ -152,7 +152,7 @@ class SafroleOutput(Serializable):
     epoch_mark: Optional[EpochMark] = field(
         default=None, metadata={'codec': Option(EpochMark.to_codec_def())}
     )  # New epoch signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(
+    tickets_mark: Optional[List[TicketBody]] = field(
         default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
     )  # Tickets signal. OPTIONAL
 
@@ -324,7 +324,7 @@ class STFOutput(Serializable):
     epoch_mark: Optional[EpochMark] = field(
         default=None, metadata={'codec': Option(EpochMark.to_codec_def())}
     )  # New epoch signal. OPTIONAL
-    tickets_mark: Optional[TicketsMark] = field(
+    tickets_mark: Optional[List[TicketBody]] = field(
         default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
     )  # Tickets signal. OPTIONAL
     offenders_mark: List[bytes] = field(default_factory=list, metadata={'codec': Vec(H256)})

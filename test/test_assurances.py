@@ -10,8 +10,8 @@ from parameterized import parameterized
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Assurance
-from pyjamaz.models.state import AssurancesState, ValidatorPoolState, TimeslotState, BlockContext
+from pyjamaz.models.block import Header, Assurance, BlockContext
+from pyjamaz.models.state import AssurancesState, ValidatorPoolState, TimeslotState
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
