@@ -130,6 +130,9 @@ def create_debug_block_bytes(app: PyjamazApp, traces_dir: str):
     async def debug_import_block(data):
         logger.debug(f"📦 Importing block from bytes")
         block = Block.from_jam_bytes(JamBytes(data))
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if block.header.parent != bytes(32):
+            app.protocol.request_blocks(app.protocol.conn_out[0], 0, 100, block)
         await import_block(app, traces_dir, block)
 
     return debug_import_block
@@ -211,14 +214,18 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
 
                 if block_dir:
                     logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    fs_protocol = FSProtocol(block_dir, pubsub)
+                    #!!!!!!!!!!!!!!!TODO: voeg pubsub en protocol toe aan app
+                    fs_protocol = FSProtocol(block_dir, pubsub, app)
+                    app.protocol = fs_protocol
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, fs_protocol.broadcast_block)
                     pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_JSON, create_debug_block_json(app, record_traces))
                     tg.start_soon(fs_protocol.listen)
                 else:
-                    nps_protocol = JAMNPS(host, port, certificate, private_key, pubsub)
+                    nps_protocol = JAMNPS(host, port, certificate, private_key, pubsub, app)
+                    app.protocol = nps_protocol
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, nps_protocol.broadcast_block)
                     pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_BYTES, create_debug_block_bytes(app, record_traces))
+                    pubsub.subscribe(MESSAGE_TYPES.BLOCK_REQUEST, nps_protocol.send_requested_blocks)
                     tg.start_soon(nps_protocol.listen)
                     validator_metadata = [x.metadata for x in app.state.safrole.validators]
 

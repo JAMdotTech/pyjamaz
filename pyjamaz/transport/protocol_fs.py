@@ -11,10 +11,11 @@ logger = logging.getLogger("FSProtocol")
 
 class FSProtocol(object):
 
-    def __init__(self, block_dir, pubsub):
+    def __init__(self, block_dir, pubsub, app):
         self.block_dir = block_dir
         self.lock = anyio.Lock()
         self.pubsub = pubsub
+        self.app = app
 
     async def listen(self):
 
