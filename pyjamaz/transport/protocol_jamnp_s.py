@@ -330,7 +330,7 @@ class JAMNPS(object):
     #TODO: deze functies misschien ergens anders onderbrengen? staat weer los van transport -> meer protocol agnostish (bv fs_protocol)
     async def request_blocks(self, conn, direction, max_blocks, block_bytes):
         conn.send_blocks_request(0, 100, block_bytes)
-s
+
     async def broadcast_block(self, block):
         block_bytes = block.to_jam_bytes().to_bytes()
         for client_id, client in self.conn_in.items():
