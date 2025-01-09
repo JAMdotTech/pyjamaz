@@ -11,6 +11,7 @@ from ..models.state import ServiceAccount
 from ..pvm import PVM
 
 
+# TODO: maak nette types & datamodellen voor parameters waar nodig
 # TODO: we slaan nu direct resultaat op in bijv pvm registers... wellicht dit eerst in een intermediate state opslaan?
 # GP_B.6 General Functions
 class GeneralFunctionsMixin:

@@ -20,33 +20,35 @@ from ..pvm import PVM
 class AccumulateInvocationsMixin:
 
     def __init__(self):
-        #TODO: move to appropiate ServiceAccount class
-        self.a_l = 0    #TODO: implement!
-        self.a_i = 0    #TODO: implement!
+        #TODO: move to appropiate ServiceAccount class / implement helper&update functions
+        self.a_l = 0    #TODO: footprint_storage_items
+        self.a_i = 0    #TODO: footprint_storage_bytes
         b_s = MINIMUM_BALANCE_SERVICE
         b_l = MINIMUM_BALANCE_OCTET
         b_i = MINIMUM_BALANCE_ITEM
-        self.a_t = b_s + b_i * self.a_i + b_l * self.a_l
+        self.a_t = b_s + b_i * self.a_i + b_l * self.a_l    #TODO: threshold_balance
 
-
-    # GP_B.3 The Export host-call
+    # TODO: x & y eq B.6 & B.7 -> model van maken
+    # GP_B.7 The Accumulate host-call
     def bless(self, pvm:PVM, x, y):
         # State transition function for privileged services.
-        # (Updates gas limits for priviliged services)
+        # (Updates gas limits for privileged services)
 
         # Privileged services:
-        m = pvm.reg[7] # m: index of blessed service (manager of chi(X))
+        m = pvm.reg[7] # m: index of manager service (manager of chi(X))
         a = pvm.reg[8] # a: index of assign service (authorization queue)
         v = pvm.reg[9] # v: index of designate service (validator queue)
 
         o = pvm.reg[10] # offset to read service indices and accompanying gas limits from
-        n = pvm.reg[11] # number of services to read
+        n = pvm.reg[11] # number of entries in the auto_accumulate_services dictionary to read
 
         if pvm.is_readable(pvm.mem, o, o + 12 * n):
             bold_g = {}
             for idx in range(n):
                 offset = o + idx * 12
+                # s == service_idx
                 service_idx = U32(JamBytes(pvm.mem[offset:offset+4]))
+                # g == gas
                 gas = U64(JamBytes(pvm.mem[offset + 4:offset+4+8]))
                 bold_g[service_idx] = gas
         else:
@@ -58,8 +60,8 @@ class AccumulateInvocationsMixin:
         elif any(idx >= 2**32 for idx in [m, a, v]):
             pvm.reg[7] = HostCallResult.who.value
         else:
-            #
-            bold_x_u = x.TODO #TODO: implement blackboard_u = GP.12.13
+            pvm.reg[7] = HostCallResult.ok.value
+            bold_x_u = x.TODO #TODO: implement blackboard_u = GP.12.13 -> instantiatie van een dataclass
             bold_x_u_bold_x = bold_x_u.privileged_services
             bold_x_u_bold_x.blessed_service = m
             bold_x_u_bold_x.assign_service = a
@@ -72,6 +74,7 @@ class AccumulateInvocationsMixin:
         w7 = pvm.reg[7]  # Core index to update (0..341)
 
         if pvm.is_readable(pvm.mem, o, o + 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS):
+            # Note: bold_c leest voor een specifieke authorization_queue een reeks (Q==80) van authorizations
             bold_c = []
             for idx in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS):
                 offset = o + idx * 32
@@ -79,15 +82,15 @@ class AccumulateInvocationsMixin:
         else:
             bold_c = "∇"
 
-        bold_x_u = x.TODO #TODO: implement blackboard_u = GP.12.13
-        bold_x_u_bold_q = bold_x_u.authorizations_queue
-
         if bold_c == "∇":
             pvm.reg[7] = HostCallResult.oob.value
         elif pvm.reg[7] >= CORE_COUNT:
             pvm.reg[7] = HostCallResult.core.value
         else:
             pvm.reg[7] = HostCallResult.ok.value
+            # TODO: wacht tot bold_x & bold_y params zijn gemodeleerd
+            bold_x_u = x.TODO  # TODO: implement blackboard_u = GP.12.13
+            bold_x_u_bold_q = bold_x_u.authorizations_queue
             bold_x_u_bold_q[w7] = bold_c
 
     def designate(self, pvm:PVM, x, y):
@@ -95,37 +98,38 @@ class AccumulateInvocationsMixin:
         o = pvm.reg[7]  # offset in memory
 
         if pvm.is_readable(pvm.mem, o, o + 336 * VALIDATOR_COUNT):
-            bold_i = []
+            # bold_v == entire validator_queue state component
+            bold_v = []
             for idx in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS):
                 offset = o + idx * 336
-                bold_i.append(pvm.mem[offset:offset+336])
+                bold_v.append(pvm.mem[offset:offset+336])
         else:
-            bold_i = "∇"
+            bold_v = "∇"
 
         bold_x_u = x.TODO #TODO: implement blackboard_u = GP.12.13
 
-        if bold_i != "∇":
+        if bold_v != "∇":
             pvm.reg[7] = HostCallResult.oob.value
         else:
             pvm.reg[7] = HostCallResult.ok.value
-            bold_x_u.validator_set = bold_i  #Note: Update bold_x_u_bold_i
+            #TODO: helper functie maken om de validator queue dataclass te updaten op basis vd 336x1023 bytes
+            #Note: bold_x_u.validator_queue == bold_x_u_bold_i
+            bold_x_u.validator_queue.update(bold_v)  #Note: Update bold_x_u_bold_i
 
     def checkpoint(self, pvm:PVM, x, y):
         # Set the exeptional dimension y to x (Copy the invocation result context x to y)
         #TODO: helper functie maken: clone_x_to_y(x, y)
         pvm.reg[7] = pvm.gas
 
-    def bump(self, i):
-        return
-
     def new(self, pvm:PVM, x, y):
         # Maak nieuwe service aan en registreer deze in de services dictionary
         o = pvm.reg[7]  # offset to read service data from
-        l = pvm.reg[8]  # preimage_availability TODO: cast naar 32bit??
+        l = pvm.reg[8]  # size (byte length) of the code blob TODO: cast of eerste 4 bytes of modulus naar 32bit??
         g = pvm.reg[9]  # gas_limit_accumulate
         m = pvm.reg[10] # gas_limit_on_transfer
 
         if pvm.is_readable(pvm.mem, o, o + 32):
+            # Note: c == code_hash
             c = pvm.mem[o:o+32]
         else:
             c = "∇"
@@ -140,17 +144,16 @@ class AccumulateInvocationsMixin:
                 footprint_storage_bytes=self.a_i,
                 threshold_balance=self.a_t,
                 storage_items={},   #bold_s
-                preimages={},   #bold_p  TODO: moet deze wel echt leeg zijn? vullen adv c???
-                preimage_availability={(c.tobytes(), l): bytes()}   #bold_l
+                preimages={},   #bold_p
+                preimage_availability={(c.tobytes(), l): []}   #bold_l TODO: c+l is een tuple dat de key in de preimage_availability vormt (model change onderhande werk Arjan)
             )
-
         else:
             bold_a = "∇"
 
-        bold_s = x.blackboard_u_TODO.service_accounts[x.service_id]  #TODO: levert een service op, zie Eq B.6 & B.7!
+        bold_s = x.service_account  #TODO: levert een service op, zie Eq B.6 & B.7!
         bold_s.balance = bold_a.balance - self.a_t
 
-        if bold_a != "∇" and bold_a.balance >= bold_s.balance:
+        if bold_a != "∇" and bold_s.balance >= x.service_account.threshold_balance:
             # TODO: bij updaten service, moeten we ook related zaken (FK's, preimages & storageitems) updaten? -> helper functie maken!
             # NOTE: bij alteren service, dus ook deze state?
             pvm.reg[7] = x.i

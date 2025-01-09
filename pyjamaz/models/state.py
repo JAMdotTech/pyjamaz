@@ -123,6 +123,11 @@ class ValidatorQueueState(State, Serializable):
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
 
+    #TODO: this helper function exists for the designate hostcall
+    def update(self, memory:List[bytes]):
+        for validator_data_bytes in memory:
+            # TODO: bytes==336 -> decode into ValidatorData.bandersnatch, ValidatorData.ed25519, ValidatorData.bls, ValidatorData.metadata
+            pass
 
 @dataclass
 class ValidatorPoolState(State, Serializable):
@@ -377,6 +382,7 @@ class PrivilegedServicesState(State, Serializable):
     auto_accumulate_services: Dict(U32,U64)
         GP-0.5.0-eq:9.9 (χ_g) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
+    # TODO: Rename empower_service to manager_service
     empower_service: int = field(metadata={'codec': U32})   #TODO: rename to blessed_service
     assign_service: int = field(metadata={'codec': U32})
     designate_service: int = field(metadata={'codec': U32})
