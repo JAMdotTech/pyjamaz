@@ -19,6 +19,7 @@ from asyncclick import BadParameter
 from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
+from jamcodec.types import Vec
 
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
@@ -114,8 +115,6 @@ async def import_block(app, traces_dir, block):
 
         await app.import_block(block)
 
-        app.latest_epoch = block.header.timeslot // EPOCH_TIMESLOTS
-
         if traces_dir:
             await app.store_trace(pre_state, block, traces_dir)
 
@@ -130,10 +129,23 @@ def create_debug_block_bytes(app: PyjamazApp, traces_dir: str):
     async def debug_import_block(data):
         logger.debug(f"📦 Importing block from bytes")
         block = Block.from_jam_bytes(JamBytes(data))
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        if block.header.parent != bytes(32):
-            app.protocol.request_blocks(app.protocol.conn_out[0], 0, 100, block)
-        await import_block(app, traces_dir, block)
+        app.import_queue.append(block)
+
+        # Note: when we receive a block announcement and we just started our node, we send out a blocks request to sync our state
+        if app.network_bootstrap:
+            if app.protocol.conn_out:
+                app.network_bootstrap = False
+                #TODO: determine peer to request blocks from using protocol grid
+                conn = list(app.protocol.conn_out.keys())[0]
+                #TODO: moeten we hier niet alleen de header meegeven ipv een heel block te serializen?????
+                print("AHA NEW BLOCK, SEND BLOCK REQUEST!!!")
+                await app.protocol.request_blocks(app.protocol.conn_out[conn], 0, 100, block.to_jam_bytes().to_bytes())
+                #TODO: wel dit block al opslaan en alleen blocks die we vanaf dit Block
+        elif block.header.parent == bytes(32) or app.retrieve_block_by_hash(block.header.parent):
+            #Note: If we are able to find the parent of this block, it means we are synced and we can process blocks
+            await app.process_import_queue()
+        else:
+            logger.info(f"Syncing in progress, current timeslot={app.state.timeslot.number}")
 
     return debug_import_block
 
@@ -146,6 +158,17 @@ def create_debug_block_json(app: PyjamazApp, traces_dir: str):
 
     return debug_import_block
 
+
+def create_debug_import_blocks(app: PyjamazApp, traces_dir: str):
+    async def debug_import_blocks(data):
+        block_list = Vec(Block.to_codec_def()).new()
+        block_list.decode(JamBytes(data))
+        for block in block_list:
+            app.import_queue.append(Block.from_codec_type(block))
+        await app.process_import_queue()
+        logger.debug(f"📦 Importing blocks requested", data)
+
+    return debug_import_blocks
 
 @click.group(invoke_without_command=True)
 @click.pass_context
@@ -179,7 +202,8 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
 
         db_path = custom_db_path or default_db_path
 
-        if not ts:
+        network_bootstrap = ts is None
+        if network_bootstrap:
             # default start ts
             current_time = time.time()
             ts = int(current_time - (current_time % 6) + 12)
@@ -191,6 +215,9 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
             )
         except StateKeyNoResult:
             raise BadParameter(f'DB is not yet initialized; run init first')
+
+        #TODO: define property on app
+        app.network_bootstrap = network_bootstrap
 
         logger.info(f'🥋 Starting PyJAMaz client, listening on port {port}')
         logger.info(f'💾 Storage path: {db_path}')
@@ -214,7 +241,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
 
                 if block_dir:
                     logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    #!!!!!!!!!!!!!!!TODO: voeg pubsub en protocol toe aan app
+                    #TODO: voeg pubsub en protocol toe als properties van app
                     fs_protocol = FSProtocol(block_dir, pubsub, app)
                     app.protocol = fs_protocol
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, fs_protocol.broadcast_block)
@@ -225,29 +252,32 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                     app.protocol = nps_protocol
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, nps_protocol.broadcast_block)
                     pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_BYTES, create_debug_block_bytes(app, record_traces))
-                    pubsub.subscribe(MESSAGE_TYPES.BLOCK_REQUEST, nps_protocol.send_requested_blocks)
+                    pubsub.subscribe(MESSAGE_TYPES.BLOCK_REQUEST, create_debug_import_blocks(app, record_traces))
                     tg.start_soon(nps_protocol.listen)
-                    validator_metadata = [x.metadata for x in app.state.safrole.validators]
+                    #validator_metadata = [x.metadata for x in app.state.safrole.validators]
 
-                    node_port_hex = validator_metadata[0].hex()
-                    node_port = int.from_bytes(bytes.fromhex(node_port_hex[32:36]), 'little')
+                    #node_port_hex = validator_metadata[0].hex()
+                    #node_port = int.from_bytes(bytes.fromhex(node_port_hex[32:36]), 'little')
 
                     #if node_port != port:
-                    for bin_data in validator_metadata:
+                    for validator in app.state.safrole.validators:
                         # TODO: create proper encoder/decoder for this..
                         # The validators' IP-layer endpoints are given as IPv6/port combinations,
                         # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
                         # the latter 2 being a little endian representation of the port.
-                        hex_data = bin_data.hex()
+                        hex_data = validator.metadata.hex()
                         ip_data = bytes.fromhex(hex_data[:32])
                         port_data = bytes.fromhex(hex_data[32:36])
                         validator_address = socket.inet_ntop(socket.AF_INET6, ip_data)
                         validator_port = int.from_bytes(port_data, 'little')
-                        if validator_port == port:
+                        #if validator_port == port:
+
+                        if validator.ed25519 == app.config.keys.ed25519.public_key:
                             continue
 
                         #TODO: for now we hardcode all nodes to be hosted on localhost
                         validator_address = "localhost"
+                        print("NEW CONNECTION TO: ", validator_port)
                         tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
                 await anyio.sleep(ts - time.time())
@@ -256,7 +286,6 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
             logger.info("Stopping node...")
         finally:
             logger.info(f'Node stopped.')
-
 
 async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
 

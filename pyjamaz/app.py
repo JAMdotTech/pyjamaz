@@ -1,9 +1,10 @@
+import asyncio
 import json
 import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import TypeVar, Optional
+from typing import TypeVar, Optional, List
 
 from bandersnatch_vrfs import ietf_vrf_sign
 
@@ -61,7 +62,11 @@ class PyjamazApp:
         self.block_db: StorageEngine = config.storage_engine.namespace(b"block")
         self.app_db: StorageEngine = config.storage_engine.namespace(b"app")
 
+        self.import_queue:List[Block] = []
+
         self.block_context = BlockContext()
+
+        self.import_lock = asyncio.Lock()
 
         self.components = StateComponents(
             storage_engine=self.state_db, config=self.config, block_context=self.block_context
@@ -73,6 +78,17 @@ class PyjamazApp:
         self.state_trie_root = bytes(32)
 
         self.latest_epoch = None
+
+
+    async def process_import_queue(self):
+        async with self.import_lock:
+            sorted_blocks = sorted(self.import_queue, key=lambda x: x.header.timeslot)
+            self.import_queue = []
+
+        for block in sorted_blocks:
+            await self.import_block(block)
+            print("!!!!@!#@#!@#!@!@@!@!@!@ IMPORTED BLOCK::::: ", block.header.hash)
+
 
     def retrieve_jam_state(self):
         return JamState(
@@ -495,6 +511,7 @@ class PyjamazApp:
 
             await self.update_state_trie()
             await self.store_block(block)
+            self.latest_epoch = block.header.timeslot // EPOCH_TIMESLOTS
             return output
 
         except Exception as e:
@@ -520,6 +537,13 @@ class PyjamazApp:
         block_data = self.block_db.get(b'block:' + timeslot.to_bytes(length=4, byteorder='little'))
         if block_data is not None:
             return Block.from_jam_bytes(JamBytes(block_data))
+
+    def retrieve_block_by_hash(self, block_hash: bytes) -> Optional[Block]:
+        timeslot_data = self.block_db.get(b'block_number:' + block_hash)
+        if timeslot_data is not None:
+            block_data = self.block_db.get(b'block:' + timeslot_data)
+            if block_data is not None:
+                return Block.from_jam_bytes(JamBytes(block_data))
 
     def retrieve_block_hash(self, timeslot: int) -> Optional[bytes]:
         return self.block_db.get(b'block_hash:' + timeslot.to_bytes(length=4, byteorder='little'))
