@@ -18,6 +18,7 @@ from jamcodec.types import Vec
 
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.models.block import Block
+from pyjamaz.transport.types import ProtocolType
 
 logger = logging.getLogger("JAMNPSProtocol")
 logger.setLevel(logging.DEBUG) #TODO: tmp!
@@ -144,7 +145,6 @@ class ServerProtocol(JAMNPSProtocol):
                             logger.debug(f'ServerProtocol RECEIVED NEW BLOCKSREQUEST!!!!!')
                             direction = 1#self._msg_buffer[self._msg_offset:self._msg_offset+1]
                             max_blocks = 100 #self._msg_buffer[self._msg_offset+1:self._msg_offset+1+4]
-                            print("AHAH", len(self._msg_buffer[self._msg_offset:self._msg_len]))
                             block = Block.from_jam_bytes(JamBytes(self._msg_buffer[self._msg_offset:self._msg_len]))
 
                             logger.debug(
@@ -190,11 +190,6 @@ class ClientProtocol(JAMNPSProtocol):
             # int(max_blocks).to_bytes(length=1, byteorder='little') +
             block_bytes
         )
-        pp=(int(JAMNPS.MSG.CE128_BlockRequest.value).to_bytes(length=1, byteorder='little') +
-            len(data).to_bytes(length=4, byteorder='little') +
-            data)
-        print("!!!!!!!!!!!!!!!!!!!!CLIENT SEND BLOCKSREQUEST BLOCKDATA:\n", data, "\n----------------------------------")
-        print("!!!!!!!!!!!!!!!!!!!!CLIENT SEND BLOCKSREQUEST PAYLOAD:\n", pp, "\n----------------------------------")
         self._quic.send_stream_data(
             self.stream_up_0,
             (int(JAMNPS.MSG.CE128_BlockRequest.value).to_bytes(length=1, byteorder='little') +
@@ -240,7 +235,7 @@ class ClientProtocol(JAMNPSProtocol):
 
                             case JAMNPS.MSG.UP0_BlockAnnouncement.value:
                                 self.wrapper.broadcaster.send_stream.send_nowait({
-                                    "message_type": MESSAGE_TYPES.IMPORT_BLOCK_BYTES,
+                                    "message_type": MESSAGE_TYPES.IMPORT_BLOCK,
                                     "data": self._msg_buffer[self._msg_offset:self._msg_len]
                                 })
                                 self._reset_msg()
@@ -283,7 +278,7 @@ class SessionTicketStore:
         return self.tickets.pop(label, None)
 
 
-class JAMNPS(object):
+class JAMNPS(ProtocolType):
 
     class MSG(Enum):
         UP0_OPEN: int = 66
@@ -359,8 +354,9 @@ class JAMNPS(object):
             logger.info(f"💩 ClientProtocol Cannot connect to {host}:{port}")
 
 
-    #TODO: deze functies definieeren in een Transport interface, moet voor elk protocol geimplementeerd worden
-    async def request_blocks(self, conn, direction, max_blocks, block_bytes):
+    async def request_blocks(self, direction, max_blocks, block_bytes):
+        #TODO: temp hack, should be provided with a specific peer?
+        conn = list(self.conn_out.keys())[0]
         await conn.send_blocks_request(0, 100, block_bytes)
 
     async def broadcast_block(self, block):

@@ -2,7 +2,7 @@ import asyncio
 import argparse
 import termios, tty, select, sys
 
-from protocol_jamnp_s import JAMNPS
+from pyjamaz.transport.protocol_jamnp_s import JAMNPS
 
 def key_pressed():
     return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
@@ -19,11 +19,12 @@ async def handle_input(protocol, server):
             if key == 'c':
                 print("Connect to server, enter address (defaults to ::)")
                 server_addr = input()
-                server_addr = server_addr or "0.0.0.0"
+                server_addr = server_addr or "::1" #"0.0.0.0"
                 print("Enter server port(defaults to 9000):")
                 server_port = input()
                 server_port = server_port or 9000
-                connect_task = asyncio.create_task(protocol.connect(server_addr, server_port))
+                #connect_task = asyncio.create_task(protocol.connect(server_addr, server_port))
+                await protocol.connect(server_addr, server_port)
             elif key == 'o':
                 print("LIST ALL OUTGOING CONNECTIONS")
             elif key == 'i':
@@ -40,7 +41,8 @@ async def handle_input(protocol, server):
                 #conn = protocol.conn_in.get((server_addr, server_port))
                 #await conn.query(msg)
                 #msg_task = asyncio.create_task(conn.query(msg))
-                asyncio.create_task(protocol.broadcast_block_announcement("1", "2"))
+                #asyncio.create_task(protocol.broadcast_block_announcement("1", "2"))
+                protocol.request_blocks(1, 1, b"")
                 print("SENDED?")
             elif key == 'q':
                 print("QUIT")
@@ -51,6 +53,12 @@ async def handle_input(protocol, server):
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, stdin_settings)
 
+
+class dummy_app():
+    pass
+
+class dummy_pubsub():
+    pass
 
 async def main():
     parser = argparse.ArgumentParser(description="DNS over QUIC server")
@@ -81,8 +89,9 @@ async def main():
     )
 
     args = parser.parse_args()
-    protocol = JAMNPS(args.host, args.port, args.certificate, args.private_key)
-
+    app = dummy_app()
+    pubsub = dummy_pubsub()
+    protocol = JAMNPS(args.host, args.port, args.certificate, args.private_key, dummy_app, dummy_pubsub)
     print(f"STARTING NODE {args.host}:{args.port}")
     server_task = asyncio.create_task(protocol.listen())
     await handle_input(protocol, server_task)

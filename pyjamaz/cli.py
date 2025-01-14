@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from asyncio import CancelledError
 from datetime import datetime
@@ -6,7 +5,7 @@ import json
 import os
 import shutil
 import socket
-from typing import Dict, List, Callable
+from doctest import debug
 
 import anyio
 
@@ -14,12 +13,10 @@ import time
 from os import path
 
 import asyncclick as click
-from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from asyncclick import BadParameter
 from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
-from jamcodec.types import Vec
 
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
@@ -31,9 +28,10 @@ from pyjamaz.models.trace import Trace
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block
 from pyjamaz.models.state import JamState
-from pyjamaz.transport.generate_cert import generate_cert, write_cert
+from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
+from pyjamaz.transport.pubsub import PubSub
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
@@ -41,7 +39,14 @@ default_db_path = path.join(data_dir, 'db')
 logger = logging.getLogger(__name__)
 
 
-async def initialize_app(read_state=True, memory_storage=False, keys=None, common_era=None, custom_db_path=None) -> PyjamazApp:
+async def initialize_app(
+        read_state=True,
+        memory_storage=False,
+        keys=None,
+        common_era=None,
+        custom_db_path=None,
+        record_traces=None
+) -> PyjamazApp:
 
     # Load SRS
     with open(path.join(data_dir, 'zcash-srs-2-11-uncompressed.bin'), 'rb') as fp:
@@ -67,7 +72,8 @@ async def initialize_app(read_state=True, memory_storage=False, keys=None, commo
         ring_data=ring_data,
         storage_engine=storage_engine,
         keys=keys,
-        common_era=common_era
+        common_era=common_era,
+        create_traces=record_traces
     )
 
     app = PyjamazApp(config=config)
@@ -81,94 +87,6 @@ async def initialize_app(read_state=True, memory_storage=False, keys=None, commo
 
 
 # CLI commands
-
-
-class PubSub(object):
-
-    def __init__(self):
-        #self.send_stream: MemoryObjectSendStream[Dict], self.receive_stream: MemoryObjectReceiveStream[Dict] = anyio.create_memory_object_stream[Dict](max_buffer_size=10)
-        self.send_stream: MemoryObjectSendStream[Dict] = None
-        self.receive_stream: MemoryObjectReceiveStream[Dict] = None
-        self.send_stream, self.receive_stream = anyio.create_memory_object_stream[Dict](max_buffer_size=10)
-        self.subscriptions: Dict[str, List[Callable]] = {}
-        for msg_type in MESSAGE_TYPES:
-            self.subscriptions[msg_type.value] = []
-
-    def subscribe(self, topic: MESSAGE_TYPES, callback: Callable) -> None:
-        if topic.value not in self.subscriptions:
-            raise Exception(f"Cannot subscribe to topic {topic} (topic does not exist)")
-        self.subscriptions[topic.value].append(callback)
-
-    async def process_messages(self) -> None:
-        async with self.receive_stream, anyio.create_task_group() as tg:
-            async for item in self.receive_stream:
-                for subscriber in self.subscriptions[item["message_type"].value]:
-                    tg.start_soon(subscriber, item["data"])
-
-
-async def import_block(app, traces_dir, block):
-    if block.header.timeslot > app.state.timeslot.number or (
-            app.state.timeslot.number == 0 and not app.should_produce_block()):
-
-        if traces_dir:
-            pre_state = await app.create_state_dump()
-
-        await app.import_block(block)
-
-        if traces_dir:
-            await app.store_trace(pre_state, block, traces_dir)
-
-        logger.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
-        logger.info(f'🗳️ Tickets in accumulator: {len(app.state.safrole.ticket_accumulator)}')
-    else:
-        logger.info(
-            f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {app.state.timeslot.number}, should produce block: {app.should_produce_block()})")
-
-
-def create_debug_block_bytes(app: PyjamazApp, traces_dir: str):
-    async def debug_import_block(data):
-        logger.debug(f"📦 Importing block from bytes")
-        block = Block.from_jam_bytes(JamBytes(data))
-        app.import_queue.append(block)
-
-        # Note: when we receive a block announcement and we just started our node, we send out a blocks request to sync our state
-        if app.network_bootstrap:
-            if app.protocol.conn_out:
-                app.network_bootstrap = False
-                #TODO: determine peer to request blocks from using protocol grid
-                conn = list(app.protocol.conn_out.keys())[0]
-                #TODO: moeten we hier niet alleen de header meegeven ipv een heel block te serializen?????
-                print("AHA NEW BLOCK, SEND BLOCK REQUEST!!!")
-                await app.protocol.request_blocks(app.protocol.conn_out[conn], 0, 100, block.to_jam_bytes().to_bytes())
-                #TODO: wel dit block al opslaan en alleen blocks die we vanaf dit Block
-        elif block.header.parent == bytes(32) or app.retrieve_block_by_hash(block.header.parent):
-            #Note: If we are able to find the parent of this block, it means we are synced and we can process blocks
-            await app.process_import_queue()
-        else:
-            logger.info(f"Syncing in progress, current timeslot={app.state.timeslot.number}")
-
-    return debug_import_block
-
-
-def create_debug_block_json(app: PyjamazApp, traces_dir: str):
-    async def debug_import_block(data):
-        logger.debug(f"📦 Importing block from json")
-        block = Block.from_json(data)
-        await import_block(app, traces_dir, block)
-
-    return debug_import_block
-
-
-def create_debug_import_blocks(app: PyjamazApp, traces_dir: str):
-    async def debug_import_blocks(data):
-        block_list = Vec(Block.to_codec_def()).new()
-        block_list.decode(JamBytes(data))
-        for block in block_list:
-            app.import_queue.append(Block.from_codec_type(block))
-        await app.process_import_queue()
-        logger.debug(f"📦 Importing blocks requested", data)
-
-    return debug_import_blocks
 
 @click.group(invoke_without_command=True)
 @click.pass_context
@@ -211,7 +129,8 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
         try:
             app = await initialize_app(
                 keys=Keys.from_seed(bytes.fromhex(seed[2:])),
-                custom_db_path=custom_db_path
+                custom_db_path=custom_db_path,
+                record_traces=record_traces
             )
         except StateKeyNoResult:
             raise BadParameter(f'DB is not yet initialized; run init first')
@@ -241,18 +160,18 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
 
                 if block_dir:
                     logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    #TODO: voeg pubsub en protocol toe als properties van app
                     fs_protocol = FSProtocol(block_dir, pubsub, app)
                     app.protocol = fs_protocol
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, fs_protocol.broadcast_block)
-                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_JSON, create_debug_block_json(app, record_traces))
+                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK, app.import_block_from_json)
+                    pubsub.subscribe(MESSAGE_TYPES.BLOCK_REQUEST, app.requested_blocks_from_json)
                     tg.start_soon(fs_protocol.listen)
                 else:
                     nps_protocol = JAMNPS(host, port, certificate, private_key, pubsub, app)
                     app.protocol = nps_protocol
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, nps_protocol.broadcast_block)
-                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK_BYTES, create_debug_block_bytes(app, record_traces))
-                    pubsub.subscribe(MESSAGE_TYPES.BLOCK_REQUEST, create_debug_import_blocks(app, record_traces))
+                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK, app.import_block_from_bytes)
+                    pubsub.subscribe(MESSAGE_TYPES.BLOCK_REQUEST, app.requested_blocks_from_bytes)
                     tg.start_soon(nps_protocol.listen)
                     #validator_metadata = [x.metadata for x in app.state.safrole.validators]
 
@@ -273,11 +192,16 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                         #if validator_port == port:
 
                         if validator.ed25519 == app.config.keys.ed25519.public_key:
+                            logger.debug(
+                                f'Skipping own node ({validator_address}:{validator_port})'
+                            )
                             continue
 
                         #TODO: for now we hardcode all nodes to be hosted on localhost
-                        validator_address = "localhost"
-                        print("NEW CONNECTION TO: ", validator_port)
+                        #validator_address = "localhost"
+                        logger.info(
+                            f'Connecting to node {validator_address}:{validator_port}'
+                        )
                         tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
                 await anyio.sleep(ts - time.time())
@@ -286,6 +210,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
             logger.info("Stopping node...")
         finally:
             logger.info(f'Node stopped.')
+
 
 async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
 
@@ -307,7 +232,7 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
 
                 # Notify listeners a new block is produced
                 pubsub.send_stream.send_nowait(
-                    {"message_type": MESSAGE_TYPES.IMPORT_BLOCK_BYTES, "data": block.to_jam_bytes().to_bytes()})
+                    {"message_type": MESSAGE_TYPES.IMPORT_BLOCK, "data": block.to_jam_bytes().to_bytes()})
                 pubsub.send_stream.send_nowait({"message_type": MESSAGE_TYPES.PRODUCED_BLOCK, "data": block})
 
                 logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
