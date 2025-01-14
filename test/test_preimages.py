@@ -31,11 +31,11 @@ def get_test_vector_files(file_filter: Optional[str] = None):
 
 class TestPreimages(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.storage_engine = InMemoryStorage()
-        cls.block_context = BlockContext()
-        cls.app_context = AppContext(transaction=None)
+
+    def setUp(self):
+        self.storage_engine = InMemoryStorage()
+        self.block_context = BlockContext()
+        self.app_context = AppContext(transaction=None)
 
     @staticmethod
     def load_test_vector_data(test_vector_file):

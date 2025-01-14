@@ -97,12 +97,11 @@ def state_key_constructor_preimage(service_account_id: int, preimage_hash: bytes
     -------
     bytes
     """
-    print('<read preimage: ', service_account_id, preimage_hash.hex())
     state_key = state_key_constructor_service_account_value(
         service_account_id=service_account_id,
         value=int(2**32-2).to_bytes(4, byteorder='little') + preimage_hash[1:29]
     )
-    print('<read key: ', state_key.hex())
+
     return state_key
 
 

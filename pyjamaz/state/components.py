@@ -1775,12 +1775,11 @@ class Services(StateComponent):
         -------
 
         """
-        print('>store premage: ', preimage.to_json())
         state_key = state_key_constructor_preimage(
             service_account_id=preimage.requester,
             preimage_hash=blake2b_256_hash(preimage.blob)
         )
-        print(f'>state key: {state_key.hex()}')
+
         if self.app_context.transaction is not None:
             self.app_context.transaction.put(state_key, preimage.blob)
         else:
