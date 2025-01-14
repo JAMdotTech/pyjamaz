@@ -17,6 +17,7 @@ from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.trace import StateDump, Trace
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
+from pyjamaz.state.base import AppContext
 from pyjamaz.storage import StorageEngine, Transaction
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
@@ -62,9 +63,13 @@ class PyjamazApp:
         self.app_db: StorageEngine = config.storage_engine.namespace(b"app")
 
         self.block_context = BlockContext()
+        self.app_context = AppContext()
 
         self.components = StateComponents(
-            storage_engine=self.state_db, config=self.config, block_context=self.block_context
+            storage_engine=self.state_db,
+            config=self.config,
+            block_context=self.block_context,
+            app_context=self.app_context
         )
 
         self.extrinsic = ExtrinsicAccumulator(self.config.ring_data)
@@ -87,17 +92,20 @@ class PyjamazApp:
             services=ServicesState(services={}),
             assurances=self.components.assurances.retrieve_state(),
             authorizer_queues=AuthorizerQueuesState(
-                authorizer_queues=[[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
-
+                authorizer_queues=[
+                    [bytes(32) for _ in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS)] for _ in range(CORE_COUNT)
+                ]
             ),
             privileged_services=self.components.privileged_services.retrieve_state(),
             disputes=self.components.disputes.retrieve_state(),
             statistics=self.components.statistics.retrieve_state(),
             accumulation_queue=AccumulationQueueState(
-                accumulation_queue=[[]] * EPOCH_TIMESLOTS
+                accumulation_queue=[
+                    [] for _ in range(EPOCH_TIMESLOTS)
+                ]
             ),
             accumulation_history=AccumulationHistoryState(
-                accumulation_history=[bytes(32)] * EPOCH_TIMESLOTS
+                accumulation_history=[bytes(32) for _ in range(EPOCH_TIMESLOTS)]
             )
             # TODO retrieve accumulation_queue and accumulation_history from DB
         )
@@ -113,7 +121,7 @@ class PyjamazApp:
         self.components.validator_pool.store_state(state.validator_pool, transaction)
         self.components.safrole.store_state(state.safrole, transaction)
         self.components.statistics.store_state(state.statistics, transaction)
-        # self.state_manager.get(Services).store_state(state.services, transaction)
+        #self.components.services.store_state(state.services, transaction)
         self.components.authorizer_queues.store_state(state.authorizer_queues, transaction)
         self.components.privileged_services.store_state(state.privileged_services, transaction)
         self.components.authorizer_pools.store_state(state.authorizer_pools, transaction)
@@ -269,6 +277,9 @@ class PyjamazApp:
         # Reset block context
         self.block_context.initialize()
 
+        # Update app context
+        self.app_context.transaction = transaction
+
         # Set components pre-state
         # TODO move deepcopy() from STF to here
         pre_state_timeslot = self.state.timeslot
@@ -281,7 +292,7 @@ class PyjamazApp:
         pre_state_validator_archive = self.state.validator_archive
         pre_state_validator_queue = self.state.validator_queue
         pre_state_statistics = self.state.statistics
-        # Todo: implement state component key (well known)
+
         pre_state_services = self.state.services
         pre_state_authorizer_queues = self.state.authorizer_queues
         pre_state_privileged_services = self.state.privileged_services
@@ -295,6 +306,12 @@ class PyjamazApp:
             current_epoch=pre_state_timeslot.epoch_number(),
             current_validators=pre_state_validator_pool.validators,
             prev_validators=pre_state_validator_archive.validators
+        )
+
+        # Validate quality of preimage extrinsic data
+        self.components.services.validate_extrinsic_preimages(
+            extrinsic_preimages=block.extrinsic.preimages,
+            pre_state_services=pre_state_services
         )
 
         # Timeslot STF Block Data | GP-0.5.0-eq:4.5
@@ -382,11 +399,11 @@ class PyjamazApp:
         )
 
         # Services After Preimages STF Block Data | GP-0.5.0-eq:??
-        #services_after_preimages_output = services.state_transition_after_preimages(
-        #    extrinsic_preimages=block.extrinsic.preimages,
-        #    pre_state_services=pre_state_services,
-        #    post_state_timeslot=timeslot_output.post_state
-        #)
+        services_after_preimages_output = self.components.services.state_transition_after_preimages(
+           extrinsic_preimages=block.extrinsic.preimages,
+           pre_state_services=pre_state_services,
+           post_state_timeslot=timeslot_output.post_state
+        )
 
         self.block_context.set_guarantor_assignments(
             post_entropy=entropy_output.post_state,
@@ -763,19 +780,25 @@ class PyjamazApp:
 
 class StateComponents:
 
-    def __init__(self, storage_engine: StorageEngine, config: AppConfig, block_context: BlockContext):
+    def __init__(
+            self,
+            storage_engine: StorageEngine,
+            config: AppConfig,
+            block_context: BlockContext,
+            app_context: AppContext
+    ):
 
-        self.timeslot = Timeslot(storage_engine, block_context)
-        self.recent_history = RecentHistory(storage_engine, block_context)
-        self.entropy = Entropy(storage_engine, block_context)
-        self.disputes = Disputes(storage_engine, block_context)
-        self.assurances = Assurances(storage_engine, block_context)
-        self.validator_archive = ValidatorArchive(storage_engine, block_context)
-        self.validator_pool = ValidatorPool(storage_engine, block_context)
-        self.safrole = Safrole(storage_engine, block_context, config.ring_data)
-        self.validator_queue = ValidatorQueue(storage_engine, block_context)
-        self.statistics = Statistics(storage_engine, block_context)
-        self.services = Services(storage_engine, block_context)
-        self.authorizer_queues = AuthorizerQueues(storage_engine, block_context)
-        self.privileged_services = PrivilegedServices(storage_engine, block_context)
-        self.authorizer_pools = AuthorizerPools(storage_engine, block_context)
+        self.timeslot = Timeslot(storage_engine, block_context, app_context)
+        self.recent_history = RecentHistory(storage_engine, block_context, app_context)
+        self.entropy = Entropy(storage_engine, block_context, app_context)
+        self.disputes = Disputes(storage_engine, block_context, app_context)
+        self.assurances = Assurances(storage_engine, block_context, app_context)
+        self.validator_archive = ValidatorArchive(storage_engine, block_context, app_context)
+        self.validator_pool = ValidatorPool(storage_engine, block_context, app_context)
+        self.safrole = Safrole(storage_engine, block_context, app_context, config.ring_data)
+        self.validator_queue = ValidatorQueue(storage_engine, block_context, app_context)
+        self.statistics = Statistics(storage_engine, block_context, app_context)
+        self.services = Services(storage_engine, block_context, app_context)
+        self.authorizer_queues = AuthorizerQueues(storage_engine, block_context, app_context)
+        self.privileged_services = PrivilegedServices(storage_engine, block_context, app_context)
+        self.authorizer_pools = AuthorizerPools(storage_engine, block_context, app_context)
