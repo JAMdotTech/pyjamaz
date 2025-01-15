@@ -9,7 +9,8 @@ from pyjamaz.hashing import keccak_256_hash
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
-    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO
+    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
+    MINIMUM_BALANCE_OCTET
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 
@@ -341,7 +342,7 @@ class ServiceAccount(Serializable):
 
     @classmethod
     def from_serialized_bytes(cls, serialized_bytes: bytes) -> 'ServiceAccount':
-        return ServiceAccount(
+        service_account = ServiceAccount(
             code_hash=serialized_bytes[0:32],
             balance=U64.decode(JamBytes(serialized_bytes[32:40])),
             gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
@@ -353,6 +354,11 @@ class ServiceAccount(Serializable):
             preimages={},
             preimage_availability={},
         )
+        service_account.threshold_balance = (
+                MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * service_account.footprint_storage_items +
+                MINIMUM_BALANCE_OCTET * service_account.footprint_storage_bytes
+        )
+        return service_account
 
     def to_serialized_bytes(self) -> bytes:
         serialized_bytes = self.code_hash

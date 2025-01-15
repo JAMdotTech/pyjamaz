@@ -1613,10 +1613,29 @@ class Services(StateComponent):
         -------
 
         """
-        for preimage in extrinsic_preimages:
-            if not self.is_preimage_needed(preimage, pre_state_services):
-                raise StateTransitionError(ServicesErrorCode.preimage_unneeded)
+        if len(extrinsic_preimages) > 0:
+            if not self.are_preimages_unique(extrinsic_preimages):
+                raise StateTransitionError(ServicesErrorCode.preimages_not_unique)
 
+            # GP-0.5.4-eq:12.31
+            for preimage in extrinsic_preimages:
+                if not self.is_preimage_needed(preimage, pre_state_services):
+                    raise StateTransitionError(ServicesErrorCode.preimage_unneeded)
+
+    @staticmethod
+    def are_preimages_unique(preimages: List[Preimage]) -> bool:
+        """
+        GP-0.5.4-eq:12.29 | Are all preimages unique?
+
+        Parameters
+        ----------
+        preimages: List[Preimage]
+
+        Returns
+        -------
+        bool
+        """
+        return len(preimages) != len({(p.requester, p.blob) for p in preimages})
 
     def state_transition_after_preimages(
             self,
@@ -1645,6 +1664,7 @@ class Services(StateComponent):
 
         intermediate_state_services_after_preimages = deepcopy(pre_state_services)
 
+        # GP-0.5.4-eq:12.33
         for preimage in extrinsic_preimages:
             # Store preimage
             self.store_service_preimage(preimage)
@@ -1709,6 +1729,7 @@ class Services(StateComponent):
 
     def is_preimage_needed(self, preimage: Preimage, pre_state_services: ServicesState) -> bool:
         """
+        GP-0.5.4-eq:12.30 | Is preimage needed
 
         Parameters
         ----------
