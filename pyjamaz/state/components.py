@@ -1635,7 +1635,7 @@ class Services(StateComponent):
         -------
         bool
         """
-        return len(preimages) != len({(p.requester, p.blob) for p in preimages})
+        return len(preimages) == len({(p.requester, p.blob) for p in preimages})
 
     def state_transition_after_preimages(
             self,
