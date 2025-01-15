@@ -8,6 +8,7 @@ from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
 from pyjamaz.settings import TEST_SUITE
+from pyjamaz.state.base import AppContext
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.block import Header, Assurance, BlockContext
@@ -60,8 +61,9 @@ class TestAssurances(unittest.TestCase):
         # Prepare block context
         block_context = BlockContext()
         block_context.initialize()
+        app_context = AppContext()
 
-        assurances = Assurances(self.storage_engine, block_context)
+        assurances = Assurances(self.storage_engine, block_context, app_context)
         try:
 
             assurances.validate_after_disputes(

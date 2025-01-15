@@ -8,6 +8,7 @@ from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
 from pyjamaz.settings import TEST_SUITE
+from pyjamaz.state.base import AppContext
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.block import Header, Guarantee, BlockContext
@@ -32,6 +33,7 @@ class TestReports(unittest.TestCase):
     def setUpClass(cls):
         cls.storage_engine = InMemoryStorage()
         cls.block_context = BlockContext()
+        cls.app_context = AppContext()
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -106,7 +108,7 @@ class TestReports(unittest.TestCase):
         )
 
 
-        assurances = Assurances(self.storage_engine, self.block_context)
+        assurances = Assurances(self.storage_engine, self.block_context, self.app_context)
         try:
             assurances.validate_guarantees(
                 extrinsic_guarantees=extrinsic_guarantees,

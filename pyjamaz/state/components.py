@@ -5,6 +5,7 @@ from typing import List, Union, Optional, Set
 
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
 from ed25519_zebra import ed_verify
+from jamcodec.types import Vec, U32
 
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
@@ -12,23 +13,24 @@ from jamcodec.base import JamBytes
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Ed25519Keypair
-from pyjamaz.storage import StorageEngine
+from pyjamaz.storage import StorageEngine, Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
     AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput, \
-    DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage
+    DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage, ServicesErrorCode
 
-from pyjamaz.state.base import StateComponent
-from pyjamaz.exceptions import StateTransitionError, BlockValidationError
+from pyjamaz.state.base import StateComponent, state_key_constructor_service_account, state_key_constructor_preimage, \
+    state_key_constructor_preimage_availability, AppContext
+from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
     Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
-    AccumulationHistoryState
+    AccumulationHistoryState, ServiceAccount
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -241,8 +243,14 @@ class ValidatorArchive(StateComponent):
 class Safrole(StateComponent):
     component_id = 4
 
-    def __init__(self, storage_engine: StorageEngine, block_context: BlockContext, ring_data: bytes):
-        super().__init__(storage_engine, block_context)
+    def __init__(
+        self,
+        storage_engine: StorageEngine,
+        block_context: BlockContext,
+        app_context: AppContext,
+        ring_data: bytes
+    ):
+        super().__init__(storage_engine, block_context, app_context)
         self.ring_data = ring_data
         self.post_state_safrole = None
 
@@ -1587,6 +1595,48 @@ class Statistics(StateComponent):
 class Services(StateComponent):
     # component_id = 255
 
+    def validate_extrinsic_preimages(
+            self,
+            extrinsic_preimages: List[Preimage],
+            pre_state_services: ServicesState,
+    ):
+        """
+        Validate quality of extrinsic preimages.
+        TODO Emiel: check if pre_state_services is correct, should be after accumulate?
+
+        Parameters
+        ----------
+        extrinsic_preimages
+        pre_state_services
+
+        Returns
+        -------
+
+        """
+        if len(extrinsic_preimages) > 0:
+            if not self.are_preimages_unique(extrinsic_preimages):
+                raise StateTransitionError(ServicesErrorCode.preimages_not_unique)
+
+            # GP-0.5.4-eq:12.31
+            for preimage in extrinsic_preimages:
+                if not self.is_preimage_needed(preimage, pre_state_services):
+                    raise StateTransitionError(ServicesErrorCode.preimage_unneeded)
+
+    @staticmethod
+    def are_preimages_unique(preimages: List[Preimage]) -> bool:
+        """
+        GP-0.5.4-eq:12.29 | Are all preimages unique?
+
+        Parameters
+        ----------
+        preimages: List[Preimage]
+
+        Returns
+        -------
+        bool
+        """
+        return len(preimages) == len({(p.requester, p.blob) for p in preimages})
+
     def state_transition_after_preimages(
             self,
             extrinsic_preimages: List[Preimage],
@@ -1611,8 +1661,23 @@ class Services(StateComponent):
         ServicesAfterPreimagesOutput
             Output containing: Intermediate state after processing Preimages of ServicesState (δ†)
         """
-        # Todo: properly set intermediate_state_services_after_preimages by implementing STF
-        intermediate_state_services_after_preimages = pre_state_services
+
+        intermediate_state_services_after_preimages = deepcopy(pre_state_services)
+
+        # GP-0.5.4-eq:12.33
+        for preimage in extrinsic_preimages:
+            # Store preimage
+            self.store_service_preimage(preimage)
+
+            # Update availability information
+            self.store_service_preimage_availability(
+                service_account_id=preimage.requester,
+                preimage_hash=blake2b_256_hash(preimage.blob),
+                preimage_length=len(preimage.blob),
+                value=[post_state_timeslot.number]
+            )
+
+
         return ServicesAfterPreimagesOutput(
             intermediate_state_after_preimages=intermediate_state_services_after_preimages
         )
@@ -1662,6 +1727,130 @@ class Services(StateComponent):
             beefy_commitment_map=BeefyCommitmentMap({})
         )
 
+    def is_preimage_needed(self, preimage: Preimage, pre_state_services: ServicesState) -> bool:
+        """
+        GP-0.5.4-eq:12.30 | Is preimage needed
+
+        Parameters
+        ----------
+        preimage
+        pre_state_services
+
+        Returns
+        -------
+        bool
+        """
+        preimage_hash = blake2b_256_hash(preimage.blob)
+
+        # Check if preimage isn't already available
+        if pre_state_services.preimage_exists(preimage.requester, preimage_hash, self.storage_engine):
+            return False
+
+        # Check if preimage is requested
+        try:
+            preimage_availability = pre_state_services.retrieve_preimage_availability(
+                preimage.requester, preimage_hash, len(preimage.blob), self.storage_engine
+            )
+            return preimage_availability == []
+        except StateKeyNoResult:
+            return False
+
+
     def retrieve_state(self) -> ServicesState:
-        value = self.retrieve()
-        return ServicesState.from_jam_bytes(JamBytes(value))
+        # State is retrieve per service
+        return ServicesState(services={})
+
+    def store_service_account(self,
+        service_account_id: int,
+        service_account: ServiceAccount,
+    ):
+        """
+        Stores a service account
+
+        Parameters
+        ----------
+        service_account_id
+        service_account
+
+        Returns
+        -------
+
+        """
+        state_key = state_key_constructor_service_account(service_account_id)
+
+        if self.app_context.transaction is not None:
+            self.app_context.transaction.put(state_key, service_account.to_serialized_bytes())
+        else:
+            self.storage_engine.put(state_key, service_account.to_serialized_bytes())
+
+    def store_service_preimage(self, preimage: Preimage):
+        """
+        Stores a preimage for a service account
+
+        Parameters
+        ----------
+        preimage
+        transaction
+
+        Returns
+        -------
+
+        """
+        state_key = state_key_constructor_preimage(
+            service_account_id=preimage.requester,
+            preimage_hash=blake2b_256_hash(preimage.blob)
+        )
+
+        if self.app_context.transaction is not None:
+            self.app_context.transaction.put(state_key, preimage.blob)
+        else:
+            self.storage_engine.put(state_key, preimage.blob)
+
+    def store_service_preimage_availability(self,
+        service_account_id: int,
+        preimage_hash: bytes,
+        preimage_length: int,
+        value: List[int]
+    ):
+        """
+        Stores the availability status for a preimage for a service account
+
+        Parameters
+        ----------
+        service_account_id
+        preimage_hash
+        preimage_length
+        value
+        transaction
+
+        Returns
+        -------
+
+        """
+        state_key = state_key_constructor_preimage_availability(
+            service_account_id=service_account_id,
+            preimage_hash=preimage_hash,
+            preimage_length=preimage_length
+        )
+
+        encoded_value = Vec(U32).encode(value).to_bytes()
+
+        if self.app_context.transaction is not None:
+            self.app_context.transaction.put(state_key, encoded_value)
+        else:
+            self.storage_engine.put(state_key, encoded_value)
+
+    def store_state(self, state: ServicesState, transaction: Optional[Transaction] = None):
+        """
+        State for services are stored per service account
+
+        Parameters
+        ----------
+        state
+        transaction
+
+        Returns
+        -------
+
+        """
+        return

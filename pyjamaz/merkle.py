@@ -147,6 +147,7 @@ class MerkleMountainRange:
         elif len(peaks) == 1:
             return peaks[0]
         else:
+            # TODO GP-0.5.4 return keccak_256_hash(b'peak' + self.super_peak(peaks[:-1]) + peaks[-1])
             return keccak_256_hash(b'node' + self.super_peak(peaks[:-1]) + peaks[-1])
 
 
