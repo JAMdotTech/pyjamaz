@@ -485,26 +485,45 @@ class AuthorizerPools(StateComponent):
             pre_state_authorizer_pools: AuthorizerPoolsState
     ) -> AuthorizerPoolsOutput:
         """
-        GP-0.5.0-eq:8.2,8.3 (α') | State transition function for the state's authorizer pools.
+        GP-0.5.4-eq:8.2,8.3 (α') | State transition function for the state's authorizer pools.
 
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.19 (bold_H)
+            GP-0.5.4-eq:4.19 (bold_H)
         extrinsic_guarantees: List[Guarantee]
-            GP-0.5.0-eq:4.19 (bold_E_G)
+            GP-0.5.4-eq:4.19 (bold_E_G)
         post_state_authorizer_queues: AuthorizerQueuesState
-            GP-0.5.0-eq:4.19 (φ')
+            GP-0.5.4-eq:4.19 (φ')
         pre_state_authorizer_pools: AuthorizerPoolsState
-            GP-0.5.0-eq:4.19 (α)
+            GP-0.5.4-eq:4.19 (α)
 
         Returns
         -------
         AuthorizerPoolsOutput
             Output containing: Posterior state of AuthorizerPoolsState (α')
         """
-        # Todo: properly set post_state by implementing STF
-        post_state_authorizer_pools = pre_state_authorizer_pools
+        post_state_authorizer_pools = deepcopy(pre_state_authorizer_pools)
+
+        # GP-0.5.4-eq:8.3 | Remove used authorizations
+        for guarantee in extrinsic_guarantees:
+            try:
+                post_state_authorizer_pools.authorizer_pools[guarantee.report.core_index].remove(
+                    guarantee.report.authorizer_hash
+                )
+            except ValueError:
+                raise StateTransitionError(GuaranteeErrorCode.core_unauthorized)
+
+        # GP-0.5.4-eq:8.2 | Update authorizations from queue
+        for core_index in range(gp_const.CORE_COUNT):
+            offset = header.timeslot % gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
+
+            post_state_authorizer_pools.authorizer_pools[core_index].append(
+                post_state_authorizer_queues.authorizer_queues[core_index][offset]
+            )
+            if len(post_state_authorizer_pools.authorizer_pools[core_index]) > gp_const.MAXIMIM_AUTHORIZATION_POOL_ITEMS:
+                post_state_authorizer_pools.authorizer_pools[core_index] = post_state_authorizer_pools.authorizer_pools[core_index][1:]
+
         return AuthorizerPoolsOutput(
             post_state=post_state_authorizer_pools
         )

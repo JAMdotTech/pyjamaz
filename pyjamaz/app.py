@@ -238,15 +238,6 @@ class PyjamazApp:
 
         return self.latest_epoch != slotnumber // EPOCH_TIMESLOTS
 
-    def validate_extrinsic(self, extrinsic: Extrinsic):
-        pass
-        # Disputes.validate_extrinsic_disputes(
-        #     disputes=extrinsic.disputes,
-        #     current_epoch=self.state.timeslot.epoch_number(),
-        #     current_validators=self.state.validator_pool.validators,
-        #     prev_validators=self.state.validator_archive.validators
-        # )
-
     def validate_block(self, block: Block):
 
         # Check extrinsic hash
@@ -254,7 +245,6 @@ class PyjamazApp:
             raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
 
         self.validate_header(block.header)
-        self.validate_extrinsic(block.extrinsic)
 
     async def state_transition(self, block: 'Block', transaction: Transaction, dry_run=False) -> 'STFOutput':
         """
@@ -450,14 +440,15 @@ class PyjamazApp:
         #    pre_state_authorizer_queues=pre_state_authorizer_queues
         #)
 
-        # AuthorizerPools STF Block Data | GP-0.5.0-eq:4.19
-        #authorizer_pools_output = authorizer_pools.state_transition(
-        #    header=block.header,
-        #    extrinsic_guarantees=block.extrinsic.guarantees,
-        #    # Todo: posterior state of authorizer_queues determined by service accumulation (privileged_services)
-        #    post_state_authorizer_queues=authorizer_queues_output.post_state,
-        #    pre_state_authorizer_pools=pre_state_authorizer_pools
-        #)
+        # AuthorizerPools STF Block Data | GP-0.5.4-eq:4.19
+        authorizer_pools_output = self.components.authorizer_pools.state_transition(
+           header=block.header,
+           extrinsic_guarantees=block.extrinsic.guarantees,
+           # Todo: posterior state of authorizer_queues determined by service accumulation (privileged_services)
+           # post_state_authorizer_queues=authorizer_queues_output.post_state,
+           post_state_authorizer_queues=pre_state_authorizer_queues,
+           pre_state_authorizer_pools=pre_state_authorizer_pools
+        )
 
         # RecentHistory STF Block Data | GP-0.5.0-eq:4.17
         recent_history_output = self.components.recent_history.state_transition(
@@ -480,6 +471,7 @@ class PyjamazApp:
             self.state.assurances = assurances_output.post_state
             self.state.recent_history = recent_history_output.post_state
             self.state.statistics = statistics_output.post_state
+            self.state.authorizer_pools = authorizer_pools_output.post_state
 
             # TODO only set local memory self.state not write to DB if not finalized
             self.components.timeslot.store_state(timeslot_output.post_state, transaction)
@@ -490,10 +482,11 @@ class PyjamazApp:
             self.components.safrole.store_state(safrole_output.post_state, transaction)
             self.components.assurances.store_state(assurances_output.post_state, transaction)
             self.components.statistics.store_state(statistics_output.post_state, transaction)
-            # Todo: add remaining state components: recent_history, services, authorizer_pools
+            # Todo: add remaining state components: services
             # Todo: research but likely also add posterior state of privileged services output (validator_queue, authorization_queues, privileged_services)
             # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root (deprecated by previous todo)
             self.components.recent_history.store_state(recent_history_output.post_state, transaction)
+            self.components.authorizer_pools.store_state(authorizer_pools_output.post_state, transaction)
 
         return STFOutput(
             epoch_mark=safrole_output.epoch_mark,
