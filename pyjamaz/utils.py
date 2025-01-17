@@ -112,3 +112,9 @@ def guarantor_permute(entropy: bytes, timeslot: int) -> List[int]:
         entropy=entropy
     )
     return guarantor_rotation(core_indices, floor(timeslot % EPOCH_TIMESLOTS / ROTATION_PERIOD_CORE))
+
+def vrf_input_ticket_seal(entropy: bytes, ticket_attempt: int) -> bytes:
+    return b"jam_ticket_seal" + entropy + int.to_bytes(ticket_attempt, byteorder='little', length=1)
+
+def vrf_input_fallback_seal(entropy: bytes) -> bytes:
+    return b"jam_fallback_seal" + entropy
