@@ -6,6 +6,7 @@ import os
 import shutil
 import socket
 from doctest import debug
+from uuid import bytes_
 
 import anyio
 import ipaddress
@@ -38,27 +39,29 @@ default_db_path = path.join(data_dir, 'db')
 
 logger = logging.getLogger(__name__)
 
-
-def ipv6_to_byte_array(ipv6_str):
+def ipv6_to_byte_array(ip_str):
     """
-    Converts an IPv6 string into a 16-byte array.
+    Converts an IPv4 or IPv6 string into a byte array.
 
     Args:
-        ipv6_str (str): The IPv6 address as a string.
+        ip_str (str): The IP address as a string.
 
     Returns:
-        bytearray: A 16-byte array representing the IPv6 address.
+        tuple: A tuple containing a byte array representing the IP address and the zone index (if present).
 
     Raises:
-        ValueError: If the input is not a valid IPv6 address.
+        ValueError: If the input is not a valid IP address.
     """
     try:
-        # Parse the IPv6 address
-        ipv6 = ipaddress.IPv6Address(ipv6_str)
-        # Convert to packed binary format (16 bytes)
-        return bytearray(ipv6.packed)
+        if ":" in ip_str:  # Likely an IPv6 address
+            ip = ipaddress.IPv6Address(ip_str.split('%')[0])
+            zone = ip_str.split('%')[1] if '%' in ip_str else None
+            return bytearray(ip.packed), zone
+        else:  # Likely an IPv4 address
+            ip = ipaddress.IPv4Address(ip_str)
+            return bytearray(ip.packed), None
     except ipaddress.AddressValueError:
-        raise ValueError(f"Invalid IPv6 address: {ipv6_str}")
+        raise ValueError(f"Invalid IP: {ip_str}")
 
 async def initialize_app(
         read_state=True,
@@ -205,12 +208,13 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                         # The validators' IP-layer endpoints are given as IPv6/port combinations,
                         # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
                         # the latter 2 being a little endian representation of the port.
-                        hex_data = validator.metadata.hex()
-                        ip_data = bytes.fromhex(hex_data[:32])
-                        port_data = bytes.fromhex(hex_data[32:36])
-                        validator_address = socket.inet_ntop(socket.AF_INET6, ip_data)
-                        validator_port = int.from_bytes(port_data, 'little')
-                        #if validator_port == port:
+                        bytes_data = validator.metadata
+                        validator_port = int.from_bytes(bytes_data[16:18], byteorder='little')
+                        if bytes_data[4:16] == bytes(12):
+                            validator_address = str(ipaddress.IPv4Address(bytes(bytes_data[:4])))
+                        else:
+                            #TODO: FIX: validator_address = socket.inet_ntop(socket.AF_INET6, ip_data)
+                            validator_address = socket.inet_ntop(socket.AF_INET6, bytes_data[:16]) #str(ipaddress.IPv6Address(bytes_data[:16]))
 
                         if validator.ed25519 == app.config.keys.ed25519.public_key:
                             logger.debug(
@@ -294,7 +298,14 @@ def generate(seed, ip, port):
 
     validator_keys = Keys.from_seed(bytes.fromhex(seed[2:]))
     metadata = bytearray(128)
-    metadata[0:16] = ipv6_to_byte_array(ip)
+    enc, zone = ipv6_to_byte_array(ip)
+    if len(enc) == 4:
+        metadata[0:4] = enc
+    elif len(enc) == 16:
+        metadata[0:16] = enc
+    else:
+        raise Exception("Invalid IP")
+
     metadata[16:18] = int(port).to_bytes(2, 'little')
 
     key_data = {
