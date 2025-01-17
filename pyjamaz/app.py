@@ -114,17 +114,20 @@ class PyjamazApp:
         block_list = [Block.from_json(block_data) for block_data in data]
         for block in block_list:
             self.import_queue.append(Block.from_codec_type(block))
+            logger.info(f"📦 Queue block requested #{block.header.timeslot}")
         await self.process_import_queue()
-        logger.debug(f"📦 Importing blocks from json requested", data)
 
 
     async def requested_blocks_from_bytes(self, data):
         block_list = Vec(Block.to_codec_def()).new()
         block_list.decode(JamBytes(data))
-        for block in block_list:
-            self.import_queue.append(Block.from_codec_type(block))
+        for block_bytes in block_list:
+            block = Block.from_codec_type(block_bytes)
+            self.import_queue.append(block)
+            logger.info(f"📦 Imported block requested #{block.header.timeslot}")
+
         await self.process_import_queue()
-        logger.debug(f"📦 Importing blocks requested", data)
+
 
 
     async def debug_import_block(self, traces_dir, block):

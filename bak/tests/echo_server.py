@@ -27,7 +27,7 @@ async def main():
 
     print("Starting server on ::1:4433")
     server = await serve(
-        "::1", 4433, configuration=configuration, create_protocol=EchoServerProtocol
+        "::1", 9000, configuration=configuration, create_protocol=EchoServerProtocol
     )
 
     # Keep the server running

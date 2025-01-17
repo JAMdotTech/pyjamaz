@@ -32,7 +32,7 @@ async def main():
     # Connect to the server and use the EchoClientProtocol
     async with connect(
         "::1",
-        4433,
+        9000,
         configuration=configuration,
         create_protocol=EchoClientProtocol,
     ) as protocol:

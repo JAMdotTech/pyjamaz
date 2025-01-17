@@ -141,7 +141,6 @@ class ServerProtocol(JAMNPSProtocol):
                             self._reset_msg()
 
                         case JAMNPS.MSG.CE128_BlockRequest.value:
-                            print("SERVER RECEIVED BLOCKSREQUEST: ", self._msg_buffer)
                             logger.debug(f'ServerProtocol RECEIVED NEW BLOCKSREQUEST!!!!!')
                             direction = 1#self._msg_buffer[self._msg_offset:self._msg_offset+1]
                             max_blocks = 100 #self._msg_buffer[self._msg_offset+1:self._msg_offset+1+4]
@@ -162,6 +161,9 @@ class ServerProtocol(JAMNPSProtocol):
                             block_list = Vec(Block.to_codec_def()).new()
                             #TODO: optimize!! :S
                             serialized_blocks = block_list.encode([b.to_json() for b in blocks])
+
+                            logger.debug(
+                                f"ServerProtocol Block Requests sending {len(blocks)} blocks")
 
                             self._quic.send_stream_data(
                                 self.stream_up_0,
@@ -314,6 +316,7 @@ class JAMNPS(ProtocolType):
         )
 
     async def listen(self):
+        logger.debug(f'Listening on {self.host}:{self.port}')
         await serve(
             self.host,
             self.port,
@@ -356,7 +359,8 @@ class JAMNPS(ProtocolType):
 
     async def request_blocks(self, direction, max_blocks, block_bytes):
         #TODO: temp hack, should be provided with a specific peer?
-        conn = list(self.conn_out.keys())[0]
+        conn_key = list(self.conn_out.keys())[0]
+        conn = self.conn_out[conn_key]
         await conn.send_blocks_request(0, 100, block_bytes)
 
     async def broadcast_block(self, block):

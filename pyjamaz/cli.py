@@ -8,7 +8,7 @@ import socket
 from doctest import debug
 
 import anyio
-
+import ipaddress
 import time
 from os import path
 
@@ -38,6 +38,27 @@ default_db_path = path.join(data_dir, 'db')
 
 logger = logging.getLogger(__name__)
 
+
+def ipv6_to_byte_array(ipv6_str):
+    """
+    Converts an IPv6 string into a 16-byte array.
+
+    Args:
+        ipv6_str (str): The IPv6 address as a string.
+
+    Returns:
+        bytearray: A 16-byte array representing the IPv6 address.
+
+    Raises:
+        ValueError: If the input is not a valid IPv6 address.
+    """
+    try:
+        # Parse the IPv6 address
+        ipv6 = ipaddress.IPv6Address(ipv6_str)
+        # Convert to packed binary format (16 bytes)
+        return bytearray(ipv6.packed)
+    except ipaddress.AddressValueError:
+        raise ValueError(f"Invalid IPv6 address: {ipv6_str}")
 
 async def initialize_app(
         read_state=True,
@@ -103,7 +124,7 @@ async def initialize_app(
 @click.option('--record-traces', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-@click.option('--host', 'host', type=str, default="::", show_default=True, help='Host address to listnen on')
+@click.option('--host', 'host', type=str, default="::1", show_default=True, help='Host address to listnen on')
 @click.option('--certificate', 'certificate', type=str, help='Certificate')
 @click.option('--private-key', 'private_key', type=str, help='Private key')
 async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, custom_db_path, verbose, host, certificate, private_key):
@@ -231,9 +252,14 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
                 block = await app.produce_block(timeslot)
 
                 # Notify listeners a new block is produced
-                pubsub.send_stream.send_nowait(
-                    {"message_type": MESSAGE_TYPES.IMPORT_BLOCK, "data": block.to_jam_bytes().to_bytes()})
-                pubsub.send_stream.send_nowait({"message_type": MESSAGE_TYPES.PRODUCED_BLOCK, "data": block})
+                pubsub.send_stream.send_nowait({
+                    "message_type": MESSAGE_TYPES.IMPORT_BLOCK,
+                    "data": block.to_jam_bytes().to_bytes()
+                })
+                pubsub.send_stream.send_nowait({
+                    "message_type": MESSAGE_TYPES.PRODUCED_BLOCK,
+                    "data": block
+                 })
 
                 logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
             except Exception as e:
@@ -259,20 +285,26 @@ async def keys():
 
 @keys.command()
 @click.argument('seed', type=str)
-def generate(seed):
+@click.argument('ip', type=str)
+@click.argument('port', type=int)
+def generate(seed, ip, port):
     """
     Generate serialized validator data for given SEED
     """
 
     validator_keys = Keys.from_seed(bytes.fromhex(seed[2:]))
+    metadata = bytearray(128)
+    metadata[0:16] = ipv6_to_byte_array(ip)
+    metadata[16:18] = int(port).to_bytes(2, 'little')
 
     key_data = {
         "bandersnatch": f"0x{validator_keys.bandersnatch.public_key.hex()}",
         "ed25519": f"0x{validator_keys.ed25519.public_key.hex()}",
         "bls": f"0x{bytes(144).hex()}",
-        "bandersnatch_priv": f"0x{validator_keys.bandersnatch.private_key.hex()}",
-        "ed25519_priv": f"0x{validator_keys.ed25519.private_key.hex()}",
-        "bls_priv": f"0x{bytes(32).hex()}",
+        "metadata": f"0x{metadata.hex()}",
+        # "bandersnatch_priv": f"0x{validator_keys.bandersnatch.private_key.hex()}",
+        # "ed25519_priv": f"0x{validator_keys.ed25519.private_key.hex()}",
+        # "bls_priv": f"0x{bytes(32).hex()}",
     }
 
     click.echo(json.dumps(key_data, indent=2))
