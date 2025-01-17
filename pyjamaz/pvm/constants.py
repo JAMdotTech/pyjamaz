@@ -101,94 +101,124 @@ class Opcode(Enum):
     move_reg: np.uint8                                  = np.uint8(100)
     sbrk: np.uint8                                      = np.uint8(101)
 
+    #!!!!!!!!!!!
+    count_set_bits_64: np.uint8                         = np.uint8(102) #TODO:NEW->TEST
+    count_set_bits_32: np.uint8                         = np.uint8(103) #TODO:NEW->TEST
+    leading_zero_bits_64: np.uint8                      = np.uint8(104) #TODO:NEW->TEST
+    leading_zero_bits_32: np.uint8                      = np.uint8(105) #TODO:NEW->TEST
+    trailing_zero_bits_64: np.uint8                     = np.uint8(106) #TODO:NEW->TEST
+    trailing_zero_bits_32: np.uint8                     = np.uint8(107) #TODO:NEW->TEST
+    sign_extend_8: np.uint8                             = np.uint8(108) #TODO:NEW->TEST
+    sign_extend_16: np.uint8                            = np.uint8(109) #TODO:NEW->TEST
+    zero_extend_16: np.uint8                            = np.uint8(110) #TODO:NEW->TEST
+    reverse_bytes: np.uint8                             = np.uint8(111) #TODO:NEW->TEST
+
     # GP_A.5.10
     # Instructions with Arguments Of Two Registers & One Immediate (reg_reg_imm)
-    store_ind_u8: np.uint8                              = np.uint8(110)
-    store_ind_u16: np.uint8                             = np.uint8(111)
-    store_ind_u32: np.uint8                             = np.uint8(112)
-    store_ind_u64: np.uint8                             = np.uint8(113) #TODO:NEW->TEST
-    load_ind_u8: np.uint8                               = np.uint8(114)
-    load_ind_i8: np.uint8                               = np.uint8(115)
-    load_ind_u16: np.uint8                              = np.uint8(116)
-    load_ind_i16: np.uint8                              = np.uint8(117)
-    load_ind_u32: np.uint8                              = np.uint8(118)
-    load_ind_i32: np.uint8                              = np.uint8(119) #TODO:NEW->TEST
-    load_ind_u64: np.uint8                              = np.uint8(120) #TODO:NEW->TEST
-    add_imm_32: np.uint8                                = np.uint8(121) #TODO:NEW->TEST
-    and_imm: np.uint8                                   = np.uint8(122)
-    xor_imm: np.uint8                                   = np.uint8(123)
-    or_imm: np.uint8                                    = np.uint8(124)
-    mul_imm_32: np.uint8                                = np.uint8(125) #TODO:NEW->TEST
-    set_lt_u_imm: np.uint8                              = np.uint8(126)
-    set_lt_s_imm: np.uint8                              = np.uint8(127)
-    shlo_l_imm_32: np.uint8                             = np.uint8(128) #TODO:NEW->TEST
-    shlo_r_imm_32: np.uint8                             = np.uint8(129) #TODO:NEW->TEST
-    shar_r_imm_32: np.uint8                             = np.uint8(130) #TODO:NEW->TEST
-    neg_add_imm_32: np.uint8                            = np.uint8(131) #TODO:NEW->TEST
-    set_gt_u_imm: np.uint8                              = np.uint8(132)
-    set_gt_s_imm: np.uint8                              = np.uint8(133)
-    shlo_l_imm_alt_32: np.uint8                         = np.uint8(134) #TODO:NEW->TEST
-    shlo_r_imm_alt_32: np.uint8                         = np.uint8(135) #TODO:NEW->TEST
-    shar_r_imm_alt_32: np.uint8                         = np.uint8(136) #TODO:NEW->TEST
-    cmov_iz_imm: np.uint8                               = np.uint8(137)
-    cmov_nz_imm: np.uint8                               = np.uint8(138)
-    add_imm_64: np.uint8                                = np.uint8(139) #TODO:NEW->TEST
-    mul_imm_64: np.uint8                                = np.uint8(140) #TODO:NEW->TEST
-    shlo_l_imm_64: np.uint8                             = np.uint8(141) #TODO:NEW->TEST
-    shlo_r_imm_64: np.uint8                             = np.uint8(142) #TODO:NEW->TEST
-    shar_r_imm_64: np.uint8                             = np.uint8(143) #TODO:NEW->TEST
-    neg_add_imm_64: np.uint8                            = np.uint8(144) #TODO:NEW->TEST
-    shlo_l_imm_alt_64: np.uint8                         = np.uint8(145) #TODO:NEW->TEST
-    shlo_r_imm_alt_64: np.uint8                         = np.uint8(146) #TODO:NEW->TEST
-    shar_r_imm_alt_64: np.uint8                         = np.uint8(147) #TODO:NEW->TEST
-    #mul_upper_s_s_imm: np.uint8                         = np.uint8(65) TODO:DEPRECATED?
-    #mul_upper_u_u_imm: np.uint8                         = np.uint8(63) TODO:DEPRECATED?
+    store_ind_u8: np.uint8                              = np.uint8(120)
+    store_ind_u16: np.uint8                             = np.uint8(121)
+    store_ind_u32: np.uint8                             = np.uint8(122)
+    store_ind_u64: np.uint8                             = np.uint8(123) #TODO:NEW->TEST
+    load_ind_u8: np.uint8                               = np.uint8(124)
+    load_ind_i8: np.uint8                               = np.uint8(125)
+    load_ind_u16: np.uint8                              = np.uint8(126)
+    load_ind_i16: np.uint8                              = np.uint8(127)
+    load_ind_u32: np.uint8                              = np.uint8(128)
+    load_ind_i32: np.uint8                              = np.uint8(129) #TODO:NEW->TEST
+    load_ind_u64: np.uint8                              = np.uint8(130) #TODO:NEW->TEST
+    add_imm_32: np.uint8                                = np.uint8(131) #TODO:NEW->TEST
+    and_imm: np.uint8                                   = np.uint8(132)
+    xor_imm: np.uint8                                   = np.uint8(133)
+    or_imm: np.uint8                                    = np.uint8(134)
+    mul_imm_32: np.uint8                                = np.uint8(135) #TODO:NEW->TEST
+    set_lt_u_imm: np.uint8                              = np.uint8(136)
+    set_lt_s_imm: np.uint8                              = np.uint8(137)
+    shlo_l_imm_32: np.uint8                             = np.uint8(138) #TODO:NEW->TEST
+    shlo_r_imm_32: np.uint8                             = np.uint8(139) #TODO:NEW->TEST
+    shar_r_imm_32: np.uint8                             = np.uint8(140) #TODO:NEW->TEST
+    neg_add_imm_32: np.uint8                            = np.uint8(141) #TODO:NEW->TEST
+    set_gt_u_imm: np.uint8                              = np.uint8(142)
+    set_gt_s_imm: np.uint8                              = np.uint8(143)
+    shlo_l_imm_alt_32: np.uint8                         = np.uint8(144) #TODO:NEW->TEST
+    shlo_r_imm_alt_32: np.uint8                         = np.uint8(145) #TODO:NEW->TEST
+    shar_r_imm_alt_32: np.uint8                         = np.uint8(146) #TODO:NEW->TEST
+    cmov_iz_imm: np.uint8                               = np.uint8(147)
+    cmov_nz_imm: np.uint8                               = np.uint8(148)
+    add_imm_64: np.uint8                                = np.uint8(149) #TODO:NEW->TEST
+    mul_imm_64: np.uint8                                = np.uint8(150) #TODO:NEW->TEST
+    shlo_l_imm_64: np.uint8                             = np.uint8(151) #TODO:NEW->TEST
+    shlo_r_imm_64: np.uint8                             = np.uint8(152) #TODO:NEW->TEST
+    shar_r_imm_64: np.uint8                             = np.uint8(153) #TODO:NEW->TEST
+    neg_add_imm_64: np.uint8                            = np.uint8(154) #TODO:NEW->TEST
+    shlo_l_imm_alt_64: np.uint8                         = np.uint8(155) #TODO:NEW->TEST
+    shlo_r_imm_alt_64: np.uint8                         = np.uint8(156) #TODO:NEW->TEST
+    shar_r_imm_alt_64: np.uint8                         = np.uint8(157) #TODO:NEW->TEST
+
+    #!!!!!!!!!!!!!!!!!!!!!!!!!!
+    rot_r_64_imm: np.uint8                              = np.uint8(158) #TODO:NEW->TEST!!!!!!!!!!!!!
+    rot_r_64_imm_alt: np.uint8                          = np.uint8(159) #TODO:NEW->TEST
+    rot_r_32_imm: np.uint8                              = np.uint8(160) #TODO:NEW->TEST
+    rot_r_32_imm_alt: np.uint8                          = np.uint8(161) #TODO:NEW->TEST
+
 
     # GP_A.5.11
     # Instructions with Arguments of Two Registers & One Offset (reg_reg_offset)
-    branch_eq: np.uint8                                 = np.uint8(150)
-    branch_ne: np.uint8                                 = np.uint8(151)
-    branch_lt_u: np.uint8                               = np.uint8(152)
-    branch_lt_s: np.uint8                               = np.uint8(153)
-    branch_ge_u: np.uint8                               = np.uint8(154)
-    branch_ge_s: np.uint8                               = np.uint8(155)
+    branch_eq: np.uint8                                 = np.uint8(170)
+    branch_ne: np.uint8                                 = np.uint8(171)
+    branch_lt_u: np.uint8                               = np.uint8(172)
+    branch_lt_s: np.uint8                               = np.uint8(173)
+    branch_ge_u: np.uint8                               = np.uint8(174)
+    branch_ge_s: np.uint8                               = np.uint8(175)
 
     # GP_A.5.12
     # Instructions with Arguments Of Two Registers And Two Immediates (reg_reg_imm_imm_
-    load_imm_jump_ind: np.uint8                         = np.uint8(160)
+    load_imm_jump_ind: np.uint8                         = np.uint8(180)
 
     # GP_A.5.13
     # Instructions with Arguments Of Three Registers (reg_reg_reg)
-    add_32: np.uint8                                    = np.uint8(170) #TODO:NEW->TEST
-    sub_32: np.uint8                                    = np.uint8(171) #TODO:NEW->TEST
-    mul_32: np.uint8                                    = np.uint8(172) #TODO:NEW->TEST
-    div_u_32: np.uint8                                  = np.uint8(173) #TODO:NEW->TEST
-    div_s_32: np.uint8                                  = np.uint8(174) #TODO:NEW->TEST
-    rem_u_32: np.uint8                                  = np.uint8(175) #TODO:NEW->TEST
-    rem_s_32: np.uint8                                  = np.uint8(176) #TODO:NEW->TEST
-    shlo_l_32: np.uint8                                 = np.uint8(177) #TODO:NEW->TEST
-    shlo_r_32: np.uint8                                 = np.uint8(178) #TODO:NEW->TEST
-    shar_r_32: np.uint8                                 = np.uint8(179) #TODO:NEW->TEST
-    add_64: np.uint8                                    = np.uint8(180) #TODO:NEW->TEST
-    sub_64: np.uint8                                    = np.uint8(181) #TODO:NEW->TEST
-    mul_64: np.uint8                                    = np.uint8(182) #TODO:NEW->TEST
-    div_u_64: np.uint8                                  = np.uint8(183) #TODO:NEW->TEST
-    div_s_64: np.uint8                                  = np.uint8(184) #TODO:NEW->TEST
-    rem_u_64: np.uint8                                  = np.uint8(185) #TODO:NEW->TEST
-    rem_s_64: np.uint8                                  = np.uint8(186) #TODO:NEW->TEST
-    shlo_l_64: np.uint8                                 = np.uint8(187) #TODO:NEW->TEST
-    shlo_r_64: np.uint8                                 = np.uint8(188) #TODO:NEW->TEST
-    shar_r_64: np.uint8                                 = np.uint8(189) #TODO:NEW->TEST
-    _and: np.uint8                                      = np.uint8(190)
-    xor: np.uint8                                       = np.uint8(191)
-    _or: np.uint8                                       = np.uint8(192)
-    mul_upper_s_s: np.uint8                             = np.uint8(193) #TODO:NEW->TEST
-    mul_upper_u_u: np.uint8                             = np.uint8(194) #TODO:NEW->TEST
-    mul_upper_s_u: np.uint8                             = np.uint8(195) #TODO:NEW->TEST
-    set_lt_u: np.uint8                                  = np.uint8(196) #TODO:NEW->TEST
-    set_lt_s: np.uint8                                  = np.uint8(197) #TODO:NEW->TEST
-    cmov_iz: np.uint8                                   = np.uint8(198) #TODO:NEW->TEST
-    cmov_nz: np.uint8                                   = np.uint8(199) #TODO:NEW->TEST
+    add_32: np.uint8                                    = np.uint8(190) #TODO:NEW->TEST
+    sub_32: np.uint8                                    = np.uint8(191) #TODO:NEW->TEST
+    mul_32: np.uint8                                    = np.uint8(192) #TODO:NEW->TEST
+    div_u_32: np.uint8                                  = np.uint8(193) #TODO:NEW->TEST
+    div_s_32: np.uint8                                  = np.uint8(194) #TODO:NEW->TEST
+    rem_u_32: np.uint8                                  = np.uint8(195) #TODO:NEW->TEST
+    rem_s_32: np.uint8                                  = np.uint8(196) #TODO:NEW->TEST
+    shlo_l_32: np.uint8                                 = np.uint8(197) #TODO:NEW->TEST
+    shlo_r_32: np.uint8                                 = np.uint8(198) #TODO:NEW->TEST
+    shar_r_32: np.uint8                                 = np.uint8(199) #TODO:NEW->TEST
+    add_64: np.uint8                                    = np.uint8(200) #TODO:NEW->TEST
+    sub_64: np.uint8                                    = np.uint8(201) #TODO:NEW->TEST
+    mul_64: np.uint8                                    = np.uint8(202) #TODO:NEW->TEST
+    div_u_64: np.uint8                                  = np.uint8(203) #TODO:NEW->TEST
+    div_s_64: np.uint8                                  = np.uint8(204) #TODO:NEW->TEST
+    rem_u_64: np.uint8                                  = np.uint8(205) #TODO:NEW->TEST
+    rem_s_64: np.uint8                                  = np.uint8(206) #TODO:NEW->TEST
+    shlo_l_64: np.uint8                                 = np.uint8(207) #TODO:NEW->TEST
+    shlo_r_64: np.uint8                                 = np.uint8(208) #TODO:NEW->TEST
+    shar_r_64: np.uint8                                 = np.uint8(209) #TODO:NEW->TEST
+    _and: np.uint8                                      = np.uint8(210)
+    xor: np.uint8                                       = np.uint8(211)
+    _or: np.uint8                                       = np.uint8(212)
+    mul_upper_s_s: np.uint8                             = np.uint8(213) #TODO:NEW->TEST
+    mul_upper_u_u: np.uint8                             = np.uint8(214) #TODO:NEW->TEST
+    mul_upper_s_u: np.uint8                             = np.uint8(215) #TODO:NEW->TEST
+    set_lt_u: np.uint8                                  = np.uint8(216) #TODO:NEW->TEST
+    set_lt_s: np.uint8                                  = np.uint8(217) #TODO:NEW->TEST
+    cmov_iz: np.uint8                                   = np.uint8(218) #TODO:NEW->TEST
+    cmov_nz: np.uint8                                   = np.uint8(219) #TODO:NEW->TEST
+
+    #!!!!!!!!!!!!!!!!
+    rot_l_64: np.uint8                                  = np.uint8(220) #TODO:NEW->TEST!!!!!!!!!!!!!
+    rot_l_32: np.uint8                                  = np.uint8(221) #TODO:NEW->TEST
+    rot_r_64: np.uint8                                  = np.uint8(222) #TODO:NEW->TEST
+    rot_r_32: np.uint8                                  = np.uint8(223) #TODO:NEW->TEST
+    and_inv: np.uint8                                   = np.uint8(224) #TODO:NEW->TEST
+    or_inv: np.uint8                                    = np.uint8(225) #TODO:NEW->TEST
+    xnor: np.uint8                                      = np.uint8(226) #TODO:NEW->TEST
+    _max: np.uint8                                      = np.uint8(227) #TODO:NEW->TEST
+    max_u: np.uint8                                     = np.uint8(228) #TODO:NEW->TEST
+    _min: np.uint8                                      = np.uint8(229) #TODO:NEW->TEST
+    min_u: np.uint8                                     = np.uint8(230) #TODO:NEW->TEST
 
 
 """

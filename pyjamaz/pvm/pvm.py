@@ -12,7 +12,12 @@ from .utils import (
     pvm_X,
     pvm_Z_inv,
     read_uint,
-    write_uint
+    write_uint,
+    count_trailing_zeroes,
+    count_leading_zeroes,
+    reverse_bytes,
+    rori64,
+    rori32
 )
 
 from .constants import (
@@ -437,6 +442,47 @@ class PVM:
                         #case op.sbrk.value:
                         #!!!!!!! TODO: implementeer wanneer memory management is geimplementeerd
 
+                        # TODO: NO_TEST:
+                        case op.count_set_bits_64:
+                            self.reg[r_d] = np.bitwise_count(self.reg[r_a])
+
+                        # TODO: NO_TEST:
+                        case op.count_set_bits_32:
+                            self.reg[r_d] = np.bitwise_count(np.uint32(self.reg[r_a]))
+
+                        # TODO: NO_TEST:
+                        case op.leading_zero_bits_64:
+                            v = self.reg[r_a]
+                            self.reg[r_d] = count_leading_zeroes(self.reg[r_a])
+
+                        # TODO: NO_TEST:
+                        case op.leading_zero_bits_32:
+                            self.reg[r_d] = count_leading_zeroes(np.uint32(self.reg[r_a]), 32)
+
+                        # TODO: NO_TEST:
+                        case op.trailing_zero_bits_64:
+                            self.reg[r_d] = count_trailing_zeroes(self.reg[r_a])
+
+                        # TODO: NO_TEST:
+                        case op.trailing_zero_bits_32:
+                            self.reg[r_d] = count_trailing_zeroes(np.uint32(self.reg[r_a]), 32)
+
+                        # TODO: NO_TEST:
+                        case op.sign_extend_8:
+                            self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a], 1), 8)
+
+                        # TODO: NO_TEST:
+                        case op.sign_extend_16:
+                            self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a], 1), 8)
+
+                        # TODO: NO_TEST:
+                        case op.zero_extend_16:
+                            self.reg[r_d] = self.reg[r_a] % 2**16
+
+                        # TODO: NO_TEST:
+                        case op.reverse_bytes:
+                            self.reg[r_d] = reverse_bytes(self.reg[r_a])
+
                         case _:
                             raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
@@ -620,12 +666,17 @@ class PVM:
                             # TODO: NEW->NEEDS TEST
                             self.reg[r_a] = pvm_Z_inv(floor(pvm_Z(v_x, 8) / 2**(w_b % 64)), 8)
 
-                        #TODO:DEPRECATED in GP:0.5.0
-                        # case op.mul_upper_s_s_imm.value:
-                        #     self.reg[r_a] = pvm_Z_inv((np.uint32(pvm_Z(w_b, 4) * pvm_Z(v_x, 4)) / 2 ** 32), 4)
-                        #TODO:DEPRECATED in GP:0.5.0
-                        # case op.mul_upper_u_u_imm.value:
-                        #     self.reg[r_a] = np.uint32((w_b * v_x) / 2 ** 32)
+                        case op.rot_r_64_imm:
+                            self.reg[r_a] = rori64(w_b, v_x)
+
+                        case op.rot_r_64_imm_alt:
+                            self.reg[r_a] = rori64(v_x, w_b)
+
+                        case op.rot_r_32_imm:
+                            return pvm_X(rori32(np.uint32(w_b), np.uint32(v_x)), 4)
+
+                        case op.rot_r_32_imm_alt:
+                            return pvm_X(rori32(np.uint32(v_x), np.uint32(w_b)), 4)
 
                         case _:
                             raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")

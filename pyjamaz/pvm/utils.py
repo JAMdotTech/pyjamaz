@@ -4,7 +4,45 @@ import numpy.typing as npt
 from pyjamaz.pvm.exceptions import UIntValueError
 
 
-#gp_0.3.6_eq_223
+# rori -> (x >> shift_amount)∣(x << (NRBITS−shift_amount))
+def rori64(x, shift_amount):
+    return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
+
+def rori32(x, shift_amount):
+    return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
+
+def reverse_bytes(x):
+    y = 0
+    y |= (x & 0x00000000000000FF) << 8 * 7
+    y |= (x & 0x000000000000FF00) << 8 * 5
+    y |= (x & 0x0000000000FF0000) << 8 * 3
+    y |= (x & 0x00000000FF000000) << 8 * 1
+    y |= (x & 0x000000FF00000000) >> 8 * 1
+    y |= (x & 0x0000FF0000000000) >> 8 * 3
+    y |= (x & 0x00FF000000000000) >> 8 * 5
+    y |= (x & 0xFF00000000000000) >> 8 * 7
+    return y
+
+def count_trailing_zeroes(value, max_bits=64):
+    #https://stackoverflow.com/a/63552117
+    #https://github.com/numpy/numpy/issues/16325
+    #alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
+    return (value & -value).bit_length() - 1
+
+
+def count_leading_zeroes(value, max_bits=64):
+    #https://stackoverflow.com/a/71888844
+    #https://github.com/numpy/numpy/issues/16325
+    #alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
+    top_bit = 1 << (max_bits - 1)
+    count = 0
+    value &= (1 << max_bits) - 1
+    while not value & top_bit:
+       count += 1
+       value <<= 1
+    return count
+
+
 def pvm_X(x:np.uint32, n:np.uint8) -> np.uint32:
     """
     Converts number into a signed number using the MSB
@@ -49,24 +87,6 @@ def pvm_Z_inv(a:np.int32, n:np.uint8):
     return ((2**(8*n)) + a) % (2**(8*n))
 
 
-# def pvm_B(x, n):
-#     """
-#     Transforms an integer x from the range [0, 2^(8n)) into a bit array y of length 8n.
-#     """
-#     # Ensure x is within the valid range
-#     max_value = 2 ** (8 * n)
-#     if not (0 <= x < max_value):
-#         raise ValueError(f"x must be in the range [0, {max_value - 1}] for the given n={n}")
-#
-#     # Initialize the bit array y with zeros
-#     bit_array = np.zeros(8 * n, dtype=int)
-#
-#     # Fill the bit array using the formula y[i] = (x // (2^i)) % 2
-#     for i in range(8 * n):
-#         bit_array[i] = (x // (2 ** i)) % 2
-#
-#     return bit_array
-
 def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
     if l == 1:
         return np.uint64(source[addr + 0]) % 2**8
@@ -74,12 +94,12 @@ def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         return np.uint64((byte1 << 8) + byte0) % 2**16
-    elif l == 3:
-        #TODO: do 3 byte ints appear? (scale encoded maybe?)
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        return np.uint64((byte2 << 16) + (byte1 << 8) + byte0)  % 2**32
+    # elif l == 3:
+    #     #TODO: do 3 byte ints appear? (scale encoded maybe?)
+    #     byte0 = np.uint8(source[addr + 0])
+    #     byte1 = np.uint16(source[addr + 1])
+    #     byte2 = np.uint32(source[addr + 2])
+    #     return np.uint64((byte2 << 16) + (byte1 << 8) + byte0)  % 2**32
     elif l == 4:
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
