@@ -127,9 +127,7 @@ async def initialize_app(
 @click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--host', 'host', type=str, default="::1", show_default=True, help='Host address to listnen on')
-@click.option('--certificate', 'certificate', type=str, help='Certificate')
-@click.option('--private-key', 'private_key', type=str, help='Private key')
-async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, custom_db_path, verbose, host, certificate, private_key):
+async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, custom_db_path, verbose, host):
     """PyJAMaz: Python JAM Client"""
 
     # Setup logging
@@ -195,7 +193,9 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                     pubsub.subscribe(MESSAGE_TYPES.BLOCK_REQUEST, app.requested_blocks_from_json)
                     tg.start_soon(fs_protocol.listen)
                 else:
-                    nps_protocol = JAMNPS(host, port, certificate, private_key, pubsub, app)
+                    certificate_file = os.path.join(db_path, "cert.pem")
+                    pk_file = os.path.join(db_path, "cert.key")
+                    nps_protocol = JAMNPS(host, port, certificate_file, pk_file, pubsub, app)
                     app.protocol = nps_protocol
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, nps_protocol.broadcast_block)
                     pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK, app.import_block_from_bytes)

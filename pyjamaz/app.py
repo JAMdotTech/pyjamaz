@@ -767,21 +767,21 @@ class PyjamazApp:
         if timeslot % EPOCH_TIMESLOTS > 0:
             entropy = self.state.entropy.entropy[2]
 
-            if self.extrinsic.can_add_own_ticket(timeslot):
-
-                ring_public_keys = [v.bandersnatch for v in self.state.safrole.validators]
-
-                self.extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
-                )
-
-                self.extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
-                )
-
-                self.extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
-                )
+            # if self.extrinsic.can_add_own_ticket(timeslot):
+            #
+            #     ring_public_keys = [v.bandersnatch for v in self.state.safrole.validators]
+            #
+            #     self.extrinsic.add_own_ticket(
+            #         ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+            #     )
+            #
+            #     self.extrinsic.add_own_ticket(
+            #         ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+            #     )
+            #
+            #     self.extrinsic.add_own_ticket(
+            #         ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+            #     )
 
         extrinsic = Extrinsic(
             tickets=self.extrinsic.collect_tickets(),
