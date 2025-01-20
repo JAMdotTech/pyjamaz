@@ -31,7 +31,7 @@ from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
 
 T = TypeVar('T')
 
-logger = logging.getLogger(__name__)
+#logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -89,7 +89,7 @@ class PyjamazApp:
 
 
     async def import_block_from_bytes(self, data):
-        logger.debug(f"📦 Importing block from bytes")
+        logging.debug(f"📦 Importing block from bytes")
         block = Block.from_jam_bytes(JamBytes(data))
         self.import_queue.append(block)
 
@@ -106,11 +106,11 @@ class PyjamazApp:
             # Note: If we are able to find the parent of this block, it means we are synced and we can process blocks
             await self.process_import_queue()
         else:
-            logger.info(f"Syncing in progress, current timeslot={self.state.timeslot.number}")
+            logging.info(f"Syncing in progress, current timeslot={self.state.timeslot.number}")
 
 
     async def import_block_from_json(self, data, traces_dir):
-        logger.debug(f"📦 Importing block from json")
+        logging.debug(f"📦 Importing block from json")
         block = Block.from_json(data)
         await self.debug_import_block(self, traces_dir, block)
 
@@ -119,7 +119,7 @@ class PyjamazApp:
         block_list = [Block.from_json(block_data) for block_data in data]
         for block in block_list:
             self.import_queue.append(Block.from_codec_type(block))
-            logger.info(f"📦 Queue block requested #{block.header.timeslot}")
+            logging.info(f"📦 Queue block requested #{block.header.timeslot}")
         await self.process_import_queue()
 
 
@@ -129,7 +129,6 @@ class PyjamazApp:
         for block_bytes in block_list:
             block = Block.from_codec_type(block_bytes)
             self.import_queue.append(block)
-            logger.info(f"📦 Imported block requested #{block.header.timeslot}")
 
         await self.process_import_queue()
 
@@ -146,10 +145,10 @@ class PyjamazApp:
             if traces_dir:
                 await self.store_trace(pre_state, block, traces_dir)
 
-            logger.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
-            logger.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+            logging.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
+            logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
         else:
-            logger.info(
+            logging.info(
                 f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {self.state.timeslot.number}, should produce block: {self.should_produce_block()})")
 
 
@@ -161,11 +160,10 @@ class PyjamazApp:
         for block in sorted_blocks:
             # TODO:
             if self.state.timeslot.number >= block.header.timeslot:
-                #logger.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
-                print("HUHUHUHUHUHUH")
+                #logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
                 continue
             await self.import_block(block)
-            logger.debug(f" Imported block from process_import_queue: {block.header.timeslot}")
+            logging.debug(f" Imported block from process_import_queue: {block.header.timeslot}")
 
 
     def retrieve_jam_state(self):
