@@ -271,6 +271,11 @@ class StatisticsOutput(Serializable):
     post_state: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
 
 
+class ServicesErrorCode(Serializable, enum.Enum):
+    preimage_unneeded = 0
+    preimages_not_unique = 1
+
+
 @dataclass
 # TODO: Possibly deprecated since GP-0.5.0
 class ServicesAfterPreimagesOutput(Serializable):

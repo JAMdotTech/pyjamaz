@@ -1,16 +1,22 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple, Union
 
+from jamcodec.base import JamBytes
+
+from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import keccak_256_hash
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
-    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO
+    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
+    MINIMUM_BALANCE_OCTET
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 
-from pyjamaz.state.base import State
+from pyjamaz.state.base import State, StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
+    state_key_constructor_storage_item, state_key_constructor_preimage_availability
+from pyjamaz.storage import StorageEngine
 
 
 @dataclass
@@ -257,6 +263,39 @@ class RecentHistoryState(State, Serializable):
         #  GP-0.5.0-eq:D.2-C(3) states encoding is a Vec (i.e. has length definition)
         pass
 
+class StorageItemMap(StorageMap):
+    def __init__(self, service_account_id: int , storage_engine: StorageEngine):
+
+        super().__init__(
+            storage_engine=storage_engine,
+            storage_key_func=lambda key: state_key_constructor_storage_item(service_account_id, key),
+            storage_value_func=lambda data, key: data
+        )
+
+class PreimageMap(StorageMap):
+    def __init__(self, service_account_id: int , storage_engine: StorageEngine):
+
+        super().__init__(
+            storage_engine=storage_engine,
+            storage_key_func=lambda key: state_key_constructor_preimage(service_account_id, key),
+            storage_value_func=lambda data, key: data
+        )
+
+class PreimageAvailabilityMap(StorageMap):
+    def __init__(self, service_account_id: int , storage_engine: StorageEngine):
+
+        def storage_value_func(data: bytes, key: int) -> List[int]:
+            obj = Vec(U32).new()
+            obj.decode(JamBytes(data))
+            return obj.value
+
+        super().__init__(
+            storage_engine=storage_engine,
+            storage_key_func=lambda key: state_key_constructor_preimage_availability(
+                service_account_id=service_account_id, preimage_hash=key[0], preimage_length=key[1]
+            ),
+            storage_value_func=storage_value_func
+        )
 
 @dataclass
 class ServiceAccount(Serializable):
@@ -284,7 +323,7 @@ class ServiceAccount(Serializable):
         GP-0.5.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
     preimages: Dict(H256,Bytes)
         GP-0.5.2-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
-    preimage_availability: Dict(Tuple(H256,U32),Bytes)
+    preimage_availability: Dict(Tuple(H256,U32), Vec<U32>)
         GP-0.5.2-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
     """
     # Remark: Only the following field need to be serialized/deserialized
@@ -295,24 +334,59 @@ class ServiceAccount(Serializable):
     footprint_storage_items: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U32})
     threshold_balance: int = field(metadata={'codec': U64})
-    storage_items: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
-    preimages: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
-    # Todo: GP states the Dict has a tuple as key. Needs to be resolved when getter function for preimage_availability
-    # gets implemented or when kv-db storage gets implemented.
-    # preimage_availability: Dict[PyTuple[bytes, int], List[int]] = field(metadata={'codec': Map(Tuple(H256, U32), Vec(U32))})
-    preimage_availability: Dict[bytes, List[int]] = field(metadata={'codec': Map(Array(U8, 36), Vec(U32))})
+    storage_items: Union[Dict[bytes, bytes], StorageItemMap] = field(metadata={'codec': Map(H256, Bytes)})
+    preimages: Union[Dict[bytes, bytes], PreimageMap] = field(metadata={'codec': Map(H256, Bytes)})
+    preimage_availability: Union[Dict[Tuple[bytes, int], List[int]], PreimageAvailabilityMap] = field(metadata={
+        'codec': Map(JamTuple(H256, U32), Vec(U32))}
+    )
 
-    # placeholder for storage item getter; host-function: OMEGA_R (read)
-    def get_storage_item(self):
-        pass
+    @classmethod
+    def from_serialized_bytes(cls, serialized_bytes: bytes) -> 'ServiceAccount':
+        service_account = ServiceAccount(
+            code_hash=serialized_bytes[0:32],
+            balance=U64.decode(JamBytes(serialized_bytes[32:40])),
+            gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
+            gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[48:56])),
+            footprint_storage_items=U64.decode(JamBytes(serialized_bytes[56:64])),
+            footprint_storage_bytes=U32.decode(JamBytes(serialized_bytes[64:68])),
+            threshold_balance=0,
+            storage_items={},
+            preimages={},
+            preimage_availability={},
+        )
+        service_account.threshold_balance = (
+                MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * service_account.footprint_storage_items +
+                MINIMUM_BALANCE_OCTET * service_account.footprint_storage_bytes
+        )
+        return service_account
 
-    # placeholder for storage item setter; host-function: OMEGA_W (write)
-    def set_storage_item(self):
-        pass
+    def to_serialized_bytes(self) -> bytes:
+        serialized_bytes = self.code_hash
+        serialized_bytes += U64.encode(self.balance).to_bytes()
+        serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
+        serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
+        serialized_bytes += U64.encode(self.footprint_storage_items).to_bytes()
+        serialized_bytes += U32.encode(self.footprint_storage_bytes).to_bytes()
+        return serialized_bytes
 
-    # placeholder for preimage getter; host-function: OMEGA_L (lookup)
-    def get_preimage(self):
-        pass
+
+class ServiceAccountMap(StorageMap):
+    def __init__(self, storage_engine: StorageEngine):
+
+        def storage_value_func(data: bytes, key: int) -> ServiceAccount:
+            service_account = ServiceAccount.from_serialized_bytes(data)
+            service_account.storage_items = StorageItemMap(storage_engine=storage_engine, service_account_id=key)
+            service_account.preimages = PreimageMap(storage_engine=storage_engine, service_account_id=key)
+            service_account.preimage_availability = PreimageAvailabilityMap(
+                storage_engine=storage_engine, service_account_id=key
+            )
+            return service_account
+
+        super().__init__(
+            storage_engine=storage_engine,
+            storage_key_func=state_key_constructor_service_account,
+            storage_value_func=storage_value_func
+        )
 
 @dataclass
 class ServicesState(State, Serializable):
@@ -325,7 +399,116 @@ class ServicesState(State, Serializable):
         GP-0.5.2-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
         service account index.
     """
-    services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
+    services: Union[Dict[int, ServiceAccount], ServiceAccountMap] = field(
+        metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
+    )
+
+    def retrieve_service_account(
+            self,
+            service_account_id: int,
+            storage_engine: StorageEngine
+    ) -> Optional[ServiceAccount]:
+        storage_key = state_key_constructor_service_account(service_account_id)
+
+        data = storage_engine.get(storage_key)
+
+        if data is None:
+            raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
+
+        service_account = ServiceAccount.from_serialized_bytes(data)
+
+        self.services[service_account_id] = service_account
+
+        return service_account
+
+    def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes, storage_engine: StorageEngine) -> bytes:
+        """
+        Host-function OMEGA_L (lookup)
+
+        Parameters
+        ----------
+        service_account_id
+        preimage_hash
+        storage_engine
+
+        Returns
+        -------
+        bytes
+        """
+
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id, storage_engine)
+
+        storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
+
+        data = storage_engine.get(storage_key)
+
+        if data is None:
+            raise StateKeyNoResult(f'Preimage not found for hash {preimage_hash}')
+
+        self.services[service_account_id].preimages[preimage_hash] = data
+
+        return data
+
+    def preimage_exists(self, service_account_id: int, preimage_hash: bytes, storage_engine: StorageEngine) -> bool:
+        try:
+            self.retrieve_preimage(service_account_id, preimage_hash, storage_engine)
+            return True
+        except StateKeyNoResult:
+            return False
+
+    def retrieve_preimage_availability(
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, storage_engine: StorageEngine
+    ) -> bytes:
+
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id, storage_engine)
+
+        storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
+
+        data = storage_engine.get(storage_key)
+
+        if data is None:
+            raise StateKeyNoResult(
+                f'Preimage availability not found for hash {preimage_hash} and length {preimage_length}'
+            )
+
+        availability = Vec(U32).new()
+        availability.decode(JamBytes(data))
+
+        self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = availability.value
+
+        return availability.value
+
+    def retrieve_storage_item(
+            self, service_account_id: int, storage_item_hash: bytes, storage_engine: StorageEngine
+    ) -> bytes:
+        """
+        Host-function: OMEGA_R (read)
+
+        Parameters
+        ----------
+        service_account_id
+        storage_item_hash
+        storage_engine
+
+        Returns
+        -------
+        bytes
+        """
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id, storage_engine)
+
+        storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
+        data = storage_engine.get(storage_key)
+
+        if data is None:
+            raise StateKeyNoResult(
+                f'Storage item not found for hash {storage_item_hash} for service account {service_account_id}'
+            )
+        self.services[service_account_id].storage_items[storage_item_hash] = data
+
+        return data
 
 
 @dataclass
