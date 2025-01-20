@@ -8,8 +8,6 @@ from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.models.block import Block
 from pyjamaz.transport.types import ProtocolType
 
-logger = logging.getLogger("FSProtocol")
-
 
 class FSProtocol(ProtocolType):
 
@@ -50,7 +48,7 @@ class FSProtocol(ProtocolType):
                                     })
 
                     except Exception as e:
-                        logger.error(f"Failed to process {filepath}: {e}")
+                        logging.error(f"Failed to process {filepath}: {e}")
 
                 # Update the seen_files set to include the newly processed files
                 seen_files.update(new_files)

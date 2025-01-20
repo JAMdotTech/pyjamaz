@@ -31,8 +31,6 @@ from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
 
 T = TypeVar('T')
 
-#logger = logging.getLogger(__name__)
-
 
 @dataclass
 class Keys(Serializable):

@@ -37,7 +37,6 @@ from pyjamaz.transport.pubsub import PubSub
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
 
-logger = logging.getLogger(__name__)
 
 def ipv6_to_byte_array(ip_str):
     """
@@ -84,7 +83,7 @@ async def initialize_app(
             storage_engine = LevelDBStorage.create_from_file(custom_db_path or default_db_path)
 
     except IOError as e:
-        logger.error(f'Could not initialize storage engine: {str(e)}')
+        logging.error(f'Could not initialize storage engine: {str(e)}')
         exit(2)
 
     # Set common era
@@ -164,15 +163,15 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
         #TODO: define property on app
         app.network_bootstrap = network_bootstrap
 
-        logger.info(f'🥋 Starting PyJAMaz client, listening on port {port}')
-        logger.info(f'💾 Storage path: {db_path}')
-        logger.info(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
-        logger.info(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
-        logger.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
-        logger.info(f'🌲 State trie root: 0x{app.state_trie_root.hex()}')
-        logger.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
+        logging.info(f'🥋 Starting PyJAMaz client, listening on port {port}')
+        logging.info(f'💾 Storage path: {db_path}')
+        logging.info(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
+        logging.info(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
+        logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
+        logging.info(f'🌲 State trie root: 0x{app.state_trie_root.hex()}')
+        logging.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
-        logger.info(
+        logging.info(
             f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}'
             )
 
@@ -185,7 +184,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                 tg.start_soon(pubsub.process_messages)
 
                 if block_dir:
-                    logger.info(f"👀 Watching directory: {block_dir} for new blocks...")
+                    logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
                     fs_protocol = FSProtocol(block_dir, pubsub, app)
                     app.protocol = fs_protocol
                     pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, fs_protocol.broadcast_block)
@@ -221,14 +220,14 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                             validator_address = socket.inet_ntop(socket.AF_INET6, bytes_data[:16]) #str(ipaddress.IPv6Address(bytes_data[:16]))
 
                         if validator.ed25519 == app.config.keys.ed25519.public_key:
-                            logger.debug(
+                            logging.debug(
                                 f'Skipping own node ({validator_address}:{validator_port})'
                             )
                             continue
 
                         #TODO: for now we hardcode all nodes to be hosted on localhost
                         #validator_address = "localhost"
-                        logger.info(
+                        logging.info(
                             f'Connecting to node {validator_address}:{validator_port}'
                         )
                         tg.start_soon(nps_protocol.connect, validator_address, validator_port)
@@ -236,9 +235,9 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                 await anyio.sleep(ts - time.time())
                 tg.start_soon(timeslot_ticker, app, pubsub)
         except (KeyboardInterrupt, CancelledError):
-            logger.info("Stopping node...")
+            logging.info("Stopping node...")
         finally:
-            logger.info(f'Node stopped.')
+            logging.info(f'Node stopped.')
 
 
 async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
@@ -247,7 +246,7 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
         timeslot = app.current_timeslot()
 
         if app.state.timeslot.number >= timeslot:
-            logger.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
+            logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
             await anyio.sleep(0.1)
             continue
 
@@ -269,16 +268,16 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
                     "data": block
                  })
 
-                logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
+                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
             except Exception as e:
-                logger.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
+                logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                 # Rollback state from DB
                 app.state = app.retrieve_jam_state()
                 # TODO Make transactional
                 app.extrinsic.clear_tickets()
 
         else:
-            logger.info(f'💤 Waiting for block #{app.current_timeslot()} | epoch #{app.current_epoch()} | phase #{app.current_slot_phase_index()}')
+            logging.info(f'💤 Waiting for block #{app.current_timeslot()} | epoch #{app.current_epoch()} | phase #{app.current_slot_phase_index()}')
 
         await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
 
@@ -427,7 +426,7 @@ async def replay_traces(
         if not force_overwrite:
             click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
         shutil.rmtree(db_path)  # Delete the directory if it exists
-        logger.info(f"The database at '{db_path}' was deleted successfully.")
+        logging.info(f"The database at '{db_path}' was deleted successfully.")
     else:
         os.makedirs(db_path, exist_ok=True)
 
@@ -451,24 +450,24 @@ async def replay_traces(
             app.latest_epoch = app.state.timeslot.epoch_number()
 
             assert app.state_trie_root == trace.pre_state.state_root
-            logger.info(f'🎬 Genesis succesfully saved (state root: 0x{app.state_trie_root.hex()})')
+            logging.info(f'🎬 Genesis succesfully saved (state root: 0x{app.state_trie_root.hex()})')
 
-        logger.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: 0x{trace.block.header.hash.hex()})..')
+        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: 0x{trace.block.header.hash.hex()})..')
         try:
             await app.import_block(trace.block, validate=not skip_block_validation)
-            logger.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
+            logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
 
         except TransactionRolledBack as e:
-            logger.error(f'Failed to import block {trace.block.header.timeslot}: {e}')
+            logging.error(f'Failed to import block {trace.block.header.timeslot}: {e}')
             break
 
         if not only_block_import:
 
             if app.state_trie_root == trace.post_state.state_root:
-                logger.info(f'✅ State trie root matches (0x{trace.post_state.state_root.hex()})')
+                logging.info(f'✅ State trie root matches (0x{trace.post_state.state_root.hex()})')
             else:
-                logger.error(f'State root of trace {trace.post_state.state_root.hex()} does not match with current state {app.state_trie_root.hex()}')
-                logger.info('Dumping state differences:')
+                logging.error(f'State root of trace {trace.post_state.state_root.hex()} does not match with current state {app.state_trie_root.hex()}')
+                logging.info('Dumping state differences:')
                 actual_state = app.state.to_json()
 
                 for k, v in trace.post_state.keyvals:
@@ -481,7 +480,7 @@ async def replay_traces(
                     click.echo(json.dumps(state_diff, indent=2))
                     response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
                     if response.lower() == 'q':
-                        logger.info('✋ User aborted.')
+                        logging.info('✋ User aborted.')
                         break
 
 

@@ -20,9 +20,6 @@ from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.models.block import Block
 from pyjamaz.transport.types import ProtocolType
 
-logger = logging.getLogger("JAMNPSProtocol")
-logger.setLevel(logging.DEBUG) #TODO: tmp!
-
 
 def wrap_protocol(wrapper, protocol):
     def create_protocol(*args, **kwargs):
@@ -83,7 +80,7 @@ class ServerProtocol(JAMNPSProtocol):
             block_bytes)
         )
         self.transmit()
-        logger.debug(f"ServerProtocol Block announcement sent to stream {self.stream_up_0} ({len(block_bytes)})")
+        logging.debug(f"ServerProtocol Block announcement sent to stream {self.stream_up_0} ({len(block_bytes)})")
 
     def quic_event_received(self, event: QuicEvent):
         if isinstance(event, HandshakeCompleted):
@@ -95,20 +92,20 @@ class ServerProtocol(JAMNPSProtocol):
             self.client_id = id(self)
             self.wrapper.conn_in[self.client_id] = self  # Store reference for broadcasting
 
-            logger.info(f'ServerProtocol new connected client #{self.client_id}')
+            logging.info(f'ServerProtocol new connected client #{self.client_id}')
 
         #TODO: remove connections on connection closed/lost etc
 
         elif isinstance(event, StreamDataReceived):
-            logger.debug(f'Server received data: {event.data}')
+            logging.debug(f'Server received data: {event.data}')
 
             if self.stream_up_0 is None:
                 self.stream_up_0 = event.stream_id
-                logger.info(f'ServerProtocol new UP-0 stream ({self.stream_up_0}) for client #{self.client_id}')
+                logging.info(f'ServerProtocol new UP-0 stream ({self.stream_up_0}) for client #{self.client_id}')
 
             # if event.stream_id == self.stream_up_0:
             #     # Process incoming data (either handshake or announcement)
-            #     logger.info(f'ServerProtocol new UP-0 stream ({self.stream_up_0}) for client #{self.client_id}')
+            #     logging.info(f'ServerProtocol new UP-0 stream ({self.stream_up_0}) for client #{self.client_id}')
 
             byte_data = bytes(event.data)
             bytes_left = byte_data
@@ -123,7 +120,7 @@ class ServerProtocol(JAMNPSProtocol):
                     self._msg_type = int.from_bytes(byte_data[0:1], byteorder='little')
                     self._msg_offset = 5
                     self._msg_len = int.from_bytes(byte_data[1:5], byteorder='little') + self._msg_offset
-                    logger.debug(f'ServerProtocol new message {self._msg_type} ({self._msg_len} bytes)')
+                    logging.debug(f'ServerProtocol new message {self._msg_type} ({self._msg_len} bytes)')
 
                 nr_bytes_remaining = self._msg_len-len(self._msg_buffer)
                 if nr_bytes_remaining > 0:
@@ -141,12 +138,12 @@ class ServerProtocol(JAMNPSProtocol):
                             self._reset_msg()
 
                         case JAMNPS.MSG.CE128_BlockRequest.value:
-                            logger.debug(f'ServerProtocol RECEIVED NEW BLOCKSREQUEST!!!!!')
+                            logging.debug(f'ServerProtocol RECEIVED NEW BLOCKSREQUEST!!!!!')
                             direction = 1#self._msg_buffer[self._msg_offset:self._msg_offset+1]
                             max_blocks = 100 #self._msg_buffer[self._msg_offset+1:self._msg_offset+1+4]
                             block = Block.from_jam_bytes(JamBytes(self._msg_buffer[self._msg_offset:self._msg_len]))
 
-                            logger.debug(
+                            logging.debug(
                                 f"ServerProtocol Block Requests received {self.stream_up_0} direction: {direction}, max_blocks: {max_blocks}, block: {block.header.timeslot}")
 
                             blocks = []
@@ -163,7 +160,7 @@ class ServerProtocol(JAMNPSProtocol):
                             #TODO: optimize!! :S
                             serialized_blocks = block_list.encode([b.to_json() for b in blocks])
 
-                            logger.debug(
+                            logging.debug(
                                 f"ServerProtocol Block Requests sending {len(blocks)} blocks")
 
                             self._quic.send_stream_data(
@@ -200,11 +197,11 @@ class ClientProtocol(JAMNPSProtocol):
             data)
         )
         self.transmit()
-        logger.debug(f"ClientProtocol Block Requests sent to stream {self.stream_up_0} ({len(data)})")
+        logging.debug(f"ClientProtocol Block Requests sent to stream {self.stream_up_0} ({len(data)})")
 
 
     def quic_event_received(self, event: QuicEvent) -> None:
-        logger.debug(f'ClientProtocol received data')
+        logging.debug(f'ClientProtocol received data')
 
         if isinstance(event, StreamDataReceived):
 
@@ -224,7 +221,7 @@ class ClientProtocol(JAMNPSProtocol):
                     self._msg_type = int.from_bytes(byte_data[0:1], byteorder='little')
                     self._msg_offset = 5
                     self._msg_len = int.from_bytes(byte_data[1:5], byteorder='little') + self._msg_offset
-                    logger.debug(f'ClientProtocol new message {self._msg_type} (received {len(bytes_left)-5} of {self._msg_len} bytes)')
+                    logging.debug(f'ClientProtocol new message {self._msg_type} (received {len(bytes_left)-5} of {self._msg_len} bytes)')
 
                 nr_bytes_remaining = self._msg_len-len(self._msg_buffer)
                 self._msg_buffer += bytes_left[:nr_bytes_remaining]
@@ -244,7 +241,7 @@ class ClientProtocol(JAMNPSProtocol):
                                 self._reset_msg()
 
                             case JAMNPS.MSG.CE128_BlockRequest.value:
-                                logger.debug(f'ClientProtocol RECEIVED BLOCKSREQUEST DATA!!!!! {self._msg_len}')
+                                logging.debug(f'ClientProtocol RECEIVED BLOCKSREQUEST DATA!!!!! {self._msg_len}')
                                 self.wrapper.broadcaster.send_stream.send_nowait({
                                     "message_type": MESSAGE_TYPES.BLOCK_REQUEST,
                                     "data": self._msg_buffer[self._msg_offset:self._msg_len]
@@ -266,7 +263,7 @@ class ClientProtocol(JAMNPSProtocol):
             self.stream_up_0,
             self.build_handshake_message(),
         )
-        logger.debug(f'ClientProtocol Block announcement stream opened')
+        logging.debug(f'ClientProtocol Block announcement stream opened')
 
 
 class SessionTicketStore:
@@ -317,7 +314,7 @@ class JAMNPS(ProtocolType):
         )
 
     async def listen(self):
-        logger.debug(f'Listening on {self.host}:{self.port}')
+        logging.debug(f'Listening on {self.host}:{self.port}')
         await serve(
             self.host,
             self.port,
@@ -338,7 +335,7 @@ class JAMNPS(ProtocolType):
         configuration.load_cert_chain(certfile=self.cert, keyfile=self.pk)
         #configuration.idle_timeout = 300000  # Set idle timeout to 5 minutes
 
-        logger.info(f"ClientProtocol Connecting to {host}:{port}")
+        logging.info(f"ClientProtocol Connecting to {host}:{port}")
         try:
             async with connect(
                     host,
@@ -355,7 +352,7 @@ class JAMNPS(ProtocolType):
         except ConnectionError:
             if (host, port) in self.conn_out:
                 del self.conn_out[(host, port)]
-            logger.info(f"💩 ClientProtocol Cannot connect to {host}:{port}")
+            logging.info(f"💩 ClientProtocol Cannot connect to {host}:{port}")
 
 
     async def request_blocks(self, direction, max_blocks, block_bytes):
@@ -367,5 +364,5 @@ class JAMNPS(ProtocolType):
     async def broadcast_block(self, block):
         block_bytes = block.to_jam_bytes().to_bytes()
         for client_id, client in self.conn_in.items():
-            logger.debug(f"send block to client {client}")
+            logging.debug(f"send block to client {client}")
             await client.send_block_announcement(block_bytes)
