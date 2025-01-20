@@ -134,7 +134,6 @@ class PyjamazApp:
         await self.process_import_queue()
 
 
-
     async def debug_import_block(self, traces_dir, block):
         if block.header.timeslot > self.state.timeslot.number or (
                 self.state.timeslot.number == 0 and not self.should_produce_block()):

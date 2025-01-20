@@ -14,7 +14,7 @@ import time
 from os import path
 
 import asyncclick as click
-from asyncclick import BadParameter
+from asyncclick import BadParameter, MissingParameter
 from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
@@ -116,7 +116,6 @@ async def initialize_app(
 @click.pass_context
 @click.version_option(package_name='pyjamaz')
 @click.option('--seed', type=str,
-              default='0x0000000000000000000000000000000000000000000000000000000000000000',
               help='Seed to generate validator keys')
 @click.option('--port', type=int, default=9000, show_default=True, help='UDP port on which the validator should run')
 @click.option('--ts', type=int, help='Unix timestamp for when the validator starts.')
@@ -138,6 +137,11 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
     setup_logging(log_level)
 
     if ctx.invoked_subcommand is None:
+
+        if seed is None:
+            raise MissingParameter("--seed parameter is required")
+        elif not seed.startswith("0x") or len(seed) != 66:
+            raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
 
         if mode != 'safrole':
             raise BadParameter(f'{mode} is not supported yet')
@@ -326,37 +330,24 @@ def generate(seed, ip, port):
 @click.option('--genesis', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
-@click.option('--cert-seed', 'cert_seed', type=str)
-@click.option('--cert-file', 'cert_file', type=str)
-@click.option('--cert-pk-file', 'cert_pk_file', type=str)
-@click.option('--cert-ips', 'cert_ips', default="::", type=str)
-@click.option('--cert-domains', 'cert_domains', type=str)
-@click.option('--cert-country', 'cert_country', default="US", type=str)
-@click.option('--cert-state', 'cert_state', default="test state", type=str)
-@click.option('--cert-city', 'cert_city', default="test city", type=str)
-@click.option('--cert-organization', 'cert_organization', default="test", type=str)
-@click.option('--cert-website', 'cert_website', default="test.com", type=str)
+@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
 async def init(
         initial_state,
         genesis,
         custom_db_path,
         force_overwrite,
-        cert_seed,
-        cert_file,
-        cert_pk_file,
-        cert_ips,
-        cert_domains,
-        cert_country,
-        cert_state,
-        cert_city,
-        cert_organization,
-        cert_website,
+        seed
 ):
     """
     Clears all existing data and initializes the JAM client.
 
     Defaults to DEV initial state if none is provided.
     """
+
+    if seed is None:
+        raise MissingParameter("--seed parameter is required")
+    elif not seed.startswith("0x") or len(seed) != 66:
+        raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
 
     db_path = custom_db_path or default_db_path
     common_era = None
@@ -394,20 +385,21 @@ async def init(
     app = await initialize_app(read_state=False, custom_db_path=custom_db_path, common_era=common_era)
     await app.store_jam_state(jam_state)
 
-    keys = Keys.from_seed(bytes.fromhex(cert_seed))
+    keys = Keys.from_seed(bytes.fromhex(seed[2:]))
 
     pk_pem, cert_pem = generate_cert(
         keys,
-        cert_ips,
-        cert_domains,
-        cert_country,
-        cert_state,
-        cert_city,
-        cert_organization,
-        cert_website,
+        ips="0.0.0.0",
+        domains="test.com",
+        country="US",
+        state="CA",
+        city="LA",
+        organization="Test Corp",
+        website="test.com",
     )
-
-    write_cert(pk_pem, cert_pk_file, cert_pem, cert_file)
+    pk_file = os.path.join(db_path, "cert.key")
+    pem_file = os.path.join(db_path, "cert.pem")
+    write_cert(pk_pem, pk_file, cert_pem, pem_file)
 
     click.echo(f"✅ Initialization complete.")
 
