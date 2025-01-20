@@ -152,6 +152,7 @@ class ServerProtocol(JAMNPSProtocol):
                             blocks = []
                             #TODO: take direction and max_blocks into account
                             #TODO: we decode and serialize blocks unnecessary here, improve!
+                            #TODO: check the max blocks and a hardcoded max of X
                             while block.header.parent != bytes(32):
                                 block = self.wrapper.app.retrieve_block_by_hash(block.header.parent)
                                 if not block:

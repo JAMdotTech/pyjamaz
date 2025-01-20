@@ -159,6 +159,11 @@ class PyjamazApp:
             self.import_queue = []
 
         for block in sorted_blocks:
+            # TODO:
+            if self.state.timeslot.number >= block.header.timeslot:
+                #logger.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
+                print("HUHUHUHUHUHUH")
+                continue
             await self.import_block(block)
             logger.debug(f" Imported block from process_import_queue: {block.header.timeslot}")
 
