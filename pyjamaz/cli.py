@@ -129,9 +129,13 @@ async def initialize_app(
 async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, custom_db_path, verbose, host):
     """PyJAMaz: Python JAM Client"""
 
+    log_package_overrides = {
+        "pyjamaz.transport": logging.DEBUG
+    }
+
     # Setup logging
     log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level)
+    setup_logging(log_level, log_package_overrides)
 
     if ctx.invoked_subcommand is None:
 
@@ -147,9 +151,11 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
 
         network_bootstrap = ts is None
         if network_bootstrap:
-            # default start ts
-            current_time = time.time()
-            ts = int(current_time - (current_time % 6) + 12)
+            ts = 0
+
+        #TODO: currently it is not possible to provide a hard unix timestamp (only deltas)
+        current_time = time.time()
+        ts = (current_time // 6) * 6 + ts
 
         try:
             app = await initialize_app(
