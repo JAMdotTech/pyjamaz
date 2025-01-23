@@ -2,6 +2,9 @@ import json
 import os
 from typing import Optional
 
+from jamcodec.base import JamBytes
+from jamcodec.types import Vec, Tuple, H256, Bytes
+
 try:
     import rocksdb3
 except ImportError:
@@ -45,6 +48,9 @@ class StorageEngine:
     def namespace(self, prefix: bytes) -> 'StorageEngine':
         raise NotImplementedError
 
+    def dump_to_jam_bytes(self) -> JamBytes:
+        raise NotImplementedError
+
 
 class InMemoryTransaction(Transaction):
     def __init__(self, storage_engine: 'InMemoryStorage'):
@@ -83,6 +89,10 @@ class InMemoryStorage(StorageEngine):
 
     def namespace(self, prefix: bytes) -> 'InMemoryStorage':
         return InMemoryStorage(storage=self.storage, prefix=prefix + b'-')
+
+    def __iter__(self):
+        prefixed_db = {k[len(self.prefix):]: v for k, v in self.storage.items() if k.startswith(self.prefix)}
+        return iter(prefixed_db.items())
 
 
 class JSONTransaction(Transaction):
@@ -224,3 +234,19 @@ class LevelDBStorage(StorageEngine):
 
     def namespace(self, prefix: bytes) -> 'LevelDBStorage':
         return LevelDBStorage(db=self.db.prefixed_db(prefix + b'-'))
+
+    def dump_to_jam_bytes(self) -> JamBytes:
+        db_dump = [(k, v) for k, v in self.db]
+        genesis_data = Vec(Tuple(H256, Bytes)).new()
+        data = genesis_data.encode(db_dump)
+        value = genesis_data.decode(data)
+        return data
+
+    def restore_from_jam_bytes(self, data: JamBytes):
+        genesis_data = Vec(Tuple(H256, Bytes)).new()
+        genesis_data.decode(data)
+        for k, v in genesis_data:
+            self.put(bytes(k.value_object), bytes(v.value_object))
+
+    def __iter__(self):
+        return self.db.__iter__()

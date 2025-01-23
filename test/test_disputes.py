@@ -12,8 +12,8 @@ from os import path
 
 from pyjamaz.app import PyjamazApp, AppConfig
 from pyjamaz.exceptions import PyjamazAppError
+from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.base import State
-from pyjamaz.state.components import Disputes
 from pyjamaz.storage import InMemoryStorage
 
 from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes, Block
@@ -94,15 +94,15 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
         jam_state.validator_pool = ValidatorPoolState.from_json({"validators": test_vector['kappa']})
         jam_state.validator_archive = ValidatorArchiveState.from_json({"validators": test_vector['lambda']})
         jam_state.disputes = DisputesState(
-            good_set=[bytes.fromhex(i[2:]) for i in test_vector['psi']['psi_g']],
-            bad_set=[bytes.fromhex(i[2:]) for i in test_vector['psi']['psi_b']],
-            wonky_set=[bytes.fromhex(i[2:]) for i in test_vector['psi']['psi_w']],
-            offenders=[bytes.fromhex(i[2:]) for i in test_vector['psi']['psi_o']],
+            good_set=[bytes.fromhex(i[2:]) for i in test_vector['psi']['good']],
+            bad_set=[bytes.fromhex(i[2:]) for i in test_vector['psi']['bad']],
+            wonky_set=[bytes.fromhex(i[2:]) for i in test_vector['psi']['wonky']],
+            offenders=[bytes.fromhex(i[2:]) for i in test_vector['psi']['offenders']],
         )
 
         return jam_state
 
-    @parameterized.expand(get_test_vector_files(['tiny'], file_filter=''))
+    @parameterized.expand(get_test_vector_files([TEST_SUITE], file_filter=''))
     async def test_vector(self, name, directory, test_file):
         with open(path.join(self.test_vector_dir, directory, test_file)) as f:
             test_vector = json.load(f)
@@ -113,7 +113,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
 
         # Initialize app
         app = PyjamazApp(config=self.config)
-        app.store_jam_state(pre_state)
+        await app.store_jam_state(pre_state)
 
         # Process block
         try:
@@ -128,10 +128,10 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
         psi = app.components.disputes.retrieve_state().to_json()
 
         post_state = {
-            'psi_b': psi['bad_set'],
-            'psi_g': psi['good_set'],
-            'psi_o': psi['offenders'],
-            'psi_w': psi['wonky_set'],
+            'bad': psi['bad_set'],
+            'good': psi['good_set'],
+            'offenders': psi['offenders'],
+            'wonky': psi['wonky_set'],
         }
 
         self.assertDictEqual(test_vector['post_state']['psi'], post_state)

@@ -1,51 +1,57 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple, Union
+
+from jamcodec.base import JamBytes
+
+from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.hashing import keccak_256_hash
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
-    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
-from pyjamaz.merkle import MerkleTree
-from pyjamaz.models.block import WorkReport, TicketBody
-from pyjamaz.models.common import ValidatorData
+    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
+    MINIMUM_BALANCE_OCTET
+from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 
-from pyjamaz.state.base import State
+from pyjamaz.state.base import State, StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
+    state_key_constructor_storage_item, state_key_constructor_preimage_availability
+from pyjamaz.storage import StorageEngine
 
 
 @dataclass
 class TimeslotState(State, Serializable):
     """
-    GP-0.3.8-eq:45 (τ) | The most recent block's slot index, combined with helper functions
+    GP-0.5.0-eq:6.1 (τ) | The most recent block's slot index, combined with helper functions.
 
     Attributes
     ----------
     number: U32
-        GP-0.3.8-eq:45 (τ) |
-        The most recent block's slot index
+        GP-0.5.0-eq:6.1 (τ) | The most recent block's slot index.
     """
     # Todo: consider renaming number to timeslot
     number: int = field(metadata={'codec': U32})
 
     def epoch_number(self) -> int:
         """
-        GP-0.3.8-eq:46 (e) | Function that returns the epoch index
+        GP-0.5.0-eq:6.2 (e) | Function that returns the epoch index.
 
         Returns
         -------
         number: int
-            Epoch index of the timeslot
+            Epoch index of the timeslot.
 
         """
         return self.number // EPOCH_TIMESLOTS
 
     def slot_phase_index(self) -> int:
         """
-        GP-0.3.8-eq:46 (m) | Function that returns the phase index into the epoch of the timeslot
+        GP-0.5.0-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot.
 
         Returns
         -------
         number: int
-            Phase index into the epoch of the timeslot
+            Phase index into the epoch of the timeslot.
 
         """
         return self.number % EPOCH_TIMESLOTS
@@ -54,12 +60,12 @@ class TimeslotState(State, Serializable):
 @dataclass
 class EntropyState(State, Serializable):
     """
-    GP-0.3.8-eq:65 (η) | Entropy partition of the overall state.
+    GP-0.5.0-eq:6.21 (η) | Entropy partition of the overall state.
 
     Attributes
     ----------
     entropy: Array(H256,4)
-        GP-0.3.8-eq:65 (η) | η[0] serves as an entropy accumulator during the current epoch. η[1], η[2], η[3] retain
+        GP-0.5.0-eq:6.21 (η) | η[0] serves as an entropy accumulator during the current epoch. η[1], η[2], η[3] retain
         three historical values of the accumulator at the point of each of the three most recently ended epochs
         respectively.
     """
@@ -68,8 +74,10 @@ class EntropyState(State, Serializable):
 
 @dataclass
 class SlotSealerSeries(Serializable):
-    tickets: Optional[List[TicketBody]] = field(default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(),
-                                                                                              EPOCH_TIMESLOTS))})
+    tickets: Optional[List[TicketBody]] = field(
+        default=None,
+        metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
+    )
     keys: Optional[List[bytes]] = field(default=None, metadata={'codec': Option(Array(H256, EPOCH_TIMESLOTS))})
 
     _codec_type_def = Enum(
@@ -85,18 +93,18 @@ class SlotSealerSeries(Serializable):
 @dataclass
 class SafroleState(State, Serializable):
     """
-    GP-0.3.8-eq:47 (γ) | Safrole partition of the overall state.
+    GP-0.5.0-eq:6.3 (γ) | Safrole partition of the overall state.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.3.8-eq:51 (γ_k) | A fixed size set of keys and metadata for validators of the next epoch.
+        GP-0.5.0-eq:6.7 (γ_k) | A fixed size set of keys and metadata for validators of the next epoch.
     ring_commitment: Array(U8,144)
-        GP-0.3.8-eq:48 (γ_z) | Bandersnatch ring commitment.
+        GP-0.5.0-eq:6.4 (γ_z) | Bandersnatch ring commitment.
     slot_sealer_series: SlotSealerSeries
-        GP-0.3.8-eq:49 (γ_s) | Sealing-key series of the current epoch.
+        GP-0.5.0-eq:6.5 (γ_s) | Sealing-key series of the current epoch.
     ticket_accumulator: TicketBody
-        GP-0.3.8-eq:49 (γ_a) | Sealing-key contest ticket accumulator.
+        GP-0.5.0-eq:6.5 (γ_a) | Sealing-key contest ticket accumulator.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -110,12 +118,12 @@ class SafroleState(State, Serializable):
 @dataclass
 class ValidatorQueueState(State, Serializable):
     """
-    GP-0.3.8-eq:51 (ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
+    GP-0.5.0-eq:6.7 (ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.3.8-eq:51 (ι) | A fixed size set of validator keys and metadata to be drawn from next by the Safrole
+        GP-0.5.0-eq:6.7 (ι) | A fixed size set of validator keys and metadata to be drawn from next by the Safrole
         protocol.
     """
     # Todo: review and annotate: ValidatorData
@@ -125,12 +133,12 @@ class ValidatorQueueState(State, Serializable):
 @dataclass
 class ValidatorPoolState(State, Serializable):
     """
-    GP-0.3.8-eq:51 (κ) | Keys and metadata for validators of the current epoch.
+    GP-0.5.0-eq:6.7 (κ) | Keys and metadata for validators of the current epoch.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.3.8-eq:51 (κ) | A fixed size set of keys and metadata for validators of the current epoch.
+        GP-0.5.0-eq:6.7 (κ) | A fixed size set of keys and metadata for validators of the current epoch.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -139,12 +147,12 @@ class ValidatorPoolState(State, Serializable):
 @dataclass
 class ValidatorArchiveState(State, Serializable):
     """
-    GP-0.3.8-eq:51 (λ) | Keys and metadata for validators of the previous epoch.
+    GP-0.5.0-eq:6.7 (λ) | Keys and metadata for validators of the previous epoch.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.3.8-eq:51 (λ) | A fixed size set of keys and metadata for validators of the previous epoch.
+        GP-0.5.0-eq:6.7 (λ) | A fixed size set of keys and metadata for validators of the previous epoch.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -153,12 +161,12 @@ class ValidatorArchiveState(State, Serializable):
 @dataclass
 class AuthorizerPoolsState(State, Serializable):
     """
-    GP-0.3.8-eq:84 (α) | A collections of pools of authorizations for all cores.
+    GP-0.5.0-eq:8.1 (α) | A collections of pools of authorizations for all cores.
 
     Attributes
     ----------
     authorizer_pools: Array(Vec(H256),constant_C)
-        GP-0.3.8-eq:84 (α) | A collections of pools of authorizations for all cores.
+        GP-0.5.0-eq:8.1 (α) | A collections of pools of authorizations for all cores.
     """
     authorizer_pools: List[List[bytes]] = field(metadata={'codec': Array(Vec(H256), CORE_COUNT)})
 
@@ -171,39 +179,63 @@ class AuthorizerPoolsState(State, Serializable):
 @dataclass
 class Mmr(Serializable):
     """
-    GP-0.3.8-eq:304 (bold_b) | A Merkle Mountain Range.
+    GP-0.5.0-eq:E.8,E.9 (bold_b) | A Merkle Mountain Range.
 
     Attributes
     ----------
 
     peaks: Vec(Option(H256))
-        GP-0.3.8-eq:304 (bold_b) | A collection of optional peaks in a Merkle Mountain Range
+        GP-0.5.0-eq:7.1 (bold_b) | A collection of optional peaks in a Merkle Mountain Range
     """
     peaks: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
+
+    def super_peak(self) -> bytes:
+        mmr = MerkleMountainRange(self.peaks)
+        return mmr.super_peak()
+
+
+
+@dataclass
+class ReportedWorkPackage(Serializable):
+    """
+    GP-0.5.0-eq:7.1 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
+    of cores (constant_c=341)
+
+    Attributes
+    ----------
+    hash: H256
+        GP-0.5.0-eq:7.1 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+    exports_root: H256
+        GP-0.5.0-eq:7.1 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+    """
+    hash: bytes = field(metadata={'codec': H256})
+    exports_root: bytes = field(metadata={'codec': H256})
 
 
 @dataclass
 class RecentBlock(Serializable):
     """
-    GP-0.3.8-eq:80 (β) | A single item in the RecentHistory partition of the overall state.
+    GP-0.5.0-eq:7.1 (β) | A single item in the RecentHistory partition of the overall state.
 
     Attributes
     ----------
 
     header_hash: H256
-        GP-0.3.8-eq:80 (h, blackboard_H) | Header hash of the recent block.
+        GP-0.5.0-eq:7.1 (h, blackboard_H) | Header hash of the recent block.
     mmr: Mmr
-        GP-0.3.8-eq:80 (bold_b) | Accumulation result Merkle Mountain Range of the recent block.
+        GP-0.5.0-eq:7.1 (bold_b) | Accumulation result Merkle Mountain Range of the recent block.
     state_root: H256
-        GP-0.3.8-eq:80 (s, blackboard_H) | State root of the recent block.
-    reported: Vec(H256)
-        GP-0.3.8-eq:80 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
-        of cores (constant_c=341)
+        GP-0.5.0-eq:7.1 (s, blackboard_H) | State root of the recent block.
+    reported: Vec(ReportedWorkPackage)
+        GP-0.5.0-eq:7.1 (bold_p) | A collection of ReportedWorkPackage for each work-report made into the MMR, limited
+        to the number of cores (constant_c=341)
     """
     header_hash: bytes = field(metadata={'codec': H256})
     mmr: Mmr = field(metadata={'codec': Mmr.to_codec_def()})
     state_root: bytes = field(metadata={'codec': H256})
-    reported: List[bytes] = field(metadata={'codec': Vec(H256)})
+    # TODO: GP-0.5.0-eq:7.1 states bold_p needs to be a dictionary, GP-0.5.0-eq:D.2 states bold_p needs to have a
+    # length prefix encoding.
+    reported: List[ReportedWorkPackage] = field(metadata={'codec': Vec(ReportedWorkPackage.to_codec_def())})
 
     def __post_init__(self):
         # Todo: 'reported' attribute is allowed to have up to constant_C (CORES=341) items.
@@ -213,12 +245,12 @@ class RecentBlock(Serializable):
 @dataclass
 class RecentHistoryState(State, Serializable):
     """
-    GP-0.3.8-eq:80 (β) | RecentHistory partition of the overall state
+    GP-0.5.0-eq:7.1 (β) | RecentHistory partition of the overall state
 
     Attributes
     ----------
     recent_history: Vec(RecentBlock)
-        GP-0.3.8-eq:80 (β) | A collection of items in the RecentHistory partition of the overall state of
+        GP-0.5.0-eq:7.1 (β) | A collection of items in the RecentHistory partition of the overall state of
         up to constant_H (8) items.
     """
     recent_history: List[RecentBlock] = field(metadata={'codec': Vec(RecentBlock.to_codec_def())})
@@ -228,35 +260,71 @@ class RecentHistoryState(State, Serializable):
         # Todo: Arjan this is a Vec (variable size) since it contains less than 8 items for the first 8
         #  blocks after genesis, so for the first 8 blocks it should have TAU entries and from block 9 and onwards it
         #  should have exactly constant_H (8) entries.
-        #  GP-0.3.8-eq:291-C(3) states encoding is a Vec (i.e. has length definition)
+        #  GP-0.5.0-eq:D.2-C(3) states encoding is a Vec (i.e. has length definition)
         pass
 
+class StorageItemMap(StorageMap):
+    def __init__(self, service_account_id: int , storage_engine: StorageEngine):
+
+        super().__init__(
+            storage_engine=storage_engine,
+            storage_key_func=lambda key: state_key_constructor_storage_item(service_account_id, key),
+            storage_value_func=lambda data, key: data
+        )
+
+class PreimageMap(StorageMap):
+    def __init__(self, service_account_id: int , storage_engine: StorageEngine):
+
+        super().__init__(
+            storage_engine=storage_engine,
+            storage_key_func=lambda key: state_key_constructor_preimage(service_account_id, key),
+            storage_value_func=lambda data, key: data
+        )
+
+class PreimageAvailabilityMap(StorageMap):
+    def __init__(self, service_account_id: int , storage_engine: StorageEngine):
+
+        def storage_value_func(data: bytes, key: int) -> List[int]:
+            obj = Vec(U32).new()
+            obj.decode(JamBytes(data))
+            return obj.value
+
+        super().__init__(
+            storage_engine=storage_engine,
+            storage_key_func=lambda key: state_key_constructor_preimage_availability(
+                service_account_id=service_account_id, preimage_hash=key[0], preimage_length=key[1]
+            ),
+            storage_value_func=storage_value_func
+        )
 
 @dataclass
 class ServiceAccount(Serializable):
     """
-    GP-0.3.8-eq:89 (blackboard_A) | A service account
+    GP-0.5.2-eq:9.3 (blackboard_A) | A service account.
 
     Attributes
     ----------
     code_hash: H256
-        GP-0.3.8-eq:89 (c) | Hash of the service account's code
+        GP-0.5.2-eq:9.3 (c) | Hash of the service account's code
     balance: U64
-        GP-0.3.8-eq:89 (b) | Balance of a service account
+        GP-0.5.2-eq:9.3 (b) | Balance of a service account
     gas_limit_accumulate: U64
-        GP-0.3.8-eq:89 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
+        GP-0.5.2-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
     gas_limit_on_transfer: U64
-        GP-0.3.8-eq:89 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
+        GP-0.5.2-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
     footprint_storage_items: U64
-        GP-0.3.8-eq:94 (a_l) | Storage footprint of the service account. The number of items in storage.
+        GP-0.5.2-eq:9.8 (a_l) | Storage footprint of the service account. The number of items in storage.
     footprint_storage_bytes: U32
-        GP-0.3.8-eq:94 (a_i) | Storage footprint of the service account. The total number of bytes used in storage.
+        GP-0.5.2-eq:9.8 (a_i) | Storage footprint of the service account. The total number of bytes used in storage.
+    threshold_balance: U64
+        GP-0.5.2-eq:9.8 (a_t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
+        footprint.
     storage_items: Dict(H256,Bytes)
-        GP-0.3.8-eq:89 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
+        GP-0.5.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
     preimages: Dict(H256,Bytes)
-        GP-0.3.8-eq:89 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
-    preimage_availability: Dict(Tuple(H256,U32),Bytes)
-        GP-0.3.8-eq:89 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
+        GP-0.5.2-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
+    preimage_availability: Dict(Tuple(H256,U32), Vec<U32>)
+        GP-0.5.2-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
     """
     # Remark: Only the following field need to be serialized/deserialized
     code_hash: bytes = field(metadata={'codec': H256})
@@ -265,77 +333,208 @@ class ServiceAccount(Serializable):
     gas_limit_on_transfer: int = field(metadata={'codec': U64})
     footprint_storage_items: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U32})
-    storage_items: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
-    preimages: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, Bytes)})
-    # Todo: GP states the Dict has a tuple as key. Needs to be resolved when getter function for preimage_availability
-    # gets implemented or when kv-db storage gets implemented.
-    # preimage_availability: Dict[PyTuple[bytes, int], List[int]] = field(metadata={'codec': Map(Tuple(H256, U32), Vec(U32))})
-    preimage_availability: Dict[bytes, List[int]] = field(metadata={'codec': Map(Array(U8, 36), Vec(U32))})
+    threshold_balance: int = field(metadata={'codec': U64})
+    storage_items: Union[Dict[bytes, bytes], StorageItemMap] = field(metadata={'codec': Map(H256, Bytes)})
+    preimages: Union[Dict[bytes, bytes], PreimageMap] = field(metadata={'codec': Map(H256, Bytes)})
+    preimage_availability: Union[Dict[Tuple[bytes, int], List[int]], PreimageAvailabilityMap] = field(metadata={
+        'codec': Map(JamTuple(H256, U32), Vec(U32))}
+    )
 
+    @classmethod
+    def from_serialized_bytes(cls, serialized_bytes: bytes) -> 'ServiceAccount':
+        service_account = ServiceAccount(
+            code_hash=serialized_bytes[0:32],
+            balance=U64.decode(JamBytes(serialized_bytes[32:40])),
+            gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
+            gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[48:56])),
+            footprint_storage_items=U64.decode(JamBytes(serialized_bytes[56:64])),
+            footprint_storage_bytes=U32.decode(JamBytes(serialized_bytes[64:68])),
+            threshold_balance=0,
+            storage_items={},
+            preimages={},
+            preimage_availability={},
+        )
+        service_account.threshold_balance = (
+                MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * service_account.footprint_storage_items +
+                MINIMUM_BALANCE_OCTET * service_account.footprint_storage_bytes
+        )
+        return service_account
+
+    def to_serialized_bytes(self) -> bytes:
+        serialized_bytes = self.code_hash
+        serialized_bytes += U64.encode(self.balance).to_bytes()
+        serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
+        serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
+        serialized_bytes += U64.encode(self.footprint_storage_items).to_bytes()
+        serialized_bytes += U32.encode(self.footprint_storage_bytes).to_bytes()
+        return serialized_bytes
+
+
+class ServiceAccountMap(StorageMap):
+    def __init__(self, storage_engine: StorageEngine):
+
+        def storage_value_func(data: bytes, key: int) -> ServiceAccount:
+            service_account = ServiceAccount.from_serialized_bytes(data)
+            service_account.storage_items = StorageItemMap(storage_engine=storage_engine, service_account_id=key)
+            service_account.preimages = PreimageMap(storage_engine=storage_engine, service_account_id=key)
+            service_account.preimage_availability = PreimageAvailabilityMap(
+                storage_engine=storage_engine, service_account_id=key
+            )
+            return service_account
+
+        super().__init__(
+            storage_engine=storage_engine,
+            storage_key_func=state_key_constructor_service_account,
+            storage_value_func=storage_value_func
+        )
 
 @dataclass
 class ServicesState(State, Serializable):
     """
-    GP-0.3.8-eq:88 (δ) | Services partition of the overall state.
+    GP-0.5.2-eq:9.2 (δ) | Services partition of the overall state.
 
     Attributes
     ----------
     services: Dict(U32,ServiceAccount)
-        GP-0.3.8-eq:88,87 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
+        GP-0.5.2-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
         service account index.
     """
-    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
-    # services: Dict[int, ServiceAccount] = field(metadata={'codec': Map(U32, ServiceAccount.to_codec_def())})
-
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    services: Dict[int, ServiceAccount] = field(
-        metadata={'codec': Map(Array(U8,4), ServiceAccount.to_codec_def())}
+    services: Union[Dict[int, ServiceAccount], ServiceAccountMap] = field(
+        metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
     )
 
+    def retrieve_service_account(
+            self,
+            service_account_id: int,
+            storage_engine: StorageEngine
+    ) -> Optional[ServiceAccount]:
+        storage_key = state_key_constructor_service_account(service_account_id)
 
-@dataclass
-class Assurance(Serializable):
-    """
-    GP-0.3.8-eq:116 (ρ[c]) | An assurance for a single core.
+        data = storage_engine.get(storage_key)
 
-    Attributes
-    ----------
-    work_report: WorkReport
-        GP-0.3.8-eq:116 (w) |
-        A work report
-    timeslot: U32
-        GP-0.3.8-eq:116 (t) |
-        A timeslot
-    """
-    # Todo: Move WorkReport and related models from Block to Common section.
-    work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
-    timeslot: int = field(metadata={'codec': U32})
+        if data is None:
+            raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
+
+        service_account = ServiceAccount.from_serialized_bytes(data)
+
+        self.services[service_account_id] = service_account
+
+        return service_account
+
+    def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes, storage_engine: StorageEngine) -> bytes:
+        """
+        Host-function OMEGA_L (lookup)
+
+        Parameters
+        ----------
+        service_account_id
+        preimage_hash
+        storage_engine
+
+        Returns
+        -------
+        bytes
+        """
+
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id, storage_engine)
+
+        storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
+
+        data = storage_engine.get(storage_key)
+
+        if data is None:
+            raise StateKeyNoResult(f'Preimage not found for hash {preimage_hash}')
+
+        self.services[service_account_id].preimages[preimage_hash] = data
+
+        return data
+
+    def preimage_exists(self, service_account_id: int, preimage_hash: bytes, storage_engine: StorageEngine) -> bool:
+        try:
+            self.retrieve_preimage(service_account_id, preimage_hash, storage_engine)
+            return True
+        except StateKeyNoResult:
+            return False
+
+    def retrieve_preimage_availability(
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, storage_engine: StorageEngine
+    ) -> bytes:
+
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id, storage_engine)
+
+        storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
+
+        data = storage_engine.get(storage_key)
+
+        if data is None:
+            raise StateKeyNoResult(
+                f'Preimage availability not found for hash {preimage_hash} and length {preimage_length}'
+            )
+
+        availability = Vec(U32).new()
+        availability.decode(JamBytes(data))
+
+        self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = availability.value
+
+        return availability.value
+
+    def retrieve_storage_item(
+            self, service_account_id: int, storage_item_hash: bytes, storage_engine: StorageEngine
+    ) -> bytes:
+        """
+        Host-function: OMEGA_R (read)
+
+        Parameters
+        ----------
+        service_account_id
+        storage_item_hash
+        storage_engine
+
+        Returns
+        -------
+        bytes
+        """
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id, storage_engine)
+
+        storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
+        data = storage_engine.get(storage_key)
+
+        if data is None:
+            raise StateKeyNoResult(
+                f'Storage item not found for hash {storage_item_hash} for service account {service_account_id}'
+            )
+        self.services[service_account_id].storage_items[storage_item_hash] = data
+
+        return data
 
 
 @dataclass
 class AssurancesState(State, Serializable):
     """
-    GP-0.3.8-eq:116 (ρ) | Assurances partition of the overall state.
+    GP-0.5.0-eq:11.1 (ρ) | Assurances partition of the overall state.
 
     Attributes
     ----------
     assurances: Vec(Option(Assurance))
-        GP-0.3.8-eq:116 (ρ) | A collection of optional assurances per core.
+        GP-0.5.0-eq:11.1 (ρ) | A collection of optional assurances per core.
     """
-    assurances: List[Optional[Assurance]] = field(metadata={'codec': Array(Option(Assurance.to_codec_def()),
-                                                                           CORE_COUNT)})
+    assurances: List[Optional[Assurance]] = field(
+        metadata={'codec': Array(Option(Assurance.to_codec_def()), CORE_COUNT)}
+    )
 
 
 @dataclass
 class AuthorizerQueuesState(State, Serializable):
     """
-    GP-0.3.8-eq:84 (φ) | A collections of queues of authorizations for all cores.
+    GP-0.5.0-eq:8.1 (φ) | A collections of queues of authorizations for all cores.
 
     Attributes
     ----------
     authorizer_queues: Array(Array(H256,constant_Q),constant_C)
-        GP-0.3.8-eq:84 (φ) | A collections of queues of authorizations for all cores.
+        GP-0.5.0-eq:8.1 (φ) | A collections of queues of authorizations for all cores.
     """
     authorizer_queues: List[List[bytes]] = field(
         metadata={'codec': Array(Array(H256, MAXIMUM_AUTHORIZATION_QUEUE_ITEMS), CORE_COUNT)}
@@ -345,21 +544,21 @@ class AuthorizerQueuesState(State, Serializable):
 @dataclass
 class PrivilegedServicesState(State, Serializable):
     """
-    GP-0.3.8-eq:95 (χ) | The PrivilegedServices partition of the overall state.
+    GP-0.5.0-eq:9.9 (χ) | The PrivilegedServices partition of the overall state.
 
     Attributes
     ----------
     empower_service: U32
-        GP-0.3.8-eq:95 (χ_m) | The service index of the empower service. I.e. the service that allows state transitions
+        GP-0.5.0-eq:9.9 (χ_m) | The service index of the empower service. I.e. the service that allows state transitions
         of PrivilegedServices (χ).
     assign_service: U32
-        GP-0.3.8-eq:95 (χ_a) | The service index of the assign service. I.e. the service that allows state transitions
+        GP-0.5.0-eq:9.9 (χ_a) | The service index of the assign service. I.e. the service that allows state transitions
         of AuthorizerQueue (φ).
     designate_service: U32
-        GP-0.3.8-eq:95 (χ_v) | The service index of the designate service. I.e. the service that allows state
+        GP-0.5.0-eq:9.9 (χ_v) | The service index of the designate service. I.e. the service that allows state
         transitions of ValidatorQueue (ι).
     auto_accumulate_services: Dict(U32,U64)
-        GP-0.3.8-eq:95 (χ_g) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
+        GP-0.5.0-eq:9.9 (χ_g) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
     empower_service: int = field(metadata={'codec': U32})
     assign_service: int = field(metadata={'codec': U32})
@@ -374,18 +573,18 @@ class PrivilegedServicesState(State, Serializable):
 @dataclass
 class DisputesState(State, Serializable):
     """
-    GP-0.3.8-eq:96 (ψ) | A collection of judgements of validators over the validity of work reports.
+    GP-0.5.0-eq:9.9 (ψ) | A collection of judgements of validators over the validity of work reports.
 
     Attributes
     ----------
     good_set: Vec(H256)
-        GP-0.3.8-eq:111,96 (ψ_g) | A collection of work reports hashes with a good verdict.
+        GP-0.5.0-eq:10.1,10.16 (ψ_g) | A collection of work reports hashes with a good verdict.
     bad_set: Vec(H256)
-        GP-0.3.8-eq:112,96 (ψ_b) | A collection of work reports hashes with a bad verdict.
+        GP-0.5.0-eq:10.1,10.17 (ψ_b) | A collection of work reports hashes with a bad verdict.
     wonky_set: Vec(H256)
-        GP-0.3.8-eq:113,96 (ψ_w) | A collection of work reports hashes with a wonky verdict.
+        GP-0.5.0-eq:10.1,10.18 (ψ_w) | A collection of work reports hashes with a wonky verdict.
     offenders: Vec(H256)
-        GP-0.3.8-eq:114,100,101 (ψ_o) | A collection Edwards 25519 keys for validators found guilty of offending.
+        GP-0.5.0-eq:10.1,10.19 (ψ_o) | A collection Edwards 25519 keys for validators found guilty of offending.
     """
     good_set: List[bytes] = field(metadata={'codec': Vec(H256)})
     bad_set: List[bytes] = field(metadata={'codec': Vec(H256)})
@@ -394,29 +593,29 @@ class DisputesState(State, Serializable):
 
 
 @dataclass
-class Statistic(Serializable):
+class ActivityRecord(Serializable):
     """
-    GP-0.3.8-eq:169 (π.0.V) | A set of cumulative metrics for a single validator in a single epochs.
+    GP-0.5.0-eq:13.1 (π.0.V) | A set of cumulative metrics for a single validator in a single epochs.
 
     Attributes
     ----------
     blocks: U32
-        GP-0.3.8-eq:169 (b) | The number of blocks produced by the validator.
+        GP-0.5.0-eq:13.1 (b) | The number of blocks produced by the validator.
     tickets: U32
-        GP-0.3.8-eq:169 (t) | The number of tickets introduced by the validator.
-    preimages: U32
-        GP-0.3.8-eq:169 (p) | The number of preimages introduced by the validator.
-    preimage_bytes: U32
-        GP-0.3.8-eq:169 (d) | The number of total number of bytes across all preimages introduced by the validator.
+        GP-0.5.0-eq:13.1 (t) | The number of tickets introduced by the validator.
+    pre_images: U32
+        GP-0.5.0-eq:13.1 (p) | The number of preimages introduced by the validator.
+    pre_images_size: U32
+        GP-0.5.0-eq:13.1 (d) | The number of total number of bytes across all preimages introduced by the validator.
     guarantees: U32
-        GP-0.3.8-eq:169 (g) | The number of reports guaranteed by the validator.
+        GP-0.5.0-eq:13.1 (g) | The number of reports guaranteed by the validator.
     assurances: U32
-        GP-0.3.8-eq:169 (a) | The number of availability assurances made by the validator.
+        GP-0.5.0-eq:13.1 (a) | The number of availability assurances made by the validator.
     """
     blocks: int = field(metadata={'codec': U32})
     tickets: int = field(metadata={'codec': U32})
-    preimages: int = field(metadata={'codec': U32})
-    preimage_bytes: int = field(metadata={'codec': U32})
+    pre_images: int = field(metadata={'codec': U32})
+    pre_images_size: int = field(metadata={'codec': U32})
     guarantees: int = field(metadata={'codec': U32})
     assurances: int = field(metadata={'codec': U32})
 
@@ -424,16 +623,66 @@ class Statistic(Serializable):
 @dataclass
 class StatisticsState(State, Serializable):
     """
-    GP-0.3.8-eq:169 (π) | A collections of statistics for all validators for two epochs.
+    GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
 
     Attributes
     ----------
 
-    statistics: Array(Array(Statistic,constant_V),2)
-        GP-0.3.8-eq:169 (π) | A collections of statistics for all validators for two epochs.
+    current: Array(Statistic,constant_V)
+        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for current epoch.
+    last: Array(Statistic,constant_V)
+        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for last epoch.
     """
-    statistics: List[List[Statistic]] = field(
-        metadata={'codec': Array(Array(Statistic.to_codec_def(), VALIDATOR_COUNT), 2)}
+    current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+    last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+
+
+
+@dataclass
+class AccumulationQueueWorkPackage(Serializable):
+    """
+    GP-0.5.0-eq:13.1 (ϑ) | A not yet accumulated work package.
+
+    Attributes
+    ----------
+    work_report: WorkReport
+        GP-0.5.0-eq:12.3 (blackboard_W) | Work Report.
+    work_package_hash: H256
+        GP-0.5.0-eq:12.3 ({blackboard_H}) | Work Package hash.
+    """
+    work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
+    work_package_hash: bytes = field(metadata={'codec': H256})
+
+
+@dataclass
+class AccumulationQueueState(State, Serializable):
+    """
+    GP-0.5.0-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
+
+    Attributes
+    ----------
+
+    accumulation_queue: Array(Vec(AccumulationQueueWorkPackage),constant_E)
+        GP-0.5.0-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
+    """
+    accumulation_queue: List[List[AccumulationQueueWorkPackage]] = field(
+        metadata={'codec': Array(Vec(AccumulationQueueWorkPackage.to_codec_def()), EPOCH_TIMESLOTS)}
+    )
+
+
+@dataclass
+class AccumulationHistoryState(State, Serializable):
+    """
+    GP-0.5.0-eq:12.1 (ξ) | A history of what has been accumulated.
+
+    Attributes
+    ----------
+
+    accumulation_history: Array(H256,constant_E)
+        GP-0.5.0-eq:12.1 (ξ) | A history of what has been accumulated.
+    """
+    accumulation_history: List[bytes] = field(
+        metadata={'codec': Array(H256, EPOCH_TIMESLOTS)}
     )
 
 
@@ -445,72 +694,57 @@ class BeefyCommitmentMap(Serializable):
     Attributes
     ----------
     beefy_commitment_map: Dict(U32,H256)
-        GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map dictionary. Provides accumulation result TreeRoot for
-        accumulated services.
+        GP-0.5.0-eq:12.21 (TODO: incorrect reference) (bold_C) | Beefy Commitment Map dictionary. Provides accumulation
+        result TreeRoot for accumulated services.
     """
-    # Todo: Ideal situation, key of dict is a U32.
-    # beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
-
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(Array(U8, 4), H256)})
+    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
     def get_accumulate_root(self):
-        data = [(k.to_bytes(4, byteorder='little'), v) for k, v in self.beefy_commitment_map.items()]
-        return MerkleTree(data).root()
+        data = [k.to_bytes(4, byteorder='little') + v for k, v in self.beefy_commitment_map.items()]
+        return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
 
 @dataclass
 class JamState(State, Serializable):
     """
-    GP-0.3.8-eq:15 (σ) | Logically partitioned state into several largely independent segments which can help both
+    GP-0.5.0-eq:4.4 (σ) | Logically partitioned state into several largely independent segments which can help both
     visual clutter within the protocol description and provide formality over elements of computation which may be
     simultaneously calculated (i.e. parallelized).
 
     Attributes
     ----------
     authorizer_pools: AuthorizerPoolsState
-        GP-0.3.8-eq:15 (α) |
-        AuthorizerPool partition of the overall state
+        GP-0.5.0-eq:4.4 (α) | AuthorizerPool partition of the overall state
     recent_history: RecentHistoryState
-        GP-0.3.8-eq:15 (β) |
-        RecentHistory partition of the overall state
+        GP-0.5.0-eq:4.4 (β) | RecentHistory partition of the overall state
     safrole: SafroleState
-        GP-0.3.8-eq:15 (γ) |
-        Safrole partition of the overall state
+        GP-0.5.0-eq:4.4 (γ) | Safrole partition of the overall state
     services: ServicesState
-        GP-0.3.8-eq:15 (δ) |
-        Services partition of the overall state
+        GP-0.5.0-eq:4.4 (δ) | Services partition of the overall state
     entropy: EntropyState
-        GP-0.3.8-eq:15 (η) |
-        Entropy partition of the overall state
+        GP-0.5.0-eq:4.4 (η) | Entropy partition of the overall state
     validator_queue: ValidatorQueueState
-        GP-0.3.8-eq:15 (ι) |
-        ValidatorQueue partition of the overall state
+        GP-0.5.0-eq:4.4 (ι) | ValidatorQueue partition of the overall state
     validator_pool: ValidatorPoolState
-        GP-0.3.8-eq:15 (κ) |
-        ValidatorPool partition of the overall state
+        GP-0.5.0-eq:4.4 (κ) | ValidatorPool partition of the overall state
     validator_archive: ValidatorArchiveState
-        GP-0.3.8-eq:15 (λ) |
-        ValidatorArchive partition of the overall state
+        GP-0.5.0-eq:4.4 (λ) | ValidatorArchive partition of the overall state
     assurances: AssurancesState
-        GP-0.3.8-eq:15 (ρ) |
-        Assurances partition of the overall state
+        GP-0.5.0-eq:4.4 (ρ) | Assurances partition of the overall state
     timeslot: TimeslotState
-        GP-0.3.8-eq:15 (τ) |
-        Timeslot partition of the overall state
+        GP-0.5.0-eq:4.4 (τ) | Timeslot partition of the overall state
     authorizer_queues: AuthorizerQueuesState
-        GP-0.3.8-eq:15 (φ) |
-        AuthorizerQueue partition of the overall state
+        GP-0.5.0-eq:4.4 (φ) | AuthorizerQueue partition of the overall state
     privileged_services: PrivilegedServicesState
-        GP-0.3.8-eq:15 (χ) |
-        PrivilegedServices partition of the overall state
+        GP-0.5.0-eq:4.4 (χ) | PrivilegedServices partition of the overall state
     disputes: DisputesState
-        GP-0.3.8-eq:15 (ψ) |
-        Disputes partition of the overall state
+        GP-0.5.0-eq:4.4 (ψ) | Disputes partition of the overall state
     statistics: StatisticsState
-        GP-0.3.8-eq:15 (π) |
-        Statistics partition of the overall state
+        GP-0.5.0-eq:4.4 (π) | Statistics partition of the overall state
+    accumulation_queue: AccumulationQueueState
+        GP-0.5.0-eq:4.4 (ϑ) | AccumulationQueue partition of the overall state
+    accumulation_history: AccumulationHistoryState
+        GP-0.5.0-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
@@ -526,6 +760,8 @@ class JamState(State, Serializable):
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
     disputes: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
+    accumulation_queue: AccumulationQueueState = field(metadata={'codec': AccumulationQueueState.to_codec_def()})
+    accumulation_history: AccumulationHistoryState = field(metadata={'codec': AccumulationHistoryState.to_codec_def()})
 
     @classmethod
     def create_genesis_state(cls, validators: Optional[List[ValidatorData]] = None):
@@ -541,12 +777,15 @@ class JamState(State, Serializable):
         return cls(
             timeslot=TimeslotState(number=0),
             entropy=EntropyState(
-                entropy=[bytes(32), bytes(32), bytes(32), bytes(32)]
+                entropy=[
+                    validators[0].bandersnatch, validators[1].bandersnatch,
+                    validators[2].bandersnatch, validators[3].bandersnatch
+                ]
             ),
             safrole=SafroleState(
                 ticket_accumulator=[],
                 validators=validators,
-                slot_sealer_series=SlotSealerSeries(keys=[bytes(32)] * EPOCH_TIMESLOTS),
+                slot_sealer_series=SlotSealerSeries(keys=[validators[0].bandersnatch for _ in range(EPOCH_TIMESLOTS)]),
                 ring_commitment=bytes(144),
             ),
             validator_queue=ValidatorQueueState(
@@ -560,8 +799,7 @@ class JamState(State, Serializable):
             ),
             authorizer_pools=AuthorizerPoolsState(
                 authorizer_pools=[
-                    [],
-                    []
+                    [] for _ in range(CORE_COUNT)
                 ]
             ),
             recent_history=RecentHistoryState(
@@ -569,20 +807,18 @@ class JamState(State, Serializable):
             ),
             services=ServicesState(services={}),
             assurances=AssurancesState(
-                assurances=[
-                    None,
-                    None
-                ]
+                assurances=[None for _ in range(CORE_COUNT)]
             ),
             authorizer_queues=AuthorizerQueuesState(
-                authorizer_queues=[[bytes(32)] * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS] * CORE_COUNT
-
+                authorizer_queues=[
+                    [bytes(32) for _ in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS)] for _ in range(CORE_COUNT)
+                ]
             ),
             privileged_services=PrivilegedServicesState(
                 empower_service=0,
                 assign_service=0,
                 designate_service=0,
-                auto_accumulate_services={}
+                auto_accumulate_services=[]
             ),
             disputes=DisputesState(
                 good_set=[],
@@ -591,11 +827,78 @@ class JamState(State, Serializable):
                 offenders=[],
             ),
             statistics=StatisticsState(
-                statistics=[
-                    [
-                        Statistic(0, 0, 0, 0, 0, 0),
-                    ] * VALIDATOR_COUNT
-                ] * 2
+                current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+                last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
             ),
+            accumulation_queue=AccumulationQueueState(
+                accumulation_queue=[
+                    [] for _ in range(EPOCH_TIMESLOTS)
+                ]
+            ),
+            accumulation_history=AccumulationHistoryState(
+                accumulation_history=[bytes(32) for _ in range(EPOCH_TIMESLOTS)]
+            )
         )
+
+
+@dataclass
+class DeferredTransfer(Serializable):
+    """
+    GP-0.5.2-eq:12.14 (blackboard_T) | A single deferred transfer.
+
+    Attributes
+    ----------
+    sender: U32
+        GP-0.5.2-eq:12.14 (s) | Sender of a deferred transfer.
+    receiver: U32
+        GP-0.5.2-eq:12.14 (d) | Receiver of a deferred transfer (destination).
+    amount: U64
+        GP-0.5.2-eq:12.14 (a) | Balance to be transferred (amount) of the deferred transfer.
+    memo: Array(U8, SIZE_TRANSFER_MEMO)
+        GP-0.5.2-eq:12.14 (m) | Constant length memo blob of the deferred transfer.
+    gas_limit: U64
+        GP-0.5.2-eq:12.14 (g) | Gas limit of the deferred transfer.
+    """
+    sender: int = field(metadata={'codec': U32})
+    receiver: int = field(metadata={'codec': U32})
+    amount: int = field(metadata={'codec': U64})
+    memo: bytes = field(metadata={'codec': Array(U8, SIZE_TRANSFER_MEMO)})
+    gas_limit: int = field(metadata={'codec': U64})
+
+
+@dataclass
+class DeferredTransfers(Serializable):
+    """
+    GP-0.5.2-eq:12.23 (Vec(blackboard_T)) | A collection of deferred transfers.
+
+    Attributes
+    ----------
+
+    deferred_transfers: Vec(DeferredTransfer)
+        GP-0.5.2-eq:12.23 (Vec(blackboard_T)) | A collection of deferred transfers.
+    """
+    deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
+
+
+@dataclass
+class AccumulationStateComponents(Serializable):
+    """
+    GP-0.5.2-eq:12.13 (blackboard_U) | State components which are needed and mutable by the accumulation process.
+
+    Attributes
+    ----------
+    services: ServicesState
+        GP-0.5.2-eq:12.13 (bold_d) | Dictionary with services state.
+    validator_queue: ValidatorQueueState
+        GP-0.5.2-eq:12.13 (bold_i) | Validator Queue state.
+    authorizer_queues: AuthorizerQueuesState
+        GP-0.5.2-eq:12.13 (bold_q) | Authorizer Queues state.
+    privileged_services: PrivilegedServicesState
+        GP-0.5.2-eq:12.13 (bold_x) | Privileged Services state.
+    """
+    services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+    validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
+    authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
+    privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
+
 
