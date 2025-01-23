@@ -166,7 +166,7 @@ async def initialize_app(
 @click.option('--record-traces', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-@click.option('--host', 'host', type=str, default="::1", show_default=True, help='Host address to listnen on')
+@click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listnen on')
 async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, custom_db_path, verbose, host):
     """PyJAMaz: Python JAM Client"""
 
@@ -207,7 +207,6 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
         except StateKeyNoResult:
             raise BadParameter(f'DB is not yet initialized; run init first')
 
-        #TODO: define property on app
         app.network_bootstrap = network_bootstrap
 
         logging.info(f'🥋 Starting PyJAMaz client, listening on port {port}')
