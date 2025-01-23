@@ -9,6 +9,9 @@ from pyjamaz.models.block import Block
 from pyjamaz.transport.types import ProtocolType
 
 
+logger = logging.getLogger("pyjamaz.transport")
+
+
 class FSProtocol(ProtocolType):
 
     def __init__(self, block_dir, pubsub, app):
@@ -37,13 +40,13 @@ class FSProtocol(ProtocolType):
                             with open(filepath, 'r') as file:
                                 if filename.startswith("block-req-"):
                                     self.pubsub.send_stream.send_nowait({
-                                        "message_type": MESSAGE_TYPES.BLOCK_REQUEST,
+                                        "message_type": MESSAGE_TYPES.REQUESTED_BLOCKS,
                                         "data": json.load(file)
                                     })
 
                                 else:
                                     self.pubsub.send_stream.send_nowait({
-                                        "message_type": MESSAGE_TYPES.IMPORT_BLOCK,
+                                        "message_type": MESSAGE_TYPES.RECEIVED_BLOCK,
                                         "data": json.load(file)
                                     })
 
@@ -79,4 +82,5 @@ class FSProtocol(ProtocolType):
         async with self.lock:
             filepath = os.path.join(self.block_dir, f'block-{block.header.timeslot:06}.json')
             with open(filepath, 'w') as file:
+                logger.debug(f"FSProtocol dump block to disk: {filepath}")
                 json.dump(block.to_json(), file, indent=2)

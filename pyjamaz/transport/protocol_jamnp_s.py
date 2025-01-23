@@ -247,16 +247,16 @@ class ClientProtocol(JAMNPSProtocol):
                         match self._msg_type:
 
                             case JAMNPS.MSG.UP0_BlockAnnouncement.value:
-                                logger.info(f'ClientProtocol RECEIVED BLOCKSANOUNCEMENT: {self._msg_len}')
+                                logger.info(f'ClientProtocol RECEIVED_BLOCK: {self._msg_len}')
                                 self.wrapper.broadcaster.send_stream.send_nowait({
-                                    "message_type": MESSAGE_TYPES.IMPORT_BLOCK,
+                                    "message_type": MESSAGE_TYPES.RECEIVED_BLOCK,
                                     "data": self._msg_buffer[self._msg_offset:self._msg_len]
                                 })
 
                             case JAMNPS.MSG.CE128_BlockRequest.value:
-                                logger.info(f'ClientProtocol RECEIVED BLOCKSREQUEST: {self._msg_len}')
+                                logger.info(f'ClientProtocol RECEIVED REQUESTED BLOCKS: {self._msg_len}')
                                 self.wrapper.broadcaster.send_stream.send_nowait({
-                                    "message_type": MESSAGE_TYPES.BLOCK_REQUEST,
+                                    "message_type": MESSAGE_TYPES.REQUESTED_BLOCKS,
                                     "data": self._msg_buffer[self._msg_offset:self._msg_len]
                                 })
 

@@ -4,7 +4,8 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import TypeVar, Optional, List
+from functools import partial
+from typing import TypeVar, Optional, List, Callable
 
 from bandersnatch_vrfs import ietf_vrf_sign
 
@@ -55,7 +56,7 @@ class AppConfig:
 
 
 class PyjamazApp:
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: AppConfig, import_block_callback: Callable = None):
         self.config = config
 
         # self.storage_engine: StorageInterface = config.storage_engine
@@ -85,6 +86,11 @@ class PyjamazApp:
 
         self.latest_epoch = None
 
+        if import_block_callback:
+            self.import_block = partial(import_block_callback, self)
+        else:
+            self.import_block = self._import_block
+
 
     async def import_block_from_bytes(self, data):
         logging.debug(f"📦 Importing block from bytes")
@@ -107,10 +113,10 @@ class PyjamazApp:
             logging.info(f"Syncing in progress, current timeslot={self.state.timeslot.number}")
 
 
-    async def import_block_from_json(self, data, traces_dir):
+    async def import_block_from_json(self, data):
         logging.debug(f"📦 Importing block from json")
         block = Block.from_json(data)
-        await self.debug_import_block(self, traces_dir, block)
+        await self.import_block(block)
 
 
     async def requested_blocks_from_json(self, data):
@@ -131,37 +137,18 @@ class PyjamazApp:
         await self.process_import_queue()
 
 
-    async def debug_import_block(self, traces_dir, block):
-        if block.header.timeslot > self.state.timeslot.number or (
-                self.state.timeslot.number == 0 and not self.should_produce_block()):
-
-            if traces_dir:
-                pre_state = await self.create_state_dump()
-
-            await self.import_block(block)
-
-            if traces_dir:
-                await self.store_trace(pre_state, block, traces_dir)
-
-            logging.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
-            logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
-        else:
-            logging.info(
-                f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {self.state.timeslot.number}, should produce block: {self.should_produce_block()})")
-
-
     async def process_import_queue(self):
         async with self.import_lock:
             sorted_blocks = sorted(self.import_queue, key=lambda x: x.header.timeslot)
             self.import_queue = []
 
         for block in sorted_blocks:
-            # TODO: protocol should only import blocks from this point on
+            # TODO: protocol should only import blocks from this point on -> fix the block_request
             if self.state.timeslot.number >= block.header.timeslot:
                 #logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
                 continue
 
-            await self.debug_import_block(None, block)
+            await self.import_block(block)
             logging.debug(f" Imported block from process_import_queue: {block.header.timeslot}")
 
 
@@ -580,7 +567,7 @@ class PyjamazApp:
             offenders_mark=disputes_output.offenders_mark
         )
 
-    async def import_block(self, block: Block, validate=True) -> STFOutput:
+    async def _import_block(self, block: Block, validate=True) -> STFOutput:
         try:
             with self.state_db.transaction() as transaction:
 

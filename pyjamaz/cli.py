@@ -34,11 +34,12 @@ from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
 from pyjamaz.transport.pubsub import PubSub
 
+
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
 
 
-def ipv6_to_byte_array(ip_str):
+def ipv6_to_byte_array(ip_str:str) -> bytearray:
     """
     Converts an IPv4 or IPv6 string into a byte array.
 
@@ -61,6 +62,45 @@ def ipv6_to_byte_array(ip_str):
             return bytearray(ip.packed), None
     except ipaddress.AddressValueError:
         raise ValueError(f"Invalid IP: {ip_str}")
+
+
+def wrap_debug_import_block(traces_dir):
+    async def debug_import_block(self, block: Block):
+        if block.header.timeslot > self.state.timeslot.number or (
+                self.state.timeslot.number == 0 and not self.should_produce_block()):
+
+            if traces_dir:
+                pre_state = await self.create_state_dump()
+
+            await self._import_block(block)
+
+            if traces_dir:
+                await self.store_trace(pre_state, block, traces_dir)
+
+            logging.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
+            logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+        else:
+            logging.info(
+                f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {self.state.timeslot.number}, should produce block: {self.should_produce_block()})")
+
+    return debug_import_block
+
+
+def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
+    async def produced_block_jamnp(block: Block):
+        await app.import_block(block)
+        await np_protocol.broadcast_block(block)
+
+    return produced_block_jamnp
+
+
+def wrap_produced_block_fs(app: PyjamazApp, traces_dir, fs_protocol: FSProtocol):
+    async def produced_block_fs(block: Block):
+        await app.import_block(block)
+        await fs_protocol.broadcast_block(block)
+
+    return produced_block_fs
+
 
 async def initialize_app(
         read_state=True,
@@ -99,7 +139,8 @@ async def initialize_app(
         create_traces=record_traces
     )
 
-    app = PyjamazApp(config=config)
+    #app = PyjamazApp(config=config)
+    app = PyjamazApp(config=config, import_block_callback=wrap_debug_import_block(record_traces))
 
     if read_state:
         app.state = app.retrieve_jam_state()
@@ -193,18 +234,18 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                     logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
                     fs_protocol = FSProtocol(block_dir, pubsub, app)
                     app.protocol = fs_protocol
-                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, fs_protocol.broadcast_block)
-                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK, app.import_block_from_json)
-                    pubsub.subscribe(MESSAGE_TYPES.BLOCK_REQUEST, app.requested_blocks_from_json)
+                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
+                    pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_json)
+                    pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
                     tg.start_soon(fs_protocol.listen)
                 else:
                     certificate_file = os.path.join(db_path, "cert.pem")
                     pk_file = os.path.join(db_path, "cert.key")
                     nps_protocol = JAMNPS(host, port, certificate_file, pk_file, pubsub, app)
                     app.protocol = nps_protocol
-                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, nps_protocol.broadcast_block)
-                    pubsub.subscribe(MESSAGE_TYPES.IMPORT_BLOCK, app.import_block_from_bytes)
-                    pubsub.subscribe(MESSAGE_TYPES.BLOCK_REQUEST, app.requested_blocks_from_bytes)
+                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
+                    pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
+                    pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
                     tg.start_soon(nps_protocol.listen)
                     #validator_metadata = [x.metadata for x in app.state.safrole.validators]
 
@@ -264,11 +305,6 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
 
                 block = await app.produce_block(timeslot)
 
-                # Notify listeners a new block is produced
-                pubsub.send_stream.send_nowait({
-                    "message_type": MESSAGE_TYPES.IMPORT_BLOCK,
-                    "data": block.to_jam_bytes().to_bytes()
-                })
                 pubsub.send_stream.send_nowait({
                     "message_type": MESSAGE_TYPES.PRODUCED_BLOCK,
                     "data": block
