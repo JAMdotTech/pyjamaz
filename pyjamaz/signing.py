@@ -74,11 +74,23 @@ class BandersnatchKeypair(Serializable, Keypair):
         public_key = bandersnatch_vrfs.public_from_secret(private_key)
         return cls(private_key=private_key, public_key=public_key)
 
+    @classmethod
+    def from_public_key(cls: Type[T], public_key: bytes) -> T:
+        return cls(private_key=bytes(32), public_key=public_key)
+
     def vrf_output(self, vrf_input: bytes) -> bytes:
         return bandersnatch_vrfs.vrf_output(self.private_key, vrf_input)
 
-    def ietf_vrf_sign(self, vrf_input: bytes, aux_data) -> bytes:
+    def ietf_vrf_sign(self, vrf_input: bytes, aux_data: bytes) -> bytes:
         return bandersnatch_vrfs.ietf_vrf_sign(self.private_key, vrf_input, aux_data)
+
+    def ietf_vrf_verify(self, vrf_input: bytes, aux_data: bytes, signature: bytes) -> bytes:
+        return bandersnatch_vrfs.ietf_vrf_verify(
+            bytes(self.public_key),
+            vrf_input,
+            aux_data,
+            bytes(signature)
+        )
 
 
 @dataclass

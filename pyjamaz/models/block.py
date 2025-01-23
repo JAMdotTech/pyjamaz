@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from functools import cached_property
 
-from bandersnatch_vrfs import ietf_vrf_verify
+from bandersnatch_vrfs import ietf_vrf_verify, ietf_vrf_sign
 from math import floor
 from typing import List, Optional
 
@@ -14,7 +14,7 @@ from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody
 from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
-from pyjamaz.utils import guarantor_permute
+from pyjamaz.utils import guarantor_permute, vrf_input_ticket_seal, vrf_input_fallback_seal
 
 
 @dataclass
@@ -62,12 +62,8 @@ class TicketEnvelope(Serializable):
         -------
         bytes
         """
-        #
-        vrf_input_data = b"jam_ticket_seal"  # GP-0.5.0-eq:6.20
-        vrf_input_data += entropy
-        vrf_input_data += int.to_bytes(self.attempt, byteorder='little', length=1)
 
-        return vrf_input_data
+        return vrf_input_ticket_seal(entropy, self.attempt)
 
 
 @dataclass
@@ -391,7 +387,7 @@ class Header(Serializable):
     def verify_ticket_seal(self, bandersnatch_key: bytes, ticket_body: TicketBody, entropy: bytes) -> bytes:
         vrf_output = ietf_vrf_verify(
             bytes(bandersnatch_key),
-            b"jam_ticket_seal" + entropy + int.to_bytes(ticket_body.attempt, byteorder='little', length=1),
+            vrf_input_ticket_seal(entropy, ticket_body.attempt),
             self.get_unsigned_payload(),
             bytes(self.seal)
         )
@@ -401,9 +397,48 @@ class Header(Serializable):
     def verify_fallback_seal(self, sealer_key: bytes, entropy: bytes) -> bytes:
         return ietf_vrf_verify(
             bytes(sealer_key),
-            b"jam_fallback_seal" + entropy,
+            vrf_input_fallback_seal(entropy),
             self.get_unsigned_payload(),
             bytes(self.seal)
+        )
+
+    def generate_ticket_seal(self, bandersnatch_priv_key: bytes, entropy: bytes, ticket_attempt: int) -> bytes:
+        """
+        GP-0.5.4-eq:6.15 (bold_H_s) | Generate block seal using tickets
+
+        Parameters
+        ----------
+        bandersnatch_priv_key
+        entropy
+        ticket_attempt
+
+        Returns
+        -------
+        bytes
+        """
+        return ietf_vrf_sign(
+            bandersnatch_priv_key,
+            vrf_input_ticket_seal(entropy, ticket_attempt),
+            self.get_unsigned_payload()
+        )
+
+    def generate_fallback_seal(self, bandersnatch_priv_key: bytes, entropy: bytes) -> bytes:
+        """
+        GP-0.5.4-eq:6.16 (bold_H_s) | Generate block seal using fallback method
+
+        Parameters
+        ----------
+        bandersnatch_priv_key
+        entropy
+
+        Returns
+        -------
+        bytes
+        """
+        return ietf_vrf_sign(
+            bandersnatch_priv_key,
+            vrf_input_fallback_seal(entropy),
+            self.get_unsigned_payload()
         )
 
     @classmethod

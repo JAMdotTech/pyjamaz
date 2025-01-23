@@ -9,6 +9,7 @@ from pyjamaz.models.block import TicketEnvelope
 from pyjamaz.models.common import TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
+from pyjamaz.utils import vrf_input_ticket_seal
 
 
 class ExtrinsicAccumulator:
@@ -54,10 +55,7 @@ class ExtrinsicAccumulator:
         attempt = len(self.own_tickets_next)
 
         # GP-0.3.8-eq:75
-        vrf_input_data = b"jam_ticket_seal"  # GP-0.3.8-eq:64
-        vrf_input_data += entropy
-        vrf_input_data += int.to_bytes(attempt, byteorder='little', length=1)
-
+        vrf_input_data = vrf_input_ticket_seal(entropy, attempt)
         aux_data = b''
 
         signature = ring_vrf_sign(

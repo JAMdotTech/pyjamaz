@@ -29,6 +29,7 @@ from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Ti
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, \
     BeefyCommitmentMap, AccumulationQueueState, AccumulationHistoryState
 from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
+from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal
 
 T = TypeVar('T')
 
@@ -279,15 +280,15 @@ class PyjamazApp:
             sealer_key = self.state.safrole.slot_sealer_series.keys[header.timeslot % EPOCH_TIMESLOTS]
 
             logging.debug(
-                f'Validate key | Timeslot: {header.timeslot} |  Author: {sealer_key.hex()} | Entropy: {self.state.entropy.entropy[2].hex()}'
+                f'Validate key | Timeslot: {header.timeslot} |  Author: {sealer_key.hex()} | Entropy: {self.state.entropy.entropy[3].hex()}'
                 )
 
             if author_key != sealer_key:
                 raise BlockValidationError("Invalid author key")
             try:
 
-                logging.debug(f"Validate Seal with entropy {self.state.entropy.entropy[2].hex()}")
-                header.verify_fallback_seal(sealer_key, self.state.entropy.entropy[2])
+                logging.debug(f"Validate Seal with entropy {self.state.entropy.entropy[3].hex()}")
+                header.verify_fallback_seal(sealer_key, self.state.entropy.entropy[3])
 
             except ValueError:
                 raise BlockValidationError("Invalid seal key")
@@ -648,22 +649,29 @@ class PyjamazApp:
             return should_produce
 
     def get_block_seal_vrf_input(self) -> bytes:
+        """
+        Get relevant seal VRF input (ticket or fallback)
+
+        Returns
+        -------
+        bytes
+        """
         if self.state.safrole.slot_sealer_series.tickets is not None:
 
             ticket = self.state.safrole.slot_sealer_series.tickets[self.current_slot_phase_index()]
-            logging.debug(f"VRF input: Ticket Seal for ticket {ticket.id.hex()} with entropy {self.state.entropy.entropy[3].hex()}")
-            return b"jam_ticket_seal" + bytes(self.state.entropy.entropy[3]) + int.to_bytes(ticket.attempt, byteorder='little', length=1)
+            logging.debug(f"VRF input: for ticket {ticket.id.hex()} with entropy {self.state.entropy.entropy[3].hex()}")
+            return vrf_input_ticket_seal(bytes(self.state.entropy.entropy[3]), ticket.attempt)
 
         elif self.state.safrole.slot_sealer_series.keys is not None:
-            logging.debug(f"VRF input: Fallback Seal with entropy {self.state.entropy.entropy[2].hex()}")
-            return b"jam_fallback_seal" + bytes(self.state.entropy.entropy[2])
+            logging.debug(f"VRF input: Fallback with entropy {self.state.entropy.entropy[3].hex()}")
+            return vrf_input_fallback_seal(bytes(self.state.entropy.entropy[3]))
 
         else:
             raise PyjamazAppError("No valid sealing policy in current state")
 
     def generate_block_seal(self, header: Header) -> bytes:
         """
-        # Block Data | GP-0.5.0-eq:6.15,6.16 (bold_H_s)
+        GP-0.5.4-eq:6.15,6.16 (bold_H_s) | Generate block seal
 
         Parameters
         ----------
@@ -674,11 +682,26 @@ class PyjamazApp:
         bytes
         """
 
-        return ietf_vrf_sign(
-            self.config.keys.bandersnatch.private_key,
-            self.get_block_seal_vrf_input(),
-            header.get_unsigned_payload()
-        )
+        if self.state.safrole.slot_sealer_series.tickets is not None:
+
+            ticket = self.state.safrole.slot_sealer_series.tickets[self.current_slot_phase_index()]
+            logging.debug(f"Ticket Seal for ticket {ticket.id.hex()} with entropy {self.state.entropy.entropy[3].hex()}")
+
+            return header.generate_ticket_seal(
+                bandersnatch_priv_key=self.config.keys.bandersnatch.private_key,
+                entropy=bytes(self.state.entropy.entropy[3]),
+                ticket_attempt=ticket.attempt
+            )
+
+        elif self.state.safrole.slot_sealer_series.keys is not None:
+            logging.debug(f"Fallback Seal with entropy {self.state.entropy.entropy[3].hex()}")
+            return header.generate_fallback_seal(
+                bandersnatch_priv_key=self.config.keys.bandersnatch.private_key,
+                entropy=bytes(self.state.entropy.entropy[3])
+            )
+
+        else:
+            raise PyjamazAppError("No valid sealing policy in current state")
 
     def generate_entropy_source(self) -> bytes:
         """
@@ -688,9 +711,12 @@ class PyjamazApp:
         -------
         bytes
         """
+
+        seal_vrf_output = self.config.keys.bandersnatch.vrf_output(self.get_block_seal_vrf_input())
+
         return ietf_vrf_sign(
             self.config.keys.bandersnatch.private_key,
-            b"jam_entropy" + self.get_block_seal_vrf_input(),
+            b"jam_entropy" + seal_vrf_output,
             b""
         )
 
