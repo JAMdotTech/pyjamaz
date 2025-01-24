@@ -112,10 +112,14 @@ nav:
       - Signing: reference/signing.md
       - Hashing: reference/hashing.md
 
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
+
 markdown_extensions:
   - toc:
       permalink: true
       toc_depth: 4
+  - mdx_math
   - pymdownx.highlight:
       linenums: true
   - pymdownx.inlinehilite
