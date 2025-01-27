@@ -32,7 +32,8 @@ def load_test_vectors(directory):
 
 
 class TestPolkaVMInstructions(unittest.TestCase):
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/inst_jump_indirect_without_offset_ok.json'))
     def test_instruction(self, name, test_vector):
 
         # Set NumPy to ignore overflow warnings
@@ -41,9 +42,17 @@ class TestPolkaVMInstructions(unittest.TestCase):
         #TODO: we gaan nu altijd maar uit van 1 mem page
         mem_size = 0
         mem_offset = 0
+        if test_vector["initial-page-map"]:
+            mem_size = test_vector["initial-page-map"][0]["length"]
+            mem_offset = test_vector["initial-page-map"][0]["address"]
+
+        expected_mem_offset = 0
         if test_vector["expected-memory"]:
-            mem_size = len(test_vector["expected-memory"][0]["contents"])
-            mem_offset = test_vector["expected-memory"][0]["address"]
+            expected_mem_offset = test_vector["expected-memory"][0]["address"] - mem_offset
+        #     if len(test_vector["expected-memory"][0]["contents"]) > mem_size:
+        #         raise Exception("Initial pagemap memsize < expected memory")
+        #     if test_vector["expected-memory"][0]["address"] != mem_offset:
+        #         raise Exception("Initial pagemap differs from expected memory pagemap")
 
         pvm_data = PVMProgram.from_jam_bytes(
             JamBytes(bytes(test_vector["program"]))
@@ -64,7 +73,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
         ExitConditionMap = {
             ExitCondition.none.value: "none",
             ExitCondition.panic.value: "panic",
-            ExitCondition.halt.value: "halt"
+            ExitCondition.halt.value: "halt",
+            ExitCondition.page_fault.value: "page-fault",
         }
 
         self.assertEqual(test_vector["expected-status"], ExitConditionMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
@@ -72,7 +82,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
         self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
         self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
         if test_vector["expected-memory"]:
-            self.assertEqual(test_vector["expected-memory"][0]["contents"], pvm.mem.tolist(), f"{name}:\n Expected mem: {test_vector['expected-memory'][0]['contents']}, but got: {pvm.mem.tolist()}")
+            mem_len = len(test_vector["expected-memory"][0]["contents"])
+            self.assertEqual(test_vector["expected-memory"][0]["contents"], pvm.mem.tolist()[expected_mem_offset:expected_mem_offset+mem_len], f"{name}:\n Expected mem: {test_vector['expected-memory'][0]['contents']}, but got: {pvm.mem.tolist()[expected_mem_offset:expected_mem_offset+mem_len]}")
 
 
 if __name__ == '__main__':

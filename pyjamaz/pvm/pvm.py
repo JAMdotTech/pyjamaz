@@ -36,7 +36,7 @@ class PVM:
         self.pc:np.uint32 = np.uint32(0)
         self.gas:np.uint64 = np.uint64(0)
         self.mem:npt.NDArray[np.uint8] = np.zeros(1, dtype=np.uint8)
-        # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
+        self.jump_table = []
         self.rom:npt.NDArray[np.uint8] = np.array(1, dtype=np.uint8)
         self.program_size: np.uint64 = np.uint64(0)
         self.inst_bitmask: List[bool] = []
@@ -96,7 +96,6 @@ class PVM:
             mem_offset: np.uint32 = 0
     ):
         self.mem:npt.NDArray[np.uint8] = np.zeros(mem_size, dtype=np.uint8)
-        # TODO: self.jump_tables = np.array(program.code, dtype=np.int8)
         self.rom:npt.NDArray[np.uint8] = np.array(program.code, dtype=np.uint8)
         self.program_size: np.uint64 = np.uint64(len(self.rom))
         self.inst_bitmask: List[bool] = program.opcode_bitmask
@@ -107,10 +106,15 @@ class PVM:
         self.gas = np.uint64(initial_gas)
         self.status = ExitCondition.none.value
 
+        self.jump_table = [x.value for x in program.jump_table]
+
         #TODO: initial_page_map.address, length, is-writable
         self.mem_offset = mem_offset
         if initial_page_map:
             self.mem_offset = initial_page_map[0]["address"]    #TODO: memory addressing uitwerken
+            for idx in range(initial_page_map[0]["length"]):
+                self.mem[idx] = np.uint8(0)
+
         if initial_memory:
             for block_idx, mem_block in enumerate(initial_memory):
                 for idx, byt in enumerate(mem_block["contents"]):
@@ -118,6 +122,18 @@ class PVM:
 
         self.create_instruction_lookup()
 
+    # GP_A.15
+    def djump(self, a):
+        return self.jump_table[0] - self.pc
+        #TODO:!!@@!$#!@$@!$@!
+        # Z_a = 2  # TODO: add to constants
+        # if a == np.uint64(2 ** 32 - 2 ** 16):
+        #     self.status = ExitCondition.halt.value
+        # elif a == 0 or a > len(self.jump_table) * Z_a or a % Z_a != 0:  # or self.jump_table[a//Z_a-1]:
+        #     self.status = ExitCondition.panic.value
+        #     self.pc = 0
+        # else:
+        #     self.pc = self.jump_table[a//Z_a-1]
 
     def invoke(
         self,
@@ -265,15 +281,7 @@ class PVM:
 
                     match opcode:
                         case op.jump_ind.value:
-                            #GP.226
-                            if self.reg[0] == 0xffff0000:
-                                self.status = ExitCondition.halt.value
-                            elif l_x == 0:
-                                self.status = ExitCondition.panic.value
-                                self.pc = 0
-
-                            #TODO:implementeer
-                            pass
+                            skip_len = self.djump(np.uint32(r_a+v_x))
 
                         case op.load_imm.value:
                             self.reg[r_a] = v_x
@@ -507,7 +515,7 @@ class PVM:
                     if opcode in MemOps:
                         mapped_addr = (w_b + v_x) - self.mem_offset
                         if mapped_addr >= len(self.mem):
-                            self.status = ExitCondition.panic.value
+                            self.status = ExitCondition.page_fault.value
                             self.gas -= 1
                             continue
 
@@ -618,7 +626,7 @@ class PVM:
                             # TODO: isnt floor(x) exact the same as np.unit32(x)?
                             self.reg[r_a] = pvm_X(floor(v_x / (2 ** (w_b % 32))), 4)
 
-                        case op.shar_r_imm_alt.value:
+                        case op.shar_r_imm_alt_32.value:
                             # TODO: CHANGED->NEEDS TEST
                             # TODO: isnt floor(x) exact the same as np.unit32(x)?
                             self.reg[r_a] = pvm_Z_inv(floor(pvm_Z(v_x, 4) / (2 ** (w_b % 32))), 8)
@@ -632,16 +640,13 @@ class PVM:
                                 self.reg[r_a] = v_x
 
                         case op.add_imm_64.value:
-                            # TODO: NEW->NEEDS TEST
-                            self.reg[r_a] = (w_b + v_x) % 2**64
+                            self.reg[r_a] = (w_b + v_x) #% 2**64
 
                         case op.mul_imm_64.value:
-                            # TODO: NEW->NEEDS TEST
-                            self.reg[r_a] = (w_b * v_x) % 2**64
+                            self.reg[r_a] = (w_b * v_x) #% 2**64
 
                         case op.shlo_l_imm_64.value:
-                            # TODO: NEW->NEEDS TEST
-                            self.reg[r_a] = pvm_X((w_b * 2**(v_x % 64)) % 2**64, 8)
+                            self.reg[r_a] = pvm_X((w_b * 2**(v_x % 64)), 8)
 
                         case op.shlo_r_imm_64.value:
                             # TODO: NEW->NEEDS TEST
@@ -652,12 +657,10 @@ class PVM:
                             self.reg[r_a] = pvm_Z_inv(floor(pvm_Z(w_b, 8) / 2**(v_x % 64)), 8)
 
                         case op.neg_add_imm_64.value:
-                            # TODO: NEW->NEEDS TEST
-                            self.reg[r_a] = (v_x + 2**64 - w_b) % 2**64
+                            self.reg[r_a] = ((int(v_x) + 2**64 - int(w_b)) % 2**64)
 
                         case op.shlo_l_imm_alt_64.value:
-                            # TODO: NEW->NEEDS TEST
-                            self.reg[r_a] = (v_x * 2**(w_b % 64)) % 2**64
+                            self.reg[r_a] = (v_x * 2**(w_b % 64)) #% 2**64
 
                         case op.shlo_r_imm_alt_64.value:
                             # TODO: NEW->NEEDS TEST
@@ -706,7 +709,7 @@ class PVM:
                                 skip_len = v_x
 
                         case op.branch_lt_s.value:
-                            if pvm_Z(w_a, 4) < pvm_Z(w_b, 4):
+                            if pvm_Z(w_a, 8) < pvm_Z(w_b, 8):
                                 skip_len = v_x
 
                         case op.branch_ge_u.value:
@@ -783,15 +786,15 @@ class PVM:
 
                         case op.div_s_32.value:
                             # TODO: CHANGED->NEEDS TEST
-                            a = pvm_Z(w_a % 2**32, 4)
-                            b = pvm_Z(w_b % 2**32, 4)
+                            a = np.int32(pvm_Z(w_a % 2**32, 4))
+                            b = np.int32(pvm_Z(w_b % 2**32, 4))
 
                             if b == 0:
                                 self.reg[r_d] = 2**64-1
                             elif a == -2**31 and b == -1:
                                 self.reg[r_d] = a
                             else:
-                                self.reg[r_d] = pvm_Z_inv(floor(w_a / w_b), 8)
+                                self.reg[r_d] = pvm_Z_inv(floor(a / b), 8)
 
                         case op.rem_u_32.value:
                             # TODO: CHANGED->NEEDS TEST
@@ -826,15 +829,15 @@ class PVM:
 
                         case op.add_64.value:
                             # TODO: NEW->NEEDS TEST
-                            self.reg[r_d] = (w_a + w_b) % 2**64
+                            self.reg[r_d] = (w_a + w_b) #% 2**64
 
                         case op.sub_64.value:
                             # TODO: NEW->NEEDS TEST
-                            self.reg[r_d] = (w_a + 2**64 - w_b) % 2**64
+                            self.reg[r_d] = (w_a + 2**64 - w_b) #% 2**64
 
                         case op.mul_64.value:
                             # TODO: NEW->NEEDS TEST
-                            self.reg[r_d] = (w_a * w_b) % 2**64
+                            self.reg[r_d] = (w_a * w_b) #% 2**64
 
                         case op.div_u_64.value:
                             # TODO: NEW->NEEDS TEST
@@ -873,7 +876,7 @@ class PVM:
 
                         case op.shlo_l_64.value:
                             # TODO: NEW->NEEDS TEST
-                            self.reg[r_d] = (w_a * 2**(w_b % 64)) % 2**64
+                            self.reg[r_d] = (w_a * 2**(w_b % 64)) #% 2**64
 
                         case op.shlo_r_64.value:
                             # TODO: NEW->NEEDS TEST

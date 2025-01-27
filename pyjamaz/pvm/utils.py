@@ -43,7 +43,7 @@ def count_leading_zeroes(value, max_bits=64):
     return count
 
 
-def pvm_X(x:np.uint32, n:np.uint8) -> np.uint32:
+def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     """
     Converts number into a signed number using the MSB
     """
@@ -62,7 +62,7 @@ def pvm_X(x:np.uint32, n:np.uint8) -> np.uint32:
     return x + factor * term
 
 
-def pvm_Z(a:np.uint32, n:np.uint8) -> np.int32:
+def pvm_Z(a:np.uint64, n:np.uint8) -> np.int32:
     """
     Transform number a signed a from unsigned int (max uint32) [0, 2^(8n)) to a signed int (range [-2^(8n-1), 2^(8n-1) - 1]).
     """
@@ -78,7 +78,7 @@ def pvm_Z(a:np.uint32, n:np.uint8) -> np.int32:
         return a - max_value
 
 
-def pvm_Z_inv(a:np.int32, n:np.uint8):
+def pvm_Z_inv(a:np.int64, n:np.uint8):
     """
     Transform a from the signed range [-2^(8n-1), 2^(8n-1) - 1] to unsigned range [0, 2^(8n)).
     """
@@ -94,12 +94,12 @@ def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         return np.uint64((byte1 << 8) + byte0) % 2**16
-    # elif l == 3:
-    #     #TODO: do 3 byte ints appear? (scale encoded maybe?)
-    #     byte0 = np.uint8(source[addr + 0])
-    #     byte1 = np.uint16(source[addr + 1])
-    #     byte2 = np.uint32(source[addr + 2])
-    #     return np.uint64((byte2 << 16) + (byte1 << 8) + byte0)  % 2**32
+    elif l == 3:
+        #TODO: do 3 byte ints appear? (scale encoded maybe?)
+        byte0 = np.uint8(source[addr + 0])
+        byte1 = np.uint16(source[addr + 1])
+        byte2 = np.uint32(source[addr + 2])
+        return np.uint64((byte2 << 16) + (byte1 << 8) + byte0)  % 2**32
     elif l == 4:
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])

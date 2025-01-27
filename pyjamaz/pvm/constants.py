@@ -167,7 +167,7 @@ class Opcode(Enum):
     branch_ge_s: np.uint8                               = np.uint8(175)
 
     # GP_A.5.12
-    # Instructions with Arguments Of Two Registers And Two Immediates (reg_reg_imm_imm_
+    # Instructions with Arguments Of Two Registers And Two Immediates (reg_reg_imm_imm)
     load_imm_jump_ind: np.uint8                         = np.uint8(180)
 
     # GP_A.5.13
@@ -360,48 +360,47 @@ OpcodeScheme = {
 
     # GP_A.5.13
     # Instructions with args: reg, reg, reg
-    op.add_32.value: it.reg_reg_imm_imm,
-    op.sub_32.value: it.reg_reg_imm_imm,
-    op.mul_32.value: it.reg_reg_imm_imm,
-    op.div_u_32.value: it.reg_reg_imm_imm,
-    op.div_s_32.value: it.reg_reg_imm_imm,
-    op.rem_u_32.value: it.reg_reg_imm_imm,
-    op.rem_s_32.value: it.reg_reg_imm_imm,
-    op.shlo_l_32.value: it.reg_reg_imm_imm,
-    op.shlo_r_32.value: it.reg_reg_imm_imm,
-    op.shar_r_32.value: it.reg_reg_imm_imm,
-    op.add_64.value: it.reg_reg_imm_imm,
-    op.sub_64.value: it.reg_reg_imm_imm,
-    op.mul_64.value: it.reg_reg_imm_imm,
-    op.div_u_64.value: it.reg_reg_imm_imm,
-    op.div_s_64.value: it.reg_reg_imm_imm,
-    op.rem_u_64.value: it.reg_reg_imm_imm,
-    op.rem_s_64.value: it.reg_reg_imm_imm,
-    op.shlo_l_64.value: it.reg_reg_imm_imm,
-    op.shlo_r_64.value: it.reg_reg_imm_imm,
-    op.shar_r_64.value: it.reg_reg_imm_imm,
-    op._and.value: it.reg_reg_imm_imm,
-    op.xor.value: it.reg_reg_imm_imm,
-    op._or.value: it.reg_reg_imm_imm,
-    op.mul_upper_s_s.value: it.reg_reg_imm_imm,
-    op.mul_upper_u_u.value: it.reg_reg_imm_imm,
-    op.mul_upper_s_u.value: it.reg_reg_imm_imm,
-    op.set_lt_u.value: it.reg_reg_imm_imm,
-    op.set_lt_s.value: it.reg_reg_imm_imm,
-    op.cmov_iz.value: it.reg_reg_imm_imm,
-    op.cmov_nz.value: it.reg_reg_imm_imm,
-    op.rot_l_64.value: it.reg_reg_imm_imm,
-    op.rot_l_32.value: it.reg_reg_imm_imm,
-    op.rot_r_64.value: it.reg_reg_imm_imm,
-    op.rot_r_32.value: it.reg_reg_imm_imm,
-    op.and_inv.value: it.reg_reg_imm_imm,
-    op.or_inv.value: it.reg_reg_imm_imm,
-    op.xnor.value: it.reg_reg_imm_imm,
-    op._max.value: it.reg_reg_imm_imm,
-    op.max_u.value: it.reg_reg_imm_imm,
-    op._min.value: it.reg_reg_imm_imm,
-    op.min_u.value: it.reg_reg_imm_imm
-
+    op.add_32.value: it.reg_reg_reg,
+    op.sub_32.value: it.reg_reg_reg,
+    op.mul_32.value: it.reg_reg_reg,
+    op.div_u_32.value: it.reg_reg_reg,
+    op.div_s_32.value: it.reg_reg_reg,
+    op.rem_u_32.value: it.reg_reg_reg,
+    op.rem_s_32.value: it.reg_reg_reg,
+    op.shlo_l_32.value: it.reg_reg_reg,
+    op.shlo_r_32.value: it.reg_reg_reg,
+    op.shar_r_32.value: it.reg_reg_reg,
+    op.add_64.value: it.reg_reg_reg,
+    op.sub_64.value: it.reg_reg_reg,
+    op.mul_64.value: it.reg_reg_reg,
+    op.div_u_64.value: it.reg_reg_reg,
+    op.div_s_64.value: it.reg_reg_reg,
+    op.rem_u_64.value: it.reg_reg_reg,
+    op.rem_s_64.value: it.reg_reg_reg,
+    op.shlo_l_64.value: it.reg_reg_reg,
+    op.shlo_r_64.value: it.reg_reg_reg,
+    op.shar_r_64.value: it.reg_reg_reg,
+    op._and.value: it.reg_reg_reg,
+    op.xor.value: it.reg_reg_reg,
+    op._or.value: it.reg_reg_reg,
+    op.mul_upper_s_s.value: it.reg_reg_reg,
+    op.mul_upper_u_u.value: it.reg_reg_reg,
+    op.mul_upper_s_u.value: it.reg_reg_reg,
+    op.set_lt_u.value: it.reg_reg_reg,
+    op.set_lt_s.value: it.reg_reg_reg,
+    op.cmov_iz.value: it.reg_reg_reg,
+    op.cmov_nz.value: it.reg_reg_reg,
+    op.rot_l_64.value: it.reg_reg_reg,
+    op.rot_l_32.value: it.reg_reg_reg,
+    op.rot_r_64.value: it.reg_reg_reg,
+    op.rot_r_32.value: it.reg_reg_reg,
+    op.and_inv.value: it.reg_reg_reg,
+    op.or_inv.value: it.reg_reg_reg,
+    op.xnor.value: it.reg_reg_reg,
+    op._max.value: it.reg_reg_reg,
+    op.max_u.value: it.reg_reg_reg,
+    op._min.value: it.reg_reg_reg,
+    op.min_u.value: it.reg_reg_reg
 }
 
 
