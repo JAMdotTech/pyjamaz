@@ -64,15 +64,15 @@ def ipv6_to_byte_array(ip_str:str) -> bytearray:
         raise ValueError(f"Invalid IP: {ip_str}")
 
 
-def wrap_debug_import_block(traces_dir):
-    async def debug_import_block(self, block: Block):
+def wrap_cli_import_block(traces_dir, validate=True):
+    async def cli_import_block(self, block: Block, validate=validate):
         if block.header.timeslot > self.state.timeslot.number or (
                 self.state.timeslot.number == 0 and not self.should_produce_block()):
 
             if traces_dir:
                 pre_state = await self.create_state_dump()
 
-            await self._import_block(block)
+            await self._import_block(block, validate)
 
             if traces_dir:
                 await self.store_trace(pre_state, block, traces_dir)
@@ -83,7 +83,7 @@ def wrap_debug_import_block(traces_dir):
             logging.info(
                 f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {self.state.timeslot.number}, should produce block: {self.should_produce_block()})")
 
-    return debug_import_block
+    return cli_import_block
 
 
 def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
@@ -139,8 +139,7 @@ async def initialize_app(
         create_traces=record_traces
     )
 
-    #app = PyjamazApp(config=config)
-    app = PyjamazApp(config=config, import_block_callback=wrap_debug_import_block(record_traces))
+    app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
 
     if read_state:
         app.state = app.retrieve_jam_state()
@@ -170,8 +169,10 @@ async def initialize_app(
 async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, custom_db_path, verbose, host):
     """PyJAMaz: Python JAM Client"""
 
+    # Note: Add packages that need a different logging level here
     log_package_overrides = {
-        "pyjamaz.transport": logging.DEBUG
+        #"pyjamaz.transport": logging.DEBUG
+        "quic": logging.WARNING,
     }
 
     # Setup logging
@@ -357,12 +358,27 @@ def generate(seed, ip, port):
         "ed25519": f"0x{validator_keys.ed25519.public_key.hex()}",
         "bls": f"0x{bytes(144).hex()}",
         "metadata": f"0x{metadata.hex()}",
-        # "bandersnatch_priv": f"0x{validator_keys.bandersnatch.private_key.hex()}",
-        # "ed25519_priv": f"0x{validator_keys.ed25519.private_key.hex()}",
-        # "bls_priv": f"0x{bytes(32).hex()}",
     }
 
     click.echo(json.dumps(key_data, indent=2))
+
+
+async def init_certificate(db_path, seed):
+    keys = Keys.from_seed(bytes.fromhex(seed[2:]))
+
+    pk_pem, cert_pem = generate_cert(
+        keys,
+        ips="0.0.0.0",
+        domains="test.com",
+        country="US",
+        state="CA",
+        city="LA",
+        organization="Test Corp",
+        website="test.com",
+    )
+    pk_file = os.path.join(db_path, "cert.key")
+    pem_file = os.path.join(db_path, "cert.pem")
+    write_cert(pk_pem, pk_file, cert_pem, pem_file)
 
 
 @main.command()
@@ -425,21 +441,7 @@ async def init(
     app = await initialize_app(read_state=False, custom_db_path=custom_db_path, common_era=common_era)
     await app.store_jam_state(jam_state)
 
-    keys = Keys.from_seed(bytes.fromhex(seed[2:]))
-
-    pk_pem, cert_pem = generate_cert(
-        keys,
-        ips="0.0.0.0",
-        domains="test.com",
-        country="US",
-        state="CA",
-        city="LA",
-        organization="Test Corp",
-        website="test.com",
-    )
-    pk_file = os.path.join(db_path, "cert.key")
-    pem_file = os.path.join(db_path, "cert.pem")
-    write_cert(pk_pem, pk_file, cert_pem, pem_file)
+    await init_certificate(db_path, seed)
 
     click.echo(f"✅ Initialization complete.")
 
@@ -457,9 +459,14 @@ async def init(
     show_default=True,
     help='Choose the source format of the trace data'
 )
+@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
 async def replay_traces(
-        traces_dir, custom_db_path, force_overwrite, skip_block_validation, only_block_import, trace_format
+        traces_dir, custom_db_path, force_overwrite, skip_block_validation, only_block_import, trace_format, seed
 ):
+    if seed is None:
+        raise MissingParameter("--seed parameter is required")
+    elif not seed.startswith("0x") or len(seed) != 66:
+        raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
 
     # Flush database and import genesis state
     db_path = custom_db_path or default_db_path
@@ -468,8 +475,10 @@ async def replay_traces(
             click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
         shutil.rmtree(db_path)  # Delete the directory if it exists
         logging.info(f"The database at '{db_path}' was deleted successfully.")
-    else:
-        os.makedirs(db_path, exist_ok=True)
+
+    os.makedirs(db_path, exist_ok=True)
+    if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
+        await init_certificate(db_path, seed)
 
     app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
 

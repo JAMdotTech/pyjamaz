@@ -87,6 +87,9 @@ class PyjamazApp:
 
         self.latest_epoch = None
 
+        # Note:
+        # For the import block function, we allow the option to provide a custom function (for example to augment with
+        # traces or other debug info)
         if import_block_callback:
             self.import_block = partial(import_block_callback, self)
         else:
