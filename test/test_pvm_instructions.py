@@ -63,7 +63,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
         # Mapping specific for test vectors
         ExitConditionMap = {
             ExitCondition.none.value: "none",
-            ExitCondition.panic.value: "trap",
+            ExitCondition.panic.value: "panic",
             ExitCondition.halt.value: "halt"
         }
 

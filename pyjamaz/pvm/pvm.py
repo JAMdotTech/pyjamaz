@@ -378,6 +378,7 @@ class PVM:
                         v_x = 0
 
                     l_y = min(4, max(0, skip_len - l_x - 2))
+                    # TODO: CHANGED->NEEDS TEST
                     v_y = pvm_Z(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     match opcode:
@@ -441,6 +442,7 @@ class PVM:
                         #TODO: NO_TEST:
                         #case op.sbrk.value:
                         #!!!!!!! TODO: implementeer wanneer memory management is geimplementeerd
+                        #!!!!!!! TODO: zie note in GP onderaan deze sectie
 
                         # TODO: NO_TEST:
                         case op.count_set_bits_64:
@@ -673,10 +675,10 @@ class PVM:
                             self.reg[r_a] = rori64(v_x, w_b)
 
                         case op.rot_r_32_imm:
-                            return pvm_X(rori32(np.uint32(w_b), np.uint32(v_x)), 4)
+                            self.reg[r_a] = pvm_X(rori32(np.uint32(w_b), np.uint32(v_x)), 4)
 
                         case op.rot_r_32_imm_alt:
-                            return pvm_X(rori32(np.uint32(v_x), np.uint32(w_b)), 4)
+                            self.reg[r_a] = pvm_X(rori32(np.uint32(v_x), np.uint32(w_b)), 4)
 
                         case _:
                             raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
@@ -850,6 +852,25 @@ class PVM:
                             else:
                                 self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a, 8) % pvm_Z(w_b,8), 8)
 
+                        case op.rem_u_64.value:
+                            # TODO: CHANGED->NEEDS TEST
+                            if w_b == 0:
+                                self.reg[r_d] = w_a
+                            else:
+                                self.reg[r_d] = w_a % w_b
+
+                        case op.rem_s_64.value:
+                            # TODO: CHANGED->NEEDS TEST
+                            a = pvm_Z(w_a, 8)
+                            b = pvm_Z(w_b, 8)
+
+                            if w_b == 0:
+                                self.reg[r_d] = w_a
+                            elif a == -2**31 and b == -1:
+                                self.reg[r_d] = 0
+                            else:
+                                self.reg[r_d] = pvm_Z_inv(a % b, 8)
+
                         case op.shlo_l_64.value:
                             # TODO: NEW->NEEDS TEST
                             self.reg[r_d] = (w_a * 2**(w_b % 64)) % 2**64
@@ -904,6 +925,52 @@ class PVM:
                             # TODO: CHANGED->NEEDS TEST
                             if w_b != 0:
                                 self.reg[r_d] = w_a
+
+                        # TODO:NO_TEST
+                        case op.rot_l_64.value:
+                            # TODO: should rotate left?
+                            self.reg[r_d] = rori64(w_a, w_b)
+
+                        # TODO:NO_TEST
+                        case op.rot_l_32.value:
+                            #TODO: should rotate left?
+                            self.reg[r_a] = pvm_X(rori32(np.uint32(w_a), np.uint32(w_b)), 4)
+
+                        # TODO:NO_TEST
+                        case op.rot_r_64.value:
+                            self.reg[r_d] = rori64(w_a, w_b)
+
+                        # TODO:NO_TEST
+                        case op.rot_r_32.value:
+                            self.reg[r_a] = pvm_X(rori32(np.uint32(w_a), np.uint32(w_b)), 4)
+
+                        # TODO:NO_TEST
+                        case op.and_inv.value:
+                            self.reg[r_a] = self.reg[w_a] & ~self.reg[w_b]
+
+                        # TODO:NO_TEST
+                        case op.or_inv.value:
+                            self.reg[r_a] = self.reg[w_a] | ~self.reg[w_b]
+
+                        # TODO:NO_TEST
+                        case op.xnor.value:
+                            self.reg[r_a] = ~(self.reg[w_a] | self.reg[w_b])
+
+                        # TODO:NO_TEST
+                        case op._max.value:
+                            self.reg[r_a] = max(pvm_Z(self.reg[w_a], 8),  pvm_Z(self.reg[w_b], 8))
+
+                        # TODO:NO_TEST
+                        case op.max_u.value:
+                            self.reg[r_a] = max(self.reg[w_a],  self.reg[w_b])
+
+                        # TODO:NO_TEST
+                        case op._min.value:
+                            self.reg[r_a] = min(pvm_Z(self.reg[w_a], 8),  pvm_Z(self.reg[w_b], 8))
+
+                        # TODO:NO_TEST
+                        case op.min_u.value:
+                            self.reg[r_a] = min(self.reg[w_a],  self.reg[w_b])
 
                         case _:
                             raise InvalidOpcode(f"Invalid reg_reg_reg opcode: {opcode} for instruction type {inst_type}")

@@ -100,8 +100,6 @@ class Opcode(Enum):
     # Instructions with Arguments Of Two Registers (reg_reg)
     move_reg: np.uint8                                  = np.uint8(100)
     sbrk: np.uint8                                      = np.uint8(101)
-
-    #!!!!!!!!!!!
     count_set_bits_64: np.uint8                         = np.uint8(102) #TODO:NEW->TEST
     count_set_bits_32: np.uint8                         = np.uint8(103) #TODO:NEW->TEST
     leading_zero_bits_64: np.uint8                      = np.uint8(104) #TODO:NEW->TEST
@@ -153,8 +151,6 @@ class Opcode(Enum):
     shlo_l_imm_alt_64: np.uint8                         = np.uint8(155) #TODO:NEW->TEST
     shlo_r_imm_alt_64: np.uint8                         = np.uint8(156) #TODO:NEW->TEST
     shar_r_imm_alt_64: np.uint8                         = np.uint8(157) #TODO:NEW->TEST
-
-    #!!!!!!!!!!!!!!!!!!!!!!!!!!
     rot_r_64_imm: np.uint8                              = np.uint8(158) #TODO:NEW->TEST!!!!!!!!!!!!!
     rot_r_64_imm_alt: np.uint8                          = np.uint8(159) #TODO:NEW->TEST
     rot_r_32_imm: np.uint8                              = np.uint8(160) #TODO:NEW->TEST
@@ -206,8 +202,6 @@ class Opcode(Enum):
     set_lt_s: np.uint8                                  = np.uint8(217) #TODO:NEW->TEST
     cmov_iz: np.uint8                                   = np.uint8(218) #TODO:NEW->TEST
     cmov_nz: np.uint8                                   = np.uint8(219) #TODO:NEW->TEST
-
-    #!!!!!!!!!!!!!!!!
     rot_l_64: np.uint8                                  = np.uint8(220) #TODO:NEW->TEST!!!!!!!!!!!!!
     rot_l_32: np.uint8                                  = np.uint8(221) #TODO:NEW->TEST
     rot_r_64: np.uint8                                  = np.uint8(222) #TODO:NEW->TEST
@@ -291,51 +285,67 @@ OpcodeScheme = {
 
     # GP_A.5.9
     # Instructions with args: reg, reg
-    op.move_reg.value: it.reg_reg,  # riscv:
-    op.sbrk.value: it.reg_reg,  # X
+    op.move_reg.value: it.reg_reg,
+    op.sbrk.value: it.reg_reg,
+    op.count_set_bits_64: it.reg_reg,
+    op.count_set_bits_32: it.reg_reg,
+    op.leading_zero_bits_64: it.reg_reg,
+    op.leading_zero_bits_32: it.reg_reg,
+    op.trailing_zero_bits_64: it.reg_reg,
+    op.trailing_zero_bits_32: it.reg_reg,
+    op.sign_extend_8: it.reg_reg,
+    op.sign_extend_16: it.reg_reg,
+    op.zero_extend_16: it.reg_reg,
+    op.reverse_bytes: it.reg_reg,
 
     # GP_A.5.10
     # Instructions with args: reg, reg, imm
     op.store_ind_u8.value                                   : it.reg_reg_imm,
-    op.store_ind_u16.value                                  : it.reg_reg_imm,
-    op.store_ind_u32.value                                  : it.reg_reg_imm,
-    op.store_ind_u64.value                                  : it.reg_reg_imm,
-    op.load_ind_u8.value                                    : it.reg_reg_imm,
-    op.load_ind_i8.value                                    : it.reg_reg_imm,
+    op.store_ind_u8.value                                   : it.reg_reg_imm,
+    op.store_ind_u16.value                                   : it.reg_reg_imm,
+    op.store_ind_u32.value                                   : it.reg_reg_imm,
+    op.store_ind_u64.value                                   : it.reg_reg_imm,
+    op.load_ind_u8.value                                   : it.reg_reg_imm,
+    op.load_ind_i8.value                                   : it.reg_reg_imm,
     op.load_ind_u16.value                                   : it.reg_reg_imm,
     op.load_ind_i16.value                                   : it.reg_reg_imm,
     op.load_ind_u32.value                                   : it.reg_reg_imm,
     op.load_ind_i32.value                                   : it.reg_reg_imm,
     op.load_ind_u64.value                                   : it.reg_reg_imm,
-    op.add_imm_32.value                                     : it.reg_reg_imm,
-    op.and_imm.value                                        : it.reg_reg_imm,
-    op.xor_imm.value                                        : it.reg_reg_imm,
-    op.or_imm.value                                         : it.reg_reg_imm,
-    op.mul_imm_32.value                                     : it.reg_reg_imm,
+    op.add_imm_32.value                                   : it.reg_reg_imm,
+    op.and_imm.value                                   : it.reg_reg_imm,
+    op.xor_imm.value                                   : it.reg_reg_imm,
+    op.or_imm.value                                   : it.reg_reg_imm,
+    op.mul_imm_32.value                                   : it.reg_reg_imm,
     op.set_lt_u_imm.value                                   : it.reg_reg_imm,
     op.set_lt_s_imm.value                                   : it.reg_reg_imm,
-    op.shlo_l_imm_32.value                                  : it.reg_reg_imm,
-    op.shlo_r_imm_32.value                                  : it.reg_reg_imm,
-    op.shar_r_imm_32.value                                  : it.reg_reg_imm,
-    op.neg_add_imm_32.value                                 : it.reg_reg_imm,
+    op.shlo_l_imm_32.value                                   : it.reg_reg_imm,
+    op.shlo_r_imm_32.value                                   : it.reg_reg_imm,
+    op.shar_r_imm_32.value                                   : it.reg_reg_imm,
+    op.neg_add_imm_32.value                                   : it.reg_reg_imm,
     op.set_gt_u_imm.value                                   : it.reg_reg_imm,
     op.set_gt_s_imm.value                                   : it.reg_reg_imm,
-    op.shlo_l_imm_alt_32.value                              : it.reg_reg_imm,
-    op.shlo_r_imm_alt_32.value                              : it.reg_reg_imm,
-    op.shar_r_imm_alt_32.value                              : it.reg_reg_imm,
-    op.cmov_iz_imm.value                                    : it.reg_reg_imm,
-    op.cmov_nz_imm.value                                    : it.reg_reg_imm,
-    op.add_imm_64                                           : it.reg_reg_imm,
-    op.mul_imm_64                                           : it.reg_reg_imm,
-    op.shlo_l_imm_64                                        : it.reg_reg_imm,
-    op.shlo_r_imm_64                                        : it.reg_reg_imm,
-    op.shar_r_imm_64                                        : it.reg_reg_imm,
-    op.neg_add_imm_64                                       : it.reg_reg_imm,
-    op.shlo_l_imm_alt_64                                    : it.reg_reg_imm,
-    op.shlo_r_imm_alt_64                                    : it.reg_reg_imm,
-    op.shar_r_imm_alt_64                                    : it.reg_reg_imm,
+    op.shlo_l_imm_alt_32.value                                   : it.reg_reg_imm,
+    op.shlo_r_imm_alt_32.value                                   : it.reg_reg_imm,
+    op.shar_r_imm_alt_32.value                                   : it.reg_reg_imm,
+    op.cmov_iz_imm.value                                   : it.reg_reg_imm,
+    op.cmov_nz_imm.value                                   : it.reg_reg_imm,
+    op.add_imm_64.value                                   : it.reg_reg_imm,
+    op.mul_imm_64.value                                   : it.reg_reg_imm,
+    op.shlo_l_imm_64.value                                   : it.reg_reg_imm,
+    op.shlo_r_imm_64.value                                   : it.reg_reg_imm,
+    op.shar_r_imm_64.value                                   : it.reg_reg_imm,
+    op.neg_add_imm_64.value                                   : it.reg_reg_imm,
+    op.shlo_l_imm_alt_64.value                                   : it.reg_reg_imm,
+    op.shlo_r_imm_alt_64.value                                   : it.reg_reg_imm,
+    op.shar_r_imm_alt_64.value                                   : it.reg_reg_imm,
+    op.rot_r_64_imm.value                                   : it.reg_reg_imm,
+    op.rot_r_64_imm_alt.value                                   : it.reg_reg_imm,
+    op.rot_r_32_imm.value                                   : it.reg_reg_imm,
+    op.rot_r_32_imm_alt.value                                   : it.reg_reg_imm,
 
-    # GP_A.5.11
+
+# GP_A.5.11
     # Instructions with args: reg, reg, offset
     op.branch_eq.value                                      : it.reg_reg_offset,
     op.branch_ne.value                                      : it.reg_reg_offset,
@@ -350,36 +360,48 @@ OpcodeScheme = {
 
     # GP_A.5.13
     # Instructions with args: reg, reg, reg
-    op.add_32.value                                         : it.reg_reg_reg,
-    op.sub_32.value                                         : it.reg_reg_reg,
-    op.mul_32.value                                         : it.reg_reg_reg,
-    op.div_u_32.value                                       : it.reg_reg_reg,
-    op.div_s_32.value                                       : it.reg_reg_reg,
-    op.rem_u_32.value                                       : it.reg_reg_reg,
-    op.rem_s_32.value                                       : it.reg_reg_reg,
-    op.shlo_l_32.value                                      : it.reg_reg_reg,
-    op.shlo_r_32.value                                      : it.reg_reg_reg,
-    op.shar_r_32.value                                      : it.reg_reg_reg,
-    op.add_64                                               : it.reg_reg_reg,
-    op.sub_64                                               : it.reg_reg_reg,
-    op.mul_64                                               : it.reg_reg_reg,
-    op.div_u_64                                             : it.reg_reg_reg,
-    op.div_s_64                                             : it.reg_reg_reg,
-    op.rem_u_64                                             : it.reg_reg_reg,
-    op.rem_s_64                                             : it.reg_reg_reg,
-    op.shlo_l_64                                            : it.reg_reg_reg,
-    op.shlo_r_64                                            : it.reg_reg_reg,
-    op.shar_r_64                                            : it.reg_reg_reg,
-    op._and.value                                           : it.reg_reg_reg,
-    op.xor.value                                            : it.reg_reg_reg,
-    op._or.value                                            : it.reg_reg_reg,
-    op.mul_upper_s_s.value                                  : it.reg_reg_reg,
-    op.mul_upper_u_u.value                                  : it.reg_reg_reg,
-    op.mul_upper_s_u.value                                  : it.reg_reg_reg,
-    op.set_lt_u.value                                       : it.reg_reg_reg,
-    op.set_lt_s.value                                       : it.reg_reg_reg,
-    op.cmov_iz.value                                        : it.reg_reg_reg, #riscv:https://stackoverflow.com/questions/72340698/riscv-branchless-coding
-    op.cmov_nz.value                                        : it.reg_reg_reg,
+    op.add_32.value: it.reg_reg_imm_imm,
+    op.sub_32.value: it.reg_reg_imm_imm,
+    op.mul_32.value: it.reg_reg_imm_imm,
+    op.div_u_32.value: it.reg_reg_imm_imm,
+    op.div_s_32.value: it.reg_reg_imm_imm,
+    op.rem_u_32.value: it.reg_reg_imm_imm,
+    op.rem_s_32.value: it.reg_reg_imm_imm,
+    op.shlo_l_32.value: it.reg_reg_imm_imm,
+    op.shlo_r_32.value: it.reg_reg_imm_imm,
+    op.shar_r_32.value: it.reg_reg_imm_imm,
+    op.add_64.value: it.reg_reg_imm_imm,
+    op.sub_64.value: it.reg_reg_imm_imm,
+    op.mul_64.value: it.reg_reg_imm_imm,
+    op.div_u_64.value: it.reg_reg_imm_imm,
+    op.div_s_64.value: it.reg_reg_imm_imm,
+    op.rem_u_64.value: it.reg_reg_imm_imm,
+    op.rem_s_64.value: it.reg_reg_imm_imm,
+    op.shlo_l_64.value: it.reg_reg_imm_imm,
+    op.shlo_r_64.value: it.reg_reg_imm_imm,
+    op.shar_r_64.value: it.reg_reg_imm_imm,
+    op._and.value: it.reg_reg_imm_imm,
+    op.xor.value: it.reg_reg_imm_imm,
+    op._or.value: it.reg_reg_imm_imm,
+    op.mul_upper_s_s.value: it.reg_reg_imm_imm,
+    op.mul_upper_u_u.value: it.reg_reg_imm_imm,
+    op.mul_upper_s_u.value: it.reg_reg_imm_imm,
+    op.set_lt_u.value: it.reg_reg_imm_imm,
+    op.set_lt_s.value: it.reg_reg_imm_imm,
+    op.cmov_iz.value: it.reg_reg_imm_imm,
+    op.cmov_nz.value: it.reg_reg_imm_imm,
+    op.rot_l_64.value: it.reg_reg_imm_imm,
+    op.rot_l_32.value: it.reg_reg_imm_imm,
+    op.rot_r_64.value: it.reg_reg_imm_imm,
+    op.rot_r_32.value: it.reg_reg_imm_imm,
+    op.and_inv.value: it.reg_reg_imm_imm,
+    op.or_inv.value: it.reg_reg_imm_imm,
+    op.xnor.value: it.reg_reg_imm_imm,
+    op._max.value: it.reg_reg_imm_imm,
+    op.max_u.value: it.reg_reg_imm_imm,
+    op._min.value: it.reg_reg_imm_imm,
+    op.min_u.value: it.reg_reg_imm_imm
+
 }
 
 
@@ -391,6 +413,7 @@ MemOps = {
     Opcode.load_u32.value,
     Opcode.load_i32.value,
     Opcode.load_u64.value,
+    Opcode.load_imm_64.value,
     Opcode.load_ind_u8.value,
     Opcode.load_ind_i8.value,
     Opcode.load_ind_u16.value,
