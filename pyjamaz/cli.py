@@ -484,7 +484,7 @@ async def replay_traces(
         if not only_block_import or app.state_trie_root == bytes(32):
 
             for k, v in trace.pre_state.keyvals:
-                app.state_db.put(bytes(k.value_object), bytes(v.value_object))
+                app.state_db.put(bytes(k), bytes(v))
 
             app.state = app.retrieve_jam_state()
             await app.update_state_trie()

@@ -94,8 +94,8 @@ class PyjamazApp:
 
 
     async def import_block_from_bytes(self, data):
-        logging.debug(f"📦 Importing block from bytes")
         block = Block.from_jam_bytes(JamBytes(data))
+        logging.debug(f"📦 Importing block {block.header.timeslot} from bytes")
         self.import_queue.append(block)
 
         # Note: when we receive a block announcement and we just started our node, we send out a blocks request to sync our state
@@ -150,7 +150,7 @@ class PyjamazApp:
                 continue
 
             await self.import_block(block)
-            logging.debug(f" Imported block from process_import_queue: {block.header.timeslot}")
+            logging.info(f'✅ Block {block.header.timeslot} succesfully imported from process_import_queue.')
 
 
     def retrieve_jam_state(self):
