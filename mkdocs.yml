@@ -113,13 +113,16 @@ nav:
       - Hashing: reference/hashing.md
 
 extra_javascript:
-  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
-
+#  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 markdown_extensions:
   - toc:
       permalink: true
       toc_depth: 4
-  - mdx_math
+  - pymdownx.arithmatex:
+      generic: true
+#  - mdx_math
   - pymdownx.highlight:
       linenums: true
   - pymdownx.inlinehilite

@@ -1,6 +1,48 @@
 # Appendix A. Polka Virtual Machine
+\(
+    \newcommand{\gascounter}{\varrho}
+    \newcommand{\Fskip}{\text{skip}}
+    \newcommand{\instr}[1]{\text{{\small \texttt{#1}}}}
+    \newcommand{\regs}{\seq{\N_R}_{13}}
+    \newcommand{\reg}{{\registers}}
+    \newcommand{\mem}{{\memory}}
+    \newcommand{\memr}{\mem^{\circlearrowleft}}
+    \newcommand{\memwr}{{\mem'}^{\circlearrowleft}}
+    \newcommand{\ram}{\mathbb{M}}
+    \newcommand{\rnp}[1]{P(#1)}
+    \newcommand{\rnq}[1]{Z(#1)}
+    \newcommand{\continue}{\blacktriangleright}
+    \newcommand{\gas}{\gascounter_\Delta}
+    \newcommand{\instrlen}{\ell}
+    \newcommand{\revbitsfunc}[1]{\overleftarrow{\mathcal{B}}_{#1}}
+    \newcommand{\revunbitsfunc}[1]{\revbitsfunc{#1}^{-1}}
+    \newcommand{\bitsfunc}[1]{\mathcal{B}_{#1}}
+    \newcommand{\unbitsfunc}[1]{\bitsfunc{#1}^{-1}}
+    \newcommand{\bits}[1]{\bitsn{8}{#1}}
+    \newcommand{\unbits}[1]{\unbitsn{8}{#1}}
+    \newcommand{\bitsn}[2]{\bitsfunc{#1}(#2)}
+    \newcommand{\unbitsn}[2]{\unbitsfunc{#1}(#2)}
+    \newcommand{\signfunc}[1]{\mathcal{Z}_{#1}}
+    \newcommand{\unsignfunc}[1]{\signfunc{#1}^{-1} }
+    \newcommand{\signed}[1]{\signedn{8}{#1}}
+    \newcommand{\unsigned}[1]{\unsignedn{8}{#1}}
+    \newcommand{\signedn}[2]{\signfunc{#1}(#2)}
+    \newcommand{\unsignedn}[2]{\unsignfunc{#1}(#2)}
+    %\newcommand{\signed}[1]{{{}^{\mathord{\mp}}#1}}
+    %\newcommand{\unsigned}[1]{{{}^{\mathord{+}}#1}}
+    %\newcommand{\signedn}[2]{{{}_{#1}^{\mathord{\mp}}#2}}
+    %\newcommand{\unsignedn}[2]{{{}_{#1}^{\mathord{+}}#2}}
+    \newcommand{\RA}{\token{RA}}
+    \newcommand{\SP}{\token{SP}}
+    \newcommand{\T}{\token{T}}
+    \renewcommand{\S}{\token{S}}
+    \newcommand{\A}{\token{A}}
+    \newcommand{\basicblocks}{\varpi}
+    \newcommand{\instructions}{\zeta}
+    \newcommand{\immed}{\nu}
+\)
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.0.
+This section has been updated to match Graypaper version 0.5.4.
 
 ## A.1. Basic Definition
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
@@ -19,28 +61,37 @@ This section has been updated to match Graypaper version 0.5.0.
 | Equation A.4        |   0% |             0% |          0% |            0% |
 
 ## A.4. Single-Step State Transition
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation A.5        |   0% |             0% |          0% |            0% |
-| Equation A.6        |   0% |             0% |          0% |            0% |
-| Equation A.7        |   0% |             0% |          0% |            0% |
-| Equation A.8        |   0% |             0% |          0% |            0% |
-| Equation A.9        |   0% |             0% |          0% |            0% |
-| Equation A.10       |   0% |             0% |          0% |            0% |
-| Equation A.11       |   0% |             0% |          0% |            0% |
-| Equation A.12       |   0% |             0% |          0% |            0% |
-| Equation A.13       |   0% |             0% |          0% |            0% |
+| Graypaper | Equation | Implementation |
+|-----------|----------|----------------|
+| A.5       | 0%       | 0%             |
+| A.6       | 0%       | 0%             |
+| A.7       | 0%       | 0%             |
+| A.8       | 0%       | 0%             |
+| A.9       | 0%       | 0%             |
+| A.10      | 0%       | 0%             |
+| A.11      | 0%       | 0%             |
+| A.12      | 0%       | 0%             |
+| A.13      | 0%       | 0%             |
 
 ## A.5. Instruction Tables
 ### A.5.1. Instructions without Arguments
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation A.14       |   0% |             0% |          0% |            0% |
+| Graypaper     | Equation                     | Implementation |
+|---------------|------------------------------|----------------|
+| Equation A.14 | $\ell \equiv \Fskip(\imath)$ | [TODO]        |
+
+| $\instructions_\imath$ | Name                  | $\gas$ | Mutations              | Implementation |
+|------------------------|-----------------------|--------|------------------------|----------------|
+| 0                      | $\token{trap}$        | 0      | $\varepsilon = \panic$ | [TODO]         |
+| 1                      | $\token{fallthrough}$ | 0      | $\\$                   | [TODO]         |
 
 ### A.5.2. Instructions with Arguments of One Immediate
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation A.15       |   0% |             0% |          0% |            0% |
+| Graypaper     | Equation                                                                                                        | Implementation |
+|---------------|-----------------------------------------------------------------------------------------------------------------|----------------|
+| Equation A.15 | $\using l_X = \min(4, \ell) \,,$<br>$\immed_X \equiv \sext_{l_X}(\de_{l_X}(\instructions_{\imath+1\dots+l_X}))$ | [TODO]        |
+
+| $\instructions_\imath$ | Name             | $\gas$ | Mutations                             | Implementation |
+|------------------------|------------------|--------|---------------------------------------|----------------|
+| 10                     | $\token{ecalli}$ | 0      | $\varepsilon = \host \times \immed_X$ | [TODO]         |
 
 ### A.5.3. Instructions with Arguments of One Register and One Extended Width Immediate
 | Graypaper Reference | Stub | Implementation | Conformance | Documentation |
