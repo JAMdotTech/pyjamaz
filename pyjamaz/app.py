@@ -1,14 +1,17 @@
+import asyncio
 import json
 import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import TypeVar, Optional
+from functools import partial
+from typing import TypeVar, Optional, List, Callable
 
 from bandersnatch_vrfs import ietf_vrf_sign
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
+from jamcodec.types import Vec
 
 from pyjamaz.exceptions import BlockValidationError, PyjamazAppError, BlockValidationErrorCode
 from pyjamaz.extrinsic import ExtrinsicAccumulator
@@ -54,7 +57,7 @@ class AppConfig:
 
 
 class PyjamazApp:
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: AppConfig, import_block_callback: Callable = None):
         self.config = config
 
         # self.storage_engine: StorageInterface = config.storage_engine
@@ -62,9 +65,13 @@ class PyjamazApp:
         self.state_db: StorageEngine = config.storage_engine.namespace(b"state")
         self.block_db: StorageEngine = config.storage_engine.namespace(b"block")
         self.app_db: StorageEngine = config.storage_engine.namespace(b"app")
+        self.network_bootstrap:bool = False
+        self.import_queue:List[Block] = []
 
         self.block_context = BlockContext()
         self.app_context = AppContext()
+
+        self.import_lock = asyncio.Lock()
 
         self.components = StateComponents(
             storage_engine=self.state_db,
@@ -79,6 +86,75 @@ class PyjamazApp:
         self.state_trie_root = bytes(32)
 
         self.latest_epoch = None
+
+        # Note:
+        # For the import block function, we allow the option to provide a custom function (for example to augment with
+        # traces or other debug info)
+        if import_block_callback:
+            self.import_block = partial(import_block_callback, self)
+        else:
+            self.import_block = self._import_block
+
+
+    async def import_block_from_bytes(self, data):
+        block = Block.from_jam_bytes(JamBytes(data))
+        logging.debug(f"📦 Importing block {block.header.timeslot} from bytes")
+        self.import_queue.append(block)
+
+        # Note: when we receive a block announcement and we just started our node, we send out a blocks request to sync our state
+        if self.network_bootstrap:
+            # TODO: app.protocol.conn_out is a temporary hack, should do this different, and also allow for sequential back requests until a certain state is reached
+            if self.protocol.conn_out:
+                self.network_bootstrap = False
+                # TODO: determine peer to request blocks from using protocol grid
+                # TODO: moeten we hier niet alleen de header meegeven ipv een heel block te serializen?????
+                await self.protocol.request_blocks(0, 100, block.to_jam_bytes().to_bytes())
+                # TODO: wel dit block al opslaan en alleen blocks die we vanaf dit Block
+        elif block.header.parent == bytes(32) or self.retrieve_block_by_hash(block.header.parent):
+            # Note: If we are able to find the parent of this block, it means we are synced and we can process blocks
+            await self.process_import_queue()
+        else:
+            logging.info(f"Syncing in progress, current timeslot={self.state.timeslot.number}")
+
+
+    async def import_block_from_json(self, data):
+        logging.debug(f"📦 Importing block from json")
+        block = Block.from_json(data)
+        await self.import_block(block)
+
+
+    async def requested_blocks_from_json(self, data):
+        block_list = [Block.from_json(block_data) for block_data in data]
+        for block in block_list:
+            self.import_queue.append(Block.from_codec_type(block))
+            logging.info(f"📦 Queue block requested #{block.header.timeslot}")
+        await self.process_import_queue()
+
+
+    async def requested_blocks_from_bytes(self, data):
+        block_list = Vec(Block.to_codec_def()).new()
+        block_list.decode(JamBytes(data))
+        for block_bytes in block_list:
+            block = Block.from_codec_type(block_bytes)
+            self.import_queue.append(block)
+
+        await self.process_import_queue()
+
+
+    async def process_import_queue(self):
+        async with self.import_lock:
+            sorted_blocks = sorted(self.import_queue, key=lambda x: x.header.timeslot)
+            self.import_queue = []
+
+        for block in sorted_blocks:
+            # TODO: protocol should only import blocks from this point on -> fix the block_request
+            if self.state.timeslot.number >= block.header.timeslot:
+                #logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
+                continue
+
+            await self.import_block(block)
+            logging.info(f'✅ Block {block.header.timeslot} succesfully imported from process_import_queue.')
+
 
     def retrieve_jam_state(self):
         return JamState(
@@ -495,7 +571,7 @@ class PyjamazApp:
             offenders_mark=disputes_output.offenders_mark
         )
 
-    async def import_block(self, block: Block, validate=True) -> STFOutput:
+    async def _import_block(self, block: Block, validate=True) -> STFOutput:
         try:
             with self.state_db.transaction() as transaction:
 
@@ -506,6 +582,7 @@ class PyjamazApp:
 
             await self.update_state_trie()
             await self.store_block(block)
+            self.latest_epoch = block.header.timeslot // EPOCH_TIMESLOTS
             return output
 
         except Exception as e:
@@ -531,6 +608,13 @@ class PyjamazApp:
         block_data = self.block_db.get(b'block:' + timeslot.to_bytes(length=4, byteorder='little'))
         if block_data is not None:
             return Block.from_jam_bytes(JamBytes(block_data))
+
+    def retrieve_block_by_hash(self, block_hash: bytes) -> Optional[Block]:
+        timeslot_data = self.block_db.get(b'block_number:' + block_hash)
+        if timeslot_data is not None:
+            block_data = self.block_db.get(b'block:' + timeslot_data)
+            if block_data is not None:
+                return Block.from_jam_bytes(JamBytes(block_data))
 
     def retrieve_block_hash(self, timeslot: int) -> Optional[bytes]:
         return self.block_db.get(b'block_hash:' + timeslot.to_bytes(length=4, byteorder='little'))
@@ -765,12 +849,6 @@ class PyjamazApp:
     async def seal_block(self, block: Block):
         pass
 
-    async def send_block(self, block: Block):
-        pass
-
-    async def send_ticket(self, ticket: TicketEnvelope):
-        pass
-
     async def create_state_dump(self) -> StateDump:
         return StateDump(
             state_root=self.state_trie_root,
@@ -796,6 +874,7 @@ class PyjamazApp:
             file.write(trace.to_jam_bytes().to_bytes())
 
         logging.debug(f"Succesfully stored trace data for #{block.header.timeslot}")
+
 
 class StateComponents:
 
