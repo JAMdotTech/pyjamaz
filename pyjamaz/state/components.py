@@ -3,7 +3,7 @@ import logging
 from copy import deepcopy, copy
 from typing import List, Union, Optional, Set
 
-from bandersnatch_vrfs import ring_vrf_verify, ring_commitment
+from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ietf_vrf_verify
 from ed25519_zebra import ed_verify
 from jamcodec.types import Vec, U32
 
@@ -19,7 +19,8 @@ from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, Validator
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
     AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput, \
-    DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage, ServicesErrorCode
+    DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage, ServicesErrorCode, \
+    AccumulationHistoryOutput, AccumulationQueueOutput
 
 from pyjamaz.state.base import StateComponent, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_preimage_availability, AppContext
@@ -30,7 +31,7 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
-    AccumulationHistoryState, ServiceAccount
+    AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationQueueWorkPackage
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -132,13 +133,18 @@ class Entropy(StateComponent):
         bytes
         """
 
-        # vrf_output = ietf_vrf_verify(
-        #     bytes(sealer_key),
-        #     b"jam_entropy" + self.get_block_seal_vrf_input(),
-        #     b'',
-        #     bytes(seal)
-        # )
-        return entropy_source[:32]
+        if len(entropy_source) == 32:
+            return entropy_source
+
+        if self.block_context.author_bandersnatch_key is None:
+            return bytes(32)
+
+        return ietf_vrf_verify(
+            bytes(self.block_context.author_bandersnatch_key),
+            b"jam_entropy" + self.block_context.seal_vrf_output,
+            b'',
+            bytes(entropy_source)
+        )
 
 
 class ValidatorQueue(StateComponent):
@@ -1701,6 +1707,19 @@ class Services(StateComponent):
             intermediate_state_after_preimages=intermediate_state_services_after_preimages
         )
 
+    def state_transition_outer_accumulation(self):
+        """
+        TODO TBD if this is correct name and location
+        GP-0.5.4-eq:12.16 ∆+ | outer accumulation function
+
+        Returns
+        -------
+
+        """
+
+    def state_transition_parallelized_accumulation(self):
+        pass
+
     # Todo: Add additional intermediate STF for δ‡ (Services after accumulation, but before transfers as per
     #  GP-0.3.8-eq:166. State Transition Dependency Graph does not currently list a distinct STF for this. This may
     #  impact input parameters of the main STF.
@@ -1873,3 +1892,71 @@ class Services(StateComponent):
 
         """
         return
+
+
+class AccumulationQueue(StateComponent):
+    component_id = 14
+
+    def state_transition(
+            self,
+            accumulatable_work_reports: List[WorkReport],
+            pre_state_accumulation_queue: AccumulationQueueState,
+    ) -> AccumulationQueueOutput:
+        """
+        GP-0.5.4-eq:12.27 (θ') | State transition function for the state's accumulation queue
+
+        Parameters
+        ----------
+        accumulatable_work_reports: List[WorkReport]
+            GP-0.5.4-eq:4.17 (W*)
+        pre_state_accumulation_queue: AccumulationQueueState
+            GP-0.5.4-eq:4.17 (θ)
+
+        Returns
+        -------
+        AccumulationQueueOutput
+            Output containing: Posterior state of AccumulationQueueState (θ')
+        """
+        post_state_accumulation_queue = deepcopy(pre_state_accumulation_queue)
+
+        return AccumulationQueueOutput(
+            post_state=post_state_accumulation_queue
+        )
+
+    def retrieve_state(self) -> AccumulationQueueState:
+        value = self.retrieve()
+        return AccumulationQueueState.from_jam_bytes(JamBytes(value))
+
+
+class AccumulationHistory(StateComponent):
+    component_id = 15
+
+    def state_transition(
+            self,
+            accumulatable_work_reports: List[WorkReport],
+            pre_state_accumulation_history: AccumulationHistoryState
+    ) -> AccumulationHistoryOutput:
+        """
+        GP-0.5.4-eq:12.25,12.26 (ξ') | State transition function for the state's accumulation history.
+
+        Parameters
+        ----------
+        accumulatable_work_reports: List[WorkReport]
+            GP-0.5.4-eq:12.11 (W*)
+        pre_state_accumulation_history: AccumulationHistoryState
+            GP-0.5.4-eq:4.17 (ξ)
+
+        Returns
+        -------
+        AuthorizerPoolsOutput
+            Output containing: Posterior state of AccumulationHistoryState (ξ')
+        """
+        post_state_accumulation_history = pre_state_accumulation_history
+
+        return AccumulationHistoryOutput(
+            post_state=post_state_accumulation_history
+        )
+
+    def retrieve_state(self) -> AccumulationHistoryState:
+        value = self.retrieve()
+        return AccumulationHistoryState.from_jam_bytes(JamBytes(value))

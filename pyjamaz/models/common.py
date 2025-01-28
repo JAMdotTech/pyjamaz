@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Dict
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16
+from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map
 
 
 @dataclass
@@ -144,22 +144,6 @@ class WorkPackageSpec(Serializable):
 
 
 @dataclass
-class SegmentRootLookupItem(Serializable):
-    """
-    GP-0.5.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
-
-    Attributes
-    ----------
-    work_package_hash: H256
-        GP-0.5.0-eq:11.2 (bold_l_key) | The segment_tree_lookup_item key.
-    segment_tree_root: H256
-        GP-0.5.0-eq:11.2 (bold_l_value) | The segment_tree_lookup_item key.
-    """
-    work_package_hash: bytes = field(metadata={'codec': H256})
-    segment_tree_root: bytes = field(metadata={'codec': H256})
-
-
-@dataclass
 class WorkReport(Serializable):
     """
     GP-0.5.0-eq:11.2 (blackboard_W) | A work report comprises several work outputs.
@@ -186,9 +170,7 @@ class WorkReport(Serializable):
     core_index: int = field(metadata={'codec': U16})
     authorizer_hash: bytes = field(metadata={'codec': H256})
     auth_output: bytes = field(metadata={'codec': Bytes})
-    # TODO: GP-0.5.0 states this needs to be a dictionary
-    # segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
-    segment_root_lookup: List[SegmentRootLookupItem] = field(metadata={'codec': Vec(SegmentRootLookupItem.to_codec_def())})
+    segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
     results: List[WorkResult] = field(metadata={'codec': Vec(WorkResult.to_codec_def())})
 
     def dependency_count(self) -> int:

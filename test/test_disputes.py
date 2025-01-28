@@ -13,12 +13,11 @@ from os import path
 from pyjamaz.app import PyjamazApp, AppConfig
 from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.settings import TEST_SUITE
-from pyjamaz.state.base import State
 from pyjamaz.storage import InMemoryStorage
 
 from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes, Block
 from pyjamaz.models.state import (DisputesState, AssurancesState, TimeslotState, ValidatorArchiveState,
-                                  ValidatorPoolState, JamState)
+                                  ValidatorPoolState, JamState, State)
 
 
 @dataclass

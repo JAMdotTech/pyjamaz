@@ -24,6 +24,7 @@ class BlockValidationErrorCode(Serializable, enum.Enum):
     extrinsic_hash_mismatch = 0
     invalid_author_key = 1
     invalid_seal_key = 2
+    bad_slot = 3
 
 
 class BlockValidationError(PyjamazAppError):

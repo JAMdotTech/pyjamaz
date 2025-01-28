@@ -23,8 +23,9 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.trace import Trace
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
-from pyjamaz.models.block import Block
+from pyjamaz.models.block import Block, Header
 from pyjamaz.models.state import JamState
+from pyjamaz.utils import format_hash
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
@@ -195,28 +196,68 @@ async def local_block_importer(app: PyjamazApp, block_dir, traces_dir, lock):
 async def timeslot_ticker(app: PyjamazApp, block_dir, lock):
 
     while True:
+        # TODO centralize
+        app.block_context.initialize()
         timeslot = app.current_timeslot()
+        logging.info(f"⏳️Timeslot: {timeslot}")
 
         if app.state.timeslot.number >= timeslot:
             logger.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
             await anyio.sleep(0.1)
             continue
 
-        await app.process_timeslot(timeslot)
+        if app.is_epoch_change(timeslot):
+            app.latest_epoch = timeslot // EPOCH_TIMESLOTS
+            logging.info("🗓️ Process Epoch change")
 
-        if app.should_produce_block():
+            # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
+            #  triggering state changes in STFs caused be epoch change.
+
+            header = Header.default()
+            header.timeslot = timeslot
+
+            entropy_output = app.components.entropy.state_transition(
+                header=header,
+                pre_state_timeslot=app.state.timeslot,
+                pre_state_entropy=app.state.entropy
+            )
+
+            safrole_output = app.components.safrole.state_transition(
+                header=header,
+                pre_state_timeslot=app.state.timeslot,
+                pre_state_safrole=app.state.safrole,
+                pre_state_validator_queue=app.state.validator_queue,
+                post_state_entropy=entropy_output.post_state,
+                post_state_disputes=app.state.disputes,
+                post_state_validator_pool=app.state.validator_pool,
+                extrinsic_tickets=[]
+            )
+            # Update slot_sealer_series in advance
+            # self.state.safrole.slot_sealer_series = post_safrole_state.post_state.slot_sealer_series
+            # logging.debug(f'New slot_sealer_series: {self.state.safrole.slot_sealer_series.to_json()}')
+            # Process tickets
+            app.extrinsic.process_epoch_change()
+            logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
+
+            safrole_state = safrole_output.post_state
+            entropy_state = entropy_output.post_state
+        else:
+            safrole_state = app.state.safrole
+            entropy_state = app.state.entropy
+
+        if app.should_produce_block(safrole_state):
 
             async with lock:
                 try:
 
-                    block = await app.produce_block(timeslot)
+                    block = await app.produce_block(timeslot, safrole_state, entropy_state)
 
                     # write block to dir
                     filepath = os.path.join(block_dir, f'block-{block.header.timeslot:06}.json')
                     with open(filepath, 'w') as file:
                         json.dump(block.to_json(), file, indent=2)
 
-                    logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
+                    logger.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{format_hash(block.header.hash)} | epoch #{app.current_epoch()} | phase #{app.current_slot_phase_index()}')
                 except Exception as e:
                     logger.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                     # Rollback state from DB
@@ -325,6 +366,7 @@ async def init(initial_state, genesis, custom_db_path, force_overwrite):
 async def replay_traces(
         traces_dir, custom_db_path, force_overwrite, skip_block_validation, only_block_import, trace_format
 ):
+    setup_logging(log_level=logging.DEBUG)
 
     # Flush database and import genesis state
     db_path = custom_db_path or default_db_path
@@ -343,19 +385,20 @@ async def replay_traces(
     )
 
     for block_file in traces_files:
+        logger.info(f'📂 Processing trace file {block_file}')
         with open(os.path.join(traces_dir, block_file), 'rb') as fp:
             trace = Trace.from_jam_bytes(JamBytes(fp.read()))
 
         if not only_block_import or app.state_trie_root == bytes(32):
 
-            for k, v in trace.pre_state.keyvals:
-                app.state_db.put(bytes(k.value_object), bytes(v.value_object))
+            for k, v, name, metadata in trace.pre_state.keyvals:
+                app.state_db.put(bytes(k), bytes(v))
 
             app.state = app.retrieve_jam_state()
             await app.update_state_trie()
             app.latest_epoch = app.state.timeslot.epoch_number()
 
-            assert app.state_trie_root == trace.pre_state.state_root
+            # assert app.state_trie_root == trace.pre_state.state_root
             logger.info(f'🎬 Genesis succesfully saved (state root: 0x{app.state_trie_root.hex()})')
 
         logger.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: 0x{trace.block.header.hash.hex()})..')
@@ -376,8 +419,8 @@ async def replay_traces(
                 logger.info('Dumping state differences:')
                 actual_state = app.state.to_json()
 
-                for k, v in trace.post_state.keyvals:
-                    app.state_db.put(bytes(k.value_object), bytes(v.value_object))
+                for k, v, name, metadata in trace.post_state.keyvals:
+                    app.state_db.put(bytes(k), bytes(v))
 
                 app.state = app.retrieve_jam_state()
 

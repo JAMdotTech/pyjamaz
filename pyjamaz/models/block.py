@@ -5,9 +5,11 @@ from bandersnatch_vrfs import ietf_vrf_verify, ietf_vrf_sign
 from math import floor
 from typing import List, Optional
 
-from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState, ValidatorArchiveState
+from pyjamaz.accumulate import priority_queue, edit_queue, work_report_dependencies, work_report_mapping
+from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState, ValidatorArchiveState, \
+    BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState, AccumulationQueueWorkPackage
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray, Tuple
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT, ROTATION_PERIOD_CORE
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody
@@ -498,13 +500,39 @@ class Extrinsic(Serializable):
 
     def generate_extrinsic_hash(self) -> bytes:
         """
-        GP-0.5.0-eq:5.4
+        GP-0.5.4-eq:5.4,5.5,5.6
 
         Returns
         -------
         bytes
         """
-        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
+
+        # TODO optimize re-encoding
+
+        # GP-0.5.4-eq:5.6
+        extrinsic_hash = blake2b_256_hash(bytes(Vec(TicketEnvelope.to_codec_def()).encode([
+            t.to_json() for t in self.tickets
+        ])))
+
+        extrinsic_hash += blake2b_256_hash(bytes(Vec(Preimage.to_codec_def()).encode([
+            p.to_json() for p in self.preimages
+        ])))
+
+        hashed_guarantees = Vec(Tuple(H256, U32, Vec(Credential.to_codec_def()))).encode(
+            [
+                (blake2b_256_hash(bytes(g.report.to_jam_bytes())), g.slot, [s.to_json() for s in g.signatures])
+                for g in self.guarantees
+            ]
+        )
+
+        extrinsic_hash += blake2b_256_hash(bytes(hashed_guarantees))
+        extrinsic_hash += blake2b_256_hash(bytes(Vec(Assurance.to_codec_def()).encode([
+            a.to_json() for a in self.assurances
+        ])))
+        extrinsic_hash += blake2b_256_hash(bytes(self.disputes.to_jam_bytes()))
+
+        # GP-0.5.4-eq:5.5
+        return blake2b_256_hash(extrinsic_hash)
 
 
 @dataclass
@@ -645,13 +673,59 @@ class GuarantorAssignment:
 
 @dataclass
 class BlockContext:
+    # G
     guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+    # G*
     prev_guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+    # H_a
+    author_bandersnatch_key: Optional[bytes] = None
+    # TODO GP ref?
+    seal_vrf_output: bytes = bytes(32)
+    # A
+    ancestor_headers: Optional[List[Header]] = None
+
+    # W
+    available_work_reports: Optional[List[WorkReport]] = None
+    # W!
+    ready_work_reports: Optional[List[WorkReport]] = None
+    # W_Q
+    queued_work_reports: Optional[List[AccumulationQueueWorkPackage]] = None
+    # W*
+    accumulatable_work_reports: Optional[List[WorkReport]] = None
+
+    # M_o
+    state_root: Optional[bytes] = None
+    # C
+    beefy_commitment_map: Optional[BeefyCommitmentMap] = None
 
     def initialize(self):
         self.guarantor_assignments = None
         self.prev_guarantor_assignments = None
+        self.author_bandersnatch_key = None
+        self.seal_vrf_output = bytes(32)
+        self.available_work_reports = None
 
+
+    def get_parent(self, header: Header) -> Optional[Header]:
+        """
+        GP-0.5.4-eq:5.3 (P)
+
+        Parameters
+        ----------
+        header
+
+        Returns
+        -------
+
+        """
+        if header.parent == bytes(32):
+            # H_0
+            return Header.default()
+
+        for ancestor in self.ancestor_headers:
+            if header.parent == ancestor.hash:
+                return ancestor
+        return None
 
     def set_guarantor_assignments(self,
                        post_entropy: EntropyState,
@@ -716,3 +790,67 @@ class BlockContext:
                 validator_ed25519=validators[validator_index].ed25519
             ) for validator_index, core_index in enumerate(assignments)
         ]
+
+    def set_ready_work_reports(self):
+        """
+        GP-0.5.4-eq:12.4 (W_!) | Calculates and sets ready work reports
+
+        Returns
+        -------
+
+        """
+        if self.available_work_reports is None:
+            raise ValueError("No available work reports")
+
+        self.ready_work_reports = [
+            w for w in self.available_work_reports
+            if len(w.context.prerequisites) == 0 and len(w.segment_root_lookup) == 0
+        ]
+
+    def set_queued_work_reports(self, accumulation_history: AccumulationHistoryState):
+        """
+        GP-0.5.4-eq:12.5 (W_Q) | Calculates and sets queued work reports
+
+        Returns
+        -------
+
+        """
+        if self.available_work_reports is None:
+            raise ValueError("No available work reports")
+
+        self.queued_work_reports = [
+            work_report_dependencies(w) for w in self.available_work_reports
+            if len(w.context.prerequisites) > 0 or len(w.segment_root_lookup) > 0
+        ]
+
+    def set_accumulatable_work_reports(self, header: Header, accumulation_queue: AccumulationQueueState):
+        """
+        GP-0.5.4-eq:12.10-12.12 (W_*) | Sets accumulatable work reports
+
+        Parameters
+        ----------
+        header
+        accumulation_queue
+
+        Returns
+        -------
+
+        """
+
+        if self.ready_work_reports is None:
+            raise ValueError("No ready reports set")
+
+        if self.queued_work_reports is None:
+            raise ValueError("No queued reports set")
+
+        # GP-0.5.4-eq:12.10
+        m = header.timeslot % EPOCH_TIMESLOTS
+
+        # GP-0.5.4-eq:12.12
+        q = edit_queue(
+            work_report_queue=accumulation_queue.accumulation_queue[m:] + accumulation_queue.accumulation_queue[:m] +
+                              self.queued_work_reports,
+            accumulated_packages=work_report_mapping(self.ready_work_reports)
+        )
+        # GP-0.5.4-eq:12.11
+        self.accumulatable_work_reports = self.ready_work_reports + priority_queue(q)

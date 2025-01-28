@@ -79,6 +79,8 @@ class TestBlockSeals(unittest.TestCase):
 
             block_seal = header.generate_ticket_seal(author.private_key, eta3, test_vector['attempt'])
 
+            header_vrf_output = author.ietf_vrf_verify(vrf_input, header.get_unsigned_payload(), block_seal)
+
             self.assertEqual(bytes.fromhex(test_vector['H_s']), block_seal)
             self.assertEqual(bytes.fromhex(test_vector['H_s']), header.seal)
 

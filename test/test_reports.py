@@ -11,7 +11,7 @@ from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.base import AppContext
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee, BlockContext
+from pyjamaz.models.block import Header, Guarantee, BlockContext, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState
 
@@ -56,6 +56,17 @@ class TestReports(unittest.TestCase):
         post_state_timeslot = TimeslotState(number=header.timeslot)
 
         extrinsic_guarantees = [Guarantee.from_json(a) for a in test_vector["input"]["guarantees"]]
+
+        extrinsic = Extrinsic(
+            tickets=[],
+            disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
+            preimages=[],
+            assurances=[],
+            guarantees=extrinsic_guarantees
+        )
+
+        header.extrinsic_hash = extrinsic.generate_extrinsic_hash()
+
         pre_state_assurances = AssurancesState.from_json({"assurances": test_vector["pre_state"]["avail_assignments"]})
         post_state_validator_pool = ValidatorPoolState.from_json(
             {"validators": test_vector["pre_state"]["curr_validators"]}

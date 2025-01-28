@@ -118,3 +118,6 @@ def vrf_input_ticket_seal(entropy: bytes, ticket_attempt: int) -> bytes:
 
 def vrf_input_fallback_seal(entropy: bytes) -> bytes:
     return b"jam_fallback_seal" + entropy
+
+def format_hash(hash: bytes) -> str:
+    return f'{hash[:4].hex()}...{hash[-4:].hex()}'

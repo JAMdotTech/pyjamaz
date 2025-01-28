@@ -9,7 +9,7 @@ from pyjamaz.models.block import EpochMark
 from pyjamaz.models.common import WorkReport, TicketBody
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
-    BeefyCommitmentMap
+    BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState
 
 
 @dataclass
@@ -322,6 +322,32 @@ class ServicesOutput(Serializable):
         default=None,
         metadata={'codec': BeefyCommitmentMap.to_codec_def()}
     )
+
+
+@dataclass
+class AccumulationHistoryOutput(Serializable):
+    """
+    GP-0.5.0-eq:4.17 (ξ') | Output of Accumulation History STF.
+
+    Attributes
+    ----------
+    post_state:ServicesState
+        GP-0.5.0-eq:4.17 (ξ') | Primary output of AccumulationHistory STF.
+    """
+    post_state: AccumulationHistoryState = field(metadata={'codec': AccumulationHistoryState.to_codec_def()})
+
+
+@dataclass
+class AccumulationQueueOutput(Serializable):
+    """
+    GP-0.5.4-eq:4.17 (θ) | Output of Accumulation Queue STF.
+
+    Attributes
+    ----------
+    post_state: ServicesState
+        GP-0.5.4-eq:4.17 (θ') | Primary output of AccumulationQueue STF.
+    """
+    post_state: AccumulationQueueState = field(metadata={'codec': AccumulationQueueState.to_codec_def()})
 
 
 @dataclass
