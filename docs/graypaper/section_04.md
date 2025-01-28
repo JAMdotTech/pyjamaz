@@ -14,16 +14,16 @@ We begin our formalisms by recalling that a blockchain may be defined as a pairi
 ## 4.1. The Block
 To aid comprehension and definition of our protocol, we partition as many of our terms as possible into their functional components. We begin with the block $\mathbf{B}$ which may be restated as the header $\mathbf{H}$ and some input data external to the system and thus said to be _extrinsic_, $\mathbf{E}$
 
-| Graypaper               | Equation                  | Implementation                                              |
-|-------------------------|---------------------------|-------------------------------------------------------------|
+| Graypaper               | Equation                  | Implementation                                                   |
+|-------------------------|---------------------------|------------------------------------------------------------------|
 | <a name="4.2">(4.2)</a> | $\equationfourpointtwo$   | [Link](/types/types_blocks/#pyjamaz.models.block.Block)     |
 | <a name="4.3">(4.3)</a> | $\equationfourpointthree$ | [Link](/types/types_blocks/#pyjamaz.models.block.Extrinsic) |
 
 ## 4.2. The State 
 Our state may be logically partitioned into several largely independent segments which can both help avoid visual clutter within our protocol description and provide formality over elements of computation which may be simultaneously calculated (i.e. parallelized). We therefore pronounce an equivalence between $\sigma$ (some complete state) and a tuple of partitioned segments of that state.
 
-| Graypaper               | Equation                 | Implementation                                            |
-|-------------------------|--------------------------|-----------------------------------------------------------|
+| Graypaper               | Equation                 | Implementation                                                 |
+|-------------------------|--------------------------|----------------------------------------------------------------|
 | <a name="4.4">(4.4)</a> | $\equationfourpointfour$ | [Link](/types/types_state/#pyjamaz.models.state.JamState) |
 
 ### 4.2.1. State Transition Dependency Graph 

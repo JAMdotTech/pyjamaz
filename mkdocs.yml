@@ -56,9 +56,9 @@ extra:
 
 nav:
   - Overview: index.md
-  - Type Definitions:
-      - Block Types: types/types_blocks.md
-      - State Types: types/types_state.md
+  - Types:
+      - Block Context: types/types_blocks.md
+      - State Components: types/types_state.md
       - STF Output Types: types/types_stf_output.md
   - State Transition Functions:
       - Overall State (σ): stfs/sigma.md
