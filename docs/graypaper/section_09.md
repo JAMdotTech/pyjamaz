@@ -1,39 +1,42 @@
+\( {% include-markdown "./preamble.tex" comments=false %} \)
+\( {% include-markdown "./section_09.tex" comments=false %} \)
 # 9. Service Accounts
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.0. 
+This section has been updated to match Graypaper version 0.5.4. 
 
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 9.1        |   0% |             0% |          0% |            0% |
-| Equation 9.2        |   0% |             0% |          0% |            0% |
-| Equation 9.3        |   0% |             0% |          0% |            0% |
+## 9.0. General
+| Graypaper               | Equation                  | Implementation |
+|-------------------------|---------------------------|----------------|
+| <a name="9.1">(9.1)</a> | $\equationninepointone$   | [TODO]         | 
+| <a name="9.2">(9.2)</a> | $\equationninepointtwo$   | [TODO]         |
+| <a name="9.3">(9.3)</a> | $\equationninepointthree$ | [TODO]         |
 
 ## 9.1. Code and Gas
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 9.4        |   0% |             0% |          0% |            0% |
+| Graypaper               | Equation                 | Implementation |
+|-------------------------|--------------------------|----------------|
+| <a name="9.4">(9.4)</a> | $\equationninepointfour$ | [TODO]         | 
 
 ## 9.2. Preimage Lookups 
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 9.5        |   0% |             0% |          0% |            0% |
+| Graypaper               | Equation                 | Implementation |
+|-------------------------|--------------------------|----------------|
+| <a name="9.5">(9.5)</a> | $\equationninepointfive$ | [TODO]         | 
 
 ### 9.2.1. Invariants 
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 9.6        |   0% |             0% |          0% |            0% |
+| Graypaper               | Equation                | Implementation |
+|-------------------------|-------------------------|----------------|
+| <a name="9.6">(9.6)</a> | $\equationninepointsix$ | [TODO]         | 
 
 ### 9.2.2. Semantics 
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 9.7        |   0% |             0% |          0% |            0% |
+| Graypaper               | Equation                  | Implementation |
+|-------------------------|---------------------------|----------------|
+| <a name="9.7">(9.7)</a> | $\equationninepointseven$ | [TODO]         | 
 
 ## 9.3. Account Footprint and Threshold Balance 
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 9.8        |   0% |             0% |          0% |            0% |
+| Graypaper               | Equation                  | Implementation |
+|-------------------------|---------------------------|----------------|
+| <a name="9.8">(9.8)</a> | $\equationninepointeight$ | [TODO]         | 
 
 ## 9.4. Service Privileges 
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 9.9        |   0% |             0% |          0% |            0% |
+| Graypaper               | Equation                 | Implementation |
+|-------------------------|--------------------------|----------------|
+| <a name="9.9">(9.9)</a> | $\equationninepointnine$ | [TODO]         | 

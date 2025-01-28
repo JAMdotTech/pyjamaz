@@ -43,7 +43,7 @@ plugins:
             show_signature_annotations: true
             docstring_style: numpy
             heading_level: 2
-
+  - include-markdown
   - autorefs
   - search
 
@@ -76,7 +76,7 @@ nav:
       - Privileged Services (χ): stfs/chi.md
       - Disputes (ψ): stfs/psi.md
       - Statistics (π): stfs/pi.md
-  - Graypaper References:
+  - Graypaper:
       - Summary: graypaper/summary.md
       - 1. Introduction: graypaper/section_01.md
       - 2. Previous Work & Present Trends: graypaper/section_02.md

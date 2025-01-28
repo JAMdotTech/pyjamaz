@@ -1,40 +1,42 @@
+\( {% include-markdown "./preamble.tex" comments=false %} \)
+\( {% include-markdown "./section_14.tex" comments=false %} \)
 # 14. Work Packages and Work Reports
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.0. 
+This section has been updated to match Graypaper version 0.5.4. 
 
 ## 14.2. Segments and the Manifest
 ### 14.2.1. Segments, Imports and Exports
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 14.1       |   0% |             0% |          0% |            0% |
+| Graypaper                 | Equation                    | Implementation |
+|---------------------------|-----------------------------|----------------|
+| <a name="14.1">(14.1)</a> | $\equationfourteenpointone$ | [TODO]         | 
 
 ## 14.3. Packages and Items
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 14.2       |   0% |             0% |          0% |            0% |
-| Equation 14.3       |   0% |             0% |          0% |            0% |
-| Equation 14.4       |   0% |             0% |          0% |            0% |
-| Equation 14.5       |   0% |             0% |          0% |            0% |
-| Equation 14.6       |   0% |             0% |          0% |            0% |
-| Equation 14.7       |   0% |             0% |          0% |            0% |
-| Equation 14.8       |   0% |             0% |          0% |            0% |
+| Graypaper                 | Equation                      | Implementation |
+|---------------------------|-------------------------------|----------------|
+| <a name="14.2">(14.2)</a> | $\equationfourteenpointtwo$   | [TODO]         |
+| <a name="14.3">(14.3)</a> | $\equationfourteenpointthree$ | [TODO]         |
+| <a name="14.4">(14.4)</a> | $\equationfourteenpointfour$  | [TODO]         |
+| <a name="14.5">(14.5)</a> | $\equationfourteenpointfive$  | [TODO]         |
+| <a name="14.6">(14.6)</a> | $\equationfourteenpointsix$   | [TODO]         |
+| <a name="14.7">(14.7)</a> | $\equationfourteenpointseven$ | [TODO]         |
+| <a name="14.8">(14.8)</a> | $\equationfourteenpointeight$ | [TODO]         |
 
 ### 14.3.1. Exporting
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 14.9       |   0% |             0% |          0% |            0% |
+| Graypaper                 | Equation                     | Implementation |
+|---------------------------|------------------------------|----------------|
+| <a name="14.9">(14.9)</a> | $\equationfourteenpointnine$ | [TODO]         |
 
 ## 14.4. Computation of Work Results
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 14.10      |   0% |             0% |          0% |            0% |
-| Equation 14.11      |   0% |             0% |          0% |            0% |
-| Equation 14.12      |   0% |             0% |          0% |            0% |
-| Equation 14.13      |   0% |             0% |          0% |            0% |
-| Equation 14.14      |   0% |             0% |          0% |            0% |
+| Graypaper                   | Equation                          | Implementation |
+|-----------------------------|-----------------------------------|----------------|
+| <a name="14.10">(14.10)</a> | $\equationfourteenpointten$       | [TODO]         |
+| <a name="14.11">(14.11)</a> | $\equationfourteenpointeleven$    | [TODO]         |
+| <a name="14.12">(14.12)</a> | $\equationfourteenpointtwelve$    | [TODO]         |
+| <a name="14.13">(14.13)</a> | $\equationfourteenpointthirteen$  | [TODO]         |
+| <a name="14.14">(14.14)</a> | $\equationfourteennpointfourteen$ | [TODO]         |
 
 ### 14.4.1. Availability Specifier
-| Graypaper Reference | Stub | Implementation | Conformance | Documentation |
-|---------------------|-----:|---------------:|------------:|--------------:|
-| Equation 14.15      |   0% |             0% |          0% |            0% |
-| Equation 14.16      |   0% |             0% |          0% |            0% |
+| Graypaper                   | Equation                        | Implementation |
+|-----------------------------|---------------------------------|----------------|
+| <a name="14.15">(14.15)</a> | $\equationfourteenpointfifteen$ | [TODO]         |
+| <a name="14.16">(14.16)</a> | $\equationfourteenpoinsixteen$  | [TODO]         |

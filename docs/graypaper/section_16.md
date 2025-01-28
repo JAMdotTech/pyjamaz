@@ -1,3 +1,5 @@
+\( {% include-markdown "./preamble.tex" comments=false %} \)
+\( {% include-markdown "./section_16.tex" comments=false %} \)
 # 16. Availability Assurance
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.0. 
+This section has been updated to match Graypaper version 0.5.4. 

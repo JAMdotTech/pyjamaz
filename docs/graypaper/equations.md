@@ -21,3 +21,4 @@ $$x = {-b \pm \sqrt{b^2-4ac} \over 2a}.$$
 14. \rotatebox{180} 
 15. \textsf
 16. \nicefrac
+17. escape | in MD-table -> \mid
