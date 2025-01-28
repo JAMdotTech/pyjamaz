@@ -437,3 +437,40 @@ MemOps = {
     Opcode.store_imm_ind_u32.value,
     Opcode.store_imm_ind_u64.value,
 }
+
+MemReadOps = {
+    Opcode.load_u8.value,
+    Opcode.load_i8.value,
+    Opcode.load_u16.value,
+    Opcode.load_i16.value,
+    Opcode.load_u32.value,
+    Opcode.load_i32.value,
+    Opcode.load_u64.value,
+    Opcode.load_imm_64.value,
+    Opcode.load_ind_u8.value,
+    Opcode.load_ind_i8.value,
+    Opcode.load_ind_u16.value,
+    Opcode.load_ind_i16.value,
+    Opcode.load_ind_u32.value,
+    Opcode.load_ind_i32.value,
+    Opcode.load_ind_u64.value,
+}
+
+MemWriteOps = {
+    Opcode.store_imm_u8.value,
+    Opcode.store_imm_u16.value,
+    Opcode.store_imm_u32.value,
+    Opcode.store_imm_u64.value,
+    Opcode.store_u8.value,
+    Opcode.store_u16.value,
+    Opcode.store_u32.value,
+    Opcode.store_u64.value,
+    Opcode.store_ind_u8.value,
+    Opcode.store_ind_u16.value,
+    Opcode.store_ind_u32.value,
+    Opcode.store_ind_u64.value,
+    Opcode.store_imm_ind_u8.value,
+    Opcode.store_imm_ind_u16.value,
+    Opcode.store_imm_ind_u32.value,
+    Opcode.store_imm_ind_u64.value,
+}

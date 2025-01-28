@@ -25,7 +25,7 @@ from .constants import (
     OpcodeScheme,
     InstructionType,
     ExitCondition,
-    MemOps
+    MemOps,
 )
 
 
@@ -122,18 +122,25 @@ class PVM:
 
         self.create_instruction_lookup()
 
+    def check_mem_op(self, op, mapped_addr):
+        if mapped_addr >= len(self.mem):
+            self.status = ExitCondition.page_fault.value
+            self.gas -= 1
+            return False
+        # TODO: register writable&readable memory banks
+        # elif op in MemWriteOps:
+        #     pass
+        return True
+
     # GP_A.15
     def djump(self, a):
-        return self.jump_table[0] - self.pc
-        #TODO:!!@@!$#!@$@!$@!
-        # Z_a = 2  # TODO: add to constants
-        # if a == np.uint64(2 ** 32 - 2 ** 16):
-        #     self.status = ExitCondition.halt.value
-        # elif a == 0 or a > len(self.jump_table) * Z_a or a % Z_a != 0:  # or self.jump_table[a//Z_a-1]:
-        #     self.status = ExitCondition.panic.value
-        #     self.pc = 0
-        # else:
-        #     self.pc = self.jump_table[a//Z_a-1]
+        Z_a = 2  # TODO: add to constants
+        if a == np.uint64(2 ** 32 - 2 ** 16):
+            self.status = ExitCondition.halt.value
+        elif a == 0 or a > len(self.jump_table) * Z_a or a % Z_a != 0:  # or self.jump_table[a//Z_a-1]:
+            self.status = ExitCondition.panic.value
+        else:
+            return self.jump_table[a//Z_a-1] - self.pc
 
     def invoke(
         self,
@@ -198,6 +205,7 @@ class PVM:
                         case op.ecalli.value:
                             #TODO: NO_TESTS
                             l_x = min(4, max(0, skip_len - 2))
+                            #TODO: ook l_x == 0 check?
                             v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
                             self.status = ExitCondition.host_halt.value
                             self.invoke_host_call(v_x)
@@ -224,13 +232,12 @@ class PVM:
                     l_x = min(4, self.rom[self.pc + 1] % 8)
                     # TODO: CHANGED->NEEDS TEST
                     l_y = min(4, max(0, skip_len - l_x - 2))
+                    #TODO: ook l_x == 0 check
                     v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
                     v_y = pvm_X(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     mapped_addr = v_x - self.mem_offset
-                    if mapped_addr >= len(self.mem):
-                        self.status = ExitCondition.panic.value
-                        self.gas -= 1
+                    if opcode in MemOps and not self.check_mem_op(opcode, mapped_addr):
                         continue
 
                     # TODO: CHANGED->NEEDS TEST
@@ -272,16 +279,13 @@ class PVM:
                     if l_x > 0:
                         v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
-                    if opcode in MemOps:
-                        mapped_addr = v_x - self.mem_offset
-                        if mapped_addr >= len(self.mem):
-                            self.status = ExitCondition.panic.value
-                            self.gas -= 1
-                            continue
+                    mapped_addr = v_x - self.mem_offset
+                    if opcode in MemOps and not self.check_mem_op(opcode, mapped_addr):
+                        continue
 
                     match opcode:
                         case op.jump_ind.value:
-                            skip_len = self.djump(np.uint32(r_a+v_x))
+                            skip_len = self.djump(np.uint32(self.reg[r_a]+v_x))
 
                         case op.load_imm.value:
                             self.reg[r_a] = v_x
@@ -339,16 +343,19 @@ class PVM:
 
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16,32 or 64)
                     l_x = min(4, (self.rom[self.pc + 1] // 16) % 8)
-                    l_y = min(4, max(0, skip_len - l_x - 1))
+                    l_y = min(4, max(0, skip_len - l_x - 2))
 
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
-                    v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    if l_x > 0:
+                        v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    else:
+                        v_x = 0
+
+                    #read_uint(self.rom, self.pc + 2, 2)!!!!!!
                     v_y = pvm_X(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
-                    mapped_addr = (w_a + v_x) - self.mem_offset
-                    if mapped_addr >= len(self.mem):
-                        self.status = ExitCondition.panic.value
-                        self.gas -= 1
+                    mapped_addr = w_a + v_x - self.mem_offset
+                    if opcode in MemOps and not self.check_mem_op(opcode, mapped_addr):
                         continue
 
                     match opcode:
@@ -358,7 +365,7 @@ class PVM:
                             write_uint(self.mem, mapped_addr, 1, v_y)
 
                         # TODO:NO_TEST:
-                        case op.store_imm_u16.value:
+                        case op.store_imm_ind_u16.value:
                             write_uint(self.mem, mapped_addr, 2, v_y)
 
                         # TODO:NO_TEST:
@@ -419,19 +426,19 @@ class PVM:
                                 skip_len = v_y
 
                         case op.branch_lt_s_imm.value:
-                            if pvm_Z(w_a, 4) < pvm_Z(v_x, 4):
+                            if pvm_Z(w_a, 8) < pvm_Z(v_x, 4):
                                 skip_len = v_y
 
                         case op.branch_le_s_imm.value:
-                            if pvm_Z(w_a, 4) <= pvm_Z(v_x, 4):
+                            if pvm_Z(w_a, 8) <= pvm_Z(v_x, 4):
                                 skip_len = v_y
 
                         case op.branch_ge_s_imm.value:
-                            if pvm_Z(w_a, 4) >= pvm_Z(v_x, 4):
+                            if pvm_Z(w_a, 8) >= pvm_Z(v_x, 4):
                                 skip_len = v_y
 
                         case op.branch_gt_s_imm.value:
-                            if pvm_Z(w_a, 4) > pvm_Z(v_x, 4):
+                            if pvm_Z(w_a, 8) > pvm_Z(v_x, 4):
                                 skip_len = v_y
 
                         case _:
@@ -512,12 +519,9 @@ class PVM:
                     else:
                         v_x = 0
 
-                    if opcode in MemOps:
-                        mapped_addr = (w_b + v_x) - self.mem_offset
-                        if mapped_addr >= len(self.mem):
-                            self.status = ExitCondition.page_fault.value
-                            self.gas -= 1
-                            continue
+                    mapped_addr = w_b + v_x - self.mem_offset
+                    if opcode in MemOps and not self.check_mem_op(opcode, mapped_addr):
+                        continue
 
                     match opcode:
 
@@ -734,6 +738,7 @@ class PVM:
                     w_b = self.reg[r_b]
 
                     l_x = min(4, self.rom[self.pc + 2] % 8)
+                    #TODO: ook l_x == 0 check
                     v_x = pvm_X(read_uint(self.rom, self.pc + 3, l_x), l_x)
 
                     l_y = min(4, max(0, skip_len - l_x - 2))
@@ -741,15 +746,9 @@ class PVM:
 
                     match opcode:
 
-                        case op.load_imm_jump_ind:
-                            if self.reg[0] == 0xffff0000:   #TODO: maak constante -> GP ref opzoeken
-                                self.status = ExitCondition.halt.value
-                            elif l_x == 0:
-                                self.status = ExitCondition.panic.value
-                                self.pc = 0
-
+                        case op.load_imm_jump_ind.value:
                             self.reg[r_a] = v_x
-                            skip_len = (w_b + v_y) % 2**32
+                            skip_len = self.djump(np.uint32(w_b + v_y))
 
                         case _:
                             raise InvalidOpcode(f"Invalid reg_reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
@@ -844,7 +843,7 @@ class PVM:
                             if w_b == 0:
                                 self.reg[r_d] = 2**64 - 1
                             else:
-                                self.reg[r_d] = floor(w_a / w_b)
+                                self.reg[r_d] = w_a // w_b
 
                         case op.div_s_64.value:
                             # TODO: NEW->NEEDS TEST
@@ -853,7 +852,7 @@ class PVM:
                             elif pvm_Z(w_a, 8) == -2**63 and pvm_Z(w_b, 8) == -1:
                                 self.reg[r_d] = w_a
                             else:
-                                self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a, 8) % pvm_Z(w_b,8), 8)
+                                self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a, 8) // pvm_Z(w_b,8), 8)
 
                         case op.rem_u_64.value:
                             # TODO: CHANGED->NEEDS TEST

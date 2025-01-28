@@ -112,14 +112,14 @@ def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np
             byte0
         ) % 2**32
     elif l == 8:
-        byte0 = np.uint8( source[addr + 0])
+        byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         byte2 = np.uint32(source[addr + 2])
         byte3 = np.uint32(source[addr + 3])
-        byte4 = np.uint32(source[addr + 4])
-        byte5 = np.uint32(source[addr + 5])
-        byte6 = np.uint32(source[addr + 6])
-        byte7 = np.uint32(source[addr + 7])
+        byte4 = np.uint64(source[addr + 4])
+        byte5 = np.uint64(source[addr + 5])
+        byte6 = np.uint64(source[addr + 6])
+        byte7 = np.uint64(source[addr + 7])
         return np.uint64(
             (byte7 << 56) +
             (byte6 << 48) +
@@ -130,6 +130,8 @@ def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np
             (byte1 << 8) +
             byte0
         )
+
+        bytes_arr = np.frombuffer(np.array([239, 190, 173, 222, 239, 190, 173, 222], dtype=np.uint8).tobytes(), dtype="<u8")[0]
     else:
         raise UIntValueError(f"Invalid uint length: {l}")
 
