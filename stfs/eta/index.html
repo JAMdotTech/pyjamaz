@@ -249,7 +249,7 @@
   
     
   
-  Graypaper References
+  Graypaper
 
         </a>
       </li>
@@ -948,7 +948,7 @@
       
   
   <span class="md-ellipsis">
-    Graypaper References
+    Graypaper
   </span>
   
 
@@ -1109,11 +1109,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 67</span>
-<span class="normal"> 68</span>
-<span class="normal"> 69</span>
-<span class="normal"> 70</span>
-<span class="normal"> 71</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 71</span>
 <span class="normal"> 72</span>
 <span class="normal"> 73</span>
 <span class="normal"> 74</span>
@@ -1170,7 +1166,20 @@
 <span class="normal">125</span>
 <span class="normal">126</span>
 <span class="normal">127</span>
-<span class="normal">128</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Entropy</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Entropy</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">6</span>
 
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
@@ -1200,7 +1209,9 @@
         <span class="n">post_state_entropy</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="p">)</span>
 
         <span class="c1"># GP-0.5.0-eq:6.22 (η&#39;[0]) | State transition for first index of the entropy.</span>
-        <span class="n">eta_0</span> <span class="o">=</span> <span class="n">blake2b_256_hash</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">entropy_output</span><span class="p">(</span><span class="n">header</span><span class="o">.</span><span class="n">entropy_source</span><span class="p">))</span>
+        <span class="n">eta_0</span> <span class="o">=</span> <span class="n">blake2b_256_hash</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">entropy_output</span><span class="p">(</span>
+            <span class="n">header</span><span class="o">.</span><span class="n">entropy_source</span>
+        <span class="p">))</span>
 
         <span class="c1"># GP-0.5.0-eq:6.23 (η&#39;[1-3]) | State transition for last three indices of the entropy.</span>
         <span class="c1"># State transition happen on epoch change.</span>
@@ -1222,7 +1233,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        GP-0.5.0-eq:G.5</span>
 <span class="sd">        TODO check if output is indeed the first 32 bytes or a hash of the first 32 bytes</span>
-
+<span class="sd">        TODO refactor to vrf_output of entropy signature</span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        entropy_source</span>
@@ -1231,6 +1242,13 @@
 <span class="sd">        -------</span>
 <span class="sd">        bytes</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># vrf_output = ietf_vrf_verify(</span>
+        <span class="c1">#     bytes(sealer_key),</span>
+        <span class="c1">#     b&quot;jam_entropy&quot; + self.get_block_seal_vrf_input(),</span>
+        <span class="c1">#     b&#39;&#39;,</span>
+        <span class="c1">#     bytes(seal)</span>
+        <span class="c1"># )</span>
         <span class="k">return</span> <span class="n">entropy_source</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span>
 </code></pre></div></td></tr></table></div>
               </details>
@@ -1342,11 +1360,7 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 70</span>
-<span class="normal"> 71</span>
-<span class="normal"> 72</span>
-<span class="normal"> 73</span>
-<span class="normal"> 74</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 74</span>
 <span class="normal"> 75</span>
 <span class="normal"> 76</span>
 <span class="normal"> 77</span>
@@ -1381,7 +1395,13 @@
 <span class="normal">106</span>
 <span class="normal">107</span>
 <span class="normal">108</span>
-<span class="normal">109</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
         <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
@@ -1408,7 +1428,9 @@
     <span class="n">post_state_entropy</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="p">)</span>
 
     <span class="c1"># GP-0.5.0-eq:6.22 (η&#39;[0]) | State transition for first index of the entropy.</span>
-    <span class="n">eta_0</span> <span class="o">=</span> <span class="n">blake2b_256_hash</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">entropy_output</span><span class="p">(</span><span class="n">header</span><span class="o">.</span><span class="n">entropy_source</span><span class="p">))</span>
+    <span class="n">eta_0</span> <span class="o">=</span> <span class="n">blake2b_256_hash</span><span class="p">(</span><span class="n">pre_state_entropy</span><span class="o">.</span><span class="n">entropy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">entropy_output</span><span class="p">(</span>
+        <span class="n">header</span><span class="o">.</span><span class="n">entropy_source</span>
+    <span class="p">))</span>
 
     <span class="c1"># GP-0.5.0-eq:6.23 (η&#39;[1-3]) | State transition for last three indices of the entropy.</span>
     <span class="c1"># State transition happen on epoch change.</span>
@@ -1439,7 +1461,8 @@
     <div class="doc doc-contents ">
 
         <p>GP-0.5.0-eq:G.5
-TODO check if output is indeed the first 32 bytes or a hash of the first 32 bytes</p>
+TODO check if output is indeed the first 32 bytes or a hash of the first 32 bytes
+TODO refactor to vrf_output of entropy signature</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1495,24 +1518,31 @@ TODO check if output is indeed the first 32 bytes or a hash of the first 32 byte
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">121</span>
 <span class="normal">122</span>
 <span class="normal">123</span>
 <span class="normal">124</span>
 <span class="normal">125</span>
 <span class="normal">126</span>
 <span class="normal">127</span>
-<span class="normal">128</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">entropy_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entropy_source</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">entropy_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entropy_source</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.5.0-eq:G.5</span>
 <span class="sd">    TODO check if output is indeed the first 32 bytes or a hash of the first 32 bytes</span>
-
+<span class="sd">    TODO refactor to vrf_output of entropy signature</span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    entropy_source</span>
@@ -1521,6 +1551,13 @@ TODO check if output is indeed the first 32 bytes or a hash of the first 32 byte
 <span class="sd">    -------</span>
 <span class="sd">    bytes</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># vrf_output = ietf_vrf_verify(</span>
+    <span class="c1">#     bytes(sealer_key),</span>
+    <span class="c1">#     b&quot;jam_entropy&quot; + self.get_block_seal_vrf_input(),</span>
+    <span class="c1">#     b&#39;&#39;,</span>
+    <span class="c1">#     bytes(seal)</span>
+    <span class="c1"># )</span>
     <span class="k">return</span> <span class="n">entropy_source</span><span class="p">[:</span><span class="mi">32</span><span class="p">]</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1657,6 +1694,10 @@ TODO check if output is indeed the first 32 bytes or a hash of the first 32 byte
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

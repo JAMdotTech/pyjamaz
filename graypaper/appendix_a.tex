@@ -1,0 +1,50 @@
+\newcommand{\equationapointone}{\Psi\colon \left\{\begin{aligned}
+    (\Y, \N_R, \N_G, \regs, \ram) \to (\{\halt, \panic, \oog\} \cup \{\fault\} \times \N_R \cup \{\host\} \times \N_R, \N_R, \Z_G, \regs, \ram)\\
+    (\mathbf{p}, \imath, \gascounter, \registers, \mem) \mapsto \begin{cases}
+      \Psi(\mathbf{p}, \imath', \gascounter', \registers', \mem') \when \varepsilon = \continue\\
+      (\oog, \imath', \gascounter', \registers', \mem') \when \gascounter' < 0\\
+      (\varepsilon, 0, \gascounter', \registers', \mem') \when \varepsilon \in \{ \panic, \halt \}\\
+      (\varepsilon, \imath', \gascounter', \registers', \mem') \otherwise
+    \end{cases} \\
+    \where (\varepsilon, \imath', \gascounter', \registers', \mem') = \Psi_1(\mathbf{c}, \mathbf{k}, \mathbf{j}, \imath, \gascounter, \registers, \mem)\\
+    \also \mathbf{p} = \se(|\mathbf{j}|) \frown \se_1(z) \frown \se(|\mathbf{c}|) \frown \se_z(\mathbf{j}) \frown \se(\mathbf{c}) \frown \se(\mathbf{k})\,,\ |\mathbf{k}| = |\mathbf{c}|
+    \end{aligned}\right.
+}
+\newcommand{\equationapointtwo}{\Fskip\colon\left\{\begin{aligned} \N \to \N\\ i \mapsto \min(24,\ j \in \N : (\mathbf{k} \frown [1, 1, \dots])_{i + 1 + j} = 1) \end{aligned}\right.}
+\newcommand{\equationapointthree}{\instructions \equiv \mathbf{c} \concat \sq{0, 0, \dots}}
+\newcommand{\equationapointfour}{\basicblocks \equiv [0] \concat [n + 1 + \Fskip(n) \mid n \orderedin \N_{\mid\mathbf{c}\mid} \wedge \mathbf{k}_n = 1 \wedge \mathbf{c}_n \in T]}
+\newcommand{\equationapointfive}{\Psi_1\colon \left\{\begin{aligned} (\Y, \mathbb{B}, \seq{\N_R}, \N_R, \N_G, \regs, \ram) \to (\{\panic, \halt, \continue \} \cup \{\fault, \host\} \times \N_R, \N_R, \Z_G, \regs, \ram)\\ (\mathbf{c}, \mathbf{k}, \mathbf{j}, \imath, \gascounter, \registers, \mem) \mapsto (\varepsilon, \imath', \gascounter', \registers', \mem') \end{aligned}\right.}
+\newcommand{\equationapointsix}{\varepsilon = \continue,\quad \imath' = \imath + 1 + \Fskip(\imath),\quad \gascounter' = \gascounter - \gas,\quad \registers' = \registers,\quad\mem' = \mem \text{ except as indicated }}
+\newcommand{\equationapointseven}{\signfunc{n \in \N}\colon\left\{\begin{aligned} \N_{2^{8n}} \to \Z_{-2^{8n-1}\dots2^{8n-1}}\\ a \mapsto \begin{cases} a \when a < 2^{8n-1} \\ a -\ 2^{8n} \otherwise \end{cases} \end{aligned}\right.\\}
+\newcommand{\equationapointeight}{\unsignfunc{n \in \N}\colon\left\{\begin{aligned} \Z_{-2^{8n-1}\dots2^{8n-1}} \to \N_{2^{8n}}\\ a \mapsto (2^{8n} + a) \bmod 2^{8n} \end{aligned}\right.}
+\newcommand{\equationapointnine}{\bitsfunc{n\in\N}\colon\left\{\begin{aligned}\N_{2^{8n}} \to \mathbb{B}_{8n}\\x \mapsto \mathbf{y}: \forall i \in \N_{8n} : \mathbf{y}[i] \Leftrightarrow \ffrac{x}{2^i}\bmod 2 \end{aligned}\right.}
+\newcommand{\equationapointten}{\unbitsfunc{n\in\N}\colon\left\{\begin{aligned}\mathbb{B}_{8n} \to \N_{2^{8n}}\\ \mathbf{x} \mapsto y: \sum_{i \in \N_{8n}} \mathbf{x}_i \cdot 2^i \end{aligned}\right.}
+\newcommand{\equationapointeleven}{\revbitsfunc{n\in\N}\colon\left\{\begin{aligned} \N_{2^{8n}} \to \mathbb{B}_{8n}\\ x \mapsto \mathbf{y}: \forall i \in \N_{8n} : \mathbf{y}[8n - 1 - i] \Leftrightarrow \ffrac{x}{2^i}\bmod 2 \end{aligned}\right.}
+\newcommand{\equationapointtwelve}{\revunbitsfunc{n\in\N}\colon\left\{\begin{aligned} \mathbb{B}_{8n} \to \N_{2^{8n}}\\ \mathbf{x} \mapsto y: \sum_{i \in \N_{8n}} \mathbf{x}_{8n - 1 - i} \cdot 2^i \end{aligned}\right.}
+\newcommand{\equationapointthirteen}{\sext_{n \in \{0, 1, 2, 3, 4, 8\}}\colon\left\{\begin{aligned} \N_{2^{8n}} \to \N_R\\ x \mapsto x + \ffrac{x}{2^{8n-1}}(2^{64}-2^{8n}) \end{aligned}\right.}
+\newcommand{\equationapointfourteen}{\token{branch}(b, C) \implies (\varepsilon, \imath') = \begin{cases} (\continue, \imath) \when \lnot C \\ (\panic, \imath) \otherwhen b \not\in \basicblocks \\ (\continue, b) \otherwise \end{cases}}
+\newcommand{\equationapointfifteen}{\token{djump}(a) \implies (\varepsilon, \imath') = \begin{cases}(\halt, \imath) \when a = 2^{32} - 2^{16}\\ (\panic, \imath) \otherwhen a = 0 \vee a > \|\mathbf{j}\|\cdot\mathsf{Z}_A \vee a \bmod \mathsf{Z}_A \ne 0 \vee \mathbf{j}_{(\nicefrac{a}{\mathsf{Z}_A}) - 1} \not\in \basicblocks \\ (\continue, \mathbf{j}_{(\nicefrac{a}{\mathsf{Z}_A}) - 1}) \otherwise \end{cases}}
+\newcommand{\equationapointsixteen}{\ell \equiv \Fskip(\imath)}
+\newcommand{\equationapointseventeen}{\using l_X = \min(4, \ell) \,,\\ \immed_X \equiv \sext_{l_X}(\de_{l_X}(\instructions_{\imath+1\dots+l_X}))}
+\newcommand{\equationapointeighteen}{\using l_X = \min(4, \instructions_{\imath+1} \bmod 8) \,,\\ \immed_X \equiv \sext_{l_X}(\de_{l_X}(\instructions_{\imath+2\dots+l_X})) \\ \using l_Y = \min(4, \max(0, \ell - l_X - 1)) \,,\quad \immed_Y \equiv \sext_{l_Y}(\de_{l_Y}(\instructions_{\imath+2+l_X\dots+l_Y}))}
+\newcommand{\equationapointnineteen}{}
+\newcommand{\equationapointtwenty}{}
+\newcommand{\equationapointtwentyone}{}
+\newcommand{\equationapointtwentytwo}{}
+\newcommand{\equationapointtwentythree}{}
+\newcommand{\equationapointtwentyfour}{}
+\newcommand{\equationapointtwentyfive}{}
+\newcommand{\equationapointtwentysix}{}
+\newcommand{\equationapointtwentyseven}{}
+\newcommand{\equationapointtwentyeight}{}
+\newcommand{\equationapointtwentynine}{}
+\newcommand{\equationapointthirty}{}
+\newcommand{\equationapointthirtyone}{}
+\newcommand{\equationapointthirtytwo}{}
+\newcommand{\equationapointthirtythree}{}
+\newcommand{\equationapointthirtyfour}{}
+\newcommand{\equationapointthirtyfive}{}
+\newcommand{\equationapointthirtysix}{}
+\newcommand{\equationapointthirtyseven}{}
+\newcommand{\equationapointthirtyeight}{}
+\newcommand{\equationapointthirtynine}{}

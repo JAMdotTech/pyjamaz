@@ -249,7 +249,7 @@
   
     
   
-  Graypaper References
+  Graypaper
 
         </a>
       </li>
@@ -948,7 +948,7 @@
       
   
   <span class="md-ellipsis">
-    Graypaper References
+    Graypaper
   </span>
   
 
@@ -1109,20 +1109,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">243</span>
 <span class="normal">244</span>
 <span class="normal">245</span>
 <span class="normal">246</span>
@@ -1320,11 +1307,38 @@
 <span class="normal">438</span>
 <span class="normal">439</span>
 <span class="normal">440</span>
-<span class="normal">441</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Safrole</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span>
+<span class="normal">458</span>
+<span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Safrole</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">4</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">storage_engine</span><span class="p">:</span> <span class="n">StorageEngine</span><span class="p">,</span> <span class="n">ring_data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">storage_engine</span><span class="p">)</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">storage_engine</span><span class="p">:</span> <span class="n">StorageEngine</span><span class="p">,</span>
+        <span class="n">block_context</span><span class="p">:</span> <span class="n">BlockContext</span><span class="p">,</span>
+        <span class="n">app_context</span><span class="p">:</span> <span class="n">AppContext</span><span class="p">,</span>
+        <span class="n">ring_data</span><span class="p">:</span> <span class="nb">bytes</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">storage_engine</span><span class="p">,</span> <span class="n">block_context</span><span class="p">,</span> <span class="n">app_context</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ring_data</span> <span class="o">=</span> <span class="n">ring_data</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -1337,8 +1351,9 @@
         <span class="n">aux_data</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span>
 
         <span class="k">try</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Validating ticket in STF with entropy </span><span class="si">{</span><span class="n">entropy</span><span class="o">.</span><span class="n">hex</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
             <span class="n">ring_vrf_output</span> <span class="o">=</span> <span class="n">ring_vrf_verify</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ring_data</span><span class="p">,</span> <span class="n">ring_public_keys</span><span class="p">,</span> <span class="n">vrf_input_data</span><span class="p">,</span> <span class="n">aux_data</span><span class="p">,</span> <span class="n">ticket_data</span><span class="o">.</span><span class="n">signature</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ring_data</span><span class="p">,</span> <span class="n">ring_public_keys</span><span class="p">,</span> <span class="n">vrf_input_data</span><span class="p">,</span> <span class="n">aux_data</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">ticket_data</span><span class="o">.</span><span class="n">signature</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">SafroleErrorCode</span><span class="o">.</span><span class="n">bad_ticket_proof</span><span class="p">)</span>
@@ -1439,6 +1454,7 @@
                 <span class="n">tickets_mark</span> <span class="o">=</span> <span class="n">reorder_list_outside_in</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">))</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tickets Mark generated&quot;</span><span class="p">)</span>
 
+        <span class="c1"># TODO check conditions when epoch should be mark as changed</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
             <span class="c1"># Epoch change</span>
 
@@ -1712,27 +1728,7 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">255</span>
-<span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
-<span class="normal">259</span>
-<span class="normal">260</span>
-<span class="normal">261</span>
-<span class="normal">262</span>
-<span class="normal">263</span>
-<span class="normal">264</span>
-<span class="normal">265</span>
-<span class="normal">266</span>
-<span class="normal">267</span>
-<span class="normal">268</span>
-<span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span>
-<span class="normal">272</span>
-<span class="normal">273</span>
-<span class="normal">274</span>
-<span class="normal">275</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">275</span>
 <span class="normal">276</span>
 <span class="normal">277</span>
 <span class="normal">278</span>
@@ -1866,7 +1862,28 @@
 <span class="normal">406</span>
 <span class="normal">407</span>
 <span class="normal">408</span>
-<span class="normal">409</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+<span class="normal">409</span>
+<span class="normal">410</span>
+<span class="normal">411</span>
+<span class="normal">412</span>
+<span class="normal">413</span>
+<span class="normal">414</span>
+<span class="normal">415</span>
+<span class="normal">416</span>
+<span class="normal">417</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span>
+<span class="normal">424</span>
+<span class="normal">425</span>
+<span class="normal">426</span>
+<span class="normal">427</span>
+<span class="normal">428</span>
+<span class="normal">429</span>
+<span class="normal">430</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
         <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
@@ -1960,6 +1977,7 @@
             <span class="n">tickets_mark</span> <span class="o">=</span> <span class="n">reorder_list_outside_in</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post_state_safrole</span><span class="o">.</span><span class="n">ticket_accumulator</span><span class="p">))</span>
             <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tickets Mark generated&quot;</span><span class="p">)</span>
 
+    <span class="c1"># TODO check conditions when epoch should be mark as changed</span>
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
         <span class="c1"># Epoch change</span>
 
@@ -2042,18 +2060,18 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">430</span>
-<span class="normal">431</span>
-<span class="normal">432</span>
-<span class="normal">433</span>
-<span class="normal">434</span>
-<span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">check_offenders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">validators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ValidatorData</span><span class="p">],</span> <span class="n">offenders</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]):</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span>
+<span class="normal">458</span>
+<span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">check_offenders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">validators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ValidatorData</span><span class="p">],</span> <span class="n">offenders</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.5.0-eq:6.14</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -2200,6 +2218,10 @@
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>
