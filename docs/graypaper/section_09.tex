@@ -1,35 +1,67 @@
-\newcommand{\equationsixpointone}{}
-\newcommand{\equationsixpointtwo}{}
-\newcommand{\equationsixpointthree}{}
-\newcommand{\equationsixpointfour}{}
-\newcommand{\equationsixpointfive}{}
-\newcommand{\equationsixpointsix}{}
-\newcommand{\equationsixpointseven}{}
-\newcommand{\equationsixpointeight}{}
-\newcommand{\equationsixpointnine}{}
-\newcommand{\equationsixpointten}{}
-\newcommand{\equationsixpointeleven}{}
-\newcommand{\equationsixpointtwelve}{}
-\newcommand{\equationsixpointthirteen}{}
-\newcommand{\equationsixpointfourteen}{}
-\newcommand{\equationsixpointfifteen}{}
-\newcommand{\equationsixpointsixteen}{}
-\newcommand{\equationsixpointseventeen}{}
-\newcommand{\equationsixpointeighteen}{}
-\newcommand{\equationsixpointnineteen}{}
-\newcommand{\equationsixpointtwenty}{}
-\newcommand{\equationsixpointtwentyone}{}
-\newcommand{\equationsixpointtwentytwo}{}
-\newcommand{\equationsixpointtwentythree}{}
-\newcommand{\equationsixpointtwentyfour}{}
-\newcommand{\equationsixpointtwentyfive}{}
-\newcommand{\equationsixpointtwentysix}{}
-\newcommand{\equationsixpointtwentyseven}{}
-\newcommand{\equationsixpointtwentyeight}{}
-\newcommand{\equationsixpointtwentynine}{}
-\newcommand{\equationsixpointthirty}{}
-\newcommand{\equationsixpointthirtyone}{}
-\newcommand{\equationsixpointthirtytwo}{}
-\newcommand{\equationsixpointthirtythree}{}
-\newcommand{\equationsixpointthirtyfour}{}
-\newcommand{\equationsixpointthirtyfive}{}
+\newcommand{\equationninepointone}{\N_S \equiv \N_{2^{32}}}
+\newcommand{\equationninepointtwo}{\delta \in \dict{\N_S}{\mathbb{A}}}
+\newcommand{\equationninepointthree}{
+    \mathbb{A} \equiv \ltuple\
+        \begin{aligned}
+            \mathbf{s} \in \dict{\H}{\Y}\,, \mathbf{p} \in \dict{\H}{\Y}\ ,\\
+            \mathbf{l} \in \dict{\ltuple\H\ts\N_L\rtuple}{\seq{\N_T}_{:3}}\ ,\\
+            c \in \H\,,b \in \N_B\ , g \in \N_G\ , m \in \N_G
+        \end{aligned}
+    \rtuple
+}
+\newcommand{\equationninepointfour}{
+    \forall \mathbf{a} \in \mathbb{A} : \mathbf{a}_\mathbf{c} \equiv
+    \begin{cases}
+        \mathbf{a}_\mathbf{p}[\mathbf{a}_c] \when \mathbf{a}_c \in \mathbf{a}_\mathbf{p} \\
+        \none \otherwise
+    \end{cases}
+}
+\newcommand{\equationninepointfive}{
+    \begin{aligned}
+        \Lambda\colon \{\
+        \begin{aligned}
+            (\mathbb{A}, \N_{\mathbf{H}_t - C_D\dots\mathbf{H}_t}, \mathbb{H}) \to \mathbb{Y}\bm{?} \\
+            (\mathbf{a}, t, \mathcal{H}(\mathbf{p})) \mapsto v : v \in \{ \mathbf{p}, \none \}
+        \end{aligned}.
+    \end{aligned}
+}
+\newcommand{\equationninepointsix}{
+    \forall a \in \mathbb{A}, (h \mapsto \mathbf{p}) \in a_\mathbf{p} \Rightarrow
+        h = \mathcal{H}(\mathbf{p})\wedge
+        \tup{h \ts |\mathbf{p}|} \in \keys{a_\mathbf{l}}
+    }
+\newcommand{\equationninepointseven}{
+    \begin{aligned}\label{eq:historicallookup}
+        \Lambda\colon (\mathbb{A}, \N_T, \H) \to \Y\bm{?} \\
+        \Lambda(\mathbf{a}, t, h) \equiv \begin{cases}
+            \mathbf{a}_\mathbf{p}[h]\!\!\!\! \when h \in \keys{\mathbf{a}_\mathbf{p}} \wedge I(\mathbf{a}_\mathbf{l}[h, |\mathbf{a}_\mathbf{p}[h]|], t) \!\!\!\!\! \\
+            \none \otherwise
+        \end{cases}\\
+        \where I(\mathbf{l}, t) = \begin{cases}
+            \bot \when [] = \mathbf{l} \\
+            x \le t \when [x] = \mathbf{l} \\
+            x \le t < y \when [x, y] = \mathbf{l} \\
+            x \le t < y \vee z \le t \when [x, y, z] = \mathbf{l} \\
+        \end{cases}
+    \end{aligned}
+}
+\newcommand{\equationninepointeight}{
+    \begin{align}
+        \forall a \in \mathcal{V}(\delta):\ \begin{cases}
+            a_i \in \N_{2^{32}} \equiv 2\cdot|\,a_\mathbf{l}\,| + |\,a_\mathbf{s}\,| \\
+            a_o \in \N_{2^{64}} \equiv \sum\limits_{\,(h, z) \in \keys{a_\mathbf{l}}\,} 81 + z \\
+            \phantom{\equiv} + \sum\limits_{x \in \mathcal{V}(a_\mathbf{s})} 32 + |x| \\
+            a_t \in \N_B \equiv \mathsf{B}_S + \mathsf{B}_I \cdot a_i + \mathsf{B}_L \cdot a_o
+        \end{cases}
+    \end{align}
+}
+\newcommand{\equationninepointnine}{
+    \begin{align}
+        \chi \equiv \tuple{
+            \isa{\chi_m}{\N_S} \ts
+            \isa{\chi_a}{\N_S} \ts
+            \isa{\chi_v}{\N_S} \ts
+            \isa{\chi_\mathbf{g}}{\dict{\N_S}{\N_G}}
+        }
+    \end{align}
+}

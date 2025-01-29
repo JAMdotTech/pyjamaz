@@ -26,13 +26,12 @@ This section has been updated to match Graypaper version 0.5.4.
 | <a name="10.13">(10.13)</a> | $\equationtenpointthirteen$  | [TODO]         |
 | <a name="10.14">(10.14)</a> | $\equationtenpointfourteen$  | [TODO]         |
 | <a name="10.15">(10.15)</a> | $\equationtenpointfifteen$   | [TODO]         |
-| <a name="10.16">(10.16)</a> | $\equationtenpoinsixteen$    | [TODO]         |
+| <a name="10.16">(10.16)</a> | $\equationtenpointsixteen$   | [TODO]         |
 | <a name="10.17">(10.17)</a> | $\equationtenpointseventeen$ | [TODO]         |
 | <a name="10.18">(10.18)</a> | $\equationtenpointeighteen$  | [TODO]         |
 | <a name="10.19">(10.19)</a> | $\equationtenpointnineteen$  | [TODO]         |
-| <a name="10.20">(10.20)</a> | $\equationtenpointtwenty$    | [TODO]         |
 
 ## 10.3. Header 
 | Graypaper                   | Equation                     | Implementation |
 |-----------------------------|------------------------------|----------------|
-| <a name="10.21">(10.21)</a> | $\equationtenpointtwentyone$ | [TODO]         |
+| <a name="10.20">(10.20)</a> | $\equationtenpointtwenty$ | [TODO]         |
