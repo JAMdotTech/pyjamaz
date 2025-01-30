@@ -24,7 +24,8 @@ This section has been updated to match Graypaper version 0.5.4.
 | <a name="E.7">(E.7)</a> | $\equationepointseven$ | [TODO]         |
 
 ## E.2. Merkle Mountain Ranges
-| Graypaper               | Equation               | Implementation |
-|-------------------------|------------------------|----------------|
-| <a name="E.8">(E.8)</a> | $\equationepointeight$ | [TODO]         |
-| <a name="E.9">(E.9)</a> | $\equationepointnine$  | [TODO]         |
+| Graypaper                 | Equation               | Implementation |
+|---------------------------|------------------------|----------------|
+| <a name="E.8">(E.8)</a>   | $\equationepointeight$ | [TODO]         |
+| <a name="E.9">(E.9)</a>   | $\equationepointnine$  | [TODO]         |
+| <a name="E.10">(E.10)</a> | $\equationepointten$   | [TODO]         |
