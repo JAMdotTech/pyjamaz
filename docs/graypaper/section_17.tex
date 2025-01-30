@@ -1,35 +1,52 @@
-\newcommand{\equationsixpointone}{}
-\newcommand{\equationsixpointtwo}{}
-\newcommand{\equationsixpointthree}{}
-\newcommand{\equationsixpointfour}{}
-\newcommand{\equationsixpointfive}{}
-\newcommand{\equationsixpointsix}{}
-\newcommand{\equationsixpointseven}{}
-\newcommand{\equationsixpointeight}{}
-\newcommand{\equationsixpointnine}{}
-\newcommand{\equationsixpointten}{}
-\newcommand{\equationsixpointeleven}{}
-\newcommand{\equationsixpointtwelve}{}
-\newcommand{\equationsixpointthirteen}{}
-\newcommand{\equationsixpointfourteen}{}
-\newcommand{\equationsixpointfifteen}{}
-\newcommand{\equationsixpointsixteen}{}
-\newcommand{\equationsixpointseventeen}{}
-\newcommand{\equationsixpointeighteen}{}
-\newcommand{\equationsixpointnineteen}{}
-\newcommand{\equationsixpointtwenty}{}
-\newcommand{\equationsixpointtwentyone}{}
-\newcommand{\equationsixpointtwentytwo}{}
-\newcommand{\equationsixpointtwentythree}{}
-\newcommand{\equationsixpointtwentyfour}{}
-\newcommand{\equationsixpointtwentyfive}{}
-\newcommand{\equationsixpointtwentysix}{}
-\newcommand{\equationsixpointtwentyseven}{}
-\newcommand{\equationsixpointtwentyeight}{}
-\newcommand{\equationsixpointtwentynine}{}
-\newcommand{\equationsixpointthirty}{}
-\newcommand{\equationsixpointthirtyone}{}
-\newcommand{\equationsixpointthirtytwo}{}
-\newcommand{\equationsixpointthirtythree}{}
-\newcommand{\equationsixpointthirtyfour}{}
-\newcommand{\equationsixpointthirtyfive}{}
+\newcommand{\equationseventeenpointone}{\mathbf{Q} \in \seq{\mathbb{W}?}_\mathsf{C}}
+\newcommand{\equationseventeenpointtwo}{
+    \begin{align}
+        \mathbf{Q} \equiv \left[\begin{rcases}
+            \rho[c]_w \when \rho[c]_w \in \mathbf{W} \\
+            \none \otherwise
+        \end{rcases} \,\middle\vert\,c \orderedin \N_\mathsf{C}\right]
+    \end{align}
+}
+\newcommand{\equationseventeenpointthree}{s_0 \in \bandersig{\kappa[v]_b}{\mathsf{X}_U \concat \banderout{\mathbf{H}_v}}{[]}}
+\newcommand{\equationseventeenpointfour}{\mathsf{X}_U = \token{\$jam\_audit}}
+\newcommand{\equationseventeenpointfive}{\mathbf{a}_0 = \{\tup{c, w} \mid \tup{c, w} \in \mathbf{p}_{\dots+10}, w \ne \none\}}
+\newcommand{\equationseventeenpointsix}{\where \mathbf{p} = \mathcal{F}([\tup{c, \mathbf{Q}_c} \mid c \orderedin \N_\mathsf{C}], r)}
+\newcommand{\equationseventeenpointseven}{\also r = \banderout{s_0}}
+\newcommand{\equationseventeenpointeight}{\using n = \ffrac{\mathcal{T} - \mathsf{P}\cdot\mathbf{H}_t}{\mathsf{A}}}
+\newcommand{\equationseventeenpointnine}{S \equiv \sig{\kappa[v]_e}{\mathsf{X}_I \doubleplus n \concat \mathbf{x}_n \concat \mathcal{H}(\mathbf{H})}}
+\newcommand{\equationseventeenpointten}{\where \mathbf{x}_n = \se([\se_2(c) \frown \mathcal{H}(w) \mid \tup{c, w} \in \mathbf{a}_n])}
+\newcommand{\equationseventeenpointeleven}{\mathsf{X}_I = \token{\$jam\_announce}}
+\newcommand{\equationseventeenpointtwelve}{A_n: \mathbb{W} \to \powset{\N_\mathsf{V}}}
+\newcommand{\equationseventeenpointthirteen}{\forall (c, w) \in \mathbf{a}_0 : v \in q_0(w)}
+\newcommand{\equationseventeenpointfourteen}{J_{\{\bot, \top\}}: \mathbb{W} \to \powset{\N_\mathsf{V}}}
+\newcommand{\equationseventeenpointfifteen}{
+    \begin{align}
+        \nonumber\forall n > 0:\\
+        \ s_n(w) \in \bandersig{\kappa[v]_b}{\mathsf{X}_U \concat \banderout{\mathbf{H}_v}\concat\mathcal{H}(w)\doubleplus n}{[]}
+    \end{align}
+}
+\newcommand{\equationseventeenpointsixteen}{
+    \begin{align}
+        \ \mathbf{a}_n \equiv \{ \textstyle\frac{\mathsf{V}}{256\mathsf{F}}\banderout{s_n(w)}_0 < m_n \mid w \in \mathbf{Q}, w \ne \none \}\!\!\!\!\\
+        \nonumber \where m_n = |A_{n - 1}(w) \setminus J_\top(w)|
+    \end{align}
+}
+\newcommand{\equationseventeenpointseventeen}{
+    \begin{aligned}
+        \forall (c, w) \in \mathbf{a}_n :\ \ \\[-10pt]
+        e_n(w) \Leftrightarrow \begin{cases}
+            w = \Xi(p, c)\!\!\! \when \exists p \in \mathbb{P}: \se(p) = F(w) \\
+            \bot \otherwise
+        \end{cases}
+    \end{aligned}
+}
+\newcommand{\equationseventeenpointeighteen}{\mathbf{j}_n = \{\mathcal{S}_{\kappa[v]_e}(\mathsf{X}_{e(w)} \concat \mathcal{H}(w)) \mid (c, w) \in \mathbf{a}_n \}}
+\newcommand{\equationseventeenpointnineteen}{
+    \begin{align}
+        U(w) \Leftrightarrow \bigvee\,\left\{\,\begin{aligned}
+            J_\bot(w) = \emptyset \wedge \exists n : A_n(w) \subset J_\top(w) \\
+            |J_\top(w)| > \nicefrac{2}{3}\mathsf{V}
+        \end{aligned}\right.
+    \end{align}
+}
+\newcommand{\equationseventeenpointtwenty}{\mathbf{U} \Leftrightarrow \forall w \in \mathbf{W} : U(w)}

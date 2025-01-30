@@ -26,7 +26,7 @@ This section has been updated to match Graypaper version 0.5.4.
 | <a name="12.13">(12.13)</a> | $\equationtwelvepointthirteen$  | [TODO]         |
 | <a name="12.14">(12.14)</a> | $\equationtwelvepointfourteen$  | [TODO]         |
 | <a name="12.15">(12.15)</a> | $\equationtwelvepointfifteen$   | [TODO]         |
-| <a name="12.16">(12.16)</a> | $\equationtwelvepoinsixteen$    | [TODO]         |
+| <a name="12.16">(12.16)</a> | $\equationtwelvepointsixteen$   | [TODO]         |
 | <a name="12.17">(12.17)</a> | $\equationtwelvepointseventeen$ | [TODO]         |
 | <a name="12.18">(12.18)</a> | $\equationtwelvepointeighteen$  | [TODO]         |
 | <a name="12.19">(12.19)</a> | $\equationtwelvepointnineteen$  | [TODO]         |

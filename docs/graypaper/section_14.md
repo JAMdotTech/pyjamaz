@@ -20,23 +20,24 @@ This section has been updated to match Graypaper version 0.5.4.
 | <a name="14.6">(14.6)</a> | $\equationfourteenpointsix$   | [TODO]         |
 | <a name="14.7">(14.7)</a> | $\equationfourteenpointseven$ | [TODO]         |
 | <a name="14.8">(14.8)</a> | $\equationfourteenpointeight$ | [TODO]         |
+| <a name="14.9">(14.9)</a> | $\equationfourteenpointnine$ | [TODO]         |
 
 ### 14.3.1. Exporting
 | Graypaper                 | Equation                     | Implementation |
 |---------------------------|------------------------------|----------------|
-| <a name="14.9">(14.9)</a> | $\equationfourteenpointnine$ | [TODO]         |
+| <a name="14.10">(14.10)</a> | $\equationfourteenpointten$      | [TODO]         |
 
 ## 14.4. Computation of Work Results
-| Graypaper                   | Equation                          | Implementation |
-|-----------------------------|-----------------------------------|----------------|
-| <a name="14.10">(14.10)</a> | $\equationfourteenpointten$       | [TODO]         |
-| <a name="14.11">(14.11)</a> | $\equationfourteenpointeleven$    | [TODO]         |
-| <a name="14.12">(14.12)</a> | $\equationfourteenpointtwelve$    | [TODO]         |
-| <a name="14.13">(14.13)</a> | $\equationfourteenpointthirteen$  | [TODO]         |
-| <a name="14.14">(14.14)</a> | $\equationfourteennpointfourteen$ | [TODO]         |
+| Graypaper                   | Equation                         | Implementation |
+|-----------------------------|----------------------------------|----------------|
+| <a name="14.11">(14.11)</a> | $\equationfourteenpointeleven$   | [TODO]         |
+| <a name="14.12">(14.12)</a> | $\equationfourteenpointtwelve$   | [TODO]         |
+| <a name="14.13">(14.13)</a> | $\equationfourteenpointthirteen$ | [TODO]         |
+| <a name="14.14">(14.14)</a> | $\equationfourteenpointfourteen$ | [TODO]         |
+| <a name="14.15">(14.15)</a> | $\equationfourteenpointfifteen$ | [TODO]         |
+| <a name="14.16">(14.16)</a> | $\equationfourteenpointsixteen$ | [TODO]         |
 
 ### 14.4.1. Availability Specifier
-| Graypaper                   | Equation                        | Implementation |
-|-----------------------------|---------------------------------|----------------|
-| <a name="14.15">(14.15)</a> | $\equationfourteenpointfifteen$ | [TODO]         |
-| <a name="14.16">(14.16)</a> | $\equationfourteenpoinsixteen$  | [TODO]         |
+| Graypaper                   | Equation                          | Implementation |
+|-----------------------------|-----------------------------------|----------------|
+| <a name="14.17">(14.17)</a> | $\equationfourteenpointseventeen$ | [TODO]         |

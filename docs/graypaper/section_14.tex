@@ -1,35 +1,160 @@
-\newcommand{\equationsixpointone}{}
-\newcommand{\equationsixpointtwo}{}
-\newcommand{\equationsixpointthree}{}
-\newcommand{\equationsixpointfour}{}
-\newcommand{\equationsixpointfive}{}
-\newcommand{\equationsixpointsix}{}
-\newcommand{\equationsixpointseven}{}
-\newcommand{\equationsixpointeight}{}
-\newcommand{\equationsixpointnine}{}
-\newcommand{\equationsixpointten}{}
-\newcommand{\equationsixpointeleven}{}
-\newcommand{\equationsixpointtwelve}{}
-\newcommand{\equationsixpointthirteen}{}
-\newcommand{\equationsixpointfourteen}{}
-\newcommand{\equationsixpointfifteen}{}
-\newcommand{\equationsixpointsixteen}{}
-\newcommand{\equationsixpointseventeen}{}
-\newcommand{\equationsixpointeighteen}{}
-\newcommand{\equationsixpointnineteen}{}
-\newcommand{\equationsixpointtwenty}{}
-\newcommand{\equationsixpointtwentyone}{}
-\newcommand{\equationsixpointtwentytwo}{}
-\newcommand{\equationsixpointtwentythree}{}
-\newcommand{\equationsixpointtwentyfour}{}
-\newcommand{\equationsixpointtwentyfive}{}
-\newcommand{\equationsixpointtwentysix}{}
-\newcommand{\equationsixpointtwentyseven}{}
-\newcommand{\equationsixpointtwentyeight}{}
-\newcommand{\equationsixpointtwentynine}{}
-\newcommand{\equationsixpointthirty}{}
-\newcommand{\equationsixpointthirtyone}{}
-\newcommand{\equationsixpointthirtytwo}{}
-\newcommand{\equationsixpointthirtythree}{}
-\newcommand{\equationsixpointthirtyfour}{}
-\newcommand{\equationsixpointthirtyfive}{}
+\newcommand{\newavailabilityspecifier}{A}
+\newcommand{\itemtoresult}{C}
+\newcommand{\countupexports}{I}
+\newcommand{\importsegmentdata}{S}
+\newcommand{\justifysegmentdata}{J}
+\newcommand{\pagedproofs}{P}
+\newcommand{\marshallrefine}{R}
+\newcommand{\extrinsicdata}{X}
+\newcommand{\wpX}{p}
+\newcommand{\wiX}{w}
+\newcommand{\equationfourteenpointone}{\G \equiv \Y_{\mathsf{W}_G}}
+\newcommand{\equationfourteenpointtwo}{
+    \mathbb{P} \equiv \tuple{
+        \isa{\wp¬authtoken}{\Y},\
+        \isa{\wp¬authcodehost}{\N_S},\
+        \isa{\wp¬authcodehash}{\H},\
+        \isa{\wp¬authparam}{\Y},\
+        \isa{\wp¬context}{\mathbb{X}},\
+        \isa{\wp¬workitems}{\seq{\mathbb{I}}_{1:\mathsf{I}}}
+    }
+}
+\newcommand{\equationfourteenpointthree}{
+    \mathbb{I} \equiv \tuple{\begin{aligned}
+        \isa{s}{\N_S},
+        \isa{c}{\H},
+        \isa{\mathbf{y}}{\Y},
+        \isa{g}{\N_G},
+        \isa{a}{\N_G},
+        \isa{\wi¬exportsegments}{\N}, \\
+        \isa{\wi¬importsegments}{\seq{\tuple{\H \cup (\H^\boxplus),\N}}},
+        \isa{\wi¬extrinsics}{\seq{(\H, \N)}}
+    \end{aligned}}
+}
+\newcommand{\equationfourteenpointfour}{
+    \forall \wpX \in \mathbb{P}:
+    \sum_{\wiX \in \wpX_\wp¬workitems} \wiX_\wi¬exportsegments \le \mathsf{W}_M \ \wedge\
+    \sum_{\wiX \in \wpX_\wp¬workitems} |\wiX_\wi¬importsegments| \le \mathsf{W}_M
+}
+\newcommand{\equationfourteenpointfive}{
+    \begin{align}
+        \begin{aligned}
+            \forall \wpX \in \mathbb{P}: \Big(|p_\mathbf{j}| + |p_\mathbf{p}| +
+            \!\!\sum_{\wiX \in \wpX_\wp¬workitems}\!\!S(\wiX)\Big) \le \mathsf{W}_B \\
+            \where S(\wiX \in \mathbb{I}) \equiv |\wiX_\mathbf{y}| + |\wiX_\wi¬importsegments|\cdot\mathsf{W}_G + \!\!\!\!\!\!\sum_{(h, l) \in \wiX_\wi¬extrinsics} \!\!\!l
+        \end{aligned}
+    \end{align}
+}
+\newcommand{\equationfourteenpointsix}{\mathsf{W}_B \equiv 12\cdot2^{20}}
+\newcommand{\equationfourteenpointseven}{
+    \forall \wpX \in \mathbb{P}:\ \;
+    \sum_{\wiX \in \wpX_\wp¬workitems}(\wiX_a) < \mathsf{G}_A
+    \quad\wedge\ \;
+    \sum_{\wiX \in \wpX_\wp¬workitems}(\wiX_r) < \mathsf{G}_R
+}
+\newcommand{\equationfourteenpointeight}{
+    \itemtoresult\colon\left\{\begin{aligned}
+        (\mathbb{I}, \Y \cup \mathbb{J}) \to \mathbb{L}\\
+        ((s, c, \mathbf{y}, a), \mathbf{o}) \mapsto (s, c, \mathcal{H}(\mathbf{y}), \is{g}{a}, \mathbf{o})
+    \end{aligned}\right.
+}
+\newcommand{\equationfourteenpointnine}{
+    \forall \wpX \in \mathbb{P}: \left\{\,\begin{aligned}
+        \wpX_\wp¬authorizer \equiv \mathcal{H}(\wpX_\wp¬authcode \concat \wpX_\wp¬authparam) \\
+        \wpX_\wp¬authcode \equiv \Lambda(\delta[\wpX_\wp¬authcodehost], (\wpX_\wp¬context)_t, \wpX_\wp¬authcodehash) \\
+        \wpX_\wp¬authcode \in \Y
+    \end{aligned}\right.
+}
+\newcommand{\equationfourteenpointten}{
+    pagedproofs\colon\left\{\begin{aligned}
+        \seq{\G} \to \,\seq{\G} \\
+        \mathbf{s} \mapsto \,\sq{
+            \mathcal{P}_l(\se(
+            \var{\mathcal{J}_6(\mathbf{s}, i)},
+            \var{\mathcal{L}_6(\mathbf{s}, i)}
+            ))
+            \mid i \orderedin \N_{\ceil{\nicefrac{|\mathbf{s}|}{64}}}
+        } \\
+        \where l = \mathsf{W}_G
+    \end{aligned}\right.
+}
+\newcommand{\equationfourteenpointeleven}{
+    \!\!\Xi \colon \left\{\begin{aligned}
+        (\mathbb{P}, \N_\mathsf{C}) \to \mathbb{W} \\
+        (\wpX, c) \mapsto \begin{cases}
+            \error \when \mathbf{o} \not\in \Y \\
+            \tup{s, \is{x}{\wpX_\wp¬context}, c, \is{a}{\wpX_\wp¬authorizer}, \mathbf{o}, \mathbf{l}, \mathbf{r}} \!\!\!\!\!\otherwise
+        \end{cases}
+    \end{aligned}\right.\!\!\!\!\!\!\!
+    \begin{align*}
+        \keys{\mathbf{l}} \equiv \,\{ h \mid w \in p_\mathbf{w}, (h^\boxplus, n) \in w_\mathbf{i} \} \ ,\quad |\mathbf{l}| \le 8\\
+        \mathbf{o} = \,\Psi_I(\wpX, c) \ ,\quad \overline{\mathbf{i}} = [\importsegmentdata(w, \mathbf{l}) \mid w \orderedin \wpX_\wp¬workitems] \\
+        (\mathbf{r}, \overline{\mathbf{e}}) = \,\transpose[
+        (\itemtoresult(\wpX_\wp¬workitems[j], r), \mathbf{e})
+        \mid
+        (r, \mathbf{e}) = \countupexports(\wpX, j),\,
+        j \orderedin \N_{|\wpX_\wp¬workitems|}
+        ] \\
+        \countupexports(\wpX, j) \equiv \,\begin{cases}
+            (r, \mathbf{e}) \when |\mathbf{e}| = w_e \\
+            (r, [\mathbb{G}_0, \mathbb{G}_0, \dots]_{\dots w_e}) \otherwhen r \not\in \mathbb{Y} \\
+            (\badexports, [\mathbb{G}_0, \mathbb{G}_0, \dots]_{\dots w_e}) \otherwise \\
+            \multicolumn{2}{l}{\where (r, \mathbf{e}) = \Psi_R(
+              j, \wpX, \mathbf{o}, \overline{\mathbf{i}}, \ell
+            )
+        }\\
+        \multicolumn{2}{l}{\also \ell = \sum_{k < j}\wpX_\wp¬workitems[k]_\wi¬exportsegments}
+        \end{cases}
+    \end{align*}
+}
+\newcommand{\equationfourteenpointtwelve}{
+    L(r \in \H\cup\H^\boxplus) \equiv \begin{cases}
+        r \when r \in \H \\
+        \mathbf{l}[h] \when \exists h \in \H: r = h^\boxplus
+    \end{cases}
+}
+\newcommand{\equationfourteenpointthirteen}{\forall (h \mapsto e) \in \mathbf{l} : \exists p, c \in \mathbb{P}, \N_\mathsf{C} : \mathcal{H}(p) = h \wedge (\Xi(p, c)_s)_e = e}
+\newcommand{\equationfourteenpointfourteen}{
+    \begin{aligned}
+        \extrinsicdata(\wiX \in \mathbb{I}) \equiv [\mathbf{d} \mid (\mathcal{H}(\mathbf{d}), |\mathbf{d}|) \orderedin \wiX_\wi¬extrinsics] \\
+        \importsegmentdata(\wiX \in \mathbb{I}) \equiv [\mathbf{s}[n] \mid \mathcal{M}(\mathbf{s}) = L(r), (r, n) \orderedin \wiX_\wi¬importsegments] \\
+        \justifysegmentdata(\wiX \in \mathbb{I}) \equiv [\var{\mathcal{J}_0(\mathbf{s}, n)} \mid \mathcal{M}(\mathbf{s}) = L(r), (r, n) \orderedin \wiX_\wi¬importsegments]
+    \end{aligned}
+}
+\newcommand{\equationfourteenpointfifteen}{
+    s = \newavailabilityspecifier(
+        \mathcal{H}(\wpX),
+        \se(
+            \wpX,
+            \extrinsicdata^\#(\wpX_\wp¬workitems),
+            \importsegmentdata^\#(\wpX_\wp¬workitems),
+            \justifysegmentdata^\#(\wpX_\wp¬workitems)
+        ),
+        \wideparen{\overline{\mathbf{e}}}
+    )
+}
+\newcommand{\equationfourteenpointsixteen}{
+    newavailabilityspecifier\colon\left\{\,\begin{aligned}
+        \tuple{\H, \Y, \seq{\G}} \to \mathbb{S}\\
+        \tup{h, \mathbf{b},\,\mathbf{s}} \mapsto \tup{
+            h,\,
+            \is{l}{|\mathbf{b}|},\,
+            u,\,
+            \is{e}{\mathcal{M}(\mathbf{s})},\,
+            \is{n}{|\mathbf{s}|}
+        }
+    \end{aligned}\right.\!\!\!\!\!
+    \begin{align*}
+        \where u = \mathcal{M}_B(
+            [\wideparen{\mathbf{x}} \mid \mathbf{x} \orderedin \transpose[\mathbf{b}^\clubsuit, \mathbf{s}^\clubsuit]]
+        )\\
+        \also \mathbf{b}^\clubsuit = \mathcal{H}^\#(\mathcal{C}_{\ceil{\nicefrac{|\mathbf{b}|}{\mathsf{W}_E}}}(\mathcal{P}_{\mathsf{W}_E}(\mathbf{b})))\\
+        \also \mathbf{s}^\clubsuit = \mathcal{M}_B^\#(\transpose\mathcal{C}^\#_6(\mathbf{s} \concat \pagedproofs(\mathbf{s})))
+    \end{align*}
+}
+\newcommand{\equationfourteenpointseventeen}{
+    \mathcal{P}_{n \in \N_{1\dots}}\colon\left\{\begin{aligned}
+        \Y \to \Y_{k\cdot n}\\
+        \mathbf{x} \mapsto \mathbf{x} \concat [0, 0, ...]_{((|x|+n - 1) \bmod n) + 1 \dots n}
+    \end{aligned}\right.
+}

@@ -30,38 +30,38 @@ This section has been updated to match Graypaper version 0.5.4.
 |-----------------------------|-----------------------------------|----------------|
 | <a name="11.6">(11.6)</a>   | $\equationelevenpointsix$         | [TODO]         |
 | <a name="11.7">(11.7)</a>   | $\equationelevenpointseven$       | [TODO]         |
+| <a name="11.8">(11.8)</a>   | $\equationelevenpointeight$       | [TODO]         |
+| <a name="11.9">(11.9)</a>   | $\equationelevenpointnine$        | [TODO]         |
 
 ## 11.2. Package Availability Assurances 
 ### 11.2.1. The Assurances Extrinsic 
-| Graypaper                   | Equation                          | Implementation |
-|-----------------------------|-----------------------------------|----------------|
-| <a name="11.8">(11.8)</a>   | $\equationelevenpointeight$       | [TODO]         |
-| <a name="11.9">(11.9)</a>   | $\equationelevenpointnine$        | [TODO]         |
-| <a name="11.10">(11.10)</a> | $\equationelevenpointten$         | [TODO]         |
-| <a name="11.11">(11.11)</a> | $\equationelevenpointeleven$      | [TODO]         |
-| <a name="11.12">(11.12)</a> | $\equationelevenpointtwelve$      | [TODO]         |
-| <a name="11.13">(11.13)</a> | $\equationelevenpointthirteen$    | [TODO]         |
-| <a name="11.14">(11.14)</a> | $\equationelevenpointfourteen$    | [TODO]         |
+| Graypaper                   | Equation                       | Implementation |
+|-----------------------------|--------------------------------|----------------|
+| <a name="11.10">(11.10)</a> | $\equationelevenpointten$      | [TODO]         |
+| <a name="11.11">(11.11)</a> | $\equationelevenpointeleven$   | [TODO]         |
+| <a name="11.12">(11.12)</a> | $\equationelevenpointtwelve$   | [TODO]         |
+| <a name="11.13">(11.13)</a> | $\equationelevenpointthirteen$ | [TODO]         |
+| <a name="11.14">(11.14)</a> | $\equationelevenpointfourteen$ | [TODO]         |
+| <a name="11.15">(11.15)</a> | $\equationelevenpointfifteen$  | [TODO]         |
 
 ### 11.2.2. Available Reports 
-| Graypaper                   | Equation                          | Implementation |
-|-----------------------------|-----------------------------------|----------------|
-| <a name="11.15">(11.15)</a> | $\equationelevenpointfifteen$     | [TODO]         |
-| <a name="11.16">(11.16)</a> | $\equationelevenpoinsixteen$      | [TODO]         |
+| Graypaper                   | Equation                        | Implementation |
+|-----------------------------|---------------------------------|----------------|
+| <a name="11.16">(11.16)</a> | $\equationelevenpointsixteen$   | [TODO]         |
+| <a name="11.17">(11.17)</a> | $\equationelevenpointseventeen$ | [TODO]         |
 
 ## 11.3. Guarantor Assignments 
-| Graypaper                   | Equation                          | Implementation |
-|-----------------------------|-----------------------------------|----------------|
-| <a name="11.17">(11.17)</a> | $\equationelevenpointseventeen$   | [TODO]         |
-| <a name="11.18">(11.18)</a> | $\equationelevenpointeighteen$    | [TODO]         |
-| <a name="11.19">(11.19)</a> | $\equationelevenpointnineteen$    | [TODO]         |
-| <a name="11.20">(11.20)</a> | $\equationelevenpointtwenty$      | [TODO]         |
-| <a name="11.21">(11.21)</a> | $\equationelevenpointtwentyone$   | [TODO]         |
+| Graypaper                   | Equation                        | Implementation |
+|-----------------------------|---------------------------------|----------------|
+| <a name="11.18">(11.18)</a> | $\equationelevenpointeighteen$  | [TODO]         |
+| <a name="11.19">(11.19)</a> | $\equationelevenpointnineteen$  | [TODO]         |
+| <a name="11.20">(11.20)</a> | $\equationelevenpointtwenty$    | [TODO]         |
+| <a name="11.21">(11.21)</a> | $\equationelevenpointtwentyone$ | [TODO]         |
+| <a name="11.22">(11.22)</a> | $\equationelevenpointtwentytwo$ | [TODO]         |
 
 ## 11.4. Work Report Guarantees 
 | Graypaper                   | Equation                          | Implementation |
 |-----------------------------|-----------------------------------|----------------|
-| <a name="11.22">(11.22)</a> | $\equationelevenpointtwentytwo$   | [TODO]         |
 | <a name="11.23">(11.23)</a> | $\equationelevenpointtwentythree$ | [TODO]         |
 | <a name="11.24">(11.24)</a> | $\equationelevenpointtwentyfour$  | [TODO]         |
 | <a name="11.25">(11.25)</a> | $\equationelevenpointtwentyfive$  | [TODO]         |
@@ -69,11 +69,11 @@ This section has been updated to match Graypaper version 0.5.4.
 | <a name="11.27">(11.27)</a> | $\equationelevenpointtwentyseven$ | [TODO]         |
 | <a name="11.28">(11.28)</a> | $\equationelevenpointtwentyeight$ | [TODO]         |
 | <a name="11.29">(11.29)</a> | $\equationelevenpointtwentynine$  | [TODO]         |
+| <a name="11.30">(11.30)</a> | $\equationelevenpointthirty$      | [TODO]         |
 
 ### 11.4.1. Contextual Validity of Reports 
 | Graypaper                   | Equation                          | Implementation |
 |-----------------------------|-----------------------------------|----------------|
-| <a name="11.30">(11.30)</a> | $\equationelevenpointthirty$      | [TODO]         |
 | <a name="11.31">(11.31)</a> | $\equationelevenpointthirtyone$   | [TODO]         |
 | <a name="11.32">(11.32)</a> | $\equationelevenpointthirtytwo$   | [TODO]         |
 | <a name="11.33">(11.33)</a> | $\equationelevenpointthirtythree$ | [TODO]         |
@@ -85,8 +85,9 @@ This section has been updated to match Graypaper version 0.5.4.
 | <a name="11.39">(11.39)</a> | $\equationelevenpointthirtynine$  | [TODO]         |
 | <a name="11.40">(11.40)</a> | $\equationelevenpointforty$       | [TODO]         |
 | <a name="11.41">(11.41)</a> | $\equationelevenpointfortyone$    | [TODO]         |
+| <a name="11.42">(11.42)</a> | $\equationelevenpointfortytwo$    | [TODO]         |
 
 ## 11.5. Transitioning for Reports 
-| Graypaper                   | Equation                          | Implementation |
-|-----------------------------|-----------------------------------|----------------|
-| <a name="11.42">(11.42)</a> | $\equationelevenpointfortytwo$    | [TODO]         |
+| Graypaper                   | Equation                         | Implementation |
+|-----------------------------|----------------------------------|----------------|
+| <a name="11.43">(11.43)</a> | $\equationelevenpointfortythree$ | [TODO]         |

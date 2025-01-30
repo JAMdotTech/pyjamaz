@@ -22,7 +22,7 @@ This section has been updated to match Graypaper version 0.5.4.
 | <a name="17.13">(17.13)</a> | $\equationseventeenpointthirteen$  | [TODO]         |
 | <a name="17.14">(17.14)</a> | $\equationseventeenpointfourteen$  | [TODO]         |
 | <a name="17.15">(17.15)</a> | $\equationseventeenpointfifteen$   | [TODO]         |
-| <a name="17.16">(17.16)</a> | $\equationseventeenpoinsixteen$    | [TODO]         |
+| <a name="17.16">(17.16)</a> | $\equationseventeenpointsixteen$   | [TODO]         |
 | <a name="17.17">(17.17)</a> | $\equationseventeenpointseventeen$ | [TODO]         |
 | <a name="17.18">(17.18)</a> | $\equationseventeenpointeighteen$  | [TODO]         |
 | <a name="17.19">(17.19)</a> | $\equationseventeenpointnineteen$  | [TODO]         |
