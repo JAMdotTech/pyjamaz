@@ -43,48 +43,130 @@ def count_leading_zeroes(value, max_bits=64):
     return count
 
 
+"""
+Note:
+In Python, the integer division operator // and the modulo operator % follow a floor division 
+semantics, whereas in many CPUs (including RISC-V), the hardware integer divide instructions 
+(div, rem) follow truncate-toward-zero semantics. The difference is most apparent when operands 
+are negative:
+"""
+INT64_MIN = np.int64(-2**63)
+INT64_MAX = np.int64(2**63 - 1)
+# def riscv_div(a, b):
+#     return np.fix(a / b).astype(int)
+def riscv_div(a, b):
+    # In Python 3, // is floor division, so we do:
+    #return int(math.trunc(a / b))
+    """
+    RISC-V style signed division (truncate toward zero) for 64-bit integers.
+    Returns q = trunc(a / b), vectorized over arrays.
+
+    - a, b: np.int64 arrays (or scalars).
+    - If b == 0, we define the result to be 0 (RISC-V actually sets quotient=~0 in some cases,
+      but you can adapt the behavior as you wish).
+
+    Note: Python/NumPy's '//' is floor division, so we must adjust for negative signs.
+    """
+    #a = np.uint64(a)
+    #b = np.uint64(b)
+    #if a.dtype != np.int64 or b.dtype != np.int64:
+    #    raise TypeError("Expecting a,b as np.int64 arrays or scalars.")
+
+    # We'll work elementwise. Let's build an output array for the quotient.
+    q = np.zeros_like(a, dtype=np.int64)
+
+    # 1) b == 0 => "division by zero" case:
+    b_zero_mask = (b == 0)
+    #   RISC-V: quotient = -1 if a != 0 else 0
+    nonzero_a_mask = (a != 0) & b_zero_mask
+    q[nonzero_a_mask] = np.int64(-1)
+    # (if a==0 and b=0 => quotient=0; already set from zeros)
+
+    # 2) overflow corner: a=-2^63, b=-1 => quotient=2^63-1
+    corner_mask = (a == INT64_MIN) & (b == -1)
+    q[corner_mask] = INT64_MAX  # 2^63-1
+
+    # 3) normal case => do truncated division for everything else
+    normal_mask = ~(b_zero_mask | corner_mask)
+    # subset of a,b where we can do truncated division
+    a_n = a[normal_mask]
+    b_n = b[normal_mask]
+
+    # We'll implement trunc(a/b):
+    # sign = sign(a/b)
+    # magnitude = floor_div(abs(a), abs(b))
+    # result = +/- magnitude
+    # We can do it purely in int64 with absolute values, but watch out for abs(-2^63).
+    # However, that corner is handled above, so we won't trigger that here.
+    abs_a = np.abs(a_n, dtype=np.int64)
+    abs_b = np.abs(b_n, dtype=np.int64)
+    mag = np.floor_divide(abs_a, abs_b)  # floor for positive numbers
+
+    # sign check: (a<0) ^ (b<0) => negative
+    sign_mask = ((a_n < 0) & (b_n > 0)) | ((a_n > 0) & (b_n < 0))
+    # put the magnitude in output
+    q_n = mag.astype(np.int64)
+    # flip sign where necessary
+    q_n[sign_mask] = -q_n[sign_mask]
+
+    # store back
+    q[normal_mask] = q_n
+
+    return q
+
+
+def riscv_rem(a, b):
+    return a - riscv_div(a, b) * b
+
+
 def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     """
-    Converts number into a signed number using the MSB
+    Note:
+    There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below 
+    2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
+    Instead of np.uint64(x_int + factor*term) directly:
     """
-    x = int(x)
-    n = int(n)
-    # Ensure x is within the range of 2^(8*n) and never bigger than a 64 bit uint
-    assert 0 <= x < 2 ** (8 * int(n)) < 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
-
-    # Calculate the term (2^64 - 2^(8*n))
-    term = (2 ** 64 - 2 ** (8 * n))
-
-    # Calculate the floor division part: floor(x / 2^(8*n - 1))
-    factor = x // (2 ** (8 * n - 1))
-
-    # Return the transformed x
-    return x + factor * term
+    x_int = int(x)  # guaranteed 0 <= x_int < 2^(8*n)
+    bits = 8 * int(n)
+    factor = x_int >> (bits - 1)
+    term = (1 << 64) - (1 << bits)
+    # Instead of np.uint64(x_int + factor*term) directly:
+    val_64 = (x_int + factor * term) & ((1 << 64) - 1)
+    return np.uint64(val_64)
 
 
 def pvm_Z(a:np.uint64, n:np.uint8) -> np.int32:
     """
-    Transform number a signed a from unsigned int (max uint32) [0, 2^(8n)) to a signed int (range [-2^(8n-1), 2^(8n-1) - 1]).
+    Transform an unsigned number into a signed number using the MSB
     """
-    a = int(a)
-    n = int(n)
-    boundary = 2 ** (8 * n - 1)  # This is 2^(8n-1), the boundary between positive and negative numbers.
-    max_value = 2 ** (8 * n)  # This is 2^(8n), the maximum value in the n-bit space.
+    sign_boundary = 2 ** (8 * n - 1)
 
-    # If 'a' is less than the boundary, return 'a' unchanged, otherwise subtract 2^(8n).
-    if a < boundary:
+    # If a is less than the boundary, return 'a' unchanged, otherwise subtract 2^(8n).
+    if a < sign_boundary:
         return a
     else:
-        return a - max_value
+        # Reinterpret as a signed int64 (two's complement).
+        if n == 8:
+            #return np.uint64(a).view(np.int64)
+            return a.astype(np.int64)
+        elif n == 4:
+            #return np.uint32(a).view(np.int32)
+            return a.astype(np.int32)
+        elif n == 2:
+            #return np.uint16(a).view(np.int16)
+            return a.astype(np.int16)
+        elif n == 1:
+            #return np.uint8(a).view(np.int8)
+            return a.astype(np.int8)
 
 
 def pvm_Z_inv(a:np.int64, n:np.uint8):
     """
-    Transform a from the signed range [-2^(8n-1), 2^(8n-1) - 1] to unsigned range [0, 2^(8n)).
+    Transform an signed number to an unsigned number
     """
-    #a = int(a)
-    #n = int(n)
-    return ((2**(8*n)) + a) % (2**(8*n))
+    bits = 8 * int(n)
+    big = np.uint64(1) << np.uint64(bits)  # 2^(8n), done as Python int => then cast
+    return (big + np.uint64(a)) & (big - np.uint64(1))
 
 
 def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
@@ -95,11 +177,10 @@ def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np
         byte1 = np.uint16(source[addr + 1])
         return np.uint64((byte1 << 8) + byte0) % 2**16
     elif l == 3:
-        #TODO: do 3 byte ints appear? (scale encoded maybe?)
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         byte2 = np.uint32(source[addr + 2])
-        return np.uint64((byte2 << 16) + (byte1 << 8) + byte0)  % 2**32
+        return np.uint64((byte2 << 24) + (byte2 << 16) + (byte1 << 8) + byte0)  % 2**32
     elif l == 4:
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
@@ -130,8 +211,6 @@ def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np
             (byte1 << 8) +
             byte0
         )
-
-        bytes_arr = np.frombuffer(np.array([239, 190, 173, 222, 239, 190, 173, 222], dtype=np.uint8).tobytes(), dtype="<u8")[0]
     else:
         raise UIntValueError(f"Invalid uint length: {l}")
 
@@ -162,45 +241,3 @@ def write_uint(dest: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8, val: i
         dest[addr + 7] = np.uint8((val & 0xFF00000000000000) >> 56)
     else:
         raise UIntValueError(f"Invalid uint length: {l}")
-
-
-
-# def read_i16(source: npt.NDArray[np.uint8], addr: np.uint32) -> np.int16:
-#     byte0 = np.uint16(source[addr + 0])
-#     byte1 = np.uint16(source[addr + 1])
-#     return np.int16((byte1 << 8) + byte0)
-#
-#
-# def read_u16(source: npt.NDArray[np.uint8], addr: np.uint32) -> np.uint16:
-#     byte0 = np.uint16(source[addr + 0])
-#     byte1 = np.uint16(source[addr + 1])
-#     return (byte1 << 8) + byte0
-#
-# def read_i32(source: npt.NDArray[np.uint8], addr: np.uint32) -> np.int32:
-#     byte0 = np.uint32(source[addr + 0])
-#     byte1 = np.uint32(source[addr + 1])
-#     byte2 = np.uint32(source[addr + 2])
-#     byte3 = np.uint32(source[addr + 3])
-#     return np.int32((byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0)
-#
-# def read_u32(source: npt.NDArray[np.uint8], addr: np.uint32) -> np.uint32:
-#     byte0 = np.uint32(source[addr + 0])
-#     byte1 = np.uint32(source[addr + 1])
-#     byte2 = np.uint32(source[addr + 2])
-#     byte3 = np.uint32(source[addr + 3])
-#     return (byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0
-
-# def write_i32(s, value, addr):
-#     #for i in range(4): s.mem[addr + i] = (x >> (8 * i)) & 0xff
-#     s.mem[addr + 0] = np.uint8(value >> (8 * 0))
-#     s.mem[addr + 1] = np.uint8(value >> (8 * 1))
-#     s.mem[addr + 2] = np.uint8(value >> (8 * 2))
-#     s.mem[addr + 3] = np.uint8(value >> (8 * 3))
-
-# def read_mem(s, addr):
-#     mapped_addr = addr - s.mem_offset
-#     #TODO: dergelijke gevallen meer generiek opvangen
-#     if mapped_addr >= len(s.mem):
-#         s.status = 1
-#         return 0
-#     return s.mem[mapped_addr]

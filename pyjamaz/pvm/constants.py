@@ -46,14 +46,14 @@ class Opcode(Enum):
 
     # GP_A.5.3
     # Instructions with Arguments of One Register and One Extended Width Immediate (reg_ext_imm)
-    load_imm_64: np.uint8                              = np.uint8(20)   #TODO:NEW->TEST
+    load_imm_64: np.uint8                              = np.uint8(20)
 
     # GP_A.5.4
     # Instructions with Arguments of two Immediates (imm_imm)
     store_imm_u8: np.uint8                              = np.uint8(30)
     store_imm_u16: np.uint8                             = np.uint8(31)
     store_imm_u32: np.uint8                             = np.uint8(32)
-    store_imm_u64: np.uint8                             = np.uint8(33)  #TODO:NEW->TEST
+    store_imm_u64: np.uint8                             = np.uint8(33)
 
     # GP_A.5.5
     # Instructions with Arguments of One Offset (offset)
@@ -405,72 +405,35 @@ OpcodeScheme = {
 
 
 MemOps = {
-    Opcode.load_u8.value,
-    Opcode.load_i8.value,
-    Opcode.load_u16.value,
-    Opcode.load_i16.value,
-    Opcode.load_u32.value,
-    Opcode.load_i32.value,
-    Opcode.load_u64.value,
-    Opcode.load_imm_64.value,
-    Opcode.load_ind_u8.value,
-    Opcode.load_ind_i8.value,
-    Opcode.load_ind_u16.value,
-    Opcode.load_ind_i16.value,
-    Opcode.load_ind_u32.value,
-    Opcode.load_ind_i32.value,
-    Opcode.load_ind_u64.value,
-    Opcode.store_imm_u8.value,
-    Opcode.store_imm_u16.value,
-    Opcode.store_imm_u32.value,
-    Opcode.store_imm_u64.value,
-    Opcode.store_u8.value,
-    Opcode.store_u16.value,
-    Opcode.store_u32.value,
-    Opcode.store_u64.value,
-    Opcode.store_ind_u8.value,
-    Opcode.store_ind_u16.value,
-    Opcode.store_ind_u32.value,
-    Opcode.store_ind_u64.value,
-    Opcode.store_imm_ind_u8.value,
-    Opcode.store_imm_ind_u16.value,
-    Opcode.store_imm_ind_u32.value,
-    Opcode.store_imm_ind_u64.value,
-}
-
-MemReadOps = {
-    Opcode.load_u8.value,
-    Opcode.load_i8.value,
-    Opcode.load_u16.value,
-    Opcode.load_i16.value,
-    Opcode.load_u32.value,
-    Opcode.load_i32.value,
-    Opcode.load_u64.value,
-    Opcode.load_imm_64.value,
-    Opcode.load_ind_u8.value,
-    Opcode.load_ind_i8.value,
-    Opcode.load_ind_u16.value,
-    Opcode.load_ind_i16.value,
-    Opcode.load_ind_u32.value,
-    Opcode.load_ind_i32.value,
-    Opcode.load_ind_u64.value,
-}
-
-MemWriteOps = {
-    Opcode.store_imm_u8.value,
-    Opcode.store_imm_u16.value,
-    Opcode.store_imm_u32.value,
-    Opcode.store_imm_u64.value,
-    Opcode.store_u8.value,
-    Opcode.store_u16.value,
-    Opcode.store_u32.value,
-    Opcode.store_u64.value,
-    Opcode.store_ind_u8.value,
-    Opcode.store_ind_u16.value,
-    Opcode.store_ind_u32.value,
-    Opcode.store_ind_u64.value,
-    Opcode.store_imm_ind_u8.value,
-    Opcode.store_imm_ind_u16.value,
-    Opcode.store_imm_ind_u32.value,
-    Opcode.store_imm_ind_u64.value,
+    Opcode.load_u8.value: {"read": True, "write": False, "bytes": 1},
+    Opcode.load_i8.value: {"read": True, "write": False, "bytes": 1},
+    Opcode.load_u16.value: {"read": True, "write": False, "bytes": 2},
+    Opcode.load_i16.value: {"read": True, "write": False, "bytes": 2},
+    Opcode.load_u32.value: {"read": True, "write": False, "bytes": 4},
+    Opcode.load_i32.value: {"read": True, "write": False, "bytes": 4},
+    Opcode.load_u64.value: {"read": True, "write": False, "bytes": 8},
+    Opcode.load_imm_64.value: {"read": True, "write": False, "bytes": 8},
+    Opcode.load_ind_u8.value: {"read": True, "write": False, "bytes": 1},
+    Opcode.load_ind_i8.value: {"read": True, "write": False, "bytes": 1},
+    Opcode.load_ind_u16.value: {"read": True, "write": False, "bytes": 2},
+    Opcode.load_ind_i16.value: {"read": True, "write": False, "bytes": 2},
+    Opcode.load_ind_u32.value: {"read": True, "write": False, "bytes": 4},
+    Opcode.load_ind_i32.value: {"read": True, "write": False, "bytes": 4},
+    Opcode.load_ind_u64.value: {"read": True, "write": False, "bytes": 8},
+    Opcode.store_imm_u8.value: {"read": True, "write": True, "bytes": 1},
+    Opcode.store_imm_u16.value: {"read": True, "write": True, "bytes": 2},
+    Opcode.store_imm_u32.value: {"read": True, "write": True, "bytes": 4},
+    Opcode.store_imm_u64.value: {"read": True, "write": True, "bytes": 8},
+    Opcode.store_u8.value: {"read": True, "write": True, "bytes": 1},
+    Opcode.store_u16.value: {"read": True, "write": True, "bytes": 2},
+    Opcode.store_u32.value: {"read": True, "write": True, "bytes": 4},
+    Opcode.store_u64.value: {"read": True, "write": True, "bytes": 8},
+    Opcode.store_ind_u8.value: {"read": True, "write": True, "bytes": 1},
+    Opcode.store_ind_u16.value: {"read": True, "write": True, "bytes": 2},
+    Opcode.store_ind_u32.value: {"read": True, "write": True, "bytes": 4},
+    Opcode.store_ind_u64.value: {"read": True, "write": True, "bytes": 8},
+    Opcode.store_imm_ind_u8.value: {"read": True, "write": True, "bytes": 1},
+    Opcode.store_imm_ind_u16.value: {"read": True, "write": True, "bytes": 2},
+    Opcode.store_imm_ind_u32.value: {"read": True, "write": True, "bytes": 4},
+    Opcode.store_imm_ind_u64.value: {"read": True, "write": True, "bytes": 8},
 }

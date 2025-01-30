@@ -13,6 +13,8 @@ from .utils import (
     pvm_Z_inv,
     read_uint,
     write_uint,
+    riscv_div,
+    riscv_rem,
     count_trailing_zeroes,
     count_leading_zeroes,
     reverse_bytes,
@@ -122,18 +124,26 @@ class PVM:
 
         self.create_instruction_lookup()
 
-    def check_mem_op(self, op, mapped_addr):
-        if mapped_addr >= len(self.mem):
+    def check_mem_op(self, op: int, mapped_addr: int):
+        valid_op = True
+        bytes_needed = MemOps[op]["bytes"]
+        if mapped_addr+bytes_needed > len(self.mem):
+            valid_op = False
+        # TODO: register writable&readable memory banks
+        #if MemOps[op]["read"]:
+        #if MemOps[op]["write"]:
+        # if write_value:
+        #     if mapped_addr + (write_value.bit_length() + 7) // 8 > len(self.mem):
+        #         valid_op = False
+
+        if not valid_op:
             self.status = ExitCondition.page_fault.value
             self.gas -= 1
-            return False
-        # TODO: register writable&readable memory banks
-        # elif op in MemWriteOps:
-        #     pass
-        return True
+
+        return valid_op
 
     # GP_A.15
-    def djump(self, a):
+    def djump(self, a: int):
         Z_a = 2  # TODO: add to constants
         if a == np.uint64(2 ** 32 - 2 ** 16):
             self.status = ExitCondition.halt.value
@@ -203,7 +213,6 @@ class PVM:
 
                     match opcode:
                         case op.ecalli.value:
-                            #TODO: NO_TESTS
                             l_x = min(4, max(0, skip_len - 2))
                             #TODO: ook l_x == 0 check?
                             v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
@@ -214,7 +223,6 @@ class PVM:
                             raise InvalidOpcode(f"Invalid imm opcode: {opcode} for instruction type {inst_type}")
 
                 #GP_A.5.3
-                # TODO: NEW->NEEDS TEST
                 case InstructionType.reg_ext_imm:
 
                     match opcode:
@@ -230,7 +238,6 @@ class PVM:
                 case InstructionType.imm_imm:
 
                     l_x = min(4, self.rom[self.pc + 1] % 8)
-                    # TODO: CHANGED->NEEDS TEST
                     l_y = min(4, max(0, skip_len - l_x - 2))
                     #TODO: ook l_x == 0 check
                     v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
@@ -240,7 +247,6 @@ class PVM:
                     if opcode in MemOps and not self.check_mem_op(opcode, mapped_addr):
                         continue
 
-                    # TODO: CHANGED->NEEDS TEST
                     match opcode:
                         case op.store_imm_u8.value:
                             write_uint(self.mem, self.reg[mapped_addr], 1, v_y % 2**8)
@@ -272,7 +278,6 @@ class PVM:
 
                 #GP_A.5.6
                 case InstructionType.reg_imm:
-                    # TODO: CHANGED->NEEDS TEST
                     r_a = min(12, self.rom[self.pc + 1] % 16)
                     l_x = min(4, max(0, skip_len - 2))
                     v_x = 0
@@ -294,48 +299,39 @@ class PVM:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 1)
 
                         case op.load_i8.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_X(read_uint(self.mem, mapped_addr, 1), 1)
 
                         case op.load_u16.value:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 2)
 
                         case op.load_i16.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_X(read_uint(self.mem, mapped_addr, 2), 2)
 
                         case op.load_u32.value:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 4)
 
                         case op.load_i32.value:
-                            #TODO: NEW->NEEDS TEST
                             self.reg[r_a] = pvm_X(read_uint(self.mem, mapped_addr, 4), 4)
 
                         case op.load_u64.value:
-                            # TODO: NEW->NEEDS TEST
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 8)
 
                         case op.store_u8.value:
-                            # TODO: CHANGED->NEEDS TEST
                             write_uint(self.mem, mapped_addr, 1, self.reg[r_a])
 
                         case op.store_u16.value:
-                            # TODO: CHANGED->NEEDS TEST
                             write_uint(self.mem, mapped_addr, 2, self.reg[r_a])
 
                         case op.store_u32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             write_uint(self.mem, mapped_addr, 4, self.reg[r_a])
 
                         case op.store_u64.value:
-                            # TODO: NEW->NEEDS TEST
                             write_uint(self.mem, mapped_addr, 8, self.reg[r_a])
 
                         case _:
                             raise InvalidOpcode(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
 
                 # GP_A.5.7
-                # TODO:NO_TEST:
                 case InstructionType.reg_imm_imm:
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = min(12, self.rom[self.pc + 1] % 16)
@@ -360,19 +356,15 @@ class PVM:
 
                     match opcode:
 
-                        # TODO:NO_TEST:
                         case op.store_imm_ind_u8.value:
                             write_uint(self.mem, mapped_addr, 1, v_y)
 
-                        # TODO:NO_TEST:
                         case op.store_imm_ind_u16.value:
                             write_uint(self.mem, mapped_addr, 2, v_y)
 
-                        # TODO:NO_TEST:
                         case op.store_imm_ind_u32.value:
                             write_uint(self.mem, mapped_addr, 4, v_y)
 
-                        # TODO:NO_TEST:
                         case op.store_imm_ind_u64.value:
                             write_uint(self.mem, mapped_addr, 8, v_y)
 
@@ -393,7 +385,6 @@ class PVM:
                         v_x = 0
 
                     l_y = min(4, max(0, skip_len - l_x - 2))
-                    # TODO: CHANGED->NEEDS TEST
                     v_y = pvm_Z(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     match opcode:
@@ -426,19 +417,19 @@ class PVM:
                                 skip_len = v_y
 
                         case op.branch_lt_s_imm.value:
-                            if pvm_Z(w_a, 8) < pvm_Z(v_x, 4):
+                            if pvm_Z(w_a, 8) < pvm_Z(v_x, 8):
                                 skip_len = v_y
 
                         case op.branch_le_s_imm.value:
-                            if pvm_Z(w_a, 8) <= pvm_Z(v_x, 4):
+                            if pvm_Z(w_a, 8) <= pvm_Z(v_x, 8):
                                 skip_len = v_y
 
                         case op.branch_ge_s_imm.value:
-                            if pvm_Z(w_a, 8) >= pvm_Z(v_x, 4):
+                            if pvm_Z(w_a, 8) >= pvm_Z(v_x, 8):
                                 skip_len = v_y
 
                         case op.branch_gt_s_imm.value:
-                            if pvm_Z(w_a, 8) > pvm_Z(v_x, 4):
+                            if pvm_Z(w_a, 8) > pvm_Z(v_x, 8):
                                 skip_len = v_y
 
                         case _:
@@ -459,44 +450,34 @@ class PVM:
                         #!!!!!!! TODO: implementeer wanneer memory management is geimplementeerd
                         #!!!!!!! TODO: zie note in GP onderaan deze sectie
 
-                        # TODO: NO_TEST:
                         case op.count_set_bits_64:
                             self.reg[r_d] = np.bitwise_count(self.reg[r_a])
 
-                        # TODO: NO_TEST:
                         case op.count_set_bits_32:
                             self.reg[r_d] = np.bitwise_count(np.uint32(self.reg[r_a]))
 
-                        # TODO: NO_TEST:
                         case op.leading_zero_bits_64:
                             v = self.reg[r_a]
                             self.reg[r_d] = count_leading_zeroes(self.reg[r_a])
 
-                        # TODO: NO_TEST:
                         case op.leading_zero_bits_32:
                             self.reg[r_d] = count_leading_zeroes(np.uint32(self.reg[r_a]), 32)
 
-                        # TODO: NO_TEST:
                         case op.trailing_zero_bits_64:
                             self.reg[r_d] = count_trailing_zeroes(self.reg[r_a])
 
-                        # TODO: NO_TEST:
                         case op.trailing_zero_bits_32:
                             self.reg[r_d] = count_trailing_zeroes(np.uint32(self.reg[r_a]), 32)
 
-                        # TODO: NO_TEST:
                         case op.sign_extend_8:
                             self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a], 1), 8)
 
-                        # TODO: NO_TEST:
                         case op.sign_extend_16:
                             self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a], 1), 8)
 
-                        # TODO: NO_TEST:
                         case op.zero_extend_16:
                             self.reg[r_d] = self.reg[r_a] % 2**16
 
-                        # TODO: NO_TEST:
                         case op.reverse_bytes:
                             self.reg[r_d] = reverse_bytes(self.reg[r_a])
 
@@ -512,10 +493,14 @@ class PVM:
                     w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
 
-                    # TODO: CHANGED->NEEDS TEST
-                    l_x = min(4, max(0, skip_len - 2) )  #TODO: GP::234 l is al met 1 opgehoogd (gaat over current pos)?
+                    l_x = min(4, max(0, skip_len - 2) )
                     if l_x > 0:
-                        v_x = pvm_X(read_uint(self.rom, self.pc + 2 , l_x), l_x)
+                        #!!!!!!!!!!!!!!!!!!!!!!!!!!!dees moet resulteren in:np.uint64(18446744073709486080)
+                        llx = l_x if l_x%2 == 0 else 4
+                        v_x = pvm_X(read_uint(self.rom, self.pc + 2 , l_x), llx)
+                        #v_x = pvm_X(16711681, 3)
+                        #v_x = pvm_X(4294901761, 4)
+                        #v_x = np.uint64(18446744073709486080)
                     else:
                         v_x = 0
 
@@ -525,19 +510,15 @@ class PVM:
 
                     match opcode:
 
-                        # TODO:NO_TEST:
                         case op.store_ind_u8.value:
                             write_uint(self.mem, mapped_addr, 1, w_a) #TODO: parameter toevoegen aan read & write functies om modulus uit te voeren
 
-                        # TODO:NO_TEST:
                         case op.store_ind_u16.value:
                             write_uint(self.mem, mapped_addr, 2, w_a)
 
-                        # TODO:NO_TEST:
                         case op.store_ind_u32.value:
                             write_uint(self.mem, mapped_addr, 4, w_a)
 
-                        # TODO:NO_TEST:
                         case op.store_ind_u64.value:
                             write_uint(self.mem, mapped_addr, 8, w_a)
 
@@ -545,95 +526,84 @@ class PVM:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 1)
 
                         case op.load_ind_i8.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_Z_inv(pvm_Z(read_uint(self.mem, mapped_addr, 1), 1), 8)
 
                         case op.load_ind_u16.value:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 2)
 
                         case op.load_ind_i16.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_Z_inv(pvm_Z(read_uint(self.mem, mapped_addr, 2), 2), 8)
 
                         case op.load_ind_u32.value:
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 4)
 
                         case op.load_ind_i32.value:
-                            # TODO: NEW->NEEDS TEST
                             self.reg[r_a] = pvm_Z_inv(pvm_Z(read_uint(self.mem, mapped_addr, 4), 4), 8)
 
                         case op.load_ind_u64.value:
-                            # TODO: NEW->NEEDS TEST
                             self.reg[r_a] = read_uint(self.mem, mapped_addr, 8)
 
                         case op.add_imm_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_X((w_b + v_x) % 2**32, 4)
 
                         case op.and_imm.value:
-                            # TODO: cast to u32 or i32?
-                            # Note: Bn is implicit
                             self.reg[r_a] = w_b & v_x
 
                         case op.xor_imm.value:
-                            # TODO: cast to u32 or i32?
-                            # TODO: Bn is implicit of toch nodig?
                             self.reg[r_a] = w_b ^ v_x
 
                         case op.or_imm.value:
-                            # TODO: cast to u32 or i32?
-                            # TODO: Bn is implicit of toch nodig?
                             self.reg[r_a] = w_b | v_x
 
                         case op.mul_imm_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_X((w_b * v_x) % 2**32, 4)
 
                         case op.set_lt_u_imm.value:
                             self.reg[r_a] = w_b < v_x and 1 or 0
 
                         case op.set_lt_s_imm.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_Z(w_b, 8) < pvm_Z(v_x, 8) and 1 or 0
 
                         case op.shlo_l_imm_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_X(w_b * 2**(v_x % 32) % 2**32)
 
                         case op.shlo_r_imm_32.value:
-                            # TODO: CHANGED->NEEDS TEST
-                            # TODO: isnt floor(x) exact the same as np.unit32(x)?
                             self.reg[r_a] = pvm_X(floor((w_b % 2**32) / (2**(v_x%32))), 4)
 
                         case op.shar_r_imm_32.value:
-                            # TODO: CHANGED->NEEDS TEST
-                            # TODO: isnt floor(x) exact the same as np.unit32(x)?
                             self.reg[r_a] = pvm_Z_inv(floor(pvm_Z(w_b % 2 ** 32, 4) / (2 ** (v_x % 32))), 8)
 
                         case op.neg_add_imm_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_X((v_x + 2**32 - w_b) % 2**32, 4)
 
                         case op.set_gt_u_imm.value:
                             self.reg[r_a] = w_b > v_x and 1 or 0
 
                         case op.set_gt_s_imm.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_Z(w_b, 8) > pvm_Z(v_x, 8) and 1 or 0
 
                         case op.shlo_l_imm_alt_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_a] = pvm_X((v_x * (2 ** (w_b % 32))) % 2**32, 4)
 
                         case op.shlo_r_imm_alt_32.value:
-                            # TODO: CHANGED->NEEDS TEST
-                            # TODO: isnt floor(x) exact the same as np.unit32(x)?
                             self.reg[r_a] = pvm_X(floor(v_x / (2 ** (w_b % 32))), 4)
 
                         case op.shar_r_imm_alt_32.value:
-                            # TODO: CHANGED->NEEDS TEST
-                            # TODO: isnt floor(x) exact the same as np.unit32(x)?
-                            self.reg[r_a] = pvm_Z_inv(floor(pvm_Z(v_x, 4) / (2 ** (w_b % 32))), 8)
+                            #self.reg[r_a] = pvm_Z_inv(riscv_div(pvm_Z(v_x % 2**32, 4), (2 ** (w_b % 32))), 8)
+                            #self.reg[r_a] = pvm_Z_inv(np.int64(pvm_Z(v_x % 2 ** 32, 4) / float(2 ** (w_b % 32))), 8)
+                            self.reg[r_a] = pvm_Z_inv(np.int64(pvm_Z(v_x % 2**32, 4) // float(2 ** (w_b % 32))), 8)
+
+                            #read_uint(self.rom, self.pc + 2 , l_x) == 16711681
+                            #read_uint(self.rom, self.pc + 2 , l_x) == 4294901761
+                            #v_x = pvm_X(read_uint(self.rom, self.pc + 2 , l_x), l_x)
+                            #v_x = 18446744073709486081
+                            #pvm_Z(v_x % 2**32, 4) == -65535
+                            #riscv_div(pvm_Z(v_x % 2**32, 4), (2 ** (w_b % 32))) == -8191
+                            #pvm_Z_inv(np.int64(-8191), 8) == 18446744073709543425
+
+                            #self.reg[r_a] = pvm_Z_inv(floor(pvm_Z(v_x, 4) / (2 ** (w_b % 32))), 8)
+                            #self.reg[r_a] = pvm_Z_inv(pvm_Z(v_x % 2**32, 4) // (2 ** (w_b % 32)), 8)
+                            #self.reg[r_a] = pvm_Z_inv(pvm_Z(v_x % 2**32, 4) // (2 ** (w_b % 32)), 8)
 
                         case op.cmov_iz_imm.value:
                             if w_b == 0:
@@ -653,11 +623,10 @@ class PVM:
                             self.reg[r_a] = pvm_X((w_b * 2**(v_x % 64)), 8)
 
                         case op.shlo_r_imm_64.value:
-                            # TODO: NEW->NEEDS TEST
-                            self.reg[r_a] = pvm_X(floor(w_b / 2**(v_x % 64)), 8)
+                            #self.reg[r_a] = pvm_X(riscv_div(w_b, np.uint64(2**(v_x % 64))), 8)
+                            self.reg[r_a] = pvm_X(w_b // np.uint64(2**(v_x % 64)), 8)
 
                         case op.shar_r_imm_64.value:
-                            # TODO: NEW->NEEDS TEST
                             self.reg[r_a] = pvm_Z_inv(floor(pvm_Z(w_b, 8) / 2**(v_x % 64)), 8)
 
                         case op.neg_add_imm_64.value:
@@ -667,12 +636,10 @@ class PVM:
                             self.reg[r_a] = (v_x * 2**(w_b % 64)) #% 2**64
 
                         case op.shlo_r_imm_alt_64.value:
-                            # TODO: NEW->NEEDS TEST
-                            # TODO: isnt floor(x) exact the same as np.unit32(x)?
-                            self.reg[r_a] = floor(v_x / 2**(w_b % 64))
+                            #self.reg[r_a] = floor(v_x / 2**(w_b % 64))
+                            self.reg[r_a] = v_x // np.uint64(2**(v_x % 64))
 
                         case op.shar_r_imm_alt_64.value:
-                            # TODO: NEW->NEEDS TEST
                             self.reg[r_a] = pvm_Z_inv(floor(pvm_Z(v_x, 8) / 2**(w_b % 64)), 8)
 
                         case op.rot_r_64_imm:
@@ -765,26 +732,21 @@ class PVM:
 
                     match opcode:
                         case op.add_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_X((w_a + w_b) % 2**32, 4)
 
                         case op.sub_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_X((w_a + 2**32 - (w_b % 2**32)) % 2**32, 4)
 
                         case op.mul_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_X((w_a * w_b) % 2**32, 4)
 
                         case op.div_u_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             if self.reg[r_b] == 0:
                                 self.reg[r_d] = 2**64-1
                             else:
                                 self.reg[r_d] = floor((w_a % 2**32) / (w_b % 2**32))
 
                         case op.div_s_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             a = np.int32(pvm_Z(w_a % 2**32, 4))
                             b = np.int32(pvm_Z(w_b % 2**32, 4))
 
@@ -796,14 +758,12 @@ class PVM:
                                 self.reg[r_d] = pvm_Z_inv(floor(a / b), 8)
 
                         case op.rem_u_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             if w_b % 2**32 == 0:
                                 self.reg[r_d] = pvm_X(w_a, 4)
                             else:
                                 self.reg[r_d] = pvm_X((w_a % 2**32) % (w_b % 2**32), 4)
 
                         case op.rem_s_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             a = pvm_Z(w_a % 2**32, 4)
                             b = pvm_Z(w_b % 2**32, 4)
 
@@ -812,57 +772,69 @@ class PVM:
                             elif a == -2**31 and b == -1:
                                 self.reg[r_d] = 0
                             else:
-                                self.reg[r_d] = pvm_Z_inv(a % b, 8)
+                                self.reg[r_d] = pvm_Z_inv(riscv_rem(a,b), 8)
 
                         case op.shlo_l_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_X((w_a * 2**(w_b % 32)) % 2**32, 4)
 
                         case op.shlo_r_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_X(floor((w_a % 2**32) / 2**(w_b % 32)), 4)
 
                         case op.shar_r_32.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_Z_inv(floor(pvm_Z(w_a % 2**32, 4) / 2**(w_b % 32)), 8)
 
                         case op.add_64.value:
-                            # TODO: NEW->NEEDS TEST
                             self.reg[r_d] = (w_a + w_b) #% 2**64
 
                         case op.sub_64.value:
-                            # TODO: NEW->NEEDS TEST
                             self.reg[r_d] = (w_a + 2**64 - w_b) #% 2**64
 
                         case op.mul_64.value:
-                            # TODO: NEW->NEEDS TEST
                             self.reg[r_d] = (w_a * w_b) #% 2**64
 
                         case op.div_u_64.value:
-                            # TODO: NEW->NEEDS TEST
                             if w_b == 0:
                                 self.reg[r_d] = 2**64 - 1
                             else:
                                 self.reg[r_d] = w_a // w_b
 
                         case op.div_s_64.value:
-                            # TODO: NEW->NEEDS TEST
                             if w_b == 0:
                                 self.reg[r_d] = 2**64 - 1
                             elif pvm_Z(w_a, 8) == -2**63 and pvm_Z(w_b, 8) == -1:
                                 self.reg[r_d] = w_a
                             else:
-                                self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a, 8) // pvm_Z(w_b,8), 8)
+                                """
+                                masked = pvm_Z(w_a, 8) & 0xFFFFFFFFFFFFFFFF
+                                # 2) Store as np.uint64, which accepts up to 2^64-1 without error:
+                                as_uint64 = np.uint64(masked)
+                                # 3) Reinterpret the same 64 bits as a signed int64 (two's complement).
+                                x = as_uint64.view(np.int64)
+
+                                #x = -9223372036854775792#pvm_Z(w_a, 8)
+                                #masked = x & 0xFFFFFFFFFFFFFFFF  # force into 64 bits
+                                #x = np.int64(masked)  # interpret as signed 64-bit
+
+                                y = np.uint64(pvm_Z(w_b, 8))
+
+                                xx=riscv_div(x, y)
+                                xxx=pvm_Z_inv(xx, 8)
+
+                                yy=pvm_Z(w_a, 8) // pvm_Z(w_b,8)
+                                yyy=pvm_Z_inv(yy, 8)
+
+                                zzz=17129119497016012218
+                                """
+                                self.reg[r_d] = pvm_Z_inv(riscv_div(pvm_Z(w_a, 8), pvm_Z(w_b,8)), 8)
+                                #self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a, 8) // pvm_Z(w_b,8), 8)
 
                         case op.rem_u_64.value:
-                            # TODO: CHANGED->NEEDS TEST
                             if w_b == 0:
                                 self.reg[r_d] = w_a
                             else:
                                 self.reg[r_d] = w_a % w_b
 
                         case op.rem_s_64.value:
-                            # TODO: CHANGED->NEEDS TEST
                             a = pvm_Z(w_a, 8)
                             b = pvm_Z(w_b, 8)
 
@@ -874,16 +846,14 @@ class PVM:
                                 self.reg[r_d] = pvm_Z_inv(a % b, 8)
 
                         case op.shlo_l_64.value:
-                            # TODO: NEW->NEEDS TEST
                             self.reg[r_d] = (w_a * 2**(w_b % 64)) #% 2**64
 
                         case op.shlo_r_64.value:
-                            # TODO: NEW->NEEDS TEST
-                            self.reg[r_d] = floor(w_a / 2**(w_b % 64))
+                            self.reg[r_d] = w_a // 2**(w_b % 64)
 
                         case op.shar_r_64.value:
-                            # TODO: NEW->NEEDS TEST
-                            self.reg[r_d] = pvm_Z_inv(floor(pvm_Z(w_a, 8) / 2**(w_b % 64)), 8)
+                            #self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a, 8) // 2**(w_b % 64), 8)
+                            self.reg[r_d] = pvm_Z_inv(riscv_div(pvm_Z(w_a, 8), 2**(w_b % 64)), 8)
 
                         case op._and.value:
                             self.reg[r_d] = self.reg[r_a] & self.reg[r_b]
@@ -894,83 +864,59 @@ class PVM:
                         case op._or.value:
                             self.reg[r_d] = self.reg[r_a] | self.reg[r_b]
 
-                        #TODO:NO_TEST:
                         case op.mul_upper_s_s.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_Z_inv(floor((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)) / 2**64), 8)
 
-                        #TODO:NO_TEST:
                         case op.mul_upper_u_u.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = floor((w_a * w_b) / 2**64)
 
-                        #TODO:NO_TEST:
                         case op.mul_upper_s_u.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = pvm_Z_inv(floor((pvm_Z(w_a, 8) * w_b) / 2**64), 8)
 
                         case op.set_lt_u.value:
-                            # TODO: CHANGED->NEEDS TEST
                             self.reg[r_d] = np.int64(w_a < w_b)
 
                         case op.set_lt_s.value:
-                            # TODO: CHANGED->NEEDS TEST
-                            self.reg[r_d] = np.int64(pvm_Z(w_a) < pvm_Z(w_b,8))
+                            self.reg[r_d] = np.int64(pvm_Z(w_a, 8) < pvm_Z(w_b,8))
 
                         case op.cmov_iz.value:
-                            # TODO: CHANGED->NEEDS TEST
                             if w_b == 0:
                                 self.reg[r_d] = w_a
 
-                        # TODO:NO_TEST
                         case op.cmov_nz.value:
-                            # TODO: CHANGED->NEEDS TEST
                             if w_b != 0:
                                 self.reg[r_d] = w_a
 
-                        # TODO:NO_TEST
                         case op.rot_l_64.value:
-                            # TODO: should rotate left?
                             self.reg[r_d] = rori64(w_a, w_b)
 
-                        # TODO:NO_TEST
                         case op.rot_l_32.value:
-                            #TODO: should rotate left?
                             self.reg[r_a] = pvm_X(rori32(np.uint32(w_a), np.uint32(w_b)), 4)
 
-                        # TODO:NO_TEST
                         case op.rot_r_64.value:
                             self.reg[r_d] = rori64(w_a, w_b)
 
-                        # TODO:NO_TEST
                         case op.rot_r_32.value:
                             self.reg[r_a] = pvm_X(rori32(np.uint32(w_a), np.uint32(w_b)), 4)
 
-                        # TODO:NO_TEST
                         case op.and_inv.value:
                             self.reg[r_a] = self.reg[w_a] & ~self.reg[w_b]
 
-                        # TODO:NO_TEST
                         case op.or_inv.value:
                             self.reg[r_a] = self.reg[w_a] | ~self.reg[w_b]
 
-                        # TODO:NO_TEST
                         case op.xnor.value:
                             self.reg[r_a] = ~(self.reg[w_a] | self.reg[w_b])
 
-                        # TODO:NO_TEST
                         case op._max.value:
                             self.reg[r_a] = max(pvm_Z(self.reg[w_a], 8),  pvm_Z(self.reg[w_b], 8))
 
-                        # TODO:NO_TEST
                         case op.max_u.value:
                             self.reg[r_a] = max(self.reg[w_a],  self.reg[w_b])
 
-                        # TODO:NO_TEST
                         case op._min.value:
                             self.reg[r_a] = min(pvm_Z(self.reg[w_a], 8),  pvm_Z(self.reg[w_b], 8))
 
-                        # TODO:NO_TEST
                         case op.min_u.value:
                             self.reg[r_a] = min(self.reg[w_a],  self.reg[w_b])
 
