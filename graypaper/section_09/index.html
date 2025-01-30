@@ -207,7 +207,7 @@
   
     
   
-  Type Definitions
+  Types
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Type Definitions
+    Types
   </span>
   
 
@@ -1507,18 +1507,18 @@
  %\newcommand\etc{\&amp;c.\@\xspace}
  \newcommand\nb{\textsc{nb}\@\xspace}
  \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\text{\hspace{2pt}\footnotesize{\textsf{R}}\hspace{2pt}}}
+ \newcommand\remainder{\,\mathsf{R}\,}
  \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\left\langle#2\right\rangle_{#1}}
+ \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
  \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
  \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
  \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
  \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\middle\lwavy\,#2\right]}
- \newcommand{\orderuniqby}[2]{\left[#1\,\middle\lWavy\,#2\right]}
- \newcommand{\token}[1]{\text{{\small \texttt{#1}}}}
+ \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
+ \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
+ \newcommand{\token}[1]{\text{#1}} %%
  \renewcommand{\H}{\mathbb{H}}
  \newcommand{\N}{\mathbb{N}}
  \newcommand{\Y}{\mathbb{Y}}
@@ -1544,29 +1544,35 @@
  \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
  \newcommand{\suchthat}{\text{ such that }}
  \newcommand{\keys}[1]{\mathcal{K}(#1)}
+ %\let\originalleft\left
+ %\let\originalright\right
  \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
  \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\left\updownarrow#1\right.\!}
+ \newcommand{\var}[1]{\updownarrow#1}
+ %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
  \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
  \newcommand{\se}{\mathcal{E}}
  \newcommand{\de}{\mathcal{E}^{-1}}
  \newcommand{\is}[2]{#1\tricolon#2}
  \newcommand{\isa}[2]{#1\in #2}
  \newcommand{\ts}{,\,}
- \newcommand{\lseq}{\left\lsem}
- \newcommand{\rseq}{\right\rsem}
- \newcommand{\ltup}{\!\left\lgroup}
- \newcommand{\rtup}{\right\rgroup\!}
- \newcommand{\ltuple}{\!\left\lgroup}
- \newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\sq}[1]{\left[#1\right]}
- \newcommand{\seq}[1]{\lseq#1\rseq}
- \newcommand{\tup}[1]{\ltup#1\rtup}
- \newcommand{\tuple}[1]{\ltuple#1\rtuple}
- \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
- \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
- \newcommand{\fnfrac}[2]{\left\lfloor\nicefrac{#1}{#2}\right\rfloor}
- \newcommand{\ffrac}[2]{\left\lfloor\frac{#1}{#2}\right\rfloor}
+ \newcommand{\lseq}{[} %%
+ \newcommand{\rseq}{]} %%
+ \newcommand{\ltup}{(} %%
+ \newcommand{\rtup}{)} %%
+ %\newcommand{\ltuple}{\!\left\lgroup}
+ %\newcommand{\rtuple}{\right\rgroup\!}
+ \newcommand{\bm}{} %%
+ \newcommand{\ltuple}{(} %%
+ \newcommand{\rtuple}{)} %%
+ \newcommand{\sq}[1]{[#1]]}
+ \newcommand{\seq}[1]{[#1]}
+ \newcommand{\tup}[1]{(#1)}
+ \newcommand{\tuple}[1]{(#1)}
+ \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
+ \newcommand{\ceil}[1]{\lceil#1\rceil} %%
+ \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
+ \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
  \newcommand{\transpose}{{}^\text{T}}
  \newcommand{\joined}{\wideparen}
  \newcommand{\ang}[1]{\langle#1\rangle}
@@ -1592,8 +1598,75 @@
  \newcommand{\gascounter}{\varrho}
  \newcommand{\registers}{\omega}
  \newcommand{\memory}{\mu}
+ \newcommand{\concat}{\frown} %%!!
  \)</span>
-<span class="arithmatex">\( 
+<span class="arithmatex">\( \newcommand{\equationninepointone}{\N_S \equiv \N_{2^{32}}}
+ \newcommand{\equationninepointtwo}{\delta \in \dict{\N_S}{\mathbb{A}}}
+ \newcommand{\equationninepointthree}{
+     \mathbb{A} \equiv \ltuple\
+         \begin{aligned}
+             \mathbf{s} \in \dict{\H}{\Y}\,, \mathbf{p} \in \dict{\H}{\Y}\ ,\\
+             \mathbf{l} \in \dict{\ltuple\H\ts\N_L\rtuple}{\seq{\N_T}_{:3}}\ ,\\
+             c \in \H\,,b \in \N_B\ , g \in \N_G\ , m \in \N_G
+         \end{aligned}
+     \rtuple
+ }
+ \newcommand{\equationninepointfour}{
+     \forall \mathbf{a} \in \mathbb{A} : \mathbf{a}_\mathbf{c} \equiv
+     \begin{cases}
+         \mathbf{a}_\mathbf{p}[\mathbf{a}_c] \when \mathbf{a}_c \in \mathbf{a}_\mathbf{p} \\
+         \none \otherwise
+     \end{cases}
+ }
+ \newcommand{\equationninepointfive}{
+     \begin{aligned}
+         \Lambda\colon \{\
+         \begin{aligned}
+             (\mathbb{A}, \N_{\mathbf{H}_t - C_D\dots\mathbf{H}_t}, \mathbb{H}) \to \mathbb{Y}\bm{?} \\
+             (\mathbf{a}, t, \mathcal{H}(\mathbf{p})) \mapsto v : v \in \{ \mathbf{p}, \none \}
+         \end{aligned}.
+     \end{aligned}
+ }
+ \newcommand{\equationninepointsix}{
+     \forall a \in \mathbb{A}, (h \mapsto \mathbf{p}) \in a_\mathbf{p} \Rightarrow
+         h = \mathcal{H}(\mathbf{p})\wedge
+         \tup{h \ts |\mathbf{p}|} \in \keys{a_\mathbf{l}}
+     }
+ \newcommand{\equationninepointseven}{
+     \begin{aligned}\label{eq:historicallookup}
+         \Lambda\colon (\mathbb{A}, \N_T, \H) \to \Y\bm{?} \\
+         \Lambda(\mathbf{a}, t, h) \equiv \begin{cases}
+             \mathbf{a}_\mathbf{p}[h]\!\!\!\! \when h \in \keys{\mathbf{a}_\mathbf{p}} \wedge I(\mathbf{a}_\mathbf{l}[h, |\mathbf{a}_\mathbf{p}[h]|], t) \!\!\!\!\! \\
+             \none \otherwise
+         \end{cases}\\
+         \where I(\mathbf{l}, t) = \begin{cases}
+             \bot \when [] = \mathbf{l} \\
+             x \le t \when [x] = \mathbf{l} \\
+             x \le t &lt; y \when [x, y] = \mathbf{l} \\
+             x \le t &lt; y \vee z \le t \when [x, y, z] = \mathbf{l} \\
+         \end{cases}
+     \end{aligned}
+ }
+ \newcommand{\equationninepointeight}{
+     \begin{align}
+         \forall a \in \mathcal{V}(\delta):\ \begin{cases}
+             a_i \in \N_{2^{32}} \equiv 2\cdot|\,a_\mathbf{l}\,| + |\,a_\mathbf{s}\,| \\
+             a_o \in \N_{2^{64}} \equiv \sum\limits_{\,(h, z) \in \keys{a_\mathbf{l}}\,} 81 + z \\
+             \phantom{\equiv} + \sum\limits_{x \in \mathcal{V}(a_\mathbf{s})} 32 + |x| \\
+             a_t \in \N_B \equiv \mathsf{B}_S + \mathsf{B}_I \cdot a_i + \mathsf{B}_L \cdot a_o
+         \end{cases}
+     \end{align}
+ }
+ \newcommand{\equationninepointnine}{
+     \begin{align}
+         \chi \equiv \tuple{
+             \isa{\chi_m}{\N_S} \ts
+             \isa{\chi_a}{\N_S} \ts
+             \isa{\chi_v}{\N_S} \ts
+             \isa{\chi_\mathbf{g}}{\dict{\N_S}{\N_G}}
+         }
+     \end{align}
+ }
  \)</span></p>
 <h1 id="9-service-accounts">9. Service Accounts<a class="headerlink" href="#9-service-accounts" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.

@@ -207,7 +207,7 @@
   
     
   
-  Type Definitions
+  Types
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Type Definitions
+    Types
   </span>
   
 
@@ -1423,18 +1423,18 @@
  %\newcommand\etc{\&amp;c.\@\xspace}
  \newcommand\nb{\textsc{nb}\@\xspace}
  \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\text{\hspace{2pt}\footnotesize{\textsf{R}}\hspace{2pt}}}
+ \newcommand\remainder{\,\mathsf{R}\,}
  \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\left\langle#2\right\rangle_{#1}}
+ \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
  \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
  \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
  \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
  \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\middle\lwavy\,#2\right]}
- \newcommand{\orderuniqby}[2]{\left[#1\,\middle\lWavy\,#2\right]}
- \newcommand{\token}[1]{\text{{\small \texttt{#1}}}}
+ \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
+ \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
+ \newcommand{\token}[1]{\text{#1}} %%
  \renewcommand{\H}{\mathbb{H}}
  \newcommand{\N}{\mathbb{N}}
  \newcommand{\Y}{\mathbb{Y}}
@@ -1460,29 +1460,35 @@
  \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
  \newcommand{\suchthat}{\text{ such that }}
  \newcommand{\keys}[1]{\mathcal{K}(#1)}
+ %\let\originalleft\left
+ %\let\originalright\right
  \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
  \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\left\updownarrow#1\right.\!}
+ \newcommand{\var}[1]{\updownarrow#1}
+ %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
  \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
  \newcommand{\se}{\mathcal{E}}
  \newcommand{\de}{\mathcal{E}^{-1}}
  \newcommand{\is}[2]{#1\tricolon#2}
  \newcommand{\isa}[2]{#1\in #2}
  \newcommand{\ts}{,\,}
- \newcommand{\lseq}{\left\lsem}
- \newcommand{\rseq}{\right\rsem}
- \newcommand{\ltup}{\!\left\lgroup}
- \newcommand{\rtup}{\right\rgroup\!}
- \newcommand{\ltuple}{\!\left\lgroup}
- \newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\sq}[1]{\left[#1\right]}
- \newcommand{\seq}[1]{\lseq#1\rseq}
- \newcommand{\tup}[1]{\ltup#1\rtup}
- \newcommand{\tuple}[1]{\ltuple#1\rtuple}
- \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
- \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
- \newcommand{\fnfrac}[2]{\left\lfloor\nicefrac{#1}{#2}\right\rfloor}
- \newcommand{\ffrac}[2]{\left\lfloor\frac{#1}{#2}\right\rfloor}
+ \newcommand{\lseq}{[} %%
+ \newcommand{\rseq}{]} %%
+ \newcommand{\ltup}{(} %%
+ \newcommand{\rtup}{)} %%
+ %\newcommand{\ltuple}{\!\left\lgroup}
+ %\newcommand{\rtuple}{\right\rgroup\!}
+ \newcommand{\bm}{} %%
+ \newcommand{\ltuple}{(} %%
+ \newcommand{\rtuple}{)} %%
+ \newcommand{\sq}[1]{[#1]]}
+ \newcommand{\seq}[1]{[#1]}
+ \newcommand{\tup}[1]{(#1)}
+ \newcommand{\tuple}[1]{(#1)}
+ \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
+ \newcommand{\ceil}[1]{\lceil#1\rceil} %%
+ \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
+ \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
  \newcommand{\transpose}{{}^\text{T}}
  \newcommand{\joined}{\wideparen}
  \newcommand{\ang}[1]{\langle#1\rangle}
@@ -1508,8 +1514,55 @@
  \newcommand{\gascounter}{\varrho}
  \newcommand{\registers}{\omega}
  \newcommand{\memory}{\mu}
+ \newcommand{\concat}{\frown} %%!!
  \)</span>
-<span class="arithmatex">\( 
+<span class="arithmatex">\( \newcommand{\join}{\text{join}}
+ \newcommand{\spl}{\text{split}}
+ \newcommand{\unzip}{\text{unzip}}
+ \newcommand{\lace}{\text{lace}}
+ \newcommand{\equationhpointone}{\forall n \in \N, k \in \N :\ \spl_n(\mathbf{d} \in \Y_{k\cdot n}) \in \seq{\Y_n}_k \equiv \sq{\mathbf{d}_{0\dots+n}, \mathbf{d}_{n\dots+n}, \cdots, \mathbf{d}_{(k-1)n\dots+n}}}
+ \newcommand{\equationhpointtwo}{\forall n \in \N, k \in \N :\ \join_n(\mathbf{c} \in \seq{\Y_n}_k) \in \Y_{k\cdot n} \equiv \mathbf{c}_0 \concat \mathbf{c}_1 \concat \dots}
+ \newcommand{\equationhpointthree}{\forall n \in \N, k \in \N :\ \unzip_n(\mathbf{d} \in \Y_{k\cdot n}) \in \seq{\Y_n}_k \equiv \sq{ [\mathbf{d}_{j\cdot k + i} \mid j \orderedin \N_n] \mid i \orderedin \N_k}}
+ \newcommand{\equationhpointfour}{\forall n \in \N, k \in \N :\ \lace_n(\mathbf{c} \in \seq{\Y_n}_k) \in \Y_{k\cdot n} \equiv \mathbf{d} \ \where \forall i \in \N_k, j \in \N_n: \mathbf{d}_{j\cdot k + i} = (\mathbf{c}_i)_j}
+ \newcommand{\equationhpointfive}{{}^\text{T}[[\mathbf{x}_{0, 0}, \mathbf{x}_{0, 1}, \mathbf{x}_{0, 2}, \dots], [\mathbf{x}_{1, 0}, \mathbf{x}_{1, 1}, \dots], \dots] \equiv [[\mathbf{x}_{0, 0}, \mathbf{x}_{1, 0}, \mathbf{x}_{2, 0}, \dots], [\mathbf{x}_{0, 1}, \mathbf{x}_{1, 1}, \dots], \dots]}
+ \newcommand{\equationhpointsix}{
+     \mathcal{C}_{k \in \N}\colon\left\{\begin{aligned}
+         \Y_{684k} \to \seq{\Y_{2k}}_{1023} \\
+         \mathbf{d} \mapsto [ \join(\mathbf{c}) \mid \mathbf{c} \orderedin {}^{\text{T}}[\mathcal{C}(\mathbf{p}) \mid \mathbf{p} \orderedin \text{unzip}_{684}(\mathbf{d})] ]
+     \end{aligned}\right.
+ }
+ \newcommand{\equationhpointseven}{
+     \mathcal{R}_{k \in \N}\colon\left\{\begin{aligned}
+         \{(\Y_{2k}, \N_{1023})\}_{342} \to \Y_{684k} \\
+         \mathbf{c} \mapsto \begin{cases}
+             \se([\mathbf{x} \mid (\mathbf{x}, i) \orderedin \mathbf{c}]) \when [i \mid (\mathbf{x}, i) \orderedin \mathbf{c}] = [0, 1, \dots 341]\\
+             \lace_k([
+             \mathcal{R}([(\spl_2(\mathbf{x})_p, i) \mid (\mathbf{x}, i) \orderedin \mathbf{c}])
+             \mid p \in \N_k \text{always}\\
+         \end{cases}
+         ])
+     \end{aligned}\right.
+ }
+ \newcommand{\equationhpointeight}{x^{16} + x^5 + x^3 + x^2 + 1}
+ \newcommand{\equationhpointnine}{\mathbb{F}_{16} \equiv \frac{\mathbb{F}_2[x]}{x^{16}} + x^5 + x^3 + x^2 + 1}
+ \newcommand{\equationhpointten}{m_i = (m_{i, 0} \ldots m_{i, 15})}
+ \newcommand{\equationhpointeleven}{\tilde{i} = \sum^{15}_{j = 0} i_j v_j}
+ \newcommand{\equationhpointtwelve}{
+     \begin{array}{l}
+         p (\tilde{0}) = \widetilde{m_0}\\
+         p (\tilde{1}) = \widetilde{m_1}\\
+         \vdots\\
+         p (\widetilde{341}) = \widetilde{m_{341}}
+     \end{array}
+ }
+ \newcommand{\equationhpointthirteen}{
+     \begin{array}{l}
+         \widetilde{r_{342}} : = p (\widetilde{342})\\
+         \widetilde{r_{343}} : = p (\widetilde{343})\\
+         \vdots\\
+         \widetilde{r_{1022}} : = p (\widetilde{1022})
+     \end{array}
+ }
  \)</span></p>
 <h1 id="appendix-h-erasure-coding">Appendix H. Erasure Coding<a class="headerlink" href="#appendix-h-erasure-coding" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.

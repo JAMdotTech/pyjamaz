@@ -207,7 +207,7 @@
   
     
   
-  Type Definitions
+  Types
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Type Definitions
+    Types
   </span>
   
 
@@ -1507,18 +1507,18 @@
  %\newcommand\etc{\&amp;c.\@\xspace}
  \newcommand\nb{\textsc{nb}\@\xspace}
  \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\text{\hspace{2pt}\footnotesize{\textsf{R}}\hspace{2pt}}}
+ \newcommand\remainder{\,\mathsf{R}\,}
  \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\left\langle#2\right\rangle_{#1}}
+ \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
  \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
  \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
  \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
  \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\middle\lwavy\,#2\right]}
- \newcommand{\orderuniqby}[2]{\left[#1\,\middle\lWavy\,#2\right]}
- \newcommand{\token}[1]{\text{{\small \texttt{#1}}}}
+ \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
+ \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
+ \newcommand{\token}[1]{\text{#1}} %%
  \renewcommand{\H}{\mathbb{H}}
  \newcommand{\N}{\mathbb{N}}
  \newcommand{\Y}{\mathbb{Y}}
@@ -1544,29 +1544,35 @@
  \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
  \newcommand{\suchthat}{\text{ such that }}
  \newcommand{\keys}[1]{\mathcal{K}(#1)}
+ %\let\originalleft\left
+ %\let\originalright\right
  \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
  \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\left\updownarrow#1\right.\!}
+ \newcommand{\var}[1]{\updownarrow#1}
+ %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
  \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
  \newcommand{\se}{\mathcal{E}}
  \newcommand{\de}{\mathcal{E}^{-1}}
  \newcommand{\is}[2]{#1\tricolon#2}
  \newcommand{\isa}[2]{#1\in #2}
  \newcommand{\ts}{,\,}
- \newcommand{\lseq}{\left\lsem}
- \newcommand{\rseq}{\right\rsem}
- \newcommand{\ltup}{\!\left\lgroup}
- \newcommand{\rtup}{\right\rgroup\!}
- \newcommand{\ltuple}{\!\left\lgroup}
- \newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\sq}[1]{\left[#1\right]}
- \newcommand{\seq}[1]{\lseq#1\rseq}
- \newcommand{\tup}[1]{\ltup#1\rtup}
- \newcommand{\tuple}[1]{\ltuple#1\rtuple}
- \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
- \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
- \newcommand{\fnfrac}[2]{\left\lfloor\nicefrac{#1}{#2}\right\rfloor}
- \newcommand{\ffrac}[2]{\left\lfloor\frac{#1}{#2}\right\rfloor}
+ \newcommand{\lseq}{[} %%
+ \newcommand{\rseq}{]} %%
+ \newcommand{\ltup}{(} %%
+ \newcommand{\rtup}{)} %%
+ %\newcommand{\ltuple}{\!\left\lgroup}
+ %\newcommand{\rtuple}{\right\rgroup\!}
+ \newcommand{\bm}{} %%
+ \newcommand{\ltuple}{(} %%
+ \newcommand{\rtuple}{)} %%
+ \newcommand{\sq}[1]{[#1]]}
+ \newcommand{\seq}[1]{[#1]}
+ \newcommand{\tup}[1]{(#1)}
+ \newcommand{\tuple}[1]{(#1)}
+ \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
+ \newcommand{\ceil}[1]{\lceil#1\rceil} %%
+ \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
+ \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
  \newcommand{\transpose}{{}^\text{T}}
  \newcommand{\joined}{\wideparen}
  \newcommand{\ang}[1]{\langle#1\rangle}
@@ -1592,6 +1598,7 @@
  \newcommand{\gascounter}{\varrho}
  \newcommand{\registers}{\omega}
  \newcommand{\memory}{\mu}
+ \newcommand{\concat}{\frown} %%!!
  \)</span>
 <span class="arithmatex">\( \newcommand{\equationfourpointone}{\sigma' \equiv \Upsilon(\sigma, \mathbf{B})}
  \newcommand{\equationfourpointtwo}{\mathbf{B} \equiv (\mathbf{H}, \mathbf{E})}
@@ -1618,8 +1625,8 @@
  \newcommand{\equationfourpointtwentythree}{\Z_G \equiv \mathbb{Z}_{-2^{63}\dots2^{63}}\ ,\quad \N_G \equiv \mathbb{N}_{2^{64}}\ ,\quad \N_R \equiv \N_{2^{64}}}
  \newcommand{\equationfourpointtwentyfour}{\mathbb{M} \equiv \tuple{\isa{\mathbf{V}}{\Y_{2^{32}}}, \isa{\mathbf{A}}{\seq{\{\text{W}, \text{R}, \none\}}_p}}\,,\ p = \frac{2^{32}}{\mathsf{Z}_P}}
  \newcommand{\equationfourpointtwentyfive}{\mathsf{Z}_P = 2^{12}}
- \newcommand{\equationfourpointtwentysix}{\mathbb{V}_{\memory} \equiv \{i \mid \memory_\mathbf{A}[\floor{\nicefrac{i}{\mathsf{Z}_P}}] \ne \none \} \}}
- \newcommand{\equationfourpointtwentyseven}{\mathbb{V}^*_{\memory} \equiv \{i \mid \memory_\mathbf{A}[\floor{\nicefrac{i}{\mathsf{Z}_P}}] = \text{W}}
+ \newcommand{\equationfourpointtwentysix}{\mathbb{V}_{\memory} \equiv \{i \mid \memory_\mathbf{A}[\floor{\frac{i}{\mathsf{Z}_P}}] \ne \none \} \}}
+ \newcommand{\equationfourpointtwentyseven}{\mathbb{V}^*_{\memory} \equiv \{i \mid \memory_\mathbf{A}[\floor{\frac{i}{\mathsf{Z}_P}}] = \text{W}}
  \newcommand{\equationfourpointtwentyeight}{\N_T \equiv \N_{2^{32}}}
  \)</span></p>
 <h1 id="4-overview">4. Overview<a class="headerlink" href="#4-overview" title="Permanent link">&para;</a></h1>

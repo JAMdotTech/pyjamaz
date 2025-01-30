@@ -207,7 +207,7 @@
   
     
   
-  Type Definitions
+  Types
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Type Definitions
+    Types
   </span>
   
 
@@ -1387,18 +1387,18 @@
  %\newcommand\etc{\&amp;c.\@\xspace}
  \newcommand\nb{\textsc{nb}\@\xspace}
  \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\text{\hspace{2pt}\footnotesize{\textsf{R}}\hspace{2pt}}}
+ \newcommand\remainder{\,\mathsf{R}\,}
  \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\left\langle#2\right\rangle_{#1}}
+ \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
  \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
  \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
  \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
  \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\middle\lwavy\,#2\right]}
- \newcommand{\orderuniqby}[2]{\left[#1\,\middle\lWavy\,#2\right]}
- \newcommand{\token}[1]{\text{{\small \texttt{#1}}}}
+ \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
+ \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
+ \newcommand{\token}[1]{\text{#1}} %%
  \renewcommand{\H}{\mathbb{H}}
  \newcommand{\N}{\mathbb{N}}
  \newcommand{\Y}{\mathbb{Y}}
@@ -1424,29 +1424,35 @@
  \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
  \newcommand{\suchthat}{\text{ such that }}
  \newcommand{\keys}[1]{\mathcal{K}(#1)}
+ %\let\originalleft\left
+ %\let\originalright\right
  \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
  \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\left\updownarrow#1\right.\!}
+ \newcommand{\var}[1]{\updownarrow#1}
+ %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
  \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
  \newcommand{\se}{\mathcal{E}}
  \newcommand{\de}{\mathcal{E}^{-1}}
  \newcommand{\is}[2]{#1\tricolon#2}
  \newcommand{\isa}[2]{#1\in #2}
  \newcommand{\ts}{,\,}
- \newcommand{\lseq}{\left\lsem}
- \newcommand{\rseq}{\right\rsem}
- \newcommand{\ltup}{\!\left\lgroup}
- \newcommand{\rtup}{\right\rgroup\!}
- \newcommand{\ltuple}{\!\left\lgroup}
- \newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\sq}[1]{\left[#1\right]}
- \newcommand{\seq}[1]{\lseq#1\rseq}
- \newcommand{\tup}[1]{\ltup#1\rtup}
- \newcommand{\tuple}[1]{\ltuple#1\rtuple}
- \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
- \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
- \newcommand{\fnfrac}[2]{\left\lfloor\nicefrac{#1}{#2}\right\rfloor}
- \newcommand{\ffrac}[2]{\left\lfloor\frac{#1}{#2}\right\rfloor}
+ \newcommand{\lseq}{[} %%
+ \newcommand{\rseq}{]} %%
+ \newcommand{\ltup}{(} %%
+ \newcommand{\rtup}{)} %%
+ %\newcommand{\ltuple}{\!\left\lgroup}
+ %\newcommand{\rtuple}{\right\rgroup\!}
+ \newcommand{\bm}{} %%
+ \newcommand{\ltuple}{(} %%
+ \newcommand{\rtuple}{)} %%
+ \newcommand{\sq}[1]{[#1]]}
+ \newcommand{\seq}[1]{[#1]}
+ \newcommand{\tup}[1]{(#1)}
+ \newcommand{\tuple}[1]{(#1)}
+ \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
+ \newcommand{\ceil}[1]{\lceil#1\rceil} %%
+ \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
+ \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
  \newcommand{\transpose}{{}^\text{T}}
  \newcommand{\joined}{\wideparen}
  \newcommand{\ang}[1]{\langle#1\rangle}
@@ -1472,8 +1478,16 @@
  \newcommand{\gascounter}{\varrho}
  \newcommand{\registers}{\omega}
  \newcommand{\memory}{\mu}
+ \newcommand{\concat}{\frown} %%!!
  \)</span>
-<span class="arithmatex">\( 
+<span class="arithmatex">\( \newcommand{\equationeightpointone}{\alpha \in \seq{\seq{\H}_{:\mathsf{O}}}_\mathsf{C}\ , \qquad \varphi \in \seq{\seq{\H}_{\mathsf{Q}}}_\mathsf{C}}
+ \newcommand{\equationeightpointtwo}{\forall c \in \N_\mathsf{C} : \alpha'[c] \equiv {\overleftarrow{F(c) \doubleplus \varphi'[c] [ \mathbf{H}_t ]^{\circlearrowleft}}}^{\mathsf{O}}}
+ \newcommand{\equationeightpointthree}{
+     F(c) \equiv \begin{cases}
+         \alpha[c] \seqminusl \{(g_w)_a\} \when \exists g \in \xtguarantees : (g_w)_c = c \\
+         \alpha[c] \otherwise
+     \end{cases}
+ }
  \)</span></p>
 <h1 id="8-authorization">8. Authorization<a class="headerlink" href="#8-authorization" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.

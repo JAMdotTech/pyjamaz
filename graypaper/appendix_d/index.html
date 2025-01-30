@@ -207,7 +207,7 @@
   
     
   
-  Type Definitions
+  Types
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Type Definitions
+    Types
   </span>
   
 
@@ -1435,18 +1435,18 @@
  %\newcommand\etc{\&amp;c.\@\xspace}
  \newcommand\nb{\textsc{nb}\@\xspace}
  \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\text{\hspace{2pt}\footnotesize{\textsf{R}}\hspace{2pt}}}
+ \newcommand\remainder{\,\mathsf{R}\,}
  \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\left\langle#2\right\rangle_{#1}}
+ \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
  \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
  \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
  \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
  \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\middle\lwavy\,#2\right]}
- \newcommand{\orderuniqby}[2]{\left[#1\,\middle\lWavy\,#2\right]}
- \newcommand{\token}[1]{\text{{\small \texttt{#1}}}}
+ \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
+ \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
+ \newcommand{\token}[1]{\text{#1}} %%
  \renewcommand{\H}{\mathbb{H}}
  \newcommand{\N}{\mathbb{N}}
  \newcommand{\Y}{\mathbb{Y}}
@@ -1472,29 +1472,35 @@
  \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
  \newcommand{\suchthat}{\text{ such that }}
  \newcommand{\keys}[1]{\mathcal{K}(#1)}
+ %\let\originalleft\left
+ %\let\originalright\right
  \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
  \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\left\updownarrow#1\right.\!}
+ \newcommand{\var}[1]{\updownarrow#1}
+ %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
  \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
  \newcommand{\se}{\mathcal{E}}
  \newcommand{\de}{\mathcal{E}^{-1}}
  \newcommand{\is}[2]{#1\tricolon#2}
  \newcommand{\isa}[2]{#1\in #2}
  \newcommand{\ts}{,\,}
- \newcommand{\lseq}{\left\lsem}
- \newcommand{\rseq}{\right\rsem}
- \newcommand{\ltup}{\!\left\lgroup}
- \newcommand{\rtup}{\right\rgroup\!}
- \newcommand{\ltuple}{\!\left\lgroup}
- \newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\sq}[1]{\left[#1\right]}
- \newcommand{\seq}[1]{\lseq#1\rseq}
- \newcommand{\tup}[1]{\ltup#1\rtup}
- \newcommand{\tuple}[1]{\ltuple#1\rtuple}
- \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
- \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
- \newcommand{\fnfrac}[2]{\left\lfloor\nicefrac{#1}{#2}\right\rfloor}
- \newcommand{\ffrac}[2]{\left\lfloor\frac{#1}{#2}\right\rfloor}
+ \newcommand{\lseq}{[} %%
+ \newcommand{\rseq}{]} %%
+ \newcommand{\ltup}{(} %%
+ \newcommand{\rtup}{)} %%
+ %\newcommand{\ltuple}{\!\left\lgroup}
+ %\newcommand{\rtuple}{\right\rgroup\!}
+ \newcommand{\bm}{} %%
+ \newcommand{\ltuple}{(} %%
+ \newcommand{\rtuple}{)} %%
+ \newcommand{\sq}[1]{[#1]]}
+ \newcommand{\seq}[1]{[#1]}
+ \newcommand{\tup}[1]{(#1)}
+ \newcommand{\tuple}[1]{(#1)}
+ \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
+ \newcommand{\ceil}[1]{\lceil#1\rceil} %%
+ \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
+ \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
  \newcommand{\transpose}{{}^\text{T}}
  \newcommand{\joined}{\wideparen}
  \newcommand{\ang}[1]{\langle#1\rangle}
@@ -1520,8 +1526,78 @@
  \newcommand{\gascounter}{\varrho}
  \newcommand{\registers}{\omega}
  \newcommand{\memory}{\mu}
+ \newcommand{\concat}{\frown} %%!!
  \)</span>
-<span class="arithmatex">\( 
+<span class="arithmatex">\( \newcommand{\equationdpointone}{
+     C\colon\left\{\begin{aligned}
+         \N_{2^8} \cup (\N_{2^8}, \N_S) \cup \tup{\N_S, \Y} \to \H \\
+         i \in \N_{2^8} \mapsto [i, 0, 0, \dots] \\
+         (i, s \in \N_S) \mapsto [i, n_0, 0, n_1, 0, n_2, 0, n_3, 0, 0, \dots]\ \where n = \se_4(s) \\
+         (s, h) \mapsto [n_0, h_0, n_1, h_1, n_2, h_2, n_3, h_3, h_4, h_5, \dots, h_{27}]\ \where n = \se_4(s)
+     \end{aligned}\right.
+ }
+ \newcommand{\equationdpointtwo}{
+     T(\sigma) \equiv \left\{\begin{aligned}
+         C(1) \mapsto \se([\var{x}\mid x\orderedin \alpha]) \;, \\
+         C(2) \mapsto \se(\varphi) \;, \\
+         C(3) \mapsto \se(\var{[(h, \se_M(\mathbf{b}), s, \var{\mathbf{p}})\mid (h, \mathbf{b}, s, \mathbf{p})\orderedin \beta]}) \;, \\
+         C(4) \mapsto \se\left(\tup{\gamma_\mathbf{k}, \gamma_z, \left\{\,
+             \begin{aligned}
+                 0\ \when \gamma_\mathbf{s} \in \seq{\mathbb{C}}_\mathsf{E}\\
+                 1\ \when \gamma_\mathbf{s} \in \seq{\H_B}_\mathsf{E}\\
+             \end{aligned}\right\}, \gamma_\mathbf{s},
+             \var{\gamma_\mathbf{a}}}\right) \;, \\
+         C(5) \mapsto \se(\var{\orderby{x}{x \in \goodset}}, \var{\orderby{x}{x \in \badset}}, \var{\orderby{x}{x \in \wonkyset}}, \var{\orderby{x}{x \in \offenders}}) \;, \\
+         C(6) \mapsto \se(\eta) \;, \\
+         C(7) \mapsto \se(\iota) \;, \\
+         C(8) \mapsto \se(\kappa) \;, \\
+         C(9) \mapsto \se(\lambda) \;, \\
+         C(10) \mapsto \se([\maybe{(w, \se_4(t))} \mid (w, t) \orderedin \rho]) \;, \\
+         C(11) \mapsto \se_4(\tau) \;, \\
+         C(12) \mapsto \se_4(\chi_m, \chi_a, \chi_v) \concat \se(\chi_\mathbf{g}) \;, \\
+         C(13) \mapsto \se([\se^\#_4(\mathbf{i}) \mid \mathbf{i} \orderedin \pi]) \;, \\
+         C(14) \mapsto \se([\var{(\mathbf{w}, \var{\mathbf{d}})} \mid (\mathbf{w}, \mathbf{d}) \orderedin \mathbf{i} \mid \mathbf{i} \orderedin \ready]) \;, \\
+         C(15) \mapsto \se([\var{\mathbf{i}} \mid \mathbf{i} \orderedin \accumulated]) \;, \\
+             \forall (s \mapsto \mathbf{a}) \in \delta: C(255, s) \mapsto \mathbf{a}_c \concat \se_8(\mathbf{a}_b, \mathbf{a}_g, \mathbf{a}_m, \mathbf{a}_o) \concat \se_4(\mathbf{a}_i) \;, \\
+             \forall (s \mapsto \mathbf{a}) \in \delta, (k \mapsto \mathbf{v}) \in \mathbf{a}_\mathbf{s}: C(s, \se_4(2^{32}-1) \frown k_{0\dots 28}) \mapsto \mathbf{v} \;, \\
+             \forall (s \mapsto \mathbf{a}) \in \delta, (h \mapsto \mathbf{p}) \in \mathbf{a}_\mathbf{p}: C(s, \se_4(2^{32}-2) \frown h_{1\dots 29}) \mapsto \mathbf{p} \;, \\
+             \forall (s \mapsto \mathbf{a}) \in \delta, (\tup{h, l} \mapsto \mathbf{t}) \in \mathbf{a}_\mathbf{l}: C(s, \se_4(l) \concat \mathcal{H}(h)_{2\dots 30}) \mapsto \se(\var{[\se_4(x) \mid x \orderedin \mathbf{t}]})
+     \end{aligned}\right.
+ }
+ \newcommand{\equationdpointthree}{
+     \begin{align}
+         B\colon\left\{\begin{aligned}
+             (\H, \H) \to \mathbb{B}_{512}\\
+             (l, r) \mapsto [0] \frown \text{bits}(l)_{1\dots} \frown \text{bits}(r)
+         \end{aligned}\right.\\
+     \end{align}
+ }
+ \newcommand{\equationdpointfour}{
+     \begin{align}
+         L\colon\left\{\begin{aligned}
+             (\H, \Y) \to \mathbb{B}_{512}\\
+             (k, v) \mapsto \begin{cases}
+                 [1, 0] \frown \text{bits}(\se_1(|v|))_{2\dots} \frown \text{bits}(k)_{\dots248} \frown \text{bits}(v) \frown [0, 0, \dots] \when |v| \le 32\\
+                 [1, 1, 0, 0, 0, 0, 0, 0] \frown \text{bits}(k)_{\dots248} \frown \text{bits}(\mathcal{H}(v)) \otherwise
+             \end{cases}
+         \end{aligned}\right.
+     \end{align}
+ }
+ \newcommand{\equationdpointfive}{\mathcal{M}_\sigma(\sigma) \equiv M(\{ (\text{bits}(k) \mapsto \tup{k, v}) \mid (k \mapsto v) \in T(\sigma) \})}
+ \newcommand{\equationdpointsix}{
+     \begin{align}
+         M(d: \dict{\mathbb{B}}{(\H, \Y)}) \equiv \begin{cases}
+             \H^0 \when |d| = 0\\
+             \mathcal{H}(\text{bits}^{-1}(L(k, v))) \when \mathcal{V}(d) = \{ (k, v) \}\\
+             \mathcal{H}(\text{bits}^{-1}(B(M(l), M(r)))) \otherwise\\
+             \multicolumn{2}{l}{\quad\where \forall b, p: (b \mapsto p) \in d \Leftrightarrow (b_{1\dots} \mapsto p) \in \begin{cases}
+                 l \when b_0 = 0 \\
+                 r \when b_0 = 1
+             \end{cases}
+         }
+         \end{cases}
+     \end{align}
+ }
  \)</span></p>
 <h1 id="appendix-d-state-merklization">Appendix D. State Merklization<a class="headerlink" href="#appendix-d-state-merklization" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.

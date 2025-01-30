@@ -207,7 +207,7 @@
   
     
   
-  Type Definitions
+  Types
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Type Definitions
+    Types
   </span>
   
 
@@ -1441,18 +1441,18 @@
  %\newcommand\etc{\&amp;c.\@\xspace}
  \newcommand\nb{\textsc{nb}\@\xspace}
  \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\text{\hspace{2pt}\footnotesize{\textsf{R}}\hspace{2pt}}}
+ \newcommand\remainder{\,\mathsf{R}\,}
  \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\left\langle#2\right\rangle_{#1}}
+ \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
  \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
  \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
  \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
  \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\middle\lwavy\,#2\right]}
- \newcommand{\orderuniqby}[2]{\left[#1\,\middle\lWavy\,#2\right]}
- \newcommand{\token}[1]{\text{{\small \texttt{#1}}}}
+ \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
+ \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
+ \newcommand{\token}[1]{\text{#1}} %%
  \renewcommand{\H}{\mathbb{H}}
  \newcommand{\N}{\mathbb{N}}
  \newcommand{\Y}{\mathbb{Y}}
@@ -1478,29 +1478,35 @@
  \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
  \newcommand{\suchthat}{\text{ such that }}
  \newcommand{\keys}[1]{\mathcal{K}(#1)}
+ %\let\originalleft\left
+ %\let\originalright\right
  \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
  \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\left\updownarrow#1\right.\!}
+ \newcommand{\var}[1]{\updownarrow#1}
+ %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
  \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
  \newcommand{\se}{\mathcal{E}}
  \newcommand{\de}{\mathcal{E}^{-1}}
  \newcommand{\is}[2]{#1\tricolon#2}
  \newcommand{\isa}[2]{#1\in #2}
  \newcommand{\ts}{,\,}
- \newcommand{\lseq}{\left\lsem}
- \newcommand{\rseq}{\right\rsem}
- \newcommand{\ltup}{\!\left\lgroup}
- \newcommand{\rtup}{\right\rgroup\!}
- \newcommand{\ltuple}{\!\left\lgroup}
- \newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\sq}[1]{\left[#1\right]}
- \newcommand{\seq}[1]{\lseq#1\rseq}
- \newcommand{\tup}[1]{\ltup#1\rtup}
- \newcommand{\tuple}[1]{\ltuple#1\rtuple}
- \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
- \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
- \newcommand{\fnfrac}[2]{\left\lfloor\nicefrac{#1}{#2}\right\rfloor}
- \newcommand{\ffrac}[2]{\left\lfloor\frac{#1}{#2}\right\rfloor}
+ \newcommand{\lseq}{[} %%
+ \newcommand{\rseq}{]} %%
+ \newcommand{\ltup}{(} %%
+ \newcommand{\rtup}{)} %%
+ %\newcommand{\ltuple}{\!\left\lgroup}
+ %\newcommand{\rtuple}{\right\rgroup\!}
+ \newcommand{\bm}{} %%
+ \newcommand{\ltuple}{(} %%
+ \newcommand{\rtuple}{)} %%
+ \newcommand{\sq}[1]{[#1]]}
+ \newcommand{\seq}[1]{[#1]}
+ \newcommand{\tup}[1]{(#1)}
+ \newcommand{\tuple}[1]{(#1)}
+ \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
+ \newcommand{\ceil}[1]{\lceil#1\rceil} %%
+ \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
+ \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
  \newcommand{\transpose}{{}^\text{T}}
  \newcommand{\joined}{\wideparen}
  \newcommand{\ang}[1]{\langle#1\rangle}
@@ -1526,9 +1532,178 @@
  \newcommand{\gascounter}{\varrho}
  \newcommand{\registers}{\omega}
  \newcommand{\memory}{\mu}
+ \newcommand{\concat}{\frown} %%!!
  \)</span>
-( </p>
-<p>)</p>
+<span class="arithmatex">\( \newcommand{\srmap}{P}
+ \newcommand{\opers}{O}
+ \newcommand{\servouts}{B}
+ \newcommand{\accumulatedcup}{\overbrace{\accumulated}}
+ \newcommand{\equationtwelvepointone}{\accumulated \in \seq{\{\H\}}_\mathsf{E}}
+ \newcommand{\equationtwelvepointtwo}{\accumulatedcup \equiv \bigcup_{x \in \accumulated}(x)}
+ \newcommand{\equationtwelvepointthree}{\ready \in \seq{\seq{(\mathbb{W}, \{\H\})}}_\mathsf{E}}
+ \newcommand{\equationtwelvepointfour}{
+     \begin{align}
+         \mathbf{W}^! \equiv [ w \mid w \orderedin \mathbf{W}, |(w_x)_\mathbf{p}| = 0 \wedge w_\wr¬srlookup = \{\} ] \\
+     \end{align}
+ }
+ \newcommand{\equationtwelvepointfive}{
+     \begin{align}
+         \mathbf{W}^Q \equiv E(\sq{
+             D(w) \mid
+             w \orderedin \mathbf{W},
+             |(w_x)_\mathbf{p}| &gt; 0 \vee w_\wr¬srlookup \ne \{\}
+         }, \accumulatedcup)\!\!\!\!
+     \end{align}
+ }
+ \newcommand{\equationtwelvepointsix}{
+     \begin{align}
+         D(w) \equiv (w, \{(w_x)_\mathbf{p}\} \cup \keys{w_\wr¬srlookup})
+     \end{align}
+ }
+ \newcommand{\equationtwelvepointseven}{
+     E\colon\left\{
+     \begin{aligned}
+         (\seq{(\mathbb{W}, \{\H\})}, \{\H\}) \to \seq{(\mathbb{W}, \{\H\})} \\
+         (\mathbf{r}, \mathbf{x}) \mapsto \left[
+         (w, \mathbf{d} \setminus \mathbf{x})
+         \,\mid\vert\,
+         \left\{\,\begin{aligned}
+             (w, \mathbf{d}) \orderedin \mathbf{r} ,\\
+             (w_s)_h \not\in \mathbf{x}
+         \end{aligned}\right.
+         \right]
+     \end{aligned}\right.
+ }
+ \newcommand{\equationtwelvepointeight}{
+     Q\colon\left\{
+     \begin{aligned}
+         \seq{(\mathbb{W}, \{\H\})} \to \seq{\mathbb{W}} \\
+         \mathbf{r} \mapsto \begin{cases}
+             [] \when \mathbf{g} = [] \\
+             \mathbf{g} \frown Q(E(\mathbf{r}, \srmap(\mathbf{g})))\!\!\!\! \otherwise \\
+             \multicolumn{2}{l}{\,\where \mathbf{g} = [w \mid (w, \{\}) \orderedin \mathbf{r}]}
+         \end{cases}
+     \end{aligned}\right.
+ }
+ \newcommand{\equationtwelvepointnine}{
+     \srmap\colon\left\{\begin{aligned}
+         \{\mathbb{W}\} \to \{\H\}\\
+         \mathbf{w} \mapsto \{ (w_s)_h \mid w \in \mathbf{w} \}
+     \end{aligned}\right.
+ }
+ \newcommand{\equationtwelvepointten}{\using m = \mathbf{H}_t \bmod \mathsf{E}}
+ \newcommand{\equationtwelvepointeleven}{\mathbf{W}^* \equiv \mathbf{W}^! \frown Q(\mathbf{q})}
+ \newcommand{\equationtwelvepointtwelve}{\quad\where \mathbf{q} = E(\wideparen{\ready_{m\dots}} \concat \wideparen{\ready_{\dots m}} \concat \mathbf{W}^Q, \srmap(\mathbf{W}^!))}
+ \newcommand{\equationtwelvepointthirteen}{
+     \partialstate \equiv \left(\begin{aligned}
+         \isa{\mathbf{d}}{\dict{\N_S}{\mathbb{A}}} \,,\;
+         \isa{\mathbf{i}}{\seq{\mathbb{K}}_\mathsf{V}} \,,\;
+         \isa{\mathbf{q}}{\seq{\seq{\H}_\mathsf{Q}}_\mathsf{C}} \,,\\
+         \isa{\mathbf{x}}{(\N_S,\N_S,\N_S,\dict{\N_S}{\N_G})}
+     \end{aligned}\right)
+ }
+ \newcommand{\equationtwelvepointfourteen}{\defxfer \equiv \ltuple\isa{s}{\N_S}\ts\isa{d}{\N_S}\ts\isa{a}{\N_B}\ts\isa{m}{\Y_{\mathsf{W}_T}}\ts\isa{g}{\N_G}\rtuple}
+ \newcommand{\equationtwelvepointfifteen}{\servouts \equiv \{(\N_S, \H)\}}
+ \newcommand{\equationtwelvepointsixteen}{
+     \Delta_+\colon\left\{\begin{aligned}
+         (\N_G, \seq{\mathbb{W}}, \partialstate, \dict{\N_S}{\N_G}) \to (\N, \partialstate, \defxfers, \servouts) \\
+         (g, \mathbf{w}, \mathbf{o}, \mathbf{f}) \!\mapsto\! \begin{cases}
+             (0, \mathbf{o}, [], \{\})
+             \when i = 0 \\
+             (i + j, \mathbf{o}', \mathbf{t}^* \!\!\concat \mathbf{t}, \mathbf{b}^* \!\cup \mathbf{b})\!\!\!\!
+             \otherwise\!\!\!\!\!\!\!\! \\
+         \end{cases} \\
+         \quad\where i = \max(\N_{|\mathbf{w}| + 1}): \sum_{w \in \mathbf{w}_{\dots i}}\sum_{r \in w_\mathbf{r}}(r_g) \le g \\
+         \quad\also (g^*, \mathbf{o}^*, \mathbf{t}^*, \mathbf{b}^*) = \Delta_*(\mathbf{o}, \mathbf{w}_{\dots i}, \mathbf{f}) \\
+         \quad\also (j, \mathbf{o}', \mathbf{t}, \mathbf{b}) = \Delta_+(g - g^*, \mathbf{w}_{i\dots}, \mathbf{o}^*, \{\})
+     \end{aligned}\right.
+ }
+ \newcommand{\equationtwelvepointseventeen}{
+     \Delta_*\colon\left\{\;\begin{aligned}
+         (\partialstate, \seq{\mathbb{W}}, \dict{\N_S}{\N_G}) \to (\N_G, \partialstate, \defxfers, \servouts) \\
+         (\mathbf{o}, \mathbf{w}, \mathbf{f}) \mapsto (u, ((\mathbf{d} \cup \mathbf{n}) \setminus \mathbf{m}, \mathbf{i}', \mathbf{q}', \mathbf{x}'), \wideparen{\mathbf{t}}, \mathbf{b})\!\!\!\!\!\!\\
+         \text{where:}\\
+         \ \begin{aligned}
+             \mathbf{s} = \{ \mathbf{r}_s \mid w \in \mathbf{w}, \mathbf{r} \in w_\mathbf{r} \} \cup \keys{\mathbf{f}} \\
+             u = \sum_{s \in \mathbf{s}}(\Delta_1(\mathbf{o}, \mathbf{w}, \mathbf{f}, s)_u) \\
+             \mathbf{b} = \{ (s, b) \mid s \in \mathbf{s},\, b = \Delta_1(\mathbf{o}, \mathbf{w}, \mathbf{f}, s)_b,\, b \ne \none \} \\
+             \mathbf{t} = [\Delta_1(\mathbf{o}, \mathbf{w}, \mathbf{f}, s)_\mathbf{t} \mid s \orderedin \mathbf{s}] \\
+             (\mathbf{d}, \mathbf{i}, \mathbf{q}, (m, a, v, \mathbf{z})) = \mathbf{o} \\
+             \mathbf{x}' = (\Delta_1(\mathbf{o}, \mathbf{w}, \mathbf{f}, m)_\mathbf{o})_\mathbf{x} \\
+             \mathbf{i}' = (\Delta_1(\mathbf{o}, \mathbf{w}, \mathbf{f}, a)_\mathbf{o})_\mathbf{i} \\
+             \mathbf{q}' = (\Delta_1(\mathbf{o}, \mathbf{w}, \mathbf{f}, v)_\mathbf{o})_\mathbf{q} \\
+             \mathbf{n} = \bigcup_{s \in \mathbf{s}}(\{ (\Delta_1(\mathbf{o}, \mathbf{w}, \mathbf{f}, s)_\mathbf{o})_\mathbf{d} \setminus \keys{\mathbf{d} \setminus \{s\}} \}) \\
+             \mathbf{m} = \bigcup_{s \in \mathbf{s}}(\keys{\mathbf{d}} \setminus \keys{(\Delta_1(\mathbf{o}, \mathbf{w}, \mathbf{f}, s)_\mathbf{o})_\mathbf{d}})
+         \end{aligned}
+     \end{aligned}\right.
+ }
+ \newcommand{\equationtwelvepointeighteen}{\mathbb{O} \equiv \tuple{\isa{\mathbf{o}}{\Y \cup \mathbb{J}}, \isa{l}{\H}, \isa{k}{\H}, \isa{\mathbf{a}}{\Y}}}
+ \newcommand{\equationtwelvepointnineteen}{
+     \begin{align}
+         \Delta_1 \colon \left\{\;\begin{aligned}
+             \begin{aligned}
+                 (\partialstate, \seq{\mathbb{W}}, \dict{\N_S}{\N_G}, \N_S) \to \tup{
+                     \partialstate, \defxfers, \H\bm{?}, \N_G
+                 } \\
+                 (\mathbf{o}, \mathbf{w}, \mathbf{f}, s) \mapsto \Psi_A(\mathbf{o}, \tau', s, g, \mathbf{p})
+             \end{aligned} \\
+             \text{where:} \\
+             \ \begin{aligned}
+                 g = \subifnone(\mathbf{f}_s, 0) + \!\!\!\!\sum_{w \in \mathbf{w}, \mathbf{r} \in w_\mathbf{r} , \mathbf{r}_s = s}\!\!\!\!(\mathbf{r}_g) \\
+                 \mathbf{p} = \left[ \tup{\begin{alignedat}{3}
+                     \is{\mathbf{o}}{\mathbf{r}_\mathbf{o}}\ts\is{l}{\mathbf{r}_l}\ts\\
+                     \is{\mathbf{a}}{w_\mathbf{o}}\ts\is{k}{(w_s)_h}
+                 \end{alignedat}}
+                 \,\mid\vert\
+                 w \orderedin \mathbf{w}, \mathbf{r} \orderedin w_\mathbf{r}, \mathbf{r}_s = s
+                 \,\right]
+             \end{aligned}
+         \end{aligned}\right.\!\!\!\!
+     \end{align}
+ }
+ \newcommand{\equationtwelvepointtwenty}{ \using g = \max\left(\mathsf{G}_T, \mathsf{G}_A\cdot \mathsf{C} + \sum_{x \in \mathcal{V}(\chi_\mathbf{g})}(x)\right)
+ \newcommand{\equationtwelvepointtwentyone}{\using (n, \mathbf{o}, \mathbf{t}, \beefycommitmap) = \Delta_+(g, \mathbf{W}^*, (\chi, \accountspre, \iota, \varphi), \chi_\mathbf{g})}
+ \newcommand{\equationtwelvepointtwentytwo}{(\chi', \accountspostacc, \iota', \varphi') \equiv \mathbf{o}}}
+ \newcommand{\equationtwelvepointtwentythree}{
+     \begin{align}
+         R\colon \left\{\;\begin{aligned}
+             (\defxfers, \N_S) \to \defxfers \\
+             (\mathbf{t}, d) \mapsto \left[\,t \mid s \orderedin \N_S,\ t \orderedin \mathbf{t},\ t_s = s,\ t_d = d\,\right]
+         \end{aligned}\right.
+     \end{align}
+ }
+ \newcommand{\equationtwelvepointtwentyfour}{\accountspostxfer = \{ s \mapsto \Psi_T(\accountspostacc, \tau', s, R(\mathbf{t}, s)) \mid (s \mapsto a) \in \accountspostacc \}}
+ \newcommand{\equationtwelvepointtwentyfive}{\accumulated'_{\mathsf{E} - 1} = \srmap(\mathbf{W}^*_{\dots n})}
+ \newcommand{\equationtwelvepointtwentysix}{\forall i \in \N_\mathsf{E - 1}: \accumulated'_{i} \equiv \accumulated_{i + 1}}
+ \newcommand{\equationtwelvepointtwentyseven}{
+         \forall i \in \N_\mathsf{E} : \ready'^\circlearrowleft_{m - i} \equiv \begin{cases}
+         E(\mathbf{W}^Q, \accumulated'_{\mathsf{E} - 1}) \when i = 0 \\
+         [] \when 1 \le i &lt; \tau' - \tau \\
+         E(\ready^\circlearrowleft_{m - i}, \accumulated'_{\mathsf{E} - 1}) \when i \ge \tau' - \tau
+     \end{cases}
+ }
+ \newcommand{\equationtwelvepointtwentyeight}{\xtpreimages \in \lseq \ltuple\N_S\ts\Y\rtuple \rseq}
+ \newcommand{\equationtwelvepointtwentynine}{\xtpreimages = \orderuniqby{i}{i \in \xtpreimages}}
+ \newcommand{\equationtwelvepointthirty}{R(\mathbf{d}, s, h, l) \equiv h \not\in \mathbf{d}[s]_\mathbf{p} \wedge \mathbf{d}[s]_\mathbf{l}[\tup{h, l}] = []}
+ \newcommand{\equationtwelvepointthirtyone}{\forall \tup{s, \mathbf{p}} \in \xtpreimages : R(\accountspre, s, \mathcal{H}(\mathbf{p}), |\mathbf{p}|)}
+ \newcommand{\equationtwelvepointthirtytwo}{
+     \begin{align}
+         \using \mathbf{P} = \{
+             (s, \mathbf{p})
+             \mid
+             \tup{s, \mathbf{p}} \in \xtpreimages, R(\accountspostxfer, s, \mathcal{H}(\mathbf{p}), |\mathbf{p}|)
+         \}
+     \end{align}
+ }
+ \newcommand{\equationtwelvepointthirtythree}{
+     \begin{align}
+         \accountspostpreimage = \accountspostxfer \text{ ex. } \forall \tup{s\ts\mathbf{p}} \in \mathbf{P} : \left\{\,\begin{aligned}
+             \quad\accountspostpreimage[s]_\mathbf{p}[\mathcal{H}(\mathbf{p})] = \mathbf{p} \\
+             \accountspostpreimage[s]_\mathbf{l}[\mathcal{H}(\mathbf{p}), |\mathbf{p}|] = [\tau']
+         \end{aligned}\right.\!\!\!\!
+     \end{align}
+ }
+ \)</span></p>
 <h1 id="12-accumulation">12. Accumulation<a class="headerlink" href="#12-accumulation" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
 This section has been updated to match Graypaper version 0.5.4. </p>
@@ -1631,7 +1806,7 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 </tr>
 <tr>
 <td><a name="12.16">(12.16)</a></td>
-<td><span class="arithmatex">\(\equationtwelvepoinsixteen\)</span></td>
+<td><span class="arithmatex">\(\equationtwelvepointsixteen\)</span></td>
 <td>[TODO]</td>
 </tr>
 <tr>

@@ -207,7 +207,7 @@
   
     
   
-  Type Definitions
+  Types
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Type Definitions
+    Types
   </span>
   
 
@@ -1591,18 +1591,18 @@
  %\newcommand\etc{\&amp;c.\@\xspace}
  \newcommand\nb{\textsc{nb}\@\xspace}
  \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\text{\hspace{2pt}\footnotesize{\textsf{R}}\hspace{2pt}}}
+ \newcommand\remainder{\,\mathsf{R}\,}
  \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\left\langle#2\right\rangle_{#1}}
+ \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
  \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
  \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
  \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
  \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\middle\lwavy\,#2\right]}
- \newcommand{\orderuniqby}[2]{\left[#1\,\middle\lWavy\,#2\right]}
- \newcommand{\token}[1]{\text{{\small \texttt{#1}}}}
+ \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
+ \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
+ \newcommand{\token}[1]{\text{#1}} %%
  \renewcommand{\H}{\mathbb{H}}
  \newcommand{\N}{\mathbb{N}}
  \newcommand{\Y}{\mathbb{Y}}
@@ -1628,29 +1628,35 @@
  \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
  \newcommand{\suchthat}{\text{ such that }}
  \newcommand{\keys}[1]{\mathcal{K}(#1)}
+ %\let\originalleft\left
+ %\let\originalright\right
  \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
  \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\left\updownarrow#1\right.\!}
+ \newcommand{\var}[1]{\updownarrow#1}
+ %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
  \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
  \newcommand{\se}{\mathcal{E}}
  \newcommand{\de}{\mathcal{E}^{-1}}
  \newcommand{\is}[2]{#1\tricolon#2}
  \newcommand{\isa}[2]{#1\in #2}
  \newcommand{\ts}{,\,}
- \newcommand{\lseq}{\left\lsem}
- \newcommand{\rseq}{\right\rsem}
- \newcommand{\ltup}{\!\left\lgroup}
- \newcommand{\rtup}{\right\rgroup\!}
- \newcommand{\ltuple}{\!\left\lgroup}
- \newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\sq}[1]{\left[#1\right]}
- \newcommand{\seq}[1]{\lseq#1\rseq}
- \newcommand{\tup}[1]{\ltup#1\rtup}
- \newcommand{\tuple}[1]{\ltuple#1\rtuple}
- \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
- \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
- \newcommand{\fnfrac}[2]{\left\lfloor\nicefrac{#1}{#2}\right\rfloor}
- \newcommand{\ffrac}[2]{\left\lfloor\frac{#1}{#2}\right\rfloor}
+ \newcommand{\lseq}{[} %%
+ \newcommand{\rseq}{]} %%
+ \newcommand{\ltup}{(} %%
+ \newcommand{\rtup}{)} %%
+ %\newcommand{\ltuple}{\!\left\lgroup}
+ %\newcommand{\rtuple}{\right\rgroup\!}
+ \newcommand{\bm}{} %%
+ \newcommand{\ltuple}{(} %%
+ \newcommand{\rtuple}{)} %%
+ \newcommand{\sq}[1]{[#1]]}
+ \newcommand{\seq}[1]{[#1]}
+ \newcommand{\tup}[1]{(#1)}
+ \newcommand{\tuple}[1]{(#1)}
+ \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
+ \newcommand{\ceil}[1]{\lceil#1\rceil} %%
+ \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
+ \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
  \newcommand{\transpose}{{}^\text{T}}
  \newcommand{\joined}{\wideparen}
  \newcommand{\ang}[1]{\langle#1\rangle}
@@ -1676,6 +1682,7 @@
  \newcommand{\gascounter}{\varrho}
  \newcommand{\registers}{\omega}
  \newcommand{\memory}{\mu}
+ \newcommand{\concat}{\frown} %%!!
  \)</span>
 <span class="arithmatex">\( 
  \)</span></p>
@@ -1694,59 +1701,64 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name="Blackboard_N"><span class="arithmatex">\(\N\)</span></a></td>
+<td><a name="Blackboard_N"></a><span class="arithmatex">\(\N\)</span></td>
 <td>The set of non-negative integers. Subscript denotes one greater than the maximum.</td>
 <td>Section: 3.4</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \N^+\)</span></a></td>
+<td><a name="Blackboard_N_plus"></a><span class="arithmatex">\(\quad \N^+\)</span></td>
 <td>The set of positive integers (not including zero).</td>
 <td>N/A</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \N_B\)</span></a></td>
+<td><a name="Blackboard_N_B"></a><span class="arithmatex">\(\quad \N_B\)</span></td>
 <td>The set of balance values. Equivalent to <span class="arithmatex">\(\N_{2^{64}}\)</span>.</td>
-<td>Equation: 4.21</td>
+<td>Equation: <a href="../section_04/#4.21">4.21</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \N_G\)</span></a></td>
+<td><a name="Blackboard_N_G"></a><span class="arithmatex">\(\quad \N_G\)</span></td>
 <td>The set of unsigned gas values. Equivalent to <span class="arithmatex">\(\mathbb{N}_{2^{64}}\)</span>.</td>
-<td>Equation: 4.23</td>
+<td>Equation: <a href="../section_04/#4.23">4.23</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \N_L\)</span></a></td>
+<td><a name="Blackboard_N_L"></a><span class="arithmatex">\(\quad \N_L\)</span></td>
 <td>The set of blob length values. Equivalent to <span class="arithmatex">\(\N_{2^{32}}\)</span>.</td>
 <td>Section: 3.4</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \N_S\)</span></a></td>
+<td><a name="Blackboard_N_R"></a><span class="arithmatex">\(\quad \N_R\)</span> (!GP)</td>
+<td>The set of unsigned register values. Equivalent to <span class="arithmatex">\(\mathbb{N}_{2^{64}}\)</span>.</td>
+<td>Equation: <a href="../section_04/#4.23">4.23</a></td>
+</tr>
+<tr>
+<td><a name="Blackboard_N_S"></a><span class="arithmatex">\(\quad \N_S\)</span></td>
 <td>The set from which service indices are drawn. Equivalent to <span class="arithmatex">\(\N_{2^{32}}\)</span>.</td>
 <td>Section: 9.1</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \N_T\)</span></a></td>
+<td><a name="Blackboard_N_T"></a><span class="arithmatex">\(\quad \N_T\)</span></td>
 <td>The set of timeslot values. Equivalent to <span class="arithmatex">\(\N_{2^{32}}\)</span>.</td>
-<td>Equation: 4.28</td>
+<td>Equation: <a href="../section_04/#4.28">4.28</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{Q}\)</span></a></td>
+<td><a name="Blackboard_Q"></a><span class="arithmatex">\(\mathbb{Q}\)</span></td>
 <td>The set of rational numbers. Unused.</td>
 <td>Unused</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{R}\)</span></a></td>
+<td><a name="Blackboard_R"></a><span class="arithmatex">\(\mathbb{R}\)</span></td>
 <td>The set of real numbers. Unused.</td>
 <td>Unused</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{Z}\)</span></a></td>
+<td><a name="Blackboard_Z"></a><span class="arithmatex">\(\mathbb{Z}\)</span></td>
 <td>The set of integers. Subscript denotes range.</td>
 <td>Section: 3.4</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Z_G\)</span></a></td>
+<td><a name="Blackboard_Z_G"></a><span class="arithmatex">\(\quad \Z_G\)</span></td>
 <td>The set of signed gas values. Equivalent to <span class="arithmatex">\(\mathbb{Z}_{-2^{63}\dots2^{63}}\)</span>.</td>
-<td>Equation: 4.23</td>
+<td>Equation: <a href="../section_04/#4.23">4.23</a></td>
 </tr>
 </tbody>
 </table>
@@ -1761,162 +1773,162 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{A}\)</span></a></td>
+<td><a name="Blackboard_A"></a><span class="arithmatex">\(\mathbb{A}\)</span></td>
 <td>The set of service accounts.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:serviceaccount}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{B}\)</span></a></td>
+<td><a name="Blackboard_B"></a><span class="arithmatex">\(\mathbb{B}\)</span></td>
 <td>The set of Boolean sequences/bitstrings. Subscript denotes length.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:sequences}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{C}\)</span></a></td>
+<td><a name="Blackboard_C"></a><span class="arithmatex">\(\mathbb{C}\)</span></td>
 <td>The set of seal-key tickets.</td>
-<td>See equation <span class="arithmatex">\(\ref{eq:ticket}\)</span>. Note: Not used as the set of complex numbers.</td>
+<td>Equation: <a href="../section_06/#6.6">6.6</a>. Note: Not used as the set of complex numbers.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{D}\)</span></a></td>
+<td><a name="Blackboard_D"></a><span class="arithmatex">\(\mathbb{D}\)</span></td>
 <td>The set of dictionaries.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:dictionaries}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \dict{K}{V}\)</span></a></td>
+<td><a name="Blackboard_DKV"></a><span class="arithmatex">\(\quad \dict{K}{V}\)</span></td>
 <td>The set of dictionaries making a partial bijection of domain <span class="arithmatex">\(K\)</span> to range <span class="arithmatex">\(V\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:dictionaries}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{E}\)</span></a></td>
+<td><a name="Blackboard_E"></a><span class="arithmatex">\(\mathbb{E}\)</span></td>
 <td>The set of valid Ed25519 signatures. A subset of <span class="arithmatex">\(\Y_{64}\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\sig{K}{M}\)</span></a></td>
+<td><a name="Blackboard_E_KM"></a><span class="arithmatex">\(\sig{K}{M}\)</span></td>
 <td>The set of valid Ed25519 signatures of the key <span class="arithmatex">\(K\)</span> and message <span class="arithmatex">\(M\)</span>. A subset of <span class="arithmatex">\(\mathbb{E}\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{F}\)</span></a></td>
+<td><a name="Blackboard_F"></a><span class="arithmatex">\(\mathbb{F}\)</span></td>
 <td>The set of Bandersnatch signatures. A subset of <span class="arithmatex">\(\Y_{64}\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>. Note: Not used as finite fields.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \bandersig{K}{C}{M}\)</span></a></td>
+<td><a name="Blackboard_F_KMC"></a><span class="arithmatex">\(\quad \bandersig{K}{C}{M}\)</span></td>
 <td>The set of Bandersnatch signatures of the public key <span class="arithmatex">\(K\)</span>, context <span class="arithmatex">\(C\)</span> and message <span class="arithmatex">\(M\)</span>. A subset of <span class="arithmatex">\(\mathbb{F}\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \bar{\mathbb{F}}\)</span></a></td>
+<td><a name="Blackboard_F_flat"></a><span class="arithmatex">\(\quad \bar{\mathbb{F}}\)</span></td>
 <td>The set of Bandersnatch RingVRF proofs.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \bandersnatch{R}{C}{M}\)</span></a></td>
+<td><a name="Blackboard_F_KMC_flat"></a><span class="arithmatex">\(\quad \bandersnatch{R}{C}{M}\)</span></td>
 <td>The set of Bandersnatch RingVRF proofs of the root <span class="arithmatex">\(R\)</span>, context <span class="arithmatex">\(C\)</span> and message <span class="arithmatex">\(M\)</span>. A subset of <span class="arithmatex">\(\bar{\mathbb{F}}\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{G}\)</span></a></td>
+<td><a name="Blackboard_G"></a><span class="arithmatex">\(\mathbb{G}\)</span></td>
 <td>The set of data segments, equivalent to octet sequences of length <span class="arithmatex">\(\mathsf{W}_G\)</span>.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:segment}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\H\)</span></a></td>
+<td><a name="Blackboard_H"></a><span class="arithmatex">\(\H\)</span></td>
 <td>The set of 32-octet cryptographic values. A subset of <span class="arithmatex">\(\Y_{32}\)</span>. <span class="arithmatex">\(\H\)</span> without a subscript generally implies a hash function result.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>. Note: Not used as quaternions.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \H_B\)</span></a></td>
+<td><a name="Blackboard_H_B"></a><span class="arithmatex">\(\quad \H_B\)</span></td>
 <td>The set of Bandersnatch public keys. A subset of <span class="arithmatex">\(\Y_{32}\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span> and appendix <span class="arithmatex">\(\ref{sec:bandersnatch}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \H_E\)</span></a></td>
+<td><a name="Blackboard_H_E"></a><span class="arithmatex">\(\quad \H_E\)</span></td>
 <td>The set of Ed25519 public keys. A subset of <span class="arithmatex">\(\Y_{32}\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:signing}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{I}\)</span></a></td>
+<td><a name="Blackboard_I"></a><span class="arithmatex">\(\mathbb{I}\)</span></td>
 <td>The set of work items.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:workitem}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{J}\)</span></a></td>
+<td><a name="Blackboard_J"></a><span class="arithmatex">\(\mathbb{J}\)</span></td>
 <td>The set of work execution errors.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{K}\)</span></a></td>
+<td><a name="Blackboard_K"></a><span class="arithmatex">\(\mathbb{K}\)</span></td>
 <td>The set of validator key-sets.</td>
-<td>See equation <span class="arithmatex">\(\ref{eq:validatorkeys}\)</span>.</td>
+<td>Equations: <a href="../section_06/#6.8">6.8</a>, <a href="../section_06/#6.9">6.9</a>, <a href="../section_06/#6.10">6.10</a>, <a href="../section_06/#6.11">6.11</a> &amp; <a href="../section_06/#6.12">6.12</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{L}\)</span></a></td>
+<td><a name="Blackboard_L"></a><span class="arithmatex">\(\mathbb{L}\)</span></td>
 <td>The set of work results.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{M}\)</span></a></td>
+<td><a name="Blackboard_M"></a><span class="arithmatex">\(\mathbb{M}\)</span></td>
 <td>The set of PVM RAM states. A superset of <span class="arithmatex">\(\Y_{2^{32}}\)</span>.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachine}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{O}\)</span></a></td>
+<td><a name="Blackboard_O"></a><span class="arithmatex">\(\mathbb{O}\)</span></td>
 <td>The accumulation operand element, corresponding to a single work result.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{P}\)</span></a></td>
+<td><a name="Blackboard_P"></a><span class="arithmatex">\(\mathbb{P}\)</span></td>
 <td>The set of work-packages.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:workpackage}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{S}\)</span></a></td>
+<td><a name="Blackboard_S"></a><span class="arithmatex">\(\mathbb{S}\)</span></td>
 <td>The set of availability specifications.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{T}\)</span></a></td>
+<td><a name="Blackboard_T"></a><span class="arithmatex">\(\mathbb{T}\)</span></td>
 <td>The set of deferred transfers.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{U}\)</span></a></td>
+<td><a name="Blackboard_U"></a><span class="arithmatex">\(\mathbb{U}\)</span></td>
 <td>The set of partial state, used during accumulation.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:partialstate}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{V}_{\memory}\)</span></a></td>
+<td><a name="Blackboard_V_mu"></a><span class="arithmatex">\(\mathbb{V}_{\memory}\)</span></td>
 <td>The set of validly readable indices for PVM RAM <span class="arithmatex">\(\memory\)</span>.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachine}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{V}^*_{\memory}\)</span></a></td>
+<td><a name="Blackboard_V_mu_star"></a><span class="arithmatex">\(\mathbb{V}^*_{\memory}\)</span></td>
 <td>The set of validly writable indices for PVM RAM <span class="arithmatex">\(\memory\)</span>.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachine}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{W}\)</span></a></td>
+<td><a name="Blackboard_W"></a><span class="arithmatex">\(\mathbb{W}\)</span></td>
 <td>The set of work-reports.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbb{X}\)</span></a></td>
+<td><a name="Blackboard_X"></a><span class="arithmatex">\(\mathbb{X}\)</span></td>
 <td>The set of refinement contexts.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\Y\)</span></a></td>
+<td><a name="Blackboard_Y"></a><span class="arithmatex">\(\Y\)</span></td>
 <td>The set of octet strings/"blobs". Subscript denotes length.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:sequences}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Y_{BLS}\)</span></a></td>
+<td><a name="Blackboard_Y_BLS"></a><span class="arithmatex">\(\quad \Y_{BLS}\)</span></td>
 <td>The set of BLS public keys. A subset of <span class="arithmatex">\(\Y_{144}\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:signing}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Y_R\)</span></a></td>
+<td><a name="Blackboard_Y_R"></a><span class="arithmatex">\(\quad \Y_R\)</span></td>
 <td>The set of Bandersnatch ring roots. A subset of <span class="arithmatex">\(\Y_{144}\)</span>.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span> and appendix <span class="arithmatex">\(\ref{sec:bandersnatch}\)</span>.</td>
 </tr>
@@ -1933,222 +1945,222 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name=""><span class="arithmatex">\(\Delta\)</span></a></td>
+<td><a name="Delta"></a><span class="arithmatex">\(\Delta\)</span></td>
 <td>The accumulation function; certain subscripts are used to denote helper functions.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Delta_1\)</span></a></td>
+<td><a name="Delta_1"></a><span class="arithmatex">\(\quad \Delta_1\)</span></td>
 <td>The single-step accumulation function.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Delta_*\)</span></a></td>
+<td><a name="Delta_star"></a><span class="arithmatex">\(\quad \Delta_*\)</span></td>
 <td>The parallel accumulation function.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Delta_+\)</span></a></td>
+<td><a name="Delta_plus"></a><span class="arithmatex">\(\quad \Delta_+\)</span></td>
 <td>The full sequential accumulation function.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\Lambda\)</span></a></td>
+<td><a name="Lambda"></a><span class="arithmatex">\(\Lambda\)</span></td>
 <td>The historical lookup function.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:historicallookup}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\Xi\)</span></a></td>
+<td><a name="Xi"></a><span class="arithmatex">\(\Xi\)</span></td>
 <td>The work result computation function.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:workresultfunction}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\Upsilon\)</span></a></td>
+<td><a name="Upsilon"></a><span class="arithmatex">\(\Upsilon\)</span></td>
 <td>The general state transition function.</td>
-<td>See equations <span class="arithmatex">\(\ref{eq:statetransition}\)</span>, <span class="arithmatex">\(\ref{eq:transitionfunctioncomposition}\)</span>.</td>
+<td>Equations: <a href="../section_04/#4.1">4.1</a>, (4.5-4.20).</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\Phi\)</span></a></td>
+<td><a name="Phi"></a><span class="arithmatex">\(\Phi\)</span></td>
 <td>The key-nullifier function.</td>
-<td>See equation <span class="arithmatex">\(\ref{eq:blacklistfilter}\)</span>.</td>
+<td>Equation: <a href="../section_06/#6.14">6.14</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\Psi\)</span></a></td>
+<td><a name="Psi"></a><span class="arithmatex">\(\Psi\)</span></td>
 <td>The whole-program PVM machine state-transition function.</td>
 <td>See equation <span class="arithmatex">\(\ref{sec:virtualmachine}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Psi_1\)</span></a></td>
+<td><a name="Psi_1"></a><span class="arithmatex">\(\quad \Psi_1\)</span></td>
 <td>The single-step (PVM) machine state-transition function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachine}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Psi_A\)</span></a></td>
+<td><a name="Psi_A"></a><span class="arithmatex">\(\quad \Psi_A\)</span></td>
 <td>The Accumulate PVM invocation function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachineinvocations}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Psi_H\)</span></a></td>
+<td><a name="Psi_H"></a><span class="arithmatex">\(\quad \Psi_H\)</span></td>
 <td>The host-function invocation (PVM) with host-function marshalling.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachine}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Psi_I\)</span></a></td>
+<td><a name="Psi_I"></a><span class="arithmatex">\(\quad \Psi_I\)</span></td>
 <td>The Is-Authorized PVM invocation function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachineinvocations}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Psi_M\)</span></a></td>
+<td><a name="Psi_M"></a><span class="arithmatex">\(\quad \Psi_M\)</span></td>
 <td>The marshalling whole-program PVM machine state-transition function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachine}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Psi_R\)</span></a></td>
+<td><a name="Psi_R"></a><span class="arithmatex">\(\quad \Psi_R\)</span></td>
 <td>The Refine PVM invocation function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachineinvocations}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Psi_T\)</span></a></td>
+<td><a name="Psi_T"></a><span class="arithmatex">\(\quad \Psi_T\)</span></td>
 <td>The On-Transfer PVM invocation function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachineinvocations}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\Omega\)</span></a></td>
+<td><a name="Omega"></a><span class="arithmatex">\(\Omega\)</span></td>
 <td>Virtual machine host-call functions.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:virtualmachineinvocations}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_A\)</span></a></td>
+<td><a name="Omega_A"></a><span class="arithmatex">\(\quad \Omega_A\)</span></td>
 <td>Assign-core host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_B\)</span></a></td>
+<td><a name="Omega_B"></a><span class="arithmatex">\(\quad \Omega_B\)</span></td>
 <td>Empower-service host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_C\)</span></a></td>
+<td><a name="Omega_C"></a><span class="arithmatex">\(\quad \Omega_C\)</span></td>
 <td>Checkpoint host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_D\)</span></a></td>
+<td><a name="Omega_D"></a><span class="arithmatex">\(\quad \Omega_D\)</span></td>
 <td>Designate-validators host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_E\)</span></a></td>
+<td><a name="Omega_E"></a><span class="arithmatex">\(\quad \Omega_E\)</span></td>
 <td>Export segment host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_F\)</span></a></td>
+<td><a name="Omega_F"></a><span class="arithmatex">\(\quad \Omega_F\)</span></td>
 <td>Forget-preimage host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_G\)</span></a></td>
+<td><a name="Omega_G"></a><span class="arithmatex">\(\quad \Omega_G\)</span></td>
 <td>Gas-remaining host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_H\)</span></a></td>
+<td><a name="Omega_H"></a><span class="arithmatex">\(\quad \Omega_H\)</span></td>
 <td>Historical-lookup-preimage host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_I\)</span></a></td>
+<td><a name="Omega_I"></a><span class="arithmatex">\(\quad \Omega_I\)</span></td>
 <td>Information-on-service host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_J\)</span></a></td>
+<td><a name="Omega_J"></a><span class="arithmatex">\(\quad \Omega_J\)</span></td>
 <td>Eject-service host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_K\)</span></a></td>
+<td><a name="Omega_K"></a><span class="arithmatex">\(\quad \Omega_K\)</span></td>
 <td>Kickoff-PVM host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_L\)</span></a></td>
+<td><a name="Omega_L"></a><span class="arithmatex">\(\quad \Omega_L\)</span></td>
 <td>Lookup-preimage host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_M\)</span></a></td>
+<td><a name="Omega_M"></a><span class="arithmatex">\(\quad \Omega_M\)</span></td>
 <td>Make-PVM host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_N\)</span></a></td>
+<td><a name="Omega_N"></a><span class="arithmatex">\(\quad \Omega_N\)</span></td>
 <td>New-service host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_O\)</span></a></td>
+<td><a name="Omega_O"></a><span class="arithmatex">\(\quad \Omega_O\)</span></td>
 <td>Poke-PVM host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_P\)</span></a></td>
+<td><a name="Omega_P"></a><span class="arithmatex">\(\quad \Omega_P\)</span></td>
 <td>Peek-PVM host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_Q\)</span></a></td>
+<td><a name="Omega_Q"></a><span class="arithmatex">\(\quad \Omega_Q\)</span></td>
 <td>Query-preimage host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_R\)</span></a></td>
+<td><a name="Omega_R"></a><span class="arithmatex">\(\quad \Omega_R\)</span></td>
 <td>Read-storage host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_S\)</span></a></td>
+<td><a name="Omega_S"></a><span class="arithmatex">\(\quad \Omega_S\)</span></td>
 <td>Solicit-preimage host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_T\)</span></a></td>
+<td><a name="Omega_T"></a><span class="arithmatex">\(\quad \Omega_T\)</span></td>
 <td>Transfer host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_U\)</span></a></td>
+<td><a name="Omega_U"></a><span class="arithmatex">\(\quad \Omega_U\)</span></td>
 <td>Upgrade-service host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_V\)</span></a></td>
+<td><a name="Omega_V"></a><span class="arithmatex">\(\quad \Omega_V\)</span></td>
 <td>Void inner-PVM memory host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_W\)</span></a></td>
+<td><a name="Omega_W"></a><span class="arithmatex">\(\quad \Omega_W\)</span></td>
 <td>Write-storage host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_X\)</span></a></td>
+<td><a name="Omega_X"></a><span class="arithmatex">\(\quad \Omega_X\)</span></td>
 <td>Expunge-PVM host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_Y\)</span></a></td>
+<td><a name="Omega_Y"></a><span class="arithmatex">\(\quad \Omega_Y\)</span></td>
 <td>Import segment host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_Z\)</span></a></td>
+<td><a name="Omega_Z"></a><span class="arithmatex">\(\quad \Omega_Z\)</span></td>
 <td>Zero inner-PVM memory host-call.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \Omega_\Taurus\)</span></a></td>
+<td><a name="Omega_Taurus"></a><span class="arithmatex">\(\quad \Omega_\Taurus\)</span></td>
 <td>Yield accumulation trie result host-call.</td>
 <td></td>
 </tr>
@@ -2165,137 +2177,137 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{A}(\dots)\)</span></a></td>
+<td><a name="Func_A"></a><span class="arithmatex">\(\mathcal{A}(\dots)\)</span></td>
 <td>The Merkle mountain range append function.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:mmrappend}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{B}_n(\dots)\)</span></a></td>
+<td><a name="Func_B"></a><span class="arithmatex">\(\mathcal{B}_n(\dots)\)</span></td>
 <td>The octets-to-bits function for <span class="arithmatex">\(n\)</span> octets. Superscripted <span class="arithmatex">\({}^{-1}\)</span> to denote the inverse.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:bitsfunc}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{C}(\dots)\)</span></a></td>
+<td><a name="Func_C"></a><span class="arithmatex">\(\mathcal{C}(\dots)\)</span></td>
 <td>The group of erasure-coding functions.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{C}_n(\dots)\)</span></a></td>
+<td><a name="Func_C_n"></a><span class="arithmatex">\(\mathcal{C}_n(\dots)\)</span></td>
 <td>The erasure-coding functions for <span class="arithmatex">\(n\)</span> chunks.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:erasurecoding}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\se(\dots)\)</span></a></td>
+<td><a name="Func_E"></a><span class="arithmatex">\(\se(\dots)\)</span></td>
 <td>The octet-sequence encode function. Superscripted <span class="arithmatex">\({}^{-1}\)</span> to denote the inverse.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:serialization}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{F}(\dots)\)</span></a></td>
+<td><a name="Func_F"></a><span class="arithmatex">\(\mathcal{F}(\dots)\)</span></td>
 <td>The Fisher-Yates shuffle function.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:suffle}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{H}(\dots)\)</span></a></td>
+<td><a name="Func_H"></a><span class="arithmatex">\(\mathcal{H}(\dots)\)</span></td>
 <td>The Blake 2b 256-bit hash function.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{H}_K(\dots))\)</span></a></td>
+<td><a name="Func_H_K"></a><span class="arithmatex">\(\mathcal{H}_K(\dots)\)</span></td>
 <td>The Keccak 256-bit hash function.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{J}_x\)</span></a></td>
+<td><a name="Func_J"></a><span class="arithmatex">\(\mathcal{J}_x\)</span></td>
 <td>The justification path to a specific <span class="arithmatex">\(2^x\)</span> size page of a constant-depth Merkle tree.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:constantdepthsubtreemerklejust}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{K}(\dots)\)</span></a></td>
+<td><a name="Func_K"></a><span class="arithmatex">\(\mathcal{K}(\dots)\)</span></td>
 <td>The domain, or set of keys, of a dictionary.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:dictionaries}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{L}_x\)</span></a></td>
+<td><a name="Func_L_x"></a><span class="arithmatex">\(\mathcal{L}_x\)</span></td>
 <td>The <span class="arithmatex">\(2^x\)</span> size page function for a constant-depth Merkle tree.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:constantdepthsubtreemerkleleafpage}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{M}(\dots)\)</span></a></td>
+<td><a name="Func_M"></a><span class="arithmatex">\(\mathcal{M}(\dots)\)</span></td>
 <td>The constant-depth binary Merklization function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:merklization}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{M}_B(\dots)\)</span></a></td>
+<td><a name="Func_M_B"></a><span class="arithmatex">\(\mathcal{M}_B(\dots)\)</span></td>
 <td>The well-balanced binary Merklization function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:merklization}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{M}_\sigma(\dots)\)</span></a></td>
+<td><a name="Func_M_sigma"></a><span class="arithmatex">\(\mathcal{M}_\sigma(\dots)\)</span></td>
 <td>The state Merklization function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:statemerklization}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{N}(\dots)\)</span></a></td>
+<td><a name="Func_N"></a><span class="arithmatex">\(\mathcal{N}(\dots)\)</span></td>
 <td>The erasure-coding chunks function.</td>
 <td>See appendix <span class="arithmatex">\(\ref{sec:erasurecoding}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{O}(\dots)\)</span></a></td>
+<td><a name="Func_O"></a><span class="arithmatex">\(\mathcal{O}(\dots)\)</span></td>
 <td>The Bandersnatch ring root function.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span> and appendix <span class="arithmatex">\(\ref{sec:bandersnatch}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{P}_n(\dots)\)</span></a></td>
+<td><a name="Func_P"></a><span class="arithmatex">\(\mathcal{P}_n(\dots)\)</span></td>
 <td>The octet-array zero-padding function.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:zeropadding}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{Q}(\dots)\)</span></a></td>
+<td><a name="Func_Q"></a><span class="arithmatex">\(\mathcal{Q}(\dots)\)</span></td>
 <td>The numeric-sequence-from-hash function.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:sequencefromhash}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{R}\)</span></a></td>
+<td><a name="Func_R"></a><span class="arithmatex">\(\mathcal{R}\)</span></td>
 <td>The group of erasure-coding piece-recovery functions.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{S}_k(\dots)\)</span></a></td>
+<td><a name="Func_S"></a><span class="arithmatex">\(\mathcal{S}_k(\dots)\)</span></td>
 <td>The general signature function.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{T}\)</span></a></td>
+<td><a name="Func_T"></a><span class="arithmatex">\(\mathcal{T}\)</span></td>
 <td>The current time expressed in seconds after the start of the JAM Common Era.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:commonera}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{U}(\dots)\)</span></a></td>
+<td><a name="Func_U"></a><span class="arithmatex">\(\mathcal{U}(\dots)\)</span></td>
 <td>The substitute-if-nothing function.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:substituteifnothing}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{V}(\dots)\)</span></a></td>
+<td><a name="Func_V"></a><span class="arithmatex">\(\mathcal{V}(\dots)\)</span></td>
 <td>The range, or set of values, of a dictionary or sequence.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:dictionaries}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{X}_n(\dots)\)</span></a></td>
+<td><a name="Func_X"></a><span class="arithmatex">\(\mathcal{X}_n(\dots)\)</span></td>
 <td>The signed-extension function for a value in <span class="arithmatex">\(\N_{2^{8n}}\)</span>.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:signedextension}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{Y}(\dots)\)</span></a></td>
+<td><a name="Func_Y"></a><span class="arithmatex">\(\mathcal{Y}(\dots)\)</span></td>
 <td>The alias/output/entropy function of a Bandersnatch VRF signature/proof.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:cryptography}\)</span> and appendix <span class="arithmatex">\(\ref{sec:bandersnatch}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathcal{Z}_n(\dots)\)</span></a></td>
+<td><a name="Func_Z"></a><span class="arithmatex">\(\mathcal{Z}_n(\dots)\)</span></td>
 <td>The into-signed function for a value in <span class="arithmatex">\(\N_{2^{8n}}\)</span>. Superscripted with <span class="arithmatex">\({}^{-1}\)</span> to denote the inverse.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:signedfunc}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\powset{\dots}\)</span></a></td>
+<td><a name="Func_Powset"></a><span class="arithmatex">\(\powset{\dots}\)</span></td>
 <td>Power set function.</td>
 <td></td>
 </tr>
@@ -2314,87 +2326,87 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{A}\)</span></a></td>
+<td><a name="Bold_S"></a><span class="arithmatex">\(\mathbf{A}\)</span></td>
 <td>The ancestor set of the block.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:ancestors}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{B}\)</span></a></td>
+<td><a name="Bold_B"></a><span class="arithmatex">\(\mathbf{B}\)</span></td>
 <td>The block. Without any superscript, the block is assumed to the block being imported or, if no block is being imported, the head of the best chain (see section <span class="arithmatex">\(\ref{sec:bestchain}\)</span>).</td>
-<td>See equation <span class="arithmatex">\(\ref{eq:block}\)</span>.</td>
+<td>Equation: <a href="../section_04/#4.2">4.2</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{B}^\natural\)</span></a></td>
+<td><a name="Bold_B_natural"></a><span class="arithmatex">\(\mathbf{B}^\natural\)</span></td>
 <td>The latest finalized block. Explicit block-contextualizing superscript.</td>
 <td>See equation <span class="arithmatex">\(\ref{sec:bestchain}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{B}^\flat\)</span></a></td>
+<td><a name="Bold_B_flat"></a><span class="arithmatex">\(\mathbf{B}^\flat\)</span></td>
 <td>The block at the head of the best chain. Explicit block-contextualizing superscript.</td>
 <td>See equation <span class="arithmatex">\(\ref{sec:bestchain}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\beefycommitmap\)</span></a></td>
+<td><a name="Bold_C"></a><span class="arithmatex">\(\beefycommitmap\)</span></td>
 <td>The service accumulation-commitment, used to form the \textsc{Beefy} root.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:beefycommitment}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{E}\)</span></a></td>
+<td><a name="Bold_E"></a><span class="arithmatex">\(\mathbf{E}\)</span></td>
 <td>The block extrinsic.</td>
-<td>See equation <span class="arithmatex">\(\ref{eq:extrinsic}\)</span>.</td>
+<td>Equation: <a href="../section_04/#4.3">4.3</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{F}_v\)</span></a></td>
+<td><a name="Bold_F"></a><span class="arithmatex">\(\mathbf{F}_v\)</span></td>
 <td>The \textsc{Beefy} signed commitment of validator <span class="arithmatex">\(v\)</span>.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:beefysignedcommitment}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{G}\)</span></a></td>
+<td><a name="Bold_G"></a><span class="arithmatex">\(\mathbf{G}\)</span></td>
 <td>The mapping from cores to guarantor keys.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:coresandvalidators}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{G^*}\)</span></a></td>
+<td><a name="Bold_G_star"></a><span class="arithmatex">\(\mathbf{G^*}\)</span></td>
 <td>The mapping from cores to guarantor keys for the previous rotation.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:coresandvalidators}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{H}\)</span></a></td>
+<td><a name="Bold_H"></a><span class="arithmatex">\(\mathbf{H}\)</span></td>
 <td>The block header.</td>
-<td>See equation <span class="arithmatex">\(\ref{eq:header}\)</span>.</td>
+<td>Equation: <a href="../section_05/#5.1">5.1</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{Q}\)</span></a></td>
+<td><a name="Bold_Q"></a><span class="arithmatex">\(\mathbf{Q}\)</span></td>
 <td>The selection of ready work-reports which a validator determined they must audit.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:auditselection}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{R}\)</span></a></td>
+<td><a name="Bold_R"></a><span class="arithmatex">\(\mathbf{R}\)</span></td>
 <td>The set of Ed25519 guarantor keys who made a work-report.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:guarantorsig}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{S}\)</span></a></td>
+<td><a name="Bold_S"></a><span class="arithmatex">\(\mathbf{S}\)</span></td>
 <td>The set of indices of services which have been accumulated (``progressed'') in the block.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:servicestoaccumulate}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{T}\)</span></a></td>
+<td><a name="Bold_T"></a><span class="arithmatex">\(\mathbf{T}\)</span></td>
 <td>The ticketed condition, true if the block was sealed with a ticket signature rather than a fallback.</td>
 <td>See equations <span class="arithmatex">\(\ref{eq:ticketconditiontrue}\)</span> and <span class="arithmatex">\(\ref{eq:ticketconditionfalse}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{U}\)</span></a></td>
+<td><a name="Bold_U"></a><span class="arithmatex">\(\mathbf{U}\)</span></td>
 <td>The audit condition, equal to <span class="arithmatex">\(\top\)</span> once the block is audited.</td>
 <td>See section <span class="arithmatex">\(\ref{sec:auditing}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{V}\)</span></a></td>
+<td><a name="Bold_V"></a><span class="arithmatex">\(\mathbf{V}\)</span></td>
 <td>The set of verdicts in the present block.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:verdicts}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathbf{W}\)</span></a></td>
+<td><a name="Bold_W"></a><span class="arithmatex">\(\mathbf{W}\)</span></td>
 <td>The sequence of work-reports which have now become available and ready for accumulation.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:availableworkreports}\)</span>.</td>
 </tr>
@@ -2412,167 +2424,167 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name=""><span class="arithmatex">\(\alpha\)</span></a></td>
-<td>The core <span class="arithmatex">\(\alpha\)</span>uthorizations pool.</td>
-<td>See equation <span class="arithmatex">\(\ref{eq:authstatecomposition}\)</span>.</td>
+<td><a name="alpha"></a><span class="arithmatex">\(\alpha\)</span></td>
+<td>The core authorizations pool.</td>
+<td>Equation: <a href="../section_08/#8.1">8.1</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\beta\)</span></a></td>
-<td>Information on the most recent <span class="arithmatex">\(\beta\)</span>locks.</td>
-<td></td>
+<td><a name="beta"></a><span class="arithmatex">\(\beta\)</span></td>
+<td>Information on the most recent blocks.</td>
+<td>Equation: <a href="../section_07/#7.1">7.1</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\gamma\)</span></a></td>
+<td><a name="gamma"></a><span class="arithmatex">\(\gamma\)</span></td>
 <td>State concerning Safrole.</td>
-<td>See equation <span class="arithmatex">\(\ref{eq:consensusstatecomposition}\)</span>.</td>
+<td>Equation: <a href="../section_06/#6.3">6.3</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \gamma_\mathbf{a}\)</span></a></td>
+<td><a name="gamma_bold_a"></a><span class="arithmatex">\(\quad \gamma_\mathbf{a}\)</span></td>
 <td>The sealing lottery ticket accumulator.</td>
-<td></td>
+<td>Equation: <a href="../section_06/#6.5">6.5</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \gamma_\mathbf{k}\)</span></a></td>
+<td><a name="gamma_bold_k"></a><span class="arithmatex">\(\quad \gamma_\mathbf{k}\)</span></td>
 <td>The keys for the validators of the next epoch, equivalent to those keys which constitute <span class="arithmatex">\(\gamma_z\)</span>.</td>
-<td></td>
+<td>Equation: <a href="../section_06/#6.7">6.7</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \gamma_\mathbf{s}\)</span></a></td>
+<td><a name="gamma_bold_s"></a><span class="arithmatex">\(\quad \gamma_\mathbf{s}\)</span></td>
 <td>The sealing-key sequence of the current epoch.</td>
-<td></td>
+<td>Equations: <a href="../section_06/#6.15">6.15</a> &amp; <a href="../section_06/#6.16">6.16</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \gamma_z\)</span></a></td>
+<td><a name="gamma_z"></a><span class="arithmatex">\(\quad \gamma_z\)</span></td>
 <td>The Bandersnatch root for the current epoch's ticket submissions.</td>
-<td></td>
+<td>Equation: <a href="../section_06/#6.4">6.4</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\delta\)</span></a></td>
+<td><a name="delta"></a><span class="arithmatex">\(\delta\)</span></td>
 <td>The (prior) state of the service accounts.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \delta^\dagger\)</span></a></td>
+<td><a name="delta_dagger"></a><span class="arithmatex">\(\quad \delta^\dagger\)</span></td>
 <td>The post-preimage integration, pre-accumulation intermediate state.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \delta^\ddagger\)</span></a></td>
+<td><a name="delta_doubledagger"></a><span class="arithmatex">\(\quad \delta^\ddagger\)</span></td>
 <td>The post-accumulation, pre-transfer intermediate state.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\eta\)</span></a></td>
-<td>The e<span class="arithmatex">\(\eta\)</span>tropy accumulator and epochal ra<span class="arithmatex">\(\eta\)</span>domness.</td>
-<td></td>
+<td><a name="eta"></a><span class="arithmatex">\(\eta\)</span></td>
+<td>The entropy accumulator and epochal randomness.</td>
+<td>Equation: <a href="../section_06/#6.21">6.21</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\iota\)</span></a></td>
+<td><a name="iota"></a><span class="arithmatex">\(\iota\)</span></td>
 <td>The validator keys and metadata to be drawn from next.</td>
-<td></td>
+<td>Equation: <a href="../section_06/#6.7">6.7</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\kappa\)</span></a></td>
-<td>The validator <span class="arithmatex">\(\kappa\)</span>eys and metadata currently active.</td>
-<td></td>
+<td><a name="kappa"></a><span class="arithmatex">\(\kappa\)</span></td>
+<td>The validator keys and metadata currently active.</td>
+<td>Equation: <a href="../section_06/#6.7">6.7</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\lambda\)</span></a></td>
+<td><a name="lambda"></a><span class="arithmatex">\(\lambda\)</span></td>
 <td>The validator keys and metadata which were active in the prior epoch.</td>
+<td>Equation: <a href="../section_06/#6.7">6.7</a></td>
+</tr>
+<tr>
+<td><a name="rho"></a><span class="arithmatex">\(\rho\)</span></td>
+<td>The pending reports, per core, which are being made available prior to accumulation.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\rho\)</span></a></td>
-<td>The <span class="arithmatex">\(\rho\)</span>ending reports, per core, which are being made available prior to accumulation.</td>
-<td></td>
-</tr>
-<tr>
-<td><a name=""><span class="arithmatex">\(\quad \rho^\dagger\)</span></a></td>
+<td><a name="rho_dagger"></a><span class="arithmatex">\(\quad \rho^\dagger\)</span></td>
 <td>The post-judgment, pre-guarantees-extrinsic intermediate state.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \rho^\ddagger\)</span></a></td>
+<td><a name="rho_doubledagger"></a><span class="arithmatex">\(\quad \rho^\ddagger\)</span></td>
 <td>The post-guarantees-extrinsic, pre-assurances-extrinsic, intermediate state.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\sigma\)</span></a></td>
-<td>The <span class="arithmatex">\(\sigma\)</span>verall state of the system.</td>
-<td>See equations <span class="arithmatex">\(\ref{eq:statetransition}\)</span>, <span class="arithmatex">\(\ref{eq:statecomposition}\)</span>.</td>
+<td><a name="sigma"></a><span class="arithmatex">\(\sigma\)</span></td>
+<td>The overall state of the system.</td>
+<td>Equations: <a href="../section_04/#4.1">4.1</a> &amp; <a href="../section_04/#4.4">4.4</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\tau\)</span></a></td>
-<td>The most recent block's <span class="arithmatex">\(\tau\)</span>imeslot.</td>
-<td></td>
+<td><a name="tau"></a><span class="arithmatex">\(\tau\)</span></td>
+<td>The most recent block's timeslot.</td>
+<td>Equation: <a href="../section_06/#6.2">6.2</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\varphi\)</span></a></td>
+<td><a name="phi"></a><span class="arithmatex">\(\varphi\)</span></td>
 <td>The authorization queue.</td>
-<td></td>
+<td>Equation: <a href="../section_08/#8.1">8.1</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\psi\)</span></a></td>
+<td><a name="psi"></a><span class="arithmatex">\(\psi\)</span></td>
 <td>Past judgments on work-reports and validators.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \badset\)</span></a></td>
+<td><a name="psi_bad"></a><span class="arithmatex">\(\quad \badset\)</span></td>
 <td>Work-reports judged to be incorrect.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \goodset\)</span></a></td>
+<td><a name="psi_good"></a><span class="arithmatex">\(\quad \goodset\)</span></td>
 <td>Work-reports judged to be correct.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \wonkyset\)</span></a></td>
+<td><a name="psi_wonky"></a><span class="arithmatex">\(\quad \wonkyset\)</span></td>
 <td>Work-reports whose validity is judged to be unknowable.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \offenders\)</span></a></td>
+<td><a name="psi_offenders"></a><span class="arithmatex">\(\quad \offenders\)</span></td>
 <td>Validators who made a judgment found to be incorrect.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\chi\)</span></a></td>
+<td><a name="chi"></a><span class="arithmatex">\(\chi\)</span></td>
 <td>The privileged service indices.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \chi_m\)</span></a></td>
+<td><a name="chi_m"></a><span class="arithmatex">\(\quad \chi_m\)</span></td>
 <td>The index of the blessed service.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \chi_v\)</span></a></td>
+<td><a name="chi_v"></a><span class="arithmatex">\(\quad \chi_v\)</span></td>
 <td>The index of the designate service.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \chi_a\)</span></a></td>
+<td><a name="chi_a"></a><span class="arithmatex">\(\quad \chi_a\)</span></td>
 <td>The index of the assign service.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\quad \chi_\mathbf{g}\)</span></a></td>
+<td><a name="chi_bold_g"></a><span class="arithmatex">\(\quad \chi_\mathbf{g}\)</span></td>
 <td>The always-accumulate service indices and their basic gas allowance.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\pi\)</span></a></td>
+<td><a name="pi"></a><span class="arithmatex">\(\pi\)</span></td>
 <td>The activity statistics for the validators.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\vartheta\)</span></a></td>
+<td><a name="theta"></a><span class="arithmatex">\(\vartheta\)</span></td>
 <td>The accumulation queue.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\xi\)</span></a></td>
+<td><a name="xi"></a><span class="arithmatex">\(\xi\)</span></td>
 <td>The accumulation history.</td>
 <td></td>
 </tr>
@@ -2589,42 +2601,42 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name=""><span class="arithmatex">\(\varepsilon\)</span></a></td>
+<td><a name="VM_e"></a><span class="arithmatex">\(\varepsilon\)</span></td>
 <td>The exit-reason resulting from all machine state transitions.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\nu\)</span></a></td>
+<td><a name="VM_v"></a><span class="arithmatex">\(\nu\)</span></td>
 <td>The immediate values of an instruction.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\memory\)</span></a></td>
+<td><a name="VM_m"></a><span class="arithmatex">\(\memory\)</span></td>
 <td>The memory sequence; a member of the set <span class="arithmatex">\(\mathbb{M}\)</span>.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\gascounter\)</span></a></td>
+<td><a name="VM_g"></a><span class="arithmatex">\(\gascounter\)</span></td>
 <td>The gas counter.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\registers\)</span></a></td>
+<td><a name="VM_o"></a><span class="arithmatex">\(\registers\)</span></td>
 <td>The registers.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\zeta\)</span></a></td>
+<td><a name="VM_z"></a><span class="arithmatex">\(\zeta\)</span></td>
 <td>The instruction sequence.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\varpi\)</span></a></td>
+<td><a name="VM_b"></a><span class="arithmatex">\(\varpi\)</span></td>
 <td>The sequence of basic blocks of the program.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\imath\)</span></a></td>
+<td><a name="VM_i"></a><span class="arithmatex">\(\imath\)</span></td>
 <td>The instruction counter.</td>
 <td></td>
 </tr>
@@ -2635,198 +2647,276 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 <thead>
 <tr>
 <th>Graypaper</th>
+<th style="text-align: right;">Full (Default)</th>
+<th style="text-align: right;">Tiny</th>
 <th>Description</th>
 <th>References</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{A} = 8\)</span></a></td>
+<td><a name="Constant_A"></a><span class="arithmatex">\(\mathsf{A}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(8\)</span></td>
+<td style="text-align: right;"></td>
 <td>The period, in seconds, between audit tranches.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{B}_I = 10\)</span></a></td>
+<td><a name="Constant_B_I"></a><span class="arithmatex">\(\mathsf{B}_I\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(10\)</span></td>
+<td style="text-align: right;"></td>
 <td>The additional minimum balance required per item of elective service state.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{B}_L = 1\)</span></a></td>
+<td><a name="Constant_B_L"></a><span class="arithmatex">\(\mathsf{B}_L\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
+<td style="text-align: right;"></td>
 <td>The additional minimum balance required per octet of elective service state.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{B}_S = 100\)</span></a></td>
+<td><a name="Constant_B_S"></a><span class="arithmatex">\(\mathsf{B}_S\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(100\)</span></td>
+<td style="text-align: right;"></td>
 <td>The basic minimum balance which all services require.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{C} = 341\)</span></a></td>
+<td><a name="Constant_C"></a><span class="arithmatex">\(\mathsf{C}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(341\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
 <td>The total number of cores.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{D} = 28,800\)</span></a></td>
+<td><a name="Constant_D"></a><span class="arithmatex">\(\mathsf{D}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(28,800\)</span></td>
+<td style="text-align: right;"></td>
 <td>The period in timeslots after which an unreferenced preimage may be expunged.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{E} = 600\)</span></a></td>
+<td><a name="Constant_E"></a><span class="arithmatex">\(\mathsf{E}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(600\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(12\)</span></td>
 <td>The length of an epoch in timeslots.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{F} = 2\)</span></a></td>
+<td><a name="Constant_F"></a><span class="arithmatex">\(\mathsf{F}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
+<td style="text-align: right;"></td>
 <td>The audit bias factor, the expected number of additional validators who will audit a work-report in the following tranche for each no-show in the previous.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{G}_A = 10,000,000\)</span></a></td>
+<td><a name="Constant_G_A"></a><span class="arithmatex">\(\mathsf{G}_A\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(10,000,000\)</span></td>
+<td style="text-align: right;"></td>
 <td>The gas allocated to invoke a work-report's Accumulation logic.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{G}_I = 50,000,000\)</span></a></td>
+<td><a name="Constant_G_I"></a><span class="arithmatex">\(\mathsf{G}_I\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(50,000,000\)</span></td>
+<td style="text-align: right;"></td>
 <td>The gas allocated to invoke a work-package's Is-Authorized logic.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{G}_R = 5,000,000,000\)</span></a></td>
+<td><a name="Constant_G_R"></a><span class="arithmatex">\(\mathsf{G}_R\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(5,000,000,000\)</span></td>
+<td style="text-align: right;"></td>
 <td>The gas allocated to invoke a work-package's Refine logic.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{G}_T = 3,500,000,000\)</span></a></td>
+<td><a name="Constant_G_T"></a><span class="arithmatex">\(\mathsf{G}_T\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(3,500,000,000\)</span></td>
+<td style="text-align: right;"></td>
 <td>The total gas allocated across for all Accumulation. Should be no smaller than <span class="arithmatex">\(\mathsf{G}_A\cdot\mathsf{C} + \sum_{g \in \mathcal{V}(\chi_\mathbf{g})}(g)\)</span>.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{H} = 8\)</span></a></td>
+<td><a name="Constant_H"></a><span class="arithmatex">\(\mathsf{H}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(8\)</span></td>
+<td style="text-align: right;"></td>
 <td>The size of recent history, in blocks.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{I} = 4\)</span></a></td>
+<td><a name="Constant_I"></a><span class="arithmatex">\(\mathsf{I}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(4\)</span></td>
+<td style="text-align: right;"></td>
 <td>The maximum amount of work items in a package.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{J} = 8\)</span></a></td>
+<td><a name="Constant_J"></a><span class="arithmatex">\(\mathsf{J}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(8\)</span></td>
+<td style="text-align: right;"></td>
 <td>The maximum sum of dependency items in a work-report.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{K} = 16\)</span></a></td>
+<td><a name="Constant_K"></a><span class="arithmatex">\(\mathsf{K}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(16\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(XX\)</span></td>
 <td>The maximum number of tickets which may be submitted in a single extrinsic.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{L} = 14,400\)</span></a></td>
+<td><a name="Constant_L"></a><span class="arithmatex">\(\mathsf{L}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(14,400\)</span></td>
+<td style="text-align: right;"></td>
 <td>The maximum age in timeslots of the lookup anchor.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{N} = 2\)</span></a></td>
+<td><a name="Constant_N"></a><span class="arithmatex">\(\mathsf{N}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
+<td style="text-align: right;"></td>
 <td>The number of ticket entries per validator.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{O} = 8\)</span></a></td>
+<td><a name="Constant_O"></a><span class="arithmatex">\(\mathsf{O}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(8\)</span></td>
+<td style="text-align: right;"></td>
 <td>The maximum number of items in the authorizations pool.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{P} = 6\)</span></a></td>
+<td><a name="Constant_P"></a><span class="arithmatex">\(\mathsf{P}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(6\)</span></td>
+<td style="text-align: right;"></td>
 <td>The slot period, in seconds.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{Q} = 80\)</span></a></td>
+<td><a name="Constant_Q"></a><span class="arithmatex">\(\mathsf{Q}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(80\)</span></td>
+<td style="text-align: right;"></td>
 <td>The number of items in the authorizations queue.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{R} = 10\)</span></a></td>
+<td><a name="Constant_R"></a><span class="arithmatex">\(\mathsf{R}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(10\)</span></td>
+<td style="text-align: right;"></td>
 <td>The rotation period of validator-core assignments, in timeslots.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{S} = 1024\)</span></a></td>
+<td><a name="Constant_S"></a><span class="arithmatex">\(\mathsf{S}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(1024\)</span></td>
+<td style="text-align: right;"></td>
 <td>The maximum number of entries in the accumulation queue.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{U} = 5\)</span></a></td>
+<td><a name="Constant_U"></a><span class="arithmatex">\(\mathsf{U}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(5\)</span></td>
+<td style="text-align: right;"></td>
 <td>The period in timeslots after which reported but unavailable work may be replaced.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{V} = 1023\)</span></a></td>
+<td><a name="Constant_V"></a><span class="arithmatex">\(\mathsf{V}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(1023\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(6\)</span></td>
 <td>The total number of validators.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{W}_B = 12\cdot2^{20}\)</span></a></td>
+<td><a name="Constant_W_B"></a><span class="arithmatex">\(\mathsf{W}_B\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(12\cdot2^{20}\)</span></td>
+<td style="text-align: right;"></td>
 <td>The maximum size of an encoded work-package together with its extrinsic data and import implications, in octets.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{W}_C = 4,000,000\)</span></a></td>
+<td><a name="Constant_W_C"></a><span class="arithmatex">\(\mathsf{W}_C\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(4,000,000\)</span></td>
+<td style="text-align: right;"></td>
 <td>The maximum size of service code in octets.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{W}_E = 684\)</span></a></td>
+<td><a name="Constant_W_E"></a><span class="arithmatex">\(\mathsf{W}_E\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(684\)</span></td>
+<td style="text-align: right;"></td>
 <td>The basic size of erasure-coded pieces in octets.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:erasurecoding}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{W}_G = \mathsf{W}_P\mathsf{W}_E = 4104\)</span></a></td>
+<td><a name="Constant_W_G"></a><span class="arithmatex">\(\mathsf{W}_G\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(\mathsf{W}_P\mathsf{W}_E = 4104\)</span></td>
+<td style="text-align: right;"></td>
 <td>The size of a segment in octets.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{W}_M = 2^{11}\)</span></a></td>
+<td><a name="Constant_W_M"></a><span class="arithmatex">\(\mathsf{W}_M\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2^{11}\)</span></td>
+<td style="text-align: right;"></td>
 <td>The maximum number of entries in a work-package manifest.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{W}_P = 6\)</span></a></td>
+<td><a name="Constant_W_P"></a><span class="arithmatex">\(\mathsf{W}_P\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(6\)</span></td>
+<td style="text-align: right;"></td>
 <td>The number of erasure-coded pieces in a segment.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{W}_R = 48\cdot2^{10}\)</span></a></td>
+<td><a name="Constant_W_R"></a><span class="arithmatex">\(\mathsf{W}_R\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(48\cdot2^{10}\)</span></td>
+<td style="text-align: right;"></td>
 <td>The maximum total size of all output blobs in a work-report, in octets.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{W}_T = 128\)</span></a></td>
+<td><a name="Constant_W_T"></a><span class="arithmatex">\(\mathsf{W}_T\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(128\)</span></td>
+<td style="text-align: right;"></td>
 <td>The size of a transfer memo in octets.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}\)</span></a></td>
+<td><a name="Constant_X"></a><span class="arithmatex">\(\mathsf{X}\)</span></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
 <td>Context strings, see below.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{Y} = 500\)</span></a></td>
+<td><a name="Constant_Y"></a><span class="arithmatex">\(\mathsf{Y}\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(500\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(10\)</span></td>
 <td>The number of slots into an epoch at which ticket-submission ends.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{Z}_A = 2\)</span></a></td>
+<td><a name="Constant_Z_A"></a><span class="arithmatex">\(\mathsf{Z}_A\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
+<td style="text-align: right;"></td>
 <td>The PVM dynamic address alignment factor.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:jumptablealignment}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{Z}_I = 2^{24}\)</span></a></td>
+<td><a name="Constant_Z_I"></a><span class="arithmatex">\(\mathsf{Z}_I\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2^{24}\)</span></td>
+<td style="text-align: right;"></td>
 <td>The standard PVM program initialization input data size.</td>
 <td>See equation <span class="arithmatex">\(\ref{sec:standardprograminit}\)</span>.</td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{Z}_P = 2^{12}\)</span></a></td>
+<td><a name="Constant_Z_P"></a><span class="arithmatex">\(\mathsf{Z}_P\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2^{12}\)</span></td>
+<td style="text-align: right;"></td>
 <td>The PVM memory page size.</td>
 <td>See equation <span class="arithmatex">\(\ref{eq:pvmmemory}\)</span>.</td>
 </tr>
@@ -2837,58 +2927,69 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 <thead>
 <tr>
 <th>Graypaper</th>
+<th>Value</th>
 <th>Description</th>
 <th>References</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_A = \$jam\_available\)</span></a></td>
+<td><a name="Constant_X_A"></a><span class="arithmatex">\(\mathsf{X}_A\)</span></td>
+<td><span class="arithmatex">\(\$jam\_available\)</span></td>
 <td><span class="arithmatex">\(\textit{Ed25519}\)</span> Availability assurances.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_B = \$jam\_beefy\)</span></a></td>
+<td><a name="Constant_X_B"></a><span class="arithmatex">\(\mathsf{X}_B\)</span></td>
+<td><span class="arithmatex">\(\$jam\_beefy\)</span></td>
 <td><span class="arithmatex">\(\textit{BLS}\)</span> Accumulate-result-root-\textsc{mmr} commitment.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_E = \$jam\_entropy\)</span></a></td>
+<td><a name="Constant_X_E"></a><span class="arithmatex">\(\mathsf{X}_E\)</span></td>
+<td><span class="arithmatex">\(\$jam\_entropy\)</span></td>
 <td>On-chain entropy generation.</td>
-<td></td>
+<td>Equation: <a href="../section_06/#6.18">6.18</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_F = \$jam\_fallback\_seal\)</span></a></td>
+<td><a name="Constant_X_F"></a><span class="arithmatex">\(\mathsf{X}_F\)</span></td>
+<td><span class="arithmatex">\(\$jam\_fallback\_seal\)</span></td>
 <td><span class="arithmatex">\(\textit{Bandersnatch}\)</span> Fallback block seal.</td>
-<td></td>
+<td>Equation: <a href="../section_06/#6.19">6.19</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_G = \$jam\_guarantee\)</span></a></td>
+<td><a name="Constant_X_G"></a><span class="arithmatex">\(\mathsf{X}_G\)</span></td>
+<td><span class="arithmatex">\(\$jam\_guarantee\)</span></td>
 <td><span class="arithmatex">\(\textit{Ed25519}\)</span> Guarantee statements.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_I = \$jam\_announce\)</span></a></td>
+<td><a name="Constant_X_I"></a><span class="arithmatex">\(\mathsf{X}_I\)</span></td>
+<td><span class="arithmatex">\(\$jam\_announce\)</span></td>
 <td><span class="arithmatex">\(\textit{Ed25519}\)</span> Audit announcement statements.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_T = \$jam\_ticket\_seal\)</span></a></td>
+<td><a name="Constant_X_T"></a><span class="arithmatex">\(\mathsf{X}_T\)</span></td>
+<td><span class="arithmatex">\(\$jam\_ticket\_seal\)</span></td>
 <td><span class="arithmatex">\(\textit{Bandersnatch RingVRF}\)</span> Ticket generation and regular block seal.</td>
-<td></td>
+<td>Equation: <a href="../section_06/#6.20">6.20</a></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_U = \$jam\_audit\)</span></a></td>
+<td><a name="Constant_X_U"></a><span class="arithmatex">\(\mathsf{X}_U\)</span></td>
+<td><span class="arithmatex">\(\$jam\_audit\)</span></td>
 <td><span class="arithmatex">\(\textit{Bandersnatch}\)</span> Audit selection entropy.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_\top = \$jam\_valid\)</span></a></td>
+<td><a name="Constant_X_true"></a><span class="arithmatex">\(\mathsf{X}_\top\)</span></td>
+<td><span class="arithmatex">\(\$jam\_valid\)</span></td>
 <td><span class="arithmatex">\(\textit{Ed25519}\)</span> Judgments for valid work-reports.</td>
 <td></td>
 </tr>
 <tr>
-<td><a name=""><span class="arithmatex">\(\mathsf{X}_\bot = \$jam\_invalid\)</span></a></td>
+<td><a name="Constant_X_false"></a><span class="arithmatex">\(\mathsf{X}_\bot\)</span></td>
+<td><span class="arithmatex">\(\$jam\_invalid\)</span></td>
 <td><span class="arithmatex">\(\textit{Ed25519}\)</span> Judgments for invalid work-reports.</td>
 <td></td>
 </tr>

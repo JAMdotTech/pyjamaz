@@ -1,1 +1,45 @@
-
+\newcommand{\equationthirteenpointone}{
+    \pi \in \seq{\seq{\tuple{
+        \isa{b}{\N}\,,
+        \isa{t}{\N}\,,
+        \isa{p}{\N}\,,
+        \isa{d}{\N}\,,
+        \isa{g}{\N}\,,
+        \isa{a}{\N}
+        %    \isa{\mathbf{u}}{\seq{\N}_\mathsf{V}}
+    }}_\mathsf{V}}_2
+}
+\newcommand{\equationthirteenpointtwo}{
+    \begin{align}
+        \using e =\; \ffrac{\tau}{\mathsf{E}} \ ,\quad e' = \ffrac{\tau'}{\mathsf{E}}
+    \end{align}
+}
+\newcommand{\equationthirteenpointthree}{
+    \begin{align}
+        (\mathbf{a}, \pi'_1) \equiv\;\begin{cases}
+            (\pi_0, \pi_1) \when e' = e \\
+            (\sq{\tuple{0, \dots, [0, \dots]}, \dots}, \pi_0) \otherwise
+        \end{cases}
+    \end{align}
+}
+\newcommand{\equationthirteenpointfour}{
+    \begin{align}
+        \forall v \in \N_\mathsf{V} :\; \left\{\begin{aligned}
+            \pi'_0[v]_b \equiv \mathbf{a}[v]_b + (v = \mathbf{H}_i)\\
+            \pi'_0[v]_t \equiv \mathbf{a}[v]_t + \begin{cases}
+                |\xttickets| \when v = \mathbf{H}_i \\
+                0 \otherwise
+            \end{cases}\\
+            \pi'_0[v]_p \equiv \mathbf{a}[v]_p + \begin{cases}
+                |\xtpreimages| \when v = \mathbf{H}_i \\
+                0 \otherwise
+            \end{cases}\\
+            \pi'_0[v]_d \equiv \mathbf{a}[v]_d + \begin{cases}
+                \sum_{d \in \xtpreimages}|d| \when v = \mathbf{H}_i \\
+                0 \otherwise
+            \end{cases}\\
+            \pi'_0[v]_g \equiv \mathbf{a}[v]_g + (\kappa'_v \in \mathbf{R})\\
+            \pi'_0[v]_a \equiv \mathbf{a}[v]_a + (\exists a \in \xtassurances : a_v = v)
+        \end{aligned}\right.\!\!\!\!
+    \end{align}
+}

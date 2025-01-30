@@ -207,7 +207,7 @@
   
     
   
-  Type Definitions
+  Types
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Type Definitions
+    Types
   </span>
   
 
@@ -1621,18 +1621,18 @@
  %\newcommand\etc{\&amp;c.\@\xspace}
  \newcommand\nb{\textsc{nb}\@\xspace}
  \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\text{\hspace{2pt}\footnotesize{\textsf{R}}\hspace{2pt}}}
+ \newcommand\remainder{\,\mathsf{R}\,}
  \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\left\langle#2\right\rangle_{#1}}
+ \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
  \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
  \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
  \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
  \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\middle\lwavy\,#2\right]}
- \newcommand{\orderuniqby}[2]{\left[#1\,\middle\lWavy\,#2\right]}
- \newcommand{\token}[1]{\text{{\small \texttt{#1}}}}
+ \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
+ \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
+ \newcommand{\token}[1]{\text{#1}} %%
  \renewcommand{\H}{\mathbb{H}}
  \newcommand{\N}{\mathbb{N}}
  \newcommand{\Y}{\mathbb{Y}}
@@ -1658,29 +1658,35 @@
  \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
  \newcommand{\suchthat}{\text{ such that }}
  \newcommand{\keys}[1]{\mathcal{K}(#1)}
+ %\let\originalleft\left
+ %\let\originalright\right
  \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
  \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\left\updownarrow#1\right.\!}
+ \newcommand{\var}[1]{\updownarrow#1}
+ %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
  \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
  \newcommand{\se}{\mathcal{E}}
  \newcommand{\de}{\mathcal{E}^{-1}}
  \newcommand{\is}[2]{#1\tricolon#2}
  \newcommand{\isa}[2]{#1\in #2}
  \newcommand{\ts}{,\,}
- \newcommand{\lseq}{\left\lsem}
- \newcommand{\rseq}{\right\rsem}
- \newcommand{\ltup}{\!\left\lgroup}
- \newcommand{\rtup}{\right\rgroup\!}
- \newcommand{\ltuple}{\!\left\lgroup}
- \newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\sq}[1]{\left[#1\right]}
- \newcommand{\seq}[1]{\lseq#1\rseq}
- \newcommand{\tup}[1]{\ltup#1\rtup}
- \newcommand{\tuple}[1]{\ltuple#1\rtuple}
- \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
- \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
- \newcommand{\fnfrac}[2]{\left\lfloor\nicefrac{#1}{#2}\right\rfloor}
- \newcommand{\ffrac}[2]{\left\lfloor\frac{#1}{#2}\right\rfloor}
+ \newcommand{\lseq}{[} %%
+ \newcommand{\rseq}{]} %%
+ \newcommand{\ltup}{(} %%
+ \newcommand{\rtup}{)} %%
+ %\newcommand{\ltuple}{\!\left\lgroup}
+ %\newcommand{\rtuple}{\right\rgroup\!}
+ \newcommand{\bm}{} %%
+ \newcommand{\ltuple}{(} %%
+ \newcommand{\rtuple}{)} %%
+ \newcommand{\sq}[1]{[#1]]}
+ \newcommand{\seq}[1]{[#1]}
+ \newcommand{\tup}[1]{(#1)}
+ \newcommand{\tuple}[1]{(#1)}
+ \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
+ \newcommand{\ceil}[1]{\lceil#1\rceil} %%
+ \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
+ \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
  \newcommand{\transpose}{{}^\text{T}}
  \newcommand{\joined}{\wideparen}
  \newcommand{\ang}[1]{\langle#1\rangle}
@@ -1706,8 +1712,175 @@
  \newcommand{\gascounter}{\varrho}
  \newcommand{\registers}{\omega}
  \newcommand{\memory}{\mu}
+ \newcommand{\concat}{\frown} %%!!
  \)</span>
-<span class="arithmatex">\( 
+<span class="arithmatex">\( \newcommand{\equationelevenpointone}{\rho \in \seq{\tuple{\isa{w}{\mathbb{W}},\isa{t}{\N_T}}\bm{?}}_\mathsf{C}}
+ \newcommand{\equationelevenpointtwo}{
+     \mathbb{W} \equiv \tuple{
+     \begin{aligned}
+         \isa{s}{\mathbb{S}},\
+         \isa{x}{\mathbb{X}},\
+         \isa{c}{\N_\mathsf{C}},\
+         \isa{a}{\H},\\
+         \isa{\mathbf{o}}{\Y},\
+         \isa{\wr¬srlookup}{\dict{\H}{\H}},\
+         \isa{\mathbf{r}}{\seq{\mathbb{L}}_{1:\mathsf{I}}}
+     \end{aligned}
+     }
+ }
+ \newcommand{\equationelevenpointthree}{\forall w \in \mathbb{W} : |w_\wr¬srlookup| + |(w_x)_\mathbf{p}| \le \mathsf{J}}
+ \newcommand{\equationelevenpointfour}{
+     \mathbb{X} \equiv \ltuple\,\begin{alignedat}{7}
+         \isa{a}{\H}\ts\quad \isa{s}{\H}\ts\quad \isa{b}{\H}\ts\\
+         \isa{l}{\H}\ts\quad \isa{t}{\N_T}\ts\quad \isa{\mathbf{p}}{\{\H\}}
+     \end{alignedat}\rtuple
+ }
+ \newcommand{\equationelevenpointfive}{
+     \begin{align}
+         \mathbb{S} \equiv \tuple{
+             \isa{h}{\H}\ts
+             \isa{l}{\N_L}\ts
+             \isa{u}{\H}\ts
+             \isa{e}{\H}\ts
+             \isa{n}{\N}
+         }
+     \end{align}
+ }
+ \newcommand{\equationelevenpointsix}{\mathbb{L} \equiv (s \in \N_S, c \in \H, l \in \H, g \in \N_G, \mathbf{o} \in \Y \cup \mathbb{J})}
+ \newcommand{\equationelevenpointseven}{\mathbb{J} \in \{ \oog, \panic, \badexports, \token{BAD}, \token{BIG} \}}
+ \newcommand{\equationelevenpointeight}{
+     \begin{align}
+         \forall w \in \mathbb{W}:
+         |w_\mathbf{o}| + \sum_{r \in w_\mathbf{r}, r_\mathbf{o} \in \Y} |r_\mathbf{o}| \le \mathsf{W}_R
+     \end{align}
+ }
+ \newcommand{\equationelevenpointnine}{\mathsf{W}_R \equiv 48\cdot2^{10}}
+ \newcommand{\equationelevenpointten}{
+     \begin{align}
+         \xtassurances \in \lseq\ltuple\isa{a}{\H}\ts\isa{f}{\mathbb{B}_\mathsf{C}}\ts\isa{v}{\N_\mathsf{V}}\ts\isa{s}{\mathbb{E}}\rtuple\rseq_\mathsf{:V}
+     \end{align}
+ }
+ \newcommand{\equationelevenpointeleven}{
+     \begin{align}
+     \forall a \in \xtassurances : a_a = \mathbf{H}_p
+     \end{align}
+ }
+ \newcommand{\equationelevenpointtwelve}{
+     \begin{align}
+     \forall i \in \{ 1\dots|\xtassurances| \} : \xtassurances[i - 1]_v &lt; \xtassurances[i]_v
+     \end{align}
+ }
+ \newcommand{\equationelevenpointthirteen}{
+     \begin{align}
+         \forall a \in \xtassurances : a_s \in \sig{\kappa'[a_v]_e}{\mathsf{X}_A\frown \mathcal{H}(\se(\mathbf{H}_p, a_f))} \\
+     \end{align}
+ }
+ \newcommand{\equationelevenpointfourteen}{
+     \begin{align}
+         \mathsf{X}_A \equiv \token{\$jam\_available}
+     \end{align}
+ }
+ \newcommand{\equationelevenpointfifteen}{
+     \forall a \in \xtassurances, c \in \N_\mathsf{C} :
+     \quad a_f[c] \Rightarrow \rho^\dagger[c] \ne \none
+ }
+ \newcommand{\equationelevenpointsixteen}{
+     \begin{align}\label{eq:availableworkreports}
+         \mathbf{W} \equiv \left[\rho^\dagger[c]_w\,\mid\vert\,c \orderedin \N_\mathsf{C},\;\sum_{a \in \xtassurances}\!a_f[c]\,&gt;\,\nicefrac{2}{3}\,\mathsf{V}\right]
+     \end{align}
+ }
+ \newcommand{\equationelevenpointseventeen}{
+     \begin{align}
+         \forall c \in \N_\mathsf{C}: \rho^\ddagger[c] \equiv \begin{cases}
+             \none \when\rho[c]_w \in \mathbf{W} \vee \mathbf{H}_t \ge \rho^\dagger[c]_t + \mathsf{U}\\
+             \rho^\dagger[c] \otherwise
+         \end{cases}
+     \end{align}
+ }
+ \newcommand{\equationelevenpointeighteen}{\mathbf{G} \in (\seq{\N_\mathsf{C}}_{\N_V}, \seq{\mathbb{H}_K}_{\N_V})}
+ \newcommand{\equationelevenpointnineteen}{
+     \begin{align}
+         R(\mathbf{c}, n) \equiv [(x + n) \bmod \mathsf{C} \mid x \orderedin \mathbf{c}]\\
+     \end{align}
+ }
+ \newcommand{\equationelevenpointtwenty}{
+     \begin{align}
+         P(e, t) \equiv R\left(\mathcal{F}\left(\left[\ffrac{\mathsf{C}\cdot i}{\mathsf{V}} \,\mid\, i \orderedin \N_\mathsf{V}\right], e\right), \ffrac{t \bmod \mathsf{E}}{\mathsf{R}}\right)\\
+     \end{align}
+ }
+ \newcommand{\equationelevenpointtwentyone}{
+     \begin{align}
+         \mathbf{G} \equiv (P(\eta_2', \tau'), \Phi(\kappa'))
+     \end{align}
+ }
+ \newcommand{\equationelevenpointtwentytwo}{
+     \begin{aligned}
+         \using (e, \mathbf{k}) = \begin{cases}
+             (\eta'_2, \kappa') \when \displaystyle\ffrac{\tau' - \mathsf{R}}{\mathsf{E}} = \ffrac{\tau'}{\mathsf{E}}\\
+             (\eta'_3, \lambda') \otherwise
+         \end{cases} \\
+         \mathbf{G}^* \equiv (P(e, \tau' - \mathsf{R}), \Phi(\mathbf{k}))
+     \end{aligned}
+ }
+ \newcommand{\equationelevenpointtwentythree}{
+     \begin{align}
+         \xtguarantees \in \seq{\tuple{
+             w \in \mathbb{W},\, t \in \N_T,\, a \in \seq{\tuple{\N_V, \mathbb{E}}}_{2:3}
+         }}_{:\mathsf{C}}
+     \end{align}
+ }
+ \newcommand{\equationelevenpointtwentyfour}{
+     \begin{align}
+         \xtguarantees = \orderby{(g_w)_c}{g \in \xtguarantees}
+     \end{align}
+ }
+ \newcommand{\equationelevenpointtwentyfive}{\forall g \in \xtguarantees : g_a = \orderuniqby{v}{\tup{v, s} \in g_a}}
+ \newcommand{\equationelevenpointtwentysix}{
+     \begin{align}
+         \begin{aligned}
+             \begin{aligned}
+                 \forall (w, t, a) \in \xtguarantees,\\
+                 \forall (v, s) \in a
+             \end{aligned}
+             : \left\{\,\begin{aligned}
+                 s \in \sig{(\mathbf{k}_v)_e}{\mathsf{X}_G\frown\mathcal{H}(\se(w))}\\
+                 \mathbf{c}_v = w_c \wedge \mathsf{R}(\floor{\nicefrac{\tau'}{\mathsf{R}}} - 1) \le t \le \tau'\\
+             \end{aligned}\right.\\
+             k \in \mathbf{R} \Leftrightarrow \exists (w, t, a) \in \xtguarantees, \exists (v, s) \in a: k = (\mathbf{k}_v)_e\\
+             \quad\where (\mathbf{c}, \mathbf{k}) = \begin{cases}
+                 \mathbf{G} \when \displaystyle \ffrac{\tau'}{\mathsf{R}} = \ffrac{t}{\mathsf{R}} \\
+                 \mathbf{G}^* \otherwise
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationelevenpointtwentyseven}{\mathsf{X}_G \equiv \token{\$jam\_guarantee}}
+ \newcommand{\equationelevenpointtwentyeight}{\text{let}\ \mathbf{w} = \{ g_w \mid g \in \xtguarantees \}}
+ \newcommand{\equationelevenpointtwentynine}{\forall w \in \mathbf{w} : \rho^\ddagger[w_c] = \none \wedge w_a \in \alpha[w_c]}
+ \newcommand{\equationelevenpointthirty}{\forall w \in \mathbf{w}: \sum_{r \in w_\mathbf{r}}\!(r_g) \le \mathsf{G}_A \ \wedge \\forall r \in w_\mathbf{r}: r_g \ge \delta[r_s]_g}
+ \newcommand{\equationelevenpointthirtyone}{\using \mathbf{x} \equiv \{ w_x \mid w \in \mathbf{w} \}\ ,\quad \mathbf{p} \equiv \{ (w_s)_h \mid w \in \mathbf{w} \}}
+ \newcommand{\equationelevenpointthirtytwo}{|\mathbf{p}| = |\mathbf{w}|}
+ \newcommand{\equationelevenpointthirtythree}{\forall x \in \mathbf{x} : \exists y \in \beta^\dagger : x_a = y_h \wedge x_s = y_s \wedge x_b = \mathcal{M}_R(y_\mathbf{b})\!\!\!\!\!\!}
+ \newcommand{\equationelevenpointthirtyfour}{\forall x \in \mathbf{x} :\ x_t \ge \mathbf{H}_t - \mathsf{L}}
+ \newcommand{\equationelevenpointthirtyfive}{\forall x \in \mathbf{x} :\ \exists h \in \mathbf{A}: h_t = x_t \wedge \mathcal{H}(h) = x_l}
+ \newcommand{\equationelevenpointthirtysix}{\using \mathbf{q} = \{(w_x)_p \mid \mathbf{q} \in \ready, (w, \mathbf{d}) \in \mathbf{q}\}}
+ \newcommand{\equationelevenpointthirtyseven}{\using \mathbf{a} = \{((i_w)_x)_p \mid i \in \rho, i \ne \none\}}
+ \newcommand{\equationelevenpointthirtyeight}{\forall p \in \mathbf{p}, p \not\in \bigcup_{x \in \beta}\keys{x_\mathbf{p}} \cup \bigcup_{x \in \accumulated}x \cup \mathbf{q} \cup \mathbf{a}}
+ \newcommand{\equationelevenpointthirtynine}{
+     \begin{aligned}
+         \forall w \in \mathbf{w}, \forall p \in (w_x)_\mathbf{p} \cup \keys{w_\mathbf{l}} :\\
+         \quad p \in \mathbf{p} \cup \{ x \mid x \in \keys{b_\mathbf{p}} ,\, b \in \beta \}
+     \end{aligned}
+ }
+ \newcommand{\equationelevenpointforty}{\using \mathbf{p} = \{ ((g_w)_s)_h \mapsto ((g_w)_s)_e \mid g \in \xtguarantees \} }
+ \newcommand{\equationelevenpointfortyone}{\forall w \in \mathbf{w}: w_\mathbf{l} \subseteq \mathbf{p} \cup \bigcup_{b \in \beta} b_\mathbf{p}}
+ \newcommand{\equationelevenpointfortytwo}{\forall w \in \mathbf{w}, \forall r \in w_r : r_c = \delta[r_s]_c}
+ \newcommand{\equationelevenpointfortythree}{
+     \forall c \in \N_\mathsf{C} : \rho'[c] \equiv \begin{cases}
+         \tup{w\ts\is{t}{\tau'}} \when \exists \tup{c, w, a} \in \xtguarantees \\
+         \rho^\ddagger[c] \otherwise
+     \end{cases}
+ }
  \)</span></p>
 <h1 id="11-reporting-and-assurance">11. Reporting and Assurance<a class="headerlink" href="#11-reporting-and-assurance" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
@@ -1805,6 +1978,16 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 <td><span class="arithmatex">\(\equationelevenpointseven\)</span></td>
 <td>[TODO]</td>
 </tr>
+<tr>
+<td><a name="11.8">(11.8)</a></td>
+<td><span class="arithmatex">\(\equationelevenpointeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td><a name="11.9">(11.9)</a></td>
+<td><span class="arithmatex">\(\equationelevenpointnine\)</span></td>
+<td>[TODO]</td>
+</tr>
 </tbody>
 </table>
 <h2 id="112-package-availability-assurances">11.2. Package Availability Assurances<a class="headerlink" href="#112-package-availability-assurances" title="Permanent link">&para;</a></h2>
@@ -1818,16 +2001,6 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><a name="11.8">(11.8)</a></td>
-<td><span class="arithmatex">\(\equationelevenpointeight\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td><a name="11.9">(11.9)</a></td>
-<td><span class="arithmatex">\(\equationelevenpointnine\)</span></td>
-<td>[TODO]</td>
-</tr>
 <tr>
 <td><a name="11.10">(11.10)</a></td>
 <td><span class="arithmatex">\(\equationelevenpointten\)</span></td>
@@ -1853,6 +2026,11 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 <td><span class="arithmatex">\(\equationelevenpointfourteen\)</span></td>
 <td>[TODO]</td>
 </tr>
+<tr>
+<td><a name="11.15">(11.15)</a></td>
+<td><span class="arithmatex">\(\equationelevenpointfifteen\)</span></td>
+<td>[TODO]</td>
+</tr>
 </tbody>
 </table>
 <h3 id="1122-available-reports">11.2.2. Available Reports<a class="headerlink" href="#1122-available-reports" title="Permanent link">&para;</a></h3>
@@ -1866,13 +2044,13 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 </thead>
 <tbody>
 <tr>
-<td><a name="11.15">(11.15)</a></td>
-<td><span class="arithmatex">\(\equationelevenpointfifteen\)</span></td>
+<td><a name="11.16">(11.16)</a></td>
+<td><span class="arithmatex">\(\equationelevenpointsixteen\)</span></td>
 <td>[TODO]</td>
 </tr>
 <tr>
-<td><a name="11.16">(11.16)</a></td>
-<td><span class="arithmatex">\(\equationelevenpoinsixteen\)</span></td>
+<td><a name="11.17">(11.17)</a></td>
+<td><span class="arithmatex">\(\equationelevenpointseventeen\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
@@ -1887,11 +2065,6 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><a name="11.17">(11.17)</a></td>
-<td><span class="arithmatex">\(\equationelevenpointseventeen\)</span></td>
-<td>[TODO]</td>
-</tr>
 <tr>
 <td><a name="11.18">(11.18)</a></td>
 <td><span class="arithmatex">\(\equationelevenpointeighteen\)</span></td>
@@ -1912,6 +2085,11 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 <td><span class="arithmatex">\(\equationelevenpointtwentyone\)</span></td>
 <td>[TODO]</td>
 </tr>
+<tr>
+<td><a name="11.22">(11.22)</a></td>
+<td><span class="arithmatex">\(\equationelevenpointtwentytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
 </tbody>
 </table>
 <h2 id="114-work-report-guarantees">11.4. Work Report Guarantees<a class="headerlink" href="#114-work-report-guarantees" title="Permanent link">&para;</a></h2>
@@ -1924,11 +2102,6 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><a name="11.22">(11.22)</a></td>
-<td><span class="arithmatex">\(\equationelevenpointtwentytwo\)</span></td>
-<td>[TODO]</td>
-</tr>
 <tr>
 <td><a name="11.23">(11.23)</a></td>
 <td><span class="arithmatex">\(\equationelevenpointtwentythree\)</span></td>
@@ -1964,6 +2137,11 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 <td><span class="arithmatex">\(\equationelevenpointtwentynine\)</span></td>
 <td>[TODO]</td>
 </tr>
+<tr>
+<td><a name="11.30">(11.30)</a></td>
+<td><span class="arithmatex">\(\equationelevenpointthirty\)</span></td>
+<td>[TODO]</td>
+</tr>
 </tbody>
 </table>
 <h3 id="1141-contextual-validity-of-reports">11.4.1. Contextual Validity of Reports<a class="headerlink" href="#1141-contextual-validity-of-reports" title="Permanent link">&para;</a></h3>
@@ -1976,11 +2154,6 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><a name="11.30">(11.30)</a></td>
-<td><span class="arithmatex">\(\equationelevenpointthirty\)</span></td>
-<td>[TODO]</td>
-</tr>
 <tr>
 <td><a name="11.31">(11.31)</a></td>
 <td><span class="arithmatex">\(\equationelevenpointthirtyone\)</span></td>
@@ -2036,6 +2209,11 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 <td><span class="arithmatex">\(\equationelevenpointfortyone\)</span></td>
 <td>[TODO]</td>
 </tr>
+<tr>
+<td><a name="11.42">(11.42)</a></td>
+<td><span class="arithmatex">\(\equationelevenpointfortytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
 </tbody>
 </table>
 <h2 id="115-transitioning-for-reports">11.5. Transitioning for Reports<a class="headerlink" href="#115-transitioning-for-reports" title="Permanent link">&para;</a></h2>
@@ -2049,8 +2227,8 @@ This section has been updated to match Graypaper version 0.5.4. </p>
 </thead>
 <tbody>
 <tr>
-<td><a name="11.42">(11.42)</a></td>
-<td><span class="arithmatex">\(\equationelevenpointfortytwo\)</span></td>
+<td><a name="11.43">(11.43)</a></td>
+<td><span class="arithmatex">\(\equationelevenpointfortythree\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>

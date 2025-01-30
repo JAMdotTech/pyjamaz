@@ -207,7 +207,7 @@
   
     
   
-  Type Definitions
+  Types
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Type Definitions
+    Types
   </span>
   
 
@@ -1543,18 +1543,18 @@
  %\newcommand\etc{\&amp;c.\@\xspace}
  \newcommand\nb{\textsc{nb}\@\xspace}
  \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\text{\hspace{2pt}\footnotesize{\textsf{R}}\hspace{2pt}}}
+ \newcommand\remainder{\,\mathsf{R}\,}
  \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\left\langle#2\right\rangle_{#1}}
+ \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
  \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
  \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
  \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
  \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
  \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\middle\lwavy\,#2\right]}
- \newcommand{\orderuniqby}[2]{\left[#1\,\middle\lWavy\,#2\right]}
- \newcommand{\token}[1]{\text{{\small \texttt{#1}}}}
+ \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
+ \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
+ \newcommand{\token}[1]{\text{#1}} %%
  \renewcommand{\H}{\mathbb{H}}
  \newcommand{\N}{\mathbb{N}}
  \newcommand{\Y}{\mathbb{Y}}
@@ -1580,29 +1580,35 @@
  \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
  \newcommand{\suchthat}{\text{ such that }}
  \newcommand{\keys}[1]{\mathcal{K}(#1)}
+ %\let\originalleft\left
+ %\let\originalright\right
  \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
  \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\left\updownarrow#1\right.\!}
+ \newcommand{\var}[1]{\updownarrow#1}
+ %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
  \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
  \newcommand{\se}{\mathcal{E}}
  \newcommand{\de}{\mathcal{E}^{-1}}
  \newcommand{\is}[2]{#1\tricolon#2}
  \newcommand{\isa}[2]{#1\in #2}
  \newcommand{\ts}{,\,}
- \newcommand{\lseq}{\left\lsem}
- \newcommand{\rseq}{\right\rsem}
- \newcommand{\ltup}{\!\left\lgroup}
- \newcommand{\rtup}{\right\rgroup\!}
- \newcommand{\ltuple}{\!\left\lgroup}
- \newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\sq}[1]{\left[#1\right]}
- \newcommand{\seq}[1]{\lseq#1\rseq}
- \newcommand{\tup}[1]{\ltup#1\rtup}
- \newcommand{\tuple}[1]{\ltuple#1\rtuple}
- \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
- \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
- \newcommand{\fnfrac}[2]{\left\lfloor\nicefrac{#1}{#2}\right\rfloor}
- \newcommand{\ffrac}[2]{\left\lfloor\frac{#1}{#2}\right\rfloor}
+ \newcommand{\lseq}{[} %%
+ \newcommand{\rseq}{]} %%
+ \newcommand{\ltup}{(} %%
+ \newcommand{\rtup}{)} %%
+ %\newcommand{\ltuple}{\!\left\lgroup}
+ %\newcommand{\rtuple}{\right\rgroup\!}
+ \newcommand{\bm}{} %%
+ \newcommand{\ltuple}{(} %%
+ \newcommand{\rtuple}{)} %%
+ \newcommand{\sq}[1]{[#1]]}
+ \newcommand{\seq}[1]{[#1]}
+ \newcommand{\tup}[1]{(#1)}
+ \newcommand{\tuple}[1]{(#1)}
+ \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
+ \newcommand{\ceil}[1]{\lceil#1\rceil} %%
+ \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
+ \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
  \newcommand{\transpose}{{}^\text{T}}
  \newcommand{\joined}{\wideparen}
  \newcommand{\ang}[1]{\langle#1\rangle}
@@ -1628,8 +1634,162 @@
  \newcommand{\gascounter}{\varrho}
  \newcommand{\registers}{\omega}
  \newcommand{\memory}{\mu}
+ \newcommand{\concat}{\frown} %%!!
  \)</span>
-<span class="arithmatex">\( 
+<span class="arithmatex">\( \newcommand{\equationcpointone}{\se(\none) \equiv []}
+ \newcommand{\equationcpointtwo}{\se(x \in \Y) \equiv x}
+ \newcommand{\equationcpointthree}{\se(\tup{a, b, \dots}) \equiv \se(a) \concat \se(b) \concat \dots}
+ \newcommand{\equationcpointfour}{\se(a, b, \dots) \equiv \se(\tup{a, b, \dots})}
+ \newcommand{\equationcpointfive}{
+     \se_{l \in \N}\colon\left\{\begin{aligned}
+         \N_{2^{8l}} \to \Y_l \\
+         x \mapsto \begin{cases}
+             [] \when l = 0 \\
+             [x \bmod 256] \concat \se_{l - 1}\left(\left\lfloor \frac{x}{256} \right\rfloor\right) \otherwise
+         \end{cases}
+     \end{aligned}\right.
+ }
+ \newcommand{\equationcpointsix}{
+     \se\colon\left\{\begin{aligned}
+         \N_{2^{64}} \to \Y_{1:9} \\
+         x \mapsto \begin{cases}
+             [0] \when x = 0 \\
+             \left[2^8-2^{8-l} + \ffrac{x}{2^{8l}}\right] \concat \se_l(x \bmod 2^{8l}) \when \exists l \in \N_8 : 2^{7l} \le x &lt; 2^{7(l+1)} \\
+             [2^8-1] \concat \se_8(x) \otherwhen x &lt; 2^{64} \\
+         \end{cases}
+     \end{aligned}\right.
+ }
+ \newcommand{\equationcpointseven}{\se([i_0, i_1, ...]) \equiv \se(i_0) \concat \se(i_1) \concat \dots}
+ \newcommand{\equationcpointeight}{\var{x} \equiv \tup{|x|, x}\text{ thus }\se(\var{x}) \equiv \se(|x|)\concat\se(x)}
+ \newcommand{\equationcpointnine}{
+     \begin{align}
+         \maybe{x} \equiv \begin{cases}
+             0 \when x = \none \\
+             (1, x) \otherwise
+         \end{cases}
+     \end{align}
+ }
+ \newcommand{\equationcpointten}{
+     \begin{align}
+         \se(b \in \mathbb{B}) \equiv \begin{cases}
+             [] \when b = [] \\
+             \left[\sum\limits_{i=0}^{\min(8, |b|)}{b_i\cdot 2^i}\right] \concat \se(b_{8\dots}) \otherwise
+         \end{cases}
+     \end{align}
+ }
+ \newcommand{\equationcpointeleven}{\forall K, V: \se(d \in \dict{K}{V}) \equiv \se(\var{\orderby{k}{\tup{\se(k), \se(d[k])} \mid k \in \keys{d}}})}
+ \newcommand{\equationcpointtwelve}{\se(\{a, b, c, \dots\}) \equiv \se(a) \concat \se(b) \concat \se(c) \concat \dots \where a &lt; b &lt; c &lt; \dots}
+ \newcommand{\equationcpointthirteen}{
+     \begin{align}
+         \se(\mathbf{B}) = \se\,\left\lparen
+             \mathbf{H},\ \se_T(\xttickets),\ \se_P(\xtpreimages),\ \se_G(\xtguarantees),\ \se_A(\xtassurances),\ \se_D(\xtdisputes)
+         \right\rparen
+     \end{align}
+ }
+ \newcommand{\equationcpointfourteen}{
+     \begin{align}
+         \se_T(\xttickets) = \se(\var{\xttickets})
+     \end{align}
+ }
+ \newcommand{\equationcpointfifteen}{
+     \begin{align}
+         \se_P(\xtpreimages) = \se(\var{[\tup{s, \var{p}} \mid \tup{s, p} \orderedin \xtpreimages]})
+     \end{align}
+ }
+ \newcommand{\equationcpointsixteen}{
+     \begin{align}
+         \se_G(\xtguarantees) = \se(\var{[\tup{w, \se_4(t), \var{a}} \mid \tup{w, t, a} \orderedin \xtguarantees]})
+     \end{align}
+ }
+ \newcommand{\equationcpointseventeen}{
+     \begin{align}
+         \se_A(\xtassurances) = \se(\var{[\tup{a, f, \se_2(v), s} \mid \tup{a, f, v, s} \orderedin \xtassurances]})
+     \end{align}
+ }
+ \newcommand{\equationcpointeighteen}{
+     \begin{align}
+         \se_D((\mathbf{v}, \mathbf{c}, \mathbf{f})) = \se(\var{[(r, \se_4(a), [(v, \se_2(i), s) \mid (v, i, s) \orderedin \mathbf{j}]) \mid (r, a, \mathbf{j}) \orderedin \mathbf{v}]}, \var{\mathbf{c}}, \var{\mathbf{f}})
+     \end{align}
+ }
+ \newcommand{\equationcpointnineteen}{
+     \begin{align}
+         \se(\mathbf{H}) = \se_U(\mathbf{H})\concat\se(\mathbf{H}_s)
+     \end{align}
+ }
+ \newcommand{\equationcpointtwenty}{
+     \begin{align}
+         \se_U(\mathbf{H}) = \se(\mathbf{H}_p,\mathbf{H}_r,\mathbf{H}_x)\concat\se_4(\mathbf{H}_t)\concat\se(\maybe{\mathbf{H}_e},\maybe{\mathbf{H}_w},\var{\mathbf{H}_o},\se_2(\mathbf{H}_i),\mathbf{H}_v)
+     \end{align}
+ }
+ \newcommand{\equationcpointtwentyone}{
+     \begin{align}
+         \se(x \in \mathbb{X}) \equiv \se(x_a, x_s, x_b, x_l)\concat\se_4(x_t)\concat\se(\var{x_\mathbf{p}})
+     \end{align}
+ }
+ \newcommand{\equationcpointtwentytwo}{
+     \begin{align}
+         \se(x \in \mathbb{S}) \equiv \se(x_h) \concat \se_4(x_l)\concat\se(x_u, x_e) \concat \se_2(x_n)
+     \end{align}
+ }
+ \newcommand{\equationcpointtwentythree}{
+     \begin{align}
+         \se(x \in \mathbb{L}) \equiv \se_4(x_s)\concat\se(x_c, x_l)\concat\se_8(x_g)\concat\se(O(x_\mathbf{o}))
+     \end{align}
+ }
+ \newcommand{\equationcpointtwentyfour}{
+     \begin{align}
+         \se(x \in \mathbb{W}) \equiv \se(x_s, x_x, x_c, x_a, \var{x_\mathbf{o}}, \var{x_\mathbf{l}}, \var{x_\mathbf{r}})
+     \end{align}
+ }
+ \newcommand{\equationcpointtwentyfive}{
+     \begin{align}
+         \se(x \in \mathbb{P}) \equiv \se(\var{x_\wp¬authtoken}, \se_4(x_\wp¬authcodehost), x_\wp¬authcodehash, \var{x_\wp¬authparam}, x_\wp¬context, \var{x_\wp¬workitems})
+     \end{align}
+ }
+ \newcommand{\equationcpointtwentysix}{
+     \begin{align}
+         \se(x \in \mathbb{I}) \equiv \se(
+             \se_4(x_s),
+             x_c,
+             \var{x_\mathbf{y}},
+             \se_8(x_g),
+             \se_8(x_a),
+             \var{\se_I^\#(x_\mathbf{i})},
+             \var{\sq{(h, \se_4(i)) \mid (h, i) \orderedin x_\mathbf{x}}},
+             \se_2(x_e)
+         )
+     \end{align}
+ }
+ \newcommand{\equationcpointtwentyseven}{
+     \begin{align}
+         \se(x \in \mathbb{C}) \equiv \se(x_\mathbf{y}, x_r)
+     \end{align}
+ }
+ \newcommand{\equationcpointtwentyeight}{
+     \begin{align}
+         \se(x \in \defxfer) \equiv \se(\se_4(x_s), \se_4(x_d), \se_8(x_a), \se(x_m), \se_8(x_g))
+     \end{align}
+ }
+ \newcommand{\equationcpointtwentynine}{
+     \begin{align}
+         O(o \in \mathbb{J} \cup \Y) \equiv \begin{cases}
+             (0, \var{o}) \when o \in \Y \\
+             1 \when o = \infty \\
+             2 \when o = \panic \\
+             3 \when o = \badexports \\
+             4 \when o = \token{BAD} \\
+             5 \when o = \token{BIG} \\
+         \end{cases}
+     \end{align}
+ }
+ \newcommand{\equationcpointthirty}{
+     \begin{align}
+         \se_I(h \in \H \cup \H^\boxplus, i \in \N_{2^{15}}) \equiv \begin{cases}
+             (h, \se_2(i)) \when h \in \H\\
+             (r, \se_2(i + 2^{15})) \when \exists r \in \H, h = r^\boxplus
+         \end{cases}
+     \end{align}
+ }
  \)</span></p>
 <h1 id="appendix-c-serialization-codec">Appendix C. Serialization Codec<a class="headerlink" href="#appendix-c-serialization-codec" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
@@ -1806,7 +1966,7 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </tr>
 <tr>
 <td><a name="C.16">(C.16)</a></td>
-<td><span class="arithmatex">\(\equationcpoinsixteen\)</span></td>
+<td><span class="arithmatex">\(\equationcpointsixteen\)</span></td>
 <td>[TODO]</td>
 </tr>
 <tr>
@@ -1872,6 +2032,11 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 <tr>
 <td><a name="C.29">(C.29)</a></td>
 <td><span class="arithmatex">\(\equationcpointtwentynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td><a name="C.30">(C.30)</a></td>
+<td><span class="arithmatex">\(\equationcpointthirty\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>

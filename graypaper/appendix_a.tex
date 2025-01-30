@@ -1,3 +1,43 @@
+\newcommand{\instr}[1]{\text{{\small \texttt{#1}}}}
+\newcommand{\regs}{\seq{\N_R}_{13}}
+\newcommand{\reg}{{\registers}}
+\newcommand{\mem}{{\memory}}
+\newcommand{\memr}{\mem^{\circlearrowleft}}
+\newcommand{\memwr}{{\mem'}^{\circlearrowleft}}
+\newcommand{\ram}{\mathbb{M}}
+\newcommand{\rnp}[1]{P(#1)}
+\newcommand{\rnq}[1]{Z(#1)}
+\newcommand{\continue}{\blacktriangleright}
+\newcommand{\gas}{\gascounter_\Delta}
+\newcommand{\instrlen}{\ell}
+\newcommand{\revbitsfunc}[1]{\overleftarrow{\mathcal{B}}_{#1}}
+\newcommand{\revunbitsfunc}[1]{\revbitsfunc{#1}^{-1}}
+\newcommand{\bitsfunc}[1]{\mathcal{B}_{#1}}
+\newcommand{\unbitsfunc}[1]{\bitsfunc{#1}^{-1}}
+\newcommand{\bits}[1]{\bitsn{8}{#1}}
+\newcommand{\unbits}[1]{\unbitsn{8}{#1}}
+\newcommand{\bitsn}[2]{\bitsfunc{#1}(#2)}
+\newcommand{\unbitsn}[2]{\unbitsfunc{#1}(#2)}
+\newcommand{\signfunc}[1]{\mathcal{Z}_{#1}}
+\newcommand{\unsignfunc}[1]{\signfunc{#1}^{-1} }
+\newcommand{\signed}[1]{\signedn{8}{#1}}
+\newcommand{\unsigned}[1]{\unsignedn{8}{#1}}
+\newcommand{\signedn}[2]{\signfunc{#1}(#2)}
+\newcommand{\unsignedn}[2]{\unsignfunc{#1}(#2)}
+%\newcommand{\signed}[1]{{{}^{\mathord{\mp}}#1}}
+%\newcommand{\unsigned}[1]{{{}^{\mathord{+}}#1}}
+%\newcommand{\signedn}[2]{{{}_{#1}^{\mathord{\mp}}#2}}
+%\newcommand{\unsignedn}[2]{{{}_{#1}^{\mathord{+}}#2}}
+\newcommand{\RA}{\token{RA}}
+\newcommand{\SP}{\token{SP}}
+\newcommand{\T}{\token{T}}
+\renewcommand{\S}{\token{S}}
+\newcommand{\A}{\token{A}}
+\newcommand{\basicblocks}{\varpi}
+\newcommand{\instructions}{\zeta}
+\newcommand{\immed}{\nu}
+\newcommand{\Fskip}{\text{skip}}
+\newcommand{\sext}{\mathcal{X}}
 \newcommand{\equationapointone}{\Psi\colon \left\{\begin{aligned}
     (\Y, \N_R, \N_G, \regs, \ram) \to (\{\halt, \panic, \oog\} \cup \{\fault\} \times \N_R \cup \{\host\} \times \N_R, \N_R, \Z_G, \regs, \ram)\\
     (\mathbf{p}, \imath, \gascounter, \registers, \mem) \mapsto \begin{cases}
