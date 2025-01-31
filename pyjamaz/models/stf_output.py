@@ -3,13 +3,14 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import Option, Vec, H256, Array
+from jamcodec.types import Option, Vec, H256, Array, U32
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
 from pyjamaz.models.block import EpochMark
 from pyjamaz.models.common import WorkReport, TicketBody
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
-    BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState
+    BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, \
+    AuthorizerQueuesState
 
 
 @dataclass
@@ -280,14 +281,14 @@ class ServicesErrorCode(Serializable, enum.Enum):
 # TODO: Possibly deprecated since GP-0.5.0
 class ServicesAfterPreimagesOutput(Serializable):
     """
-    GP-0.5.0-eq:4.?? (δ†) | Output of ServicesAfterPreimages STF.
+    GP-0.5.0-eq:4.?? (δ') | Output of ServicesAfterPreimages STF.
 
     Attributes
     ----------
     intermediate_state_after_preimages:ServicesState
-        GP-0.5.0-eq:4.?? (δ†) | Primary output of ServicesAfterPreimages STF.
+        GP-0.5.0-eq:4.?? (δ') | Primary output of ServicesAfterPreimages STF.
     """
-    intermediate_state_after_preimages: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+    post_state: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
 
 
 @dataclass
@@ -304,24 +305,26 @@ class ServicesAfterGuaranteesOutput(Serializable):
 
 
 @dataclass
-# TODO: Unknown Where BeefyCommitmentMap is defined in GP-0.5.0
 class ServicesOutput(Serializable):
     """
-    GP-0.5.0-eq:4.18 (δ') | Output of Services STF.
+    GP-0.5.0-eq:4.18 (δ†) | Output of Services STF.
 
     Attributes
     ----------
-    post_state:ServicesState
-        GP-0.5.0-eq:4.18 (δ') | Primary output of Services STF.
-    beefy_commitment_map:BeefyCommitmentMap
-        GP-0.5.0-eq:?? (bold_C) | Secondary output of Services STF, BeefyCommitmentMap.
+    intermediate_state_services: ServicesState
+        GP-0.5.0-eq:4.18 (δ†) | Primary output of Services STF.
+    beefy_commitment_map: BeefyCommitmentMap
+        GP-0.6.0-eq:12.15 (B) | Secondary output of Services STF, BeefyCommitmentMap.
+    nr_work_results_accumulated: int
+        GP-0.6.0-eq:12.21 (n) | Number of work results accumulated
+
     """
-    post_state: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
-    # BeefyCommitmentMap
-    beefy_commitment_map: BeefyCommitmentMap = field(
-        default=None,
-        metadata={'codec': BeefyCommitmentMap.to_codec_def()}
-    )
+    intermediate_state_services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+    post_state_privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
+    post_state_validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
+    post_state_authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
+    beefy_commitment_map: BeefyCommitmentMap = field(metadata={'codec': BeefyCommitmentMap.to_codec_def()})
+    nr_work_results_accumulated: int = field(metadata={'codec': U32})
 
 
 @dataclass

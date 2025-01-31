@@ -15,7 +15,7 @@ from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.block import Header, Guarantee, BlockContext, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, \
-    AccumulationQueueState
+    AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, AuthorizerQueuesState
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -80,6 +80,13 @@ class TestAccumulate(unittest.TestCase):
             } for s in test_vector["pre_state"]["accounts"]}}
         )
 
+        pre_privileged_services = PrivilegedServicesState(
+            empower_service=test_vector["pre_state"]["privileges"]["bless"],
+            assign_service=test_vector["pre_state"]["privileges"]["assign"],
+            designate_service=test_vector["pre_state"]["privileges"]["designate"],
+            auto_accumulate_services={} #test_vector["pre_state"]["privileges"]["always_acc"]
+        )
+
         # Set up post-state
         post_entropy = EntropyState.from_json({"entropy": [test_vector["post_state"]["entropy"]] * 4})
         post_state_timeslot = TimeslotState(number=test_vector["post_state"]["slot"])
@@ -110,13 +117,29 @@ class TestAccumulate(unittest.TestCase):
         self.block_context.initialize()
         self.block_context.available_work_reports = [WorkReport.from_json(w) for w in test_vector["input"]["reports"]]
 
+        self.block_context.set_ready_work_reports()
         self.block_context.set_queued_work_reports(pre_accumulation_history)
 
+        self.block_context.set_accumulatable_work_reports(header=header, accumulation_queue=pre_accumulation_queue)
+
         # Run accumulation
+
+        services = Services(self.storage_engine, self.block_context, self.app_context)
+
+        accumulation_output = services.state_transition(
+            accumulatable_work_reports=self.block_context.accumulatable_work_reports,
+            pre_state_privileged_services=pre_privileged_services,
+            post_state_timeslot=post_state_timeslot,
+            pre_state_services=pre_services,
+            pre_state_authorizer_queues=AuthorizerQueuesState(authorizer_queues=[]),
+            pre_state_validator_queue=ValidatorQueueState(validators=[]),
+        )
+
         accumulation_history = AccumulationHistory(self.storage_engine, self.block_context, self.app_context)
         history_output = accumulation_history.state_transition(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
-            pre_state_accumulation_history=pre_accumulation_history
+            pre_state_accumulation_history=pre_accumulation_history,
+            nr_work_results_accumulated=accumulation_output.nr_work_results_accumulated
         )
 
         accumulation_queue = AccumulationQueue(self.storage_engine, self.block_context, self.app_context)

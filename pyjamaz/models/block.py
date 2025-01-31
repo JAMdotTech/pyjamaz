@@ -5,7 +5,7 @@ from bandersnatch_vrfs import ietf_vrf_verify, ietf_vrf_sign
 from math import floor
 from typing import List, Optional
 
-from pyjamaz.accumulate import priority_queue, edit_queue, work_report_dependencies, work_report_mapping
+from pyjamaz.accumulation import priority_queue, edit_queue, work_report_dependencies, work_report_mapping
 from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState, ValidatorArchiveState, \
     BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState, AccumulationQueueWorkPackage
 
@@ -16,7 +16,7 @@ from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody
 from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
-from pyjamaz.utils import guarantor_permute, vrf_input_ticket_seal, vrf_input_fallback_seal
+from pyjamaz.utils import guarantor_permute, vrf_input_ticket_seal, vrf_input_fallback_seal, flatten_list
 
 
 @dataclass
@@ -818,10 +818,10 @@ class BlockContext:
         if self.available_work_reports is None:
             raise ValueError("No available work reports")
 
-        self.queued_work_reports = [
+        self.queued_work_reports = edit_queue([
             work_report_dependencies(w) for w in self.available_work_reports
             if len(w.context.prerequisites) > 0 or len(w.segment_root_lookup) > 0
-        ]
+        ], accumulated_packages=flatten_list(accumulation_history.accumulation_history))
 
     def set_accumulatable_work_reports(self, header: Header, accumulation_queue: AccumulationQueueState):
         """
@@ -848,7 +848,8 @@ class BlockContext:
 
         # GP-0.5.4-eq:12.12
         q = edit_queue(
-            work_report_queue=accumulation_queue.accumulation_queue[m:] + accumulation_queue.accumulation_queue[:m] +
+            work_report_queue=flatten_list(accumulation_queue.accumulation_queue[m:]) +
+                              flatten_list(accumulation_queue.accumulation_queue[:m]) +
                               self.queued_work_reports,
             accumulated_packages=work_report_mapping(self.ready_work_reports)
         )

@@ -569,11 +569,7 @@ class PrivilegedServicesState(State, Serializable):
     empower_service: int = field(metadata={'codec': U32})
     assign_service: int = field(metadata={'codec': U32})
     designate_service: int = field(metadata={'codec': U32})
-    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
-    # auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(Array(U8,4), U64)})
+    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
 
 
 @dataclass
@@ -696,6 +692,7 @@ class AccumulationHistoryState(State, Serializable):
 class BeefyCommitmentMap(Serializable):
     """
     GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map Dictionary.
+    GP-0.6.0-eq:12.15 (B) | a service-indexed commitment to the accumulation output
 
     Attributes
     ----------
@@ -830,7 +827,7 @@ class JamState(State, Serializable):
                 empower_service=0,
                 assign_service=0,
                 designate_service=0,
-                auto_accumulate_services=[]
+                auto_accumulate_services={}
             ),
             disputes=DisputesState(
                 good_set=[],
@@ -912,5 +909,3 @@ class AccumulationStateComponents(Serializable):
     validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
-
-

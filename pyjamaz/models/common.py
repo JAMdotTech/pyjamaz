@@ -206,3 +206,18 @@ class Assurance(Serializable):
 class TicketBody(Serializable):
     id: bytes = field(metadata={'codec': H256})
     attempt: int = field(metadata={'codec': U8})
+
+
+@dataclass
+class AccumulationOperand(Serializable):
+    """
+    GP-0.6.0-eq:12.18 (blackboard_O) | Operand to the PVM accumulation function
+    """
+    # o
+    work_item_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
+    # l
+    work_item_payload_hash: bytes = field(metadata={'codec': H256})
+    # k
+    work_report_hash: bytes = field(metadata={'codec': H256})
+    # a
+    work_report_auth_output: bytes = field(metadata={'codec': Bytes})

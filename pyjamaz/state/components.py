@@ -1,7 +1,7 @@
 import bisect
 import logging
 from copy import deepcopy, copy
-from typing import List, Union, Optional, Set
+from typing import List, Union, Optional, Set, Dict
 
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ietf_vrf_verify
 from ed25519_zebra import ed_verify
@@ -9,12 +9,14 @@ from jamcodec.types import Vec, U32
 
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
+from pyjamaz.accumulation import work_report_mapping, pvm_invoke_accumulate, PvmAccumulateOutput, \
+    full_sequential_accumulation
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine, Transaction
-from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
+from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, AccumulationOperand
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
@@ -31,7 +33,7 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
-    AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationQueueWorkPackage
+    AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -1704,21 +1706,8 @@ class Services(StateComponent):
 
 
         return ServicesAfterPreimagesOutput(
-            intermediate_state_after_preimages=intermediate_state_services_after_preimages
+            post_state=intermediate_state_services_after_preimages
         )
-
-    def state_transition_outer_accumulation(self):
-        """
-        TODO TBD if this is correct name and location
-        GP-0.5.4-eq:12.16 ∆+ | outer accumulation function
-
-        Returns
-        -------
-
-        """
-
-    def state_transition_parallelized_accumulation(self):
-        pass
 
     # Todo: Add additional intermediate STF for δ‡ (Services after accumulation, but before transfers as per
     #  GP-0.3.8-eq:166. State Transition Dependency Graph does not currently list a distinct STF for this. This may
@@ -1726,43 +1715,65 @@ class Services(StateComponent):
 
     def state_transition(
             self,
-            extrinsic_assurances: List[Assurance],
-            post_state_assurances: AssurancesState,
-            intermediate_state_services_after_preimages: ServicesState,
+            accumulatable_work_reports: List[WorkReport],
             pre_state_privileged_services: PrivilegedServicesState,
+            pre_state_services: ServicesState,
             pre_state_validator_queue: ValidatorQueueState,
-            pre_state_authorizer_queues: AuthorizerQueuesState
+            pre_state_authorizer_queues: AuthorizerQueuesState,
+            post_state_timeslot: TimeslotState,
     ) -> ServicesOutput:
         """
-        GP-0.3.8-eq:168 (δ') | State transition function for the state's services.
+        GP-0.6.0-eq:12.21,12.22 (δ†) | State transition function for the state's services.
 
         Parameters
         ----------
-        extrinsic_assurances: List[Assurance]
-            GP-0.3.8-eq:28 (bold_E_A)
-        post_state_assurances: AssurancesState
-            GP-0.3.8-eq:28 (ρ')
-        intermediate_state_services_after_preimages: ServicesState
-            GP-0.3.8-eq:28 (δ†)
+        accumulatable_work_reports: List[WorkReport]
+            GP-0.6.0-eq:12.21 (W*)
+        pre_state_services: ServicesState
+            GP-0.6.0-eq:12.21 (δ)
         pre_state_privileged_services: PrivilegedServicesState
-            GP-0.3.8-eq:28 (χ)
+            GP-0.6.0-eq:12.21 (χ)
         pre_state_validator_queue: ValidatorQueueState
-            GP-0.3.8-eq:28 (ι)
+            GP-0.6.0-eq:12.21 (ι)
         pre_state_authorizer_queues: AuthorizerQueuesState
-            GP-0.3.8-eq:28 (φ)
+            GP-0.6.0-eq:12.21 (φ)
 
         Returns
         -------
         ServicesOutput
-            Output containing: posterior state of ServicesState (δ') and BeefyCommitmentMap.
+            Output containing: intermediate state of ServicesState (δ†) and BeefyCommitmentMap (C).
         """
-        # Todo: properly set post_state_services by implementing STF
-        post_state_services = intermediate_state_services_after_preimages
+
+        accumulation_state = AccumulationStateComponents(
+            services=pre_state_services,
+            validator_queue=pre_state_validator_queue,
+            authorizer_queues=pre_state_authorizer_queues,
+            privileged_services=pre_state_privileged_services
+        )
+        # GP-0.6.0-eq:12.20
+        gas_limit = min(
+            gp_const.GAS_TOTAL, gp_const.GAS_ACCUMULATION * gp_const.CORE_COUNT + sum(
+                pre_state_privileged_services.auto_accumulate_services.values()
+            )
+        )
+
+        # GP-0.6.0-eq:12.21
+        output = full_sequential_accumulation(
+            gas_limit=gas_limit,
+            work_reports=accumulatable_work_reports,
+            accumulation_state=accumulation_state,
+            auto_accumulate_services=pre_state_privileged_services.auto_accumulate_services,
+            post_state_timeslot=post_state_timeslot
+        )
+
+        # GP-0.6.0-eq:12.22
         return ServicesOutput(
-            post_state=post_state_services,
-            # Todo: BeefyCommitmentMap Dictionary is a result of service accumulation and is used in STF for
-            #  RecentHistory.
-            beefy_commitment_map=BeefyCommitmentMap({})
+            intermediate_state_services=output.post_accumulation_state.services,
+            post_state_privileged_services=output.post_accumulation_state.privileged_services,
+            post_state_validator_queue=output.post_accumulation_state.validator_queue,
+            post_state_authorizer_queues=output.post_accumulation_state.authorizer_queues,
+            beefy_commitment_map=output.accumulation_commitment,
+            nr_work_results_accumulated=output.nr_work_results_accumulated
         )
 
     def is_preimage_needed(self, preimage: Preimage, pre_state_services: ServicesState) -> bool:
@@ -1934,7 +1945,8 @@ class AccumulationHistory(StateComponent):
     def state_transition(
             self,
             accumulatable_work_reports: List[WorkReport],
-            pre_state_accumulation_history: AccumulationHistoryState
+            pre_state_accumulation_history: AccumulationHistoryState,
+            nr_work_results_accumulated: int
     ) -> AccumulationHistoryOutput:
         """
         GP-0.5.4-eq:12.25,12.26 (ξ') | State transition function for the state's accumulation history.
@@ -1951,7 +1963,13 @@ class AccumulationHistory(StateComponent):
         AuthorizerPoolsOutput
             Output containing: Posterior state of AccumulationHistoryState (ξ')
         """
-        post_state_accumulation_history = pre_state_accumulation_history
+        post_state_accumulation_history = AccumulationHistoryState(
+            accumulation_history=pre_state_accumulation_history.accumulation_history[1:]
+        )
+
+        post_state_accumulation_history.accumulation_history.append(
+            list(work_report_mapping(accumulatable_work_reports[:nr_work_results_accumulated]))
+        )
 
         return AccumulationHistoryOutput(
             post_state=post_state_accumulation_history

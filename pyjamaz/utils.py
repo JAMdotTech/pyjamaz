@@ -1,3 +1,4 @@
+import itertools
 from math import floor
 from typing import List
 
@@ -12,6 +13,10 @@ def reorder_list_outside_in(items: list) -> list:
 
 def list_has_duplicates(lst: list) -> bool:
     return any(lst.count(item) > 1 for item in lst)
+
+
+def flatten_list(nested_list: list) -> list:
+    return list(itertools.chain(*nested_list))
 
 
 def numeric_sequence_from_entropy(entropy: bytes, lemgth: int) -> List[int]:
