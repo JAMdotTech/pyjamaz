@@ -32,8 +32,8 @@ def load_test_vectors(directory):
 
 
 class TestPolkaVMInstructions(unittest.TestCase):
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/inst_jump_indirect_without_offset_ok.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs/inst_rem_signed_32.json'))
     def test_instruction(self, name, test_vector):
 
         # Set NumPy to ignore overflow warnings

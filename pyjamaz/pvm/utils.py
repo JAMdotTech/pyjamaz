@@ -1,96 +1,17 @@
-import math
 import numpy as np
 import numpy.typing as npt
 
 from pyjamaz.pvm.exceptions import UIntValueError
 
 
-
-############################################# TODO: oude code, werkt voor div_s_64, maar waarom:
-"""
-Note:
-In Python, the integer division operator // and the modulo operator % follow a floor division 
-semantics, whereas in many CPUs (including RISC-V), the hardware integer divide instructions 
-(div, rem) follow truncate-toward-zero semantics. The difference is most apparent when operands 
-are negative:
-"""
-INT64_MIN = np.int64(-2**63)
-INT64_MAX = np.int64(2**63 - 1)
-# def riscv_div(a, b):
-#     return np.fix(a / b).astype(int)
-def riscv_div(a, b):
-    """
-    RISC-V style signed division (truncate toward zero) for 64-bit integers.
-    Returns q = trunc(a / b), vectorized over arrays.
-
-    - a, b: np.int64 arrays (or scalars).
-    - If b == 0, we define the result to be 0 (RISC-V actually sets quotient=~0 in some cases,
-      but you can adapt the behavior as you wish).
-
-    Note: Python/NumPy's '//' is floor division, so we must adjust for negative signs.
-    """
-    a = np.int64(a)
-    b = np.int64(b)
-    #if a.dtype != np.int64 or b.dtype != np.int64:
-    #    raise TypeError("Expecting a,b as np.int64 arrays or scalars.")
-
-    # We'll work elementwise. Let's build an output array for the quotient.
-    q = np.zeros_like(a, dtype=np.int64)
-
-    # 1) b == 0 => "division by zero" case:
-    b_zero_mask = (b == 0)
-    #   RISC-V: quotient = -1 if a != 0 else 0
-    nonzero_a_mask = (a != 0) & b_zero_mask
-    q[nonzero_a_mask] = np.int64(-1)
-    # (if a==0 and b=0 => quotient=0; already set from zeros)
-
-    # 2) overflow corner: a=-2^63, b=-1 => quotient=2^63-1
-    corner_mask = (a == INT64_MIN) & (b == -1)
-    q[corner_mask] = INT64_MAX  # 2^63-1
-
-    # 3) normal case => do truncated division for everything else
-    normal_mask = ~(b_zero_mask | corner_mask)
-    # subset of a,b where we can do truncated division
-    a_n = a[normal_mask]
-    b_n = b[normal_mask]
-
-    # We'll implement trunc(a/b):
-    # sign = sign(a/b)
-    # magnitude = floor_div(abs(a), abs(b))
-    # result = +/- magnitude
-    # We can do it purely in int64 with absolute values, but watch out for abs(-2^63).
-    # However, that corner is handled above, so we won't trigger that here.
-    abs_a = np.abs(a_n, dtype=np.int64)
-    abs_b = np.abs(b_n, dtype=np.int64)
-    mag = np.floor_divide(abs_a, abs_b)  # floor for positive numbers
-
-    # sign check: (a<0) ^ (b<0) => negative
-    sign_mask = ((a_n < 0) & (b_n > 0)) | ((a_n > 0) & (b_n < 0))
-    # put the magnitude in output
-    q_n = mag.astype(np.int64)
-    # flip sign where necessary
-    q_n[sign_mask] = -q_n[sign_mask]
-
-    # store back
-    q[normal_mask] = q_n
-
-    return q
-
-#TODO: nodig voor rem_s_32?????
-def riscv_rem(a, b):
-    return a - riscv_div(a, b) * b
-
-########################################################################################
-
-
-
-
 # rori -> (x >> shift_amount)∣(x << (NRBITS−shift_amount))
 def rori64(x, shift_amount):
     return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
+
 def rori32(x, shift_amount):
     return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
+
 
 def reverse_bytes(x):
     y = 0
@@ -103,6 +24,7 @@ def reverse_bytes(x):
     y |= (x & 0x00FF000000000000) >> 8 * 5
     y |= (x & 0xFF00000000000000) >> 8 * 7
     return y
+
 
 def count_trailing_zeroes(value, max_bits=64):
     #https://stackoverflow.com/a/63552117
@@ -140,14 +62,25 @@ def pvm_floor_div(x: int, y: int) -> int:
     Returns the quotient of x / y, truncated toward zero for positive numbers 
     without using floating-point arithmetic.
     """
+    x = int(x)
+    y = int(y)
+
     if x > 0:
         q, r = divmod(abs(x), abs(y))
-        if (x < 0) ^ (y < 0):
-            return -q
-        else:
-            return q
+        return q
     else:
-        return math.floor(x / y)
+        return x // y
+
+
+def pvm_mod(a: int, b: int) -> int:
+    # Note: Emulate C/Rust modulus (remainder) behavior using truncation toward zero
+    abs_quotient = abs(a) // abs(b)
+    # The sign of the quotient is positive if a and b have the same sign,
+    # negative otherwise.
+    quotient = abs_quotient if (a * b) >= 0 else -abs_quotient
+    # Now compute the remainder
+    remainder = a - quotient * b
+    return remainder
 
 
 def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
@@ -193,6 +126,7 @@ def pvm_Z_inv(a:int, n:np.uint8):
     Transform an signed number to an unsigned number
     """
     return (int(2**(8*n)) + int(a)) % int(2**(8*n))
+
 
 def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
     if l == 1:
