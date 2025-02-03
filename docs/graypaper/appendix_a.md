@@ -8,22 +8,22 @@ This section has been updated to match Graypaper version 0.5.4.
 | Graypaper               | Equation             | Implementation |
 |-------------------------|----------------------|----------------|
 | <a name="A.1">(A.1)</a> | $\equationapointone$ | [TODO]         |  
+| <a name="A.2">(A.2)</a> | $\equationapointtwo$ | [TODO]         | 
 
 ## A.2. Instructions, Opcodes and Skip-distance
 | Graypaper               | Equation               | Implementation |
 |-------------------------|------------------------|----------------|
-| <a name="A.2">(A.2)</a> | $\equationapointtwo$   | [TODO]         | 
 | <a name="A.3">(A.3)</a> | $\equationapointthree$ | [TODO]         |
+| <a name="A.4">(A.4)</a> | $\equationapointfour$  | [TODO]         | 
 
 ## A.3. Basic Blocks and Termination Instructions
 | Graypaper               | Equation              | Implementation |
 |-------------------------|-----------------------|----------------|
-| <a name="A.4">(A.4)</a> | $\equationapointfour$ | [TODO]         | 
+| <a name="A.5">(A.5)</a> | $\equationapointfive$ | [TODO]         |
 
 ## A.4. Single-Step State Transition
 | Graypaper                 | Equation                  | Implementation |
 |---------------------------|---------------------------|----------------|
-| <a name="A.5">(A.5)</a>   | $\equationapointfive$     | [TODO]         |
 | <a name="A.6">(A.6)</a>   | $\equationapointsix$      | [TODO]         |
 | <a name="A.7">(A.7)</a>   | $\equationapointseven$    | [TODO]         |
 | <a name="A.8">(A.8)</a>   | $\equationapointeight$    | [TODO]         |
@@ -34,129 +34,246 @@ This section has been updated to match Graypaper version 0.5.4.
 | <a name="A.13">(A.13)</a> | $\equationapointthirteen$ | [TODO]         |
 | <a name="A.14">(A.14)</a> | $\equationapointfourteen$ | [TODO]         |
 | <a name="A.15">(A.15)</a> | $\equationapointfifteen$  | [TODO]         |
+| <a name="A.16">(A.16)</a> | $\equationapointsixteen$  | [TODO]         |
+| <a name="A.17">(A.17)</a> | $\equationapointseventeen$ | [TODO]         |
+| <a name="A.18">(A.18)</a> | $\equationapointeighteen$ | [TODO]         |
 
 ## A.5. Instruction Tables
 ### A.5.1. Instructions without Arguments
 | Graypaper                 | Equation                 | Implementation |
 |---------------------------|--------------------------|----------------|
-| <a name="A.16">(A.16)</a> | $\equationapointsixteen$ | [TODO]         |
+| <a name="A.19">(A.19)</a> | $\equationapointnineteen$ | [TODO]         |
 
-| $\instructions_\imath$ | Name                  | $\gas$ | Mutations              | Implementation |
-|------------------------|-----------------------|--------|------------------------|----------------|
-| 0                      | $\token{trap}$        | 0      | $\varepsilon = \panic$ | [TODO]         |
-| 1                      | $\token{fallthrough}$ | 0      | $\\$                   | [TODO]         |
+| $\instructions_\imath$ | Name        | $\gas$ | Mutations          | Implementation |
+|------------------------|-------------|--------|--------------------|----------------|
+| 0                      | trap        | 0      | $\instructionzero$ | [TODO]         |
+| 1                      | fallthrough | 0      | $\instructionone$  | [TODO]         |
 
 ### A.5.2. Instructions with Arguments of One Immediate
 | Graypaper                 | Equation                   | Implementation |
 |---------------------------|----------------------------|----------------|
-| <a name="A.17">(A.17)</a> | $\equationapointseventeen$ | [TODO]         |
+| <a name="A.20">(A.20)</a> | $\equationapointtwenty$ | [TODO]         |
 
-| $\instructions_\imath$ | Name             | $\gas$ | Mutations                             | Implementation |
-|------------------------|------------------|--------|---------------------------------------|----------------|
-| 10                     | $\token{ecalli}$ | 0      | $\varepsilon = \host \times \immed_X$ | [TODO]         |
+| $\instructions_\imath$ | Name   | $\gas$ | Mutations         | Implementation |
+|------------------------|--------|--------|-------------------|----------------|
+| 10                     | ecalli | 0      | $\instructionten$ | [TODO]         |
 
 ### A.5.3. Instructions with Arguments of One Register and One Extended Width Immediate
 | Graypaper                 | Equation                  | Implementation |
 |---------------------------|---------------------------|----------------|
-| <a name="A.18">(A.18)</a> | $\equationapointeighteen$ | [TODO]         |
+| <a name="A.21">(A.21)</a> | $\equationapointtwentyone$ | [TODO]         |
 
-| $\instructions_\imath$ | Name                      | $\gas$ | Mutations                                                 | Implementation |
-|------------------------|---------------------------|--------|-----------------------------------------------------------|----------------|
-| 30                     | $\token{store\_imm\_u8}$  | 0      | $\memwr_{\immed_X} = \immed_Y \bmod 2^8$                  | [TODO]         |
-| 31                     | $\token{store\_imm\_u16}$ | 0      | $\memwr_{\immed_X\dots+2} = \se_2(\immed_Y \bmod 2^{16})$ | [TODO]         |
-| 32                     | $\token{store\_imm\_u32}$ | 0      | $\memwr_{\immed_X\dots+4} = \se_4(\immed_Y \bmod 2^{32})$ | [TODO]         |
-| 33                     | $\token{store\_imm\_u64}$ | 0      | $\memwr_{\immed_X\dots+8} = \se_8(\immed_Y)$              | [TODO]         |
-
+| $\instructions_\imath$ | Name        | $\gas$ | Mutations            | Implementation |
+|------------------------|-------------|--------|----------------------|----------------|
+| 20                     | load_imm_64 | 0      | $\instructiontwenty$ | [TODO]         |
 
 ### A.5.4. Instructions with Arguments of Two Immediates
 | Graypaper                 | Equation                  | Implementation |
 |---------------------------|---------------------------|----------------|
-| <a name="A.19">(A.19)</a> | $\equationapointnineteen$ | [TODO]         |
+| <a name="A.22">(A.22)</a> | $\equationapointtwentytwo$ | [TODO]         |
 
-| $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
-|------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
+| $\instructions_\imath$ | Name          | $\gas$ | Mutations                 | Implementation |
+|------------------------|---------------|--------|---------------------------|----------------|
+| 30                     | store_imm_u8  | 0      | $\instructionthirty$      | [TODO]         |
+| 31                     | store_imm_u16 | 0      | $\instructionthirtyone$   | [TODO]         |
+| 32                     | store_imm_u32 | 0      | $\instructionthirtytwo$   | [TODO]         |
+| 33                     | store_imm_u64 | 0      | $\instructionthirtythree$ | [TODO]         |
 
 ### A.5.5. Instructions with Arguments of One Offset
 | Graypaper                 | Equation                | Implementation |
 |---------------------------|-------------------------|----------------|
-| <a name="A.20">(A.20)</a> | $\equationapointtwenty$ | [TODO]         |
+| <a name="A.23">(A.23)</a> | $\equationapointtwentythree$ | [TODO]         |
 
-| $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
-|------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
+| $\instructions_\imath$ | Name | $\gas$ | Mutations           | Implementation |
+|------------------------|------|--------|---------------------|----------------|
+| 40                     | jump | 0      | $\instructionforty$ | [TODO]         |
 
 ### A.5.6. Instructions with Arguments of One Register & One Immediate
 | Graypaper                 | Equation                   | Implementation |
 |---------------------------|----------------------------|----------------|
-| <a name="A.21">(A.21)</a> | $\equationapointtwentyone$ | [TODO]         |
+| <a name="A.24">(A.24)</a> | $\equationapointtwentyfour$ | [TODO]         |
 
-| $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
-|------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
+| $\instructions_\imath$ | Name | $\gas$ | Mutations                | Implementation |
+|------------------------|------|--------|--------------------------|----------------|
+| 50                     |      | 0      | $\instructionfifty$      | [TODO]         |
+| 51                     |      | 0      | $\instructionfiftyone$   | [TODO]         |
+| 52                     |      | 0      | $\instructionfiftytwo$   | [TODO]         |
+| 53                     |      | 0      | $\instructionfiftythree$ | [TODO]         |
+| 54                     |      | 0      | $\instructionfiftyfour$  | [TODO]         |
+| 55                     |      | 0      | $\instructionfiftyfive$  | [TODO]         |
+| 56                     |      | 0      | $\instructionfiftysix$   | [TODO]         |
+| 57                     |      | 0      | $\instructionfiftyseven$ | [TODO]         |
+| 58                     |      | 0      | $\instructionfiftyeight$ | [TODO]         |
+| 59                     |      | 0      | $\instructionfiftynine$  | [TODO]         |
+| 60                     |      | 0      | $\instructionsixty$      | [TODO]         |
+| 61                     |      | 0      | $\instructionsixtyone$   | [TODO]         |
+| 62                     |      | 0      | $\instructionsixtytwo$   | [TODO]         |
 
 ### A.5.7. Instructions with Arguments of One Register & Two Immediates
 | Graypaper                 | Equation                   | Implementation |
 |---------------------------|----------------------------|----------------|
-| <a name="A.22">(A.22)</a> | $\equationapointtwentytwo$ | [TODO]         |
-
-| $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
-|------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
-
-### A.5.8. Instructions with Arguments of One Register, One Immediate & One Offset
-| Graypaper                 | Equation                     | Implementation |
-|---------------------------|------------------------------|----------------|
-| <a name="A.23">(A.23)</a> | $\equationapointtwentythree$ | [TODO]         |
-
-| $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
-|------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
-
-### A.5.9. Instructions with Arguments of Two Registers
-| Graypaper                 | Equation                    | Implementation |
-|---------------------------|-----------------------------|----------------|
-| <a name="A.24">(A.24)</a> | $\equationapointtwentyfour$ | [TODO]         |
-
-| $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
-|------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
-
-### A.5.10. Instructions with Arguments of Two Registers & One Immediate
-| Graypaper                 | Equation                    | Implementation |
-|---------------------------|-----------------------------|----------------|
 | <a name="A.25">(A.25)</a> | $\equationapointtwentyfive$ | [TODO]         |
 
 | $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
 |------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
+| 50                     |      | 0      | $\instructionfifty$      | [TODO]         |
+| 51                     |      | 0      | $\instructionfiftyone$   | [TODO]         |
+| 52                     |      | 0      | $\instructionfiftytwo$   | [TODO]         |
+| 53                     |      | 0      | $\instructionfiftythree$ | [TODO]         |
+| 54                     |      | 0      | $\instructionfiftyfour$  | [TODO]         |
+| 55                     |      | 0      | $\instructionfiftyfive$  | [TODO]         |
+| 56                     |      | 0      | $\instructionfiftysix$   | [TODO]         |
+| 57                     |      | 0      | $\instructionfiftyseven$ | [TODO]         |
+| 58                     |      | 0      | $\instructionfiftyeight$ | [TODO]         |
+| 59                     |      | 0      | $\instructionfiftynine$  | [TODO]         |
+| 60                     |      | 0      | $\instructionsixty$      | [TODO]         |
+| 61                     |      | 0      | $\instructionsixtyone$   | [TODO]         |
+| 62                     |      | 0      | $\instructionsixtytwo$   | [TODO]         |
 
-### A.5.11. Instructions with Arguments of Two Registers & One Offset
+### A.5.8. Instructions with Arguments of One Register, One Immediate & One Offset
 | Graypaper                 | Equation                   | Implementation |
 |---------------------------|----------------------------|----------------|
 | <a name="A.26">(A.26)</a> | $\equationapointtwentysix$ | [TODO]         |
 
 | $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
 |------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
+| 50                     |      | 0      | $\instructionfifty$      | [TODO]         |
+| 51                     |      | 0      | $\instructionfiftyone$   | [TODO]         |
+| 52                     |      | 0      | $\instructionfiftytwo$   | [TODO]         |
+| 53                     |      | 0      | $\instructionfiftythree$ | [TODO]         |
+| 54                     |      | 0      | $\instructionfiftyfour$  | [TODO]         |
+| 55                     |      | 0      | $\instructionfiftyfive$  | [TODO]         |
+| 56                     |      | 0      | $\instructionfiftysix$   | [TODO]         |
+| 57                     |      | 0      | $\instructionfiftyseven$ | [TODO]         |
+| 58                     |      | 0      | $\instructionfiftyeight$ | [TODO]         |
+| 59                     |      | 0      | $\instructionfiftynine$  | [TODO]         |
+| 60                     |      | 0      | $\instructionsixty$      | [TODO]         |
+| 61                     |      | 0      | $\instructionsixtyone$   | [TODO]         |
+| 62                     |      | 0      | $\instructionsixtytwo$   | [TODO]         |
 
-### A.5.12. Instructions with Arguments of Two Registers & Two Immediates
+### A.5.9. Instructions with Arguments of Two Registers
 | Graypaper                 | Equation                     | Implementation |
 |---------------------------|------------------------------|----------------|
 | <a name="A.27">(A.27)</a> | $\equationapointtwentyseven$ | [TODO]         |
 
 | $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
 |------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
+| 50                     |      | 0      | $\instructionfifty$      | [TODO]         |
+| 51                     |      | 0      | $\instructionfiftyone$   | [TODO]         |
+| 52                     |      | 0      | $\instructionfiftytwo$   | [TODO]         |
+| 53                     |      | 0      | $\instructionfiftythree$ | [TODO]         |
+| 54                     |      | 0      | $\instructionfiftyfour$  | [TODO]         |
+| 55                     |      | 0      | $\instructionfiftyfive$  | [TODO]         |
+| 56                     |      | 0      | $\instructionfiftysix$   | [TODO]         |
+| 57                     |      | 0      | $\instructionfiftyseven$ | [TODO]         |
+| 58                     |      | 0      | $\instructionfiftyeight$ | [TODO]         |
+| 59                     |      | 0      | $\instructionfiftynine$  | [TODO]         |
+| 60                     |      | 0      | $\instructionsixty$      | [TODO]         |
+| 61                     |      | 0      | $\instructionsixtyone$   | [TODO]         |
+| 62                     |      | 0      | $\instructionsixtytwo$   | [TODO]         |
 
-### A.5.13. Instructions with Arguments of Three Registers
+### A.5.10. Instructions with Arguments of Two Registers & One Immediate
 | Graypaper                 | Equation                     | Implementation |
 |---------------------------|------------------------------|----------------|
 | <a name="A.28">(A.28)</a> | $\equationapointtwentyeight$ | [TODO]         |
 
 | $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
 |------------------------|----------------|--------|-----------|----------------|
-| XX                     | $\token{XXXX}$ | 0      | $$        | [TODO]         |
+| 50                     |      | 0      | $\instructionfifty$      | [TODO]         |
+| 51                     |      | 0      | $\instructionfiftyone$   | [TODO]         |
+| 52                     |      | 0      | $\instructionfiftytwo$   | [TODO]         |
+| 53                     |      | 0      | $\instructionfiftythree$ | [TODO]         |
+| 54                     |      | 0      | $\instructionfiftyfour$  | [TODO]         |
+| 55                     |      | 0      | $\instructionfiftyfive$  | [TODO]         |
+| 56                     |      | 0      | $\instructionfiftysix$   | [TODO]         |
+| 57                     |      | 0      | $\instructionfiftyseven$ | [TODO]         |
+| 58                     |      | 0      | $\instructionfiftyeight$ | [TODO]         |
+| 59                     |      | 0      | $\instructionfiftynine$  | [TODO]         |
+| 60                     |      | 0      | $\instructionsixty$      | [TODO]         |
+| 61                     |      | 0      | $\instructionsixtyone$   | [TODO]         |
+| 62                     |      | 0      | $\instructionsixtytwo$   | [TODO]         |
+
+### A.5.11. Instructions with Arguments of Two Registers & One Offset
+| Graypaper                 | Equation                    | Implementation |
+|---------------------------|-----------------------------|----------------|
+| <a name="A.29">(A.29)</a> | $\equationapointtwentynine$ | [TODO]         |
+
+| $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
+|------------------------|----------------|--------|-----------|----------------|
+| 50                     |      | 0      | $\instructionfifty$      | [TODO]         |
+| 51                     |      | 0      | $\instructionfiftyone$   | [TODO]         |
+| 52                     |      | 0      | $\instructionfiftytwo$   | [TODO]         |
+| 53                     |      | 0      | $\instructionfiftythree$ | [TODO]         |
+| 54                     |      | 0      | $\instructionfiftyfour$  | [TODO]         |
+| 55                     |      | 0      | $\instructionfiftyfive$  | [TODO]         |
+| 56                     |      | 0      | $\instructionfiftysix$   | [TODO]         |
+| 57                     |      | 0      | $\instructionfiftyseven$ | [TODO]         |
+| 58                     |      | 0      | $\instructionfiftyeight$ | [TODO]         |
+| 59                     |      | 0      | $\instructionfiftynine$  | [TODO]         |
+| 60                     |      | 0      | $\instructionsixty$      | [TODO]         |
+| 61                     |      | 0      | $\instructionsixtyone$   | [TODO]         |
+| 62                     |      | 0      | $\instructionsixtytwo$   | [TODO]         |
+
+### A.5.12. Instructions with Arguments of Two Registers & Two Immediates
+| Graypaper                 | Equation                | Implementation |
+|---------------------------|-------------------------|----------------|
+| <a name="A.30">(A.30)</a> | $\equationapointthirty$ | [TODO]         |
+
+| $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
+|------------------------|----------------|--------|-----------|----------------|
+| 50                     |      | 0      | $\instructionfifty$      | [TODO]         |
+| 51                     |      | 0      | $\instructionfiftyone$   | [TODO]         |
+| 52                     |      | 0      | $\instructionfiftytwo$   | [TODO]         |
+| 53                     |      | 0      | $\instructionfiftythree$ | [TODO]         |
+| 54                     |      | 0      | $\instructionfiftyfour$  | [TODO]         |
+| 55                     |      | 0      | $\instructionfiftyfive$  | [TODO]         |
+| 56                     |      | 0      | $\instructionfiftysix$   | [TODO]         |
+| 57                     |      | 0      | $\instructionfiftyseven$ | [TODO]         |
+| 58                     |      | 0      | $\instructionfiftyeight$ | [TODO]         |
+| 59                     |      | 0      | $\instructionfiftynine$  | [TODO]         |
+| 60                     |      | 0      | $\instructionsixty$      | [TODO]         |
+| 61                     |      | 0      | $\instructionsixtyone$   | [TODO]         |
+| 62                     |      | 0      | $\instructionsixtytwo$   | [TODO]         |
+
+### A.5.13. Instructions with Arguments of Three Registers
+| Graypaper                 | Equation                   | Implementation |
+|---------------------------|----------------------------|----------------|
+| <a name="A.31">(A.31)</a> | $\equationapointthirtyone$ | [TODO]         |
+
+| $\instructions_\imath$ | Name           | $\gas$ | Mutations | Implementation |
+|------------------------|----------------|--------|-----------|----------------|
+| 50                     |      | 0      | $\instructionfifty$      | [TODO]         |
+| 51                     |      | 0      | $\instructionfiftyone$   | [TODO]         |
+| 52                     |      | 0      | $\instructionfiftytwo$   | [TODO]         |
+| 53                     |      | 0      | $\instructionfiftythree$ | [TODO]         |
+| 54                     |      | 0      | $\instructionfiftyfour$  | [TODO]         |
+| 55                     |      | 0      | $\instructionfiftyfive$  | [TODO]         |
+| 56                     |      | 0      | $\instructionfiftysix$   | [TODO]         |
+| 57                     |      | 0      | $\instructionfiftyseven$ | [TODO]         |
+| 58                     |      | 0      | $\instructionfiftyeight$ | [TODO]         |
+| 59                     |      | 0      | $\instructionfiftynine$  | [TODO]         |
+| 60                     |      | 0      | $\instructionsixty$      | [TODO]         |
+| 61                     |      | 0      | $\instructionsixtyone$   | [TODO]         |
+| 62                     |      | 0      | $\instructionsixtytwo$   | [TODO]         |
+
+| Graypaper                   | Equation                     | Implementation |
+|-----------------------------|------------------------------|----------------|
+| <a name="A.29a">(A.29a)</a> | $\equationapointtwentyninea$ | [TODO]         |
+
+\(
+    \reg'_D = \begin{cases}
+        0 \quad \when a = -2^{31} \wedge b = -1 \\
+        \unsigned{\smod(a, b)} \quad \otherwise \\
+        \quad \where a = \signedn{4}{\reg_A \bmod 2^{32}}\,,\ b = \signedn{4}{\reg_B \bmod 2^{32}}
+    \end{cases}
+\)
+
+\(
+    \reg'_D = \begin{cases}
+        0 \quad \when \signed{\reg_A} = -2^{63} \wedge \signed{\reg_B} = -1\\
+        \unsigned{\smod(\signed{\reg_A}, \signed{\reg_B})} \quad \otherwise
+    \end{cases}
+\)
 
 ## A.6. Host Call Definition
 | Graypaper                 | Equation                    | Implementation |
