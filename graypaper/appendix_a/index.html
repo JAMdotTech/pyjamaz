@@ -1890,62 +1890,625 @@
  \newcommand{\basicblocks}{\varpi}
  \newcommand{\instructions}{\zeta}
  \newcommand{\immed}{\nu}
+ \newcommand{\deblob}{\text{deblob}}
+ \newcommand{\smod}{\text{smod}}
  \newcommand{\Fskip}{\text{skip}}
  \newcommand{\sext}{\mathcal{X}}
- \newcommand{\equationapointone}{\Psi\colon \left\{\begin{aligned}
-     (\Y, \N_R, \N_G, \regs, \ram) \to (\{\halt, \panic, \oog\} \cup \{\fault\} \times \N_R \cup \{\host\} \times \N_R, \N_R, \Z_G, \regs, \ram)\\
-     (\mathbf{p}, \imath, \gascounter, \registers, \mem) \mapsto \begin{cases}
-       \Psi(\mathbf{p}, \imath', \gascounter', \registers', \mem') \when \varepsilon = \continue\\
-       (\oog, \imath', \gascounter', \registers', \mem') \when \gascounter' &lt; 0\\
-       (\varepsilon, 0, \gascounter', \registers', \mem') \when \varepsilon \in \{ \panic, \halt \}\\
-       (\varepsilon, \imath', \gascounter', \registers', \mem') \otherwise
-     \end{cases} \\
-     \where (\varepsilon, \imath', \gascounter', \registers', \mem') = \Psi_1(\mathbf{c}, \mathbf{k}, \mathbf{j}, \imath, \gascounter, \registers, \mem)\\
-     \also \mathbf{p} = \se(|\mathbf{j}|) \frown \se_1(z) \frown \se(|\mathbf{c}|) \frown \se_z(\mathbf{j}) \frown \se(\mathbf{c}) \frown \se(\mathbf{k})\,,\ |\mathbf{k}| = |\mathbf{c}|
-     \end{aligned}\right.
+ \newcommand{\equationapointone}{
+     \begin{align}
+         \Psi\colon \{\begin{aligned}
+             \begin{cases}
+                 (\Y, \N_R, \N_G, \regs, \ram) \to (\{\halt, \panic, \oog\} \cup \{\fault\} \times \N_R \cup \{\host\} \times \N_R, \N_R, \Z_G, \regs, \ram)\\
+                 (\mathbf{p}, \imath, \gascounter, \registers, \mem) \mapsto \begin{cases}
+                     \Psi(\mathbf{p}, \imath', \gascounter', \registers', \mem') \quad \when \varepsilon = \continue\\
+                     (\oog, \imath', \gascounter', \registers', \mem') \quad \when \gascounter' &lt; 0\\
+                     (\varepsilon, 0, \gascounter', \registers', \mem') \quad \when \varepsilon \in \{ \panic, \halt \}\\
+                     (\varepsilon, \imath', \gascounter', \registers', \mem') \quad \otherwise
+                 \end{cases} \\
+                 \where (\varepsilon, \imath', \gascounter', \registers', \mem') = \begin{cases}
+                     \Psi_1(\mathbf{c}, \mathbf{k}, \mathbf{j}, \imath, \gascounter, \registers, \mem) \quad \when \tup{\mathbf{c}, \mathbf{k}, \mathbf{j}} = \deblob(\mathbf{p}) \\
+                     (\panic, \imath, \gascounter, \registers, \mem) \quad \otherwise
+                 \end{cases}
+             \end{cases}
+         \end{aligned}
+     \end{align}
  }
- \newcommand{\equationapointtwo}{\Fskip\colon\left\{\begin{aligned} \N \to \N\\ i \mapsto \min(24,\ j \in \N : (\mathbf{k} \frown [1, 1, \dots])_{i + 1 + j} = 1) \end{aligned}\right.}
- \newcommand{\equationapointthree}{\instructions \equiv \mathbf{c} \concat \sq{0, 0, \dots}}
- \newcommand{\equationapointfour}{\basicblocks \equiv [0] \concat [n + 1 + \Fskip(n) \mid n \orderedin \N_{\mid\mathbf{c}\mid} \wedge \mathbf{k}_n = 1 \wedge \mathbf{c}_n \in T]}
- \newcommand{\equationapointfive}{\Psi_1\colon \left\{\begin{aligned} (\Y, \mathbb{B}, \seq{\N_R}, \N_R, \N_G, \regs, \ram) \to (\{\panic, \halt, \continue \} \cup \{\fault, \host\} \times \N_R, \N_R, \Z_G, \regs, \ram)\\ (\mathbf{c}, \mathbf{k}, \mathbf{j}, \imath, \gascounter, \registers, \mem) \mapsto (\varepsilon, \imath', \gascounter', \registers', \mem') \end{aligned}\right.}
- \newcommand{\equationapointsix}{\varepsilon = \continue,\quad \imath' = \imath + 1 + \Fskip(\imath),\quad \gascounter' = \gascounter - \gas,\quad \registers' = \registers,\quad\mem' = \mem \text{ except as indicated }}
- \newcommand{\equationapointseven}{\signfunc{n \in \N}\colon\left\{\begin{aligned} \N_{2^{8n}} \to \Z_{-2^{8n-1}\dots2^{8n-1}}\\ a \mapsto \begin{cases} a \when a &lt; 2^{8n-1} \\ a -\ 2^{8n} \otherwise \end{cases} \end{aligned}\right.\\}
- \newcommand{\equationapointeight}{\unsignfunc{n \in \N}\colon\left\{\begin{aligned} \Z_{-2^{8n-1}\dots2^{8n-1}} \to \N_{2^{8n}}\\ a \mapsto (2^{8n} + a) \bmod 2^{8n} \end{aligned}\right.}
- \newcommand{\equationapointnine}{\bitsfunc{n\in\N}\colon\left\{\begin{aligned}\N_{2^{8n}} \to \mathbb{B}_{8n}\\x \mapsto \mathbf{y}: \forall i \in \N_{8n} : \mathbf{y}[i] \Leftrightarrow \ffrac{x}{2^i}\bmod 2 \end{aligned}\right.}
- \newcommand{\equationapointten}{\unbitsfunc{n\in\N}\colon\left\{\begin{aligned}\mathbb{B}_{8n} \to \N_{2^{8n}}\\ \mathbf{x} \mapsto y: \sum_{i \in \N_{8n}} \mathbf{x}_i \cdot 2^i \end{aligned}\right.}
- \newcommand{\equationapointeleven}{\revbitsfunc{n\in\N}\colon\left\{\begin{aligned} \N_{2^{8n}} \to \mathbb{B}_{8n}\\ x \mapsto \mathbf{y}: \forall i \in \N_{8n} : \mathbf{y}[8n - 1 - i] \Leftrightarrow \ffrac{x}{2^i}\bmod 2 \end{aligned}\right.}
- \newcommand{\equationapointtwelve}{\revunbitsfunc{n\in\N}\colon\left\{\begin{aligned} \mathbb{B}_{8n} \to \N_{2^{8n}}\\ \mathbf{x} \mapsto y: \sum_{i \in \N_{8n}} \mathbf{x}_{8n - 1 - i} \cdot 2^i \end{aligned}\right.}
- \newcommand{\equationapointthirteen}{\sext_{n \in \{0, 1, 2, 3, 4, 8\}}\colon\left\{\begin{aligned} \N_{2^{8n}} \to \N_R\\ x \mapsto x + \ffrac{x}{2^{8n-1}}(2^{64}-2^{8n}) \end{aligned}\right.}
- \newcommand{\equationapointfourteen}{\token{branch}(b, C) \implies (\varepsilon, \imath') = \begin{cases} (\continue, \imath) \when \lnot C \\ (\panic, \imath) \otherwhen b \not\in \basicblocks \\ (\continue, b) \otherwise \end{cases}}
- \newcommand{\equationapointfifteen}{\token{djump}(a) \implies (\varepsilon, \imath') = \begin{cases}(\halt, \imath) \when a = 2^{32} - 2^{16}\\ (\panic, \imath) \otherwhen a = 0 \vee a &gt; \|\mathbf{j}\|\cdot\mathsf{Z}_A \vee a \bmod \mathsf{Z}_A \ne 0 \vee \mathbf{j}_{(\nicefrac{a}{\mathsf{Z}_A}) - 1} \not\in \basicblocks \\ (\continue, \mathbf{j}_{(\nicefrac{a}{\mathsf{Z}_A}) - 1}) \otherwise \end{cases}}
- \newcommand{\equationapointsixteen}{\ell \equiv \Fskip(\imath)}
- \newcommand{\equationapointseventeen}{\using l_X = \min(4, \ell) \,,\\ \immed_X \equiv \sext_{l_X}(\de_{l_X}(\instructions_{\imath+1\dots+l_X}))}
- \newcommand{\equationapointeighteen}{\using l_X = \min(4, \instructions_{\imath+1} \bmod 8) \,,\\ \immed_X \equiv \sext_{l_X}(\de_{l_X}(\instructions_{\imath+2\dots+l_X})) \\ \using l_Y = \min(4, \max(0, \ell - l_X - 1)) \,,\quad \immed_Y \equiv \sext_{l_Y}(\de_{l_Y}(\instructions_{\imath+2+l_X\dots+l_Y}))}
- \newcommand{\equationapointnineteen}{}
- \newcommand{\equationapointtwenty}{}
- \newcommand{\equationapointtwentyone}{}
- \newcommand{\equationapointtwentytwo}{}
- \newcommand{\equationapointtwentythree}{}
- \newcommand{\equationapointtwentyfour}{}
- \newcommand{\equationapointtwentyfive}{}
- \newcommand{\equationapointtwentysix}{}
- \newcommand{\equationapointtwentyseven}{}
- \newcommand{\equationapointtwentyeight}{}
- \newcommand{\equationapointtwentynine}{}
- \newcommand{\equationapointthirty}{}
- \newcommand{\equationapointthirtyone}{}
- \newcommand{\equationapointthirtytwo}{}
- \newcommand{\equationapointthirtythree}{}
- \newcommand{\equationapointthirtyfour}{}
- \newcommand{\equationapointthirtyfive}{}
- \newcommand{\equationapointthirtysix}{}
- \newcommand{\equationapointthirtyseven}{}
- \newcommand{\equationapointthirtyeight}{}
- \newcommand{\equationapointthirtynine}{}
+ \newcommand{\equationapointtwo}{
+     \begin{align}
+         \deblob\colon\begin{aligned}
+             \begin{cases}
+                 \mathbb{Y} \to \tuple{\mathbb{Y}, \mathbb{B}, \seq{\N_R}} \cup \error \\
+                 \mathbf{p} \mapsto \begin{cases}
+                     \tup{\mathbf{c}, \mathbf{k}, \mathbf{j}} \quad \when \exists!\,\mathbf{c}, \mathbf{k}, \mathbf{j} : \mathbf{p} = \se(|\mathbf{j}|) \frown \se_1(z) \frown \se(|\mathbf{c}|) \frown \se_z(\mathbf{j}) \frown \se(\mathbf{c}) \frown \se(\mathbf{k})\,,\ |\mathbf{k}| = |\mathbf{c}| \\
+                     \error \quad \otherwise
+                 \end{cases}
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointthree}{
+     \Fskip\colon\{\begin{aligned}
+         \begin{cases}
+             \N \to \N\\
+             i \mapsto \min(24,\ j \in \N : (\mathbf{k} \frown [1, 1, \dots])_{i + 1 + j} = 1)
+         \end{cases}
+     \end{aligned}
+ }
+ \newcommand{\equationapointfour}{\instructions \equiv \mathbf{c} \concat \sq{0, 0, \dots}}
+ \newcommand{\equationapointfive}{\basicblocks \equiv [0] \concat [n + 1 + \Fskip(n) \mid n \orderedin \N_{|\mathbf{c}|} \wedge \mathbf{k}_n = 1 \wedge \mathbf{c}_n \in T]}
+ \newcommand{\equationapointsix}{
+     \Psi_1\colon \begin{aligned}
+         \begin{cases}
+             (\Y, \mathbb{B}, \seq{\N_R}, \N_R, \N_G, \regs, \ram) \to (\{\panic, \halt, \continue \} \cup \{\fault, \host\} \times \N_R, \N_R, \Z_G, \regs, \ram)\\
+             (\mathbf{c}, \mathbf{k}, \mathbf{j}, \imath, \gascounter, \registers, \mem) \mapsto (\varepsilon, \imath', \gascounter', \registers', \mem')
+         \end{cases}
+     \end{aligned}
+ }
+ \newcommand{\equationapointseven}{\varepsilon = \continue,\quad \imath' = \imath + 1 + \Fskip(\imath),\quad \gascounter' = \gascounter - \gas,\quad \registers' = \registers,\quad\mem' = \mem \text{ except as indicated }}
+ \newcommand{\equationapointeight}{\using \mathbf{x} = \{ x :\ x \in \mathbf{r} \wedge x \bmod 2^{32} \not\in \mathbb{V}_\mem\ \vee\ x \in \mathbf{w} \wedge x \bmod 2^{32} \not\in \mathbb{V}^*_\mem \}}
+ \newcommand{\equationapointnine}{
+     \begin{align}
+         \varepsilon^\mu = \begin{cases}
+             \continue \quad \when \mathbf{x} = \{\} \\
+             \panic \quad \when \min(\mathbf{x}) \bmod 2^{32} &lt; 2^{16} \\
+             \fault \times \mathsf{Z}_P\floor{\min(\mathbf{x}) \bmod 2^{32} \div \mathsf{Z}_P} \quad \otherwise
+         \end{cases}
+     \end{align}
+ }
+ \newcommand{\equationapointten}{
+     \begin{align}
+         \label{eq:signedfunc}
+         \signfunc{n \in \N}\colon\begin{aligned}
+             \begin{cases}
+                 \N_{2^{8n}} \to \Z_{-2^{8n-1}\dots2^{8n-1}}\\
+                 a \mapsto \begin{cases}
+                     a \quad \when a &lt; 2^{8n-1} \\
+                     a -\ 2^{8n} \quad \otherwise
+                 \end{cases}
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointeleven}{
+     \begin{align}
+         \unsignfunc{n \in \N} \colon\begin{aligned}
+             \begin{cases}
+                 \Z_{-2^{8n-1}\dots2^{8n-1}} \to \N_{2^{8n}}\\
+                 a \mapsto (2^{8n} + a) \bmod 2^{8n}
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointtwelve}{
+     \begin{align}
+         \bitsfunc{n\in\N}\colon\begin{aligned}
+             \begin{cases}
+                 \N_{2^{8n}} \to \mathbb{B}_{8n}\\
+                 x \mapsto \mathbf{y}: \forall i \in \N_{8n} : \mathbf{y}[i] \Leftrightarrow \ffrac{x}{2^i}\bmod 2
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointthirteen}{
+     \begin{align}
+         \unbitsfunc{n\in\N}\colon\begin{aligned}
+             \begin{cases}
+                 \mathbb{B}_{8n} \to \N_{2^{8n}}\\
+                 \mathbf{x} \mapsto y: \sum_{i \in \N_{8n}} \mathbf{x}_i \cdot 2^i
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointfourteen}{
+     \begin{align}
+         \revbitsfunc{n\in\N}\colon\begin{aligned}
+             \begin{cases}
+                 \N_{2^{8n}} \to \mathbb{B}_{8n}\\
+                 x \mapsto \mathbf{y}: \forall i \in \N_{8n} : \mathbf{y}[8n - 1 - i] \Leftrightarrow \ffrac{x}{2^i}\bmod 2
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointfifteen}{
+     \begin{align}
+         \revunbitsfunc{n\in\N}\colon\begin{aligned}
+             \begin{cases}
+                 \mathbb{B}_{8n} \to \N_{2^{8n}}\\
+                 \mathbf{x} \mapsto y: \sum_{i \in \N_{8n}} \mathbf{x}_{8n - 1 - i} \cdot 2^i
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointsixteen}{
+     \begin{align}
+         \sext_{n \in \{0, 1, 2, 3, 4, 8\}}\colon\begin{aligned}
+             \begin{cases}
+                 \N_{2^{8n}} \to \N_R\\
+                 x \mapsto x + \ffrac{x}{2^{8n-1}}(2^{64}-2^{8n})
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointseventeen}{
+     \token{branch}(b, C) \implies (\varepsilon, \imath') = \begin{cases}
+         (\continue, \imath) \quad \when \lnot C \\
+         (\panic, \imath) \quad \otherwhen b \not\in \basicblocks \\
+         (\continue, b) \quad \otherwise
+     \end{cases}
+ }
+ \newcommand{\equationapointeighteen}{
+     \token{djump}(a) \implies (\varepsilon, \imath') = \begin{cases}
+         (\halt, \imath) \quad \when a = 2^{32} - 2^{16}\\
+         (\panic, \imath) \quad \otherwhen a = 0 \vee a &gt; |\mathbf{j}|\cdot\mathsf{Z}_A \vee a \bmod \mathsf{Z}_A \ne 0 \vee \mathbf{j}_{(\nicefrac{a}{\mathsf{Z}_A}) - 1} \not\in \basicblocks \\
+         (\continue, \mathbf{j}_{(\nicefrac{a}{\mathsf{Z}_A}) - 1}) \quad \otherwise
+     \end{cases}
+ }
+ \newcommand{\equationapointnineteen}{\ell \equiv \Fskip(\imath)}
+ \newcommand{\equationapointtwenty}{
+     \begin{aligned}
+         \using l_X = \min(4, \ell) \,,\quad
+         \immed_X \equiv \sext_{l_X}(\de_{l_X}(\instructions_{\imath+1\dots+l_X}))
+     \end{aligned}
+ }
+ \newcommand{\equationapointtwentyone}{
+     \using r_A = \min(12, \instructions_{\imath+1} \bmod 16) \,,\quad
+     \reg'_A \equiv \reg'_{r_A} \,,\quad
+     \immed_X \equiv \de_8(\instructions_{\imath+2\dots+8})
+ }
+ \newcommand{\equationapointtwentytwo}{
+     \begin{aligned}
+         \using l_X = \min(4, \instructions_{\imath+1} \bmod 8) \,,\quad
+         \immed_X \equiv \sext_{l_X}(\de_{l_X}(\instructions_{\imath+2\dots+l_X})) \\
+         \using l_Y = \min(4, \max(0, \ell - l_X - 1)) \,,\quad
+         \immed_Y \equiv \sext_{l_Y}(\de_{l_Y}(\instructions_{\imath+2+l_X\dots+l_Y}))
+     \end{aligned}
+ }
+ \newcommand{\equationapointtwentythree}{
+     \begin{aligned}
+         \using l_X = \min(4, \ell) \,,\quad
+         \immed_X \equiv \imath + \signfunc{l_X}(\de_{l_X}(\instructions_{\imath+1\dots+l_X}))
+     \end{aligned}
+ }
+ \newcommand{\equationapointtwentyfour}{
+     \begin{aligned}
+         \using r_A = \min(12, \instructions_{\imath+1} \bmod 16) \,,\quad&amp;
+         \reg_A \equiv \reg_{r_A} \,,\quad
+         \reg'_A \equiv \reg'_{r_A} \\
+         \using l_X = \min(4, \max(0, \ell - 1)) \,,\quad&amp;
+         \immed_X \equiv \sext_{l_X}(\de_{l_X}(\instructions_{\imath+2\dots+l_X}))
+     \end{aligned}
+ }
+ \newcommand{\equationapointtwentyfive}{
+     \begin{aligned}
+         \using r_A &amp;= \min(12, \instructions_{\imath+1} \bmod 16) \,,\quad&amp;
+         \reg_A &amp;\equiv \reg_{r_A} \,,\quad
+         \reg'_A \equiv \reg'_{r_A} \\
+         \using l_X &amp;= \min(4, \ffrac{\instructions_{\imath+1}}{16} \bmod 8) \,,\quad&amp;
+         \immed_X &amp;= \sext_{l_X}(\de_{l_X}(\instructions_{\imath+2\dots+l_X})) \\
+         \using l_Y &amp;= \min(4, \max(0, \ell - l_X - 1)) \,,\quad&amp;
+         \immed_Y &amp;= \sext_{l_Y}(\de_{l_Y}(\instructions_{\imath+2+l_X\dots+l_Y}))
+     \end{aligned}
+ }
+ \newcommand{\equationapointtwentysix}{
+     \begin{aligned}
+         \using r_A &amp;= \min(12, \instructions_{\imath+1} \bmod 16) \,,\quad&amp;
+         \reg_A &amp;\equiv \reg_{r_A} \,,\quad
+         \reg'_A \equiv \reg'_{r_A} \\
+         \using l_X &amp;= \min(4, \ffrac{\instructions_{\imath+1}}{16} \bmod 8) \,,\quad&amp;
+         \immed_X &amp;= \sext_{l_X}(\de_{l_X}(\instructions_{\imath+2\dots+l_X})) \\
+         \using l_Y &amp;= \min(4, \max(0, \ell - l_X - 1)) \,,\quad&amp;
+         \immed_Y &amp;= \imath + \signfunc{l_Y}(\de_{l_Y}(\instructions_{\imath+2+l_X\dots+l_Y}))
+     \end{aligned}
+ }
+ \newcommand{\equationapointtwentyseven}{
+     \begin{aligned}
+         \using r_D &amp;= \min(12, (\instructions_{\imath+1}) \bmod 16) \,,\quad&amp;
+         \reg_D &amp;\equiv \reg_{r_D} \,,\quad
+         \reg'_D \equiv \reg'_{r_D} \\
+         \using r_A &amp;= \min(12, \ffrac{\instructions_{\imath+1}}{16}) \,,\quad&amp;
+         \reg_A &amp;\equiv \reg_{r_A} \,,\quad
+         \reg'_A \equiv \reg'_{r_A} \\
+     \end{aligned}
+ }
+ \newcommand{\equationapointtwentyeight}{
+     \begin{aligned}
+         \using r_A &amp;= \min(12, (\instructions_{\imath+1}) \bmod 16) \,,\quad&amp;
+         \reg_A &amp;\equiv \reg_{r_A} \,,\quad
+         \reg'_A \equiv \reg'_{r_A} \\
+         \using r_B &amp;= \min(12, \ffrac{\instructions_{\imath+1}}{16}) \,,\quad&amp;
+         \reg_B &amp;\equiv \reg_{r_B} \,,\quad
+         \reg'_B \equiv \reg'_{r_B} \\
+         \using l_X &amp;= \min(4, \max(0, \ell - 1)) \,,\quad&amp;
+         \immed_X &amp;\equiv \sext_{l_X}(\de_{l_X}(\instructions_{\imath+2\dots+l_X}))
+     \end{aligned}
+ }
+ \newcommand{\equationapointtwentynine}{
+     \begin{aligned}
+         \using r_A &amp;= \min(12, (\instructions_{\imath+1}) \bmod 16) \,,\quad&amp;
+         \reg_A &amp;\equiv \reg_{r_A} \,,\quad
+         \reg'_A \equiv \reg'_{r_A} \\
+         \using r_B &amp;= \min(12, \ffrac{\instructions_{\imath+1}}{16}) \,,\quad&amp;
+         \reg_B &amp;\equiv \reg_{r_B} \,,\quad
+         \reg'_B \equiv \reg'_{r_B} \\
+         \using l_X &amp;= \min(4, \max(0, \ell - 1)) \,,\quad&amp;
+         \immed_X &amp;\equiv \imath + \signfunc{l_X}(\de_{l_X}(\instructions_{\imath+2\dots+l_X}))
+     \end{aligned}
+ }
+ \newcommand{\equationapointthirty}{
+     \begin{aligned}
+         \using r_A &amp;= \min(12, (\instructions_{\imath+1}) \bmod 16) \,,\quad&amp;
+         \reg_A &amp;\equiv \reg_{r_A} \,,\quad
+         \reg'_A \equiv \reg'_{r_A} \\
+         \using r_B &amp;= \min(12, \ffrac{\instructions_{\imath+1}}{16}) \,,\quad&amp;
+         \reg_B &amp;\equiv \reg_{r_B} \,,\quad
+         \reg'_B \equiv \reg'_{r_B} \\
+         \using l_X &amp;= \min(4, \instructions_{\imath+2} \bmod 8) \,,\quad&amp;
+         \immed_X &amp;= \sext_{l_X}(\de_{l_X}(\instructions_{\imath+3\dots+l_X})) \\
+         \using l_Y &amp;= \min(4, \max(0, \ell - l_X - 2)) \,,\quad&amp;
+         \immed_Y &amp;= \sext_{l_Y}(\de_{l_Y}(\instructions_{\imath+3+l_X\dots+l_Y}))
+     \end{aligned}
+ }
+ \newcommand{\equationapointthirtyone}{
+     \begin{aligned}
+         \using r_A &amp;= \min(12, (\instructions_{\imath+1}) \bmod 16) \,,\quad&amp;
+         \reg_A &amp;\equiv \reg_{r_A} \,,\quad
+         \reg'_A \equiv \reg'_{r_A} \\
+         \using r_B &amp;= \min(12, \ffrac{\instructions_{\imath+1}}{16}) \,,\quad&amp;
+         \reg_B &amp;\equiv \reg_{r_B} \,,\quad
+         \reg'_B \equiv \reg'_{r_B} \\
+         \using r_D &amp;= \min(12, \instructions_{\imath+2}) \,,\quad&amp;
+         \reg_D &amp;\equiv \reg_{r_D} \,,\quad
+         \reg'_D \equiv \reg'_{r_D} \\
+     \end{aligned}
+ }
+ \newcommand{\equationapointthirtytwo}{
+     \smod\colon\begin{aligned}
+         \begin{cases}
+             (\mathbb{Z}, \mathbb{Z}) &amp;\to \mathbb{Z}\\
+             (a, b) &amp;\mapsto \begin{cases}
+                 a &amp;\when b = 0\\
+                 \text{sgn}(a)(|a| \bmod |b|) &amp;\otherwise \\
+             \end{cases}
+         \end{cases}
+     \end{aligned}
+ }
+ \newcommand{\equationapointthirtythree}{
+     \begin{align}
+         &amp;\Psi_H\colon \begin{aligned}
+             \begin{cases}
+                 \tuple{\begin{aligned} &amp;\Y, \N_R, \N_G, \regs,\\&amp;\ram, \Omega\langle X \rangle, X \end{aligned}}
+                 &amp;\to
+                 \tuple{\{\panic, \oog, \halt\} \cup \{\fault\} \times \N_R, \N_R, \Z_G, \regs, \ram, X}\\
+                 (\mathbf{c}, \imath, \gascounter, \registers, \mem, f, \mathbf{x}) &amp;\mapsto \begin{cases}
+                     \multicolumn{2}{l}{\text{let }(\varepsilon', \imath', \gascounter', \registers', \mem') = \Psi(\mathbf{c}, \imath, \gascounter, \registers, \mem):} \\[8pt]
+                     (\varepsilon', \imath', \gascounter', \registers', \mem', \mathbf{x}) &amp;\when \varepsilon' \in \{ \halt, \panic, \oog \} \cup \{\fault\} \times \N_R \\[4pt]
+                     (\fault \times a, \imath', \gascounter', \registers', \mem', \mathbf{x}) &amp;\when \bigwedge\begin{aligned}
+                         \begin{cases}
+                             &amp;\varepsilon' = \host \times h\\[2pt]
+                             &amp;\fault \times a = f(h, \gascounter', \registers', \mem', \mathbf{x})\\[2pt]
+                         \end{cases}
+                     \end{aligned}
+                     \begin{aligned}
+                         &amp;\Psi_H(\mathbf{c}, \imath'', \gascounter'', \registers'', \mem'', f, \mathbf{x}'')\\[2pt]
+                         &amp;\quad\where\imath'' = \imath' + 1 + \Fskip(\imath')\\
+                     \end{aligned}
+                     &amp;\when \bigwedge \begin{aligned}
+                         \begin{cases}
+                             &amp;\varepsilon' = \host \times h\\[2pt]
+                             &amp;(\continue, \gascounter'', \registers'', \mem'', \mathbf{x}'') = f(h, \gascounter', \registers', \mem', \mathbf{x})
+                         \end{cases}
+                     \end{aligned}
+                     (\varepsilon'', \imath', \gascounter'', \registers'', \mem'', \mathbf{x}'') &amp;\when  \bigwedge \begin{aligned}
+                         \begin{cases}
+                             &amp;\varepsilon' = \host \times h\\[2pt]
+                             &amp;(\varepsilon'', \gascounter'', \registers'', \mem'', \mathbf{x}'') = f(h, \gascounter', \registers', \mem', \mathbf{x})\\[2pt]
+                             &amp;\varepsilon'' \in \{\panic, \halt, \oog\}
+                         \end{cases}
+                     \end{aligned}
+                 \end{cases} \\
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointthirtyfour}{
+     \begin{align}
+         &amp;\Omega\langle X \rangle \equiv (\N, \N_G, \regs, \ram, X) \to \tuple{\{\continue, \halt, \panic, \oog\}, \N_G, \regs, \ram, X} \cup \{\fault\} \times \N_R
+     \end{align}
+ }
+ \newcommand{\equationapointthirtyfive}{
+     Y\colon\begin{aligned}
+         \begin{cases}
+             \Y &amp;\to (\Y, \regs, \ram)? \\
+             \mathbf{p} &amp;\mapsto \begin{cases}
+                 (\mathbf{c}, \registers, \mem) &amp;\when \exists! (\mathbf{c}, \mathbf{o}, \mathbf{w}, z, s) \text{ which satisfy equation A.35}\\
+                 \none &amp;\otherwise
+             \end{cases}
+         \end{cases}
+     \end{aligned}
+ }
+ \newcommand{\equationapointthirtysix}{\using \mathcal{E}_3(|\mathbf{o}|) \concat \mathcal{E}_3(|\mathbf{w}|) \concat \mathcal{E}_2(z) \concat \mathcal{E}_3(s) \concat \mathbf{o} \concat \mathbf{w} \concat \mathcal{E}_4(|\mathbf{c}|) \concat \mathbf{c} = \mathbf{p}}
+ \newcommand{\equationapointthirtyseven}{\mathsf{Z}_Z = 2^{16}\ ,\quad\mathsf{Z}_I = 2^{24}}
+ \newcommand{\equationapointthirtyeight}{\using \rnp{x \in \N} \equiv \mathsf{Z}_P\lceil \frac{x}{\mathsf{Z}_P} \rceil\quad,\qquad\rnq{x \in \N} \equiv \mathsf{Z}_Z\lceil \frac{x}{\mathsf{Z}_Z} \rceil}
+ \newcommand{\equationapointthirtynine}{5\mathsf{Z}_Z + \rnq{|\mathbf{o}|} + \rnq{|\mathbf{w}| + z\mathsf{Z}_P} + \rnq{s} + \mathsf{Z}_I \leq 2^{32}}
+ \newcommand{\equationapointforty}{
+     \forall i \in \N_{2^{32}} : ((\mem_\mathbf{V})_i, (\mem_\mathbf{A})_{\floor{\nicefrac{i}{\mathsf{Z}_P}}}) = \left\{\begin{alignedat}{5}
+         &amp;\tup{\is{\mathbf{V}}{\mathbf{o}_{i - \mathsf{Z}_Z}}\ts\is{\mathbf{A}}{R}} &amp;&amp;\ \when
+         \mathsf{Z}_Z
+         &amp;\ \leq i &lt; \ &amp;&amp;
+         \mathsf{Z}_Z + |\mathbf{o}|\\
+         &amp;(0, R) &amp;&amp;\ \when
+         \mathsf{Z}_Z + |\mathbf{o}|
+         &amp;\ \leq i &lt; \ &amp;&amp;
+         \mathsf{Z}_Z + \rnp{|\mathbf{o}|} \\
+         &amp;(\mathbf{w}_{i - (2\mathsf{Z}_Z + \rnq{|\mathbf{o}|})}, W) &amp;&amp;\ \when
+         2\mathsf{Z}_Z + \rnq{|\mathbf{o}|}
+         &amp;\ \leq i &lt; \ &amp;&amp;
+         2\mathsf{Z}_Z + \rnq{|\mathbf{o}|} + |\mathbf{w}|\\
+         &amp;(0, W) &amp;&amp;\ \when
+         2\mathsf{Z}_Z + \rnq{|\mathbf{o}|} + |\mathbf{w}|
+         &amp;\ \leq i &lt; \ &amp;&amp;
+         2\mathsf{Z}_Z + \rnq{|\mathbf{o}|} + \rnp{|\mathbf{w}|} + z\mathsf{Z}_P\\
+         &amp;(0, W) &amp;&amp;\ \when
+         2^{32} - 2\mathsf{Z}_Z - \mathsf{Z}_I - \rnp{s}
+         &amp;\ \leq i &lt; \ &amp;&amp;
+         2^{32} - 2\mathsf{Z}_Z - \mathsf{Z}_I\\
+         &amp;(\mathbf{a}_{i - (2^{32} - \mathsf{Z}_Z - \mathsf{Z}_I)}, R) &amp;&amp;\ \when
+         2^{32} - \mathsf{Z}_Z - \mathsf{Z}_I
+         &amp;\ \leq i &lt; \ &amp;&amp;
+         2^{32} - \mathsf{Z}_Z - \mathsf{Z}_I + |\mathbf{a}|\\
+         &amp;(0, R) &amp;&amp;\ \when
+         2^{32} - \mathsf{Z}_Z - \mathsf{Z}_I + |\mathbf{a}|
+         &amp;\ \leq i &lt; \ &amp;&amp;
+         2^{32} - \mathsf{Z}_Z - \mathsf{Z}_I + \rnp{|\mathbf{a}|}\\
+         &amp;(0, \none) &amp;&amp;\otherwise&amp;&amp;&amp;
+     \end{alignedat}
+ }
+ \newcommand{\equationapointfortyone}{
+     \forall i \in \N_{13} : \registers_i = \begin{cases}
+         2^{32} - 2^{16} &amp;\when i = 0\\
+         2^{32} - 2\mathsf{Z}_Z - \mathsf{Z}_I &amp;\when i = 1\\
+         2^{32} - \mathsf{Z}_Z - \mathsf{Z}_I &amp;\when i = 7\\
+         |\mathbf{a}|&amp;\when i = 8\\
+         0 &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\equationapointfortytwo}{
+     \begin{align}
+         \Psi_M&amp;\colon \begin{aligned}
+             \begin{cases}
+                 (\Y, \N_R, \N_G, \Y_{:\mathsf{Z}_I}, \Omega\langle X \rangle, X) &amp;\to (\N_G, \Y \cup \{\panic, \oog\}, X)\\
+                 (\mathbf{p}, \imath, \gascounter, \mathbf{a}, f, \mathbf{x}) &amp;\mapsto \begin{cases}
+                     (\gascounter, \panic, \mathbf{x}) &amp;\when Y(\mathbf{p}) = \none\\
+                     R(\Psi_H(\mathbf{c}, \imath, \gascounter, \registers, \mem, f, \mathbf{x})) &amp;\when Y(\mathbf{p}) = (\mathbf{c}, \registers, \mem)
+                 \end{cases}
+             \end{cases}
+         \end{aligned}
+     \end{align}
+ }
+ \newcommand{\equationapointfortythree}{
+     \begin{align}
+         \where R&amp;\colon (\varepsilon, \imath', \gascounter', \registers', \mem', \mathbf{x}) \mapsto \begin{cases}
+             (\gascounter', \oog, \mathbf{x}) &amp;\when \varepsilon = \oog \\
+             (\gascounter', \memory'_{\registers'_{7}\dots+\registers'_{8}}, \mathbf{x}) &amp;\when \varepsilon = \halt \wedge \mathbb{Z}_{\registers'_{7}\dots+\registers'_{8}} \subset \mathbb{V}_{\mem'} \\
+             (\gascounter', [], \mathbf{x}) &amp;\when \varepsilon = \halt \wedge \mathbb{Z}_{\registers'_{7}\dots+\registers'_{8}} \not\subset \mathbb{V}_{\mem'} \\
+             (\gascounter', \panic, \mathbf{x}) &amp;\otherwise \\
+         \end{cases}
+     \end{align}
+ }
+ \newcommand{\instructionzero}{\varepsilon = \panic}
+ \newcommand{\instructionone}{}
+ \newcommand{\instructionten}{\varepsilon = \host \times \immed_X}
+ \newcommand{\instructiontwenty}{\reg'_A = \immed_X}
+ \newcommand{\instructionthirty}{\memwr_{\immed_X} = \immed_Y \bmod 2^8}
+ \newcommand{\instructionthirtyone}{\memwr_{\immed_X\dots+2} = \se_2(\immed_Y \bmod 2^{16})}
+ \newcommand{\instructionthirtytwo}{\memwr_{\immed_X\dots+4} = \se_4(\immed_Y \bmod 2^{32})}
+ \newcommand{\instructionthirtythree}{\memwr_{\immed_X\dots+8} = \se_8(\immed_Y)}
+ \newcommand{\instructionforty}{\token{branch}(\immed_X, \top)}
+ \newcommand{\instructionfifty}{\token{djump}((\reg_A + \immed_X) \bmod 2^{32})}
+ \newcommand{\instructionfiftyone}{\reg'_A = \immed_X}
+ \newcommand{\instructionfiftytwo}{\reg'_A = \memr_{\immed_X}}
+ \newcommand{\instructionfiftythree}{\reg'_A = \sext_1(\memr_{\immed_X})}
+ \newcommand{\instructionfiftyfour}{\reg'_A = \de_2(\memr_{\immed_X\dots+2})}
+ \newcommand{\instructionfiftyfive}{\reg'_A = \sext_2(\de_2(\memr_{\immed_X\dots+2}))}
+ \newcommand{\instructionfiftysix}{\reg'_A = \de_4(\memr_{\immed_X\dots+4})}
+ \newcommand{\instructionfiftyseven}{\reg'_A = \sext_4(\de_4(\memr_{\immed_X\dots+4}))}
+ \newcommand{\instructionfiftyeight}{\reg'_A = \de_8(\memr_{\immed_X\dots+8})}
+ \newcommand{\instructionfiftynine}{\memwr_{\immed_X} = \reg_A \bmod 2^8}
+ \newcommand{\instructionsixty}{\memwr_{\immed_X\dots+2} = \se_2(\reg_A \bmod 2^{16})}
+ \newcommand{\instructionsixtyone}{\memwr_{\immed_X\dots+4} = \se_4(\reg_A \bmod 2^{32})}
+ \newcommand{\instructionsixtytwo}{\memwr_{\immed_X\dots+8} = \se_8(\reg_A)}
+ \newcommand{\instructionseventy}{\memwr_{\reg_A + \immed_X} = \immed_Y \bmod 2^8}
+ \newcommand{\instructionseventyone}{\memwr_{\reg_A + \immed_X \dots+ 2} = \se_2(\immed_Y \bmod 2^{16})}
+ \newcommand{\instructionseventytwo}{\memwr_{\reg_A + \immed_X \dots+ 4} = \se_4(\immed_Y \bmod 2^{32})}
+ \newcommand{\instructionseventythree}{\memwr_{\reg_A + \immed_X \dots+ 8} = \se_8(\immed_Y)}
+ \newcommand{\instructioneighty}{\token{branch}(\immed_Y, \top)\ ,\qquad \reg_A' = \immed_X}
+ \newcommand{\instructioneightyone}{\token{branch}(\immed_Y, \reg_A = \immed_X)}
+ \newcommand{\instructioneightytwo}{\token{branch}(\immed_Y, \reg_A \ne \immed_X)}
+ \newcommand{\instructioneightythree}{\token{branch}(\immed_Y, \reg_A &lt; \immed_X)}
+ \newcommand{\instructioneightyfour}{\token{branch}(\immed_Y, \reg_A \le \immed_X)}
+ \newcommand{\instructioneightyfive}{\token{branch}(\immed_Y, \reg_A \ge \immed_X)}
+ \newcommand{\instructioneightysix}{\token{branch}(\immed_Y, \reg_A &gt; \immed_X)}
+ \newcommand{\instructioneightyseven}{\token{branch}(\immed_Y, \signed{\reg_A} &lt; \signed{\immed_X})}
+ \newcommand{\instructioneightyeight}{\token{branch}(\immed_Y, \signed{\reg_A} \le \signed{\immed_X})}
+ \newcommand{\instructioneightynine}{\token{branch}(\immed_Y, \signed{\reg_A} \ge \signed{\immed_X})}
+ \newcommand{\instructionninety}{\token{branch}(\immed_Y, \signed{\reg_A} &gt; \signed{\immed_X})}
+ \newcommand{\instructiononehundred}{\reg'_D = \reg_A}
+ \newcommand{\instructiononehundredone}{
+     \begin{aligned}
+         \reg'_D \equiv &amp;\min(x \in \N_R): \\
+         &amp;x \ge h\\
+         &amp;\N_{x\dots+\reg_A} \not\subseteq \mathbb{V}_{\memory}\\
+         &amp;\N_{x\dots+\reg_A} \subseteq \mathbb{V}^*_{\memory'}
+     \end{aligned}
+ }
+ \newcommand{\instructiononehundredtwo}{\displaystyle\reg'_D = \sum_{i = 0}^{63}\bitsfunc{8}(\reg_A)_i}
+ \newcommand{\instructiononehundredthree}{\displaystyle\reg'_D = \sum_{i = 0}^{31}\bitsfunc{4}(\reg_A \bmod 2^{32})_i}
+ \newcommand{\instructiononehundredfour}{\displaystyle\reg'_D = \max(n \in \N_{65})\ \where \sum_{i = 0}^{i &lt; n} \bitsfunc{8}(\reg_A)_i = 0}
+ \newcommand{\instructiononehundredfive}{\displaystyle\reg'_D = \max(n \in \N_{33})\ \where \sum_{i = 0}^{i &lt; n} \bitsfunc{4}(\reg_A \bmod 2^{32})_i = 0}
+ \newcommand{\instructiononehundredsix}{\displaystyle\reg'_D = \max(n \in \N_{65})\ \where \sum_{i = 0}^{i &lt; n} \bitsfunc{8}(\reg_A)_{63 - i} = 0}
+ \newcommand{\instructiononehundredseven}{\displaystyle\reg'_D = \max(n \in \N_{33})\ \where \sum_{i = 0}^{i &lt; n} \bitsfunc{4}(\reg_A \bmod 2^{32})_{31 - i} = 0}
+ \newcommand{\instructiononehundredeight}{\reg'_D = \unsigned{\signedn{1}{\reg_A \bmod 2^8}}}
+ \newcommand{\instructiononehundrednine}{\reg'_D = \unsigned{\signedn{2}{\reg_A \bmod 2^{16}}}}
+ \newcommand{\instructiononehundredten}{\reg'_D = \reg_A \bmod 2^{16}}
+ \newcommand{\instructiononehundredeleven}{\forall i \in \N_8 : \se_8(\reg'_D)_i = \se_8(\reg_A)_{7-i}}
+ \newcommand{\instructiononehundredtwenty}{\memwr_{\reg_B + \immed_X} = \reg_A \bmod 2^8}
+ \newcommand{\instructiononehundredtwentyone}{\memwr_{\reg_B + \immed_X \dots+ 2} = \se_2(\reg_A \bmod 2^{16})}
+ \newcommand{\instructiononehundredtwentytwo}{\memwr_{\reg_B + \immed_X \dots+ 4} = \se_4(\reg_A \bmod 2^{32})}
+ \newcommand{\instructiononehundredtwentythree}{\memwr_{\reg_B + \immed_X \dots+ 8} = \se_8(\reg_A)}
+ \newcommand{\instructiononehundredtwentyfour}{\reg'_A = \memr_{\reg_B + \immed_X}}
+ \newcommand{\instructiononehundredtwentyfive}{\reg'_A = \unsigned{\signedn{1}{\memr_{\reg_B + \immed_X}}}}
+ \newcommand{\instructiononehundredtwentysix}{\reg'_A = \de_2(\memr_{\reg_B + \immed_X\dots+2})}
+ \newcommand{\instructiononehundredtwentyseven}{\reg'_A = \unsigned{\signedn{2}{\de_2(\memr_{\reg_B + \immed_X\dots+2})}}}
+ \newcommand{\instructiononehundredtwentyeight}{\reg'_A = \de_4(\memr_{\reg_B + \immed_X\dots+4})}
+ \newcommand{\instructiononehundredtwentynine}{\reg'_A = \unsigned{\signedn{4}{\de_4(\memr_{\reg_B + \immed_X\dots+4})}}}
+ \newcommand{\instructiononehundredthirty}{\reg'_A = \de_8(\memr_{\reg_B + \immed_X\dots+8})}
+ \newcommand{\instructiononehundredthirtyone}{\reg'_A = \sext_4((\reg_B + \immed_X) \bmod 2^{32})}
+ \newcommand{\instructiononehundredthirtytwo}{\forall i \in \N_{64} : \bits{\reg'_A}_i = \bits{\reg_B}_i \wedge \bits{\immed_X}_i}
+ \newcommand{\instructiononehundredthirtythree}{\forall i \in \N_{64} : \bits{\reg'_A}_i = \bits{\reg_B}_i \oplus \bits{\immed_X}_i}
+ \newcommand{\instructiononehundredthirtyfour}{\forall i \in \N_{64} : \bits{\reg'_A}_i = \bits{\reg_B}_i \vee \bits{\immed_X}_i}
+ \newcommand{\instructiononehundredthirtyfive}{\reg'_A = \sext_4((\reg_B \cdot \immed_X) \bmod 2^{32})}
+ \newcommand{\instructiononehundredthirtysix}{\reg'_A = \reg_B &lt; \immed_X}
+ \newcommand{\instructiononehundredthirtyseven}{\reg'_A = \signed{\reg_B} &lt; \signed{\immed_X}}
+ \newcommand{\instructiononehundredthirtyeight}{\reg'_A = \sext_4((\reg_B \cdot 2^{\immed_X \bmod 32}) \bmod 2^{32})}
+ \newcommand{\instructiononehundredthirtynine}{\reg'_A = \sext_4(\floor{\reg_B \bmod 2^{32} \div 2^{\immed_X \bmod 32}})}
+ \newcommand{\instructiononehundredforty}{\reg'_A = \unsigned{\floor{\signedn{4}{\reg_B \bmod 2^{32} } \div 2^{\immed_X \bmod 32}}}}
+ \newcommand{\instructiononehundredfortyone}{\reg'_A = \sext_4((\immed_X + 2^{32} - \reg_B) \bmod 2^{32})}
+ \newcommand{\instructiononehundredfortytwo}{\reg'_A = \reg_B &gt; \immed_X}
+ \newcommand{\instructiononehundredfortythree}{\reg'_A = \signed{\reg_B} &gt; \signed{\immed_X}}
+ \newcommand{\instructiononehundredfortyfour}{\reg'_A = \sext_4((\immed_X \cdot 2^{\reg_B \bmod 32}) \bmod 2^{32})}
+ \newcommand{\instructiononehundredfortyfive}{\reg'_A = \sext_4(\floor{\immed_X \bmod 2^{32} \div 2^{\reg_B \bmod 32}})}
+ \newcommand{\instructiononehundredfortysix}{\reg'_A = \unsigned{\floor{\signedn{4}{\immed_X \bmod 2^{32}} \div 2^{\reg_B \bmod 32}}}}
+ \newcommand{\instructiononehundredfortyseven}{
+     \reg'_A = \begin{cases}
+         \immed_X &amp;\when \reg_B = 0\\
+         \reg_A &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiononehundredfortyeight}{
+     \reg'_A = \begin{cases}
+         \immed_X &amp;\when \reg_B \ne 0\\
+         \reg_A &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiononehundredfortynine}{\reg'_A = (\reg_B + \immed_X) \bmod 2^{64}}
+ \newcommand{\instructiononehundredfifty}{\reg'_A = (\reg_B \cdot \immed_X) \bmod 2^{64}}
+ \newcommand{\instructiononehundredfiftyone}{\reg'_A = \sext_8((\reg_B \cdot 2^{\immed_X \bmod 64}) \bmod 2^{64})}
+ \newcommand{\instructiononehundredfiftytwo}{\reg'_A = \sext_8(\floor{\reg_B \div 2^{\immed_X \bmod 64}})}
+ \newcommand{\instructiononehundredfiftythree}{\reg'_A = \unsigned{\floor{\signed{\reg_B} \div 2^{\immed_X \bmod 64}}}}
+ \newcommand{\instructiononehundredfiftyfour}{\reg'_A = (\immed_X + 2^{64} - \reg_B) \bmod 2^{64}}
+ \newcommand{\instructiononehundredfiftyfive}{\reg'_A = (\immed_X \cdot 2^{\reg_B \bmod 64}) \bmod 2^{64}}
+ \newcommand{\instructiononehundredfiftysix}{\reg'_A = \floor{\immed_X \div 2^{\reg_B \bmod 64}}}
+ \newcommand{\instructiononehundredfiftyseven}{\reg'_A = \unsigned{\floor{\signed{\immed_X} \div 2^{\reg_B \bmod 64}}}}
+ \newcommand{\instructiononehundredfiftyeight}{\forall i \in \N_{64} : \bitsfunc{8}(\reg'_A)_i = \bitsfunc{8}(\reg_B)_{(i + \immed_X) \bmod 64}}
+ \newcommand{\instructiononehundredfiftynine}{\forall i \in \N_{64} : \bitsfunc{8}(\reg'_A)_i = \bitsfunc{8}(\immed_X)_{(i + \reg_B) \bmod 64}}
+ \newcommand{\instructiononehundredsixty}{\reg'_A = \sext_4(x) \ \where x \in \N_{2^{32}}, \forall i \in \N_{32} : \bitsfunc{4}(x)_i = \bitsfunc{4}(\reg_B)_{(i + \immed_X) \bmod 32}}
+ \newcommand{\instructiononehundredsixtyone}{\reg'_A = \sext_4(x) \ \where x \in \N_{2^{32}}, \forall i \in \N_{32} : \bitsfunc{4}(x)_i = \bitsfunc{4}(\immed_X)_{(i + \reg_B) \bmod 32}}
+ \newcommand{\instructiononehundredseventy}{\token{branch}(\immed_X, \reg_A = \reg_B)}
+ \newcommand{\instructiononehundredseventyone}{\token{branch}(\immed_X, \reg_A \ne \reg_B)}
+ \newcommand{\instructiononehundredseventytwo}{\token{branch}(\immed_X, \reg_A &lt; \reg_B)}
+ \newcommand{\instructiononehundredseventythree}{\token{branch}(\immed_X, \signed{\reg_A} &lt; \signed{\reg_B})}
+ \newcommand{\instructiononehundredseventyfour}{\token{branch}(\immed_X, \reg_A \ge \reg_B)}
+ \newcommand{\instructiononehundredseventyfive}{\token{branch}(\immed_X, \signed{\reg_A} \ge \signed{\reg_B})}
+ \newcommand{\instructiononehundredeighty}{\token{djump}((\reg_B + \immed_Y) \bmod 2^{32}) \ ,\quad \reg_A' = \immed_X}
+ \newcommand{\instructiononehundredninety}{\reg'_D = \sext_4((\reg_A + \reg_B) \bmod 2^{32})}
+ \newcommand{\instructiononehundredninetyone}{\reg'_D = \sext_4((\reg_A + 2^{32} - (\reg_B \bmod 2^{32})) \bmod 2^{32})}
+ \newcommand{\instructiononehundredninetytwo}{\reg'_D = \sext_4((\reg_A \cdot \reg_B) \bmod 2^{32})}
+ \newcommand{\instructiononehundredninetythree}{
+     \reg'_D = \begin{cases}
+         2^{64} - 1 &amp;\when \reg_B \bmod 2^{32} = 0\\
+         \sext_4(\floor{(\reg_A \bmod 2^{32}) \div (\reg_B \bmod 2^{32})}) &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiononehundredninetyfour}{
+     \reg'_D = \begin{cases}
+         2^{64} - 1 &amp;\when b = 0\\
+         a &amp;\when a = -2^{31} \wedge b = -1\\
+         \unsigned{\floor{a \div b}} &amp;\otherwise \\[2pt]
+         \multicolumn{2}{l}{\quad \where a = \signedn{4}{\reg_A \bmod 2^{32}}\,,\ b = \signedn{4}{\reg_B \bmod 2^{32}}}\\
+     \end{cases}
+ }
+ \newcommand{\instructiononehundredninetyfive}{
+     \reg'_D = \begin{cases}
+         \sext_4(\reg_A \bmod 2^{32}) &amp;\when \reg_B \bmod 2^{32} = 0\\
+         \sext_4((\reg_A \bmod 2^{32}) \bmod (\reg_B \bmod 2^{32})) &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiononehundredninetysix}{
+     \reg'_D = \begin{cases}
+         0 &amp;\when a = -2^{31} \wedge b = -1 \\
+         \unsigned{\smod(a, b)} &amp;\otherwise \\[2pt]
+         \multicolumn{2}{l}{\quad \where a = \signedn{4}{\reg_A \bmod 2^{32}}\,,\ b = \signedn{4}{\reg_B \bmod 2^{32}}}\\
+     \end{cases}
+ }
+ \newcommand{\instructiononehundredninetyseven}{\reg'_D = \sext_4((\reg_A \cdot 2^{\reg_B \bmod 32}) \bmod 2^{32})}
+ \newcommand{\instructiononehundredninetyeight}{\reg'_D = \sext_4(\floor{(\reg_A \bmod 2^{32}) \div 2^{\reg_B \bmod 32}})}
+ \newcommand{\instructiononehundredninetynine}{\reg'_D = \unsigned{\floor{\signedn{4}{\reg_A \bmod 2^{32}} \div 2^{\reg_B \bmod 32}}}}
+ \newcommand{\instructiontwohundred}{\reg'_D = (\reg_A + \reg_B) \bmod 2^{64}}
+ \newcommand{\instructiontwohundredone}{\reg'_D = (\reg_A + 2^{64} - \reg_B) \bmod 2^{64}}
+ \newcommand{\instructiontwohundredtwo}{\reg'_D = (\reg_A \cdot \reg_B) \bmod 2^{64}}
+ \newcommand{\instructiontwohundredthree}{
+     \reg'_D = \begin{cases}
+         2^{64} - 1 &amp;\when \reg_B = 0\\
+         \floor{\reg_A \div \reg_B} &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiontwohundredfour}{
+     \reg'_D = \begin{cases}
+         2^{64} - 1 &amp;\when \reg_B = 0\\
+         \reg_A &amp;\when \signed{\reg_A} = -2^{63} \wedge \signed{\reg_B} = -1\\
+         \unsigned{\floor{\signed{\reg_A} \div \signed{\reg_B}}} &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiontwohundredfive}{
+     \reg'_D = \begin{cases}
+         \reg_A &amp;\when \reg_B = 0\\
+         \reg_A \bmod \reg_B &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiontwohundredsix}{
+     \reg'_D = \begin{cases}
+         0 &amp;\when \signed{\reg_A} = -2^{63} \wedge \signed{\reg_B} = -1\\
+         \unsigned{\smod(\signed{\reg_A}, \signed{\reg_B})} &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiontwohundredseven}{\reg'_D = (\reg_A \cdot 2^{\reg_B \bmod 64}) \bmod 2^{64}}
+ \newcommand{\instructiontwohundredeight}{\reg'_D = \floor{\reg_A \div 2^{\reg_B \bmod 64}}}
+ \newcommand{\instructiontwohundrednine}{\reg'_D = \unsigned{\floor{\signed{\reg_A} \div 2^{\reg_B \bmod 64}}}}
+ \newcommand{\instructiontwohundredten}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \wedge \bits{\reg_B}_i}
+ \newcommand{\instructiontwohundredeleven}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \oplus \bits{\reg_B}_i}
+ \newcommand{\instructiontwohundredtwelve}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \vee \bits{\reg_B}_i}
+ \newcommand{\instructiontwohundredthirteen}{\reg'_D = \unsigned{\floor{(\signed{\reg_A} \cdot \signed{\reg_B}) \div 2^{64}}}}
+ \newcommand{\instructiontwohundredfourteen}{\reg'_D = \floor{(\reg_A \cdot \reg_B) \div 2^{64}}}
+ \newcommand{\instructiontwohundredfifteen}{\reg'_D = \unsigned{\floor{(\signed{\reg_A} \cdot \reg_B) \div 2^{64}}}}
+ \newcommand{\instructiontwohundredsixteen}{\reg'_D = \reg_A &lt; \reg_B}
+ \newcommand{\instructiontwohundredseventeen}{\reg'_D = \signed{\reg_A} &lt; \signed{\reg_B}}
+ \newcommand{\instructiontwohundredeighteen}{
+     \reg'_D = \begin{cases}
+         \reg_A &amp;\when \reg_B = 0\\
+         \reg_D &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiontwohundrednineteen}{
+     \reg'_D = \begin{cases}
+         \reg_A &amp;\when \reg_B \ne 0\\
+         \reg_D &amp;\otherwise
+     \end{cases}
+ }
+ \newcommand{\instructiontwohundredtwenty}{\forall i \in \N_{64} : \bitsfunc{8}(\reg'_D)_{(i + \reg_B) \bmod 64} = \bitsfunc{8}(\reg_A)_i}
+ \newcommand{\instructiontwohundredtwentyone}{\reg'_D = \sext_4(x)\ \where x \in \N_{2^{32}}, \forall i \in \N_{32} : \bitsfunc{4}(x)_{(i + \reg_B) \bmod 32} = \bitsfunc{4}(\reg_A)_i}
+ \newcommand{\instructiontwohundredtwentytwo}{\forall i \in \N_{64} : \bitsfunc{8}(\reg'_D)_i = \bitsfunc{8}(\reg_A)_{(i + \reg_B) \bmod 64}}
+ \newcommand{\instructiontwohundredtwentythree}{\reg'_D = \sext_4(x)\ \where x \in \N_{2^{32}}, \forall i \in \N_{32} : \bitsfunc{4}(x)_i = \bitsfunc{4}(\reg_A)_{(i + \reg_B) \bmod 32}}
+ \newcommand{\instructiontwohundredtwentyfour}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \wedge \lnot \bits{\reg_B}_i}
+ \newcommand{\instructiontwohundredtwentyfive}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \vee \lnot \bits{\reg_B}_i}
+ \newcommand{\instructiontwohundredtwentysix}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \lnot ( \bits{\reg_A}_i \oplus \bits{\reg_B}_i )}
+ \newcommand{\instructiontwohundredtwentyseven}{\reg'_D = \max ( \signed{\reg_A}, \signed{\reg_B} )}
+ \newcommand{\instructiontwohundredtwentyeight}{\reg'_D = \max ( \reg_A, \reg_B )}
+ \newcommand{\instructiontwohundredtwentynine}{\reg'_D = \min ( \signed{\reg_A}, \signed{\reg_B} )}
+ \newcommand{\instructiontwohundredthirty}{\reg'_D = \min ( \reg_A, \reg_B )}
  \)</span></p>
 <h1 id="appendix-a-polka-virtual-machine">Appendix A. Polka Virtual Machine<a class="headerlink" href="#appendix-a-polka-virtual-machine" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4.</p>
+This section has been updated to match Graypaper version 0.6.2.</p>
 <h2 id="a1-basic-definition">A.1. Basic Definition<a class="headerlink" href="#a1-basic-definition" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1961,6 +2524,11 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 <td><span class="arithmatex">\(\equationapointone\)</span></td>
 <td>[TODO]</td>
 </tr>
+<tr>
+<td><a name="A.2">(A.2)</a></td>
+<td><span class="arithmatex">\(\equationapointtwo\)</span></td>
+<td>[TODO]</td>
+</tr>
 </tbody>
 </table>
 <h2 id="a2-instructions-opcodes-and-skip-distance">A.2. Instructions, Opcodes and Skip-distance<a class="headerlink" href="#a2-instructions-opcodes-and-skip-distance" title="Permanent link">&para;</a></h2>
@@ -1974,13 +2542,13 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name="A.2">(A.2)</a></td>
-<td><span class="arithmatex">\(\equationapointtwo\)</span></td>
+<td><a name="A.3">(A.3)</a></td>
+<td><span class="arithmatex">\(\equationapointthree\)</span></td>
 <td>[TODO]</td>
 </tr>
 <tr>
-<td><a name="A.3">(A.3)</a></td>
-<td><span class="arithmatex">\(\equationapointthree\)</span></td>
+<td><a name="A.4">(A.4)</a></td>
+<td><span class="arithmatex">\(\equationapointfour\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
@@ -1996,8 +2564,8 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name="A.4">(A.4)</a></td>
-<td><span class="arithmatex">\(\equationapointfour\)</span></td>
+<td><a name="A.5">(A.5)</a></td>
+<td><span class="arithmatex">\(\equationapointfive\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
@@ -2012,11 +2580,6 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><a name="A.5">(A.5)</a></td>
-<td><span class="arithmatex">\(\equationapointfive\)</span></td>
-<td>[TODO]</td>
-</tr>
 <tr>
 <td><a name="A.6">(A.6)</a></td>
 <td><span class="arithmatex">\(\equationapointsix\)</span></td>
@@ -2067,100 +2630,16 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 <td><span class="arithmatex">\(\equationapointfifteen\)</span></td>
 <td>[TODO]</td>
 </tr>
-</tbody>
-</table>
-<h2 id="a5-instruction-tables">A.5. Instruction Tables<a class="headerlink" href="#a5-instruction-tables" title="Permanent link">&para;</a></h2>
-<h3 id="a51-instructions-without-arguments">A.5.1. Instructions without Arguments<a class="headerlink" href="#a51-instructions-without-arguments" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
-</tr>
-</thead>
-<tbody>
 <tr>
 <td><a name="A.16">(A.16)</a></td>
 <td><span class="arithmatex">\(\equationapointsixteen\)</span></td>
 <td>[TODO]</td>
 </tr>
-</tbody>
-</table>
-<table>
-<thead>
-<tr>
-<th><span class="arithmatex">\(\instructions_\imath\)</span></th>
-<th>Name</th>
-<th><span class="arithmatex">\(\gas\)</span></th>
-<th>Mutations</th>
-<th>Implementation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>0</td>
-<td><span class="arithmatex">\(\token{trap}\)</span></td>
-<td>0</td>
-<td><span class="arithmatex">\(\varepsilon = \panic\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td>1</td>
-<td><span class="arithmatex">\(\token{fallthrough}\)</span></td>
-<td>0</td>
-<td><span class="arithmatex">\(\\\)</span></td>
-<td>[TODO]</td>
-</tr>
-</tbody>
-</table>
-<h3 id="a52-instructions-with-arguments-of-one-immediate">A.5.2. Instructions with Arguments of One Immediate<a class="headerlink" href="#a52-instructions-with-arguments-of-one-immediate" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
-</tr>
-</thead>
-<tbody>
 <tr>
 <td><a name="A.17">(A.17)</a></td>
 <td><span class="arithmatex">\(\equationapointseventeen\)</span></td>
 <td>[TODO]</td>
 </tr>
-</tbody>
-</table>
-<table>
-<thead>
-<tr>
-<th><span class="arithmatex">\(\instructions_\imath\)</span></th>
-<th>Name</th>
-<th><span class="arithmatex">\(\gas\)</span></th>
-<th>Mutations</th>
-<th>Implementation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>10</td>
-<td><span class="arithmatex">\(\token{ecalli}\)</span></td>
-<td>0</td>
-<td><span class="arithmatex">\(\varepsilon = \host \times \immed_X\)</span></td>
-<td>[TODO]</td>
-</tr>
-</tbody>
-</table>
-<h3 id="a53-instructions-with-arguments-of-one-register-and-one-extended-width-immediate">A.5.3. Instructions with Arguments of One Register and One Extended Width Immediate<a class="headerlink" href="#a53-instructions-with-arguments-of-one-register-and-one-extended-width-immediate" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
-</tr>
-</thead>
-<tbody>
 <tr>
 <td><a name="A.18">(A.18)</a></td>
 <td><span class="arithmatex">\(\equationapointeighteen\)</span></td>
@@ -2168,48 +2647,8 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </tr>
 </tbody>
 </table>
-<table>
-<thead>
-<tr>
-<th><span class="arithmatex">\(\instructions_\imath\)</span></th>
-<th>Name</th>
-<th><span class="arithmatex">\(\gas\)</span></th>
-<th>Mutations</th>
-<th>Implementation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>30</td>
-<td><span class="arithmatex">\(\token{store\_imm\_u8}\)</span></td>
-<td>0</td>
-<td><span class="arithmatex">\(\memwr_{\immed_X} = \immed_Y \bmod 2^8\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td>31</td>
-<td><span class="arithmatex">\(\token{store\_imm\_u16}\)</span></td>
-<td>0</td>
-<td><span class="arithmatex">\(\memwr_{\immed_X\dots+2} = \se_2(\immed_Y \bmod 2^{16})\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td>32</td>
-<td><span class="arithmatex">\(\token{store\_imm\_u32}\)</span></td>
-<td>0</td>
-<td><span class="arithmatex">\(\memwr_{\immed_X\dots+4} = \se_4(\immed_Y \bmod 2^{32})\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td>33</td>
-<td><span class="arithmatex">\(\token{store\_imm\_u64}\)</span></td>
-<td>0</td>
-<td><span class="arithmatex">\(\memwr_{\immed_X\dots+8} = \se_8(\immed_Y)\)</span></td>
-<td>[TODO]</td>
-</tr>
-</tbody>
-</table>
-<h3 id="a54-instructions-with-arguments-of-two-immediates">A.5.4. Instructions with Arguments of Two Immediates<a class="headerlink" href="#a54-instructions-with-arguments-of-two-immediates" title="Permanent link">&para;</a></h3>
+<h2 id="a5-instruction-tables">A.5. Instruction Tables<a class="headerlink" href="#a5-instruction-tables" title="Permanent link">&para;</a></h2>
+<h3 id="a51-instructions-without-arguments">A.5.1. Instructions without Arguments<a class="headerlink" href="#a51-instructions-without-arguments" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2238,15 +2677,22 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
 <td>0</td>
-<td>$$</td>
+<td>trap</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionzero\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>1</td>
+<td>fallthrough</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionone\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
 </table>
-<h3 id="a55-instructions-with-arguments-of-one-offset">A.5.5. Instructions with Arguments of One Offset<a class="headerlink" href="#a55-instructions-with-arguments-of-one-offset" title="Permanent link">&para;</a></h3>
+<h3 id="a52-instructions-with-arguments-of-one-immediate">A.5.2. Instructions with Arguments of One Immediate<a class="headerlink" href="#a52-instructions-with-arguments-of-one-immediate" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2275,15 +2721,15 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
+<td>10</td>
+<td>ecalli</td>
 <td>0</td>
-<td>$$</td>
+<td><span class="arithmatex">\(\instructionten\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
 </table>
-<h3 id="a56-instructions-with-arguments-of-one-register-one-immediate">A.5.6. Instructions with Arguments of One Register &amp; One Immediate<a class="headerlink" href="#a56-instructions-with-arguments-of-one-register-one-immediate" title="Permanent link">&para;</a></h3>
+<h3 id="a53-instructions-with-arguments-of-one-register-and-one-extended-width-immediate">A.5.3. Instructions with Arguments of One Register and One Extended Width Immediate<a class="headerlink" href="#a53-instructions-with-arguments-of-one-register-and-one-extended-width-immediate" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2312,15 +2758,15 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
+<td>20</td>
+<td>load_imm_64</td>
 <td>0</td>
-<td>$$</td>
+<td><span class="arithmatex">\(\instructiontwenty\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
 </table>
-<h3 id="a57-instructions-with-arguments-of-one-register-two-immediates">A.5.7. Instructions with Arguments of One Register &amp; Two Immediates<a class="headerlink" href="#a57-instructions-with-arguments-of-one-register-two-immediates" title="Permanent link">&para;</a></h3>
+<h3 id="a54-instructions-with-arguments-of-two-immediates">A.5.4. Instructions with Arguments of Two Immediates<a class="headerlink" href="#a54-instructions-with-arguments-of-two-immediates" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2349,15 +2795,36 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
+<td>30</td>
+<td>store_imm_u8</td>
 <td>0</td>
-<td>$$</td>
+<td><span class="arithmatex">\(\instructionthirty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>31</td>
+<td>store_imm_u16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionthirtyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>32</td>
+<td>store_imm_u32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionthirtytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>33</td>
+<td>store_imm_u64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionthirtythree\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
 </table>
-<h3 id="a58-instructions-with-arguments-of-one-register-one-immediate-one-offset">A.5.8. Instructions with Arguments of One Register, One Immediate &amp; One Offset<a class="headerlink" href="#a58-instructions-with-arguments-of-one-register-one-immediate-one-offset" title="Permanent link">&para;</a></h3>
+<h3 id="a55-instructions-with-arguments-of-one-offset">A.5.5. Instructions with Arguments of One Offset<a class="headerlink" href="#a55-instructions-with-arguments-of-one-offset" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2386,15 +2853,15 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
+<td>40</td>
+<td>jump</td>
 <td>0</td>
-<td>$$</td>
+<td><span class="arithmatex">\(\instructionforty\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
 </table>
-<h3 id="a59-instructions-with-arguments-of-two-registers">A.5.9. Instructions with Arguments of Two Registers<a class="headerlink" href="#a59-instructions-with-arguments-of-two-registers" title="Permanent link">&para;</a></h3>
+<h3 id="a56-instructions-with-arguments-of-one-register-one-immediate">A.5.6. Instructions with Arguments of One Register &amp; One Immediate<a class="headerlink" href="#a56-instructions-with-arguments-of-one-register-one-immediate" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2423,15 +2890,99 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
+<td>50</td>
+<td>jump_ind</td>
 <td>0</td>
-<td>$$</td>
+<td><span class="arithmatex">\(\instructionfifty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>51</td>
+<td>load_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionfiftyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>52</td>
+<td>load_u8</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionfiftytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>53</td>
+<td>load_i8</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionfiftythree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>54</td>
+<td>load_u16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionfiftyfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>55</td>
+<td>load_i16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionfiftyfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>56</td>
+<td>load_u32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionfiftysix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>57</td>
+<td>load_i32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionfiftyseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>58</td>
+<td>load_u64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionfiftyeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>59</td>
+<td>store_u8</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionfiftynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>60</td>
+<td>store_u16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionsixty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>61</td>
+<td>store_u32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionsixtyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>62</td>
+<td>store_u64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionsixtytwo\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
 </table>
-<h3 id="a510-instructions-with-arguments-of-two-registers-one-immediate">A.5.10. Instructions with Arguments of Two Registers &amp; One Immediate<a class="headerlink" href="#a510-instructions-with-arguments-of-two-registers-one-immediate" title="Permanent link">&para;</a></h3>
+<h3 id="a57-instructions-with-arguments-of-one-register-two-immediates">A.5.7. Instructions with Arguments of One Register &amp; Two Immediates<a class="headerlink" href="#a57-instructions-with-arguments-of-one-register-two-immediates" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2460,15 +3011,36 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
+<td>70</td>
+<td>store_imm_ind_u8</td>
 <td>0</td>
-<td>$$</td>
+<td><span class="arithmatex">\(\instructionseventy\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>71</td>
+<td>store_imm_ind_u16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionseventyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>72</td>
+<td>store_imm_ind_u32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionseventytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>73</td>
+<td>store_imm_ind_u64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionseventythree\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
 </table>
-<h3 id="a511-instructions-with-arguments-of-two-registers-one-offset">A.5.11. Instructions with Arguments of Two Registers &amp; One Offset<a class="headerlink" href="#a511-instructions-with-arguments-of-two-registers-one-offset" title="Permanent link">&para;</a></h3>
+<h3 id="a58-instructions-with-arguments-of-one-register-one-immediate-one-offset">A.5.8. Instructions with Arguments of One Register, One Immediate &amp; One Offset<a class="headerlink" href="#a58-instructions-with-arguments-of-one-register-one-immediate-one-offset" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2497,15 +3069,85 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
+<td>80</td>
+<td>load_imm_jump</td>
 <td>0</td>
-<td>$$</td>
+<td><span class="arithmatex">\(\instructioneighty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>81</td>
+<td>branch_eq_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructioneightyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>82</td>
+<td>branch_ne_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructioneightytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>83</td>
+<td>branch_lt_u_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructioneightythree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>84</td>
+<td>branch_le_u_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructioneightyfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>85</td>
+<td>branch_ge_u_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructioneightyfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>86</td>
+<td>branch_gt_u_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructioneightysix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>87</td>
+<td>branch_lt_s_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructioneightyseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>88</td>
+<td>branch_le_s_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructioneightyeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>89</td>
+<td>branch_ge_s_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructioneightynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>90</td>
+<td>branch_gt_s_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructionninety\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
 </table>
-<h3 id="a512-instructions-with-arguments-of-two-registers-two-immediates">A.5.12. Instructions with Arguments of Two Registers &amp; Two Immediates<a class="headerlink" href="#a512-instructions-with-arguments-of-two-registers-two-immediates" title="Permanent link">&para;</a></h3>
+<h3 id="a59-instructions-with-arguments-of-two-registers">A.5.9. Instructions with Arguments of Two Registers<a class="headerlink" href="#a59-instructions-with-arguments-of-two-registers" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2534,15 +3176,92 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
+<td>100</td>
+<td>move_reg</td>
 <td>0</td>
-<td>$$</td>
+<td><span class="arithmatex">\(\instructiononehundred\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>101</td>
+<td>sbrk</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>102</td>
+<td>count_set_bits_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>103</td>
+<td>count_set_bits_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>104</td>
+<td>leading_zero_bits_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>105</td>
+<td>leading_zero_bits_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>106</td>
+<td>trailing_zero_bits_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredsix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>107</td>
+<td>trailing_zero_bits_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>108</td>
+<td>sign_extend_8</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>109</td>
+<td>sign_extend_16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundrednine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>110</td>
+<td>zero_extend_16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredten\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>111</td>
+<td>reverse_bytes</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredeleven\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
 </table>
-<h3 id="a513-instructions-with-arguments-of-three-registers">A.5.13. Instructions with Arguments of Three Registers<a class="headerlink" href="#a513-instructions-with-arguments-of-three-registers" title="Permanent link">&para;</a></h3>
+<h3 id="a510-instructions-with-arguments-of-two-registers-one-immediate">A.5.10. Instructions with Arguments of Two Registers &amp; One Immediate<a class="headerlink" href="#a510-instructions-with-arguments-of-two-registers-one-immediate" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2571,10 +3290,739 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td>XX</td>
-<td><span class="arithmatex">\(\token{XXXX}\)</span></td>
+<td>120</td>
+<td>store_ind_u8</td>
 <td>0</td>
-<td>$$</td>
+<td><span class="arithmatex">\(\instructiononehundredtwenty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>121</td>
+<td>store_ind_u16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwentyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>122</td>
+<td>store_ind_u32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwentytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>123</td>
+<td>store_ind_u64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwentythree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>124</td>
+<td>load_ind_u8</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwentyfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>125</td>
+<td>load_ind_i8</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwentyfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>126</td>
+<td>load_ind_u16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwentysix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>127</td>
+<td>load_ind_i16</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwentyseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>128</td>
+<td>load_ind_u32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwentyeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>129</td>
+<td>load_ind_i32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredtwentynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>130</td>
+<td>load_ind_u64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>131</td>
+<td>add_imm_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirtyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>132</td>
+<td>and_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirtytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>133</td>
+<td>xor_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirtythree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>134</td>
+<td>or_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirtyfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>135</td>
+<td>mul_imm_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirtyfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>136</td>
+<td>set_lt_u_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirtysix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>137</td>
+<td>set_lt_s_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirtyseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>138</td>
+<td>shlo_l_imm-32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirtyeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>139</td>
+<td>shlo_r_imm-32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredthirtynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>140</td>
+<td>shar_r_imm_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredforty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>141</td>
+<td>neg_add_imm_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfortyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>142</td>
+<td>set_gt_u_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfortytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>143</td>
+<td>set_gt_s_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfortythree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>144</td>
+<td>shlo_l_imm_alt_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfortyfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>145</td>
+<td>shlo_r_imm_alt_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfortyfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>146</td>
+<td>shar_r_imm_alt_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfortysix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>147</td>
+<td>cmov_iz_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfortyseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>148</td>
+<td>cmov_nz_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfortyeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>149</td>
+<td>add_imm_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfortynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>150</td>
+<td>mul_imm_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfifty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>151</td>
+<td>shlo_l_imm_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfiftyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>152</td>
+<td>shlo_r_imm_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfiftytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>153</td>
+<td>shar_r_imm_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfiftythree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>154</td>
+<td>neg_add_imm_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfiftyfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>155</td>
+<td>shlo_l_imm_alt_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfiftyfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>156</td>
+<td>shlo_r_imm_alt_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfiftysix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>157</td>
+<td>shar_r_imm_alt_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfiftyseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>158</td>
+<td>rot_r_64_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfiftyeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>159</td>
+<td>rot_r_64_imm_alt</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredfiftynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>160</td>
+<td>rot_r_32_imm</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredsixty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>161</td>
+<td>rot_r_32_imm_alt</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredsixtyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="a511-instructions-with-arguments-of-two-registers-one-offset">A.5.11. Instructions with Arguments of Two Registers &amp; One Offset<a class="headerlink" href="#a511-instructions-with-arguments-of-two-registers-one-offset" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Graypaper</th>
+<th>Equation</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a name="A.29">(A.29)</a></td>
+<td><span class="arithmatex">\(\equationapointtwentynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th><span class="arithmatex">\(\instructions_\imath\)</span></th>
+<th>Name</th>
+<th><span class="arithmatex">\(\gas\)</span></th>
+<th>Mutations</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>170</td>
+<td>branch_eq</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredseventy\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>171</td>
+<td>branch_ne</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredseventyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>172</td>
+<td>branch_lt_u</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredseventytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>173</td>
+<td>branch_lt_s</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredseventythree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>174</td>
+<td>branch_ge_u</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredseventyfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>175</td>
+<td>branch_ge_s</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredseventyfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="a512-instructions-with-arguments-of-two-registers-two-immediates">A.5.12. Instructions with Arguments of Two Registers &amp; Two Immediates<a class="headerlink" href="#a512-instructions-with-arguments-of-two-registers-two-immediates" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Graypaper</th>
+<th>Equation</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a name="A.30">(A.30)</a></td>
+<td><span class="arithmatex">\(\equationapointthirty\)</span></td>
+<td>[TODO]</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th><span class="arithmatex">\(\instructions_\imath\)</span></th>
+<th>Name</th>
+<th><span class="arithmatex">\(\gas\)</span></th>
+<th>Mutations</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>180</td>
+<td>load_imm_jump_ind</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredeighty\)</span></td>
+<td>[TODO]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="a513-instructions-with-arguments-of-three-registers">A.5.13. Instructions with Arguments of Three Registers<a class="headerlink" href="#a513-instructions-with-arguments-of-three-registers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Graypaper</th>
+<th>Equation</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a name="A.31">(A.31)</a></td>
+<td><span class="arithmatex">\(\equationapointthirtyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th><span class="arithmatex">\(\instructions_\imath\)</span></th>
+<th>Name</th>
+<th><span class="arithmatex">\(\gas\)</span></th>
+<th>Mutations</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>190</td>
+<td>add_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninety\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>191</td>
+<td>sub_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninetyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>192</td>
+<td>mul_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninetytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>193</td>
+<td>div_u_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninetythree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>194</td>
+<td>div_s_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninetyfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>195</td>
+<td>rem_u_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninetyfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>196</td>
+<td>rem_s_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninetysix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>197</td>
+<td>shlo_l_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninetyseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>198</td>
+<td>shlo_r_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninetyeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>199</td>
+<td>shar_r_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiononehundredninetynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>200</td>
+<td>add_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundred\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>201</td>
+<td>sub_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>202</td>
+<td>mul_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>203</td>
+<td>div_u_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredthree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>204</td>
+<td>div_s_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>205</td>
+<td>rem_u_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>206</td>
+<td>rem_s_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredsix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>207</td>
+<td>shlo_l_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>208</td>
+<td>shlo_r_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>209</td>
+<td>shar_r_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundrednine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>210</td>
+<td>and</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredten\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>211</td>
+<td>xor</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredeleven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>212</td>
+<td>or</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwelve\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>213</td>
+<td>mul_upper_s_s</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredthirteen\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>214</td>
+<td>mul_upper_u_u</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredfourteen\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>215</td>
+<td>mul_upper_s_u</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredfifteen\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>216</td>
+<td>set_lt_u</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredsixteen\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>217</td>
+<td>set_lt_s</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredseventeen\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>218</td>
+<td>cmov_iz</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredeighteen\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>219</td>
+<td>cmov_nz</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundrednineteen\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>220</td>
+<td>rot_l_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwenty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>221</td>
+<td>rot_l_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentyone\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>222</td>
+<td>rot_r_64</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentytwo\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>223</td>
+<td>rot_r_32</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentythree\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>224</td>
+<td>and_inv</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentyfour\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>225</td>
+<td>or_inv</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentyfive\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>226</td>
+<td>xnor</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentysix\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>227</td>
+<td>max</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentyseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>228</td>
+<td>max_u</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentyeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>229</td>
+<td>min</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>230</td>
+<td>min_u</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredthirty\)</span></td>
+<td>[TODO]</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Graypaper</th>
+<th>Equation</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a name="A.32">(A.32)</a></td>
+<td><span class="arithmatex">\(\equationapointthirtytwo\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
@@ -2590,13 +4038,13 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name="A.29">(A.29)</a></td>
-<td><span class="arithmatex">\(\equationapointtwentynine\)</span></td>
+<td><a name="A.33">(A.33)</a></td>
+<td><span class="arithmatex">\(\equationapointthirtythree\)</span></td>
 <td>[TODO]</td>
 </tr>
 <tr>
-<td><a name="A.30">(A.30)</a></td>
-<td><span class="arithmatex">\(\equationapointthirty\)</span></td>
+<td><a name="A.34">(A.34)</a></td>
+<td><span class="arithmatex">\(\equationapointthirtyfour\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
@@ -2612,26 +4060,6 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name="A.31">(A.31)</a></td>
-<td><span class="arithmatex">\(\equationapointthirtyone\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td><a name="A.32">(A.32)</a></td>
-<td><span class="arithmatex">\(\equationapointthirtytwo\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td><a name="A.33">(A.33)</a></td>
-<td><span class="arithmatex">\(\equationapointthirtythree\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td><a name="A.34">(A.34)</a></td>
-<td><span class="arithmatex">\(\equationapointthirtyfour\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
 <td><a name="A.35">(A.35)</a></td>
 <td><span class="arithmatex">\(\equationapointthirtyfive\)</span></td>
 <td>[TODO]</td>
@@ -2644,6 +4072,26 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 <tr>
 <td><a name="A.37">(A.37)</a></td>
 <td><span class="arithmatex">\(\equationapointthirtyseven\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td><a name="A.38">(A.38)</a></td>
+<td><span class="arithmatex">\(\equationapointthirtyeight\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td><a name="A.39">(A.39)</a></td>
+<td><span class="arithmatex">\(\equationapointthirtynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td><a name="A.40">(A.40)</a></td>
+<td><span class="arithmatex">\(\equationapointforty\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td><a name="A.41">(A.41)</a></td>
+<td><span class="arithmatex">\(\equationapointfortyone\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
@@ -2659,13 +4107,13 @@ This section has been updated to match Graypaper version 0.5.4.</p>
 </thead>
 <tbody>
 <tr>
-<td><a name="A.38">(A.38)</a></td>
-<td><span class="arithmatex">\(\equationapointthirtyeight\)</span></td>
+<td><a name="A.42">(A.42)</a></td>
+<td><span class="arithmatex">\(\equationapointfortytwo\)</span></td>
 <td>[TODO]</td>
 </tr>
 <tr>
-<td><a name="A.39">(A.39)</a></td>
-<td><span class="arithmatex">\(\equationapointthirtynine\)</span></td>
+<td><a name="A.43">(A.43)</a></td>
+<td><span class="arithmatex">\(\equationapointfortythree\)</span></td>
 <td>[TODO]</td>
 </tr>
 </tbody>
