@@ -10,7 +10,7 @@ from jamcodec.types import Vec, U32
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import work_report_mapping, pvm_invoke_accumulate, PvmAccumulateOutput, \
-    full_sequential_accumulation
+    full_sequential_accumulation, edit_queue
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
@@ -33,7 +33,8 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
-    AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents
+    AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
+    AccumulationQueueWorkPackage
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -1910,28 +1911,52 @@ class AccumulationQueue(StateComponent):
 
     def state_transition(
             self,
-            accumulatable_work_reports: List[WorkReport],
+            queued_work_reports: List[AccumulationQueueWorkPackage],
             pre_state_accumulation_queue: AccumulationQueueState,
+            post_state_accumulation_history: AccumulationHistoryState,
+            pre_state_timeslot: TimeslotState,
+            post_state_timeslot: TimeslotState
     ) -> AccumulationQueueOutput:
         """
-        GP-0.5.4-eq:12.27 (θ') | State transition function for the state's accumulation queue
+        GP-0.6.1-eq:12.27 (θ') | State transition function for the state's accumulation queue
 
         Parameters
         ----------
-        accumulatable_work_reports: List[WorkReport]
-            GP-0.5.4-eq:4.17 (W*)
+        queued_work_reports: List[WorkReport]
+            GP-0.5.4-eq:4.17 (W_Q)
         pre_state_accumulation_queue: AccumulationQueueState
             GP-0.5.4-eq:4.17 (θ)
+        post_state_accumulation_history: AccumulationHistoryState
+            GP-0.5.4-eq:4.17 (ξ')
 
         Returns
         -------
         AccumulationQueueOutput
             Output containing: Posterior state of AccumulationQueueState (θ')
         """
-        post_state_accumulation_queue = deepcopy(pre_state_accumulation_queue)
+        accumulation_queue = [[] for _ in range(gp_const.EPOCH_TIMESLOTS)]
+        m = post_state_timeslot.number % gp_const.EPOCH_TIMESLOTS
+
+        for i in range(gp_const.EPOCH_TIMESLOTS):
+
+            if i == 0:
+                accumulation_queue[m - i] = edit_queue(
+                    queued_work_reports, post_state_accumulation_history.accumulation_history[
+                        gp_const.EPOCH_TIMESLOTS - 1
+                    ]
+                )
+
+            elif 1 <= i < post_state_timeslot.number - pre_state_timeslot.number:
+                accumulation_queue[m - i] = []
+
+            elif i >= post_state_timeslot.number - pre_state_timeslot.number:
+                accumulation_queue[m - i] = edit_queue(
+                    pre_state_accumulation_queue.accumulation_queue[m - i],
+                    post_state_accumulation_history.accumulation_history[gp_const.EPOCH_TIMESLOTS - 1]
+                )
 
         return AccumulationQueueOutput(
-            post_state=post_state_accumulation_queue
+            post_state=AccumulationQueueState(accumulation_queue=accumulation_queue),
         )
 
     def retrieve_state(self) -> AccumulationQueueState:
@@ -1968,7 +1993,7 @@ class AccumulationHistory(StateComponent):
         )
 
         post_state_accumulation_history.accumulation_history.append(
-            list(work_report_mapping(accumulatable_work_reports[:nr_work_results_accumulated]))
+            sorted(list(work_report_mapping(accumulatable_work_reports[:nr_work_results_accumulated])))
         )
 
         return AccumulationHistoryOutput(

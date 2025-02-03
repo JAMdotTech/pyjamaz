@@ -19,7 +19,7 @@ def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPa
     """
     return AccumulationQueueWorkPackage(
         report=work_report,
-        dependencies=set(work_report.context.prerequisites + list(work_report.segment_root_lookup.keys()))
+        dependencies=sorted(work_report.context.prerequisites + list(work_report.segment_root_lookup.keys()))
     )
 
 
@@ -42,11 +42,11 @@ def edit_queue(
     """
     modified_queue = []
     for queue_item in work_report_queue:
-        modified_dependencies = set(queue_item.dependencies).difference(accumulated_packages)
 
         if queue_item.report.package_spec.hash not in accumulated_packages:
+            modified_dependencies = set(queue_item.dependencies).difference(accumulated_packages)
             modified_queue.append(
-                AccumulationQueueWorkPackage(report=queue_item.report, dependencies=modified_dependencies)
+                AccumulationQueueWorkPackage(report=queue_item.report, dependencies=sorted(modified_dependencies - set(accumulated_packages)))
             )
 
     return modified_queue
@@ -79,12 +79,13 @@ def priority_queue(work_report_queue: List[AccumulationQueueWorkPackage]) -> Lis
     -------
     List[WorkReport]
     """
-    if len(work_report_queue) == 0:
+
+    g = [acc_work_package.report for acc_work_package in work_report_queue if len(acc_work_package.dependencies) == 0]
+
+    if len(g) == 0:
         return []
-
-    g = [acc_work_package.report for acc_work_package in work_report_queue]
-
-    return g + priority_queue(edit_queue(work_report_queue, work_report_mapping(g)))
+    else:
+        return g + priority_queue(edit_queue(work_report_queue, work_report_mapping(g)))
 
 
 @dataclass

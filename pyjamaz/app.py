@@ -21,10 +21,11 @@ from pyjamaz.state.base import AppContext
 from pyjamaz.storage import StorageEngine, Transaction
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
-    RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services
+    RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services, \
+    AccumulationQueue, AccumulationHistory
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, BlockContext
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, \
-    BeefyCommitmentMap, AccumulationQueueState, AccumulationHistoryState, SafroleState, EntropyState
+    BeefyCommitmentMap, SafroleState, EntropyState
 from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
 from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal
 from pyjamaz.validation import BlockValidation
@@ -101,15 +102,8 @@ class PyjamazApp:
             privileged_services=self.components.privileged_services.retrieve_state(),
             disputes=self.components.disputes.retrieve_state(),
             statistics=self.components.statistics.retrieve_state(),
-            accumulation_queue=AccumulationQueueState(
-                accumulation_queue=[
-                    [] for _ in range(EPOCH_TIMESLOTS)
-                ]
-            ),
-            accumulation_history=AccumulationHistoryState(
-                accumulation_history=[[] for _ in range(EPOCH_TIMESLOTS)]
-            )
-            # TODO retrieve accumulation_queue and accumulation_history from DB
+            accumulation_queue=self.components.accumulation_queue.retrieve_state(),
+            accumulation_history=self.components.accumulation_history.retrieve_state()
         )
 
     async def store_jam_state(self, state: JamState, transaction: Optional[Transaction] = None):
@@ -127,7 +121,9 @@ class PyjamazApp:
         self.components.authorizer_queues.store_state(state.authorizer_queues, transaction)
         self.components.privileged_services.store_state(state.privileged_services, transaction)
         self.components.authorizer_pools.store_state(state.authorizer_pools, transaction)
-        # TODO store accumulation_queue and accumulation_history
+        self.components.accumulation_queue.store_state(state.accumulation_queue, transaction)
+        self.components.accumulation_history.store_state(state.accumulation_history, transaction)
+
 
 
     async def update_state_trie(self):
@@ -244,7 +240,7 @@ class PyjamazApp:
         """
 
         # Reset block context
-        self.block_context.initialize()
+        self.block_context.reset()
         self.block_context.state_root = self.state_trie_root
 
         # Update app context
@@ -827,3 +823,5 @@ class StateComponents:
         self.authorizer_queues = AuthorizerQueues(storage_engine, block_context, app_context)
         self.privileged_services = PrivilegedServices(storage_engine, block_context, app_context)
         self.authorizer_pools = AuthorizerPools(storage_engine, block_context, app_context)
+        self.accumulation_queue = AccumulationQueue(storage_engine, block_context, app_context)
+        self.accumulation_history = AccumulationHistory(storage_engine, block_context, app_context)

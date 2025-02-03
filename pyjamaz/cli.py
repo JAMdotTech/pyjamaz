@@ -197,7 +197,7 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, lock):
 
     while True:
         # TODO centralize
-        app.block_context.initialize()
+        app.block_context.reset()
         timeslot = app.current_timeslot()
         logging.info(f"⏳️Timeslot: {timeslot}")
 
@@ -398,7 +398,7 @@ async def replay_traces(
             await app.update_state_trie()
             app.latest_epoch = app.state.timeslot.epoch_number()
 
-            # assert app.state_trie_root == trace.pre_state.state_root
+            assert app.state_trie_root == trace.pre_state.state_root
             logger.info(f'🎬 Genesis succesfully saved (state root: 0x{app.state_trie_root.hex()})')
 
         logger.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: 0x{trace.block.header.hash.hex()})..')

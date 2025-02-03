@@ -653,7 +653,7 @@ class AccumulationQueueWorkPackage(Serializable):
         GP-0.5.4-eq:12.3 ({blackboard_H}) | Set of Work Package hashes.
     """
     report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
-    dependencies: Set[bytes] = field(metadata={'codec': Vec(H256)})
+    dependencies: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
 @dataclass

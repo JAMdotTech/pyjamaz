@@ -334,7 +334,7 @@ class AccumulationHistoryOutput(Serializable):
 
     Attributes
     ----------
-    post_state:ServicesState
+    post_state: AccumulationHistoryState
         GP-0.5.0-eq:4.17 (ξ') | Primary output of AccumulationHistory STF.
     """
     post_state: AccumulationHistoryState = field(metadata={'codec': AccumulationHistoryState.to_codec_def()})

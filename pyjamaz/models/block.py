@@ -698,12 +698,17 @@ class BlockContext:
     # C
     beefy_commitment_map: Optional[BeefyCommitmentMap] = None
 
-    def initialize(self):
+    def reset(self):
         self.guarantor_assignments = None
         self.prev_guarantor_assignments = None
         self.author_bandersnatch_key = None
         self.seal_vrf_output = bytes(32)
         self.available_work_reports = None
+        self.ready_work_reports = None
+        self.queued_work_reports = None
+        self.accumulatable_work_reports = None
+        self.state_root = None
+        self.beefy_commitment_map = None
 
 
     def get_parent(self, header: Header) -> Optional[Header]:

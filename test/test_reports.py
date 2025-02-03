@@ -105,7 +105,7 @@ class TestReports(unittest.TestCase):
         post_entropy = EntropyState.from_json({"entropy": test_vector["pre_state"]["entropy"]})
 
         # Prepare block context
-        self.block_context.initialize()
+        self.block_context.reset()
         self.block_context.set_guarantor_assignments(
             post_entropy=post_entropy,
             post_timeslot=post_state_timeslot,

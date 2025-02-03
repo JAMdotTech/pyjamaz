@@ -60,7 +60,7 @@ class TestPreimages(unittest.TestCase):
         extrinsic_preimages = [Preimage.from_json(p) for p in test_vector["input"]["preimages"]]
 
         # Prepare block context
-        self.block_context.initialize()
+        self.block_context.reset()
 
         services = Services(self.storage_engine, self.block_context, self.app_context)
 
