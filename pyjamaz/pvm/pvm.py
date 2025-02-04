@@ -19,7 +19,7 @@ from .utils import (
     rori64,
     rori32,
     pvm_floor_div,
-    pvm_mod
+    pvm_smod
 )
 
 from .constants import (
@@ -763,7 +763,7 @@ class PVM:
                             elif a == -2**31 and b == -1:
                                 self.reg[r_d] = 0
                             else:
-                                self.reg[r_d] = pvm_Z_inv(pvm_mod(a, b), 8)
+                                self.reg[r_d] = pvm_Z_inv(pvm_smod(a, b), 8)
 
                         case op.shlo_l_32.value:
                             self.reg[r_d] = pvm_X((w_a * 2**(w_b % 32)) % 2**32, 4)
@@ -824,7 +824,7 @@ class PVM:
                             elif a == -2**63 and b == -1:
                                 self.reg[r_d] = 0
                             else:
-                                self.reg[r_d] = pvm_Z_inv(pvm_mod(a, b), 8)
+                                self.reg[r_d] = pvm_Z_inv(pvm_smod(a, b), 8)
 
                         case op.shlo_l_64.value:
                             self.reg[r_d] = (w_a * 2**(w_b % 64)) #% 2**64

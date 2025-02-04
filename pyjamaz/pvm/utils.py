@@ -51,16 +51,11 @@ def pvm_floor_div(x: int, y: int) -> int:
     Warning:
         The graypaper defines certain operations using a floor over a divide
         Python integer divide results in incorrect answers, same for numpy.floor_divide and true_divide
-        These num,bers are represented as Floats with 53 bit integer precision, which is insufficient for some
+        These numbers are represented as Floats with 53 bit integer precision, which is insufficient for some
         64bit calculations.
 
-        For now, we fix this by casting to a 128bit precision and then truncate the result.
-        Maybe look into some other options:
-            https://github.com/francof2a/fxpmath
-    """
-    """
-    Returns the quotient of x / y, truncated toward zero for positive numbers 
-    without using floating-point arithmetic.
+        Returns the quotient of x / y, truncated toward zero for positive numbers
+        without using floating-point arithmetic.
     """
     x = int(x)
     y = int(y)
@@ -72,15 +67,12 @@ def pvm_floor_div(x: int, y: int) -> int:
         return x // y
 
 
-def pvm_mod(a: int, b: int) -> int:
-    # Note: Emulate C/Rust modulus (remainder) behavior using truncation toward zero
-    abs_quotient = abs(a) // abs(b)
-    # The sign of the quotient is positive if a and b have the same sign,
-    # negative otherwise.
-    quotient = abs_quotient if (a * b) >= 0 else -abs_quotient
-    # Now compute the remainder
-    remainder = a - quotient * b
-    return remainder
+def pvm_smod(a: int, b: int) -> int:
+    if b==0:
+        return a
+    else:
+        sign_a = 1 if a >= 0 else -1
+        return sign_a * (abs(a) % abs(b))
 
 
 def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
