@@ -8,13 +8,11 @@ from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.base import AppContext
-from pyjamaz.state.components import Assurances, Services
+from pyjamaz.state.components import Services
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee, BlockContext, Preimage
-from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, ServiceAccount, \
+from pyjamaz.models.block import Header, BlockContext, Preimage
+from pyjamaz.models.state import TimeslotState, ServicesState, ServiceAccount, \
     ServiceAccountMap, PreimageMap, StorageItemMap, PreimageAvailabilityMap
 
 
@@ -118,8 +116,8 @@ class TestPreimages(unittest.TestCase):
 
             # Retrieve created items in working state
             for p in extrinsic_preimages:
-                _ = output.intermediate_state_after_preimages.retrieve_preimage(p.requester, blake2b_256_hash(p.blob), self.storage_engine)
-                _ = output.intermediate_state_after_preimages.retrieve_preimage_availability(p.requester, blake2b_256_hash(p.blob), len(p.blob), self.storage_engine)
+                _ = output.post_state.retrieve_preimage(p.requester, blake2b_256_hash(p.blob), self.storage_engine)
+                _ = output.post_state.retrieve_preimage_availability(p.requester, blake2b_256_hash(p.blob), len(p.blob), self.storage_engine)
 
             # Transform post_state to test format
             post_state = {
@@ -142,7 +140,7 @@ class TestPreimages(unittest.TestCase):
                                     "value": h[1]
                                 } for h in s[1]["preimage_availability"]],
                         }
-                    } for s in output.intermediate_state_after_preimages.to_json()["services"]
+                    } for s in output.post_state.to_json()["services"]
                 ]
             }
 

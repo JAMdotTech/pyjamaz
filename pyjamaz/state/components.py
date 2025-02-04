@@ -284,8 +284,8 @@ class Safrole(StateComponent):
     def state_transition(
             self,
             header: Header,
-            pre_state_timeslot: TimeslotState,
             extrinsic_tickets: List[TicketEnvelope],
+            pre_state_timeslot: TimeslotState,
             pre_state_safrole: SafroleState,
             pre_state_validator_queue: ValidatorQueueState,
             post_state_entropy: EntropyState,
@@ -318,6 +318,9 @@ class Safrole(StateComponent):
         SafroleOutput
             Output containing: Posterior state of SafroleState (γ') and optional Outputmarks
         """
+
+        if header.timeslot <= pre_state_timeslot.number:
+            raise StateTransitionError(SafroleErrorCode.bad_slot)
 
         self.post_state_safrole = deepcopy(pre_state_safrole)
 
@@ -852,7 +855,8 @@ class Assurances(StateComponent):
                 raise StateTransitionError(GuaranteeErrorCode.too_many_dependencies)
             # GP-0.5.3-eq:11.41 | Verify if segment roots mentioned in work-package are correct
             if not all([
-                segment_root_lookup.get(s.work_package_hash, None) == s.segment_tree_root for s in w.segment_root_lookup
+                segment_root_lookup.get(work_package_hash, None) == segment_tree_root
+                for work_package_hash, segment_tree_root  in w.segment_root_lookup.items()
             ]):
                 raise StateTransitionError(GuaranteeErrorCode.segment_root_lookup_invalid)
 
@@ -1523,14 +1527,21 @@ class Disputes(StateComponent):
             raise StateTransitionError(DisputesErrorCode.not_enough_culprits)
 
     @classmethod
-    def validate_extrinsic_disputes(cls, disputes: ExtrinsicDisputes, current_epoch: int,
-                                    current_validators: List[ValidatorData], prev_validators: List[ValidatorData]):
-        for verdict in disputes.verdicts:
+    def validate_extrinsic_disputes(
+            cls,
+            extrinsic_disputes: ExtrinsicDisputes,
+            pre_state_timeslot: TimeslotState,
+            pre_state_validator_pool: ValidatorPoolState,
+            pre_state_validator_archive: ValidatorArchiveState
+    ):
+        current_epoch = pre_state_timeslot.number // gp_const.EPOCH_TIMESLOTS
+
+        for verdict in extrinsic_disputes.verdicts:
 
             if current_epoch - verdict.age == 0:
-                validators = current_validators
+                validators = pre_state_validator_pool.validators
             elif current_epoch - verdict.age == 1:
-                validators = prev_validators
+                validators = pre_state_validator_archive.validators
             else:
                 raise BlockValidationError(DisputesErrorCode.bad_judgement_age)
 

@@ -152,10 +152,10 @@ class SafroleOutput(Serializable):
     post_state: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
     epoch_mark: Optional[EpochMark] = field(
         default=None, metadata={'codec': Option(EpochMark.to_codec_def())}
-    )  # New epoch signal. OPTIONAL
+    )
     tickets_mark: Optional[List[TicketBody]] = field(
         default=None, metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
-    )  # Tickets signal. OPTIONAL
+    )
 
 
 @dataclass

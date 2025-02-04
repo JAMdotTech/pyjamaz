@@ -10,7 +10,7 @@ from bandersnatch_vrfs import ietf_vrf_sign
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
 
-from pyjamaz.exceptions import BlockValidationError, PyjamazAppError, BlockValidationErrorCode
+from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD
@@ -26,7 +26,7 @@ from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchiv
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, BlockContext
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, \
     BeefyCommitmentMap, SafroleState, EntropyState
-from pyjamaz.models.stf_output import STFOutput, SafroleErrorCode
+from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal
 from pyjamaz.validation import BlockValidation
 
@@ -58,8 +58,6 @@ class AppConfig:
 class PyjamazApp:
     def __init__(self, config: AppConfig):
         self.config = config
-
-        # self.storage_engine: StorageInterface = config.storage_engine
 
         self.state_db: StorageEngine = config.storage_engine.namespace(b"state")
         self.block_db: StorageEngine = config.storage_engine.namespace(b"block")
@@ -270,10 +268,10 @@ class PyjamazApp:
 
         # Validate quality of dispute extrinsic data
         self.components.disputes.validate_extrinsic_disputes(
-            disputes=block.extrinsic.disputes,
-            current_epoch=pre_state_timeslot.epoch_number(),
-            current_validators=pre_state_validator_pool.validators,
-            prev_validators=pre_state_validator_archive.validators
+            extrinsic_disputes=block.extrinsic.disputes,
+            pre_state_timeslot=pre_state_timeslot,
+            pre_state_validator_pool=pre_state_validator_pool,
+            pre_state_validator_archive=pre_state_validator_archive
         )
 
         # Validate quality of preimage extrinsic data
@@ -497,14 +495,11 @@ class PyjamazApp:
             offenders_mark=disputes_output.offenders_mark
         )
 
-    async def import_block(self, block: Block, validate=True) -> STFOutput:
+    async def import_block(self, block: Block, dry_run=False) -> STFOutput:
         try:
             with self.state_db.transaction() as transaction:
 
-                # if validate:
-                #     self.validate_block(block)
-
-                output = await self.state_transition(block, transaction)
+                output = await self.state_transition(block, transaction, dry_run=dry_run)
 
             await self.update_state_trie()
             await self.store_block(block)
