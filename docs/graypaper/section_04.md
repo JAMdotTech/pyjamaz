@@ -3,7 +3,7 @@
 # 4. Overview
 ## 4.0. General
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4.
+This section has been updated to match Graypaper version 0.6.2.
 
 We begin our formalisms by recalling that a blockchain may be defined as a pairing of some initial state together with a block-level state-transition function. The latter defines the posterior state given a pairing of some prior state and a block of data applied to it.
 

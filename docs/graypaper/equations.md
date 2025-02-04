@@ -1,6 +1,6 @@
 # Graypaper Equations
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4. 
+This section has been updated to match Graypaper version 0.6.2. 
 
 ## Test Latex Parsing
 When \(a \ne 0\), there are two solutions to \(ax^2 + bx + c = 0\) and they are

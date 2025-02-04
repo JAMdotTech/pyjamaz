@@ -2,7 +2,7 @@
 \( {% include-markdown "./appendix_c.tex" comments=false %} \)
 # Appendix C. Serialization Codec
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4.
+This section has been updated to match Graypaper version 0.6.2.
 
 ## C.1. Common Terms
 ### C.1.1. Trivial Encodings

@@ -2,7 +2,7 @@
 \( {% include-markdown "./appendix_e.tex" comments=false %} \)
 # Appendix E. General Merklization
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4. 
+This section has been updated to match Graypaper version 0.6.2. 
 
 ## E.1. Binary Merkle Trees
 | Graypaper               | Equation             | Implementation |

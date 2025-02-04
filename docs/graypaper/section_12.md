@@ -2,7 +2,7 @@
 \( {% include-markdown "./section_12.tex" comments=false %} \)
 # 12. Accumulation
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4. 
+This section has been updated to match Graypaper version 0.6.2. 
 
 ## 12.1. History and Queuing 
 | Graypaper                   | Equation                     | Implementation |

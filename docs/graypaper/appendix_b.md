@@ -2,7 +2,7 @@
 \( {% include-markdown "./appendix_b.tex" comments=false %} \)
 # Appendix B. Virtual Machine Invocation
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4. 
+This section has been updated to match Graypaper version 0.6.2. 
 
 ## B.1. Host-Call Result Constants
 [TODO] Host Call Result Constants

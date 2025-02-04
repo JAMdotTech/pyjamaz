@@ -2,7 +2,7 @@
 \( {% include-markdown "./section_18.tex" comments=false %} \)
 # 18. Beefy Distribution
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4. 
+This section has been updated to match Graypaper version 0.6.2. 
 
 | Graypaper                 | Equation                    | Implementation |
 |---------------------------|-----------------------------|----------------|

@@ -2,7 +2,7 @@
 \( {% include-markdown "./appendix_i.tex" comments=false %} \)
 # Appendix I. Index of Notation
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4.
+This section has been updated to match Graypaper version 0.6.2.
 
 ## I.1 Sets
 ### I.1.1 Regular Notation

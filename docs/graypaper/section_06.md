@@ -2,7 +2,7 @@
 \( {% include-markdown "./section_06.tex" comments=false %} \)
 # 6. Block Production and Chain Growth
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4. 
+This section has been updated to match Graypaper version 0.6.2. 
 
 ## 6.1. Timekeeping 
 | Graypaper               | Equation               | Implementation |

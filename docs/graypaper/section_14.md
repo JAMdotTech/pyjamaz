@@ -2,7 +2,7 @@
 \( {% include-markdown "./section_14.tex" comments=false %} \)
 # 14. Work Packages and Work Reports
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4. 
+This section has been updated to match Graypaper version 0.6.2. 
 
 ## 14.2. Segments and the Manifest
 ### 14.2.1. Segments, Imports and Exports

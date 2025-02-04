@@ -2,7 +2,7 @@
 \( {% include-markdown "./section_03.tex" comments=false %} \)
 # 3. Notational Conventions
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4. 
+This section has been updated to match Graypaper version 0.6.2. 
 
 ## 3.2. Functions and Operators 
 | Graypaper               | Equation                 | Implementation |

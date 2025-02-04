@@ -2,7 +2,7 @@
 \( {% include-markdown "./section_10.tex" comments=false %} \)
 # 10. Disputes, Verdicts and Judgments
 The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.5.4. 
+This section has been updated to match Graypaper version 0.6.2. 
 
 ## 10.1. The State 
 | Graypaper                 | Equation               | Implementation |
