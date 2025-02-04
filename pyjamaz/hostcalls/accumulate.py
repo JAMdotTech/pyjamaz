@@ -147,6 +147,7 @@ class AccumulateInvocationsMixin:
                 preimages={},   #bold_p
                 preimage_availability={(c.tobytes(), l): []}   #bold_l TODO: c+l is een tuple dat de key in de preimage_availability vormt (model change onderhande werk Arjan)
             )
+
         else:
             bold_a = "∇"
 
@@ -157,7 +158,7 @@ class AccumulateInvocationsMixin:
             # TODO: bij updaten service, moeten we ook related zaken (FK's, preimages & storageitems) updaten? -> helper functie maken!
             # NOTE: bij alteren service, dus ook deze state?
             pvm.reg[7] = x.i
-            x.i = 2**8 + (x.i - 2**8 + 42) % (2**32 - 2**9) #TODO: wat is dit???? next available service_id??
+            x.i = 2**8 + (x.i - 2**8 + 42) % (2**32 - 2**9) #TODO: HELPER FUNCTIES CHECK & BUMP IMPLEMENTEREN
             x.blackboard_u_TODO.services[x.i] = bold_a  #TODO: voeg nieuwe service met key/value toe?
         elif c == "∇":
             pvm.reg[7] = HostCallResult.oob.value
@@ -191,15 +192,18 @@ class AccumulateInvocationsMixin:
         g = pvm.reg[9]      # gas_limit
         o = pvm.reg[10]     # offset for memo
 
-        gas = 10 + pvm.reg[8] + 2 ** 32 * pvm.reg[9]
+        # Note: seems to result in a very big number unless w_8 or w_9 is negative?
+        g = 10 + pvm.reg[8] + 2 ** 32 * g
 
-        if pvm.is_readable(pvm.mem, o, o + WT):
-            m = pvm.mem[o:o + WT]   # Transaction Memo (blob)
-            bold_t = Transfer(x.service_index, d, a, m, gas)    #TODO: maak transfer model
+        # TODO: vereniging van prestate & intermediate_state -> wacht op intermediate state (backboard_u)
+        bold_d = x.service_accounts
+
+        if pvm.is_readable(pvm.mem, o, o + SIZE_TRANSFER_MEMO):
+            m = pvm.mem[o:o + SIZE_TRANSFER_MEMO]   # Transaction Memo (blob)
+            bold_t = DeferredTransfer(x.service_index, d, a, m, g)    #TODO: maak transfer model
         else:
             bold_t = "∇"
 
-        bold_d = x.service_accounts #TODO: vereniging van prestate & intermediate_state???
         b = x.service_account.balance - a
 
         if bold_t == "∇":
@@ -214,13 +218,7 @@ class AccumulateInvocationsMixin:
             pvm.reg[7] = HostCallResult.cash.value
         else:
             pvm.reg[7] = HostCallResult.ok.value
-            # TODO: voeg transfer toe???
-            # destination=d
-            # amount=a,
-            # W_r=SCALEENCODE(m)
-            # gas_limit=g
-            # bold_d.balance -= a
-            # update service account???
+            # TODO: voeg transfer toe aan de deferred_transfers in intermediate state (X)
 
     def quit(self, pvm:PVM, x, y):
         # Removes a service from the services dictionary in blackboard_U (intermediate state)
@@ -233,11 +231,11 @@ class AccumulateInvocationsMixin:
         g = pvm.gas
         bold_d = x.service_accounts.get(d, None)  #TODO: fallback lookup naar p=intermediastate
 
-        if d == x.service_index or d == (2**64-1):
+        if d in (x.service_index, (2**64-1)): # Note: 2**64-1 means None
             bold_t = "∅"
-        elif pvm.is_readable(pvm.mem, o, o + WT):
-            m = pvm.mem[o:o + WT]   # Read memo from PVM memory
-            bold_t = Transfer(x.service_index, d, a, m, g)  # TODO: Transfer model moet nog worden gemaakt
+        elif pvm.is_readable(pvm.mem, o, o + SIZE_TRANSFER_MEMO):
+            m = pvm.mem[o:o + SIZE_TRANSFER_MEMO]   # Read memo from PVM memory
+            bold_t = DeferredTransfer(x.service_index, d, a, m, g)  # TODO: Transfer model moet nog worden gemaakt
         else:
             bold_t = "∇"
 
@@ -248,20 +246,14 @@ class AccumulateInvocationsMixin:
             bold_s_x_d.delete(x.service_index)
         elif bold_t == "∇":
             pvm.reg[7] = HostCallResult.oob.value
-        elif bold_d is None:
+        elif d not in bold_d:
             pvm.reg[7] = HostCallResult.who.value
-        elif g < bold_s_x_d.gas_limit_on_transfer:
+        elif g < bold_d[d].gas_limit_on_transfer:
             pvm.reg[7] = HostCallResult.low.value
         else:
             pvm.reg[7] = HostCallResult.ok.value
             bold_s_x_d.delete(x.service_index)
-            # TODO: voeg transfer toe???
-            # destination=d
-            # amount=a,
-            # m=SCALEENCODE(m)
-            # gas_limit=g
-            # bold_d.balance -= a
-            # update service account???
+            # TODO: voeg transfer toe aan de deferred_transfers in intermediate state (X)
 
 
     def solicit(self, pvm:PVM, x, y, t):
@@ -277,13 +269,16 @@ class AccumulateInvocationsMixin:
             h = "∇"
 
         x_s = x.service_account
-        bold_a = clone(x_s) #TODO: maak/gebruik een clone functie
+        bold_a = TODO_clone(x_s) #TODO: maak/gebruik een clone functie
 
         # TODO: x&y refereren hier naar de cardinaliteit van preimage_availability disctionary, zie 9.2.2 EQ9.7
-        if h != "∇" and (h, z) not in x_s.preimage_availability:
+        if h != "∇" and not (h, z) in x_s.preimage_availability:
+            # Note: Request of a preimage (preimage not yet supplied)
             bold_a.preimage_availability.set((h,z), [])     #TODO: implementeer set()
-        elif x_s.preimage_availability[h,z] == (x, y):
-            bold_a.preimage_availability.set((h, z), t)      #TODO: implementeer set()
+        elif len(x_s.preimage_availability[h,z]) == 2:
+            # Note: Remake a preimage available again
+            # Note: Add attribute header.timeslot from provided argument
+            bold_a.preimage_availability.append((h, z), t)      #TODO: implementeer set()
         else:
             bold_a = "∇"
 
@@ -301,7 +296,7 @@ class AccumulateInvocationsMixin:
         # TODO: t == timeslot add typing
 
         o = pvm.reg[7]     # Offset for preimage hash
-        z = pvm.reg[8]     # primage u32 key
+        z = pvm.reg[8]     # preimage u32 key
 
         if pvm.is_readable(pvm.mem, o, o + 32):
             h = pvm.mem[o:o + 32]
@@ -311,18 +306,21 @@ class AccumulateInvocationsMixin:
         x_s = x.service_accounts
         x_s_l = x_s.preimage_availability
         x_s_p = x_s.preimages
-        bold_a = clone(x_s) #TODO: maak/gebruik een clone functie
+        bold_a = TODO_clone(x_s) #TODO: maak/gebruik een clone functie
 
         #bold_a_l = x_s_l.get((h, z))
 
         #TODO: x&y&w refereren hier naar de cardinaliteit van preimage_availability disctionary, zie 9.2.2 EQ9.7
-        if x_s_l is None or x_s_l[(h,z)] == (y,z) and y < t - PREIMAGE_EXPUNGE_TIMESLOTS:
+        preimage_availability = x_s_l[(h,z)]
+        cardinality = len(preimage_availability)
+        if cardinality == 0 or (cardinality == 2 and preimage_availability[1] < t - PREIMAGE_EXPUNGE_TIMESLOTS):
             bold_a.preimage_availability.remove((h, z)) #TODO: implement .remove
             bold_a.preimages.remove(h)  #TODO: implement .remove
-        elif bold_a_l == 1:
-            bold_x_s.preimage_availability[(h, z)].add(t)   #TODO: implementeer!
-        elif bold_a_l == [x,y,w] and y < t - TMP_CONST.D:
-            bold_x_s.preimage_availability[(h, z)].add(t)  # TODO: implementeer!
+        elif cardinality == 1:
+            bold_a.preimage_availability[(h, z)].append(t)   #TODO: implementeer!
+        elif cardinality == 3 and y < t - PREIMAGE_EXPUNGE_TIMESLOTS:
+            # Note: reset unreferenced preimage expunge time with current timeslot
+            bold_a.preimage_availability[(h, z)].set([x_s_l[2], t])   # TODO: implementeer!
         else:
             bold_a = "∇"
 
