@@ -5,8 +5,6 @@ import json
 import os
 import shutil
 import socket
-from doctest import debug
-from uuid import bytes_
 
 import anyio
 import ipaddress
@@ -523,7 +521,7 @@ async def replay_traces(
     )
 
     for block_file in traces_files:
-        logger.info(f'📂 Processing trace file {block_file}')
+        logging.info(f'📂 Processing trace file {block_file}')
         with open(os.path.join(traces_dir, block_file), 'rb') as fp:
             trace = Trace.from_jam_bytes(JamBytes(fp.read()))
 
