@@ -38,6 +38,7 @@
 \newcommand{\immed}{\nu}
 \newcommand{\deblob}{\text{deblob}}
 \newcommand{\smod}{\text{smod}}
+\newcommand{\rtz}{\text{rtz}}
 \newcommand{\Fskip}{\text{skip}}
 \newcommand{\sext}{\mathcal{X}}
 \newcommand{\equationapointone}{
@@ -319,6 +320,15 @@
     \end{aligned}
 }
 \newcommand{\equationapointthirtythree}{
+    \rtz\colon\begin{aligned}
+        \mathbb{Z} &\to \mathbb{Z}\\
+        x &\mapsto \begin{cases}
+            \ceil{x} &\when x < 0\\
+            \floor{x} &\otherwise \\
+        \end{cases}
+    \end{aligned}
+}
+\newcommand{\equationapointthirtyfour}{
     \begin{align}
         &\Psi_H\colon \begin{aligned}
             \begin{cases}
@@ -356,12 +366,12 @@
         \end{aligned}
     \end{align}
 }
-\newcommand{\equationapointthirtyfour}{
+\newcommand{\equationapointthirtyfive}{
     \begin{align}
         &\Omega\langle X \rangle \equiv (\N, \N_G, \regs, \ram, X) \to \tuple{\{\continue, \halt, \panic, \oog\}, \N_G, \regs, \ram, X} \cup \{\fault\} \times \N_R
     \end{align}
 }
-\newcommand{\equationapointthirtyfive}{
+\newcommand{\equationapointthirtysix}{
     Y\colon\begin{aligned}
         \begin{cases}
             \Y &\to (\Y, \regs, \ram)? \\
@@ -372,11 +382,11 @@
         \end{cases}
     \end{aligned}
 }
-\newcommand{\equationapointthirtysix}{\using \mathcal{E}_3(|\mathbf{o}|) \concat \mathcal{E}_3(|\mathbf{w}|) \concat \mathcal{E}_2(z) \concat \mathcal{E}_3(s) \concat \mathbf{o} \concat \mathbf{w} \concat \mathcal{E}_4(|\mathbf{c}|) \concat \mathbf{c} = \mathbf{p}}
-\newcommand{\equationapointthirtyseven}{\mathsf{Z}_Z = 2^{16}\ ,\quad\mathsf{Z}_I = 2^{24}}
-\newcommand{\equationapointthirtyeight}{\using \rnp{x \in \N} \equiv \mathsf{Z}_P\lceil \frac{x}{\mathsf{Z}_P} \rceil\quad,\qquad\rnq{x \in \N} \equiv \mathsf{Z}_Z\lceil \frac{x}{\mathsf{Z}_Z} \rceil}
-\newcommand{\equationapointthirtynine}{5\mathsf{Z}_Z + \rnq{|\mathbf{o}|} + \rnq{|\mathbf{w}| + z\mathsf{Z}_P} + \rnq{s} + \mathsf{Z}_I \leq 2^{32}}
-\newcommand{\equationapointforty}{
+\newcommand{\equationapointthirtyseven}{\using \mathcal{E}_3(|\mathbf{o}|) \concat \mathcal{E}_3(|\mathbf{w}|) \concat \mathcal{E}_2(z) \concat \mathcal{E}_3(s) \concat \mathbf{o} \concat \mathbf{w} \concat \mathcal{E}_4(|\mathbf{c}|) \concat \mathbf{c} = \mathbf{p}}
+\newcommand{\equationapointthirtyeight}{\mathsf{Z}_Z = 2^{16}\ ,\quad\mathsf{Z}_I = 2^{24}}
+\newcommand{\equationapointthirtynine}{\using \rnp{x \in \N} \equiv \mathsf{Z}_P\lceil \frac{x}{\mathsf{Z}_P} \rceil\quad,\qquad\rnq{x \in \N} \equiv \mathsf{Z}_Z\lceil \frac{x}{\mathsf{Z}_Z} \rceil}
+\newcommand{\equationapointforty}{5\mathsf{Z}_Z + \rnq{|\mathbf{o}|} + \rnq{|\mathbf{w}| + z\mathsf{Z}_P} + \rnq{s} + \mathsf{Z}_I \leq 2^{32}}
+\newcommand{\equationapointfortyone}{
     \forall i \in \N_{2^{32}} : ((\mem_\mathbf{V})_i, (\mem_\mathbf{A})_{\floor{\nicefrac{i}{\mathsf{Z}_P}}}) = \left\{\begin{alignedat}{5}
         &\tup{\is{\mathbf{V}}{\mathbf{o}_{i - \mathsf{Z}_Z}}\ts\is{\mathbf{A}}{R}} &&\ \when
         \mathsf{Z}_Z
@@ -409,7 +419,7 @@
         &(0, \none) &&\otherwise&&&
     \end{alignedat}
 }
-\newcommand{\equationapointfortyone}{
+\newcommand{\equationapointfortytwo}{
     \forall i \in \N_{13} : \registers_i = \begin{cases}
         2^{32} - 2^{16} &\when i = 0\\
         2^{32} - 2\mathsf{Z}_Z - \mathsf{Z}_I &\when i = 1\\
@@ -418,7 +428,7 @@
         0 &\otherwise
     \end{cases}
 }
-\newcommand{\equationapointfortytwo}{
+\newcommand{\equationapointfortythree}{
     \begin{align}
         \Psi_M&\colon \begin{aligned}
             \begin{cases}
@@ -431,7 +441,7 @@
         \end{aligned}
     \end{align}
 }
-\newcommand{\equationapointfortythree}{
+\newcommand{\equationapointfortyfour}{
     \begin{align}
         \where R&\colon (\varepsilon, \imath', \gascounter', \registers', \mem', \mathbf{x}) \mapsto \begin{cases}
             (\gascounter', \oog, \mathbf{x}) &\when \varepsilon = \oog \\
@@ -517,13 +527,13 @@
 \newcommand{\instructiononehundredthirtyseven}{\reg'_A = \signed{\reg_B} < \signed{\immed_X}}
 \newcommand{\instructiononehundredthirtyeight}{\reg'_A = \sext_4((\reg_B \cdot 2^{\immed_X \bmod 32}) \bmod 2^{32})}
 \newcommand{\instructiononehundredthirtynine}{\reg'_A = \sext_4(\floor{\reg_B \bmod 2^{32} \div 2^{\immed_X \bmod 32}})}
-\newcommand{\instructiononehundredforty}{\reg'_A = \unsigned{\floor{\signedn{4}{\reg_B \bmod 2^{32} } \div 2^{\immed_X \bmod 32}}}}
+\newcommand{\instructiononehundredforty}{\reg'_A = \unsigned{\rtz(\signedn{4}{\reg_B \bmod 2^{32} } \div 2^{\immed_X \bmod 32})}}
 \newcommand{\instructiononehundredfortyone}{\reg'_A = \sext_4((\immed_X + 2^{32} - \reg_B) \bmod 2^{32})}
 \newcommand{\instructiononehundredfortytwo}{\reg'_A = \reg_B > \immed_X}
 \newcommand{\instructiononehundredfortythree}{\reg'_A = \signed{\reg_B} > \signed{\immed_X}}
 \newcommand{\instructiononehundredfortyfour}{\reg'_A = \sext_4((\immed_X \cdot 2^{\reg_B \bmod 32}) \bmod 2^{32})}
 \newcommand{\instructiononehundredfortyfive}{\reg'_A = \sext_4(\floor{\immed_X \bmod 2^{32} \div 2^{\reg_B \bmod 32}})}
-\newcommand{\instructiononehundredfortysix}{\reg'_A = \unsigned{\floor{\signedn{4}{\immed_X \bmod 2^{32}} \div 2^{\reg_B \bmod 32}}}}
+\newcommand{\instructiononehundredfortysix}{\reg'_A = \unsigned{\rtz(\signedn{4}{\immed_X \bmod 2^{32}} \div 2^{\reg_B \bmod 32})}}
 \newcommand{\instructiononehundredfortyseven}{
     \reg'_A = \begin{cases}
         \immed_X &\when \reg_B = 0\\
@@ -540,11 +550,11 @@
 \newcommand{\instructiononehundredfifty}{\reg'_A = (\reg_B \cdot \immed_X) \bmod 2^{64}}
 \newcommand{\instructiononehundredfiftyone}{\reg'_A = \sext_8((\reg_B \cdot 2^{\immed_X \bmod 64}) \bmod 2^{64})}
 \newcommand{\instructiononehundredfiftytwo}{\reg'_A = \sext_8(\floor{\reg_B \div 2^{\immed_X \bmod 64}})}
-\newcommand{\instructiononehundredfiftythree}{\reg'_A = \unsigned{\floor{\signed{\reg_B} \div 2^{\immed_X \bmod 64}}}}
+\newcommand{\instructiononehundredfiftythree}{\reg'_A = \unsigned{\rtz(\signed{\reg_B} \div 2^{\immed_X \bmod 64})}}
 \newcommand{\instructiononehundredfiftyfour}{\reg'_A = (\immed_X + 2^{64} - \reg_B) \bmod 2^{64}}
 \newcommand{\instructiononehundredfiftyfive}{\reg'_A = (\immed_X \cdot 2^{\reg_B \bmod 64}) \bmod 2^{64}}
 \newcommand{\instructiononehundredfiftysix}{\reg'_A = \floor{\immed_X \div 2^{\reg_B \bmod 64}}}
-\newcommand{\instructiononehundredfiftyseven}{\reg'_A = \unsigned{\floor{\signed{\immed_X} \div 2^{\reg_B \bmod 64}}}}
+\newcommand{\instructiononehundredfiftyseven}{\reg'_A = \unsigned{\rtz(\signed{\immed_X} \div 2^{\reg_B \bmod 64})}}
 \newcommand{\instructiononehundredfiftyeight}{\forall i \in \N_{64} : \bitsfunc{8}(\reg'_A)_i = \bitsfunc{8}(\reg_B)_{(i + \immed_X) \bmod 64}}
 \newcommand{\instructiononehundredfiftynine}{\forall i \in \N_{64} : \bitsfunc{8}(\reg'_A)_i = \bitsfunc{8}(\immed_X)_{(i + \reg_B) \bmod 64}}
 \newcommand{\instructiononehundredsixty}{\reg'_A = \sext_4(x) \ \where x \in \N_{2^{32}}, \forall i \in \N_{32} : \bitsfunc{4}(x)_i = \bitsfunc{4}(\reg_B)_{(i + \immed_X) \bmod 32}}
@@ -569,8 +579,16 @@
     \reg'_D = \begin{cases}
         2^{64} - 1 &\when b = 0\\
         a &\when a = -2^{31} \wedge b = -1\\
-        \unsigned{\floor{a \div b}} &\otherwise \\[2pt]
-        \multicolumn{2}{l}{\quad \where a = \signedn{4}{\reg_A \bmod 2^{32}}\,,\ b = \signedn{4}{\reg_B \bmod 2^{32}}}\\
+        \unsigned{\rtz(a \div b)} &\otherwise \\[2pt]
+        \quad \where a = \signedn{4}{\reg_A \bmod 2^{32}}\,,\ b = \signedn{4}{\reg_B \bmod 2^{32}}\\
+    \end{cases}
+}
+\newcommand{\instructiononehundredninetyfoura}{
+    \reg'_D = \begin{cases}
+        2^{64} - 1 &\when b = 0\\
+        \unsigned{a} &\when a = -2^{31} \wedge b = -1\\
+        \unsigned{\rtz(a \div b)} &\otherwise \\[2pt]
+        \quad \where a = \signedn{4}{\reg_A \bmod 2^{32}}\,,\ b = \signedn{4}{\reg_B \bmod 2^{32}}\\
     \end{cases}
 }
 \newcommand{\instructiononehundredninetyfive}{
@@ -588,7 +606,7 @@
 }
 \newcommand{\instructiononehundredninetyseven}{\reg'_D = \sext_4((\reg_A \cdot 2^{\reg_B \bmod 32}) \bmod 2^{32})}
 \newcommand{\instructiononehundredninetyeight}{\reg'_D = \sext_4(\floor{(\reg_A \bmod 2^{32}) \div 2^{\reg_B \bmod 32}})}
-\newcommand{\instructiononehundredninetynine}{\reg'_D = \unsigned{\floor{\signedn{4}{\reg_A \bmod 2^{32}} \div 2^{\reg_B \bmod 32}}}}
+\newcommand{\instructiononehundredninetynine}{\reg'_D = \unsigned{\rtz(\signedn{4}{\reg_A \bmod 2^{32}} \div 2^{\reg_B \bmod 32})}}
 \newcommand{\instructiontwohundred}{\reg'_D = (\reg_A + \reg_B) \bmod 2^{64}}
 \newcommand{\instructiontwohundredone}{\reg'_D = (\reg_A + 2^{64} - \reg_B) \bmod 2^{64}}
 \newcommand{\instructiontwohundredtwo}{\reg'_D = (\reg_A \cdot \reg_B) \bmod 2^{64}}
@@ -602,7 +620,7 @@
     \reg'_D = \begin{cases}
         2^{64} - 1 &\when \reg_B = 0\\
         \reg_A &\when \signed{\reg_A} = -2^{63} \wedge \signed{\reg_B} = -1\\
-        \unsigned{\floor{\signed{\reg_A} \div \signed{\reg_B}}} &\otherwise
+        \unsigned{\rtz(\signed{\reg_A} \div \signed{\reg_B})} &\otherwise
     \end{cases}
 }
 \newcommand{\instructiontwohundredfive}{
@@ -619,13 +637,13 @@
 }
 \newcommand{\instructiontwohundredseven}{\reg'_D = (\reg_A \cdot 2^{\reg_B \bmod 64}) \bmod 2^{64}}
 \newcommand{\instructiontwohundredeight}{\reg'_D = \floor{\reg_A \div 2^{\reg_B \bmod 64}}}
-\newcommand{\instructiontwohundrednine}{\reg'_D = \unsigned{\floor{\signed{\reg_A} \div 2^{\reg_B \bmod 64}}}}
+\newcommand{\instructiontwohundrednine}{\reg'_D = \unsigned{\rtz(\signed{\reg_A} \div 2^{\reg_B \bmod 64})}}
 \newcommand{\instructiontwohundredten}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \wedge \bits{\reg_B}_i}
 \newcommand{\instructiontwohundredeleven}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \oplus \bits{\reg_B}_i}
 \newcommand{\instructiontwohundredtwelve}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \vee \bits{\reg_B}_i}
-\newcommand{\instructiontwohundredthirteen}{\reg'_D = \unsigned{\floor{(\signed{\reg_A} \cdot \signed{\reg_B}) \div 2^{64}}}}
+\newcommand{\instructiontwohundredthirteen}{\reg'_D = \unsigned{\rtz((\signed{\reg_A} \cdot \signed{\reg_B}) \div 2^{64})}}
 \newcommand{\instructiontwohundredfourteen}{\reg'_D = \floor{(\reg_A \cdot \reg_B) \div 2^{64}}}
-\newcommand{\instructiontwohundredfifteen}{\reg'_D = \unsigned{\floor{(\signed{\reg_A} \cdot \reg_B) \div 2^{64}}}}
+\newcommand{\instructiontwohundredfifteen}{\reg'_D = \unsigned{\rtz((\signed{\reg_A} \cdot \reg_B) \div 2^{64})}}
 \newcommand{\instructiontwohundredsixteen}{\reg'_D = \reg_A < \reg_B}
 \newcommand{\instructiontwohundredseventeen}{\reg'_D = \signed{\reg_A} < \signed{\reg_B}}
 \newcommand{\instructiontwohundredeighteen}{

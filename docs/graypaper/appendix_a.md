@@ -245,6 +245,7 @@ This section has been updated to match Graypaper version 0.6.2.
 | 192                    | mul_32        | 0      | $\instructiononehundredninetytwo$   | [TODO]         |
 | 193                    | div_u_32      | 0      | $\instructiononehundredninetythree$ | [TODO]         |
 | 194                    | div_s_32      | 0      | $\instructiononehundredninetyfour$  | [TODO]         |
+| 194a                   | div_s_32      | 0      | $\instructiononehundredninetyfoura$ | [TODO]         |
 | 195                    | rem_u_32      | 0      | $\instructiononehundredninetyfive$  | [TODO]         |
 | 196                    | rem_s_32      | 0      | $\instructiononehundredninetysix$   | [TODO]         |
 | 197                    | shlo_l_32     | 0      | $\instructiononehundredninetyseven$ | [TODO]         |
@@ -282,30 +283,32 @@ This section has been updated to match Graypaper version 0.6.2.
 | 229                    | min           | 0      | $\instructiontwohundredtwentynine$  | [TODO]         |
 | 230                    | min_u         | 0      | $\instructiontwohundredthirty$      | [TODO]         |
 
-| Graypaper                 | Equation                   | Implementation |
-|---------------------------|----------------------------|----------------|
-| <a name="A.32">(A.32)</a> | $\equationapointthirtytwo$ | [TODO]         |
+| Graypaper                 | Equation                     | Implementation |
+|---------------------------|------------------------------|----------------|
+| <a name="A.32">(A.32)</a> | $\equationapointthirtytwo$   | [TODO]         |
+| <a name="A.33">(A.33)</a> | $\equationapointthirtythree$ | [TODO]         |
 
 
 ## A.6. Host Call Definition
 | Graypaper                 | Equation                    | Implementation |
 |---------------------------|-----------------------------|----------------|
-| <a name="A.33">(A.33)</a> | $\equationapointthirtythree$ | [TODO]         |
-| <a name="A.34">(A.34)</a> | $\equationapointthirtyfour$  | [TODO]         |
+| <a name="A.34">(A.34)</a> | $\equationapointthirtyfour$ | [TODO]         |
+| <a name="A.35">(A.35)</a> | $\equationapointthirtyfive$ | [TODO]         |
 
 ## A.7. Standard Program Initialization
 | Graypaper                 | Equation                     | Implementation |
 |---------------------------|------------------------------|----------------|
-| <a name="A.35">(A.35)</a> | $\equationapointthirtyfive$  | [TODO]         |
 | <a name="A.36">(A.36)</a> | $\equationapointthirtysix$   | [TODO]         |
 | <a name="A.37">(A.37)</a> | $\equationapointthirtyseven$ | [TODO]         |
 | <a name="A.38">(A.38)</a> | $\equationapointthirtyeight$ | [TODO]         |
 | <a name="A.39">(A.39)</a> | $\equationapointthirtynine$  | [TODO]         |
 | <a name="A.40">(A.40)</a> | $\equationapointforty$       | [TODO]         |
-| <a name="A.41">(A.41)</a> | $\equationapointfortyone$ | [TODO]         |
+| <a name="A.41">(A.41)</a> | $\equationapointfortyone$    | [TODO]         |
+| <a name="A.42">(A.42)</a> | $\equationapointfortytwo$    | [TODO]         |
 
 ## A.8. Argument Invocation Definition
 | Graypaper                 | Equation                    | Implementation |
 |---------------------------|-----------------------------|----------------|
 | <a name="A.42">(A.42)</a> | $\equationapointfortytwo$   | [TODO]         |
 | <a name="A.43">(A.43)</a> | $\equationapointfortythree$ | [TODO]         |
+| <a name="A.44">(A.44)</a> | $\equationapointfortyfour$  | [TODO]         |
