@@ -19,7 +19,8 @@ from .utils import (
     rori64,
     rori32,
     pvm_floor_div,
-    pvm_smod
+    pvm_smod,
+    pvm_rtz_div
 )
 
 from .constants import (
@@ -572,7 +573,13 @@ class PVM:
                             self.reg[r_a] = pvm_X(pvm_floor_div((w_b % 2**32), (2**(v_x%32))), 4)
 
                         case op.shar_r_imm_32.value:
-                            self.reg[r_a] = pvm_Z_inv(pvm_floor_div(pvm_Z(w_b % 2 ** 32, 4), (2 ** (v_x % 32))), 8)
+                            self.reg[r_a] = pvm_Z_inv(
+                                pvm_rtz_div(
+                                    pvm_Z(w_b % 2 ** 32, 4),
+                                    (2 ** (v_x % 32))
+                                ),
+                             8
+                            )
 
                         case op.neg_add_imm_32.value:
                             self.reg[r_a] = pvm_X((v_x + 2**32 - w_b) % 2**32, 4)
@@ -591,7 +598,7 @@ class PVM:
 
                         case op.shar_r_imm_alt_32.value:
                             self.reg[r_a] = pvm_Z_inv(
-                                pvm_floor_div(
+                                pvm_rtz_div(
                                     pvm_Z(v_x % 2**32, 4),
                                     2 ** (w_b % 32)
                                 ),
@@ -619,7 +626,13 @@ class PVM:
                             self.reg[r_a] = pvm_X(pvm_floor_div(w_b, np.uint64(2**(v_x % 64))), 8)
 
                         case op.shar_r_imm_64.value:
-                            self.reg[r_a] = pvm_Z_inv(pvm_floor_div(pvm_Z(w_b, 8), 2**(v_x % 64)), 8)
+                            self.reg[r_a] = pvm_Z_inv(
+                                pvm_rtz_div(
+                                    pvm_Z(w_b, 8),
+                                    2**(v_x % 64)
+                                ),
+                                8
+                            )
 
                         case op.neg_add_imm_64.value:
                             self.reg[r_a] = ((int(v_x) + 2**64 - int(w_b)) % 2**64)
@@ -631,7 +644,12 @@ class PVM:
                             self.reg[r_a] = pvm_floor_div(v_x, np.uint64(2**(w_b % 64)))
 
                         case op.shar_r_imm_alt_64.value:
-                            self.reg[r_a] = pvm_Z_inv(pvm_floor_div(pvm_Z(v_x, 8), 2**(w_b % 64)), 8)
+                            self.reg[r_a] = pvm_Z_inv(
+                                pvm_rtz_div(
+                                    pvm_Z(v_x, 8),
+                                    2**(w_b % 64)),
+                                8
+                            )
 
                         case op.rot_r_64_imm:
                             self.reg[r_a] = rori64(w_b, v_x)
@@ -744,9 +762,9 @@ class PVM:
                             if b == 0:
                                 self.reg[r_d] = 2**64-1
                             elif a == -2**31 and b == -1:
-                                self.reg[r_d] = a
+                                self.reg[r_d] = pvm_Z_inv(a, 8)
                             else:
-                                self.reg[r_d] = pvm_Z_inv(pvm_floor_div(a, b), 8)
+                                self.reg[r_d] = pvm_Z_inv(pvm_rtz_div(a, b), 8)
 
                         case op.rem_u_32.value:
                             if w_b % 2**32 == 0:
@@ -773,7 +791,7 @@ class PVM:
 
                         case op.shar_r_32.value:
                             self.reg[r_d] = pvm_Z_inv(
-                                pvm_floor_div(
+                                pvm_rtz_div(
                                     pvm_Z(w_a % 2**32, 4),
                                     2**(w_b % 32)
                                 ),
@@ -802,7 +820,7 @@ class PVM:
                                 self.reg[r_d] = w_a
                             else:
                                 self.reg[r_d] = pvm_Z_inv(
-                                    pvm_floor_div(
+                                    pvm_rtz_div(
                                         pvm_Z(w_a, 8),
                                         pvm_Z(w_b, 8)
                                     ),
@@ -833,7 +851,13 @@ class PVM:
                             self.reg[r_d] = pvm_floor_div(w_a, 2**(w_b % 64))
 
                         case op.shar_r_64.value:
-                            self.reg[r_d] = pvm_Z_inv(pvm_floor_div(pvm_Z(w_a, 8), 2**(w_b % 64)), 8)
+                            self.reg[r_d] = pvm_Z_inv(
+                                pvm_rtz_div(
+                                    pvm_Z(w_a, 8),
+                                    2**(w_b % 64)
+                                ),
+                                8
+                            )
 
                         case op._and.value:
                             self.reg[r_d] = self.reg[r_a] & self.reg[r_b]
@@ -845,13 +869,19 @@ class PVM:
                             self.reg[r_d] = self.reg[r_a] | self.reg[r_b]
 
                         case op.mul_upper_s_s.value:
-                            self.reg[r_d] = pvm_Z_inv(pvm_floor_div((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)), 2**64), 8)
+                            self.reg[r_d] = pvm_Z_inv(
+                                pvm_rtz_div((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)), 2**64),
+                                8
+                            )
 
                         case op.mul_upper_u_u.value:
                             self.reg[r_d] = pvm_floor_div(w_a * w_b, 2**64)
 
                         case op.mul_upper_s_u.value:
-                            self.reg[r_d] = pvm_Z_inv(pvm_floor_div(pvm_Z(w_a, 8) * w_b, 2**64), 8)
+                            self.reg[r_d] = pvm_Z_inv(
+                                pvm_rtz_div(pvm_Z(w_a, 8) * w_b, 2**64),
+                                8
+                            )
 
                         case op.set_lt_u.value:
                             self.reg[r_d] = np.int64(w_a < w_b)

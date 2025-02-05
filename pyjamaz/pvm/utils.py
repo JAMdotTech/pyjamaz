@@ -75,6 +75,19 @@ def pvm_smod(a: int, b: int) -> int:
         return sign_a * (abs(a) % abs(b))
 
 
+def pvm_rtz_div(a: int, b: int) -> int:
+    a = int(a)
+    b = int(b)
+
+    same_sign = (a >= 0) == (b >= 0)
+
+    if not same_sign:
+        q, r = divmod(abs(a), abs(b))
+        return -q
+    else:
+        return a // b
+
+
 def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     """
     Note:
