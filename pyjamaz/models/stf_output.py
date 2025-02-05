@@ -10,7 +10,7 @@ from pyjamaz.models.common import WorkReport, TicketBody
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
     BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, \
-    AuthorizerQueuesState
+    AuthorizerQueuesState, DeferredTransfer
 
 
 @dataclass
@@ -285,46 +285,55 @@ class ServicesAfterPreimagesOutput(Serializable):
 
     Attributes
     ----------
-    intermediate_state_after_preimages:ServicesState
+    post_state:ServicesState
         GP-0.5.0-eq:4.?? (δ') | Primary output of ServicesAfterPreimages STF.
     """
     post_state: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
 
 
 @dataclass
-class ServicesAfterGuaranteesOutput(Serializable):
+class ServicesAfterTransfersOutput(Serializable):
     """
-    GP-0.5.0-eq:4.17 (δ‡) | Output of ServicesAfterGuarantees STF.
+    GP-0.5.0-eq:4.17 (δ‡) | Output of ServicesAfterTransfers STF.
 
     Attributes
     ----------
-    intermediate_state_after_guarantees:ServicesState
-        GP-0.5.0-eq:4.17 (δ‡) | Primary output of ServicesAfterGuarantees STF.
+    intermediate_state_after_transfers: ServicesState
+        GP-0.5.0-eq:4.17 (δ‡) | Primary output of ServicesAfterTransfers STF.
     """
-    intermediate_state_after_guarantees: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+    intermediate_state_after_transfers: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
 
 
 @dataclass
-class ServicesOutput(Serializable):
+class ServicesAfterAccumulationOutput(Serializable):
     """
     GP-0.5.0-eq:4.18 (δ†) | Output of Services STF.
 
     Attributes
     ----------
-    intermediate_state_services: ServicesState
-        GP-0.5.0-eq:4.18 (δ†) | Primary output of Services STF.
+    intermediate_state_after_accumulation: ServicesState
+        GP-0.6.1-eq:12.22 (δ†) | Primary output of Services STF.
+    post_state_privileged_services: PrivilegedServicesState
+        GP-0.6.1-eq:12.22 (χ') | Posterior state of privileged services
+    post_state_validator_queue: ValidatorQueueState
+        GP-0.6.1-eq:12.22 (ι') | Posterior state of validator queue
+    post_state_authorizer_queues: AuthorizerQueuesState
+        GP-0.6.1-eq:12.22 (φ') | Posterior state of authorizer queues
     beefy_commitment_map: BeefyCommitmentMap
-        GP-0.6.0-eq:12.15 (B) | Secondary output of Services STF, BeefyCommitmentMap.
+        GP-0.6.1-eq:12.21 (C) | Secondary output of Services STF, BeefyCommitmentMap.
     nr_work_results_accumulated: int
-        GP-0.6.0-eq:12.21 (n) | Number of work results accumulated
+        GP-0.6.1-eq:12.21 (n) | Number of work results accumulated
+    deferred_transfers: List[DeferredTransfer]
+        GP-0.6.1-eq:12.21 (bold_t) | Number of work results accumulated
 
     """
-    intermediate_state_services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+    intermediate_state_after_accumulation: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     post_state_privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
     post_state_validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     post_state_authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     beefy_commitment_map: BeefyCommitmentMap = field(metadata={'codec': BeefyCommitmentMap.to_codec_def()})
     nr_work_results_accumulated: int = field(metadata={'codec': U32})
+    deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
 
 
 @dataclass

@@ -105,7 +105,7 @@ class TestPreimages(unittest.TestCase):
 
             output = services.state_transition_after_preimages(
                 extrinsic_preimages=extrinsic_preimages,
-                pre_state_services=pre_services,
+                intermediate_state_after_transfers=pre_services,
                 post_state_timeslot=post_state_timeslot,
 
             )

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Set, Optional, Dict
 from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
-    BeefyCommitmentMap, TimeslotState
+    BeefyCommitmentMap, TimeslotState, ServiceAccount
 
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
@@ -88,6 +88,25 @@ def priority_queue(work_report_queue: List[AccumulationQueueWorkPackage]) -> Lis
         return g + priority_queue(edit_queue(work_report_queue, work_report_mapping(g)))
 
 
+def transfers_service_mapping(
+        deferred_transfers: List[DeferredTransfer],
+        service_id: int
+) -> List[DeferredTransfer]:
+    """
+    GP-0.6.1-eq:12.23 (R) | Maps a sequence of deferred transfers to a service
+
+    Parameters
+    ----------
+    deferred_transfers: List[DeferredTransfer]
+    service_id: int
+
+    Returns
+    -------
+    List[DeferredTransfer]
+    """
+    transfers = [t for t in deferred_transfers if t.receiver == service_id]
+    return sorted(transfers, key=lambda t: t.sender)
+
 @dataclass
 class PvmAccumulateOutput:
     state_context: AccumulationStateComponents
@@ -119,7 +138,7 @@ def pvm_invoke_accumulate(
         operands: List[AccumulationOperand]
 ) -> PvmAccumulateOutput:
     """
-    GP-0.5.4-eq:B.8 (Ψ_A) | Accumulate output function
+    GP-0.5.4-eq:B.8 (Ψ_A) | Accumulation invocation function
 
     TODO stub
 
@@ -142,6 +161,30 @@ def pvm_invoke_accumulate(
         accumulation_output=None,
         gas_used=gas_limit
     )
+
+def pvm_invoke_on_transfer(
+        services: Dict[int, ServiceAccount],
+        timeslot: int,
+        service_id: int,
+        deferred_transfers: List[DeferredTransfer]
+) -> ServiceAccount:
+    """
+    GP-0.6.1-eq:B.14 (Ψ_T) | the on-transfer service-account invocation function
+
+    TODO stub
+
+    Parameters
+    ----------
+    services: Dict[int, ServiceAccount]
+    timeslot: int
+    service_id: int
+    deferred_transfers: List[DeferredTransfer]
+
+    Returns
+    -------
+    ServiceAccount
+    """
+    return services.get(service_id)
 
 def full_sequential_accumulation(
         gas_limit: int,

@@ -155,13 +155,19 @@ class TestAccumulate(unittest.TestCase):
 
         services = Services(self.storage_engine, self.block_context, self.app_context)
 
-        accumulation_output = services.state_transition(
+        accumulation_output = services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_privileged_services=pre_privileged_services,
             post_state_timeslot=post_state_timeslot,
             pre_state_services=pre_services,
             pre_state_authorizer_queues=AuthorizerQueuesState(authorizer_queues=[]),
             pre_state_validator_queue=ValidatorQueueState(validators=[]),
+        )
+
+        transfer_output = services.state_transition_transfers(
+            intermediate_state_after_accumulation=accumulation_output.intermediate_state_after_accumulation,
+            post_state_timeslot=post_state_timeslot,
+            deferred_transfers=accumulation_output.deferred_transfers
         )
 
         accumulation_history = AccumulationHistory(self.storage_engine, self.block_context, self.app_context)

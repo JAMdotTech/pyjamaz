@@ -65,9 +65,7 @@ async def initialize_app(read_state=True, memory_storage=False, keys=None, commo
     app = PyjamazApp(config=config)
 
     if read_state:
-        app.state = app.retrieve_jam_state()
-        app.latest_epoch = app.state.timeslot.epoch_number()
-        await app.update_state_trie()
+        await app.initialize()
 
     return app
 
@@ -199,7 +197,7 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, lock):
         # TODO centralize
         app.block_context.reset()
         timeslot = app.current_timeslot()
-        logging.info(f"⏳️Timeslot: {timeslot}")
+        logging.info(f"⏳️ Timeslot: {timeslot}")
 
         if app.state.timeslot.number >= timeslot:
             logger.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
@@ -232,9 +230,7 @@ async def timeslot_ticker(app: PyjamazApp, block_dir, lock):
                 post_state_validator_pool=app.state.validator_pool,
                 extrinsic_tickets=[]
             )
-            # Update slot_sealer_series in advance
-            # self.state.safrole.slot_sealer_series = post_safrole_state.post_state.slot_sealer_series
-            # logging.debug(f'New slot_sealer_series: {self.state.safrole.slot_sealer_series.to_json()}')
+
             # Process tickets
             app.extrinsic.process_epoch_change()
             logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
@@ -403,7 +399,7 @@ async def replay_traces(
 
         logger.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: 0x{trace.block.header.hash.hex()})..')
         try:
-            await app.import_block(trace.block, validate=not skip_block_validation)
+            await app.import_block(trace.block, dry_run=not skip_block_validation)
             logger.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
 
         except TransactionRolledBack as e:

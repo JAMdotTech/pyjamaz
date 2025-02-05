@@ -692,6 +692,8 @@ class BlockContext:
     queued_work_reports: Optional[List[AccumulationQueueWorkPackage]] = None
     # W*
     accumulatable_work_reports: Optional[List[WorkReport]] = None
+    # R
+    reporters: Optional[List[bytes]] = None
 
     # M_o
     state_root: Optional[bytes] = None
@@ -721,7 +723,7 @@ class BlockContext:
 
         Returns
         -------
-
+        Optional[Header]
         """
         if header.parent == bytes(32):
             # H_0

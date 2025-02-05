@@ -10,7 +10,7 @@ from jamcodec.types import Vec, U32
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import work_report_mapping, pvm_invoke_accumulate, PvmAccumulateOutput, \
-    full_sequential_accumulation, edit_queue
+    full_sequential_accumulation, edit_queue, pvm_invoke_on_transfer, transfers_service_mapping
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
@@ -20,9 +20,10 @@ from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, Accumul
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
-    AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesOutput, ServicesAfterPreimagesOutput, \
+    AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesAfterAccumulationOutput, \
+    ServicesAfterPreimagesOutput, \
     DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage, ServicesErrorCode, \
-    AccumulationHistoryOutput, AccumulationQueueOutput
+    AccumulationHistoryOutput, AccumulationQueueOutput, ServicesAfterTransfersOutput
 
 from pyjamaz.state.base import StateComponent, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_preimage_availability, AppContext
@@ -34,7 +35,7 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
     AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
-    AccumulationQueueWorkPackage
+    AccumulationQueueWorkPackage, DeferredTransfer
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -1616,11 +1617,10 @@ class Statistics(StateComponent):
         for assurance in extrinsic_assurances:
             post_state.current[assurance.validator_index].assurances += 1
 
+        # TODO replace with bold_R (self.block_context.reporters)
         for guarantee in extrinsic_guarantees:
             for signature in guarantee.signatures:
                 post_state.current[signature.validator_index].guarantees += 1
-
-
 
         return StatisticsOutput(
             post_state=post_state
@@ -1679,7 +1679,7 @@ class Services(StateComponent):
     def state_transition_after_preimages(
             self,
             extrinsic_preimages: List[Preimage],
-            pre_state_services: ServicesState,
+            intermediate_state_after_transfers: ServicesState,
             post_state_timeslot: TimeslotState
     ) -> ServicesAfterPreimagesOutput:
         """
@@ -1690,8 +1690,8 @@ class Services(StateComponent):
         ----------
         extrinsic_preimages: List[Preimage]
             GP-0.3.8-eq:24 (bold_E_P)
-        pre_state_services: ServicesState
-            GP-0.3.8-eq:24 (δ)
+        intermediate_state_after_transfers: ServicesState
+            GP-0.3.8-eq:24 (δ‡)
         post_state_timeslot: TimeslotState
             GP-0.3.8-eq:24 (τ')
 
@@ -1700,8 +1700,6 @@ class Services(StateComponent):
         ServicesAfterPreimagesOutput
             Output containing: Intermediate state after processing Preimages of ServicesState (δ†)
         """
-
-        intermediate_state_services_after_preimages = deepcopy(pre_state_services)
 
         # GP-0.5.4-eq:12.33
         for preimage in extrinsic_preimages:
@@ -1716,16 +1714,11 @@ class Services(StateComponent):
                 value=[post_state_timeslot.number]
             )
 
-
         return ServicesAfterPreimagesOutput(
-            post_state=intermediate_state_services_after_preimages
+            post_state=intermediate_state_after_transfers
         )
 
-    # Todo: Add additional intermediate STF for δ‡ (Services after accumulation, but before transfers as per
-    #  GP-0.3.8-eq:166. State Transition Dependency Graph does not currently list a distinct STF for this. This may
-    #  impact input parameters of the main STF.
-
-    def state_transition(
+    def state_transition_accumulation(
             self,
             accumulatable_work_reports: List[WorkReport],
             pre_state_privileged_services: PrivilegedServicesState,
@@ -1733,7 +1726,7 @@ class Services(StateComponent):
             pre_state_validator_queue: ValidatorQueueState,
             pre_state_authorizer_queues: AuthorizerQueuesState,
             post_state_timeslot: TimeslotState,
-    ) -> ServicesOutput:
+    ) -> ServicesAfterAccumulationOutput:
         """
         GP-0.6.0-eq:12.21,12.22 (δ†) | State transition function for the state's services.
 
@@ -1752,16 +1745,17 @@ class Services(StateComponent):
 
         Returns
         -------
-        ServicesOutput
+        ServicesAfterAccumulationOutput
             Output containing: intermediate state of ServicesState (δ†) and BeefyCommitmentMap (C).
         """
 
         accumulation_state = AccumulationStateComponents(
-            services=pre_state_services,
-            validator_queue=pre_state_validator_queue,
-            authorizer_queues=pre_state_authorizer_queues,
-            privileged_services=pre_state_privileged_services
+            services=deepcopy(pre_state_services),
+            validator_queue=deepcopy(pre_state_validator_queue),
+            authorizer_queues=deepcopy(pre_state_authorizer_queues),
+            privileged_services=deepcopy(pre_state_privileged_services)
         )
+
         # GP-0.6.0-eq:12.20
         gas_limit = min(
             gp_const.GAS_TOTAL, gp_const.GAS_ACCUMULATION * gp_const.CORE_COUNT + sum(
@@ -1779,13 +1773,54 @@ class Services(StateComponent):
         )
 
         # GP-0.6.0-eq:12.22
-        return ServicesOutput(
-            intermediate_state_services=output.post_accumulation_state.services,
+        return ServicesAfterAccumulationOutput(
+            intermediate_state_after_accumulation=output.post_accumulation_state.services,
             post_state_privileged_services=output.post_accumulation_state.privileged_services,
             post_state_validator_queue=output.post_accumulation_state.validator_queue,
             post_state_authorizer_queues=output.post_accumulation_state.authorizer_queues,
             beefy_commitment_map=output.accumulation_commitment,
-            nr_work_results_accumulated=output.nr_work_results_accumulated
+            nr_work_results_accumulated=output.nr_work_results_accumulated,
+            deferred_transfers=output.deferred_transfers
+        )
+
+    def state_transition_transfers(
+            self,
+            intermediate_state_after_accumulation: ServicesState,
+            post_state_timeslot: TimeslotState,
+            deferred_transfers: List[DeferredTransfer]
+    ) -> ServicesAfterTransfersOutput:
+        """
+        GP-0.6.1-eq:12.24 (δ‡) | State transition function for the state's services.
+
+        Parameters
+        ----------
+        intermediate_state_after_accumulation: ServicesState
+            GP-0.6.1-eq:12.24 (δ†)
+        post_state_timeslot: TimeslotState
+            GP-0.6.1-eq:12.24 (τ')
+        deferred_transfers: List[DeferredTransfer]
+            GP-0.6.1-eq:12.24 (bold_t)
+
+        Returns
+        -------
+        ServicesAfterTransfersOutput
+            Output containing: intermediate state of ServicesState (δ‡)
+        """
+
+        intermediate_state_after_transfers = deepcopy(intermediate_state_after_accumulation)
+
+        for service_id in intermediate_state_after_accumulation.services.keys():
+            intermediate_state_after_transfers.services.update({
+                service_id: pvm_invoke_on_transfer(
+                    services=intermediate_state_after_accumulation.services,
+                    timeslot=post_state_timeslot.number,
+                    service_id=service_id,
+                    deferred_transfers=transfers_service_mapping(deferred_transfers, service_id)
+                )
+            })
+
+        return ServicesAfterTransfersOutput(
+            intermediate_state_after_transfers=intermediate_state_after_transfers
         )
 
     def is_preimage_needed(self, preimage: Preimage, pre_state_services: ServicesState) -> bool:
@@ -1993,10 +2028,11 @@ class AccumulationHistory(StateComponent):
             GP-0.5.4-eq:12.11 (W*)
         pre_state_accumulation_history: AccumulationHistoryState
             GP-0.5.4-eq:4.17 (ξ)
-
+        nr_work_results_accumulated: int
+            GP-0.6.1-eq:12.21 (n)
         Returns
         -------
-        AuthorizerPoolsOutput
+        AccumulationHistoryOutput
             Output containing: Posterior state of AccumulationHistoryState (ξ')
         """
         post_state_accumulation_history = AccumulationHistoryState(
