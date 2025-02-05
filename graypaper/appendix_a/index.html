@@ -2520,8 +2520,10 @@
  \newcommand{\instructiontwohundredtwentyfive}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \vee \lnot \bits{\reg_B}_i}
  \newcommand{\instructiontwohundredtwentysix}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \lnot ( \bits{\reg_A}_i \oplus \bits{\reg_B}_i )}
  \newcommand{\instructiontwohundredtwentyseven}{\reg'_D = \max ( \signed{\reg_A}, \signed{\reg_B} )}
+ \newcommand{\instructiontwohundredtwentysevena}{\reg'_D = \unsigned{\max ( \signed{\reg_A}, \signed{\reg_B} )}}
  \newcommand{\instructiontwohundredtwentyeight}{\reg'_D = \max ( \reg_A, \reg_B )}
  \newcommand{\instructiontwohundredtwentynine}{\reg'_D = \min ( \signed{\reg_A}, \signed{\reg_B} )}
+ \newcommand{\instructiontwohundredtwentyninea}{\reg'_D = \unsigned{\min ( \signed{\reg_A}, \signed{\reg_B} )}}
  \newcommand{\instructiontwohundredthirty}{\reg'_D = \min ( \reg_A, \reg_B )}
  \)</span></p>
 <h1 id="appendix-a-polka-virtual-machine">Appendix A. Polka Virtual Machine<a class="headerlink" href="#appendix-a-polka-virtual-machine" title="Permanent link">&para;</a></h1>
@@ -4014,6 +4016,13 @@ This section has been updated to match Graypaper version 0.6.2.</p>
 <td>[TODO]</td>
 </tr>
 <tr>
+<td>227a</td>
+<td>max</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentysevena\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
 <td>228</td>
 <td>max_u</td>
 <td>0</td>
@@ -4025,6 +4034,13 @@ This section has been updated to match Graypaper version 0.6.2.</p>
 <td>min</td>
 <td>0</td>
 <td><span class="arithmatex">\(\instructiontwohundredtwentynine\)</span></td>
+<td>[TODO]</td>
+</tr>
+<tr>
+<td>229a</td>
+<td>min</td>
+<td>0</td>
+<td><span class="arithmatex">\(\instructiontwohundredtwentyninea\)</span></td>
 <td>[TODO]</td>
 </tr>
 <tr>
