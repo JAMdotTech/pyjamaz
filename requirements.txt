@@ -13,3 +13,5 @@ bandersnatch-vrfs @ git+https://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@github.
 jamcodec @ git+https://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@github.com/JAMdotTech/py-jam-codec.git
 
 numpy~=2.1
+
+aioquic==1.2.0

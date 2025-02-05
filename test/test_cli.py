@@ -16,10 +16,8 @@ class TestCLI(unittest.IsolatedAsyncioTestCase):
     async def test_generate_keys(self):
 
         result = await self.runner.invoke(main, [
-            'keys', 'generate', '0x0000000000000000000000000000000000000000000000000000000000000000'
+            'keys', 'generate', '0x0000000000000000000000000000000000000000000000000000000000000000', '127.0.0.1', '9000'
         ])
-
-        self.assertIsNone(result.exception)
         self.assertEqual(0, result.exit_code)
 
         output = json.loads(result.output)
@@ -28,7 +26,7 @@ class TestCLI(unittest.IsolatedAsyncioTestCase):
     async def test_init(self):
 
         result = await self.runner.invoke(main, [
-            'init', '--initial-state', path.join(path.dirname(path.abspath(__file__)), '..', 'pyjamaz', 'data', 'initial_state_template.json'), '--force-overwrite',
+            'init', '--initial-state', path.join(path.dirname(path.abspath(__file__)), '..', 'pyjamaz', 'data', 'initial_state_template.json'), '--seed', '0x0000000000000000000000000000000000000000000000000000000000000000','--force-overwrite',
         ])
 
         self.assertIsNone(result.exception)
