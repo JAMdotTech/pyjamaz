@@ -46,34 +46,24 @@ def count_leading_zeroes(value, max_bits=64):
     return count
 
 
-def riscv_div(x: int, y: int) -> int:
-    """
-    Warning:
-        The graypaper defines certain operations using a floor over a divide
-        Python integer divide results in incorrect answers, same for numpy.floor_divide and true_divide
-        These numbers are represented as Floats with 53 bit integer precision, which is insufficient for some
-        64bit calculations.
-
-        Returns the quotient of x / y, truncated toward zero for positive numbers
-        without using floating-point arithmetic.
-    """
-    x = int(x)
-    y = int(y)
-
-    q, r = divmod(x, y)
-
-    if q != x//y:
-        print(1)
-
-    return q
-
-
 def pvm_smod(a: int, b: int) -> int:
     if b==0:
         return a
     else:
         sign_a = 1 if a >= 0 else -1
         return sign_a * (abs(a) % abs(b))
+
+
+def riscv_div(x: int, y: int) -> int:
+    """
+    Cast to a Python integer to prevent overflow
+    divmod is essentially the same as integer division //, but possibly faster for large 64bit numbers:
+    https://stackoverflow.com/a/30079965
+    """
+    x = int(x)
+    y = int(y)
+    q, r = divmod(x, y)
+    return q
 
 
 def pvm_rtz_div(a: int, b: int) -> int:
@@ -84,7 +74,7 @@ def pvm_rtz_div(a: int, b: int) -> int:
 
     q, r = divmod(abs(a), abs(b))
 
-    # https://en.wikipedia.org/wiki/Number_line
+    # https://math.stackexchange.com/questions/344815/how-do-the-floor-and-ceiling-functions-work-on-negative-numbers/344818#344818
     if not is_positive:
         return -q   # We take the ceil for negative numbers
     else:
