@@ -68,19 +68,19 @@ class Opcode(Enum):
     load_u16: np.uint8                                  = np.uint8(54)
     load_i16: np.uint8                                  = np.uint8(55)
     load_u32: np.uint8                                  = np.uint8(56)
-    load_i32: np.uint8                                  = np.uint8(57)  #TODO:NEW->TEST
-    load_u64: np.uint8                                  = np.uint8(58)  #TODO:NEW->TEST
+    load_i32: np.uint8                                  = np.uint8(57)
+    load_u64: np.uint8                                  = np.uint8(58)
     store_u8: np.uint8                                  = np.uint8(59)
     store_u16: np.uint8                                 = np.uint8(60)
     store_u32: np.uint8                                 = np.uint8(61)
-    store_u64: np.uint8                                 = np.uint8(62)  #TODO:NEW->TEST
+    store_u64: np.uint8                                 = np.uint8(62)
 
     # GP_A.5.7
     # Instructions with Arguments Of One Register & Two Immediates (reg_imm_imm)
     store_imm_ind_u8: np.uint8                          = np.uint8(70)
     store_imm_ind_u16: np.uint8                         = np.uint8(71)
     store_imm_ind_u32: np.uint8                         = np.uint8(72)
-    store_imm_ind_u64: np.uint8                         = np.uint8(73)  #TODO:NEW->TEST
+    store_imm_ind_u64: np.uint8                         = np.uint8(73)
 
     # GP_A.5.8
     # Instructions with Arguments Of One Register, One Immediate and One Offset (reg_imm_offset)
@@ -100,61 +100,61 @@ class Opcode(Enum):
     # Instructions with Arguments Of Two Registers (reg_reg)
     move_reg: np.uint8                                  = np.uint8(100)
     sbrk: np.uint8                                      = np.uint8(101)
-    count_set_bits_64: np.uint8                         = np.uint8(102) #TODO:NEW->TEST
-    count_set_bits_32: np.uint8                         = np.uint8(103) #TODO:NEW->TEST
-    leading_zero_bits_64: np.uint8                      = np.uint8(104) #TODO:NEW->TEST
-    leading_zero_bits_32: np.uint8                      = np.uint8(105) #TODO:NEW->TEST
-    trailing_zero_bits_64: np.uint8                     = np.uint8(106) #TODO:NEW->TEST
-    trailing_zero_bits_32: np.uint8                     = np.uint8(107) #TODO:NEW->TEST
-    sign_extend_8: np.uint8                             = np.uint8(108) #TODO:NEW->TEST
-    sign_extend_16: np.uint8                            = np.uint8(109) #TODO:NEW->TEST
-    zero_extend_16: np.uint8                            = np.uint8(110) #TODO:NEW->TEST
-    reverse_bytes: np.uint8                             = np.uint8(111) #TODO:NEW->TEST
+    count_set_bits_64: np.uint8                         = np.uint8(102)
+    count_set_bits_32: np.uint8                         = np.uint8(103)
+    leading_zero_bits_64: np.uint8                      = np.uint8(104)
+    leading_zero_bits_32: np.uint8                      = np.uint8(105)
+    trailing_zero_bits_64: np.uint8                     = np.uint8(106)
+    trailing_zero_bits_32: np.uint8                     = np.uint8(107)
+    sign_extend_8: np.uint8                             = np.uint8(108)
+    sign_extend_16: np.uint8                            = np.uint8(109)
+    zero_extend_16: np.uint8                            = np.uint8(110)
+    reverse_bytes: np.uint8                             = np.uint8(111)
 
     # GP_A.5.10
     # Instructions with Arguments Of Two Registers & One Immediate (reg_reg_imm)
     store_ind_u8: np.uint8                              = np.uint8(120)
     store_ind_u16: np.uint8                             = np.uint8(121)
     store_ind_u32: np.uint8                             = np.uint8(122)
-    store_ind_u64: np.uint8                             = np.uint8(123) #TODO:NEW->TEST
+    store_ind_u64: np.uint8                             = np.uint8(123)
     load_ind_u8: np.uint8                               = np.uint8(124)
     load_ind_i8: np.uint8                               = np.uint8(125)
     load_ind_u16: np.uint8                              = np.uint8(126)
     load_ind_i16: np.uint8                              = np.uint8(127)
     load_ind_u32: np.uint8                              = np.uint8(128)
-    load_ind_i32: np.uint8                              = np.uint8(129) #TODO:NEW->TEST
-    load_ind_u64: np.uint8                              = np.uint8(130) #TODO:NEW->TEST
-    add_imm_32: np.uint8                                = np.uint8(131) #TODO:NEW->TEST
+    load_ind_i32: np.uint8                              = np.uint8(129)
+    load_ind_u64: np.uint8                              = np.uint8(130)
+    add_imm_32: np.uint8                                = np.uint8(131)
     and_imm: np.uint8                                   = np.uint8(132)
     xor_imm: np.uint8                                   = np.uint8(133)
     or_imm: np.uint8                                    = np.uint8(134)
-    mul_imm_32: np.uint8                                = np.uint8(135) #TODO:NEW->TEST
+    mul_imm_32: np.uint8                                = np.uint8(135)
     set_lt_u_imm: np.uint8                              = np.uint8(136)
     set_lt_s_imm: np.uint8                              = np.uint8(137)
-    shlo_l_imm_32: np.uint8                             = np.uint8(138) #TODO:NEW->TEST
-    shlo_r_imm_32: np.uint8                             = np.uint8(139) #TODO:NEW->TEST
-    shar_r_imm_32: np.uint8                             = np.uint8(140) #TODO:NEW->TEST
-    neg_add_imm_32: np.uint8                            = np.uint8(141) #TODO:NEW->TEST
+    shlo_l_imm_32: np.uint8                             = np.uint8(138)
+    shlo_r_imm_32: np.uint8                             = np.uint8(139)
+    shar_r_imm_32: np.uint8                             = np.uint8(140)
+    neg_add_imm_32: np.uint8                            = np.uint8(141)
     set_gt_u_imm: np.uint8                              = np.uint8(142)
     set_gt_s_imm: np.uint8                              = np.uint8(143)
-    shlo_l_imm_alt_32: np.uint8                         = np.uint8(144) #TODO:NEW->TEST
-    shlo_r_imm_alt_32: np.uint8                         = np.uint8(145) #TODO:NEW->TEST
-    shar_r_imm_alt_32: np.uint8                         = np.uint8(146) #TODO:NEW->TEST
+    shlo_l_imm_alt_32: np.uint8                         = np.uint8(144)
+    shlo_r_imm_alt_32: np.uint8                         = np.uint8(145)
+    shar_r_imm_alt_32: np.uint8                         = np.uint8(146)
     cmov_iz_imm: np.uint8                               = np.uint8(147)
     cmov_nz_imm: np.uint8                               = np.uint8(148)
-    add_imm_64: np.uint8                                = np.uint8(149) #TODO:NEW->TEST
-    mul_imm_64: np.uint8                                = np.uint8(150) #TODO:NEW->TEST
-    shlo_l_imm_64: np.uint8                             = np.uint8(151) #TODO:NEW->TEST
-    shlo_r_imm_64: np.uint8                             = np.uint8(152) #TODO:NEW->TEST
-    shar_r_imm_64: np.uint8                             = np.uint8(153) #TODO:NEW->TEST
-    neg_add_imm_64: np.uint8                            = np.uint8(154) #TODO:NEW->TEST
-    shlo_l_imm_alt_64: np.uint8                         = np.uint8(155) #TODO:NEW->TEST
-    shlo_r_imm_alt_64: np.uint8                         = np.uint8(156) #TODO:NEW->TEST
-    shar_r_imm_alt_64: np.uint8                         = np.uint8(157) #TODO:NEW->TEST
-    rot_r_64_imm: np.uint8                              = np.uint8(158) #TODO:NEW->TEST!!!!!!!!!!!!!
-    rot_r_64_imm_alt: np.uint8                          = np.uint8(159) #TODO:NEW->TEST
-    rot_r_32_imm: np.uint8                              = np.uint8(160) #TODO:NEW->TEST
-    rot_r_32_imm_alt: np.uint8                          = np.uint8(161) #TODO:NEW->TEST
+    add_imm_64: np.uint8                                = np.uint8(149)
+    mul_imm_64: np.uint8                                = np.uint8(150)
+    shlo_l_imm_64: np.uint8                             = np.uint8(151)
+    shlo_r_imm_64: np.uint8                             = np.uint8(152)
+    shar_r_imm_64: np.uint8                             = np.uint8(153)
+    neg_add_imm_64: np.uint8                            = np.uint8(154)
+    shlo_l_imm_alt_64: np.uint8                         = np.uint8(155)
+    shlo_r_imm_alt_64: np.uint8                         = np.uint8(156)
+    shar_r_imm_alt_64: np.uint8                         = np.uint8(157)
+    rot_r_64_imm: np.uint8                              = np.uint8(158)
+    rot_r_64_imm_alt: np.uint8                          = np.uint8(159)
+    rot_r_32_imm: np.uint8                              = np.uint8(160)
+    rot_r_32_imm_alt: np.uint8                          = np.uint8(161)
 
 
     # GP_A.5.11
@@ -300,52 +300,52 @@ OpcodeScheme = {
 
     # GP_A.5.10
     # Instructions with args: reg, reg, imm
-    op.store_ind_u8.value                                   : it.reg_reg_imm,
-    op.store_ind_u8.value                                   : it.reg_reg_imm,
-    op.store_ind_u16.value                                   : it.reg_reg_imm,
-    op.store_ind_u32.value                                   : it.reg_reg_imm,
-    op.store_ind_u64.value                                   : it.reg_reg_imm,
-    op.load_ind_u8.value                                   : it.reg_reg_imm,
-    op.load_ind_i8.value                                   : it.reg_reg_imm,
-    op.load_ind_u16.value                                   : it.reg_reg_imm,
-    op.load_ind_i16.value                                   : it.reg_reg_imm,
-    op.load_ind_u32.value                                   : it.reg_reg_imm,
-    op.load_ind_i32.value                                   : it.reg_reg_imm,
-    op.load_ind_u64.value                                   : it.reg_reg_imm,
-    op.add_imm_32.value                                   : it.reg_reg_imm,
-    op.and_imm.value                                   : it.reg_reg_imm,
-    op.xor_imm.value                                   : it.reg_reg_imm,
-    op.or_imm.value                                   : it.reg_reg_imm,
-    op.mul_imm_32.value                                   : it.reg_reg_imm,
-    op.set_lt_u_imm.value                                   : it.reg_reg_imm,
-    op.set_lt_s_imm.value                                   : it.reg_reg_imm,
-    op.shlo_l_imm_32.value                                   : it.reg_reg_imm,
-    op.shlo_r_imm_32.value                                   : it.reg_reg_imm,
-    op.shar_r_imm_32.value                                   : it.reg_reg_imm,
-    op.neg_add_imm_32.value                                   : it.reg_reg_imm,
-    op.set_gt_u_imm.value                                   : it.reg_reg_imm,
-    op.set_gt_s_imm.value                                   : it.reg_reg_imm,
-    op.shlo_l_imm_alt_32.value                                   : it.reg_reg_imm,
-    op.shlo_r_imm_alt_32.value                                   : it.reg_reg_imm,
-    op.shar_r_imm_alt_32.value                                   : it.reg_reg_imm,
-    op.cmov_iz_imm.value                                   : it.reg_reg_imm,
-    op.cmov_nz_imm.value                                   : it.reg_reg_imm,
-    op.add_imm_64.value                                   : it.reg_reg_imm,
-    op.mul_imm_64.value                                   : it.reg_reg_imm,
-    op.shlo_l_imm_64.value                                   : it.reg_reg_imm,
-    op.shlo_r_imm_64.value                                   : it.reg_reg_imm,
-    op.shar_r_imm_64.value                                   : it.reg_reg_imm,
-    op.neg_add_imm_64.value                                   : it.reg_reg_imm,
-    op.shlo_l_imm_alt_64.value                                   : it.reg_reg_imm,
-    op.shlo_r_imm_alt_64.value                                   : it.reg_reg_imm,
-    op.shar_r_imm_alt_64.value                                   : it.reg_reg_imm,
-    op.rot_r_64_imm.value                                   : it.reg_reg_imm,
-    op.rot_r_64_imm_alt.value                                   : it.reg_reg_imm,
-    op.rot_r_32_imm.value                                   : it.reg_reg_imm,
-    op.rot_r_32_imm_alt.value                                   : it.reg_reg_imm,
+    op.store_ind_u8.value                               : it.reg_reg_imm,
+    op.store_ind_u8.value                               : it.reg_reg_imm,
+    op.store_ind_u16.value                              : it.reg_reg_imm,
+    op.store_ind_u32.value                              : it.reg_reg_imm,
+    op.store_ind_u64.value                              : it.reg_reg_imm,
+    op.load_ind_u8.value                                : it.reg_reg_imm,
+    op.load_ind_i8.value                                : it.reg_reg_imm,
+    op.load_ind_u16.value                               : it.reg_reg_imm,
+    op.load_ind_i16.value                               : it.reg_reg_imm,
+    op.load_ind_u32.value                               : it.reg_reg_imm,
+    op.load_ind_i32.value                               : it.reg_reg_imm,
+    op.load_ind_u64.value                               : it.reg_reg_imm,
+    op.add_imm_32.value                                 : it.reg_reg_imm,
+    op.and_imm.value                                    : it.reg_reg_imm,
+    op.xor_imm.value                                    : it.reg_reg_imm,
+    op.or_imm.value                                     : it.reg_reg_imm,
+    op.mul_imm_32.value                                 : it.reg_reg_imm,
+    op.set_lt_u_imm.value                               : it.reg_reg_imm,
+    op.set_lt_s_imm.value                               : it.reg_reg_imm,
+    op.shlo_l_imm_32.value                              : it.reg_reg_imm,
+    op.shlo_r_imm_32.value                              : it.reg_reg_imm,
+    op.shar_r_imm_32.value                              : it.reg_reg_imm,
+    op.neg_add_imm_32.value                             : it.reg_reg_imm,
+    op.set_gt_u_imm.value                               : it.reg_reg_imm,
+    op.set_gt_s_imm.value                               : it.reg_reg_imm,
+    op.shlo_l_imm_alt_32.value                          : it.reg_reg_imm,
+    op.shlo_r_imm_alt_32.value                          : it.reg_reg_imm,
+    op.shar_r_imm_alt_32.value                          : it.reg_reg_imm,
+    op.cmov_iz_imm.value                                : it.reg_reg_imm,
+    op.cmov_nz_imm.value                                : it.reg_reg_imm,
+    op.add_imm_64.value                                 : it.reg_reg_imm,
+    op.mul_imm_64.value                                 : it.reg_reg_imm,
+    op.shlo_l_imm_64.value                              : it.reg_reg_imm,
+    op.shlo_r_imm_64.value                              : it.reg_reg_imm,
+    op.shar_r_imm_64.value                              : it.reg_reg_imm,
+    op.neg_add_imm_64.value                             : it.reg_reg_imm,
+    op.shlo_l_imm_alt_64.value                          : it.reg_reg_imm,
+    op.shlo_r_imm_alt_64.value                          : it.reg_reg_imm,
+    op.shar_r_imm_alt_64.value                          : it.reg_reg_imm,
+    op.rot_r_64_imm.value                               : it.reg_reg_imm,
+    op.rot_r_64_imm_alt.value                           : it.reg_reg_imm,
+    op.rot_r_32_imm.value                               : it.reg_reg_imm,
+    op.rot_r_32_imm_alt.value                           : it.reg_reg_imm,
 
 
-# GP_A.5.11
+    # GP_A.5.11
     # Instructions with args: reg, reg, offset
     op.branch_eq.value                                      : it.reg_reg_offset,
     op.branch_ne.value                                      : it.reg_reg_offset,
