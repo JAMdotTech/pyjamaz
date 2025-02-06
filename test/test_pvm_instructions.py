@@ -35,22 +35,10 @@ class TestPolkaVMInstructions(unittest.TestCase):
     @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
     def test_instruction(self, name, test_vector):
 
+        TODO: PRINT ELKE REGEL DIE WE AFLOPEN ZODAT IK KAN VERGELIJKEN MET FLUFFY!!!!!
+
         # Set NumPy to ignore overflow warnings
         np.seterr(over='ignore')
-
-        mem_size = 0
-        mem_offset = 0
-        if test_vector["initial-page-map"]:
-            mem_size = test_vector["initial-page-map"][0]["length"]
-            mem_offset = test_vector["initial-page-map"][0]["address"]
-
-        expected_mem_offset = 0
-        if test_vector["expected-memory"]:
-            expected_mem_offset = test_vector["expected-memory"][0]["address"] - mem_offset
-        #     if len(test_vector["expected-memory"][0]["contents"]) > mem_size:
-        #         raise Exception("Initial pagemap memsize < expected memory")
-        #     if test_vector["expected-memory"][0]["address"] != mem_offset:
-        #         raise Exception("Initial pagemap differs from expected memory pagemap")
 
         pvm_data = PVMProgram.from_jam_bytes(
             JamBytes(bytes(test_vector["program"]))
@@ -62,9 +50,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
             test_vector["initial-pc"],
             test_vector["initial-gas"],
             test_vector["initial-page-map"],
-            test_vector["initial-memory"],
-            mem_size=mem_size,
-            mem_offset=mem_offset
+            test_vector["initial-memory"]
         )
 
         # Mapping specific for test vectors
@@ -80,8 +66,16 @@ class TestPolkaVMInstructions(unittest.TestCase):
         self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
         self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
         if test_vector["expected-memory"]:
-            mem_len = len(test_vector["expected-memory"][0]["contents"])
-            self.assertEqual(test_vector["expected-memory"][0]["contents"], pvm.mem.tolist()[expected_mem_offset:expected_mem_offset+mem_len], f"{name}:\n Expected mem: {test_vector['expected-memory'][0]['contents']}, but got: {pvm.mem.tolist()[expected_mem_offset:expected_mem_offset+mem_len]}")
+            for expected_mem in test_vector["expected-memory"]:
+                page = pvm.find_page(expected_mem["address"])
+                mem_offset = expected_mem["address"] - page.offset
+                mem_len = len(expected_mem["contents"])
+                pvm_mem = page.memory.tolist()[mem_offset:mem_offset + mem_len]
+                self.assertEqual(
+                    expected_mem["contents"],
+                    pvm_mem,
+                    f"{name}:\n Expected mem: {expected_mem["contents"]}, but got: {pvm_mem}"
+                )
 
 
 if __name__ == '__main__':

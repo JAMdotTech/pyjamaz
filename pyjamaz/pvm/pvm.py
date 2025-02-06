@@ -1,7 +1,9 @@
-from typing import Any, List, Dict
+import bisect
 
 import numpy as np
 import numpy.typing as npt
+
+from typing import Any, List, Dict
 
 from .exceptions import InvalidOpcode
 from .types import PVMProgram
@@ -33,13 +35,28 @@ from .constants import (
 from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
+class PageMap:
+
+    def __init__(self, offset, length, is_writable):
+        self.offset = offset
+        self.length = length
+        self.memory = np.zeros(length, dtype=np.uint8)
+        self.is_writable = is_writable
+
+    def contains(self, addr):
+        return self.offset <= addr < self.offset + self.length
+
+
 class PVM:
 
     def __init__(self):
         self.reg = np.zeros(13, dtype=np.uint64)
         self.pc:np.uint32 = np.uint32(0)
+        self.skip_len: int = 0
         self.gas:np.uint64 = np.uint64(0)
         self.mem:npt.NDArray[np.uint8] = np.zeros(1, dtype=np.uint8)
+        self.page_maps = []
+        self.page_offsets = []
         self.jump_table = []
         self.rom:npt.NDArray[np.uint8] = np.array(1, dtype=np.uint8)
         self.program_size: np.uint64 = np.uint64(0)
@@ -85,7 +102,6 @@ class PVM:
             self.inst_len.append(inst_args)
             inst_nr += 1
             self.inst_pos[inst_bitmask_idx - 1] = inst_nr
-            # print(f"added instruction {len(self.inst_len) - 1} (byte {op_bit_idx-1} == opcode {self.inst_pos[op_bit_idx-1]}) with args {op_args} (next byte: {op_bit_idx - 1})")
 
 
     def reset(
@@ -94,12 +110,11 @@ class PVM:
             initial_regs: list[int],
             initial_pc: int,
             initial_gas: int,
-            initial_page_map: list[Any],
-            initial_memory: list[Any],
-            mem_size: np.uint32 = 4096,
-            mem_offset: np.uint32 = 0
+            initial_page_maps: list[Any],
+            initial_memory: list[Any]
     ):
-        self.mem:npt.NDArray[np.uint8] = np.zeros(mem_size, dtype=np.uint8)
+        #TODO: self._mem? -> internal reference
+        self.mem:npt.NDArray[np.uint8] = None
         self.rom:npt.NDArray[np.uint8] = np.array(program.code, dtype=np.uint8)
         self.program_size: np.uint64 = np.uint64(len(self.rom))
         self.inst_bitmask: List[bool] = program.opcode_bitmask
@@ -112,30 +127,81 @@ class PVM:
 
         self.jump_table = [x.value for x in program.jump_table]
 
-        self.mem_offset = mem_offset
-        if initial_page_map:
-            self.mem_offset = initial_page_map[0]["address"]
-            for idx in range(initial_page_map[0]["length"]):
-                self.mem[idx] = np.uint8(0)
+        self.page_offsets = []
+        self.page_maps = []
+
+        if initial_page_maps:
+            # TODO: assume this is a sorted list for now
+            for page_map in initial_page_maps:
+                self.page_maps.append(PageMap(page_map["address"], page_map["length"], page_map["is-writable"]))
+
+            # To use bisect, we can create a helper list of page start offsets:
+            self.page_offsets = [p.offset for p in self.page_maps]
 
         if initial_memory:
-            for block_idx, mem_block in enumerate(initial_memory):
+            for mem_block in initial_memory:
+                page = self.find_page(mem_block["address"])
+                mem = page.memory
+                if len(mem_block["contents"]) > len(mem):
+                    raise ValueError(f"TOO BIG TO FIT IN HERE :D")
                 for idx, byt in enumerate(mem_block["contents"]):
-                    self.mem[initial_page_map[block_idx]["address"] - mem_block["address"] + idx] = np.uint8(byt)
+                    #TODO: gebruik de check_mem functie om ook hier fouten af te vangen!#$#$@
+                    mem[idx] = np.uint8(byt)
 
         self.create_instruction_lookup()
 
-    def check_mem_op(self, op: int, mapped_addr: int):
-        valid_op = True
-        bytes_needed = MemOps[op]["bytes"]
-        if mapped_addr+bytes_needed > len(self.mem):
-            valid_op = False
 
-        if not valid_op:
+    def find_page(self, addr):
+        if not self.page_offsets:
+            return None
+
+        # Find rightmost index where addr would be inserted and then check if it falls in the page
+        index = bisect.bisect_right(self.page_offsets, addr) - 1
+        if index < 0:
+            return None
+
+        page = self.page_maps[index]
+        if page.contains(addr):
+            return page
+        else:
+            return None
+
+
+    def verify_page_addr(self, op: int, mem_addr: int):
+        """
+        Given a memory address, find the address that corresponds to that page.
+        Returns -1 if there is no corresponding page or if the address is not mapped.
+        """
+        #TODO: check whether we are still in range of current memory page, and skip bisect lookup if so
+
+        page = self.find_page(mem_addr)
+        if not page:
+            self.status = ExitCondition.page_fault.value
+            self.gas -= 1
+            return -1
+
+        # Set the mem page according to the found page for this range
+        self.mem = page.memory
+        page_addr = mem_addr - page.offset
+
+        bytes_needed = MemOps[op]["bytes"]
+        if page_addr+bytes_needed > len(self.mem):
+            page_addr = -1
+
+        # TODO: check writable&readable memory banks
+        #if MemOps[op]["read"]:
+        #if MemOps[op]["write"]:
+        # if write_value:
+        #     if mapped_addr + (write_value.bit_length() + 7) // 8 > len(self.mem):
+        #         valid_op = False
+
+        if page_addr == -1:
             self.status = ExitCondition.page_fault.value
             self.gas -= 1
 
-        return valid_op
+        return page_addr
+
+
 
     # GP_A.15
     def djump(self, a: int):
@@ -146,16 +212,15 @@ class PVM:
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
 
+
     def invoke(
         self,
         program: PVMProgram,
         initial_regs: list[int],
         initial_pc: int,
         initial_gas: int,
-        initial_page_map: list[Any],
+        initial_page_maps: list[Any],
         initial_memory: list[Any],
-        mem_size: np.uint32 = 4096,
-        mem_offset: np.uint32 = 0
     ):
 
         self.reset(
@@ -163,19 +228,14 @@ class PVM:
             initial_regs,
             initial_pc,
             initial_gas,
-            initial_page_map,
-            initial_memory,
-            mem_size,
-            mem_offset
+            initial_page_maps,
+            initial_memory
         )
-
-        #self.pc = 0
-        skip_len:int = 0
 
         while self.status == ExitCondition.none.value and self.gas > 0:
 
             self.gas -= 1
-            self.pc += skip_len
+            self.pc += self.skip_len
 
             #gp_0.3.6-eq:215
             if self.pc >= self.program_size:
@@ -185,7 +245,7 @@ class PVM:
             inst_index = self.inst_pos[self.pc]
             opcode = self.rom[self.pc]
             inst_type = OpcodeScheme[opcode]
-            skip_len = self.inst_len[inst_index] + 1
+            self.skip_len = self.inst_len[inst_index] + 1
 
             match inst_type:
 
@@ -207,7 +267,7 @@ class PVM:
 
                     match opcode:
                         case op.ecalli.value:
-                            l_x = min(4, max(0, skip_len - 2))
+                            l_x = min(4, max(0, self.skip_len - 2))
                             #TODO: ook l_x == 0 check?
                             v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
                             self.status = ExitCondition.host_halt.value
@@ -232,14 +292,16 @@ class PVM:
                 case InstructionType.imm_imm:
 
                     l_x = min(4, self.rom[self.pc + 1] % 8)
-                    l_y = min(4, max(0, skip_len - l_x - 2))
+                    l_y = min(4, max(0, self.skip_len - l_x - 2))
                     #TODO: ook l_x == 0 check
                     v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
                     v_y = pvm_X(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
-                    mapped_addr = v_x - self.mem_offset
-                    if opcode in MemOps and not self.check_mem_op(opcode, mapped_addr):
-                        continue
+                    mapped_addr = -1
+                    if opcode in MemOps:
+                        mapped_addr = self.verify_page_addr(opcode, v_x)
+                        if mapped_addr < 0:
+                            continue
 
                     match opcode:
                         case op.store_imm_u8.value:
@@ -258,12 +320,12 @@ class PVM:
                 #GP_A.5.5
                 case InstructionType.offset:
 
-                    l_x = min(4, max(0, skip_len - 1) )
+                    l_x = min(4, max(0, self.skip_len - 1) )
                     v_x = pvm_Z(read_uint(self.rom, self.pc + 1, l_x), l_x)
 
                     match opcode:
                         case op.jump.value:
-                            skip_len = v_x
+                            self.skip_len = v_x
 
                         case _:
                             raise InvalidOpcode(f"Invalid offset opcode: {opcode} for instruction type {inst_type}")
@@ -272,18 +334,20 @@ class PVM:
                 #GP_A.5.6
                 case InstructionType.reg_imm:
                     r_a = min(12, self.rom[self.pc + 1] % 16)
-                    l_x = min(4, max(0, skip_len - 2))
+                    l_x = min(4, max(0, self.skip_len - 2))
                     v_x = 0
                     if l_x > 0:
                         v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
-                    mapped_addr = v_x - self.mem_offset
-                    if opcode in MemOps and not self.check_mem_op(opcode, mapped_addr):
-                        continue
+                    mapped_addr = -1
+                    if opcode in MemOps:
+                        mapped_addr = self.verify_page_addr(opcode, v_x)
+                        if mapped_addr < 0:
+                            continue
 
                     match opcode:
                         case op.jump_ind.value:
-                            skip_len = self.djump(np.uint32(self.reg[r_a]+v_x))
+                            self.skip_len = self.djump(np.uint32(self.reg[r_a]+v_x))
 
                         case op.load_imm.value:
                             self.reg[r_a] = v_x
@@ -332,7 +396,7 @@ class PVM:
 
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16,32 or 64)
                     l_x = min(4, (self.rom[self.pc + 1] // 16) % 8)
-                    l_y = min(4, max(0, skip_len - l_x - 2))
+                    l_y = min(4, max(0, self.skip_len - l_x - 2))
 
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
                     if l_x > 0:
@@ -343,9 +407,11 @@ class PVM:
                     #read_uint(self.rom, self.pc + 2, 2)!!!!!!
                     v_y = pvm_X(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
-                    mapped_addr = w_a + v_x - self.mem_offset
-                    if opcode in MemOps and not self.check_mem_op(opcode, mapped_addr):
-                        continue
+                    mapped_addr = -1
+                    if opcode in MemOps:
+                        mapped_addr = self.verify_page_addr(opcode, w_a + v_x)
+                        if mapped_addr < 0:
+                            continue
 
                     match opcode:
 
@@ -377,53 +443,53 @@ class PVM:
                     else:
                         v_x = 0
 
-                    l_y = min(4, max(0, skip_len - l_x - 2))
+                    l_y = min(4, max(0, self.skip_len - l_x - 2))
                     v_y = pvm_Z(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     match opcode:
                         case op.load_imm_jump.value:
-                            skip_len = v_y
+                            self.skip_len = v_y
                             self.reg[r_a] = v_x
 
                         case op.branch_eq_imm.value:
                             if w_a == v_x:
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case op.branch_ne_imm.value:
                             if w_a != v_x:
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case op.branch_lt_u_imm.value:
                             if w_a < v_x:
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case op.branch_le_u_imm.value:
                             if w_a <= v_x:
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case op.branch_ge_u_imm.value:
                             if w_a >= v_x:
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case op.branch_gt_u_imm.value:
                             if w_a > v_x:
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case op.branch_lt_s_imm.value:
                             if pvm_Z(w_a, 8) < pvm_Z(v_x, 8):
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case op.branch_le_s_imm.value:
                             if pvm_Z(w_a, 8) <= pvm_Z(v_x, 8):
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case op.branch_ge_s_imm.value:
                             if pvm_Z(w_a, 8) >= pvm_Z(v_x, 8):
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case op.branch_gt_s_imm.value:
                             if pvm_Z(w_a, 8) > pvm_Z(v_x, 8):
-                                skip_len = v_y
+                                self.skip_len = v_y
 
                         case _:
                             raise InvalidOpcode(f"Invalid reg_imm_offset opcode: {opcode} for instruction type {inst_type}")
@@ -486,15 +552,17 @@ class PVM:
                     w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
 
-                    l_x = min(4, max(0, skip_len - 2) )
+                    l_x = min(4, max(0, self.skip_len - 2) )
                     if l_x > 0:
                         v_x = pvm_X(read_uint(self.rom, self.pc + 2 , l_x), l_x)
                     else:
                         v_x = 0
 
-                    mapped_addr = w_b + v_x - self.mem_offset
-                    if opcode in MemOps and not self.check_mem_op(opcode, mapped_addr):
-                        continue
+                    mapped_addr = -1
+                    if opcode in MemOps:
+                        mapped_addr = self.verify_page_addr(opcode, w_b + v_x)
+                        if mapped_addr < 0:
+                            continue
 
                     match opcode:
 
@@ -656,7 +724,7 @@ class PVM:
                 case InstructionType.reg_reg_offset:
                     r_a = min(12, self.rom[self.pc + 1] % 16)
                     r_b = min(12, self.rom[self.pc + 1] // 16)
-                    l_x = min(4, max(0, skip_len - 2) )
+                    l_x = min(4, max(0, self.skip_len - 2) )
                     w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
                     v_x = pvm_Z(read_uint(self.rom, self.pc + 2, l_x), l_x)
@@ -664,27 +732,27 @@ class PVM:
                     match opcode:
                         case op.branch_eq.value:
                             if w_a == w_b:
-                                skip_len = v_x
+                                self.skip_len = v_x
 
                         case op.branch_ne.value:
                             if w_a != w_b:
-                                skip_len = v_x
+                                self.skip_len = v_x
 
                         case op.branch_lt_u.value:
                             if w_a < w_b:
-                                skip_len = v_x
+                                self.skip_len = v_x
 
                         case op.branch_lt_s.value:
                             if pvm_Z(w_a, 8) < pvm_Z(w_b, 8):
-                                skip_len = v_x
+                                self.skip_len = v_x
 
                         case op.branch_ge_u.value:
                             if w_a >= w_b:
-                                skip_len = v_x
+                                self.skip_len = v_x
 
                         case op.branch_ge_s.value:
                             if pvm_Z(w_a, 8) >= pvm_Z(w_b, 8):
-                                skip_len = v_x
+                                self.skip_len = v_x
 
                         case _:
                             raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
@@ -703,14 +771,14 @@ class PVM:
                     #TODO: ook l_x == 0 check
                     v_x = pvm_X(read_uint(self.rom, self.pc + 3, l_x), l_x)
 
-                    l_y = min(4, max(0, skip_len - l_x - 2))
+                    l_y = min(4, max(0, self.skip_len - l_x - 2))
                     v_y = pvm_X(read_uint(self.rom, self.pc + 3 + l_x, l_y), l_y)
 
                     match opcode:
 
                         case op.load_imm_jump_ind.value:
                             self.reg[r_a] = v_x
-                            skip_len = self.djump(np.uint32(w_b + v_y))
+                            self.skip_len = self.djump(np.uint32(w_b + v_y))
 
                         case _:
                             raise InvalidOpcode(f"Invalid reg_reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
