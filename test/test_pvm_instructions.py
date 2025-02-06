@@ -38,7 +38,6 @@ class TestPolkaVMInstructions(unittest.TestCase):
         # Set NumPy to ignore overflow warnings
         np.seterr(over='ignore')
 
-        #TODO: we gaan nu altijd maar uit van 1 mem page
         mem_size = 0
         mem_offset = 0
         if test_vector["initial-page-map"]:

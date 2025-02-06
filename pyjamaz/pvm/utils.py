@@ -47,6 +47,14 @@ def count_leading_zeroes(value, max_bits=64):
 
 
 def pvm_smod(a: int, b: int) -> int:
+    """
+    Note:
+        Should be implemented / inlined using bitwise operators.
+        For clarity it is as closely implemented to the definition as in the GP.
+        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
+        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
+        Instead of np.uint64(x_int + factor*term) directly:
+    """
     if b==0:
         return a
     else:
@@ -56,9 +64,15 @@ def pvm_smod(a: int, b: int) -> int:
 
 def riscv_div(x: int, y: int) -> int:
     """
-    Cast to a Python integer to prevent overflow
-    divmod is essentially the same as integer division //, but possibly faster for large 64bit numbers:
-    https://stackoverflow.com/a/30079965
+    Note:
+        divmod is essentially the same as integer division //, but possibly faster for large 64bit numbers:
+        https://stackoverflow.com/a/30079965
+
+        Should be implemented / inlined using bitwise operators.
+        For clarity it is as closely implemented to the definition as in the GP.
+        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
+        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
+        Instead of np.uint64(x_int + factor*term) directly:
     """
     x = int(x)
     y = int(y)
@@ -67,6 +81,16 @@ def riscv_div(x: int, y: int) -> int:
 
 
 def pvm_rtz_div(a: int, b: int) -> int:
+    """
+    Truncates division results
+
+    Note:
+        Should be implemented / inlined using bitwise operators.
+        For clarity it is as closely implemented to the definition as in the GP.
+        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
+        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
+        Instead of np.uint64(x_int + factor*term) directly:
+    """
     a = int(a)
     b = int(b)
 
@@ -78,35 +102,39 @@ def pvm_rtz_div(a: int, b: int) -> int:
     if not is_positive:
         return -q   # We take the ceil for negative numbers
     else:
-        #if r != 0: q += 1   #Note: Zet aan indien we positieve getallen willen ceilen
         return q    # we take the floor for positive numbers
 
 
 def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     """
+    Sign extend a number to two's complement form for value X and number of bytes n
+
     Note:
-    There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below 
-    2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
-    Instead of np.uint64(x_int + factor*term) directly:
+        Should be implemented / inlined using bitwise operators.
+        For clarity it is as closely implemented to the definition as in the GP.
+        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
+        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
     """
     x = int(x)
     n = int(n)
-    # Ensure x is within the range of 2^(8*n) and never bigger than a 64 bit uint
-    assert 0 <= x < 2 ** (8 * int(n)) <= 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
 
-    # Calculate the term (2^64 - 2^(8*n))
-    term = (2 ** 64 - 2 ** (8 * n))
+    assert 0 <= x < 2 ** (8 * n) <= 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
 
-    # Calculate the floor division part: floor(x / 2^(8*n - 1))
-    factor = int(riscv_div(np.uint64(x), np.uint64(2 ** (8 * n - 1)))) #x // (2 ** (8 * n - 1))
+    sign_mask = (2 ** 64 - 2 ** (8 * n))
+    is_signed = x // (2 ** (8 * n - 1))
 
-    # Return the transformed x
-    return x + factor * term
+    return x + is_signed * sign_mask
 
 
 def pvm_Z(a:int, n:np.uint8) -> np.int32:
     """
     Transform an unsigned number into a signed number using the MSB
+
+    Note:
+        Should be implemented / inlined using bitwise operators.
+        For clarity it is as closely implemented to the definition as in the GP.
+        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
+        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
     """
     a = int(a)
     n = int(n)
@@ -122,7 +150,17 @@ def pvm_Z(a:int, n:np.uint8) -> np.int32:
 
 def pvm_Z_inv(a:int, n:np.uint8):
     """
-    Transform an signed number to an unsigned number
+    Transform a signed number to an unsigned number
+
+    Note:
+        divmod is essentially the same as integer division //, but possibly faster for large 64bit numbers:
+        https://stackoverflow.com/a/30079965
+
+        Should be implemented / inlined using bitwise operators.
+        For clarity it is as closely implemented to the definition as in the GP.
+        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
+        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
+        Instead of np.uint64(x_int + factor*term) directly:
     """
     return (int(2**(8*n)) + int(a)) % int(2**(8*n))
 

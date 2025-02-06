@@ -1,4 +1,3 @@
-from math import floor
 from typing import Any, List, Dict
 
 import numpy as np
@@ -30,6 +29,8 @@ from .constants import (
     ExitCondition,
     MemOps,
 )
+
+from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
 class PVM:
@@ -111,10 +112,9 @@ class PVM:
 
         self.jump_table = [x.value for x in program.jump_table]
 
-        #TODO: initial_page_map.address, length, is-writable
         self.mem_offset = mem_offset
         if initial_page_map:
-            self.mem_offset = initial_page_map[0]["address"]    #TODO: memory addressing uitwerken
+            self.mem_offset = initial_page_map[0]["address"]
             for idx in range(initial_page_map[0]["length"]):
                 self.mem[idx] = np.uint8(0)
 
@@ -130,12 +130,6 @@ class PVM:
         bytes_needed = MemOps[op]["bytes"]
         if mapped_addr+bytes_needed > len(self.mem):
             valid_op = False
-        # TODO: register writable&readable memory banks
-        #if MemOps[op]["read"]:
-        #if MemOps[op]["write"]:
-        # if write_value:
-        #     if mapped_addr + (write_value.bit_length() + 7) // 8 > len(self.mem):
-        #         valid_op = False
 
         if not valid_op:
             self.status = ExitCondition.page_fault.value
@@ -145,13 +139,12 @@ class PVM:
 
     # GP_A.15
     def djump(self, a: int):
-        Z_a = 2  # TODO: add to constants
         if a == np.uint64(2 ** 32 - 2 ** 16):
             self.status = ExitCondition.halt.value
-        elif a == 0 or a > len(self.jump_table) * Z_a or a % Z_a != 0:  # or self.jump_table[a//Z_a-1]:
+        elif a == 0 or a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0:  # or self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1]:
             self.status = ExitCondition.panic.value
         else:
-            return self.jump_table[a//Z_a-1] - self.pc
+            return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
 
     def invoke(
         self,
@@ -254,7 +247,7 @@ class PVM:
                         case op.store_imm_u16.value:
                             write_uint(self.mem, self.reg[mapped_addr], 2, v_y % 2**16)
                         case op.store_imm_u32.value:
-                            write_uint(self.mem, self.reg[mapped_addr], 4, v_y % 2**32) #TODO: why modulus instead casting to uint32?
+                            write_uint(self.mem, self.reg[mapped_addr], 4, v_y % 2**32)
                         case op.store_imm_u64.value:
                             write_uint(self.mem, self.reg[mapped_addr], 8, v_y)
 
@@ -265,7 +258,6 @@ class PVM:
                 #GP_A.5.5
                 case InstructionType.offset:
 
-                    #TODO: skip_len uit GP lijkt altijd voor te lopen, dus overal nalopen en -1 doen?
                     l_x = min(4, max(0, skip_len - 1) )
                     v_x = pvm_Z(read_uint(self.rom, self.pc + 1, l_x), l_x)
 
@@ -447,9 +439,9 @@ class PVM:
                             self.reg[r_d] = self.reg[r_a]
 
                         #TODO: NO_TEST:
+                        #TODO: implementeer wanneer memory management is geimplementeerd
+                        #TODO: zie note in GP onderaan deze sectie
                         #case op.sbrk.value:
-                        #!!!!!!! TODO: implementeer wanneer memory management is geimplementeerd
-                        #!!!!!!! TODO: zie note in GP onderaan deze sectie
 
                         case op.count_set_bits_64:
                             self.reg[r_d] = np.bitwise_count(self.reg[r_a])
@@ -496,13 +488,7 @@ class PVM:
 
                     l_x = min(4, max(0, skip_len - 2) )
                     if l_x > 0:
-                        #!!!!!!!!!!!!!!!!!!!!!!!!!!!dees moet resulteren in:np.uint64(18446744073709486080)
-                        #llx = l_x if l_x%2 == 0 else 4
-                        t = read_uint(self.rom, self.pc + 2 , l_x)
-                        v_x = pvm_X(t, l_x)
-                        #v_x = pvm_X(16711681, 3)
-                        #v_x = pvm_X(4294901761, 4)
-                        #v_x = np.uint64(18446744073709486080)
+                        v_x = pvm_X(read_uint(self.rom, self.pc + 2 , l_x), l_x)
                     else:
                         v_x = 0
 
@@ -513,7 +499,7 @@ class PVM:
                     match opcode:
 
                         case op.store_ind_u8.value:
-                            write_uint(self.mem, mapped_addr, 1, w_a) #TODO: parameter toevoegen aan read & write functies om modulus uit te voeren
+                            write_uint(self.mem, mapped_addr, 1, w_a)
 
                         case op.store_ind_u16.value:
                             write_uint(self.mem, mapped_addr, 2, w_a)
@@ -884,7 +870,7 @@ class PVM:
                             )
 
                         case op.set_lt_u.value:
-                            self.reg[r_d] = np.int64(w_a < w_b)
+                            self.reg[r_d] = np.uint64(w_a < w_b)
 
                         case op.set_lt_s.value:
                             self.reg[r_d] = np.int64(pvm_Z(w_a, 8) < pvm_Z(w_b,8))
@@ -920,10 +906,7 @@ class PVM:
 
                         case op._max.value:
                             self.reg[r_a] = pvm_Z_inv(
-                                max(
-                                    pvm_Z(self.reg[w_a], 8),
-                                    pvm_Z(self.reg[w_b], 8)
-                                ),
+                                max(pvm_Z(self.reg[w_a], 8),pvm_Z(self.reg[w_b], 8)),
                                 8
                             )
 
@@ -932,10 +915,7 @@ class PVM:
 
                         case op._min.value:
                             self.reg[r_a] = pvm_Z_inv(
-                                min(
-                                    pvm_Z(self.reg[w_a], 8),
-                                    pvm_Z(self.reg[w_b], 8)
-                                ),
+                                min(pvm_Z(self.reg[w_a], 8), pvm_Z(self.reg[w_b], 8)),
                                 8
                             )
 
