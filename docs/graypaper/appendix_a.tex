@@ -578,14 +578,6 @@
 \newcommand{\instructiononehundredninetyfour}{
     \reg'_D = \begin{cases}
         2^{64} - 1 &\when b = 0\\
-        a &\when a = -2^{31} \wedge b = -1\\
-        \unsigned{\rtz(a \div b)} &\otherwise \\[2pt]
-        \quad \where a = \signedn{4}{\reg_A \bmod 2^{32}}\,,\ b = \signedn{4}{\reg_B \bmod 2^{32}}\\
-    \end{cases}
-}
-\newcommand{\instructiononehundredninetyfoura}{
-    \reg'_D = \begin{cases}
-        2^{64} - 1 &\when b = 0\\
         \unsigned{a} &\when a = -2^{31} \wedge b = -1\\
         \unsigned{\rtz(a \div b)} &\otherwise \\[2pt]
         \quad \where a = \signedn{4}{\reg_A \bmod 2^{32}}\,,\ b = \signedn{4}{\reg_B \bmod 2^{32}}\\
@@ -665,9 +657,7 @@
 \newcommand{\instructiontwohundredtwentyfour}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \wedge \lnot \bits{\reg_B}_i}
 \newcommand{\instructiontwohundredtwentyfive}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \bits{\reg_A}_i \vee \lnot \bits{\reg_B}_i}
 \newcommand{\instructiontwohundredtwentysix}{\forall i \in \N_{64} : \bits{\reg'_D}_i = \lnot ( \bits{\reg_A}_i \oplus \bits{\reg_B}_i )}
-\newcommand{\instructiontwohundredtwentyseven}{\reg'_D = \max ( \signed{\reg_A}, \signed{\reg_B} )}
-\newcommand{\instructiontwohundredtwentysevena}{\reg'_D = \unsigned{\max ( \signed{\reg_A}, \signed{\reg_B} )}}
+\newcommand{\instructiontwohundredtwentyseven}{\reg'_D = \unsigned{\max ( \signed{\reg_A}, \signed{\reg_B} )}}
 \newcommand{\instructiontwohundredtwentyeight}{\reg'_D = \max ( \reg_A, \reg_B )}
-\newcommand{\instructiontwohundredtwentynine}{\reg'_D = \min ( \signed{\reg_A}, \signed{\reg_B} )}
-\newcommand{\instructiontwohundredtwentyninea}{\reg'_D = \unsigned{\min ( \signed{\reg_A}, \signed{\reg_B} )}}
+\newcommand{\instructiontwohundredtwentynine}{\reg'_D = \unsigned{\min ( \signed{\reg_A}, \signed{\reg_B} )}}
 \newcommand{\instructiontwohundredthirty}{\reg'_D = \min ( \reg_A, \reg_B )}

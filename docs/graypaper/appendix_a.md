@@ -238,52 +238,49 @@ This section has been updated to match Graypaper version 0.6.2.
 |---------------------------|----------------------------|----------------|
 | <a name="A.31">(A.31)</a> | $\equationapointthirtyone$ | [TODO]         |
 
-| $\instructions_\imath$ | Name          | $\gas$ | Mutations                            | Implementation |
-|------------------------|---------------|--------|--------------------------------------|----------------|
-| 190                    | add_32        | 0      | $\instructiononehundredninety$       | [TODO]         |
-| 191                    | sub_32        | 0      | $\instructiononehundredninetyone$    | [TODO]         |
-| 192                    | mul_32        | 0      | $\instructiononehundredninetytwo$    | [TODO]         |
-| 193                    | div_u_32      | 0      | $\instructiononehundredninetythree$  | [TODO]         |
-| 194                    | div_s_32      | 0      | $\instructiononehundredninetyfour$   | [TODO]         |
-| 194a                   | div_s_32      | 0      | $\instructiononehundredninetyfoura$  | [TODO]         |
-| 195                    | rem_u_32      | 0      | $\instructiononehundredninetyfive$   | [TODO]         |
-| 196                    | rem_s_32      | 0      | $\instructiononehundredninetysix$    | [TODO]         |
-| 197                    | shlo_l_32     | 0      | $\instructiononehundredninetyseven$  | [TODO]         |
-| 198                    | shlo_r_32     | 0      | $\instructiononehundredninetyeight$  | [TODO]         |
-| 199                    | shar_r_32     | 0      | $\instructiononehundredninetynine$   | [TODO]         |
-| 200                    | add_64        | 0      | $\instructiontwohundred$             | [TODO]         |
-| 201                    | sub_64        | 0      | $\instructiontwohundredone$          | [TODO]         |
-| 202                    | mul_64        | 0      | $\instructiontwohundredtwo$          | [TODO]         |
-| 203                    | div_u_64      | 0      | $\instructiontwohundredthree$        | [TODO]         |
-| 204                    | div_s_64      | 0      | $\instructiontwohundredfour$         | [TODO]         |
-| 205                    | rem_u_64      | 0      | $\instructiontwohundredfive$         | [TODO]         |
-| 206                    | rem_s_64      | 0      | $\instructiontwohundredsix$          | [TODO]         |
-| 207                    | shlo_l_64     | 0      | $\instructiontwohundredseven$        | [TODO]         |
-| 208                    | shlo_r_64     | 0      | $\instructiontwohundredeight$        | [TODO]         |
-| 209                    | shar_r_64     | 0      | $\instructiontwohundrednine$         | [TODO]         |
-| 210                    | and           | 0      | $\instructiontwohundredten$          | [TODO]         |
-| 211                    | xor           | 0      | $\instructiontwohundredeleven$       | [TODO]         |
-| 212                    | or            | 0      | $\instructiontwohundredtwelve$       | [TODO]         |
-| 213                    | mul_upper_s_s | 0      | $\instructiontwohundredthirteen$     | [TODO]         |
-| 214                    | mul_upper_u_u | 0      | $\instructiontwohundredfourteen$     | [TODO]         |
-| 215                    | mul_upper_s_u | 0      | $\instructiontwohundredfifteen$      | [TODO]         |
-| 216                    | set_lt_u      | 0      | $\instructiontwohundredsixteen$      | [TODO]         |
-| 217                    | set_lt_s      | 0      | $\instructiontwohundredseventeen$    | [TODO]         |
-| 218                    | cmov_iz       | 0      | $\instructiontwohundredeighteen$     | [TODO]         |
-| 219                    | cmov_nz       | 0      | $\instructiontwohundrednineteen$     | [TODO]         |
-| 220                    | rot_l_64      | 0      | $\instructiontwohundredtwenty$       | [TODO]         |
-| 221                    | rot_l_32      | 0      | $\instructiontwohundredtwentyone$    | [TODO]         |
-| 222                    | rot_r_64      | 0      | $\instructiontwohundredtwentytwo$    | [TODO]         |
-| 223                    | rot_r_32      | 0      | $\instructiontwohundredtwentythree$  | [TODO]         |
-| 224                    | and_inv       | 0      | $\instructiontwohundredtwentyfour$   | [TODO]         |
-| 225                    | or_inv        | 0      | $\instructiontwohundredtwentyfive$   | [TODO]         |
-| 226                    | xnor          | 0      | $\instructiontwohundredtwentysix$    | [TODO]         |
-| 227                    | max           | 0      | $\instructiontwohundredtwentyseven$  | [TODO]         |
-| 227a                   | max           | 0      | $\instructiontwohundredtwentysevena$ | [TODO]         |
-| 228                    | max_u         | 0      | $\instructiontwohundredtwentyeight$  | [TODO]         |
-| 229                    | min           | 0      | $\instructiontwohundredtwentynine$   | [TODO]         |
-| 229a                   | min           | 0      | $\instructiontwohundredtwentyninea$  | [TODO]         |
-| 230                    | min_u         | 0      | $\instructiontwohundredthirty$       | [TODO]         |
+| $\instructions_\imath$ | Name          | $\gas$ | Mutations                           | Implementation |
+|------------------------|---------------|--------|-------------------------------------|----------------|
+| 190                    | add_32        | 0      | $\instructiononehundredninety$      | [TODO]         |
+| 191                    | sub_32        | 0      | $\instructiononehundredninetyone$   | [TODO]         |
+| 192                    | mul_32        | 0      | $\instructiononehundredninetytwo$   | [TODO]         |
+| 193                    | div_u_32      | 0      | $\instructiononehundredninetythree$ | [TODO]         |
+| 194                    | div_s_32      | 0      | $\instructiononehundredninetyfour$  | [TODO]         |
+| 195                    | rem_u_32      | 0      | $\instructiononehundredninetyfive$  | [TODO]         |
+| 196                    | rem_s_32      | 0      | $\instructiononehundredninetysix$   | [TODO]         |
+| 197                    | shlo_l_32     | 0      | $\instructiononehundredninetyseven$ | [TODO]         |
+| 198                    | shlo_r_32     | 0      | $\instructiononehundredninetyeight$ | [TODO]         |
+| 199                    | shar_r_32     | 0      | $\instructiononehundredninetynine$  | [TODO]         |
+| 200                    | add_64        | 0      | $\instructiontwohundred$            | [TODO]         |
+| 201                    | sub_64        | 0      | $\instructiontwohundredone$         | [TODO]         |
+| 202                    | mul_64        | 0      | $\instructiontwohundredtwo$         | [TODO]         |
+| 203                    | div_u_64      | 0      | $\instructiontwohundredthree$       | [TODO]         |
+| 204                    | div_s_64      | 0      | $\instructiontwohundredfour$        | [TODO]         |
+| 205                    | rem_u_64      | 0      | $\instructiontwohundredfive$        | [TODO]         |
+| 206                    | rem_s_64      | 0      | $\instructiontwohundredsix$         | [TODO]         |
+| 207                    | shlo_l_64     | 0      | $\instructiontwohundredseven$       | [TODO]         |
+| 208                    | shlo_r_64     | 0      | $\instructiontwohundredeight$       | [TODO]         |
+| 209                    | shar_r_64     | 0      | $\instructiontwohundrednine$        | [TODO]         |
+| 210                    | and           | 0      | $\instructiontwohundredten$         | [TODO]         |
+| 211                    | xor           | 0      | $\instructiontwohundredeleven$      | [TODO]         |
+| 212                    | or            | 0      | $\instructiontwohundredtwelve$      | [TODO]         |
+| 213                    | mul_upper_s_s | 0      | $\instructiontwohundredthirteen$    | [TODO]         |
+| 214                    | mul_upper_u_u | 0      | $\instructiontwohundredfourteen$    | [TODO]         |
+| 215                    | mul_upper_s_u | 0      | $\instructiontwohundredfifteen$     | [TODO]         |
+| 216                    | set_lt_u      | 0      | $\instructiontwohundredsixteen$     | [TODO]         |
+| 217                    | set_lt_s      | 0      | $\instructiontwohundredseventeen$   | [TODO]         |
+| 218                    | cmov_iz       | 0      | $\instructiontwohundredeighteen$    | [TODO]         |
+| 219                    | cmov_nz       | 0      | $\instructiontwohundrednineteen$    | [TODO]         |
+| 220                    | rot_l_64      | 0      | $\instructiontwohundredtwenty$      | [TODO]         |
+| 221                    | rot_l_32      | 0      | $\instructiontwohundredtwentyone$   | [TODO]         |
+| 222                    | rot_r_64      | 0      | $\instructiontwohundredtwentytwo$   | [TODO]         |
+| 223                    | rot_r_32      | 0      | $\instructiontwohundredtwentythree$ | [TODO]         |
+| 224                    | and_inv       | 0      | $\instructiontwohundredtwentyfour$  | [TODO]         |
+| 225                    | or_inv        | 0      | $\instructiontwohundredtwentyfive$  | [TODO]         |
+| 226                    | xnor          | 0      | $\instructiontwohundredtwentysix$   | [TODO]         |
+| 227                    | max           | 0      | $\instructiontwohundredtwentyseven$ | [TODO]         |
+| 228                    | max_u         | 0      | $\instructiontwohundredtwentyeight$ | [TODO]         |
+| 229                    | min           | 0      | $\instructiontwohundredtwentynine$  | [TODO]         |
+| 230                    | min_u         | 0      | $\instructiontwohundredthirty$      | [TODO]         |
 
 | Graypaper                 | Equation                     | Implementation |
 |---------------------------|------------------------------|----------------|
