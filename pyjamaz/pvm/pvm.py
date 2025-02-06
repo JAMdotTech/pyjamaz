@@ -18,7 +18,7 @@ from .utils import (
     reverse_bytes,
     rori64,
     rori32,
-    pvm_floor_div,
+    riscv_div,
     pvm_smod,
     pvm_rtz_div
 )
@@ -570,11 +570,11 @@ class PVM:
                             self.reg[r_a] = pvm_X((w_b * 2**(v_x % 32)) % 2**32, 4)
 
                         case op.shlo_r_imm_32.value:
-                            self.reg[r_a] = pvm_X(pvm_floor_div((w_b % 2**32), (2**(v_x%32))), 4)
+                            self.reg[r_a] = pvm_X(riscv_div((w_b % 2**32), (2**(v_x%32))), 4)
 
                         case op.shar_r_imm_32.value:
                             self.reg[r_a] = pvm_Z_inv(
-                                pvm_rtz_div(
+                                riscv_div(
                                     pvm_Z(w_b % 2 ** 32, 4),
                                     (2 ** (v_x % 32))
                                 ),
@@ -594,11 +594,11 @@ class PVM:
                             self.reg[r_a] = pvm_X((v_x * (2 ** (w_b % 32))) % 2**32, 4)
 
                         case op.shlo_r_imm_alt_32.value:
-                            self.reg[r_a] = pvm_X(pvm_floor_div(v_x % 2**32, (2 ** (w_b % 32))), 4)
+                            self.reg[r_a] = pvm_X(riscv_div(v_x % 2**32, (2 ** (w_b % 32))), 4)
 
                         case op.shar_r_imm_alt_32.value:
                             self.reg[r_a] = pvm_Z_inv(
-                                pvm_rtz_div(
+                                riscv_div(
                                     pvm_Z(v_x % 2**32, 4),
                                     2 ** (w_b % 32)
                                 ),
@@ -623,11 +623,11 @@ class PVM:
                             self.reg[r_a] = pvm_X((w_b * 2**(v_x % 64)), 8)
 
                         case op.shlo_r_imm_64.value:
-                            self.reg[r_a] = pvm_X(pvm_floor_div(w_b, np.uint64(2**(v_x % 64))), 8)
+                            self.reg[r_a] = pvm_X(riscv_div(w_b, np.uint64(2**(v_x % 64))), 8)
 
                         case op.shar_r_imm_64.value:
                             self.reg[r_a] = pvm_Z_inv(
-                                pvm_rtz_div(
+                                riscv_div(
                                     pvm_Z(w_b, 8),
                                     2**(v_x % 64)
                                 ),
@@ -641,11 +641,11 @@ class PVM:
                             self.reg[r_a] = (v_x * 2**(w_b % 64)) #% 2**64
 
                         case op.shlo_r_imm_alt_64.value:
-                            self.reg[r_a] = pvm_floor_div(v_x, np.uint64(2**(w_b % 64)))
+                            self.reg[r_a] = riscv_div(v_x, np.uint64(2**(w_b % 64)))
 
                         case op.shar_r_imm_alt_64.value:
                             self.reg[r_a] = pvm_Z_inv(
-                                pvm_rtz_div(
+                                riscv_div(
                                     pvm_Z(v_x, 8),
                                     2**(w_b % 64)),
                                 8
@@ -753,7 +753,7 @@ class PVM:
                             if self.reg[r_b] == 0:
                                 self.reg[r_d] = 2**64-1
                             else:
-                                self.reg[r_d] = pvm_X(pvm_floor_div(w_a % 2**32, w_b % 2**32), 4)
+                                self.reg[r_d] = pvm_X(riscv_div(w_a % 2**32, w_b % 2**32), 4)
 
                         case op.div_s_32.value:
                             a = np.int32(pvm_Z(w_a % 2**32, 4))
@@ -787,11 +787,11 @@ class PVM:
                             self.reg[r_d] = pvm_X((w_a * 2**(w_b % 32)) % 2**32, 4)
 
                         case op.shlo_r_32.value:
-                            self.reg[r_d] = pvm_X(pvm_floor_div(w_a % 2**32, 2**(w_b % 32)), 4)
+                            self.reg[r_d] = pvm_X(riscv_div(w_a % 2**32, 2**(w_b % 32)), 4)
 
                         case op.shar_r_32.value:
                             self.reg[r_d] = pvm_Z_inv(
-                                pvm_rtz_div(
+                                riscv_div(
                                     pvm_Z(w_a % 2**32, 4),
                                     2**(w_b % 32)
                                 ),
@@ -811,7 +811,7 @@ class PVM:
                             if w_b == 0:
                                 self.reg[r_d] = 2**64 - 1
                             else:
-                                self.reg[r_d] = pvm_floor_div(w_a, w_b)
+                                self.reg[r_d] = riscv_div(w_a, w_b)
 
                         case op.div_s_64.value:
                             if w_b == 0:
@@ -848,11 +848,11 @@ class PVM:
                             self.reg[r_d] = (w_a * 2**(w_b % 64)) #% 2**64
 
                         case op.shlo_r_64.value:
-                            self.reg[r_d] = pvm_floor_div(w_a, 2**(w_b % 64))
+                            self.reg[r_d] = riscv_div(w_a, 2**(w_b % 64))
 
                         case op.shar_r_64.value:
                             self.reg[r_d] = pvm_Z_inv(
-                                pvm_rtz_div(
+                                riscv_div(
                                     pvm_Z(w_a, 8),
                                     2**(w_b % 64)
                                 ),
@@ -870,16 +870,16 @@ class PVM:
 
                         case op.mul_upper_s_s.value:
                             self.reg[r_d] = pvm_Z_inv(
-                                pvm_rtz_div((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)), 2**64),
+                                riscv_div((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)), 2**64),
                                 8
                             )
 
                         case op.mul_upper_u_u.value:
-                            self.reg[r_d] = pvm_floor_div(w_a * w_b, 2**64)
+                            self.reg[r_d] = riscv_div(w_a * w_b, 2**64)
 
                         case op.mul_upper_s_u.value:
                             self.reg[r_d] = pvm_Z_inv(
-                                pvm_rtz_div(pvm_Z(w_a, 8) * w_b, 2**64),
+                                riscv_div(pvm_Z(w_a, 8) * w_b, 2**64),
                                 8
                             )
 
@@ -919,13 +919,25 @@ class PVM:
                             self.reg[r_a] = ~(self.reg[w_a] | self.reg[w_b])
 
                         case op._max.value:
-                            self.reg[r_a] = max(pvm_Z(self.reg[w_a], 8),  pvm_Z(self.reg[w_b], 8))
+                            self.reg[r_a] = pvm_Z_inv(
+                                max(
+                                    pvm_Z(self.reg[w_a], 8),
+                                    pvm_Z(self.reg[w_b], 8)
+                                ),
+                                8
+                            )
 
                         case op.max_u.value:
                             self.reg[r_a] = max(self.reg[w_a],  self.reg[w_b])
 
                         case op._min.value:
-                            self.reg[r_a] = min(pvm_Z(self.reg[w_a], 8),  pvm_Z(self.reg[w_b], 8))
+                            self.reg[r_a] = pvm_Z_inv(
+                                min(
+                                    pvm_Z(self.reg[w_a], 8),
+                                    pvm_Z(self.reg[w_b], 8)
+                                ),
+                                8
+                            )
 
                         case op.min_u.value:
                             self.reg[r_a] = min(self.reg[w_a],  self.reg[w_b])

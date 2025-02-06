@@ -46,7 +46,7 @@ def count_leading_zeroes(value, max_bits=64):
     return count
 
 
-def pvm_floor_div(x: int, y: int) -> int:
+def riscv_div(x: int, y: int) -> int:
     """
     Warning:
         The graypaper defines certain operations using a floor over a divide
@@ -60,11 +60,12 @@ def pvm_floor_div(x: int, y: int) -> int:
     x = int(x)
     y = int(y)
 
-    if x > 0:
-        q, r = divmod(abs(x), abs(y))
-        return q
-    else:
-        return x // y
+    q, r = divmod(x, y)
+
+    if q != x//y:
+        print(1)
+
+    return q
 
 
 def pvm_smod(a: int, b: int) -> int:
@@ -79,13 +80,16 @@ def pvm_rtz_div(a: int, b: int) -> int:
     a = int(a)
     b = int(b)
 
-    same_sign = (a >= 0) == (b >= 0)
+    is_positive = (a >= 0) == (b >= 0)
 
-    if not same_sign:
-        q, r = divmod(abs(a), abs(b))
-        return -q
+    q, r = divmod(abs(a), abs(b))
+
+    # https://en.wikipedia.org/wiki/Number_line
+    if not is_positive:
+        return -q   # We take the ceil for negative numbers
     else:
-        return a // b
+        #if r != 0: q += 1   #Note: Zet aan indien we positieve getallen willen ceilen
+        return q    # we take the floor for positive numbers
 
 
 def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
@@ -104,7 +108,7 @@ def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     term = (2 ** 64 - 2 ** (8 * n))
 
     # Calculate the floor division part: floor(x / 2^(8*n - 1))
-    factor = int(pvm_floor_div(np.uint64(x), np.uint64(2 ** (8 * n - 1)))) #x // (2 ** (8 * n - 1))
+    factor = int(riscv_div(np.uint64(x), np.uint64(2 ** (8 * n - 1)))) #x // (2 ** (8 * n - 1))
 
     # Return the transformed x
     return x + factor * term
