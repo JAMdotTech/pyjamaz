@@ -11,7 +11,7 @@ def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPa
 
     Parameters
     ----------
-    work_report
+    work_report: WorkReport
 
     Returns
     -------
@@ -28,12 +28,12 @@ def edit_queue(
         accumulated_packages: List[bytes]
 ) -> List[AccumulationQueueWorkPackage]:
     """
-    GP-0.5.4-eq:12.7 (E) | Queue editing function
+    GP-0.6.1-eq:12.7 (E) | Queue editing function
 
     Parameters
     ----------
-    work_report_queue
-    accumulated_packages
+    work_report_queue: List[AccumulationQueueWorkPackage]
+    accumulated_packages: List[bytes]
 
     Returns
     -------
@@ -54,11 +54,11 @@ def edit_queue(
 
 def work_report_mapping(work_reports: List[WorkReport]) -> Set[bytes]:
     """
-    GP-0.5.4-eq:12.9 (P) | Extracts hashes from given work reports
+    GP-0.6.1-eq:12.9 (P) | Extracts hashes from given work reports
 
     Parameters
     ----------
-    work_reports
+    work_reports: List[WorkReport]
 
     Returns
     -------
@@ -69,11 +69,11 @@ def work_report_mapping(work_reports: List[WorkReport]) -> Set[bytes]:
 
 def priority_queue(work_report_queue: List[AccumulationQueueWorkPackage]) -> List[WorkReport]:
     """
-    GP-0.5.4-eq:12.8 (Q) | Accumulate priority queue function
+    GP-0.6.1-eq:12.8 (Q) | Accumulate priority queue function
 
     Parameters
     ----------
-    work_report_queue
+    work_report_queue: List[AccumulationQueueWorkPackage]
 
     Returns
     -------
@@ -138,17 +138,17 @@ def pvm_invoke_accumulate(
         operands: List[AccumulationOperand]
 ) -> PvmAccumulateOutput:
     """
-    GP-0.5.4-eq:B.8 (Ψ_A) | Accumulation invocation function
+    GP-0.6.1-eq:B.8 (Ψ_A) | Accumulation invocation function
 
     TODO stub
 
     Parameters
     ----------
-    state_context
-    timeslot
-    service_id
-    gas_limit
-    operands
+    state_context: AccumulationStateComponents
+    timeslot: int
+    service_id: int
+    gas_limit: int
+    operands: List[AccumulationOperand]
 
     Returns
     -------
@@ -194,8 +194,15 @@ def full_sequential_accumulation(
         post_state_timeslot: TimeslotState
 ) -> FullAccumulationOutput:
     """
-    GP-0.5.4-eq:12.16 ∆+ | full sequential accumulation function
+    GP-0.6.1-eq:12.16 ∆+ | full sequential accumulation function
 
+    Parameters
+    ----------
+    gas_limit: int
+    work_reports: List[WorkReport]
+    accumulation_state: AccumulationStateComponents
+    auto_accumulate_services: Dict[int, int]
+    post_state_timeslot: TimeslotState
 
     TODO how to deal with post_state_timeslot ?
 
@@ -254,7 +261,14 @@ def parallel_accumulation(
         post_state_timeslot: TimeslotState
 ) -> ParallelAccumulationOutput:
     """
-    GP-0.5.4-eq:12.17 ∆* | parallel accumulation function
+    GP-0.6.1-eq:12.17 ∆* | parallel accumulation function
+
+    Parameters
+    ----------
+    accumulation_state: AccumulationStateComponents
+    work_reports: List[WorkReport]
+    auto_accumulate_services: Dict[int, int]
+    post_state_timeslot: TimeslotState
 
     Returns
     -------
@@ -347,13 +361,21 @@ def single_step_accumulation(
         service_id: int
 ) -> PvmAccumulateOutput:
     """
-    GP-0.5.4-eq:12.19 ∆1 | single step accumulation function
+    GP-0.6.1-eq:12.19 ∆1 | single step accumulation function
+
+    Parameters
+    ----------
+    accumulation_state: AccumulationStateComponents
+    post_state_timeslot: TimeslotState
+    work_reports: List[WorkReport]
+    auto_accumulate_services: Dict[int, int]
+    service_id: int
 
     Returns
     -------
     PvmAccumulateOutput
     """
-    # GP-0.5.4-eq:I.3 (function_U)
+    # GP-0.6.1-eq:3.2 (function_U)
     g = auto_accumulate_services.get(service_id, 0)
     p = []
     for w in work_reports:
