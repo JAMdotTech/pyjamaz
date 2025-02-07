@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Tuple, Union
+from typing import List, Optional, Dict, Tuple, Union, Set
 
 from jamcodec.base import JamBytes
 
@@ -14,9 +14,15 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 
-from pyjamaz.state.base import State, StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
+from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
 from pyjamaz.storage import StorageEngine
+
+
+class State(Serializable):
+
+    def __setattr__(self, key, value):
+        super().__setattr__(key, value)
 
 
 @dataclass
@@ -563,11 +569,7 @@ class PrivilegedServicesState(State, Serializable):
     empower_service: int = field(metadata={'codec': U32})
     assign_service: int = field(metadata={'codec': U32})
     designate_service: int = field(metadata={'codec': U32})
-    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
-    # auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(Array(U8,4), U64)})
+    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
 
 
 @dataclass
@@ -645,13 +647,13 @@ class AccumulationQueueWorkPackage(Serializable):
 
     Attributes
     ----------
-    work_report: WorkReport
-        GP-0.5.0-eq:12.3 (blackboard_W) | Work Report.
-    work_package_hash: H256
-        GP-0.5.0-eq:12.3 ({blackboard_H}) | Work Package hash.
+    report: WorkReport
+        GP-0.5.4-eq:12.3 (blackboard_W) | Work Report.
+    dependencies: Vec(H256)
+        GP-0.5.4-eq:12.3 ({blackboard_H}) | Set of Work Package hashes.
     """
-    work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
-    work_package_hash: bytes = field(metadata={'codec': H256})
+    report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
+    dependencies: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -663,7 +665,7 @@ class AccumulationQueueState(State, Serializable):
     ----------
 
     accumulation_queue: Array(Vec(AccumulationQueueWorkPackage),constant_E)
-        GP-0.5.0-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
+        GP-0.5.4-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
     """
     accumulation_queue: List[List[AccumulationQueueWorkPackage]] = field(
         metadata={'codec': Array(Vec(AccumulationQueueWorkPackage.to_codec_def()), EPOCH_TIMESLOTS)}
@@ -678,11 +680,11 @@ class AccumulationHistoryState(State, Serializable):
     Attributes
     ----------
 
-    accumulation_history: Array(H256,constant_E)
+    accumulation_history: Array(Vec(H256),constant_E)
         GP-0.5.0-eq:12.1 (ξ) | A history of what has been accumulated.
     """
-    accumulation_history: List[bytes] = field(
-        metadata={'codec': Array(H256, EPOCH_TIMESLOTS)}
+    accumulation_history: List[List[bytes]] = field(
+        metadata={'codec': Array(Vec(H256), EPOCH_TIMESLOTS)}
     )
 
 
@@ -690,6 +692,7 @@ class AccumulationHistoryState(State, Serializable):
 class BeefyCommitmentMap(Serializable):
     """
     GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map Dictionary.
+    GP-0.6.0-eq:12.15 (B) | a service-indexed commitment to the accumulation output
 
     Attributes
     ----------
@@ -699,7 +702,13 @@ class BeefyCommitmentMap(Serializable):
     """
     beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
-    def get_accumulate_root(self):
+    def get_accumulate_root(self) -> bytes:
+        """
+        GP-0.5.4-eq:7.3 (r)
+        Returns
+        -------
+        bytes
+        """
         data = [k.to_bytes(4, byteorder='little') + v for k, v in self.beefy_commitment_map.items()]
         return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
@@ -778,8 +787,8 @@ class JamState(State, Serializable):
             timeslot=TimeslotState(number=0),
             entropy=EntropyState(
                 entropy=[
-                    validators[0].bandersnatch, validators[1].bandersnatch,
-                    validators[2].bandersnatch, validators[3].bandersnatch
+                    validators[0].ed25519, validators[1].ed25519,
+                    validators[2].ed25519, validators[3].ed25519
                 ]
             ),
             safrole=SafroleState(
@@ -818,7 +827,7 @@ class JamState(State, Serializable):
                 empower_service=0,
                 assign_service=0,
                 designate_service=0,
-                auto_accumulate_services=[]
+                auto_accumulate_services={}
             ),
             disputes=DisputesState(
                 good_set=[],
@@ -836,7 +845,7 @@ class JamState(State, Serializable):
                 ]
             ),
             accumulation_history=AccumulationHistoryState(
-                accumulation_history=[bytes(32) for _ in range(EPOCH_TIMESLOTS)]
+                accumulation_history=[[] for _ in range(EPOCH_TIMESLOTS)]
             )
         )
 
@@ -900,5 +909,3 @@ class AccumulationStateComponents(Serializable):
     validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
-
-

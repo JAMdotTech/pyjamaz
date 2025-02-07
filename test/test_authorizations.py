@@ -77,7 +77,7 @@ class TestAuthorizations(unittest.TestCase):
         )
 
         # Prepare block context
-        self.block_context.initialize()
+        self.block_context.reset()
 
         # Execute STF
         authorizer_pools = AuthorizerPools(self.storage_engine, self.block_context, self.app_context)

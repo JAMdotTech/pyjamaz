@@ -14,13 +14,15 @@ from parameterized import parameterized
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum
-from pyjamaz.app import AppConfig, PyjamazApp
-from pyjamaz.exceptions import PyjamazAppError
+from pyjamaz.app import AppConfig
+from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.settings import TEST_SUITE
+from pyjamaz.state.base import AppContext
+from pyjamaz.state.components import Safrole, Entropy, ValidatorPool, ValidatorArchive, Timeslot
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.common import ValidatorData, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
-from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, EpochMark
+from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, EpochMark, BlockContext
 from pyjamaz.models.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState, SlotSealerSeries
 
@@ -136,30 +138,30 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         test_case = Testcase.from_json(test_vector)
 
         # Build initial state
-        jam_state = JamState.create_genesis_state()
+        pre_state = JamState.create_genesis_state()
 
-        jam_state.timeslot = TimeslotState(
+        pre_state.timeslot = TimeslotState(
             number=test_case.pre_state.tau
         )
-        jam_state.entropy = EntropyState(
+        pre_state.entropy = EntropyState(
             entropy=test_case.pre_state.eta
         )
-        jam_state.safrole = SafroleState(
+        pre_state.safrole = SafroleState(
             ticket_accumulator=test_case.pre_state.gamma_a,
             validators=test_case.pre_state.gamma_k,
             slot_sealer_series=test_case.pre_state.gamma_s,
             ring_commitment=test_case.pre_state.gamma_z,
         )
-        jam_state.validator_queue = ValidatorQueueState(
+        pre_state.validator_queue = ValidatorQueueState(
             validators=test_case.pre_state.iota
         )
-        jam_state.validator_pool = ValidatorPoolState(
+        pre_state.validator_pool = ValidatorPoolState(
             validators=test_case.pre_state.kappa
         )
-        jam_state.validator_archive = ValidatorArchiveState(
+        pre_state.validator_archive = ValidatorArchiveState(
             validators=test_case.pre_state.lambda_
         )
-        jam_state.disputes.offenders = test_case.pre_state.post_offenders
+        pre_state.disputes.offenders = test_case.pre_state.post_offenders
 
         # Convert test case input to block
         test_case_input = deepcopy(test_case.input)
@@ -182,45 +184,86 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
                 tickets_marker=None,
                 offenders_marker=[],
                 author_index=0,
-                entropy_source=test_case_input.entropy.ljust(96, b'\x00'),
+                entropy_source=test_case_input.entropy,
                 seal=bytes(96)
             ),
             extrinsic=extrinsic
         )
 
-        # Initialize app
-        app = PyjamazApp(config=self.config)
-        # app.state = jam_state
-        await app.store_jam_state(jam_state)
-
         # Process block
         try:
-            app.state = app.retrieve_jam_state()
 
-            # TODO temp check
-            if block.header.timeslot <= app.state.timeslot.number:
-                raise PyjamazAppError(SafroleErrorCode.bad_slot)
+            # Timeslot
+            timeslot = Timeslot(InMemoryStorage(), BlockContext(), AppContext())
+            timeslot_output = timeslot.state_transition(header=block.header)
+            post_state_timeslot = timeslot_output.post_state
 
-            output = await app.import_block(block, validate=False)
+            # Entropy
+            entropy = Entropy(InMemoryStorage(), BlockContext(), AppContext())
+            entropy_output = entropy.state_transition(
+                header=block.header,
+                pre_state_timeslot=pre_state.timeslot,
+                pre_state_entropy=pre_state.entropy
+            )
+            post_state_entropy = entropy_output.post_state
+
+            # Validator Pool
+            validator_pool = ValidatorPool(InMemoryStorage(), BlockContext(), AppContext())
+            validator_pool_output = validator_pool.state_transition(
+                header=block.header,
+                pre_state_timeslot=pre_state.timeslot,
+                pre_state_validator_pool=pre_state.validator_pool,
+                pre_state_safrole=pre_state.safrole
+            )
+            post_state_validator_pool = validator_pool_output.post_state
+
+            # Validator Archive
+            validator_archive = ValidatorArchive(InMemoryStorage(), BlockContext(), AppContext())
+            validator_archive_output = validator_archive.state_transition(
+                header=block.header,
+                pre_state_timeslot=pre_state.timeslot,
+                pre_state_validator_pool=pre_state.validator_pool,
+                pre_state_validator_archive=pre_state.validator_archive
+            )
+            post_state_validator_archive = validator_archive_output.post_state
+
+            # Safrole
+            safrole = Safrole(InMemoryStorage(), BlockContext(), AppContext(), self.config.ring_data)
+            output = safrole.state_transition(
+                header=block.header,
+                extrinsic_tickets=block.extrinsic.tickets,
+                pre_state_timeslot=pre_state.timeslot,
+                pre_state_safrole=pre_state.safrole,
+                pre_state_validator_queue=pre_state.validator_queue,
+                post_state_entropy=entropy_output.post_state,
+                post_state_validator_pool=validator_pool_output.post_state,
+                post_state_disputes=pre_state.disputes
+            )
+
+            post_state_safrole = output.post_state
+
             output = SafroleTestOutput(
                 ok=SafroleOutputMarks(
                     epoch_mark=output.epoch_mark, tickets_mark=output.tickets_mark
                 )
             )
-        except PyjamazAppError as e:
+        except StateTransitionError as e:
             output = SafroleTestOutput(err=e.custom_error_code)
+            post_state_safrole = pre_state.safrole
+            post_state_timeslot = pre_state.timeslot
+            post_state_entropy = pre_state.entropy
+            post_state_validator_pool = pre_state.validator_pool
+            post_state_validator_archive = pre_state.validator_archive
 
         self.assertEqual(test_case.output, output, f'{name}: output does not match')
-        self.assertEqual(test_case.post_state.tau, app.components.timeslot.retrieve_state().number, f'{name}:tau does not match')
-        self.assertEqual(test_case.post_state.eta, app.components.entropy.retrieve_state().entropy, f'{name}: eta does not match')
-        self.assertEqual(test_case.post_state.lambda_, app.components.validator_archive.retrieve_state().validators, f'{name}: lambda_ does not match')
-        self.assertEqual(test_case.post_state.kappa, app.components.validator_pool.retrieve_state().validators, f'{name}: kappa does not match')
-        self.assertEqual(test_case.post_state.gamma_k, app.components.safrole.retrieve_state().validators, f'{name}: gamma_k does not match')
-        self.assertEqual(test_case.post_state.iota, app.components.validator_queue.retrieve_state().validators, f'{name}: iota does not match')
-        self.assertEqual(test_case.post_state.gamma_a, app.components.safrole.retrieve_state().ticket_accumulator, f'{name}: gamma_a does not match')
-        self.assertEqual(test_case.post_state.gamma_s, app.components.safrole.retrieve_state().slot_sealer_series, f'{name}: gamma_s does not match')
-        self.assertEqual(test_case.post_state.gamma_z, app.components.safrole.retrieve_state().ring_commitment, f'{name}: gamma_z does not match')
-
+        self.assertEqual(test_case.post_state.tau, post_state_timeslot.number, f'{name}:tau does not match')
+        self.assertEqual(test_case.post_state.eta, post_state_entropy.entropy, f'{name}: eta does not match')
+        self.assertEqual(test_case.post_state.lambda_, post_state_validator_archive.validators, f'{name}: lambda_ does not match')
+        self.assertEqual(test_case.post_state.kappa, post_state_validator_pool.validators, f'{name}: kappa does not match')
+        self.assertEqual(test_case.post_state.gamma_k, post_state_safrole.validators, f'{name}: gamma_k does not match')
+        self.assertEqual(test_case.post_state.gamma_a, post_state_safrole.ticket_accumulator, f'{name}: gamma_a does not match')
+        self.assertEqual(test_case.post_state.gamma_s, post_state_safrole.slot_sealer_series, f'{name}: gamma_s does not match')
+        self.assertEqual(test_case.post_state.gamma_z, post_state_safrole.ring_commitment, f'{name}: gamma_z does not match')
 
 if __name__ == '__main__':
     unittest.main()

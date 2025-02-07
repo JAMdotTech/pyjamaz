@@ -5,8 +5,6 @@ import json
 import os
 import shutil
 import socket
-from doctest import debug
-from uuid import bytes_
 
 import anyio
 import ipaddress
@@ -27,13 +25,13 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.trace import Trace
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
-from pyjamaz.models.block import Block
+from pyjamaz.models.block import Block, Header
 from pyjamaz.models.state import JamState
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
 from pyjamaz.transport.pubsub import PubSub
-
+from pyjamaz.utils import format_hash
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
@@ -64,20 +62,23 @@ def ipv6_to_byte_array(ip_str:str) -> bytearray:
         raise ValueError(f"Invalid IP: {ip_str}")
 
 
-def wrap_cli_import_block(traces_dir, validate=True):
-    async def cli_import_block(self, block: Block, validate=validate):
+def wrap_cli_import_block(traces_dir):
+    async def cli_import_block(self, block: Block):
         if block.header.timeslot > self.state.timeslot.number or (
                 self.state.timeslot.number == 0 and not self.should_produce_block()):
 
             if traces_dir:
                 pre_state = await self.create_state_dump()
 
-            await self._import_block(block, validate)
+            await self._import_block(block)
 
             if traces_dir:
                 await self.store_trace(pre_state, block, traces_dir)
 
-            logging.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
+            current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
+            current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
+
+            logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: 0x{format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
             logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
         else:
             logging.info(
@@ -142,9 +143,7 @@ async def initialize_app(
     app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
 
     if read_state:
-        app.state = app.retrieve_jam_state()
-        app.latest_epoch = app.state.timeslot.epoch_number()
-        await app.update_state_trie()
+        await app.initialize()
 
     return app
 
@@ -272,11 +271,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                             )
                             continue
 
-                        #TODO: for now we hardcode all nodes to be hosted on localhost
-                        #validator_address = "localhost"
-                        logging.info(
-                            f'Connecting to node {validator_address}:{validator_port}'
-                        )
+                        logging.debug(f'Connecting to node {validator_address}:{validator_port}')
                         tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
                 await anyio.sleep(ts - time.time())
@@ -290,27 +285,68 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
 async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
 
     while True:
+        # TODO centralize
+        app.block_context.reset()
         timeslot = app.current_timeslot()
+        logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
 
         if app.state.timeslot.number >= timeslot:
             logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
             await anyio.sleep(0.1)
             continue
 
-        await app.process_timeslot(timeslot)
+        if app.is_epoch_change(timeslot):
+            app.latest_epoch = timeslot // EPOCH_TIMESLOTS
+            logging.info("🗓️ Process Epoch change")
 
-        if app.should_produce_block():
+            # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
+            #  triggering state changes in STFs caused be epoch change.
+
+            header = Header.default()
+            header.timeslot = timeslot
+
+            entropy_output = app.components.entropy.state_transition(
+                header=header,
+                pre_state_timeslot=app.state.timeslot,
+                pre_state_entropy=app.state.entropy
+            )
+
+            safrole_output = app.components.safrole.state_transition(
+                header=header,
+                pre_state_timeslot=app.state.timeslot,
+                pre_state_safrole=app.state.safrole,
+                pre_state_validator_queue=app.state.validator_queue,
+                post_state_entropy=entropy_output.post_state,
+                post_state_disputes=app.state.disputes,
+                post_state_validator_pool=app.state.validator_pool,
+                extrinsic_tickets=[]
+            )
+
+            # Process tickets
+            app.extrinsic.process_epoch_change()
+            logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
+
+            safrole_state = safrole_output.post_state
+            entropy_state = entropy_output.post_state
+        else:
+            safrole_state = app.state.safrole
+            entropy_state = app.state.entropy
+
+        if app.should_produce_block(safrole_state):
 
             try:
 
-                block = await app.produce_block(timeslot)
+                block = await app.produce_block(timeslot, safrole_state, entropy_state)
 
                 pubsub.send_stream.send_nowait({
                     "message_type": MESSAGE_TYPES.PRODUCED_BLOCK,
                     "data": block
                  })
 
-                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{block.header.hash.hex()}')
+                epoch = block.header.timeslot // EPOCH_TIMESLOTS
+                phase = block.header.timeslot % EPOCH_TIMESLOTS
+
+                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                 # Rollback state from DB
@@ -487,12 +523,13 @@ async def replay_traces(
     )
 
     for block_file in traces_files:
+        logging.info(f'📂 Processing trace file {block_file}')
         with open(os.path.join(traces_dir, block_file), 'rb') as fp:
             trace = Trace.from_jam_bytes(JamBytes(fp.read()))
 
         if not only_block_import or app.state_trie_root == bytes(32):
 
-            for k, v in trace.pre_state.keyvals:
+            for k, v, name, metadata in trace.pre_state.keyvals:
                 app.state_db.put(bytes(k), bytes(v))
 
             app.state = app.retrieve_jam_state()
@@ -504,7 +541,7 @@ async def replay_traces(
 
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: 0x{trace.block.header.hash.hex()})..')
         try:
-            await app.import_block(trace.block, validate=not skip_block_validation)
+            await app.import_block(trace.block, dry_run=not skip_block_validation)
             logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
 
         except TransactionRolledBack as e:
@@ -520,8 +557,8 @@ async def replay_traces(
                 logging.info('Dumping state differences:')
                 actual_state = app.state.to_json()
 
-                for k, v in trace.post_state.keyvals:
-                    app.state_db.put(bytes(k.value_object), bytes(v.value_object))
+                for k, v, name, metadata in trace.post_state.keyvals:
+                    app.state_db.put(bytes(k), bytes(v))
 
                 app.state = app.retrieve_jam_state()
 

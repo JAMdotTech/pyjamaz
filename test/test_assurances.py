@@ -60,7 +60,7 @@ class TestAssurances(unittest.TestCase):
 
         # Prepare block context
         block_context = BlockContext()
-        block_context.initialize()
+        block_context.reset()
         app_context = AppContext()
 
         assurances = Assurances(self.storage_engine, block_context, app_context)
