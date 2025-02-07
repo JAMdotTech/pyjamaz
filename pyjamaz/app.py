@@ -148,11 +148,11 @@ class PyjamazApp:
         for block in sorted_blocks:
             # TODO: protocol should only import blocks from this point on -> fix the block_request
             if self.state.timeslot.number >= block.header.timeslot:
-                #logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
+                logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
                 continue
 
             await self.import_block(block)
-            logging.info(f'✅ Block {block.header.timeslot} succesfully imported from process_import_queue.')
+            logging.debug(f'✅ Block {block.header.timeslot} succesfully imported from process_import_queue.')
 
 
     async def initialize(self):
@@ -316,6 +316,18 @@ class PyjamazApp:
             pre_state_services=pre_state_services
         )
 
+        # Validator Pool STF Block Data | GP-0.5.0-eq:4.10
+        validator_pool_output = self.components.validator_pool.state_transition(
+            header=block.header,
+            pre_state_timeslot=pre_state_timeslot,
+            pre_state_validator_pool=pre_state_validator_pool,
+            pre_state_safrole=pre_state_safrole
+        )
+
+        if not dry_run:
+            # Set H_a
+            block.header.set_author_bandersnatch_key(post_state_validator_pool=validator_pool_output.post_state)
+
         # Timeslot STF Block Data | GP-0.5.0-eq:4.5
         timeslot_output = self.components.timeslot.state_transition(
             header=block.header
@@ -344,14 +356,6 @@ class PyjamazApp:
         assurances_after_disputes_output = self.components.assurances.state_transition_after_disputes(
             extrinsic_disputes=block.extrinsic.disputes,
             pre_state_assurances=pre_state_assurances
-        )
-
-        # Validator Pool STF Block Data | GP-0.5.0-eq:4.10
-        validator_pool_output = self.components.validator_pool.state_transition(
-            header=block.header,
-            pre_state_timeslot=pre_state_timeslot,
-            pre_state_validator_pool=pre_state_validator_pool,
-            pre_state_safrole=pre_state_safrole
         )
 
         # Validate quality of assurance extrinsic data
@@ -394,6 +398,7 @@ class PyjamazApp:
             )
 
         # Entropy STF Block Data | GP-0.5.0-eq:4.9
+        # TODO second time is necessary because author bandersnatch key is known after
         entropy_output = self.components.entropy.state_transition(
             header=block.header,
             pre_state_timeslot=pre_state_timeslot,
@@ -756,22 +761,6 @@ class PyjamazApp:
     def get_next_slot_timestamp(self) -> int:
         elapsed_timeslots = (time.time() - self.config.common_era) // SLOT_PERIOD
         return self.config.common_era + (elapsed_timeslots + 1) * SLOT_PERIOD
-
-    def get_author_bandersnatch_key(self, author_index: int) -> bytes:
-        """
-        Get the bandersnatch key for the author with corresponding index from the current validator set
-
-        Block Data | GP-0.5.0-eq:5.9
-
-        Parameters
-        ----------
-        author_index
-
-        Returns
-        -------
-        bytes
-        """
-        return self.state.safrole.validators[author_index].bandersnatch
 
     def get_author_index(self) -> int:
         """

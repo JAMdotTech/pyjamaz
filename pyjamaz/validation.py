@@ -46,7 +46,7 @@ class BlockValidation:
 
         parent_header = self.block_context.get_parent(header)
 
-        if not parent_header:
+        if parent_header is None:
             raise BlockValidationError(
                 f"Parent hash {header.parent.hex()} does not has valid ancestor"
             )
@@ -56,20 +56,14 @@ class BlockValidation:
             raise BlockValidationError(BlockValidationErrorCode.bad_slot)
 
         # TODO Check calculation, currently doesn't match Duna
-        # if header.parent_state_root != self.block_context.state_root:
-        #     raise BlockValidationError(
-        #         f"Parent state root {header.parent_state_root.hex()} does not match with  0x{self.block_context.state_root.hex()}"
-        #     )
+        if header.parent_state_root != self.block_context.state_root:
+            raise BlockValidationError(
+                f"Parent state root {header.parent_state_root.hex()} does not match with  0x{self.block_context.state_root.hex()}"
+            )
 
         # Validate seal
-        author_key = post_validator_pool.validators[header.author_index].bandersnatch
-
-        self.block_context.author_bandersnatch_key = author_key
-
-        # if self.is_epoch_change(parent_header.timeslot, header.timeslot):
-        #     entropy = post_entropy.entropy[2]
-        # else:
         entropy = post_entropy.entropy[3]
+        author_key = header.author_bandersnatch_key
 
         if post_safrole.slot_sealer_series.tickets is not None:
             ticket = post_safrole.slot_sealer_series.tickets[header.timeslot % EPOCH_TIMESLOTS]

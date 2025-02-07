@@ -7,7 +7,7 @@ from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationState
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
     """
-    GP-0.5.4-eq:12.6 (D) | Create a dependency graph of work report dependencies
+    GP-0.6.1-eq:12.6 (D) | Create a dependency graph of work report dependencies
 
     Parameters
     ----------

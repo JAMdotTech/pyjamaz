@@ -458,9 +458,32 @@ class Header(Serializable):
                 seal=bytes(96)
             )
 
-    # Todo: new function for derived author_key from validator set; GP-0.5.0-eq:5.9 (bold_H_a)
-    # def generate_author_bandersnatch_key(self) -> bytes:
-    #    pass
+    @property
+    def author_bandersnatch_key(self) -> Optional[bytes]:
+        """
+        GP-0.6.1-eq:5.9 (bold_H_a) Derived author bandersnatch key from author index
+        Returns
+        -------
+        Optional[bytes]
+        """
+        return getattr(self, '_author_bandersnatch_key', None)
+
+    def set_author_bandersnatch_key(self, post_state_validator_pool: ValidatorPoolState):
+        """
+        GP-0.6.1-eq:5.9 (bold_H_a) | Derive author bandersnatch key from validator pool (κ')
+
+        Parameters
+        ----------
+        post_state_validator_pool: ValidatorPoolState
+
+        Returns
+        -------
+
+        """
+        if self.author_index > len(post_state_validator_pool.validators):
+            raise ValueError("Invalid author index")
+
+        setattr(self, '_author_bandersnatch_key', post_state_validator_pool.validators[self.author_index].bandersnatch)
 
 
 @dataclass
@@ -703,7 +726,6 @@ class BlockContext:
     def reset(self):
         self.guarantor_assignments = None
         self.prev_guarantor_assignments = None
-        self.author_bandersnatch_key = None
         self.seal_vrf_output = bytes(32)
         self.available_work_reports = None
         self.ready_work_reports = None

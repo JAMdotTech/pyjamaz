@@ -103,9 +103,7 @@ class Entropy(StateComponent):
         post_state_entropy = deepcopy(pre_state_entropy)
 
         # GP-0.5.0-eq:6.22 (η'[0]) | State transition for first index of the entropy.
-        eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(
-            header.entropy_source
-        ))
+        eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(header))
 
         # GP-0.5.0-eq:6.23 (η'[1-3]) | State transition for last three indices of the entropy.
         # State transition happen on epoch change.
@@ -123,31 +121,31 @@ class Entropy(StateComponent):
         value = self.retrieve()
         return EntropyState.from_jam_bytes(JamBytes(value))
 
-    def entropy_output(self, entropy_source: bytes) -> bytes:
+    def entropy_output(self, header: Header) -> bytes:
         """
         GP-0.5.0-eq:G.5
         TODO check if output is indeed the first 32 bytes or a hash of the first 32 bytes
         TODO refactor to vrf_output of entropy signature
         Parameters
         ----------
-        entropy_source
+        header: Header
 
         Returns
         -------
         bytes
         """
 
-        if len(entropy_source) == 32:
-            return entropy_source
+        if len(header.entropy_source) == 32:
+            return header.entropy_source
 
-        if self.block_context.author_bandersnatch_key is None:
+        if header.author_bandersnatch_key is None or self.block_context.seal_vrf_output == bytes(32):
             return bytes(32)
 
         return ietf_vrf_verify(
-            bytes(self.block_context.author_bandersnatch_key),
+            bytes(header.author_bandersnatch_key),
             b"jam_entropy" + self.block_context.seal_vrf_output,
             b'',
-            bytes(entropy_source)
+            bytes(header.entropy_source)
         )
 
 

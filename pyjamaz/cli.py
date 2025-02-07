@@ -62,20 +62,23 @@ def ipv6_to_byte_array(ip_str:str) -> bytearray:
         raise ValueError(f"Invalid IP: {ip_str}")
 
 
-def wrap_cli_import_block(traces_dir, validate=True):
-    async def cli_import_block(self, block: Block, validate=validate):
+def wrap_cli_import_block(traces_dir):
+    async def cli_import_block(self, block: Block):
         if block.header.timeslot > self.state.timeslot.number or (
                 self.state.timeslot.number == 0 and not self.should_produce_block()):
 
             if traces_dir:
                 pre_state = await self.create_state_dump()
 
-            await self._import_block(block, validate)
+            await self._import_block(block)
 
             if traces_dir:
                 await self.store_trace(pre_state, block, traces_dir)
 
-            logging.info(f"📦 Imported block for timeslot: {block.header.timeslot}")
+            current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
+            current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
+
+            logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: 0x{format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
             logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
         else:
             logging.info(
@@ -268,11 +271,7 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
                             )
                             continue
 
-                        #TODO: for now we hardcode all nodes to be hosted on localhost
-                        #validator_address = "localhost"
-                        logging.info(
-                            f'Connecting to node {validator_address}:{validator_port}'
-                        )
+                        logging.debug(f'Connecting to node {validator_address}:{validator_port}')
                         tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
                 await anyio.sleep(ts - time.time())
@@ -289,7 +288,7 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
         # TODO centralize
         app.block_context.reset()
         timeslot = app.current_timeslot()
-        logging.info(f"⏳️ Timeslot: {timeslot}")
+        logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
 
         if app.state.timeslot.number >= timeslot:
             logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
@@ -344,7 +343,10 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
                     "data": block
                  })
 
-                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{format_hash(block.header.hash)} | epoch #{app.current_epoch()} | phase #{app.current_slot_phase_index()}')
+                epoch = block.header.timeslot // EPOCH_TIMESLOTS
+                phase = block.header.timeslot % EPOCH_TIMESLOTS
+
+                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                 # Rollback state from DB
