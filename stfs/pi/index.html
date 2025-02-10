@@ -1091,26 +1091,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1532</span>
-<span class="normal">1533</span>
-<span class="normal">1534</span>
-<span class="normal">1535</span>
-<span class="normal">1536</span>
-<span class="normal">1537</span>
-<span class="normal">1538</span>
-<span class="normal">1539</span>
-<span class="normal">1540</span>
-<span class="normal">1541</span>
-<span class="normal">1542</span>
-<span class="normal">1543</span>
-<span class="normal">1544</span>
-<span class="normal">1545</span>
-<span class="normal">1546</span>
-<span class="normal">1547</span>
-<span class="normal">1548</span>
-<span class="normal">1549</span>
-<span class="normal">1550</span>
-<span class="normal">1551</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1551</span>
 <span class="normal">1552</span>
 <span class="normal">1553</span>
 <span class="normal">1554</span>
@@ -1170,7 +1151,25 @@
 <span class="normal">1608</span>
 <span class="normal">1609</span>
 <span class="normal">1610</span>
-<span class="normal">1611</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Statistics</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">1611</span>
+<span class="normal">1612</span>
+<span class="normal">1613</span>
+<span class="normal">1614</span>
+<span class="normal">1615</span>
+<span class="normal">1616</span>
+<span class="normal">1617</span>
+<span class="normal">1618</span>
+<span class="normal">1619</span>
+<span class="normal">1620</span>
+<span class="normal">1621</span>
+<span class="normal">1622</span>
+<span class="normal">1623</span>
+<span class="normal">1624</span>
+<span class="normal">1625</span>
+<span class="normal">1626</span>
+<span class="normal">1627</span>
+<span class="normal">1628</span>
+<span class="normal">1629</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Statistics</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">13</span>
 
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
@@ -1237,11 +1236,10 @@
         <span class="k">for</span> <span class="n">assurance</span> <span class="ow">in</span> <span class="n">extrinsic_assurances</span><span class="p">:</span>
             <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">assurance</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">assurances</span> <span class="o">+=</span> <span class="mi">1</span>
 
+        <span class="c1"># TODO replace with bold_R (self.block_context.reporters)</span>
         <span class="k">for</span> <span class="n">guarantee</span> <span class="ow">in</span> <span class="n">extrinsic_guarantees</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">signature</span> <span class="ow">in</span> <span class="n">guarantee</span><span class="o">.</span><span class="n">signatures</span><span class="p">:</span>
                 <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">signature</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">guarantees</span> <span class="o">+=</span> <span class="mi">1</span>
-
-
 
         <span class="k">return</span> <span class="n">StatisticsOutput</span><span class="p">(</span>
             <span class="n">post_state</span><span class="o">=</span><span class="n">post_state</span>
@@ -1444,26 +1442,7 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1535</span>
-<span class="normal">1536</span>
-<span class="normal">1537</span>
-<span class="normal">1538</span>
-<span class="normal">1539</span>
-<span class="normal">1540</span>
-<span class="normal">1541</span>
-<span class="normal">1542</span>
-<span class="normal">1543</span>
-<span class="normal">1544</span>
-<span class="normal">1545</span>
-<span class="normal">1546</span>
-<span class="normal">1547</span>
-<span class="normal">1548</span>
-<span class="normal">1549</span>
-<span class="normal">1550</span>
-<span class="normal">1551</span>
-<span class="normal">1552</span>
-<span class="normal">1553</span>
-<span class="normal">1554</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1554</span>
 <span class="normal">1555</span>
 <span class="normal">1556</span>
 <span class="normal">1557</span>
@@ -1516,7 +1495,25 @@
 <span class="normal">1604</span>
 <span class="normal">1605</span>
 <span class="normal">1606</span>
-<span class="normal">1607</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+<span class="normal">1607</span>
+<span class="normal">1608</span>
+<span class="normal">1609</span>
+<span class="normal">1610</span>
+<span class="normal">1611</span>
+<span class="normal">1612</span>
+<span class="normal">1613</span>
+<span class="normal">1614</span>
+<span class="normal">1615</span>
+<span class="normal">1616</span>
+<span class="normal">1617</span>
+<span class="normal">1618</span>
+<span class="normal">1619</span>
+<span class="normal">1620</span>
+<span class="normal">1621</span>
+<span class="normal">1622</span>
+<span class="normal">1623</span>
+<span class="normal">1624</span>
+<span class="normal">1625</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
         <span class="n">extrinsic_preimages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Preimage</span><span class="p">],</span>
@@ -1580,11 +1577,10 @@
     <span class="k">for</span> <span class="n">assurance</span> <span class="ow">in</span> <span class="n">extrinsic_assurances</span><span class="p">:</span>
         <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">assurance</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">assurances</span> <span class="o">+=</span> <span class="mi">1</span>
 
+    <span class="c1"># TODO replace with bold_R (self.block_context.reporters)</span>
     <span class="k">for</span> <span class="n">guarantee</span> <span class="ow">in</span> <span class="n">extrinsic_guarantees</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">signature</span> <span class="ow">in</span> <span class="n">guarantee</span><span class="o">.</span><span class="n">signatures</span><span class="p">:</span>
             <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">signature</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">guarantees</span> <span class="o">+=</span> <span class="mi">1</span>
-
-
 
     <span class="k">return</span> <span class="n">StatisticsOutput</span><span class="p">(</span>
         <span class="n">post_state</span><span class="o">=</span><span class="n">post_state</span>
