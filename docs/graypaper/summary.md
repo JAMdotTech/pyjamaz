@@ -8,7 +8,7 @@ This section has been updated to match Graypaper version 0.6.2.
 | Section 1. Introduction                      |          0 |              - |           - |             - |
 | Section 2. Previous Work & Present Trends    |          0 |              - |           - |             - |
 | Section 3. Notational Conventions            |         11 |             0% |          0% |            0% |
-| Section 4. Overview                          |         28 |             0% |          0% |            0% |
+| Section 4. Overview                          |         28 | (16/28) 57.14% |          0% |            0% |
 | Section 5. The Header                        |         10 |             0% |          0% |            0% |
 | Section 6. Block Production and Chain Growth |         35 |             0% |          0% |            0% |
 | Section 7. Recent History                    |          4 |             0% |          0% |            0% |
@@ -33,7 +33,7 @@ This section has been updated to match Graypaper version 0.6.2.
 | Appendix G. Bandersnatch Ring VRF            |          5 |             0% |          0% |            0% |
 | Appendix H. Erasure Coding                   |         13 |             0% |          0% |            0% |
 | Appendix I. Index of Notation                |          0 |              - |           - |             - |
-| **Total**                                    |    **367** |         **0%** |      **0%** |        **0%** |
+| **Total**                                    |    **369** |         **0%** |      **0%** |        **0%** |
 
 ## Equations
 
@@ -51,49 +51,49 @@ This section has been updated to match Graypaper version 0.6.2.
 | [3.10](../section_03/#3.10)   |                                                                              |             |               |
 | [3.11](../section_03/#3.11)   |                                                                              |             |               |
 
-| Equation                      | Implementation                                                   | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------|-------------|---------------|
-| [4.1](../section_04/#4.1)     |                                                                  |             |               |
-| [4.2](../section_04/#4.2)     | (1/1): [1](../../types/types_blocks/#pyjamaz.models.block.Block) |             |               |
-| [4.3](../section_04/#4.3)     |                                                                  |             |               |
-| [4.4](../section_04/#4.4)     |                                                                  |             |               |
-| [4.5](../section_04/#4.5)     |                                                                  |             |               |
-| [4.6](../section_04/#4.6)     |                                                                  |             |               |
-| [4.7](../section_04/#4.7)     |                                                                  |             |               |
-| [4.8](../section_04/#4.8)     |                                                                  |             |               |
-| [4.9](../section_04/#4.9)     |                                                                  |             |               |
-| [4.10](../section_04/#4.10)   |                                                                  |             |               |
-| [4.11](../section_04/#4.11)   |                                                                  |             |               |
-| [4.12](../section_04/#4.12)   |                                                                  |             |               |
-| [4.13](../section_04/#4.13)   |                                                                  |             |               |
-| [4.14](../section_04/#4.14)   |                                                                  |             |               |
-| [4.15](../section_04/#4.15)   |                                                                  |             |               |
-| [4.16](../section_04/#4.16)   |                                                                  |             |               |
-| [4.17](../section_04/#4.17)   |                                                                  |             |               |
-| [4.18](../section_04/#4.18)   |                                                                  |             |               |
-| [4.19](../section_04/#4.19)   |                                                                  |             |               |
-| [4.20](../section_04/#4.20)   |                                                                  |             |               |
-| [4.21](../section_04/#4.21)   |                                                                  |             |               |
-| [4.22](../section_04/#4.22)   |                                                                  |             |               |
-| [4.23](../section_04/#4.23)   |                                                                  |             |               |
-| [4.24](../section_04/#4.24)   |                                                                  |             |               |
-| [4.25](../section_04/#4.25)   |                                                                  |             |               |
-| [4.26](../section_04/#4.26)   |                                                                  |             |               |
-| [4.27](../section_04/#4.27)   |                                                                  |             |               |
-| [4.28](../section_04/#4.28)   |                                                                  |             |               |
+| Equation                      | Implementation                                                                                                                                                          | Conformance | Documentation |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|---------------|
+| [4.1](../section_04/#4.1)     | (0/1):                                                                                                                                                                  |             |               |
+| [4.2](../section_04/#4.2)     | (1/1): [models.block.Block](../../types/types_blocks/#pyjamaz.models.block.Block)                                                                                       |             |               |
+| [4.3](../section_04/#4.3)     | (1/1): [models.block.Extrinsic](../../types/types_blocks/#pyjamaz.models.block.Extrinsic)                                                                               |             |               |
+| [4.4](../section_04/#4.4)     | (1/1): [models.state.JamState](../../types/types_blocks/#pyjamaz.models.state.JamState)                                                                                 |             |               |
+| [4.5](../section_04/#4.5)     | (1/1): [state.components.Timeslot.state_transition](../../types/types_blocks/#pyjamaz.state.components.Timeslot.state_transition)                                       |             |               |
+| [4.6](../section_04/#4.6)     | (1/1): [state.components.RecentHistory.state_transition_intermediate](../../types/types_blocks/#pyjamaz.state.components.RecentHistory.state_transition_intermediate)   |             |               |
+| [4.7](../section_04/#4.7)     | (1/1): [state.components.RecentHistory.state_transition](../../types/types_blocks/#pyjamaz.state.components.RecentHistory.state_transition)                             |             |               |
+| [4.8](../section_04/#4.8)     | (1/1): [state.components.Safrole.state_transition](../../types/types_blocks/#pyjamaz.state.components.Safrole.state_transition)                                         |             |               |
+| [4.9](../section_04/#4.9)     | (1/1): [state.components.Entropy.state_transition](../../types/types_blocks/#pyjamaz.state.components.Entropy.state_transition)                                         |             |               |
+| [4.10](../section_04/#4.10)   | (1/1): [state.components.ValidatorPool.state_transition](../../types/types_blocks/#pyjamaz.state.components.ValidatorPool.state_transition)                             |             |               |
+| [4.11](../section_04/#4.11)   | (1/1): [state.components.ValidatorArchive.state_transition](../../types/types_blocks/#pyjamaz.state.components.ValidatorArchive.state_transition)                       |             |               |
+| [4.12](../section_04/#4.12)   | (1/1): [state.components.Disputes.state_transition](../../types/types_blocks/#pyjamaz.state.components.Disputes.state_transition)                                       |             |               |
+| [4.13](../section_04/#4.13)   | (1/1): [state.components.Assurances.state_transition_after_disputes](../../types/types_blocks/#pyjamaz.state.components.Assurances.state_transition_after_disputes)     |             |               |
+| [4.14](../section_04/#4.14)   | (1/1): [state.components.Assurances.state_transition_after_assurances](../../types/types_blocks/#pyjamaz.state.components.Assurances.state_transition_after_assurances) |             |               |
+| [4.15](../section_04/#4.15)   | (1/1): [state.components.Assurances.state_transition_after_guarantees](../../types/types_blocks/#pyjamaz.state.components.Assurances.state_transition_after_guarantees) |             |               |
+| [4.16](../section_04/#4.16)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.17](../section_04/#4.17)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.18](../section_04/#4.18)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.19](../section_04/#4.19)   | (1/1): [state.components.AuthorizerPools.state_transition](../../types/types_blocks/#pyjamaz.state.components.AuthorizerPools.state_transition)                         |             |               |
+| [4.20](../section_04/#4.20)   | (1/1): [state.components.Statistics.state_transition](../../types/types_blocks/#pyjamaz.state.components.Statistics.state_transition)                                   |             |               |
+| [4.21](../section_04/#4.21)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.22](../section_04/#4.22)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.23](../section_04/#4.23)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.24](../section_04/#4.24)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.25](../section_04/#4.25)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.26](../section_04/#4.26)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.27](../section_04/#4.27)   | (0/1):                                                                                                                                                                  |             |               |
+| [4.28](../section_04/#4.28)   | (0/1):                                                                                                                                                                  |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [5.1](../section_05/#5.1)     |                                                                              |             |               |
-| [5.2](../section_05/#5.2)     |                                                                              |             |               |
-| [5.3](../section_05/#5.3)     |                                                                              |             |               |
-| [5.4](../section_05/#5.4)     |                                                                              |             |               |
-| [5.5](../section_05/#5.5)     |                                                                              |             |               |
-| [5.6](../section_05/#5.6)     |                                                                              |             |               |
-| [5.7](../section_05/#5.7)     |                                                                              |             |               |
-| [5.8](../section_05/#5.8)     |                                                                              |             |               |
-| [5.9](../section_05/#5.9)     |                                                                              |             |               |
-| [5.10](../section_05/#5.10)   |                                                                              |             |               |
+| Equation                      | Implementation                                                                         | Conformance | Documentation |
+|-------------------------------|----------------------------------------------------------------------------------------|-------------|---------------|
+| [5.1](../section_05/#5.1)     | (1/1): [models.block.Header](../../types/types_blocks/#pyjamaz.models.block.Header)           |             |               |
+| [5.2](../section_05/#5.2)     | (1/1): [models.block.Header.hash](../../types/types_blocks/#pyjamaz.models.block.Header.hash) |             |               |
+| [5.3](../section_05/#5.3)     |                                                                                        |             |               |
+| [5.4](../section_05/#5.4)     |                                                                                        |             |               |
+| [5.5](../section_05/#5.5)     |                                                                                        |             |               |
+| [5.6](../section_05/#5.6)     |                                                                                        |             |               |
+| [5.7](../section_05/#5.7)     |                                                                                        |             |               |
+| [5.8](../section_05/#5.8)     |                                                                                        |             |               |
+| [5.9](../section_05/#5.9)     |                                                                                        |             |               |
+| [5.10](../section_05/#5.10)   |                                                                                        |             |               |
 
 | Equation                      | Implementation                                                               | Conformance | Documentation |
 |-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
