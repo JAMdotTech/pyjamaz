@@ -11,7 +11,7 @@ from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.base import AppContext
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee, BlockContext
+from pyjamaz.models.block import Header, Guarantee, BlockContext, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState
 
@@ -26,6 +26,12 @@ def get_test_vector_files(file_filter: Optional[str] = None):
                 test_vectors.append((f'{filename}', filename))
     return test_vectors
 
+
+def reformat_work_report(work_report_data: dict) -> dict:
+    work_report_data["segment_root_lookup"] = {
+        s["work_package_hash"]: s["segment_tree_root"] for s in work_report_data["segment_root_lookup"]
+    }
+    return work_report_data
 
 class TestReports(unittest.TestCase):
 
@@ -55,7 +61,23 @@ class TestReports(unittest.TestCase):
         # Set up pre-state
         post_state_timeslot = TimeslotState(number=header.timeslot)
 
-        extrinsic_guarantees = [Guarantee.from_json(a) for a in test_vector["input"]["guarantees"]]
+        # extrinsic_guarantees = [Guarantee.from_json(a) for a in test_vector["input"]["guarantees"]]
+        extrinsic_guarantees = [Guarantee.from_json({
+            "report": reformat_work_report(i["report"]),
+            "slot": i["slot"],
+            "signatures": i["signatures"]
+        }) for i in test_vector["input"]["guarantees"]]
+
+        extrinsic = Extrinsic(
+            tickets=[],
+            disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
+            preimages=[],
+            assurances=[],
+            guarantees=extrinsic_guarantees
+        )
+
+        header.extrinsic_hash = extrinsic.generate_extrinsic_hash()
+
         pre_state_assurances = AssurancesState.from_json({"assurances": test_vector["pre_state"]["avail_assignments"]})
         post_state_validator_pool = ValidatorPoolState.from_json(
             {"validators": test_vector["pre_state"]["curr_validators"]}
@@ -94,7 +116,7 @@ class TestReports(unittest.TestCase):
         post_entropy = EntropyState.from_json({"entropy": test_vector["pre_state"]["entropy"]})
 
         # Prepare block context
-        self.block_context.initialize()
+        self.block_context.reset()
         self.block_context.set_guarantor_assignments(
             post_entropy=post_entropy,
             post_timeslot=post_state_timeslot,
@@ -137,6 +159,14 @@ class TestReports(unittest.TestCase):
                 }
             }
             post_state = output.post_state.to_json()
+
+            # Reformat JSON output confirm test format
+            for idx, assignment in enumerate(post_state['assurances']):
+                if post_state['assurances'][idx]:
+                    post_state['assurances'][idx]["report"]["segment_root_lookup"] = [{
+                        "segment_tree_root": sr, "work_package_hash": wh
+                    } for wh, sr in post_state['assurances'][idx]["report"]["segment_root_lookup"]]
+
         except StateTransitionError as e:
             assurances_output = {'err': e.custom_error_code.name}
             post_state = {

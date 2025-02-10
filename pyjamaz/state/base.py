@@ -4,14 +4,15 @@ from dataclasses import dataclass
 from typing import TypeVar, Optional
 
 import pyjamaz.graypaper_constants as gp_const
-from jamcodec.mixins import Serializable
 from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound, StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
+
 from pyjamaz.storage import StorageEngine, Transaction
 
 if typing.TYPE_CHECKING:
     from pyjamaz.models.block import BlockContext
+    from pyjamaz.models.state import State
 
 T = TypeVar('T')
 
@@ -126,11 +127,6 @@ def state_key_constructor_preimage_availability(
     )
 
 
-class State(Serializable):
-
-    def __setattr__(self, key, value):
-        super().__setattr__(key, value)
-
 @dataclass
 class AppContext:
     transaction: Optional[Transaction] = None
@@ -170,7 +166,7 @@ class StateComponent:
         else:
             self.storage_engine.put(self._state_key_constructor_component(), data)
 
-    def store_state(self, state: State, transaction: Optional[Transaction] = None):
+    def store_state(self, state: 'State', transaction: Optional[Transaction] = None):
         data = state.to_jam_bytes().to_bytes()
         self.store(data, transaction)
 

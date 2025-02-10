@@ -10,15 +10,16 @@ import json
 import unittest
 from os import path
 
-from pyjamaz.app import PyjamazApp, AppConfig
+from pyjamaz.app import AppConfig
 from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.settings import TEST_SUITE
-from pyjamaz.state.base import State
+from pyjamaz.state.base import AppContext
+from pyjamaz.state.components import Disputes
 from pyjamaz.storage import InMemoryStorage
 
-from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes, Block
+from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes, Block, BlockContext
 from pyjamaz.models.state import (DisputesState, AssurancesState, TimeslotState, ValidatorArchiveState,
-                                  ValidatorPoolState, JamState)
+                                  ValidatorPoolState, JamState, State)
 
 
 @dataclass
@@ -111,21 +112,30 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
 
         block = self.create_block(test_vector['input'])
 
-        # Initialize app
-        app = PyjamazApp(config=self.config)
-        await app.store_jam_state(pre_state)
-
         # Process block
         try:
-            app.state = app.retrieve_jam_state()
-            output = await app.import_block(block, validate=False)
+            disputes = Disputes(InMemoryStorage(), BlockContext(), AppContext())
+
+            # Input validation
+            disputes.validate_extrinsic_disputes(
+                extrinsic_disputes=block.extrinsic.disputes,
+                pre_state_timeslot=pre_state.timeslot,
+                pre_state_validator_pool=pre_state.validator_pool,
+                pre_state_validator_archive=pre_state.validator_archive
+            )
+
+            # STF
+            output = disputes.state_transition(
+                extrinsic_disputes=block.extrinsic.disputes,
+                pre_state_disputes=pre_state.disputes
+            )
             dispute_output = {'ok': {"offenders_mark": output.to_json()['offenders_mark']}}
+            psi = output.post_state.to_json()
         except PyjamazAppError as e:
             dispute_output = {'err': e.custom_error_code.name}
+            psi = pre_state.disputes.to_json()
 
         self.assertEqual(test_vector['output'], dispute_output)
-
-        psi = app.components.disputes.retrieve_state().to_json()
 
         post_state = {
             'bad': psi['bad_set'],
