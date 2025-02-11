@@ -7,7 +7,7 @@ a Python implementation of the [JAM protocol](https://graypaper.com/).
 pip install .
 ```
 
-## Using Docker to run JAM testnet
+## Using Docker to run JAM testnet 
 
 ### Initialize
 ```bash
