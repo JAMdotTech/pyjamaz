@@ -82,18 +82,18 @@ This section has been updated to match Graypaper version 0.6.2.
 | [4.27](../section_04/#4.27)   | (0/1):                                                                                                                                                                  |             |               |
 | [4.28](../section_04/#4.28)   | (0/1):                                                                                                                                                                  |             |               |
 
-| Equation                      | Implementation                                                                         | Conformance | Documentation |
-|-------------------------------|----------------------------------------------------------------------------------------|-------------|---------------|
+| Equation                      | Implementation                                                                                | Conformance | Documentation |
+|-------------------------------|-----------------------------------------------------------------------------------------------|-------------|---------------|
 | [5.1](../section_05/#5.1)     | (1/1): [models.block.Header](../../types/types_blocks/#pyjamaz.models.block.Header)           |             |               |
 | [5.2](../section_05/#5.2)     | (1/1): [models.block.Header.hash](../../types/types_blocks/#pyjamaz.models.block.Header.hash) |             |               |
-| [5.3](../section_05/#5.3)     |                                                                                        |             |               |
-| [5.4](../section_05/#5.4)     |                                                                                        |             |               |
-| [5.5](../section_05/#5.5)     |                                                                                        |             |               |
-| [5.6](../section_05/#5.6)     |                                                                                        |             |               |
-| [5.7](../section_05/#5.7)     |                                                                                        |             |               |
-| [5.8](../section_05/#5.8)     |                                                                                        |             |               |
-| [5.9](../section_05/#5.9)     |                                                                                        |             |               |
-| [5.10](../section_05/#5.10)   |                                                                                        |             |               |
+| [5.3](../section_05/#5.3)     |                                                                                               |             |               |
+| [5.4](../section_05/#5.4)     |                                                                                               |             |               |
+| [5.5](../section_05/#5.5)     |                                                                                               |             |               |
+| [5.6](../section_05/#5.6)     |                                                                                               |             |               |
+| [5.7](../section_05/#5.7)     |                                                                                               |             |               |
+| [5.8](../section_05/#5.8)     |                                                                                               |             |               |
+| [5.9](../section_05/#5.9)     |                                                                                               |             |               |
+| [5.10](../section_05/#5.10)   |                                                                                               |             |               |
 
 | Equation                      | Implementation                                                               | Conformance | Documentation |
 |-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
