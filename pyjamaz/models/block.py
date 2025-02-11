@@ -387,14 +387,12 @@ class Header(Serializable):
         setattr(self, '_hash', value)
 
     def verify_ticket_seal(self, bandersnatch_key: bytes, ticket_body: TicketBody, entropy: bytes) -> bytes:
-        vrf_output = ietf_vrf_verify(
+        return ietf_vrf_verify(
             bytes(bandersnatch_key),
             vrf_input_ticket_seal(entropy, ticket_body.attempt),
             self.get_unsigned_payload(),
             bytes(self.seal)
         )
-
-        return ticket_body.id == vrf_output
 
     def verify_fallback_seal(self, sealer_key: bytes, entropy: bytes) -> bytes:
         return ietf_vrf_verify(
@@ -705,7 +703,7 @@ class BlockContext:
     # TODO GP ref?
     seal_vrf_output: bytes = bytes(32)
     # A
-    ancestor_headers: Optional[List[Header]] = None
+    ancestor_headers: List[Header] = field(default_factory=list)
 
     # W
     available_work_reports: Optional[List[WorkReport]] = None

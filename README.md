@@ -29,29 +29,29 @@ docker compose -p testnet down --remove-orphans
 
 ## Using the CLI
 
-### Generate validator keys
+### Generate validator data for use in genesis.json
 
 ```bash
-pyjamaz keys generate 0x0000000000000000000000000000000000000000000000000000000000000000
+pyjamaz keys generate 0x0000000000000000000000000000000000000000000000000000000000000000 127.0.0.1 9000
 
 ```
 
 ### Initialize node 
 
 ```bash
-pyjamaz init 
+pyjamaz init --seed 0x0000000000000000000000000000000000000000000000000000000000000000
 ```
 
 ### Initialize node with custom [genesis.json](https://github.com/JAMdotTech/pyjamaz/blob/main/pyjamaz/data/genesis.json) 
 
 ```bash
-pyjamaz init --genesis ./pyjamaz/data/genesis.json 
+pyjamaz init --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --genesis ./pyjamaz/data/genesis.json 
 ```
 
 ### Run node
 
 ```bash
-pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --block-dir ./data/blocks
+pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000
 ```
 
 ### Run and record each block as a replayable file in given folder
@@ -63,21 +63,8 @@ pyjamaz --seed 0x000000000000000000000000000000000000000000000000000000000000000
 ### Replay and validate a recorded trace
 
 ```bash
-pyjamaz replay_traces ./test/fixtures/traces/pyjamaz
+pyjamaz replay_traces ./test/fixtures/traces/pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000
 ```
-
-### Replay a recorded trace and skip block validation
-
-```bash
-pyjamaz replay_traces ./test/fixtures/traces/duna --skip-block-validation
-```
-
-### Replay a recorded trace and only import block data, skip pre-state import and post-state validation
-
-```bash
-pyjamaz replay_traces ./test/fixtures/traces/duna --only-block-import
-```
-
 
 ### Dump current state to stdout
 

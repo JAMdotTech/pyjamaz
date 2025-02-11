@@ -5,42 +5,42 @@ services:
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz-data-alice:/app/pyjamaz/data'
-    command: 'init --force-overwrite'
+    command: 'init --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --force-overwrite'
 
   pyjamaz-bob:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz-data-bob:/app/pyjamaz/data'
-    command: 'init --force-overwrite'
+    command: 'init --seed 0x0000000000000000000000000000000000000000000000000000000000000001 --force-overwrite'
 
   pyjamaz-charlie:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz-data-charlie:/app/pyjamaz/data'
-    command: 'init --force-overwrite'
+    command: 'init --seed 0x0000000000000000000000000000000000000000000000000000000000000002 --force-overwrite'
 
   pyjamaz-dave:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz-data-dave:/app/pyjamaz/data'
-    command: 'init  --force-overwrite'
+    command: 'init --seed 0x0000000000000000000000000000000000000000000000000000000000000003 --force-overwrite'
 
   pyjamaz-eve:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz-data-eve:/app/pyjamaz/data'
-    command: 'init  --force-overwrite'
+    command: 'init --seed 0x0000000000000000000000000000000000000000000000000000000000000004 --force-overwrite'
 
   pyjamaz-ferdie:
     build: .
     image: jamdottech/pyjamaz
     volumes:
       - 'pyjamaz-data-ferdie:/app/pyjamaz/data'
-    command: 'init --force-overwrite'
+    command: 'init --seed 0x0000000000000000000000000000000000000000000000000000000000000005 --force-overwrite'
 
 volumes:
   pyjamaz-data-alice:

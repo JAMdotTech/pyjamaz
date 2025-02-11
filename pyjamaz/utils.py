@@ -125,4 +125,4 @@ def vrf_input_fallback_seal(entropy: bytes) -> bytes:
     return b"jam_fallback_seal" + entropy
 
 def format_hash(hash: bytes) -> str:
-    return f'{hash[:4].hex()}...{hash[-4:].hex()}'
+    return f'0x{hash[:4].hex()}...{hash[-4:].hex()}'
