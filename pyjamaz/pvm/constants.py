@@ -287,16 +287,16 @@ OpcodeScheme = {
     # Instructions with args: reg, reg
     op.move_reg.value: it.reg_reg,
     op.sbrk.value: it.reg_reg,
-    op.count_set_bits_64: it.reg_reg,
-    op.count_set_bits_32: it.reg_reg,
-    op.leading_zero_bits_64: it.reg_reg,
-    op.leading_zero_bits_32: it.reg_reg,
-    op.trailing_zero_bits_64: it.reg_reg,
-    op.trailing_zero_bits_32: it.reg_reg,
-    op.sign_extend_8: it.reg_reg,
-    op.sign_extend_16: it.reg_reg,
-    op.zero_extend_16: it.reg_reg,
-    op.reverse_bytes: it.reg_reg,
+    op.count_set_bits_64.value: it.reg_reg,
+    op.count_set_bits_32.value: it.reg_reg,
+    op.leading_zero_bits_64.value: it.reg_reg,
+    op.leading_zero_bits_32.value: it.reg_reg,
+    op.trailing_zero_bits_64.value: it.reg_reg,
+    op.trailing_zero_bits_32.value: it.reg_reg,
+    op.sign_extend_8.value: it.reg_reg,
+    op.sign_extend_16.value: it.reg_reg,
+    op.zero_extend_16.value: it.reg_reg,
+    op.reverse_bytes.value: it.reg_reg,
 
     # GP_A.5.10
     # Instructions with args: reg, reg, imm
@@ -436,4 +436,185 @@ MemOps = {
     Opcode.store_imm_ind_u16.value: {"read": True, "write": True, "bytes": 2},
     Opcode.store_imm_ind_u32.value: {"read": True, "write": True, "bytes": 4},
     Opcode.store_imm_ind_u64.value: {"read": True, "write": True, "bytes": 8},
+}
+
+OpcodeNames = {
+    # GP_A.5.1
+    # Instructions with args: none
+    op.trap.value: "trap",
+    op.fallthrough.value: "fallthrough",
+
+    # GP_A.5.2
+    # Instructions with args: imm
+    op.ecalli.value: "ecalli",
+
+    # GP_A.5.3
+    # Instructions with args: reg_ext_imm
+    op.load_imm_64.value: "load_imm_64",
+
+    # GP_A.5.4
+    # Instructions with args: imm_imm
+    op.store_imm_u8.value: "store_imm_u8",
+    op.store_imm_u16.value: "store_imm_u16",
+    op.store_imm_u32.value: "store_imm_u32",
+    op.store_imm_u64.value: "store_imm_u64",
+
+    # GP_A.5.5
+    # Instructions with args: offset
+    op.jump.value: "jump",
+
+    # GP_A.5.6
+    # Instructions with args: reg, imm
+    op.jump_ind.value: "jump_ind",
+    op.load_imm.value: "load_imm",
+    op.load_u8.value: "load_u8",
+    op.load_i8.value: "load_i8",
+    op.load_u16.value: "load_u16",
+    op.load_i16.value: "load_i16",
+    op.load_u32.value: "load_u32",
+    op.load_i32.value: "load_i32",
+    op.load_u64.value: "load_u64",
+    op.store_u8.value: "store_u8",
+    op.store_u16.value: "store_u16",
+    op.store_u32.value: "store_u32",
+    op.store_u64.value: "store_u64",
+
+    # GP_A.5.7
+    # Instructions with args: reg, imm, imm
+    op.store_imm_ind_u8.value: "store_imm_ind_u8",
+    op.store_imm_ind_u16.value: "store_imm_ind_u16",
+    op.store_imm_ind_u32.value: "store_imm_ind_u32",
+    op.store_imm_ind_u64.value: "store_imm_ind_u64",
+
+    # GP_A.5.8
+    # Instructions with args: reg, imm, offset
+    op.load_imm_jump.value: "load_imm_jump",
+    op.branch_eq_imm.value: "branch_eq_imm",
+    op.branch_ne_imm.value: "branch_ne_imm",
+    op.branch_lt_u_imm.value: "branch_lt_u_imm",
+    op.branch_ge_u_imm.value: "branch_ge_u_imm",
+    op.branch_le_u_imm.value: "branch_le_u_imm",
+    op.branch_gt_u_imm.value: "branch_gt_u_imm",
+    op.branch_lt_s_imm.value: "branch_lt_s_imm",
+    op.branch_ge_s_imm.value: "branch_ge_s_imm",
+    op.branch_le_s_imm.value: "branch_le_s_imm",
+    op.branch_gt_s_imm.value: "branch_gt_s_imm",
+
+    # GP_A.5.9
+    # Instructions with args: reg, reg
+    op.move_reg.value: "move_reg",
+    op.sbrk.value: "sbrk",
+    op.count_set_bits_64.value: "count_set_bits_64",
+    op.count_set_bits_32.value: "count_set_bits_32",
+    op.leading_zero_bits_64.value: "leading_zero_bits_64",
+    op.leading_zero_bits_32.value: "leading_zero_bits_32",
+    op.trailing_zero_bits_64.value: "trailing_zero_bits_64",
+    op.trailing_zero_bits_32.value: "trailing_zero_bits_32",
+    op.sign_extend_8.value: "sign_extend_8",
+    op.sign_extend_16.value: "sign_extend_16",
+    op.zero_extend_16.value: "zero_extend_16",
+    op.reverse_bytes.value: "reverse_bytes",
+
+    # GP_A.5.10
+    # Instructions with args: reg, reg, imm
+    op.store_ind_u8.value: "store_ind_u8",
+    op.store_ind_u8.value: "store_ind_u8",
+    op.store_ind_u16.value: "store_ind_u16",
+    op.store_ind_u32.value: "store_ind_u32",
+    op.store_ind_u64.value: "store_ind_u64",
+    op.load_ind_u8.value: "load_ind_u8",
+    op.load_ind_i8.value: "load_ind_i8",
+    op.load_ind_u16.value: "load_ind_u16",
+    op.load_ind_i16.value: "load_ind_i16",
+    op.load_ind_u32.value: "load_ind_u32",
+    op.load_ind_i32.value: "load_ind_i32",
+    op.load_ind_u64.value: "load_ind_u64",
+    op.add_imm_32.value: "add_imm_32",
+    op.and_imm.value: "and_imm",
+    op.xor_imm.value: "xor_imm",
+    op.or_imm.value: "or_imm",
+    op.mul_imm_32.value: "mul_imm_32",
+    op.set_lt_u_imm.value: "set_lt_u_imm",
+    op.set_lt_s_imm.value: "set_lt_s_imm",
+    op.shlo_l_imm_32.value: "shlo_l_imm_32",
+    op.shlo_r_imm_32.value: "shlo_r_imm_32",
+    op.shar_r_imm_32.value: "shar_r_imm_32",
+    op.neg_add_imm_32.value: "neg_add_imm_32",
+    op.set_gt_u_imm.value: "set_gt_u_imm",
+    op.set_gt_s_imm.value: "set_gt_s_imm",
+    op.shlo_l_imm_alt_32.value: "shlo_l_imm_alt_32",
+    op.shlo_r_imm_alt_32.value: "shlo_r_imm_alt_32",
+    op.shar_r_imm_alt_32.value: "shar_r_imm_alt_32",
+    op.cmov_iz_imm.value: "cmov_iz_imm",
+    op.cmov_nz_imm.value: "cmov_nz_imm",
+    op.add_imm_64.value: "add_imm_64",
+    op.mul_imm_64.value: "mul_imm_64",
+    op.shlo_l_imm_64.value: "shlo_l_imm_64",
+    op.shlo_r_imm_64.value: "shlo_r_imm_64",
+    op.shar_r_imm_64.value: "shar_r_imm_64",
+    op.neg_add_imm_64.value: "neg_add_imm_64",
+    op.shlo_l_imm_alt_64.value: "shlo_l_imm_alt_64",
+    op.shlo_r_imm_alt_64.value: "shlo_r_imm_alt_64",
+    op.shar_r_imm_alt_64.value: "shar_r_imm_alt_64",
+    op.rot_r_64_imm.value: "rot_r_64_imm",
+    op.rot_r_64_imm_alt.value: "rot_r_64_imm_alt",
+    op.rot_r_32_imm.value: "rot_r_32_imm",
+    op.rot_r_32_imm_alt.value: "rot_r_32_imm_alt",
+
+    # GP_A.5.11
+    # Instructions with args: reg, reg, offset
+    op.branch_eq.value: "branch_eq",
+    op.branch_ne.value: "branch_ne",
+    op.branch_lt_u.value: "branch_lt_u",
+    op.branch_lt_s.value: "branch_lt_s",
+    op.branch_ge_u.value: "branch_ge_u",
+    op.branch_ge_s.value: "branch_ge_s",
+
+    # GP_A.5.12
+    # Instructions with args: reg, reg, imm, im:
+    op.load_imm_jump_ind.value: "load_imm_jump_ind",
+
+    # GP_A.5.13
+    # Instructions with args: reg, reg, reg
+    op.add_32.value: "add_32",
+    op.sub_32.value: "sub_32",
+    op.mul_32.value: "mul_32",
+    op.div_u_32.value: "div_u_32",
+    op.div_s_32.value: "div_s_32",
+    op.rem_u_32.value: "rem_u_32",
+    op.rem_s_32.value: "rem_s_32",
+    op.shlo_l_32.value: "shlo_l_32",
+    op.shlo_r_32.value: "shlo_r_32",
+    op.shar_r_32.value: "shar_r_32",
+    op.add_64.value: "add_64",
+    op.sub_64.value: "sub_64",
+    op.mul_64.value: "mul_64",
+    op.div_u_64.value: "div_u_64",
+    op.div_s_64.value: "div_s_64",
+    op.rem_u_64.value: "rem_u_64",
+    op.rem_s_64.value: "rem_s_64",
+    op.shlo_l_64.value: "shlo_l_64",
+    op.shlo_r_64.value: "shlo_r_64",
+    op.shar_r_64.value: "shar_r_64",
+    op._and.value: "_and",
+    op.xor.value: "xor",
+    op._or.value: "_or",
+    op.mul_upper_s_s.value: "mul_upper_s_s",
+    op.mul_upper_u_u.value: "mul_upper_u_u",
+    op.mul_upper_s_u.value: "mul_upper_s_u",
+    op.set_lt_u.value: "set_lt_u",
+    op.set_lt_s.value: "set_lt_s",
+    op.cmov_iz.value: "cmov_iz",
+    op.cmov_nz.value: "cmov_nz",
+    op.rot_l_64.value: "rot_l_64",
+    op.rot_l_32.value: "rot_l_32",
+    op.rot_r_64.value: "rot_r_64",
+    op.rot_r_32.value: "rot_r_32",
+    op.and_inv.value: "and_inv",
+    op.or_inv.value: "or_inv",
+    op.xnor.value: "xnor",
+    op._max.value: "_max",
+    op.max_u.value: "max_u",
+    op._min.value: "_min",
+    op.min_u.value: "min_u"
 }

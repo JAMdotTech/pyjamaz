@@ -32,10 +32,16 @@ def load_test_vectors(directory):
 
 
 class TestPolkaVMInstructions(unittest.TestCase):
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64ui_sd.json'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64ua_amomaxu_w.json'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64uzbb_cpopw.json'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64uzbb_andn.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64uzbb_sext_b.json'))
     def test_instruction(self, name, test_vector):
 
-        TODO: PRINT ELKE REGEL DIE WE AFLOPEN ZODAT IK KAN VERGELIJKEN MET FLUFFY!!!!!
+        #TODO: PRINT ELKE REGEL DIE WE AFLOPEN ZODAT IK KAN VERGELIJKEN MET FLUFFY!!!!!
 
         # Set NumPy to ignore overflow warnings
         np.seterr(over='ignore')
@@ -44,6 +50,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
             JamBytes(bytes(test_vector["program"]))
         )
         pvm = PVM()
+        #if pvm._log: print(f"RUN {test_vector['name']}")
         pvm.invoke(
             pvm_data,
             test_vector["initial-regs"],

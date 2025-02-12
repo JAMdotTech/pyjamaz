@@ -126,7 +126,7 @@ def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     return x + is_signed * sign_mask
 
 
-def pvm_Z(a:int, n:np.uint8) -> np.int32:
+def pvm_Z(a:int, n:np.uint8) -> np.int64:
     """
     Transform an unsigned number into a signed number using the MSB
 
@@ -148,7 +148,7 @@ def pvm_Z(a:int, n:np.uint8) -> np.int32:
         return a - max_value
 
 
-def pvm_Z_inv(a:int, n:np.uint8):
+def pvm_Z_inv(a:int, n:np.uint8) -> np.uint64:
     """
     Transform a signed number to an unsigned number
 
