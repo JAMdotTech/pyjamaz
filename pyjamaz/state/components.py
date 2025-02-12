@@ -333,6 +333,8 @@ class Safrole(StateComponent):
                 # Don't accept tickets after TICKET_SUBMISSION_END_SLOT:
                 raise StateTransitionError(SafroleErrorCode.unexpected_ticket)
 
+        input_tickets = []
+
         if len(extrinsic_tickets) > 0:
 
             # Check for duplicate ticket_data; GP-0.5.0-eq:6.32
@@ -340,8 +342,6 @@ class Safrole(StateComponent):
                 raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
 
             ring_public_keys = [v.bandersnatch for v in self.post_state_safrole.validators]
-
-            input_tickets = []
 
             # Validate extrinsic
             for idx, ticket_data in enumerate(extrinsic_tickets):
@@ -359,11 +359,6 @@ class Safrole(StateComponent):
             if not self.tickets_in_order(input_tickets):
                 raise StateTransitionError(SafroleErrorCode.bad_ticket_order)
 
-            # Add tickets to ticket accumulator, sort and limit: GP-0.5.0-eq:6.34,6.35
-            self.post_state_safrole.ticket_accumulator += input_tickets
-            self.post_state_safrole.ticket_accumulator = sorted(
-                self.post_state_safrole.ticket_accumulator, key=lambda t: t.id
-            )[:gp_const.EPOCH_TIMESLOTS]
 
         # Create output markers if conditions are met
         epoch_mark = None
@@ -431,8 +426,16 @@ class Safrole(StateComponent):
                 self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators]
             )
 
-            # Clear ticket accumulator
-            self.post_state_safrole.ticket_accumulator = []
+        # Add tickets to ticket accumulator, sort and limit: GP-0.5.0-eq:6.34,6.35
+        if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
+            # Not checked by W3F test vectors
+            self.post_state_safrole.ticket_accumulator = input_tickets
+        else:
+            self.post_state_safrole.ticket_accumulator = input_tickets + pre_state_safrole.ticket_accumulator
+
+        self.post_state_safrole.ticket_accumulator = sorted(
+            self.post_state_safrole.ticket_accumulator, key=lambda t: t.id
+        )[:gp_const.EPOCH_TIMESLOTS]
 
         return SafroleOutput(
             post_state=self.post_state_safrole,
