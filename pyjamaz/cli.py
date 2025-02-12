@@ -542,7 +542,7 @@ async def replay_traces(
             stub_parent.timeslot = trace.block.header.timeslot - 1
             app.block_context.ancestor_headers.append(stub_parent)
 
-        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)}')
+        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
         try:
             await app.import_block(trace.block, dry_run=skip_block_validation)
             logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
