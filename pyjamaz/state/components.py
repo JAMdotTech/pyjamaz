@@ -841,7 +841,9 @@ class Assurances(StateComponent):
         work_reports = [g.report for g in extrinsic_guarantees]
 
         # GP-0.5.3-eq:11.40 | Segment-root lookup
-        segment_root_lookup = {g.report.package_spec.hash: g.report.package_spec.exports_root for g in extrinsic_guarantees}
+        segment_root_lookup = {
+            g.report.package_spec.hash: g.report.package_spec.exports_root for g in extrinsic_guarantees
+        }
 
         # Extend segment-root lookup with recent history (GP-0.5.3-eq:11.41)
         for b in intermediate_state_recent_history.recent_history:
@@ -1004,8 +1006,7 @@ class Assurances(StateComponent):
                 > gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT):
             raise StateTransitionError(GuaranteeErrorCode.work_report_too_big)
 
-    @staticmethod
-    def check_gas_requirements(work_report: WorkReport, services_state: ServicesState):
+    def check_gas_requirements(self, work_report: WorkReport, services_state: ServicesState):
         """
         GP-0.5.3-eq:11.30 | Work report respects gas requirements
 
@@ -1021,7 +1022,9 @@ class Assurances(StateComponent):
         total_gas = 0
 
         for result in work_report.results:
-            if result.service_id not in services_state.services:
+            try:
+                services_state.retrieve_service_account(result.service_id, self.storage_engine)
+            except StateKeyNoResult:
                 raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
 
             service = services_state.services[result.service_id]
@@ -1031,7 +1034,7 @@ class Assurances(StateComponent):
 
             # GP-0.5.3-eq:11.30 | Work report respects gas requirements
 
-            if result.accumulate_gas < services_state.services[result.service_id].gas_limit_accumulate:
+            if result.accumulate_gas < service.gas_limit_accumulate:
                 raise StateTransitionError(GuaranteeErrorCode.service_item_gas_too_low)
 
             total_gas += result.accumulate_gas

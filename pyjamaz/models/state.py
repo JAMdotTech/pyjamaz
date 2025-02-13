@@ -413,7 +413,11 @@ class ServicesState(State, Serializable):
             self,
             service_account_id: int,
             storage_engine: StorageEngine
-    ) -> Optional[ServiceAccount]:
+    ) -> ServiceAccount:
+
+        if service_account_id in self.services:
+            return self.services[service_account_id]
+
         storage_key = state_key_constructor_service_account(service_account_id)
 
         data = storage_engine.get(storage_key)
