@@ -1,7 +1,7 @@
 import bisect
 import logging
 from copy import deepcopy, copy
-from typing import List, Union, Optional, Set, Dict
+from typing import List, Union, Optional, Set
 
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ietf_vrf_verify
 from ed25519_zebra import ed_verify
@@ -9,14 +9,14 @@ from jamcodec.types import Vec, U32
 
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
-from pyjamaz.accumulation import work_report_mapping, pvm_invoke_accumulate, PvmAccumulateOutput, \
-    full_sequential_accumulation, edit_queue, pvm_invoke_on_transfer, transfers_service_mapping
+from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue,
+                                  pvm_invoke_on_transfer, transfers_service_mapping)
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine, Transaction
-from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, AccumulationOperand
+from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
@@ -1567,7 +1567,8 @@ class Statistics(StateComponent):
             post_state_timeslot: TimeslotState,
             post_state_validator_pool: ValidatorPoolState,
             pre_state_statistics: StatisticsState,
-            header: Header
+            header: Header,
+            reporters: List[bytes]
     ) -> StatisticsOutput:
         """
         GP-0.5.0-eq:13.3,13.4 (π') | State transition function for the state's statistics.
@@ -1592,6 +1593,8 @@ class Statistics(StateComponent):
             GP-0.5.0-eq:4.20 (π)
         header: Header
             GP-0.5.0-eq:4.20 (bold_H)
+        reporters: List[bytes]
+            GP-0.6.2-eq:??? TODO missing in dependency graph?
 
         Returns
         -------
@@ -1621,14 +1624,19 @@ class Statistics(StateComponent):
         for assurance in extrinsic_assurances:
             post_state.current[assurance.validator_index].assurances += 1
 
-        # TODO replace with bold_R (self.block_context.reporters)
-        for guarantee in extrinsic_guarantees:
-            for signature in guarantee.signatures:
-                post_state.current[signature.validator_index].guarantees += 1
+        for reporter in reporters:
+            post_state.current[self.retrieve_validator_index(reporter, post_state_validator_pool)].guarantees += 1
 
         return StatisticsOutput(
             post_state=post_state
         )
+    @staticmethod
+    def retrieve_validator_index(ed25519_key: bytes, post_validator_pool: ValidatorPoolState) -> int:
+        for validator_index, validator_data in enumerate(post_validator_pool.validators):
+            if validator_data.ed25519 == ed25519_key:
+                return validator_index
+        raise ValueError("Bandersnatch key not found in validator pool")
+
 
     def retrieve_state(self) -> StatisticsState:
         value = self.retrieve()

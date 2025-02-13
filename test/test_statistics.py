@@ -61,6 +61,12 @@ class TestStatistics(unittest.TestCase):
 
         statistics = Statistics(self.storage_engine, self.block_context, self.app_context)
 
+        reporters = []
+
+        for guarantee in extrinsic.guarantees:
+            for signature in guarantee.signatures:
+                reporters.append(post_state_validator_pool.validators[signature.validator_index].ed25519)
+
         output = statistics.state_transition(
             extrinsic_guarantees=extrinsic.guarantees,
             extrinsic_preimages=extrinsic.preimages,
@@ -70,7 +76,8 @@ class TestStatistics(unittest.TestCase):
             post_state_timeslot=post_state_timeslot,
             post_state_validator_pool=post_state_validator_pool,
             pre_state_statistics=pre_state_statistics,
-            header=header
+            header=header,
+            reporters=reporters
         )
 
         self.assertDictEqual(

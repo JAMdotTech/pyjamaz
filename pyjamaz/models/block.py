@@ -713,7 +713,7 @@ class BlockContext:
     queued_work_reports: Optional[List[AccumulationQueueWorkPackage]] = None
     # W*
     accumulatable_work_reports: Optional[List[WorkReport]] = None
-    # R
+    # R (Reporters set, containing Ed25519 key of validator)
     reporters: Optional[List[bytes]] = None
 
     # M_o

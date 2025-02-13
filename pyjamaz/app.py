@@ -398,19 +398,6 @@ class PyjamazApp:
             pre_state_entropy=pre_state_entropy
         )
 
-        # Statistics STF Block Data | GP-0.5.0-eq:4.20
-        statistics_output = self.components.statistics.state_transition(
-           extrinsic_guarantees=block.extrinsic.guarantees,
-           extrinsic_preimages=block.extrinsic.preimages,
-           extrinsic_assurances=block.extrinsic.assurances,
-           extrinsic_tickets=block.extrinsic.tickets,
-           pre_state_timeslot=pre_state_timeslot,
-           post_state_timeslot=timeslot_output.post_state,
-           post_state_validator_pool=validator_pool_output.post_state,
-           pre_state_statistics=pre_state_statistics,
-           header=block.header
-        )
-
         # Assurances After Assurances STF Block Data | GP-0.5.0-eq:4.14
         assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
             extrinsic_assurances=block.extrinsic.assurances,
@@ -460,6 +447,20 @@ class PyjamazApp:
 
         # GP-0.6.1-eq:11.26
         self.block_context.reporters = assurances_output.reporters
+
+        # Statistics STF Block Data | GP-0.5.0-eq:4.20
+        statistics_output = self.components.statistics.state_transition(
+            extrinsic_guarantees=block.extrinsic.guarantees,
+            extrinsic_preimages=block.extrinsic.preimages,
+            extrinsic_assurances=block.extrinsic.assurances,
+            extrinsic_tickets=block.extrinsic.tickets,
+            pre_state_timeslot=pre_state_timeslot,
+            post_state_timeslot=timeslot_output.post_state,
+            post_state_validator_pool=validator_pool_output.post_state,
+            pre_state_statistics=pre_state_statistics,
+            header=block.header,
+            reporters=self.block_context.reporters,
+        )
 
         # GP-0.5.4-eq:12.4
         self.block_context.set_ready_work_reports()
