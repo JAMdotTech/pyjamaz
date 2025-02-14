@@ -183,9 +183,6 @@ class StateComponent:
         bool
             `True` when epoch has changed, `False` otherwise.
         """
-        if pre_slotnumber == 0 and post_slotnumber % gp_const.EPOCH_TIMESLOTS != 0:
-            # TODO double-check what initial behavior should be when
-            return False
         return pre_slotnumber // gp_const.EPOCH_TIMESLOTS != post_slotnumber // gp_const.EPOCH_TIMESLOTS
 
     @staticmethod

@@ -63,26 +63,21 @@ def ipv6_to_byte_array(ip_str:str) -> bytearray:
 
 
 def wrap_cli_import_block(traces_dir):
-    async def cli_import_block(self, block: Block):
-        if block.header.timeslot > self.state.timeslot.number or (
-                self.state.timeslot.number == 0 and not self.should_produce_block()):
+    async def cli_import_block(self, block: Block, dry_run=False):
 
-            if traces_dir:
-                pre_state = await self.create_state_dump()
+        if traces_dir:
+            pre_state = await self.create_state_dump()
 
-            await self._import_block(block)
+        await self._import_block(block, dry_run=dry_run)
 
-            if traces_dir:
-                await self.store_trace(pre_state, block, traces_dir)
+        if traces_dir:
+            await self.store_trace(pre_state, block, traces_dir)
 
-            current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
-            current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
+        current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
+        current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
 
-            logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: 0x{format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
-            logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
-        else:
-            logging.info(
-                f"🗑 Ignoring block for timeslot: {block.header.timeslot} (current time slot {self.state.timeslot.number}, should produce block: {self.should_produce_block()})")
+        logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
+        logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
 
     return cli_import_block
 
@@ -157,15 +152,13 @@ async def initialize_app(
               help='Seed to generate validator keys')
 @click.option('--port', type=int, default=9000, show_default=True, help='UDP port on which the validator should run')
 @click.option('--ts', type=int, help='Unix timestamp for when the validator starts.')
-@click.option('--mode', type=click.Choice(['safrole', 'assurance', 'finality', 'conformance']),
-              default='safrole', show_default=True)
 @click.option('--culprit', is_flag=True, help="Culprit mode: node will intentionally act malicious")
 @click.option('--block-dir', type=click.Path(exists=True))
 @click.option('--record-traces', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listnen on')
-async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, custom_db_path, verbose, host):
+async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host):
     """PyJAMaz: Python JAM Client"""
 
     # Note: Add packages that need a different logging level here
@@ -184,9 +177,6 @@ async def main(ctx, seed, port, ts, mode, culprit, block_dir, record_traces, cus
             raise MissingParameter("--seed parameter is required")
         elif not seed.startswith("0x") or len(seed) != 66:
             raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
-
-        if mode != 'safrole':
-            raise BadParameter(f'{mode} is not supported yet')
 
         db_path = custom_db_path or default_db_path
 
@@ -288,6 +278,10 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
         # TODO centralize
         app.block_context.reset()
         timeslot = app.current_timeslot()
+
+        epoch = timeslot // EPOCH_TIMESLOTS
+        phase = timeslot % EPOCH_TIMESLOTS
+
         logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
 
         if app.state.timeslot.number >= timeslot:
@@ -296,7 +290,6 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
             continue
 
         if app.is_epoch_change(timeslot):
-            app.latest_epoch = timeslot // EPOCH_TIMESLOTS
             logging.info("🗓️ Process Epoch change")
 
             # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
@@ -332,7 +325,7 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
             safrole_state = app.state.safrole
             entropy_state = app.state.entropy
 
-        if app.should_produce_block(safrole_state):
+        if app.should_produce_block(timeslot, safrole_state):
 
             try:
 
@@ -343,10 +336,7 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
                     "data": block
                  })
 
-                epoch = block.header.timeslot // EPOCH_TIMESLOTS
-                phase = block.header.timeslot % EPOCH_TIMESLOTS
-
-                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: 0x{format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
+                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                 # Rollback state from DB
@@ -355,7 +345,7 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
                 app.extrinsic.clear_tickets()
 
         else:
-            logging.info(f'💤 Waiting for block #{app.current_timeslot()} | epoch #{app.current_epoch()} | phase #{app.current_slot_phase_index()}')
+            logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
 
         await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
 
@@ -466,8 +456,8 @@ async def init(
     else:
         if genesis is None:
             genesis = path.join(data_dir,  'genesis.json')
-
         with open(genesis, 'r') as fp:
+            click.echo(f'Genesis file at {genesis}')
             genesis_data = json.load(fp)
             common_era = genesis_data['common_era']
             jam_state = JamState.create_genesis_state(
@@ -479,7 +469,11 @@ async def init(
 
     await init_certificate(db_path, seed)
 
+    logging.debug("Updating state trie..")
+    await app.update_state_trie()
+
     click.echo(f"✅ Initialization complete.")
+    click.echo(f'🌲 State trie root: 0x{app.state_trie_root.hex()}')
 
 
 @main.command('replay_traces')
@@ -504,19 +498,22 @@ async def replay_traces(
     elif not seed.startswith("0x") or len(seed) != 66:
         raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
 
-    # Flush database and import genesis state
-    db_path = custom_db_path or default_db_path
-    if os.path.isdir(db_path):
-        if not force_overwrite:
-            click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
-        shutil.rmtree(db_path)  # Delete the directory if it exists
-        logging.info(f"The database at '{db_path}' was deleted successfully.")
+    if only_block_import:
+        app = await initialize_app(read_state=True, custom_db_path=custom_db_path)
+    else:
+        # Flush database and import genesis state
+        db_path = custom_db_path or default_db_path
+        if os.path.isdir(db_path):
+            if not force_overwrite:
+                click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
+            shutil.rmtree(db_path)  # Delete the directory if it exists
+            logging.info(f"The database at '{db_path}' was deleted successfully.")
 
-    os.makedirs(db_path, exist_ok=True)
-    if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
-        await init_certificate(db_path, seed)
+        os.makedirs(db_path, exist_ok=True)
+        if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
+            await init_certificate(db_path, seed)
 
-    app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
+        app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
 
     traces_files = await anyio.to_thread.run_sync(
         lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin')})
@@ -524,24 +521,30 @@ async def replay_traces(
 
     for block_file in traces_files:
         logging.info(f'📂 Processing trace file {block_file}')
+
         with open(os.path.join(traces_dir, block_file), 'rb') as fp:
             trace = Trace.from_jam_bytes(JamBytes(fp.read()))
 
-        if not only_block_import or app.state_trie_root == bytes(32):
+        if not only_block_import: # or app.state_trie_root == bytes(32):
 
             for k, v, name, metadata in trace.pre_state.keyvals:
                 app.state_db.put(bytes(k), bytes(v))
 
             app.state = app.retrieve_jam_state()
             await app.update_state_trie()
-            app.latest_epoch = app.state.timeslot.epoch_number()
 
             assert app.state_trie_root == trace.pre_state.state_root
-            logging.info(f'🎬 Genesis succesfully saved (state root: 0x{app.state_trie_root.hex()})')
+            logging.info(f'🎬 Genesis succesfully saved (state root: {format_hash(app.state_trie_root)})')
 
-        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: 0x{trace.block.header.hash.hex()})..')
+            # Add stub parent as ancestor
+            stub_parent = Header.default()
+            stub_parent.hash = trace.block.header.parent
+            stub_parent.timeslot = trace.block.header.timeslot - 1
+            app.block_context.ancestor_headers.append(stub_parent)
+
+        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
         try:
-            await app.import_block(trace.block, dry_run=not skip_block_validation)
+            await app.import_block(trace.block, dry_run=skip_block_validation)
             logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
 
         except TransactionRolledBack as e:
@@ -551,9 +554,9 @@ async def replay_traces(
         if not only_block_import:
 
             if app.state_trie_root == trace.post_state.state_root:
-                logging.info(f'✅ State trie root matches (0x{trace.post_state.state_root.hex()})')
+                logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
             else:
-                logging.error(f'State root of trace {trace.post_state.state_root.hex()} does not match with current state {app.state_trie_root.hex()}')
+                logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
                 logging.info('Dumping state differences:')
                 actual_state = app.state.to_json()
 

@@ -84,8 +84,6 @@ class PyjamazApp:
         self.state: Optional[JamState] = None
         self.state_trie_root = bytes(32)
 
-        self.latest_epoch = None
-
         # Note:
         # For the import block function, we allow the option to provide a custom function (for example to augment with
         # traces or other debug info)
@@ -158,7 +156,6 @@ class PyjamazApp:
     async def initialize(self):
         logging.debug("Retrieving state..")
         self.state = self.retrieve_jam_state()
-        self.latest_epoch = self.state.timeslot.epoch_number()
         logging.debug("Updating state trie..")
         await self.update_state_trie()
         logging.debug("Retrieving ancestor headers..")
@@ -248,10 +245,6 @@ class PyjamazApp:
         if slotnumber is None:
             slotnumber = self.current_timeslot()
 
-        # if self.state.timeslot.number == 0 and slotnumber % EPOCH_TIMESLOTS != 0:
-        #     return False
-
-        # return self.latest_epoch != slotnumber // EPOCH_TIMESLOTS
         return self.state.timeslot.number // EPOCH_TIMESLOTS != slotnumber // EPOCH_TIMESLOTS
 
     async def state_transition(self, block: 'Block', transaction: Transaction, dry_run=False) -> 'STFOutput':
@@ -405,19 +398,6 @@ class PyjamazApp:
             pre_state_entropy=pre_state_entropy
         )
 
-        # Statistics STF Block Data | GP-0.5.0-eq:4.20
-        statistics_output = self.components.statistics.state_transition(
-           extrinsic_guarantees=block.extrinsic.guarantees,
-           extrinsic_preimages=block.extrinsic.preimages,
-           extrinsic_assurances=block.extrinsic.assurances,
-           extrinsic_tickets=block.extrinsic.tickets,
-           pre_state_timeslot=pre_state_timeslot,
-           post_state_timeslot=timeslot_output.post_state,
-           post_state_validator_pool=validator_pool_output.post_state,
-           pre_state_statistics=pre_state_statistics,
-           header=block.header
-        )
-
         # Assurances After Assurances STF Block Data | GP-0.5.0-eq:4.14
         assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
             extrinsic_assurances=block.extrinsic.assurances,
@@ -467,6 +447,20 @@ class PyjamazApp:
 
         # GP-0.6.1-eq:11.26
         self.block_context.reporters = assurances_output.reporters
+
+        # Statistics STF Block Data | GP-0.5.0-eq:4.20
+        statistics_output = self.components.statistics.state_transition(
+            extrinsic_guarantees=block.extrinsic.guarantees,
+            extrinsic_preimages=block.extrinsic.preimages,
+            extrinsic_assurances=block.extrinsic.assurances,
+            extrinsic_tickets=block.extrinsic.tickets,
+            pre_state_timeslot=pre_state_timeslot,
+            post_state_timeslot=timeslot_output.post_state,
+            post_state_validator_pool=validator_pool_output.post_state,
+            pre_state_statistics=pre_state_statistics,
+            header=block.header,
+            reporters=self.block_context.reporters,
+        )
 
         # GP-0.5.4-eq:12.4
         self.block_context.set_ready_work_reports()
@@ -636,8 +630,8 @@ class PyjamazApp:
     def retrieve_block_hash(self, timeslot: int) -> Optional[bytes]:
         return self.block_db.get(b'block_hash:' + timeslot.to_bytes(length=4, byteorder='little'))
 
-    def should_produce_block(self, safrole_state: SafroleState) -> bool:
-        slot_phase_index = self.current_slot_phase_index()
+    def should_produce_block(self, timeslot: int, safrole_state: SafroleState) -> bool:
+        slot_phase_index = timeslot % EPOCH_TIMESLOTS
 
         if not self.config.keys:
             # Cannot produce without validator keys
@@ -668,7 +662,14 @@ class PyjamazApp:
 
             return should_produce
 
-    def get_block_seal_vrf_input(self, safrole_state: SafroleState, entropy_state: EntropyState) -> bytes:
+        return False
+
+    def get_block_seal_vrf_input(
+            self,
+            timeslot: int,
+            safrole_state: SafroleState,
+            entropy_state: EntropyState
+    ) -> bytes:
         """
         Get relevant seal VRF input (ticket or fallback)
 
@@ -678,7 +679,7 @@ class PyjamazApp:
         """
         if safrole_state.slot_sealer_series.tickets is not None:
 
-            ticket = safrole_state.slot_sealer_series.tickets[self.current_slot_phase_index()]
+            ticket = safrole_state.slot_sealer_series.tickets[self.slot_phase_index(timeslot)]
             logging.debug(f"VRF input: for ticket {ticket.id.hex()} with entropy {entropy_state.entropy[3].hex()}")
             return vrf_input_ticket_seal(bytes(entropy_state.entropy[3]), ticket.attempt)
 
@@ -695,7 +696,9 @@ class PyjamazApp:
 
         Parameters
         ----------
-        header
+        header: Header
+        safrole_state: SafroleState
+        entropy_state: EntropyState
 
         Returns
         -------
@@ -704,7 +707,7 @@ class PyjamazApp:
 
         if safrole_state.slot_sealer_series.tickets is not None:
 
-            ticket = safrole_state.slot_sealer_series.tickets[self.current_slot_phase_index()]
+            ticket = safrole_state.slot_sealer_series.tickets[self.slot_phase_index(header.timeslot)]
             logging.debug(f"Ticket Seal for ticket {ticket.id.hex()} with entropy {entropy_state.entropy[3].hex()}")
 
             return header.generate_ticket_seal(
@@ -723,16 +726,24 @@ class PyjamazApp:
         else:
             raise PyjamazAppError("No valid sealing policy in current state")
 
-    def generate_entropy_source(self, safrole_state: SafroleState, entropy_state: EntropyState) -> bytes:
+    def generate_entropy_source(self, timeslot: int, safrole_state: SafroleState, entropy_state: EntropyState) -> bytes:
         """
-        # Block Data | GP-0.5.0-eq:6.17 (bold_H_v)
+        GP-0.5.0-eq:6.17 (bold_H_v) | Generate entropy source
+
+        Parameters
+        ----------
+        timeslot
+        safrole_state
+        entropy_state
 
         Returns
         -------
         bytes
         """
 
-        seal_vrf_output = self.config.keys.bandersnatch.vrf_output(self.get_block_seal_vrf_input(safrole_state, entropy_state))
+        seal_vrf_output = self.config.keys.bandersnatch.vrf_output(
+            self.get_block_seal_vrf_input(timeslot, safrole_state, entropy_state)
+        )
 
         return ietf_vrf_sign(
             self.config.keys.bandersnatch.private_key,
@@ -743,10 +754,7 @@ class PyjamazApp:
     def current_timeslot(self) -> int:
         return int(time.time() - self.config.common_era) // SLOT_PERIOD
 
-    def current_epoch(self) -> int:
-        return self.current_timeslot() // EPOCH_TIMESLOTS
-
-    def current_slot_phase_index(self) -> int:
+    def slot_phase_index(self, timeslot: int) -> int:
         """
         Block Data | GP-0.5.0-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot
 
@@ -756,7 +764,7 @@ class PyjamazApp:
             Phase index into the epoch of the timeslot
 
         """
-        return self.current_timeslot() % EPOCH_TIMESLOTS
+        return timeslot % EPOCH_TIMESLOTS
 
     def get_next_slot_timestamp(self) -> int:
         elapsed_timeslots = (time.time() - self.config.common_era) // SLOT_PERIOD
@@ -823,7 +831,7 @@ class PyjamazApp:
             offenders_marker=[],
             # Placeholder
             author_index=0,
-            entropy_source=self.generate_entropy_source(safrole_state, entropy_state),
+            entropy_source=self.generate_entropy_source(timeslot, safrole_state, entropy_state),
             # Placeholder
             seal=bytes(96)
         )

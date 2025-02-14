@@ -413,7 +413,11 @@ class ServicesState(State, Serializable):
             self,
             service_account_id: int,
             storage_engine: StorageEngine
-    ) -> Optional[ServiceAccount]:
+    ) -> ServiceAccount:
+
+        if service_account_id in self.services:
+            return self.services[service_account_id]
+
         storage_key = state_key_constructor_service_account(service_account_id)
 
         data = storage_engine.get(storage_key)
@@ -691,25 +695,26 @@ class AccumulationHistoryState(State, Serializable):
 @dataclass
 class BeefyCommitmentMap(Serializable):
     """
-    GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map Dictionary.
-    GP-0.6.0-eq:12.15 (B) | a service-indexed commitment to the accumulation output
+    GP-0.6.1-eq:12.15 (B) | a service-indexed commitment to the accumulation output
 
     Attributes
     ----------
     beefy_commitment_map: Dict(U32,H256)
-        GP-0.5.0-eq:12.21 (TODO: incorrect reference) (bold_C) | Beefy Commitment Map dictionary. Provides accumulation
+        GP-0.6.1-eq:12.15 (B) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
     beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
     def get_accumulate_root(self) -> bytes:
         """
-        GP-0.5.4-eq:7.3 (r)
+        GP-0.6.1-eq:7.3 (r) | The accumulation-result tree root of the beefy commitment map.
+
         Returns
         -------
         bytes
         """
-        data = [k.to_bytes(4, byteorder='little') + v for k, v in self.beefy_commitment_map.items()]
+        items = sorted(self.beefy_commitment_map.items(), key=lambda x: x[0])
+        data = [k.to_bytes(4, byteorder='little') + v for k, v in items]
         return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
 
