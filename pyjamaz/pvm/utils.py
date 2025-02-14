@@ -30,20 +30,20 @@ def count_trailing_zeroes(value, max_bits=64):
     #https://stackoverflow.com/a/63552117
     #https://github.com/numpy/numpy/issues/16325
     #alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    return (value & -value).bit_length() - 1
+    if value == 0:
+        return max_bits
+    return int(value & -value).bit_length() - 1
 
 
 def count_leading_zeroes(value, max_bits=64):
     #https://stackoverflow.com/a/71888844
     #https://github.com/numpy/numpy/issues/16325
     #alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    top_bit = 1 << (max_bits - 1)
-    count = 0
-    value &= (1 << max_bits) - 1
-    while not value & top_bit:
-       count += 1
-       value <<= 1
-    return count
+    value &= (1 << max_bits) - 1  # truncate; treat negatives as 2's compliment
+    if value == 0:
+        return max_bits
+    significant_bits = len(bin(value)) - 2  # has "0b" prefix
+    return max_bits - significant_bits
 
 
 def pvm_smod(a: int, b: int) -> int:
@@ -61,6 +61,8 @@ def pvm_smod(a: int, b: int) -> int:
         sign_a = 1 if a >= 0 else -1
         return sign_a * (abs(a) % abs(b))
 
+def riscv_exp_div(x: int, y: int) -> int:
+    pass
 
 def riscv_div(x: int, y: int) -> int:
     """
@@ -73,6 +75,8 @@ def riscv_div(x: int, y: int) -> int:
         There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
         2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
         Instead of np.uint64(x_int + factor*term) directly:
+        18446744071562035200,00000381
+        18446744071562035200
     """
     x = int(x)
     y = int(y)
@@ -121,9 +125,9 @@ def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     assert 0 <= x < 2 ** (8 * n) <= 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
 
     sign_mask = (2 ** 64 - 2 ** (8 * n))
-    is_signed = x // (2 ** (8 * n - 1))
+    sign_bits = x // (2 ** (8 * n - 1))
 
-    return x + is_signed * sign_mask
+    return x + sign_bits * sign_mask
 
 
 def pvm_Z(a:int, n:np.uint8) -> np.int64:

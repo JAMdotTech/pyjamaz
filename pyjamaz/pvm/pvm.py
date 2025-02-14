@@ -67,20 +67,62 @@ class PVM:
         self.status = ExitCondition.none.value
         self._log = True
 
-    def log(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
-        if not context: context = {}
-        context["reg"] = self.reg
+    def log_header(self):
         print(
-            f"{self.pc}\t"
-            f"{OpcodeNames[self.opcode]}\t"
-            f"{'ω' + str(reg1) + '\t' if reg1 is not None else ''}"
-            f"{'ω' + str(reg2) + '\t' if reg2 is not None else ''}"
-            f"{'ω' + str(reg3) + '\t' if reg3 is not None else ''}"
-            f"{str(imm1) + '\t' if imm1 is not None else ''}"
-            f"{str(imm2) + '\t' if imm2 is not None else ''}"
-            f"{str(off1) + '\t' if off1 is not None else ''}"
-            f"{str(off2) + '\t' if off2 is not None else ''}"
-            f"{'\t\t' + str(context) if context else ''}")
+            f"GAS: {self.gas}\n"
+            f"PC: {self.pc}\n"
+        )
+
+        print(
+            f"PC  "
+            f"INST                  "
+            f"R1  "
+            f"R2  "
+            f"R3  "
+            f"IMM1                    "
+            f"IMM2                    "
+            f"OFF1                    "
+            f"OFF2                    "
+            "CTX")
+
+    def log(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
+        ctx = {"reg": [int(x) for x in self.reg]}
+        if context: ctx = ctx | context
+
+        reg1 = reg1 or ''
+        reg2 = reg2 or ''
+        reg3 = reg3 or ''
+        imm1 = imm1 or ''
+        imm2 = imm2 or ''
+        off1 = off1 or ''
+        off2 = off2 or ''
+
+        opn = OpcodeNames[self.opcode]
+        r1 = " " * (4-len(str(self.pc)))
+        r2 = " " * (22-len(opn))
+        r3 = " " * (4-len(str(reg1)))
+        r33 = " " * (3-len(str(reg1)))
+        r4 = " " * (4-len(str(reg2)))
+        r44 = " " * (3-len(str(reg2)))
+        r5 = " " * (4-len(str(reg3)))
+        r55 = " " * (3-len(str(reg3)))
+        r6 = " " * (24-len(str(imm1)))
+        r7 = " " * (24-len(str(imm2)))
+        r8 = " " * (24-len(str(off1)))
+        r9 = " " * (24-len(str(off2)))
+
+        print(
+            f"{self.pc}{r1}"
+            f"{opn}{r2}"
+            f"{reg1 and ('ω' + str(reg1) + r33) or r3}"
+            f"{reg2 and ('ω' + str(reg2) + r44) or r4}"
+            f"{reg3 and ('ω' + str(reg3) + r55) or r5}"
+            f"{imm1 and (str(imm1) + r6) or r6}"
+            f"{imm2 and (str(imm2) + r7) or r7}"
+            f"{off1 and (str(off1) + r8) or r8}"
+            f"{off2 and (str(off2) + r9) or r9}"
+            f"{str(ctx)}")
+
 
     def create_instruction_lookup(self):
         """
@@ -121,10 +163,11 @@ class PVM:
 
     def branch(self, b:int, C:bool):
         if C:
-            if b not in self.inst_pos:
+            inst_pos = self.pc + b
+            if inst_pos not in self.inst_pos:
                 self.status = ExitCondition.panic.value
             else:
-                self.skip_len = b  - self.pc
+                self.skip_len = inst_pos  - self.pc
 
     def reset(
             self,
@@ -224,13 +267,14 @@ class PVM:
         return page_addr
 
 
-
     # GP_A.15
     def djump(self, a: int):
-        if a == np.uint64(2 ** 32 - 2 ** 16):
+        if a == 2 ** 32 - 2 ** 16:
             self.status = ExitCondition.halt.value
+            return 0
         elif a == 0 or a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0:  # or self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1]:
             self.status = ExitCondition.panic.value
+            return 0
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
 
@@ -253,6 +297,8 @@ class PVM:
             initial_page_maps,
             initial_memory
         )
+
+        if self._log: self.log_header()
 
         while self.status == ExitCondition.none.value and self.gas > 0:
 
@@ -592,14 +638,11 @@ class PVM:
                             self._log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                         case op.sign_extend_8.value:
-                            if self.pc > 60:
-                                print(1111111)
-                            #TODO:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!fout??
-                            self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a], 1), 8)
+                            self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a] % 2**8, 1), 8)
                             self._log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                         case op.sign_extend_16.value:
-                            self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a], 1), 8)
+                            self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a] % 2**16, 2), 8)
                             self._log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                         case op.zero_extend_16.value:
@@ -812,19 +855,19 @@ class PVM:
                             )
                             self._log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                        case op.rot_r_64_imm:
+                        case op.rot_r_64_imm.value:
                             self.reg[r_a] = rori64(w_b, v_x)
                             self._log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                        case op.rot_r_64_imm_alt:
+                        case op.rot_r_64_imm_alt.value:
                             self.reg[r_a] = rori64(v_x, w_b)
                             self._log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                        case op.rot_r_32_imm:
+                        case op.rot_r_32_imm.value:
                             self.reg[r_a] = pvm_X(rori32(np.uint32(w_b), np.uint32(v_x)), 4)
                             self._log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                        case op.rot_r_32_imm_alt:
+                        case op.rot_r_32_imm_alt.value:
                             self.reg[r_a] = pvm_X(rori32(np.uint32(v_x), np.uint32(w_b)), 4)
                             self._log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
@@ -849,8 +892,6 @@ class PVM:
                             self._log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
 
                         case op.branch_ne.value:
-                            if self.pc > 65:
-                                print(1111)
                             self.branch(v_x, w_a != w_b)
                             self._log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
 
@@ -897,7 +938,7 @@ class PVM:
 
                         case op.load_imm_jump_ind.value:
                             self.reg[r_a] = v_x
-                            self.skip_len = self.djump(np.uint32(w_b + v_y))
+                            self.skip_len = self.djump(int(w_b + v_y))
                             self._log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context={"skip_len": self.skip_len})
 
                         case _:
@@ -949,7 +990,7 @@ class PVM:
 
                         case op.rem_u_32.value:
                             if w_b % 2**32 == 0:
-                                self.reg[r_d] = pvm_X(w_a, 4)
+                                self.reg[r_d] = pvm_X(w_a % 2**32, 4)
                             else:
                                 self.reg[r_d] = pvm_X((w_a % 2**32) % (w_b % 2**32), 4)
 
@@ -1078,12 +1119,12 @@ class PVM:
                             self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                         case op.mul_upper_u_u.value:
-                            self.reg[r_d] = riscv_div(w_a * w_b, 2**64)
+                            self.reg[r_d] = riscv_div(int(w_a) * int(w_b), 2**64)
                             self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                         case op.mul_upper_s_u.value:
                             self.reg[r_d] = pvm_Z_inv(
-                                riscv_div(pvm_Z(w_a, 8) * w_b, 2**64),
+                                riscv_div(pvm_Z(w_a, 8) * int(w_b), 2**64),
                                 8
                             )
                             self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})

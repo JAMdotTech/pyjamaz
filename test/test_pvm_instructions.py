@@ -34,14 +34,11 @@ def load_test_vectors(directory):
 class TestPolkaVMInstructions(unittest.TestCase):
     #@parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
     #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv'))
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64ui_sd.json'))
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64ua_amomaxu_w.json'))
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64uzbb_cpopw.json'))
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64uzbb_andn.json'))
-    @parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64uzbb_sext_b.json'))
+    #TODO: pas riscv_rv64uc_rvc.json zodat hij de v_y waarde in reg0 opslaat!!!!!!!!! wat gaat hier mis?
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64uc_rvc.json'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64ui_jalr.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/riscv/riscv_rv64uzbb_rolw.json'))
     def test_instruction(self, name, test_vector):
-
-        #TODO: PRINT ELKE REGEL DIE WE AFLOPEN ZODAT IK KAN VERGELIJKEN MET FLUFFY!!!!!
 
         # Set NumPy to ignore overflow warnings
         np.seterr(over='ignore')
