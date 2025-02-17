@@ -12,7 +12,7 @@ from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray, Tuple
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT, ROTATION_PERIOD_CORE
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody
+from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody, ValidatorData
 from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
@@ -456,6 +456,36 @@ class Header(Serializable):
                 seal=bytes(96)
             )
 
+    @classmethod
+    def genesis(cls, validators: List[ValidatorData]) -> 'Header':
+        """
+        Genesis header (Bold_H_0)
+
+        Parameters
+        ----------
+        validators: List[ValidatorData]
+
+        Returns
+        -------
+        Header
+        """
+        return Header(
+            parent=bytes(32),
+            parent_state_root=bytes(32),
+            extrinsic_hash=bytes(32),
+            timeslot=0,
+            epoch_marker=EpochMark(
+                entropy=bytes(32),
+                tickets_entropy=bytes(32),
+                validators=[v.bandersnatch for v in validators],
+            ),
+            tickets_marker=None,
+            offenders_marker=[],
+            author_index=65535,
+            entropy_source=bytes(96),
+            seal=bytes(96)
+        )
+
     @property
     def author_bandersnatch_key(self) -> Optional[bytes]:
         """
@@ -554,6 +584,20 @@ class Extrinsic(Serializable):
 
         # GP-0.5.4-eq:5.5
         return blake2b_256_hash(extrinsic_hash)
+
+    @classmethod
+    def default(cls) -> "Extrinsic":
+        return cls(
+            tickets=[],
+            preimages=[],
+            guarantees=[],
+            assurances=[],
+            disputes=ExtrinsicDisputes(
+                verdicts=[],
+                culprits=[],
+                faults=[]
+            )
+        )
 
 
 @dataclass

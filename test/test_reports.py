@@ -103,6 +103,8 @@ class TestReports(unittest.TestCase):
             } for s in test_vector["pre_state"]["services"]}}
         )
 
+        pre_services.set_storage_engine(self.storage_engine)
+
         intermediate_state_recent_history = RecentHistoryState.from_json(
             {"recent_history": test_vector["pre_state"]["recent_blocks"]}
         )

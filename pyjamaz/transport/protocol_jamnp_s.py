@@ -191,6 +191,8 @@ class ServerProtocol(JAMNPSProtocol):
         elif isinstance(event, ConnectionTerminated):
             # Handle connection termination
             if id(self) in self.wrapper.conn_in:
+                logger.debug(f'Client #{self.client_id} disconnected')
+                # print(f'Client #{self.client_id} disconnected')
                 del self.wrapper.conn_in[id(self)]
 
 
@@ -312,7 +314,8 @@ class JAMNPS(ProtocolType):
             is_client=False,
             #quic_logger=quic_logger,
             #verify_mode=ssl.CERT_REQUIRED
-            verify_mode=ssl.CERT_NONE
+            verify_mode=ssl.CERT_NONE,
+            idle_timeout=300000
         )
         self.cert = certificate
         self.pk = private_key
@@ -338,10 +341,10 @@ class JAMNPS(ProtocolType):
             alpn_protocols=[JAMNPS.PROTOCOL_NAME],
             is_client=True,
             #verify_mode=ssl.CERT_REQUIRED
-            verify_mode=ssl.CERT_NONE
+            verify_mode=ssl.CERT_NONE,
+            idle_timeout=300000
         )
         configuration.load_cert_chain(certfile=self.cert, keyfile=self.pk)
-        #configuration.idle_timeout = 300000  # Set idle timeout to 5 minutes
 
         logger.debug(f"ClientProtocol Connecting to {host}:{port}")
         try:

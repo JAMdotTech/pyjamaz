@@ -287,13 +287,15 @@ class PyjamazApp:
         pre_state_validator_archive = self.state.validator_archive
         pre_state_validator_queue = self.state.validator_queue
         pre_state_statistics = self.state.statistics
-
-        pre_state_services = self.state.services
         pre_state_authorizer_queues = self.state.authorizer_queues
         pre_state_privileged_services = self.state.privileged_services
         pre_state_authorizer_pools = self.state.authorizer_pools
         pre_state_accumulation_history = self.state.accumulation_history
         pre_state_accumulation_queue = self.state.accumulation_queue
+        pre_state_services = self.state.services
+
+        # Set storage engine for services
+        pre_state_services.set_storage_engine(self.state_db)
 
         # Validate quality of dispute extrinsic data
         self.components.disputes.validate_extrinsic_disputes(
@@ -792,7 +794,7 @@ class PyjamazApp:
     async def produce_block(self, timeslot: int, safrole_state: SafroleState, entropy_state: EntropyState) -> Block:
 
         if timeslot % EPOCH_TIMESLOTS > 0:
-            entropy = self.state.entropy.entropy[2]
+            entropy = entropy_state.entropy[2]
 
             if self.extrinsic.can_add_own_ticket(timeslot):
 
@@ -819,7 +821,7 @@ class PyjamazApp:
         )
 
         header = Header(
-            parent=self.retrieve_block_hash(self.state.timeslot.number) or bytes(32),
+            parent=self.retrieve_block_hash(self.state.timeslot.number),
             parent_state_root=self.state_trie_root,
             extrinsic_hash=extrinsic.generate_extrinsic_hash(),
             timeslot=timeslot,
@@ -854,9 +856,6 @@ class PyjamazApp:
             block.header.seal = self.generate_block_seal(block.header, safrole_state, entropy_state)
 
         return block
-
-    async def seal_block(self, block: Block):
-        pass
 
     async def create_state_dump(self) -> StateDump:
         return StateDump(
