@@ -821,7 +821,7 @@ class PyjamazApp:
         )
 
         header = Header(
-            parent=self.retrieve_block_hash(self.state.timeslot.number) or bytes(32),
+            parent=self.retrieve_block_hash(self.state.timeslot.number),
             parent_state_root=self.state_trie_root,
             extrinsic_hash=extrinsic.generate_extrinsic_hash(),
             timeslot=timeslot,

@@ -25,7 +25,7 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.trace import Trace, StateDump
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
-from pyjamaz.models.block import Block, Header
+from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.models.state import JamState
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
@@ -420,7 +420,7 @@ async def init(
         custom_db_path,
         force_overwrite,
         seed,
-        chainspec,
+        chainspec
 ):
     """
     Clears all existing data and initializes the JAM client.
@@ -451,8 +451,7 @@ async def init(
 
         with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
             genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
-            await app.store_block(genesis_block)
-            click.echo(f'📦 Genesis block succesfully saved (hash: {format_hash(genesis_block.header.hash)})')
+
     else:
         if initial_state is not None:
 
@@ -477,16 +476,27 @@ async def init(
                 jam_state = JamState.create_genesis_state(
                     validators=[ValidatorData.from_json(v) for v in genesis_data['validators']],
                 )
-
+        # Store genesis state
         await app.store_jam_state(jam_state)
 
+        # Create genesis block
+        genesis_block = Block(
+            header=Header.genesis(jam_state.safrole.validators),
+            extrinsic=Extrinsic.default()
+        )
+
+    # Store genesis block
+    await app.store_block(genesis_block)
+    click.echo(f'📦 Genesis block succesfully saved (hash: {format_hash(genesis_block.header.hash)})')
+
+    # Initialize certificate
     await init_certificate(db_path, seed)
 
     logging.debug("Updating state trie..")
     await app.update_state_trie()
 
     click.echo(f"✅ Initialization complete.")
-    click.echo(f'🌲 State trie root: 0x{app.state_trie_root.hex()}')
+    click.echo(f'🌲 State trie root: 0x{format_hash(app.state_trie_root)}')
 
 
 @main.command('replay_traces')
