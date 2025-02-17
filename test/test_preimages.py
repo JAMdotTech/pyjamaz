@@ -66,6 +66,8 @@ class TestPreimages(unittest.TestCase):
             services={}
         )
 
+        pre_services.set_storage_engine(self.storage_engine)
+
         # Store services and preimages in storage engine
         for s in test_vector["pre_state"]["accounts"]:
             service_account = ServiceAccount(
@@ -81,20 +83,20 @@ class TestPreimages(unittest.TestCase):
                 preimage_availability={}
             )
             services.store_service_account(s["id"], service_account)
-            pre_services.retrieve_service_account(s["id"], self.storage_engine)
+            pre_services.retrieve_service_account(s["id"])
 
-            for preimage in s["info"]["preimages"]:
+            for preimage in s["data"]["preimages"]:
                 services.store_service_preimage(Preimage(requester=s["id"], blob=bytes.fromhex(preimage["blob"][2:])))
-                pre_services.retrieve_preimage(s["id"], blake2b_256_hash(bytes.fromhex(preimage["blob"][2:])), self.storage_engine)
+                pre_services.retrieve_preimage(s["id"], blake2b_256_hash(bytes.fromhex(preimage["blob"][2:])))
 
-            for preimage in s["info"]["history"]:
+            for preimage in s["data"]["lookup_meta"]:
                 services.store_service_preimage_availability(
                     service_account_id=s["id"],
                     preimage_hash=bytes.fromhex(preimage["key"]["hash"][2:]),
                     preimage_length=preimage["key"]["length"],
                     value=preimage["value"]
                 )
-                pre_services.retrieve_preimage_availability(s["id"], bytes.fromhex(preimage["key"]["hash"][2:]), preimage["key"]["length"], self.storage_engine)
+                pre_services.retrieve_preimage_availability(s["id"], bytes.fromhex(preimage["key"]["hash"][2:]), preimage["key"]["length"])
 
         try:
 
@@ -116,22 +118,22 @@ class TestPreimages(unittest.TestCase):
 
             # Retrieve created items in working state
             for p in extrinsic_preimages:
-                _ = output.post_state.retrieve_preimage(p.requester, blake2b_256_hash(p.blob), self.storage_engine)
-                _ = output.post_state.retrieve_preimage_availability(p.requester, blake2b_256_hash(p.blob), len(p.blob), self.storage_engine)
+                _ = output.post_state.retrieve_preimage(p.requester, blake2b_256_hash(p.blob))
+                _ = output.post_state.retrieve_preimage_availability(p.requester, blake2b_256_hash(p.blob), len(p.blob))
 
             # Transform post_state to test format
             post_state = {
                 'accounts': [
                     {
                         "id": s[0],
-                        "info": {
+                        "data": {
                             "preimages": [
                                 {
                                     "hash": p[0],
                                     "blob": p[1]
                                 } for p in sorted(s[1]["preimages"], key=lambda item: item[0])
                             ],
-                            "history": [
+                            "lookup_meta": [
                                 {
                                     "key": {
                                         "hash": h[0][0],

@@ -231,7 +231,7 @@ def full_sequential_accumulation(
         accumulation_state=accumulation_state,
         work_reports=work_reports[:i],
         auto_accumulate_services=auto_accumulate_services,
-        post_state_timeslot=post_state_timeslot,
+        post_state_timeslot=post_state_timeslot
     )
 
     second_output = full_sequential_accumulation(
@@ -298,6 +298,14 @@ def parallel_accumulation(
 
     # Process services
     for service_id in service_ids:
+
+        # Prepare service account in accumulation_state
+        service_account = accumulation_state.services.retrieve_service_account(service_id)
+        preimage = accumulation_state.services.retrieve_preimage(
+            service_account_id=service_id,
+            preimage_hash=service_account.code_hash
+        )
+
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,

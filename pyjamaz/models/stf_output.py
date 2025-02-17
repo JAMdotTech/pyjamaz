@@ -274,7 +274,7 @@ class StatisticsOutput(Serializable):
 
 class ServicesErrorCode(Serializable, enum.Enum):
     preimage_unneeded = 0
-    preimages_not_unique = 1
+    preimages_not_sorted_unique = 1
 
 
 @dataclass

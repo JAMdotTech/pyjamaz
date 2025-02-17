@@ -43,7 +43,7 @@ class ExtrinsicAccumulator:
         self.tickets_queue[ticket_body.id] = ticket_data
 
     def can_add_own_ticket(self, timeslot: int) -> bool:
-        return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS <= TICKET_SUBMISSION_END_SLOT
+        return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT
 
     def add_own_ticket(
             self, ring_public_keys: List[bytes], entropy: bytes, keypair: BandersnatchKeypair, author_index: int

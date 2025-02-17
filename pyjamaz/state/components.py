@@ -1023,7 +1023,7 @@ class Assurances(StateComponent):
 
         for result in work_report.results:
             try:
-                services_state.retrieve_service_account(result.service_id, self.storage_engine)
+                services_state.retrieve_service_account(result.service_id)
             except StateKeyNoResult:
                 raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
 
@@ -1666,7 +1666,10 @@ class Services(StateComponent):
         """
         if len(extrinsic_preimages) > 0:
             if not self.are_preimages_unique(extrinsic_preimages):
-                raise StateTransitionError(ServicesErrorCode.preimages_not_unique)
+                raise StateTransitionError(ServicesErrorCode.preimages_not_sorted_unique)
+
+            if not self.are_preimages_sorted(extrinsic_preimages):
+                raise StateTransitionError(ServicesErrorCode.preimages_not_sorted_unique)
 
             # GP-0.5.4-eq:12.31
             for preimage in extrinsic_preimages:
@@ -1676,7 +1679,7 @@ class Services(StateComponent):
     @staticmethod
     def are_preimages_unique(preimages: List[Preimage]) -> bool:
         """
-        GP-0.5.4-eq:12.29 | Are all preimages unique?
+        GP-0.6.2-eq:12.29 | Are all preimages unique?
 
         Parameters
         ----------
@@ -1687,6 +1690,26 @@ class Services(StateComponent):
         bool
         """
         return len(preimages) == len({(p.requester, p.blob) for p in preimages})
+
+    @staticmethod
+    def are_preimages_sorted(preimages: List[Preimage]) -> bool:
+        """
+        GP-0.6.2-eq:12.29 | Are all preimages sorted?
+
+        Parameters
+        ----------
+        preimages: List[Preimage]
+
+        Returns
+        -------
+        bool
+        """
+
+        sorted_preimage = lambda p: int(p.requester).to_bytes(2, byteorder="little") + p.blob
+
+        return all(
+            sorted_preimage(preimages[i]) <= sorted_preimage(preimages[i + 1]) for i in range(len(preimages) - 1)
+        )
 
     def state_transition_after_preimages(
             self,
@@ -1761,8 +1784,11 @@ class Services(StateComponent):
             Output containing: intermediate state of ServicesState (δ†) and BeefyCommitmentMap (C).
         """
 
+        services = ServicesState(services=deepcopy(pre_state_services.services))
+        services.set_storage_engine(self.storage_engine)
+
         accumulation_state = AccumulationStateComponents(
-            services=deepcopy(pre_state_services),
+            services=services,
             validator_queue=deepcopy(pre_state_validator_queue),
             authorizer_queues=deepcopy(pre_state_authorizer_queues),
             privileged_services=deepcopy(pre_state_privileged_services)
@@ -1819,7 +1845,10 @@ class Services(StateComponent):
             Output containing: intermediate state of ServicesState (δ‡)
         """
 
-        intermediate_state_after_transfers = deepcopy(intermediate_state_after_accumulation)
+        intermediate_state_after_transfers = ServicesState(
+            services=deepcopy(intermediate_state_after_accumulation.services)
+        )
+        intermediate_state_after_transfers.set_storage_engine(self.storage_engine)
 
         for service_id in intermediate_state_after_accumulation.services.keys():
             intermediate_state_after_transfers.services.update({
@@ -1851,13 +1880,13 @@ class Services(StateComponent):
         preimage_hash = blake2b_256_hash(preimage.blob)
 
         # Check if preimage isn't already available
-        if pre_state_services.preimage_exists(preimage.requester, preimage_hash, self.storage_engine):
+        if pre_state_services.preimage_exists(preimage.requester, preimage_hash):
             return False
 
         # Check if preimage is requested
         try:
             preimage_availability = pre_state_services.retrieve_preimage_availability(
-                preimage.requester, preimage_hash, len(preimage.blob), self.storage_engine
+                preimage.requester, preimage_hash, len(preimage.blob)
             )
             return preimage_availability == []
         except StateKeyNoResult:
