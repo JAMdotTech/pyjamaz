@@ -8,10 +8,14 @@ from pyjamaz.pvm.exceptions import UIntValueError
 def rori64(x, shift_amount):
     return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
+def roli64(x, shift_amount):
+    return np.uint64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 def rori32(x, shift_amount):
     return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
+def roli32(x, shift_amount):
+    return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 def reverse_bytes(x):
     y = 0
@@ -61,8 +65,6 @@ def pvm_smod(a: int, b: int) -> int:
         sign_a = 1 if a >= 0 else -1
         return sign_a * (abs(a) % abs(b))
 
-def riscv_exp_div(x: int, y: int) -> int:
-    pass
 
 def riscv_div(x: int, y: int) -> int:
     """

@@ -21,7 +21,7 @@ from .utils import (
     rori32,
     riscv_div,
     pvm_smod,
-    pvm_rtz_div
+    pvm_rtz_div, roli32, roli64
 )
 
 from .constants import (
@@ -49,7 +49,7 @@ class PageMap:
 
 class PVM:
 
-    def __init__(self):
+    def __init__(self, log_ctx=None):
         self.reg = np.zeros(13, dtype=np.uint64)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
@@ -65,7 +65,11 @@ class PVM:
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_len: List[int] = []
         self.status = ExitCondition.none.value
-        self._log = True
+        self._log = False
+
+        if log_ctx is not None:
+            self._log = True
+            self._log_dict = log_ctx
 
     def log_header(self):
         print(
@@ -110,6 +114,9 @@ class PVM:
         r7 = " " * (24-len(str(imm2)))
         r8 = " " * (24-len(str(off1)))
         r9 = " " * (24-len(str(off2)))
+
+        # if opn not in self._log_dict:
+        #     self._log_dict[opn] += 1
 
         print(
             f"{self.pc}{r1}"
@@ -272,7 +279,10 @@ class PVM:
         if a == 2 ** 32 - 2 ** 16:
             self.status = ExitCondition.halt.value
             return 0
-        elif a == 0 or a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0:  # or self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1]:
+        elif (a == 0 or
+              a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
+              a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0 or
+              self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] not in self.inst_pos):
             self.status = ExitCondition.panic.value
             return 0
         else:
@@ -938,7 +948,7 @@ class PVM:
 
                         case op.load_imm_jump_ind.value:
                             self.reg[r_a] = v_x
-                            self.skip_len = self.djump(int(w_b + v_y))
+                            self.skip_len = self.djump(int(w_b + v_y) % 2**32)
                             self._log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context={"skip_len": self.skip_len})
 
                         case _:
@@ -1148,19 +1158,19 @@ class PVM:
                             self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                         case op.rot_l_64.value:
-                            self.reg[r_d] = rori64(w_a, w_b)
+                            self.reg[r_d] = roli64(w_a, w_b % 64)
                             self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                         case op.rot_l_32.value:
-                            self.reg[r_a] = pvm_X(rori32(np.uint32(w_a), np.uint32(w_b)), 4)
-                            self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
+                            self.reg[r_d] = pvm_X(roli32(np.uint32(w_a), w_b % 32), 4)
+                            self._log and self.log(reg1=r_a, reg2=r_b, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                         case op.rot_r_64.value:
-                            self.reg[r_d] = rori64(w_a, w_b)
+                            self.reg[r_d] = rori64(w_a, w_b % 64)
                             self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                         case op.rot_r_32.value:
-                            self.reg[r_d] = pvm_X(rori32(np.uint32(w_a), np.uint32(w_b)), 4)
+                            self.reg[r_d] = pvm_X(rori32(np.uint32(w_a), w_b % 32), 4)
                             self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                         case op.and_inv.value:
@@ -1172,7 +1182,7 @@ class PVM:
                             self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                         case op.xnor.value:
-                            self.reg[r_d] = ~(w_a | w_b)
+                            self.reg[r_d] = np.uint64(~(w_a ^ w_b) & 0xFFFFFFFFFFFFFFFF)
                             self._log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                         case op._max.value:
