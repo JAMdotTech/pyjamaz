@@ -345,10 +345,8 @@ class PVM:
                 #GP_A.5.2
                 case InstructionType.imm:
 
-                    v_x = 0
-                    l_x = int(min(4, max(0, self.skip_len - 2)))
-                    if l_x > 0:
-                        v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 2)))
+                    v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     match opcode:
                         case op.ecalli.value:
@@ -377,15 +375,9 @@ class PVM:
                 case InstructionType.imm_imm:
 
                     l_x = int(min(4, self.rom[self.pc + 1] % 8))
-                    l_y = int(min(4, max(0, self.skip_len - l_x - 2)))
-
-                    v_x = 0
-                    if l_x > 0:
-                        v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
-
-                    v_y = 0
-                    if l_y > 0:
-                        v_y = pvm_X(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
+                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
+                    v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    v_y = pvm_X(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     mapped_addr = -1
                     if opcode in MemOps:
@@ -414,10 +406,8 @@ class PVM:
                 #GP_A.5.5
                 case InstructionType.offset:
 
-                    v_x = 0
-                    l_x = int(min(4, max(0, self.skip_len - 1)))
-                    if l_x > 0:
-                        v_x = pvm_Z(read_uint(self.rom, self.pc + 1, l_x), l_x)
+                    l_x = int(min(4, self.inst_arg_len[inst_index]))
+                    v_x = pvm_Z(read_uint(self.rom, self.pc + 1, l_x), l_x)
 
                     match opcode:
                         case op.jump.value:
@@ -431,10 +421,8 @@ class PVM:
                 #GP_A.5.6
                 case InstructionType.reg_imm:
                     r_a = min(12, self.rom[self.pc + 1] % 16)
-                    l_x = int(min(4, max(0, self.skip_len - 2)))
-                    v_x = 0
-                    if l_x > 0:
-                        v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
+                    v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     mapped_addr = -1
                     if opcode in MemOps:
@@ -510,10 +498,8 @@ class PVM:
                     if l_x > 0:
                         v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
-                    v_y = 0
-                    l_y = int(min(4, max(0, self.skip_len - l_x - 2)))
-                    if l_y > 0:
-                        v_y = pvm_X(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
+                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
+                    v_y = pvm_X(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     mapped_addr = -1
                     if opcode in MemOps:
@@ -549,15 +535,11 @@ class PVM:
                     w_a = self.reg[r_a]
 
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
-                    v_x = 0
                     l_x = int(min(4, (self.rom[self.pc + 1] // 16) % 8))
-                    if l_x > 0:
-                        v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
-                    v_y = 0
-                    l_y = int(min(4, max(0, self.skip_len - l_x - 2)))
-                    if l_y > 0:
-                        v_y = pvm_Z(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
+                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
+                    v_y = pvm_Z(read_uint(self.rom, self.pc + 2 + l_x, l_y), l_y)
 
                     match opcode:
                         case op.load_imm_jump.value:
@@ -676,10 +658,8 @@ class PVM:
                     w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
 
-                    v_x = 0
-                    l_x = int(min(4, max(0, self.skip_len - 2)))
-                    if l_x > 0:
-                        v_x = pvm_X(read_uint(self.rom, self.pc + 2 , l_x), l_x)
+                    l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
+                    v_x = pvm_X(read_uint(self.rom, self.pc + 2 , l_x), l_x)
 
                     mapped_addr = -1
                     if opcode in MemOps:
@@ -892,10 +872,8 @@ class PVM:
                     w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
 
-                    v_x = 0
-                    l_x = int(min(4, max(0, self.skip_len - 2)))
-                    if l_x > 0:
-                        v_x = pvm_Z(read_uint(self.rom, self.pc + 2, l_x), l_x)
+                    l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
+                    v_x = pvm_Z(read_uint(self.rom, self.pc + 2, l_x), l_x)
 
                     match opcode:
                         case op.branch_eq.value:
@@ -935,10 +913,8 @@ class PVM:
                     #w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
 
-                    v_x = 0
                     l_x = int(min(4, self.rom[self.pc + 2] % 8))
-                    if l_x > 0:
-                        v_x = pvm_X(read_uint(self.rom, self.pc + 3, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.rom, self.pc + 3, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 2)))
                     v_y = pvm_X(read_uint(self.rom, self.pc + 3 + l_x, l_y), l_y)
