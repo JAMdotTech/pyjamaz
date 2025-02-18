@@ -78,7 +78,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
                 self.assertEqual(
                     expected_mem["contents"],
                     pvm_mem,
-                    f"{name}:\n Expected mem: {expected_mem["contents"]}, but got: {pvm_mem}"
+                    f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {pvm_mem}"
                 )
 
 
