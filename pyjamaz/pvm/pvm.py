@@ -65,8 +65,8 @@ class PVM:
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
         self.status = ExitCondition.none.value
-        self._log = False
 
+        self._log = False
         if log_ctx is not None:
             self._log = True
             self._log_dict = log_ctx
@@ -115,8 +115,10 @@ class PVM:
         r8 = " " * (24-len(str(off1)))
         r9 = " " * (24-len(str(off2)))
 
-        # if opn not in self._log_dict:
-        #     self._log_dict[opn] += 1
+        if opn not in self._log_dict:
+            raise Exception(f"Unknown opcode {opn}")
+        else:
+            self._log_dict[opn] += 1
 
         print(
             f"{self.pc}{r1}"

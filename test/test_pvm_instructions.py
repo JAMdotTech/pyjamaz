@@ -33,15 +33,6 @@ def load_test_vectors(directory):
 
     return test_vectors
 
-log_ctx = {}
-#
-# def setUpModule():
-#     for opcode_name in OpcodeNames.values():
-#         log_ctx[opcode_name] = 0
-#
-# def tearDownModule():
-#     print(">>> tearDownModule() called once after all tests in this module <<<")
-
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
@@ -57,16 +48,9 @@ class TestPolkaVMInstructions(unittest.TestCase):
         pvm_data = PVMProgram.from_jam_bytes(
             JamBytes(bytes(test_vector["program"]))
         )
-        global log_ctx
 
-        read_uint([9, 3, 0], 0, 3)
+        pvm = PVM(None)
 
-        bitmask_bytes = BitArray(23).encode([True, False, False, True, False, False, True, False, False, False, False, False, False, True, False, False, False, False, False, False, False, False, False])
-        bitmask_values = BitArray(23).decode(bitmask_bytes)
-
-        #pvm_data.opcode_bitmask[8] = False
-        pvm = PVM(log_ctx)
-        #if pvm._log: print(f"RUN {test_vector['name']}")
         pvm.invoke(
             pvm_data,
             test_vector["initial-regs"],
@@ -99,6 +83,16 @@ class TestPolkaVMInstructions(unittest.TestCase):
                     pvm_mem,
                     f"{name}:\n Expected mem: {expected_mem["contents"]}, but got: {pvm_mem}"
                 )
+
+
+# log_ctx = {}
+#
+# for opcode_name in OpcodeNames.values():
+#     log_ctx[opcode_name] = 0
+#
+# def tearDownModule():
+#     global log_ctx
+#     print(log_ctx)
 
 
 if __name__ == '__main__':
