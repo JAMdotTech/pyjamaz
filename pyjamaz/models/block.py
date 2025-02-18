@@ -5,16 +5,18 @@ from bandersnatch_vrfs import ietf_vrf_verify, ietf_vrf_sign
 from math import floor
 from typing import List, Optional
 
-from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState, ValidatorArchiveState
+from pyjamaz.accumulation import priority_queue, edit_queue, work_report_dependencies, work_report_mapping
+from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState, ValidatorArchiveState, \
+    BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState, AccumulationQueueWorkPackage
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray, Tuple
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT, ROTATION_PERIOD_CORE
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody
+from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody, ValidatorData
 from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
-from pyjamaz.utils import guarantor_permute, vrf_input_ticket_seal, vrf_input_fallback_seal
+from pyjamaz.utils import guarantor_permute, vrf_input_ticket_seal, vrf_input_fallback_seal, flatten_list
 
 
 @dataclass
@@ -385,14 +387,12 @@ class Header(Serializable):
         setattr(self, '_hash', value)
 
     def verify_ticket_seal(self, bandersnatch_key: bytes, ticket_body: TicketBody, entropy: bytes) -> bytes:
-        vrf_output = ietf_vrf_verify(
+        return ietf_vrf_verify(
             bytes(bandersnatch_key),
             vrf_input_ticket_seal(entropy, ticket_body.attempt),
             self.get_unsigned_payload(),
             bytes(self.seal)
         )
-
-        return ticket_body.id == vrf_output
 
     def verify_fallback_seal(self, sealer_key: bytes, entropy: bytes) -> bytes:
         return ietf_vrf_verify(
@@ -456,9 +456,62 @@ class Header(Serializable):
                 seal=bytes(96)
             )
 
-    # Todo: new function for derived author_key from validator set; GP-0.5.0-eq:5.9 (bold_H_a)
-    # def generate_author_bandersnatch_key(self) -> bytes:
-    #    pass
+    @classmethod
+    def genesis(cls, validators: List[ValidatorData]) -> 'Header':
+        """
+        Genesis header (Bold_H_0)
+
+        Parameters
+        ----------
+        validators: List[ValidatorData]
+
+        Returns
+        -------
+        Header
+        """
+        return Header(
+            parent=bytes(32),
+            parent_state_root=bytes(32),
+            extrinsic_hash=bytes(32),
+            timeslot=0,
+            epoch_marker=EpochMark(
+                entropy=bytes(32),
+                tickets_entropy=bytes(32),
+                validators=[v.bandersnatch for v in validators],
+            ),
+            tickets_marker=None,
+            offenders_marker=[],
+            author_index=65535,
+            entropy_source=bytes(96),
+            seal=bytes(96)
+        )
+
+    @property
+    def author_bandersnatch_key(self) -> Optional[bytes]:
+        """
+        GP-0.6.1-eq:5.9 (bold_H_a) Derived author bandersnatch key from author index
+        Returns
+        -------
+        Optional[bytes]
+        """
+        return getattr(self, '_author_bandersnatch_key', None)
+
+    def set_author_bandersnatch_key(self, post_state_validator_pool: ValidatorPoolState):
+        """
+        GP-0.6.1-eq:5.9 (bold_H_a) | Derive author bandersnatch key from validator pool (κ')
+
+        Parameters
+        ----------
+        post_state_validator_pool: ValidatorPoolState
+
+        Returns
+        -------
+
+        """
+        if self.author_index > len(post_state_validator_pool.validators):
+            raise ValueError("Invalid author index")
+
+        setattr(self, '_author_bandersnatch_key', post_state_validator_pool.validators[self.author_index].bandersnatch)
 
 
 @dataclass
@@ -498,13 +551,53 @@ class Extrinsic(Serializable):
 
     def generate_extrinsic_hash(self) -> bytes:
         """
-        GP-0.5.0-eq:5.4
+        GP-0.5.4-eq:5.4,5.5,5.6
 
         Returns
         -------
         bytes
         """
-        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
+
+        # TODO optimize re-encoding
+
+        # GP-0.5.4-eq:5.6
+        extrinsic_hash = blake2b_256_hash(bytes(Vec(TicketEnvelope.to_codec_def()).encode([
+            t.to_json() for t in self.tickets
+        ])))
+
+        extrinsic_hash += blake2b_256_hash(bytes(Vec(Preimage.to_codec_def()).encode([
+            p.to_json() for p in self.preimages
+        ])))
+
+        hashed_guarantees = Vec(Tuple(H256, U32, Vec(Credential.to_codec_def()))).encode(
+            [
+                (blake2b_256_hash(bytes(g.report.to_jam_bytes())), g.slot, [s.to_json() for s in g.signatures])
+                for g in self.guarantees
+            ]
+        )
+
+        extrinsic_hash += blake2b_256_hash(bytes(hashed_guarantees))
+        extrinsic_hash += blake2b_256_hash(bytes(Vec(Assurance.to_codec_def()).encode([
+            a.to_json() for a in self.assurances
+        ])))
+        extrinsic_hash += blake2b_256_hash(bytes(self.disputes.to_jam_bytes()))
+
+        # GP-0.5.4-eq:5.5
+        return blake2b_256_hash(extrinsic_hash)
+
+    @classmethod
+    def default(cls) -> "Extrinsic":
+        return cls(
+            tickets=[],
+            preimages=[],
+            guarantees=[],
+            assurances=[],
+            disputes=ExtrinsicDisputes(
+                verdicts=[],
+                culprits=[],
+                faults=[]
+            )
+        )
 
 
 @dataclass
@@ -645,13 +738,65 @@ class GuarantorAssignment:
 
 @dataclass
 class BlockContext:
+    # G
     guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+    # G*
     prev_guarantor_assignments: Optional[List[GuarantorAssignment]] = None
+    # H_a
+    author_bandersnatch_key: Optional[bytes] = None
+    # TODO GP ref?
+    seal_vrf_output: bytes = bytes(32)
+    # A
+    ancestor_headers: List[Header] = field(default_factory=list)
 
-    def initialize(self):
+    # W
+    available_work_reports: Optional[List[WorkReport]] = None
+    # W!
+    ready_work_reports: Optional[List[WorkReport]] = None
+    # W_Q
+    queued_work_reports: Optional[List[AccumulationQueueWorkPackage]] = None
+    # W*
+    accumulatable_work_reports: Optional[List[WorkReport]] = None
+    # R (Reporters set, containing Ed25519 key of validator)
+    reporters: Optional[List[bytes]] = None
+
+    # M_o
+    state_root: Optional[bytes] = None
+    # C
+    beefy_commitment_map: Optional[BeefyCommitmentMap] = None
+
+    def reset(self):
         self.guarantor_assignments = None
         self.prev_guarantor_assignments = None
+        self.seal_vrf_output = bytes(32)
+        self.available_work_reports = None
+        self.ready_work_reports = None
+        self.queued_work_reports = None
+        self.accumulatable_work_reports = None
+        self.state_root = None
+        self.beefy_commitment_map = None
 
+
+    def get_parent(self, header: Header) -> Optional[Header]:
+        """
+        GP-0.5.4-eq:5.3 (P)
+
+        Parameters
+        ----------
+        header
+
+        Returns
+        -------
+        Optional[Header]
+        """
+        if header.parent == bytes(32):
+            # H_0
+            return Header.default()
+
+        for ancestor in self.ancestor_headers:
+            if header.parent == ancestor.hash:
+                return ancestor
+        return None
 
     def set_guarantor_assignments(self,
                        post_entropy: EntropyState,
@@ -716,3 +861,68 @@ class BlockContext:
                 validator_ed25519=validators[validator_index].ed25519
             ) for validator_index, core_index in enumerate(assignments)
         ]
+
+    def set_ready_work_reports(self):
+        """
+        GP-0.5.4-eq:12.4 (W_!) | Calculates and sets ready work reports
+
+        Returns
+        -------
+
+        """
+        if self.available_work_reports is None:
+            raise ValueError("No available work reports")
+
+        self.ready_work_reports = [
+            w for w in self.available_work_reports
+            if len(w.context.prerequisites) == 0 and len(w.segment_root_lookup) == 0
+        ]
+
+    def set_queued_work_reports(self, accumulation_history: AccumulationHistoryState):
+        """
+        GP-0.5.4-eq:12.5 (W_Q) | Calculates and sets queued work reports
+
+        Returns
+        -------
+
+        """
+        if self.available_work_reports is None:
+            raise ValueError("No available work reports")
+
+        self.queued_work_reports = edit_queue([
+            work_report_dependencies(w) for w in self.available_work_reports
+            if len(w.context.prerequisites) > 0 or len(w.segment_root_lookup) > 0
+        ], accumulated_packages=flatten_list(accumulation_history.accumulation_history))
+
+    def set_accumulatable_work_reports(self, header: Header, accumulation_queue: AccumulationQueueState):
+        """
+        GP-0.5.4-eq:12.10-12.12 (W_*) | Sets accumulatable work reports
+
+        Parameters
+        ----------
+        header
+        accumulation_queue
+
+        Returns
+        -------
+
+        """
+
+        if self.ready_work_reports is None:
+            raise ValueError("No ready reports set")
+
+        if self.queued_work_reports is None:
+            raise ValueError("No queued reports set")
+
+        # GP-0.5.4-eq:12.10
+        m = header.timeslot % EPOCH_TIMESLOTS
+
+        # GP-0.5.4-eq:12.12
+        q = edit_queue(
+            work_report_queue=flatten_list(accumulation_queue.accumulation_queue[m:]) +
+                              flatten_list(accumulation_queue.accumulation_queue[:m]) +
+                              self.queued_work_reports,
+            accumulated_packages=work_report_mapping(self.ready_work_reports)
+        )
+        # GP-0.5.4-eq:12.11
+        self.accumulatable_work_reports = self.ready_work_reports + priority_queue(q)

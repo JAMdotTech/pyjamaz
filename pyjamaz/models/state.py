@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Tuple, Union
+from typing import List, Optional, Dict, Tuple, Union, Set
 
 from jamcodec.base import JamBytes
 
@@ -14,9 +14,15 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 
-from pyjamaz.state.base import State, StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
+from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
 from pyjamaz.storage import StorageEngine
+
+
+class State(Serializable):
+
+    def __setattr__(self, key, value):
+        super().__setattr__(key, value)
 
 
 @dataclass
@@ -403,14 +409,27 @@ class ServicesState(State, Serializable):
         metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
     )
 
+    def set_storage_engine(self, storage_engine: StorageEngine):
+        setattr(self, '_storage_engine', storage_engine)
+
+    @property
+    def storage_engine(self) -> Optional[StorageEngine]:
+        return getattr(self, '_storage_engine', None)
+
     def retrieve_service_account(
             self,
-            service_account_id: int,
-            storage_engine: StorageEngine
-    ) -> Optional[ServiceAccount]:
+            service_account_id: int
+    ) -> ServiceAccount:
+
+        if service_account_id in self.services:
+            return self.services[service_account_id]
+
+        if self.storage_engine is None:
+            raise ValueError('storage engine must be set before retrieving preimage')
+
         storage_key = state_key_constructor_service_account(service_account_id)
 
-        data = storage_engine.get(storage_key)
+        data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
@@ -421,7 +440,7 @@ class ServicesState(State, Serializable):
 
         return service_account
 
-    def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes, storage_engine: StorageEngine) -> bytes:
+    def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes) -> bytes:
         """
         Host-function OMEGA_L (lookup)
 
@@ -437,11 +456,17 @@ class ServicesState(State, Serializable):
         """
 
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id, storage_engine)
+            self.retrieve_service_account(service_account_id)
+
+        if preimage_hash in self.services[service_account_id].preimages:
+            return self.services[service_account_id].preimages[preimage_hash]
+
+        if self.storage_engine is None:
+            raise ValueError('storage engine must be set before retrieving preimage')
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
 
-        data = storage_engine.get(storage_key)
+        data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(f'Preimage not found for hash {preimage_hash}')
@@ -450,23 +475,26 @@ class ServicesState(State, Serializable):
 
         return data
 
-    def preimage_exists(self, service_account_id: int, preimage_hash: bytes, storage_engine: StorageEngine) -> bool:
+    def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
         try:
-            self.retrieve_preimage(service_account_id, preimage_hash, storage_engine)
+            self.retrieve_preimage(service_account_id, preimage_hash)
             return True
         except StateKeyNoResult:
             return False
 
     def retrieve_preimage_availability(
-            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, storage_engine: StorageEngine
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int
     ) -> bytes:
 
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id, storage_engine)
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_engine is None:
+            raise ValueError('storage engine must be set before retrieving preimage availability')
 
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
-        data = storage_engine.get(storage_key)
+        data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(
@@ -481,7 +509,7 @@ class ServicesState(State, Serializable):
         return availability.value
 
     def retrieve_storage_item(
-            self, service_account_id: int, storage_item_hash: bytes, storage_engine: StorageEngine
+            self, service_account_id: int, storage_item_hash: bytes
     ) -> bytes:
         """
         Host-function: OMEGA_R (read)
@@ -497,10 +525,13 @@ class ServicesState(State, Serializable):
         bytes
         """
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id, storage_engine)
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_engine is None:
+            raise ValueError('storage engine must be set before retrieving storage items')
 
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
-        data = storage_engine.get(storage_key)
+        data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(
@@ -563,11 +594,7 @@ class PrivilegedServicesState(State, Serializable):
     empower_service: int = field(metadata={'codec': U32})
     assign_service: int = field(metadata={'codec': U32})
     designate_service: int = field(metadata={'codec': U32})
-    # Todo: Ideal situation, key of dict is a U32. JSON however does not support int values for dict-keys.
-    # auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
-    # Todo: Workaround for lack of support for int value dict-keys in JSON.
-    #  This solution has hex data in the JSON-structure as service_index (e.g. 0x01000000)
-    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(Array(U8,4), U64)})
+    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
 
 
 @dataclass
@@ -645,13 +672,13 @@ class AccumulationQueueWorkPackage(Serializable):
 
     Attributes
     ----------
-    work_report: WorkReport
-        GP-0.5.0-eq:12.3 (blackboard_W) | Work Report.
-    work_package_hash: H256
-        GP-0.5.0-eq:12.3 ({blackboard_H}) | Work Package hash.
+    report: WorkReport
+        GP-0.5.4-eq:12.3 (blackboard_W) | Work Report.
+    dependencies: Vec(H256)
+        GP-0.5.4-eq:12.3 ({blackboard_H}) | Set of Work Package hashes.
     """
-    work_report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
-    work_package_hash: bytes = field(metadata={'codec': H256})
+    report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
+    dependencies: List[bytes] = field(metadata={'codec': Vec(H256)})
 
 
 @dataclass
@@ -663,7 +690,7 @@ class AccumulationQueueState(State, Serializable):
     ----------
 
     accumulation_queue: Array(Vec(AccumulationQueueWorkPackage),constant_E)
-        GP-0.5.0-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
+        GP-0.5.4-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
     """
     accumulation_queue: List[List[AccumulationQueueWorkPackage]] = field(
         metadata={'codec': Array(Vec(AccumulationQueueWorkPackage.to_codec_def()), EPOCH_TIMESLOTS)}
@@ -678,29 +705,37 @@ class AccumulationHistoryState(State, Serializable):
     Attributes
     ----------
 
-    accumulation_history: Array(H256,constant_E)
+    accumulation_history: Array(Vec(H256),constant_E)
         GP-0.5.0-eq:12.1 (ξ) | A history of what has been accumulated.
     """
-    accumulation_history: List[bytes] = field(
-        metadata={'codec': Array(H256, EPOCH_TIMESLOTS)}
+    accumulation_history: List[List[bytes]] = field(
+        metadata={'codec': Array(Vec(H256), EPOCH_TIMESLOTS)}
     )
 
 
 @dataclass
 class BeefyCommitmentMap(Serializable):
     """
-    GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map Dictionary.
+    GP-0.6.1-eq:12.15 (B) | a service-indexed commitment to the accumulation output
 
     Attributes
     ----------
     beefy_commitment_map: Dict(U32,H256)
-        GP-0.5.0-eq:12.21 (TODO: incorrect reference) (bold_C) | Beefy Commitment Map dictionary. Provides accumulation
+        GP-0.6.1-eq:12.15 (B) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
     beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
-    def get_accumulate_root(self):
-        data = [k.to_bytes(4, byteorder='little') + v for k, v in self.beefy_commitment_map.items()]
+    def get_accumulate_root(self) -> bytes:
+        """
+        GP-0.6.1-eq:7.3 (r) | The accumulation-result tree root of the beefy commitment map.
+
+        Returns
+        -------
+        bytes
+        """
+        items = sorted(self.beefy_commitment_map.items(), key=lambda x: x[0])
+        data = [k.to_bytes(4, byteorder='little') + v for k, v in items]
         return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
 
@@ -778,8 +813,8 @@ class JamState(State, Serializable):
             timeslot=TimeslotState(number=0),
             entropy=EntropyState(
                 entropy=[
-                    validators[0].bandersnatch, validators[1].bandersnatch,
-                    validators[2].bandersnatch, validators[3].bandersnatch
+                    validators[0].ed25519, validators[1].ed25519,
+                    validators[2].ed25519, validators[3].ed25519
                 ]
             ),
             safrole=SafroleState(
@@ -818,7 +853,7 @@ class JamState(State, Serializable):
                 empower_service=0,
                 assign_service=0,
                 designate_service=0,
-                auto_accumulate_services=[]
+                auto_accumulate_services={}
             ),
             disputes=DisputesState(
                 good_set=[],
@@ -836,7 +871,7 @@ class JamState(State, Serializable):
                 ]
             ),
             accumulation_history=AccumulationHistoryState(
-                accumulation_history=[bytes(32) for _ in range(EPOCH_TIMESLOTS)]
+                accumulation_history=[[] for _ in range(EPOCH_TIMESLOTS)]
             )
         )
 
@@ -900,5 +935,3 @@ class AccumulationStateComponents(Serializable):
     validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
-
-

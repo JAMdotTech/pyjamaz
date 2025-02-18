@@ -133,7 +133,7 @@ class MerkleMountainRange:
 
     def super_peak(self, peaks: Optional[List[bytes]] = None) -> bytes:
         """
-        GP-0.5.3-eq:E.10 (M_R) | Calculate the MMR super peak
+        GP-0.6.1-eq:E.10 (M_R) | Calculate the MMR super peak
 
         Returns
         -------
@@ -147,8 +147,7 @@ class MerkleMountainRange:
         elif len(peaks) == 1:
             return peaks[0]
         else:
-            # TODO GP-0.5.4 return keccak_256_hash(b'peak' + self.super_peak(peaks[:-1]) + peaks[-1])
-            return keccak_256_hash(b'node' + self.super_peak(peaks[:-1]) + peaks[-1])
+            return keccak_256_hash(b'peak' + self.super_peak(peaks[:-1]) + peaks[-1])
 
 
 class BinaryMerkleTree:

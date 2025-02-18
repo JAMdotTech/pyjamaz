@@ -10,7 +10,8 @@ from pyjamaz.models.block import Block
 @dataclass
 class StateDump(Serializable):
     state_root: bytes = field(metadata={'codec': H256})
-    keyvals: List[Tuple[bytes, bytes]] = field(metadata={'codec': Vec(JamTuple(H256, Bytes))})
+    # keyvals: List[Tuple[bytes, bytes]] = field(metadata={'codec': Vec(JamTuple(H256, Bytes))})
+    keyvals: List[Tuple[bytes, bytes, bytes, bytes]] = field(metadata={'codec': Vec(JamTuple(Bytes, Bytes, Bytes, Bytes))})
 
 
 @dataclass
