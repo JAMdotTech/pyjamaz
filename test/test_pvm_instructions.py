@@ -3,18 +3,15 @@ import os
 import unittest
 
 from os import path
-from pickletools import read_int4
 
 import numpy as np
 
 from jamcodec.base import JamBytes
-from jamcodec.types import BitArray
 from parameterized import parameterized
 
 from pyjamaz.pvm import PVM
 from pyjamaz.pvm.constants import ExitCondition, OpcodeNames
 from pyjamaz.pvm.types import PVMProgram
-from pyjamaz.pvm.utils import read_uint
 
 
 def load_test_vectors(directory):
@@ -36,8 +33,8 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
-    @parameterized.expand(load_test_vectors('fixtures/pvm/riscv'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/riscv'))
     #@parameterized.expand(load_test_vectors('fixtures/pvm/programs/inst_load_imm_and_jump_indirect_different_regs_with_offset_ok.json'))
     #@parameterized.expand(load_test_vectors('fixtures/pvm/programs/inst_load_imm_and_jump_indirect_different_regs_without_offset_ok.json'))
     def test_instruction(self, name, test_vector):
