@@ -127,7 +127,7 @@ def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     assert 0 <= x < 2 ** (8 * n) <= 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
 
     sign_mask = (2 ** 64 - 2 ** (8 * n))
-    sign_bits = x // (2 ** (8 * n - 1))
+    sign_bits = int(x // (2 ** (8 * n - 1)))
 
     return x + sign_bits * sign_mask
 
@@ -172,7 +172,9 @@ def pvm_Z_inv(a:int, n:np.uint8) -> np.uint64:
 
 
 def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
-    if l == 1:
+    if l == 0:
+        return 0
+    elif l == 1:
         return np.uint64(source[addr + 0]) % 2**8
     elif l == 2:
         byte0 = np.uint8(source[addr + 0])

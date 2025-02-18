@@ -63,7 +63,7 @@ class PVM:
         self.program_size: np.uint64 = np.uint64(0)
         self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
-        self.inst_len: List[int] = []
+        self.inst_arg_len: List[int] = []
         self.status = ExitCondition.none.value
         self._log = False
 
@@ -136,7 +136,7 @@ class PVM:
         Create lookups for byte_pos -> instruction_nr and instruction_nr->instruction_length
         """
         self.inst_pos = {0: 0}
-        self.inst_len = []
+        self.inst_arg_len = []
 
         inst_nr = 0
         inst_bitmask = self.inst_bitmask
@@ -144,7 +144,7 @@ class PVM:
 
         # Note: In the exceptional case we only have 1 instruction (trap or fallthrough), we add it manually and be done
         if len(inst_bitmask) == 1:
-            self.inst_len.append(0)
+            self.inst_arg_len.append(0)
             return
 
         # Parse instruction bitmask and create a opcode offset and instruction length lookup
@@ -164,7 +164,8 @@ class PVM:
                 if inst_bitmask_idx > len(inst_bitmask) - 1:
                     is_opcode = True
 
-            self.inst_len.append(inst_args)
+            # GP-0.6.2-eq:A.19 (l)
+            self.inst_arg_len.append(inst_args)
             inst_nr += 1
             self.inst_pos[inst_bitmask_idx - 1] = inst_nr
 
@@ -191,7 +192,7 @@ class PVM:
         self.program_size: np.uint64 = np.uint64(len(self.rom))
         self.inst_bitmask: List[bool] = program.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
-        self.inst_len: List[int] = []
+        self.inst_arg_len: List[int] = []
         self.reg = np.array(initial_regs, dtype=np.uint64)
         self.pc = np.uint32(initial_pc)
         self.gas = np.uint64(initial_gas)
@@ -323,7 +324,7 @@ class PVM:
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.rom[self.pc]
             inst_type = OpcodeScheme[opcode]
-            self.skip_len = self.inst_len[inst_index] + 1
+            self.skip_len = self.inst_arg_len[inst_index] + 1
 
             match inst_type:
 
@@ -939,10 +940,8 @@ class PVM:
                     if l_x > 0:
                         v_x = pvm_X(read_uint(self.rom, self.pc + 3, l_x), l_x)
 
-                    v_y = 0
-                    l_y = int(min(4, max(0, self.skip_len - l_x - 2)))
-                    if l_y > 0:
-                        v_y = pvm_X(read_uint(self.rom, self.pc + 3 + l_x, l_y), l_y)
+                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 2)))
+                    v_y = pvm_X(read_uint(self.rom, self.pc + 3 + l_x, l_y), l_y)
 
                     match opcode:
 
