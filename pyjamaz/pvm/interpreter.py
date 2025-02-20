@@ -6,7 +6,7 @@ import numpy.typing as npt
 from typing import Any, List, Dict
 
 from .exceptions import InvalidOpcode
-from .types import PVMProgram
+from .types import PVMCode
 
 from .utils import (
     pvm_Z,
@@ -181,7 +181,7 @@ class PVMInterpreter:
 
     def reset(
             self,
-            program: PVMProgram,
+            program: PVMCode,
             initial_regs: list[int],
             initial_pc: int,
             initial_gas: int,
@@ -294,7 +294,7 @@ class PVMInterpreter:
 
     def invoke(
         self,
-        program: PVMProgram,
+        program: PVMCode,
         initial_regs: list[int],
         initial_pc: int,
         initial_gas: int,

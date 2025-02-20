@@ -2,6 +2,9 @@ from enum import Enum
 
 import numpy as np
 
+PVM_PAGE_SIZE = 2**12 #ZP
+PVM_INIT_ZONE_SIZE = 2**16 #ZZ
+PVM_INPUT_DATA_SIZE = 2**24 #ZI
 
 class ExitCondition(Enum):
     none:int            = 0
