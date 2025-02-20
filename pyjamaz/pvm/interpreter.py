@@ -47,7 +47,7 @@ class PageMap:
         return self.offset <= addr < self.offset + self.length
 
 
-class PVM:
+class PVMInterpreter:
 
     def __init__(self, log_ctx=None):
         self.reg = np.zeros(13, dtype=np.uint64)
