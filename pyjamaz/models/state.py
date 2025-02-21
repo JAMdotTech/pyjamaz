@@ -308,6 +308,8 @@ class ServiceAccount(Serializable):
     """
     GP-0.5.2-eq:9.3 (blackboard_A) | A service account.
 
+    #TODO: implement a_o
+
     Attributes
     ----------
     code_hash: H256

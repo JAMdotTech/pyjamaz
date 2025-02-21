@@ -5,11 +5,11 @@ import numpy as np
 
 class ExitCondition(Enum):
     none:int            = 0
-    panic:int           = 1
-    halt:int            = 2
-    out_of_gas:int      = 3
-    page_fault:int      = 4
-    host_halt:int       = 5
+    halt:int            = 1 #GP-A.2: ∎: regular halt: halt
+    panic:int           = 2 #GP-A.2: ☇: unexpected program termination: panic
+    out_of_gas:int      = 3 #GP-A.2: ∞: out-of-gas
+    page_fault:int      = 4 #GP-A.2: F: page-fault
+    host_halt:int       = 5 #GP-A.2: h: host-call
 
 
 class InstructionType(Enum):

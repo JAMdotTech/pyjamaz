@@ -99,7 +99,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
         #         "expected-gas": 0
         #     }
         #     json.dump(tt, fp)
-        #
+
+        # UIT LEESBARE GEHEUGEN
         # w7 = pvm.reg[7]
         # w8 = pvm.reg[8]
         #
