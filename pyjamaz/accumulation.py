@@ -1,8 +1,10 @@
 from dataclasses import dataclass
-from typing import List, Set, Optional, Dict
+from typing import List, Set, Dict
 from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
     BeefyCommitmentMap, TimeslotState, ServiceAccount
+from pyjamaz.pvm_interface.invocation import pvm_invoke_accumulate
+from pyjamaz.pvm_interface.models import PvmAccumulateOutput
 
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
@@ -107,13 +109,6 @@ def transfers_service_mapping(
     transfers = [t for t in deferred_transfers if t.receiver == service_id]
     return sorted(transfers, key=lambda t: t.sender)
 
-@dataclass
-class PvmAccumulateOutput:
-    state_context: AccumulationStateComponents
-    deferred_transfers: List[DeferredTransfer]
-    accumulation_output: Optional[bytes]
-    gas_used: int
-
 
 @dataclass
 class ParallelAccumulationOutput:
@@ -129,38 +124,6 @@ class FullAccumulationOutput:
     deferred_transfers: List[DeferredTransfer]
     accumulation_commitment: BeefyCommitmentMap
 
-
-def pvm_invoke_accumulate(
-        state_context: AccumulationStateComponents,
-        timeslot: int,
-        service_id: int,
-        gas_limit: int,
-        operands: List[AccumulationOperand]
-) -> PvmAccumulateOutput:
-    """
-    GP-0.6.1-eq:B.8 (Ψ_A) | Accumulation invocation function
-
-    TODO stub
-
-    Parameters
-    ----------
-    state_context: AccumulationStateComponents
-    timeslot: int
-    service_id: int
-    gas_limit: int
-    operands: List[AccumulationOperand]
-
-    Returns
-    -------
-    PvmAccumulateOutput
-    """
-
-    return PvmAccumulateOutput(
-        state_context=state_context,
-        deferred_transfers=[],
-        accumulation_output=None,
-        gas_used=gas_limit
-    )
 
 def pvm_invoke_on_transfer(
         services: Dict[int, ServiceAccount],

@@ -1,6 +1,9 @@
+from math import ceil
+
 import numpy as np
 import numpy.typing as npt
 
+from pyjamaz.pvm.constants import PVM_PAGE_SIZE, PVM_INIT_ZONE_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError
 
 
@@ -245,3 +248,16 @@ def write_uint(dest: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8, val: i
         dest[addr + 7] = np.uint8((val & 0xFF00000000000000) >> 56)
     else:
         raise UIntValueError(f"Invalid uint length: {l}")
+
+
+def memory_page_size(items: int) -> int:
+    """
+    GP-0.6.2-eq:A.38 (P)
+    """
+    return PVM_PAGE_SIZE * ceil(items / PVM_PAGE_SIZE)
+
+def memory_zone_size(items: int) -> int:
+    """
+    GP-0.6.2-eq:A.38 (Z)
+    """
+    return PVM_INIT_ZONE_SIZE * ceil(items / PVM_INIT_ZONE_SIZE)
