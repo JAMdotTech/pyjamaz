@@ -6,7 +6,7 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
-from pyjamaz.pvm.utils import zone_memory
+from pyjamaz.pvm.utils import memory_zone_size, memory_page_size
 
 
 @dataclass
@@ -58,6 +58,22 @@ class PVMCode(Serializable):
     def serialize(self) -> List[int]:
         return [b for b in self.to_jam_bytes().to_bytes()]
 
+@dataclass
+class MemoryPage:
+    address: int
+    length: int
+    writable: bool
+    contents: bytes
+
+@dataclass
+class PVMMemory:
+    pages: List[MemoryPage]
+
+    def read(self, address: int, length: int) -> bytes:
+        pass
+
+    def write(self, address: int, value: bytes):
+        pass
 
 @dataclass
 class PVMProgram(Serializable):
@@ -69,16 +85,77 @@ class PVMProgram(Serializable):
     # ω
     registers: List[int]
     # µ
-    memory: bytes
+    memory: PVMMemory
 
     @staticmethod
-    def init_memory(rom: bytes, ram: bytes, arguments: bytes) -> bytes:
+    def init_memory(
+            rom: bytes, ram: bytes, arguments: bytes, stack_mem_pages: int, stack_mem_size: int
+    ) -> PVMMemory:
         """
-        GP-0.6.2-eq:A.40
+        GP-0.6.2-eq:A.40 | Initializing of memory pages
 
-        TODO implement
         """
-        return rom + ram
+        memory = PVMMemory(pages=[])
+
+        memory.pages.append(MemoryPage(
+            address=PVM_INIT_ZONE_SIZE,
+            length=len(rom),
+            writable=False,
+            contents=rom,
+        ))
+        # TODO create page for buffer overflow protection?
+        length = memory_page_size(len(rom)) - len(rom)
+        memory.pages.append(MemoryPage(
+            address=PVM_INIT_ZONE_SIZE + len(rom),
+            length=length,
+            writable=False,
+            contents=bytes(length)
+        ))
+        memory.pages.append(MemoryPage(
+            address=2*PVM_INIT_ZONE_SIZE + memory_zone_size(len(rom)),
+            length=len(ram),
+            writable=True,
+            contents=ram,
+        ))
+        length = memory_page_size(len(ram)) - len(ram) + stack_mem_pages * PVM_PAGE_SIZE
+        if length > 0:
+            memory.pages.append(
+                MemoryPage(
+                    address=2 * PVM_INIT_ZONE_SIZE + memory_zone_size(len(rom)) + len(ram),
+                    length=length,
+                    writable=True,
+                    contents=bytes(length),
+                )
+            )
+
+        memory.pages.append(
+            MemoryPage(
+                address=2**32 - 2 * PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE - memory_page_size(stack_mem_size),
+                length=memory_page_size(stack_mem_size),
+                writable=True,
+                contents=bytes(memory_page_size(stack_mem_size)),
+            )
+        )
+        memory.pages.append(
+            MemoryPage(
+                address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
+                length=len(arguments),
+                writable=False,
+                contents=arguments,
+            )
+        )
+        if len(arguments) > 0:
+            memory.pages.append(
+                MemoryPage(
+                    address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE + len(arguments),
+                    length=memory_page_size(len(arguments)) - len(arguments),
+                    writable=False,
+                    contents=bytes(memory_page_size(len(arguments)) - len(arguments)),
+                )
+            )
+
+
+        return memory
 
     @staticmethod
     def init_registers(arguments: bytes) -> List[int]:
@@ -118,15 +195,15 @@ class PVMProgram(Serializable):
             pvm_code = jam_bytes.get_next_bytes(pvm_code_size)
 
             if (5 * PVM_INIT_ZONE_SIZE +
-                    zone_memory(pvm_rom_size) +
-                    zone_memory(pvm_ram_size + stack_mem_pages * PVM_PAGE_SIZE) +
-                    zone_memory(stack_mem_size) + PVM_INPUT_DATA_SIZE
+                memory_zone_size(pvm_rom_size) +
+                memory_zone_size(pvm_ram_size + stack_mem_pages * PVM_PAGE_SIZE) +
+                memory_zone_size(stack_mem_size) + PVM_INPUT_DATA_SIZE
             ) <= 2**32:
 
                 return cls(
                     code=pvm_code,
                     registers=cls.init_registers(arguments),
-                    memory=cls.init_memory(pvm_rom, pvm_ram, arguments),
+                    memory=cls.init_memory(pvm_rom, pvm_ram, arguments, stack_mem_pages, stack_mem_size),
                 )
         except RemainingScaleBytesNotEmptyException as e:
             pass

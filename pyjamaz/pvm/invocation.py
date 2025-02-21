@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 from typing import Union, List
 
-from pyjamaz.pvm.constants import ExitCondition
-from pyjamaz.pvm.types import PVMProgram
+from pyjamaz.pvm.constants import ExitCondition, PVM_INPUT_DATA_SIZE
+from pyjamaz.pvm.types import PVMProgram, PVMMemory
 
 
 class InvocationContext:
+    """
+    GP-0.6.2-eq:B.6 (X) | Invocation Result Context (abstract)
+    """
     pass
 
 @dataclass
@@ -28,7 +31,7 @@ def pvm_invoke_host_call(
         instruction_counter: int,   # ı
         gas_limit: int,             # ρ
         registers: List[int],       # ω
-        memory: bytes,              # μ
+        memory: PVMMemory,          # μ
         host_call_def: callable,    # f
         invocation_context: InvocationContext # x
 ) -> PvMHostCallOutput:
@@ -48,8 +51,12 @@ def pvm_invoke_marshalling(
         savepoint_context: InvocationContext    # x
 ) -> PvmMarshallingOutput:
     """
-        GP-0.6.2-eq:A.42 (Ψ_M) | Marshalling invocation function
+    GP-0.6.2-eq:A.42 (Ψ_M) | Marshalling invocation function
     """
+
+    if len(argument_data) > PVM_INPUT_DATA_SIZE:
+        raise ValueError(f'argument_data too long (> {PVM_INPUT_DATA_SIZE} bytes)')
+
     pvm_program = PVMProgram.from_serialized_bytes(
         serialized_program=serialized_program,
         arguments=argument_data

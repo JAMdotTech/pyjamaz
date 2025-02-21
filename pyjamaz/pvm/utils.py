@@ -250,13 +250,13 @@ def write_uint(dest: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8, val: i
         raise UIntValueError(f"Invalid uint length: {l}")
 
 
-def page_memory(items: int) -> int:
+def memory_page_size(items: int) -> int:
     """
     GP-0.6.2-eq:A.38 (P)
     """
     return PVM_PAGE_SIZE * ceil(items / PVM_PAGE_SIZE)
 
-def zone_memory(items: int) -> int:
+def memory_zone_size(items: int) -> int:
     """
     GP-0.6.2-eq:A.38 (Z)
     """
