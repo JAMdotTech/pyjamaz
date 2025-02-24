@@ -202,8 +202,17 @@ class Assurance(Serializable):
 
 
 @dataclass
-# Todo: (Re)move, annotate, reference-GP
 class TicketBody(Serializable):
+    """
+    GP-0.6.2-eq:6.6 (Blackboard_C) | TicketBody.
+
+    Attributes
+    ----------
+    id: H256
+        GP-0.6.2-eq:6.6 (y) | Verifiable random ticket identifier.
+    attempt: U8
+        GP-0.6.2-eq:6.6 (r) | Entry index.
+    """
     id: bytes = field(metadata={'codec': H256})
     attempt: int = field(metadata={'codec': U8})
 

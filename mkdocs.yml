@@ -57,9 +57,10 @@ extra:
 nav:
   - Overview: index.md
   - Types:
-      - Block Context: types/types_blocks.md
-      - State Components: types/types_state.md
-      - STF Output Types: types/types_stf_output.md
+      - Block Context: types/blocks.md
+      - State Components: types/state.md
+      - Common: types/common.md
+      - STF Output Types: types/stf_output.md
   - State Transition Functions:
       - Overall State (σ): stfs/sigma.md
       - AuthorizerPools (α): stfs/alpha.md

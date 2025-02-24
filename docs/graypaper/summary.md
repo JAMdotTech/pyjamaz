@@ -51,431 +51,431 @@ This section has been updated to match Graypaper version 0.6.2.
 | [3.10](../section_03/#3.10)   |                                                                              |             |               |
 | [3.11](../section_03/#3.11)   |                                                                              |             |               |
 
-| Equation                      | Implementation                                                                                         | Conformance | Documentation |
-|-------------------------------|--------------------------------------------------------------------------------------------------------|-------------|---------------|
-| [4.1](../section_04/#4.1)     | (0/1):                                                                                                 |             |               |
-| [4.2](../section_04/#4.2)     | (1/1): [M](../../types/types_blocks/#pyjamaz.models.block.Block)                                       |             |               |
-| [4.3](../section_04/#4.3)     | (1/1): [M](../../types/types_blocks/#pyjamaz.models.block.Extrinsic)                                   |             |               |
-| [4.4](../section_04/#4.4)     | (1/1): [M](../../types/types_blocks/#pyjamaz.models.state.JamState)                                    |             |               |
-| [4.5](../section_04/#4.5)     | (1/1): [STF:τ'](../../stfs/tau/#pyjamaz.state.components.Timeslot.state_transition)                    |             |               |
-| [4.6](../section_04/#4.6)     | (1/1): [STF:β†](../../stfs/beta/#pyjamaz.state.components.RecentHistory.state_transition_intermediate) |             |               |
-| [4.7](../section_04/#4.7)     | (1/1): [STF:β'](../../stfs/beta/#pyjamaz.state.components.RecentHistory.state_transition)              |             |               |
-| [4.8](../section_04/#4.8)     | (1/1): [STF:γ'](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition)                   |             |               |
-| [4.9](../section_04/#4.9)     | (1/1): [STF:η'](../../stfs/eta/#pyjamaz.state.components.Entropy.state_transition)                     |             |               |
-| [4.10](../section_04/#4.10)   | (1/1): [STF:κ'](../../stfs/kappa/#pyjamaz.state.components.ValidatorPool.state_transition)             |             |               |
-| [4.11](../section_04/#4.11)   | (1/1): [STF:λ'](../../stfs/lambda/#pyjamaz.state.components.ValidatorArchive.state_transition)         |             |               |
-| [4.12](../section_04/#4.12)   | (1/1): [STF:ψ'](../../stfs/psi/#pyjamaz.state.components.Disputes.state_transition)                    |             |               |
-| [4.13](../section_04/#4.13)   | (1/1): [STF:ρ†](../../stfs/rho/#pyjamaz.state.components.Assurances.state_transition_after_disputes)   |             |               |
-| [4.14](../section_04/#4.14)   | (1/1): [STF:ρ‡](../../stfs/rho/#pyjamaz.state.components.Assurances.state_transition_after_assurances) |             |               |
-| [4.15](../section_04/#4.15)   | (1/1): [STF:ρ'](../../stfs/rho/#pyjamaz.state.components.Assurances.state_transition_after_guarantees) |             |               |
-| [4.16](../section_04/#4.16)   | (0/1):                                                                                                 |             |               |
-| [4.17](../section_04/#4.17)   | (0/1):                                                                                                 |             |               |
-| [4.18](../section_04/#4.18)   | (0/1):                                                                                                 |             |               |
-| [4.19](../section_04/#4.19)   | (1/1): [STF:α'](../../stfs/alpha/#pyjamaz.state.components.AuthorizerPools.state_transition)           |             |               |
-| [4.20](../section_04/#4.20)   | (1/1): [STF:π'](../../stfs/pi/#pyjamaz.state.components.Statistics.state_transition)                   |             |               |
-| [4.21](../section_04/#4.21)   | (0/1):                                                                                                 |             |               |
-| [4.22](../section_04/#4.22)   | (0/1):                                                                                                 |             |               |
-| [4.23](../section_04/#4.23)   | (0/1):                                                                                                 |             |               |
-| [4.24](../section_04/#4.24)   | (0/1):                                                                                                 |             |               |
-| [4.25](../section_04/#4.25)   | (0/1):                                                                                                 |             |               |
-| [4.26](../section_04/#4.26)   | (0/1):                                                                                                 |             |               |
-| [4.27](../section_04/#4.27)   | (0/1):                                                                                                 |             |               |
-| [4.28](../section_04/#4.28)   | (0/1):                                                                                                 |             |               |
+| Equation                      | Implementation                                                                                               | Conformance | Documentation |
+|-------------------------------|--------------------------------------------------------------------------------------------------------------|-------------|---------------|
+| [4.1](../section_04/#4.1)     | (0/1):                                                                                                       |             |               |
+| [4.2](../section_04/#4.2)     | (1/1): [TYPE:$\mathbf{B}$](../../types/blocks/#pyjamaz.models.block.Block)                                   |             |               |
+| [4.3](../section_04/#4.3)     | (1/1): [TYPE:$\mathbf{E}$](../../types/blocks/#pyjamaz.models.block.Extrinsic)                               |             |               |
+| [4.4](../section_04/#4.4)     | (1/1): [TYPE:$\sigma$](../../types/state/#pyjamaz.models.state.JamState)                                     |             |               |
+| [4.5](../section_04/#4.5)     | (1/1): [STF:$\tau'$](../../stfs/tau/#pyjamaz.state.components.Timeslot.state_transition)                     |             |               |
+| [4.6](../section_04/#4.6)     | (1/1): [STF:$\beta†$](../../stfs/beta/#pyjamaz.state.components.RecentHistory.state_transition_intermediate) |             |               |
+| [4.7](../section_04/#4.7)     | (1/1): [STF:$\beta'$](../../stfs/beta/#pyjamaz.state.components.RecentHistory.state_transition)              |             |               |
+| [4.8](../section_04/#4.8)     | (1/1): [STF:$\gamma'$](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition)                  |             |               |
+| [4.9](../section_04/#4.9)     | (1/1): [STF:$\eta'$](../../stfs/eta/#pyjamaz.state.components.Entropy.state_transition)                      |             |               |
+| [4.10](../section_04/#4.10)   | (1/1): [STF:$\kappa'$](../../stfs/kappa/#pyjamaz.state.components.ValidatorPool.state_transition)            |             |               |
+| [4.11](../section_04/#4.11)   | (1/1): [STF:$\lambda'$](../../stfs/lambda/#pyjamaz.state.components.ValidatorArchive.state_transition)       |             |               |
+| [4.12](../section_04/#4.12)   | (1/1): [STF:$\psi'$](../../stfs/psi/#pyjamaz.state.components.Disputes.state_transition)                     |             |               |
+| [4.13](../section_04/#4.13)   | (1/1): [STF:$\rho†$](../../stfs/rho/#pyjamaz.state.components.Assurances.state_transition_after_disputes)    |             |               |
+| [4.14](../section_04/#4.14)   | (1/1): [STF:$\rho‡$](../../stfs/rho/#pyjamaz.state.components.Assurances.state_transition_after_assurances)  |             |               |
+| [4.15](../section_04/#4.15)   | (1/1): [STF:$\rho'$](../../stfs/rho/#pyjamaz.state.components.Assurances.state_transition_after_guarantees)  |             |               |
+| [4.16](../section_04/#4.16)   | (0/1):                                                                                                       |             |               |
+| [4.17](../section_04/#4.17)   | (0/1):                                                                                                       |             |               |
+| [4.18](../section_04/#4.18)   | (0/1):                                                                                                       |             |               |
+| [4.19](../section_04/#4.19)   | (1/1): [STF:$\alpha'$](../../stfs/alpha/#pyjamaz.state.components.AuthorizerPools.state_transition)          |             |               |
+| [4.20](../section_04/#4.20)   | (1/1): [STF:$\pi'$](../../stfs/pi/#pyjamaz.state.components.Statistics.state_transition)                     |             |               |
+| [4.21](../section_04/#4.21)   | (0/1):                                                                                                       |             |               |
+| [4.22](../section_04/#4.22)   | (0/1):                                                                                                       |             |               |
+| [4.23](../section_04/#4.23)   | (0/1):                                                                                                       |             |               |
+| [4.24](../section_04/#4.24)   | (0/1):                                                                                                       |             |               |
+| [4.25](../section_04/#4.25)   | (0/1):                                                                                                       |             |               |
+| [4.26](../section_04/#4.26)   | (0/1):                                                                                                       |             |               |
+| [4.27](../section_04/#4.27)   | (0/1):                                                                                                       |             |               |
+| [4.28](../section_04/#4.28)   | (0/1):                                                                                                       |             |               |
 
-| Equation                      | Implementation                                                         | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------|-------------|---------------|
-| [5.1](../section_05/#5.1)     | (1/1): [M:H](../../types/types_blocks/#pyjamaz.models.block.Header)    |             |               |
-| [5.2](../section_05/#5.2)     | (1/1): [M](../../types/types_blocks/#pyjamaz.models.block.Header.hash) |             |               |
-| [5.3](../section_05/#5.3)     |                                                                        |             |               |
-| [5.4](../section_05/#5.4)     |                                                                        |             |               |
-| [5.5](../section_05/#5.5)     |                                                                        |             |               |
-| [5.6](../section_05/#5.6)     |                                                                        |             |               |
-| [5.7](../section_05/#5.7)     |                                                                        |             |               |
-| [5.8](../section_05/#5.8)     |                                                                        |             |               |
-| [5.9](../section_05/#5.9)     |                                                                        |             |               |
-| [5.10](../section_05/#5.10)   |                                                                        |             |               |
+| Equation                      | Implementation                                                              | Conformance | Documentation |
+|-------------------------------|-----------------------------------------------------------------------------|-------------|---------------|
+| [5.1](../section_05/#5.1)     | (1/1): [TYPE:$\mathbf{H}$](../../types/blocks/#pyjamaz.models.block.Header) |             |               |
+| [5.2](../section_05/#5.2)     | (1/1): [SET](../../types/blocks/#pyjamaz.models.block.Header.hash)          |             |               |
+| [5.3](../section_05/#5.3)     |                                                                             |             |               |
+| [5.4](../section_05/#5.4)     |                                                                             |             |               |
+| [5.5](../section_05/#5.5)     |                                                                             |             |               |
+| [5.6](../section_05/#5.6)     |                                                                             |             |               |
+| [5.7](../section_05/#5.7)     |                                                                             |             |               |
+| [5.8](../section_05/#5.8)     |                                                                             |             |               |
+| [5.9](../section_05/#5.9)     |                                                                             |             |               |
+| [5.10](../section_05/#5.10)   |                                                                             |             |               |
 
-| Equation                      | Implementation                                                                                                                                                              | Conformance | Documentation |
-|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|---------------|
-| [6.1](../section_06/#6.1)     | (2/2): [M](../../types/types_state/#pyjamaz.models.state.TimeslotState), [STF:τ'](../../stfs/tau/#pyjamaz.state.components.Timeslot.state_transition)                       |             |               |
-| [6.2](../section_06/#6.2)     | (2/2): [M:e](../../types/types_state/#pyjamaz.models.state.TimeslotState.epoch_number), [M:m](../../types/types_state/#pyjamaz.models.state.TimeslotState.slot_phase_index) |             |               |
-| [6.3](../section_06/#6.3)     |                                                                                                                                                                             |             |               |
-| [6.4](../section_06/#6.4)     |                                                                                                                                                                             |             |               |
-| [6.5](../section_06/#6.5)     |                                                                                                                                                                             |             |               |
-| [6.6](../section_06/#6.6)     |                                                                                                                                                                             |             |               |
-| [6.7](../section_06/#6.7)     |                                                                                                                                                                             |             |               |
-| [6.8](../section_06/#6.8)     |                                                                                                                                                                             |             |               |
-| [6.9](../section_06/#6.9)     |                                                                                                                                                                             |             |               |
-| [6.10](../section_06/#6.10)   |                                                                                                                                                                             |             |               |
-| [6.11](../section_06/#6.11)   |                                                                                                                                                                             |             |               |
-| [6.12](../section_06/#6.12)   |                                                                                                                                                                             |             |               |
-| [6.13](../section_06/#6.13)   |                                                                                                                                                                             |             |               |
-| [6.14](../section_06/#6.14)   |                                                                                                                                                                             |             |               |
-| [6.15](../section_06/#6.15)   |                                                                                                                                                                             |             |               |
-| [6.16](../section_06/#6.16)   |                                                                                                                                                                             |             |               |
-| [6.17](../section_06/#6.17)   |                                                                                                                                                                             |             |               |
-| [6.18](../section_06/#6.18)   |                                                                                                                                                                             |             |               |
-| [6.19](../section_06/#6.19)   |                                                                                                                                                                             |             |               |
-| [6.20](../section_06/#6.20)   |                                                                                                                                                                             |             |               |
-| [6.21](../section_06/#6.21)   |                                                                                                                                                                             |             |               |
-| [6.22](../section_06/#6.22)   |                                                                                                                                                                             |             |               |
-| [6.23](../section_06/#6.23)   |                                                                                                                                                                             |             |               |
-| [6.24](../section_06/#6.24)   |                                                                                                                                                                             |             |               |
-| [6.25](../section_06/#6.25)   |                                                                                                                                                                             |             |               |
-| [6.26](../section_06/#6.26)   |                                                                                                                                                                             |             |               |
-| [6.27](../section_06/#6.27)   |                                                                                                                                                                             |             |               |
-| [6.28](../section_06/#6.28)   |                                                                                                                                                                             |             |               |
-| [6.29](../section_06/#6.29)   |                                                                                                                                                                             |             |               |
-| [6.30](../section_06/#6.30)   |                                                                                                                                                                             |             |               |
-| [6.31](../section_06/#6.31)   |                                                                                                                                                                             |             |               |
-| [6.32](../section_06/#6.32)   |                                                                                                                                                                             |             |               |
-| [6.33](../section_06/#6.33)   |                                                                                                                                                                             |             |               |
-| [6.34](../section_06/#6.34)   |                                                                                                                                                                             |             |               |
-| [6.35](../section_06/#6.35)   |                                                                                                                                                                             |             |               |
+| Equation                      | Implementation                                                                                                                                                                                                                                                                                                                                                                              | Conformance | Documentation |
+|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|---------------|
+| [6.1](../section_06/#6.1)     | (2/2): [TYPE](../../types/state/#pyjamaz.models.state.TimeslotState), [STF:τ'](../../stfs/tau/#pyjamaz.state.components.Timeslot.state_transition)                                                                                                                                                                                                                                          |             |               |
+| [6.2](../section_06/#6.2)     | (2/2): [TYPE:e](../../types/state/#pyjamaz.models.state.TimeslotState.epoch_number), [TYPE:m](../../types/state/#pyjamaz.models.state.TimeslotState.slot_phase_index)                                                                                                                                                                                                                       |             |               |
+| [6.3](../section_06/#6.3)     | (1/1): [TYPE:$\gamma$](../../types/state/#pyjamaz.models.state.SafroleState)                                                                                                                                                                                                                                                                                                                |             |               |
+| [6.4](../section_06/#6.4)     | (1/1): [TYPE:$\gamma_z$](../../types/state/#pyjamaz.models.state.SafroleState)                                                                                                                                                                                                                                                                                                              |             |               |
+| [6.5](../section_06/#6.5)     | (1/1): [TYPE:$\gamma_\mathbf{a}$, M:$\gamma_\mathbf{s}$](../../types/state/#pyjamaz.models.state.SafroleState)                                                                                                                                                                                                                                                                              |             |               |
+| [6.6](../section_06/#6.6)     | (1/1): [TYPE:$\mathbb{C}$](../../types/common/#pyjamaz.models.common.TicketBody)                                                                                                                                                                                                                                                                                                            |             |               |
+| [6.7](../section_06/#6.7)     | (4/4): [TYPE:$\iota$](../../types/state/#pyjamaz.models.state.ValidatorQueueState), [TYPE:$\gamma_\mathbf{k}$](../../types/state/#pyjamaz.models.state.SafroleState), [TYPE:$\kappa$](../../types/state/#pyjamaz.models.state.ValidatorPoolState), [TYPE:$\lambda$](../../types/state/#pyjamaz.models.state.ValidatorArchiveState)                                                          |             |               |
+| [6.8](../section_06/#6.8)     | (1/1): [TYPE:$\mathbb{K}$](../../types/common/#pyjamaz.models.common.ValidatorData)                                                                                                                                                                                                                                                                                                         |             |               |
+| [6.9](../section_06/#6.9)     | (1/1): [TYPE:$k_b$](../../types/common/#pyjamaz.models.common.ValidatorData)                                                                                                                                                                                                                                                                                                                |             |               |
+| [6.10](../section_06/#6.10)   | (1/1): [TYPE:$k_e$](../../types/common/#pyjamaz.models.common.ValidatorData)                                                                                                                                                                                                                                                                                                                |             |               |
+| [6.11](../section_06/#6.11)   | (1/1): [TYPE:$k_{BLS}$](../../types/common/#pyjamaz.models.common.ValidatorData)                                                                                                                                                                                                                                                                                                            |             |               |
+| [6.12](../section_06/#6.12)   | (1/1): [TYPE:$k_m$](../../types/common/#pyjamaz.models.common.ValidatorData)                                                                                                                                                                                                                                                                                                                |             |               |
+| [6.13](../section_06/#6.13)   | (4/4): [STF:$\gamma'_\mathbf{k}$](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition), [STF:$\kappa'$](../../stfs/kappa/#pyjamaz.state.components.ValidatorPool.state_transition), [STF:$\lambda'$](../../stfs/lambda/#pyjamaz.state.components.ValidatorArchive.state_transition), [STF:$\gamma'_z$](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition) |             |               |
+| [6.14](../section_06/#6.14)   | (1/1): UTIL:$\Phi$ ??                                                                                                                                                                                                                                                                                                                                                                       |             |               |
+| [6.15](../section_06/#6.15)   | (1/1): [STF:$\gamma'_\mathbf{s}$](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition) (validate??)                                                                                                                                                                                                                                                                         |             |               |
+| [6.16](../section_06/#6.16)   | (1/1): [STF:$\gamma'_\mathbf{s}$](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition) (validate??)                                                                                                                                                                                                                                                                         |             |               |
+| [6.17](../section_06/#6.17)   | (1/1): [SET:$\mathbf{H}_v$](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition)                                                                                                                                                                                                                                                                                            |             |               |
+| [6.18](../section_06/#6.18)   | (1/1): CONSTANT:$\mathsf{X}_E$ ???                                                                                                                                                                                                                                                                                                                                                          |             |               |
+| [6.19](../section_06/#6.19)   | (1/1): CONSTANT:$\mathsf{X}_F$ ???                                                                                                                                                                                                                                                                                                                                                          |             |               |
+| [6.20](../section_06/#6.20)   | (1/1): CONSTANT:$\mathsf{X}_T$ ???                                                                                                                                                                                                                                                                                                                                                          |             |               |
+| [6.21](../section_06/#6.21)   | (1/1): [TYPE:$\eta$](../../types/state/#pyjamaz.models.state.Entropy)                                                                                                                                                                                                                                                                                                                       |             |               |
+| [6.22](../section_06/#6.22)   | (1/1): [STF:$\eta'_0$](../../stfs/eta/#pyjamaz.state.components.Entropy.state_transition)                                                                                                                                                                                                                                                                                                   |             |               |
+| [6.23](../section_06/#6.23)   | (3/3): [STF:$\eta'_1$](../../stfs/eta/#pyjamaz.state.components.Entropy.state_transition), [STF:$\eta'_2$](../../stfs/eta/#pyjamaz.state.components.Entropy.state_transition), [STF:$\eta'_3$](../../stfs/eta/#pyjamaz.state.components.Entropy.state_transition)                                                                                                                           |             |               |
+| [6.24](../section_06/#6.24)   | (1/1): [STF:$\gamma'_\mathbf{s}$](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition)                                                                                                                                                                                                                                                                                      |             |               |
+| [6.25](../section_06/#6.25)   | (1/1): UTIL:$Z$                                                                                                                                                                                                                                                                                                                                                                             |             |               |
+| [6.26](../section_06/#6.26)   | (1/1): UTIL:$F$                                                                                                                                                                                                                                                                                                                                                                             |             |               |
+| [6.27](../section_06/#6.27)   | (1/1): [SET:$\mathbf{H}_e$](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition)                                                                                                                                                                                                                                                                                            |             |               |
+| [6.28](../section_06/#6.28)   | (1/1): [SET:$\mathbf{H}_w$](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition)                                                                                                                                                                                                                                                                                            |             |               |
+| [6.29](../section_06/#6.29)   |                                                                                                                                                                                                                                                                                                                                                                                             |             |               |
+| [6.30](../section_06/#6.30)   |                                                                                                                                                                                                                                                                                                                                                                                             |             |               |
+| [6.31](../section_06/#6.31)   |                                                                                                                                                                                                                                                                                                                                                                                             |             |               |
+| [6.32](../section_06/#6.32)   |                                                                                                                                                                                                                                                                                                                                                                                             |             |               |
+| [6.33](../section_06/#6.33)   |                                                                                                                                                                                                                                                                                                                                                                                             |             |               |
+| [6.34](../section_06/#6.34)   |                                                                                                                                                                                                                                                                                                                                                                                             |             |               |
+| [6.35](../section_06/#6.35)   |                                                                                                                                                                                                                                                                                                                                                                                             |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [7.1](../section_07/#7.1)     |                                                                              |             |               |
-| [7.2](../section_07/#7.2)     |                                                                              |             |               |
-| [7.3](../section_07/#7.3)     |                                                                              |             |               |
-| [7.4](../section_07/#7.4)     |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [7.1](../section_07/#7.1)     |                |             |               |
+| [7.2](../section_07/#7.2)     |                |             |               |
+| [7.3](../section_07/#7.3)     |                |             |               |
+| [7.4](../section_07/#7.4)     |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [8.1](../section_08/#8.1)     |                                                                              |             |               |
-| [8.2](../section_08/#8.2)     |                                                                              |             |               |
-| [8.3](../section_08/#8.3)     |                                                                              |             |               |
-| [9.1](../section_09/#9.1)     |                                                                              |             |               |
-| [9.2](../section_09/#9.2)     |                                                                              |             |               |
-| [9.3](../section_09/#9.3)     |                                                                              |             |               |
-| [9.4](../section_09/#9.4)     |                                                                              |             |               |
-| [9.5](../section_09/#9.5)     |                                                                              |             |               |
-| [9.6](../section_09/#9.6)     |                                                                              |             |               |
-| [9.7](../section_09/#9.7)     |                                                                              |             |               |
-| [9.8](../section_09/#9.8)     |                                                                              |             |               |
-| [9.9](../section_09/#9.9)     |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [8.1](../section_08/#8.1)     |                |             |               |
+| [8.2](../section_08/#8.2)     |                |             |               |
+| [8.3](../section_08/#8.3)     |                |             |               |
+| [9.1](../section_09/#9.1)     |                |             |               |
+| [9.2](../section_09/#9.2)     |                |             |               |
+| [9.3](../section_09/#9.3)     |                |             |               |
+| [9.4](../section_09/#9.4)     |                |             |               |
+| [9.5](../section_09/#9.5)     |                |             |               |
+| [9.6](../section_09/#9.6)     |                |             |               |
+| [9.7](../section_09/#9.7)     |                |             |               |
+| [9.8](../section_09/#9.8)     |                |             |               |
+| [9.9](../section_09/#9.9)     |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [10.1](../section_10/#10.1)   |                                                                              |             |               |
-| [10.2](../section_10/#10.2)   |                                                                              |             |               |
-| [10.3](../section_10/#10.3)   |                                                                              |             |               |
-| [10.4](../section_10/#10.4)   |                                                                              |             |               |
-| [10.5](../section_10/#10.5)   |                                                                              |             |               |
-| [10.6](../section_10/#10.6)   |                                                                              |             |               |
-| [10.7](../section_10/#10.7)   |                                                                              |             |               |
-| [10.8](../section_10/#10.8)   |                                                                              |             |               |
-| [10.9](../section_10/#10.9)   |                                                                              |             |               |
-| [10.10](../section_10/#10.10) |                                                                              |             |               |
-| [10.11](../section_10/#10.11) |                                                                              |             |               |
-| [10.12](../section_10/#10.12) |                                                                              |             |               |
-| [10.13](../section_10/#10.13) |                                                                              |             |               |
-| [10.14](../section_10/#10.14) |                                                                              |             |               |
-| [10.15](../section_10/#10.15) |                                                                              |             |               |
-| [10.16](../section_10/#10.16) |                                                                              |             |               |
-| [10.17](../section_10/#10.17) |                                                                              |             |               |
-| [10.18](../section_10/#10.18) |                                                                              |             |               |
-| [10.19](../section_10/#10.19) |                                                                              |             |               |
-| [10.20](../section_10/#10.20) |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [10.1](../section_10/#10.1)   |                |             |               |
+| [10.2](../section_10/#10.2)   |                |             |               |
+| [10.3](../section_10/#10.3)   |                |             |               |
+| [10.4](../section_10/#10.4)   |                |             |               |
+| [10.5](../section_10/#10.5)   |                |             |               |
+| [10.6](../section_10/#10.6)   |                |             |               |
+| [10.7](../section_10/#10.7)   |                |             |               |
+| [10.8](../section_10/#10.8)   |                |             |               |
+| [10.9](../section_10/#10.9)   |                |             |               |
+| [10.10](../section_10/#10.10) |                |             |               |
+| [10.11](../section_10/#10.11) |                |             |               |
+| [10.12](../section_10/#10.12) |                |             |               |
+| [10.13](../section_10/#10.13) |                |             |               |
+| [10.14](../section_10/#10.14) |                |             |               |
+| [10.15](../section_10/#10.15) |                |             |               |
+| [10.16](../section_10/#10.16) |                |             |               |
+| [10.17](../section_10/#10.17) |                |             |               |
+| [10.18](../section_10/#10.18) |                |             |               |
+| [10.19](../section_10/#10.19) |                |             |               |
+| [10.20](../section_10/#10.20) |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [11.1](../section_11/#11.1)   |                                                                              |             |               |
-| [11.2](../section_11/#11.2)   |                                                                              |             |               |
-| [11.3](../section_11/#11.3)   |                                                                              |             |               |
-| [11.4](../section_11/#11.4)   |                                                                              |             |               |
-| [11.5](../section_11/#11.5)   |                                                                              |             |               |
-| [11.6](../section_11/#11.6)   |                                                                              |             |               |
-| [11.7](../section_11/#11.7)   |                                                                              |             |               |
-| [11.8](../section_11/#11.8)   |                                                                              |             |               |
-| [11.9](../section_11/#11.9)   |                                                                              |             |               |
-| [11.10](../section_11/#11.10) |                                                                              |             |               |
-| [11.11](../section_11/#11.11) |                                                                              |             |               |
-| [11.12](../section_11/#11.12) |                                                                              |             |               |
-| [11.13](../section_11/#11.13) |                                                                              |             |               |
-| [11.14](../section_11/#11.14) |                                                                              |             |               |
-| [11.15](../section_11/#11.15) |                                                                              |             |               |
-| [11.16](../section_11/#11.16) |                                                                              |             |               |
-| [11.17](../section_11/#11.17) |                                                                              |             |               |
-| [11.18](../section_11/#11.18) |                                                                              |             |               |
-| [11.19](../section_11/#11.19) |                                                                              |             |               |
-| [11.20](../section_11/#11.20) |                                                                              |             |               |
-| [11.21](../section_11/#11.21) |                                                                              |             |               |
-| [11.22](../section_11/#11.22) |                                                                              |             |               |
-| [11.23](../section_11/#11.23) |                                                                              |             |               |
-| [11.24](../section_11/#11.24) |                                                                              |             |               |
-| [11.25](../section_11/#11.25) |                                                                              |             |               |
-| [11.26](../section_11/#11.26) |                                                                              |             |               |
-| [11.27](../section_11/#11.27) |                                                                              |             |               |
-| [11.28](../section_11/#11.28) |                                                                              |             |               |
-| [11.29](../section_11/#11.29) |                                                                              |             |               |
-| [11.30](../section_11/#11.30) |                                                                              |             |               |
-| [11.31](../section_11/#11.31) |                                                                              |             |               |
-| [11.32](../section_11/#11.32) |                                                                              |             |               |
-| [11.33](../section_11/#11.33) |                                                                              |             |               |
-| [11.34](../section_11/#11.34) |                                                                              |             |               |
-| [11.35](../section_11/#11.35) |                                                                              |             |               |
-| [11.36](../section_11/#11.36) |                                                                              |             |               |
-| [11.37](../section_11/#11.37) |                                                                              |             |               |
-| [11.38](../section_11/#11.38) |                                                                              |             |               |
-| [11.39](../section_11/#11.39) |                                                                              |             |               |
-| [11.40](../section_11/#11.40) |                                                                              |             |               |
-| [11.41](../section_11/#11.41) |                                                                              |             |               |
-| [11.42](../section_11/#11.42) |                                                                              |             |               |
-| [11.43](../section_11/#11.43) |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [11.1](../section_11/#11.1)   |                |             |               |
+| [11.2](../section_11/#11.2)   |                |             |               |
+| [11.3](../section_11/#11.3)   |                |             |               |
+| [11.4](../section_11/#11.4)   |                |             |               |
+| [11.5](../section_11/#11.5)   |                |             |               |
+| [11.6](../section_11/#11.6)   |                |             |               |
+| [11.7](../section_11/#11.7)   |                |             |               |
+| [11.8](../section_11/#11.8)   |                |             |               |
+| [11.9](../section_11/#11.9)   |                |             |               |
+| [11.10](../section_11/#11.10) |                |             |               |
+| [11.11](../section_11/#11.11) |                |             |               |
+| [11.12](../section_11/#11.12) |                |             |               |
+| [11.13](../section_11/#11.13) |                |             |               |
+| [11.14](../section_11/#11.14) |                |             |               |
+| [11.15](../section_11/#11.15) |                |             |               |
+| [11.16](../section_11/#11.16) |                |             |               |
+| [11.17](../section_11/#11.17) |                |             |               |
+| [11.18](../section_11/#11.18) |                |             |               |
+| [11.19](../section_11/#11.19) |                |             |               |
+| [11.20](../section_11/#11.20) |                |             |               |
+| [11.21](../section_11/#11.21) |                |             |               |
+| [11.22](../section_11/#11.22) |                |             |               |
+| [11.23](../section_11/#11.23) |                |             |               |
+| [11.24](../section_11/#11.24) |                |             |               |
+| [11.25](../section_11/#11.25) |                |             |               |
+| [11.26](../section_11/#11.26) |                |             |               |
+| [11.27](../section_11/#11.27) |                |             |               |
+| [11.28](../section_11/#11.28) |                |             |               |
+| [11.29](../section_11/#11.29) |                |             |               |
+| [11.30](../section_11/#11.30) |                |             |               |
+| [11.31](../section_11/#11.31) |                |             |               |
+| [11.32](../section_11/#11.32) |                |             |               |
+| [11.33](../section_11/#11.33) |                |             |               |
+| [11.34](../section_11/#11.34) |                |             |               |
+| [11.35](../section_11/#11.35) |                |             |               |
+| [11.36](../section_11/#11.36) |                |             |               |
+| [11.37](../section_11/#11.37) |                |             |               |
+| [11.38](../section_11/#11.38) |                |             |               |
+| [11.39](../section_11/#11.39) |                |             |               |
+| [11.40](../section_11/#11.40) |                |             |               |
+| [11.41](../section_11/#11.41) |                |             |               |
+| [11.42](../section_11/#11.42) |                |             |               |
+| [11.43](../section_11/#11.43) |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [12.1](../section_12/#12.1)   |                                                                              |             |               |
-| [12.2](../section_12/#12.2)   |                                                                              |             |               |
-| [12.3](../section_12/#12.3)   |                                                                              |             |               |
-| [12.4](../section_12/#12.4)   |                                                                              |             |               |
-| [12.5](../section_12/#12.5)   |                                                                              |             |               |
-| [12.6](../section_12/#12.6)   |                                                                              |             |               |
-| [12.7](../section_12/#12.7)   |                                                                              |             |               |
-| [12.8](../section_12/#12.8)   |                                                                              |             |               |
-| [12.9](../section_12/#12.9)   |                                                                              |             |               |
-| [12.10](../section_12/#12.10) |                                                                              |             |               |
-| [12.11](../section_12/#12.11) |                                                                              |             |               |
-| [12.12](../section_12/#12.12) |                                                                              |             |               |
-| [12.13](../section_12/#12.13) |                                                                              |             |               |
-| [12.14](../section_12/#12.14) |                                                                              |             |               |
-| [12.15](../section_12/#12.15) |                                                                              |             |               |
-| [12.16](../section_12/#12.16) |                                                                              |             |               |
-| [12.17](../section_12/#12.17) |                                                                              |             |               |
-| [12.18](../section_12/#12.18) |                                                                              |             |               |
-| [12.19](../section_12/#12.19) |                                                                              |             |               |
-| [12.20](../section_12/#12.20) |                                                                              |             |               |
-| [12.21](../section_12/#12.21) |                                                                              |             |               |
-| [12.22](../section_12/#12.22) |                                                                              |             |               |
-| [12.23](../section_12/#12.23) |                                                                              |             |               |
-| [12.24](../section_12/#12.24) |                                                                              |             |               |
-| [12.25](../section_12/#12.25) |                                                                              |             |               |
-| [12.26](../section_12/#12.26) |                                                                              |             |               |
-| [12.27](../section_12/#12.27) |                                                                              |             |               |
-| [12.28](../section_12/#12.28) |                                                                              |             |               |
-| [12.29](../section_12/#12.29) |                                                                              |             |               |
-| [12.30](../section_12/#12.30) |                                                                              |             |               |
-| [12.31](../section_12/#12.31) |                                                                              |             |               |
-| [12.32](../section_12/#12.32) |                                                                              |             |               |
-| [12.33](../section_12/#12.33) |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [12.1](../section_12/#12.1)   |                |             |               |
+| [12.2](../section_12/#12.2)   |                |             |               |
+| [12.3](../section_12/#12.3)   |                |             |               |
+| [12.4](../section_12/#12.4)   |                |             |               |
+| [12.5](../section_12/#12.5)   |                |             |               |
+| [12.6](../section_12/#12.6)   |                |             |               |
+| [12.7](../section_12/#12.7)   |                |             |               |
+| [12.8](../section_12/#12.8)   |                |             |               |
+| [12.9](../section_12/#12.9)   |                |             |               |
+| [12.10](../section_12/#12.10) |                |             |               |
+| [12.11](../section_12/#12.11) |                |             |               |
+| [12.12](../section_12/#12.12) |                |             |               |
+| [12.13](../section_12/#12.13) |                |             |               |
+| [12.14](../section_12/#12.14) |                |             |               |
+| [12.15](../section_12/#12.15) |                |             |               |
+| [12.16](../section_12/#12.16) |                |             |               |
+| [12.17](../section_12/#12.17) |                |             |               |
+| [12.18](../section_12/#12.18) |                |             |               |
+| [12.19](../section_12/#12.19) |                |             |               |
+| [12.20](../section_12/#12.20) |                |             |               |
+| [12.21](../section_12/#12.21) |                |             |               |
+| [12.22](../section_12/#12.22) |                |             |               |
+| [12.23](../section_12/#12.23) |                |             |               |
+| [12.24](../section_12/#12.24) |                |             |               |
+| [12.25](../section_12/#12.25) |                |             |               |
+| [12.26](../section_12/#12.26) |                |             |               |
+| [12.27](../section_12/#12.27) |                |             |               |
+| [12.28](../section_12/#12.28) |                |             |               |
+| [12.29](../section_12/#12.29) |                |             |               |
+| [12.30](../section_12/#12.30) |                |             |               |
+| [12.31](../section_12/#12.31) |                |             |               |
+| [12.32](../section_12/#12.32) |                |             |               |
+| [12.33](../section_12/#12.33) |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [13.1](../section_13/#13.1)   |                                                                              |             |               |
-| [13.2](../section_13/#13.2)   |                                                                              |             |               |
-| [13.3](../section_13/#13.3)   |                                                                              |             |               |
-| [13.4](../section_13/#13.4)   |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [13.1](../section_13/#13.1)   |                |             |               |
+| [13.2](../section_13/#13.2)   |                |             |               |
+| [13.3](../section_13/#13.3)   |                |             |               |
+| [13.4](../section_13/#13.4)   |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [14.1](../section_14/#14.1)   |                                                                              |             |               |
-| [14.2](../section_14/#14.2)   |                                                                              |             |               |
-| [14.3](../section_14/#14.3)   |                                                                              |             |               |
-| [14.4](../section_14/#14.4)   |                                                                              |             |               |
-| [14.5](../section_14/#14.5)   |                                                                              |             |               |
-| [14.6](../section_14/#14.6)   |                                                                              |             |               |
-| [14.7](../section_14/#14.7)   |                                                                              |             |               |
-| [14.8](../section_14/#14.8)   |                                                                              |             |               |
-| [14.9](../section_14/#14.9)   |                                                                              |             |               |
-| [14.10](../section_14/#14.10) |                                                                              |             |               |
-| [14.11](../section_14/#14.11) |                                                                              |             |               |
-| [14.12](../section_14/#14.12) |                                                                              |             |               |
-| [14.13](../section_14/#14.13) |                                                                              |             |               |
-| [14.14](../section_14/#14.14) |                                                                              |             |               |
-| [14.15](../section_14/#14.15) |                                                                              |             |               |
-| [14.16](../section_14/#14.16) |                                                                              |             |               |
-| [14.17](../section_14/#14.17) |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [14.1](../section_14/#14.1)   |                |             |               |
+| [14.2](../section_14/#14.2)   |                |             |               |
+| [14.3](../section_14/#14.3)   |                |             |               |
+| [14.4](../section_14/#14.4)   |                |             |               |
+| [14.5](../section_14/#14.5)   |                |             |               |
+| [14.6](../section_14/#14.6)   |                |             |               |
+| [14.7](../section_14/#14.7)   |                |             |               |
+| [14.8](../section_14/#14.8)   |                |             |               |
+| [14.9](../section_14/#14.9)   |                |             |               |
+| [14.10](../section_14/#14.10) |                |             |               |
+| [14.11](../section_14/#14.11) |                |             |               |
+| [14.12](../section_14/#14.12) |                |             |               |
+| [14.13](../section_14/#14.13) |                |             |               |
+| [14.14](../section_14/#14.14) |                |             |               |
+| [14.15](../section_14/#14.15) |                |             |               |
+| [14.16](../section_14/#14.16) |                |             |               |
+| [14.17](../section_14/#14.17) |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [15.1](../section_15/#15.1)   |                                                                              |             |               |
-| [15.2](../section_15/#15.2)   |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [15.1](../section_15/#15.1)   |                |             |               |
+| [15.2](../section_15/#15.2)   |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [17.1](../section_17/#17.1)   |                                                                              |             |               |
-| [17.2](../section_17/#17.2)   |                                                                              |             |               |
-| [17.3](../section_17/#17.3)   |                                                                              |             |               |
-| [17.4](../section_17/#17.4)   |                                                                              |             |               |
-| [17.5](../section_17/#17.5)   |                                                                              |             |               |
-| [17.6](../section_17/#17.6)   |                                                                              |             |               |
-| [17.7](../section_17/#17.7)   |                                                                              |             |               |
-| [17.8](../section_17/#17.8)   |                                                                              |             |               |
-| [17.9](../section_17/#17.9)   |                                                                              |             |               |
-| [17.10](../section_17/#17.10) |                                                                              |             |               |
-| [17.11](../section_17/#17.11) |                                                                              |             |               |
-| [17.12](../section_17/#17.12) |                                                                              |             |               |
-| [17.13](../section_17/#17.13) |                                                                              |             |               |
-| [17.14](../section_17/#17.14) |                                                                              |             |               |
-| [17.15](../section_17/#17.15) |                                                                              |             |               |
-| [17.16](../section_17/#17.16) |                                                                              |             |               |
-| [17.17](../section_17/#17.17) |                                                                              |             |               |
-| [17.18](../section_17/#17.18) |                                                                              |             |               |
-| [17.19](../section_17/#17.19) |                                                                              |             |               |
-| [17.20](../section_17/#17.20) |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [17.1](../section_17/#17.1)   |                |             |               |
+| [17.2](../section_17/#17.2)   |                |             |               |
+| [17.3](../section_17/#17.3)   |                |             |               |
+| [17.4](../section_17/#17.4)   |                |             |               |
+| [17.5](../section_17/#17.5)   |                |             |               |
+| [17.6](../section_17/#17.6)   |                |             |               |
+| [17.7](../section_17/#17.7)   |                |             |               |
+| [17.8](../section_17/#17.8)   |                |             |               |
+| [17.9](../section_17/#17.9)   |                |             |               |
+| [17.10](../section_17/#17.10) |                |             |               |
+| [17.11](../section_17/#17.11) |                |             |               |
+| [17.12](../section_17/#17.12) |                |             |               |
+| [17.13](../section_17/#17.13) |                |             |               |
+| [17.14](../section_17/#17.14) |                |             |               |
+| [17.15](../section_17/#17.15) |                |             |               |
+| [17.16](../section_17/#17.16) |                |             |               |
+| [17.17](../section_17/#17.17) |                |             |               |
+| [17.18](../section_17/#17.18) |                |             |               |
+| [17.19](../section_17/#17.19) |                |             |               |
+| [17.20](../section_17/#17.20) |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [18.1](../section_18/#18.1)   |                                                                              |             |               |
-| [18.2](../section_18/#18.2)   |                                                                              |             |               |
-| [19.1](../section_19/#19.1)   |                                                                              |             |               |
-| [19.2](../section_19/#19.2)   |                                                                              |             |               |
-| [19.3](../section_19/#19.3)   |                                                                              |             |               |
-| [19.4](../section_19/#19.4)   |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [18.1](../section_18/#18.1)   |                |             |               |
+| [18.2](../section_18/#18.2)   |                |             |               |
+| [19.1](../section_19/#19.1)   |                |             |               |
+| [19.2](../section_19/#19.2)   |                |             |               |
+| [19.3](../section_19/#19.3)   |                |             |               |
+| [19.4](../section_19/#19.4)   |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [A.1](../appendix_a/#A.1)     |                                                                              |             |               |
-| [A.2](../appendix_a/#A.2)     |                                                                              |             |               |
-| [A.3](../appendix_a/#A.3)     |                                                                              |             |               |
-| [A.4](../appendix_a/#A.4)     |                                                                              |             |               |
-| [A.5](../appendix_a/#A.5)     |                                                                              |             |               |
-| [A.6](../appendix_a/#A.6)     |                                                                              |             |               |
-| [A.7](../appendix_a/#A.7)     |                                                                              |             |               |
-| [A.8](../appendix_a/#A.8)     |                                                                              |             |               |
-| [A.9](../appendix_a/#A.9)     |                                                                              |             |               |
-| [A.10](../appendix_a/#A.10)   |                                                                              |             |               |
-| [A.11](../appendix_a/#A.11)   |                                                                              |             |               |
-| [A.12](../appendix_a/#A.12)   |                                                                              |             |               |
-| [A.13](../appendix_a/#A.13)   |                                                                              |             |               |
-| [A.14](../appendix_a/#A.14)   |                                                                              |             |               |
-| [A.15](../appendix_a/#A.15)   |                                                                              |             |               |
-| [A.16](../appendix_a/#A.16)   |                                                                              |             |               |
-| [A.17](../appendix_a/#A.17)   |                                                                              |             |               |
-| [A.18](../appendix_a/#A.18)   |                                                                              |             |               |
-| [A.19](../appendix_a/#A.19)   |                                                                              |             |               |
-| [A.20](../appendix_a/#A.20)   |                                                                              |             |               |
-| [A.21](../appendix_a/#A.21)   |                                                                              |             |               |
-| [A.22](../appendix_a/#A.22)   |                                                                              |             |               |
-| [A.23](../appendix_a/#A.23)   |                                                                              |             |               |
-| [A.24](../appendix_a/#A.24)   |                                                                              |             |               |
-| [A.25](../appendix_a/#A.25)   |                                                                              |             |               |
-| [A.26](../appendix_a/#A.26)   |                                                                              |             |               |
-| [A.27](../appendix_a/#A.27)   |                                                                              |             |               |
-| [A.28](../appendix_a/#A.28)   |                                                                              |             |               |
-| [A.29](../appendix_a/#A.29)   |                                                                              |             |               |
-| [A.30](../appendix_a/#A.30)   |                                                                              |             |               |
-| [A.31](../appendix_a/#A.31)   |                                                                              |             |               |
-| [A.32](../appendix_a/#A.32)   |                                                                              |             |               |
-| [A.33](../appendix_a/#A.33)   |                                                                              |             |               |
-| [A.34](../appendix_a/#A.34)   |                                                                              |             |               |
-| [A.35](../appendix_a/#A.35)   |                                                                              |             |               |
-| [A.36](../appendix_a/#A.36)   |                                                                              |             |               |
-| [A.37](../appendix_a/#A.37)   |                                                                              |             |               |
-| [A.38](../appendix_a/#A.38)   |                                                                              |             |               |
-| [A.39](../appendix_a/#A.39)   |                                                                              |             |               |
-| [A.40](../appendix_a/#A.40)   |                                                                              |             |               |
-| [A.41](../appendix_a/#A.41)   |                                                                              |             |               |
-| [A.42](../appendix_a/#A.42)   |                                                                              |             |               |
-| [A.43](../appendix_a/#A.43)   |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [A.1](../appendix_a/#A.1)     |                |             |               |
+| [A.2](../appendix_a/#A.2)     |                |             |               |
+| [A.3](../appendix_a/#A.3)     |                |             |               |
+| [A.4](../appendix_a/#A.4)     |                |             |               |
+| [A.5](../appendix_a/#A.5)     |                |             |               |
+| [A.6](../appendix_a/#A.6)     |                |             |               |
+| [A.7](../appendix_a/#A.7)     |                |             |               |
+| [A.8](../appendix_a/#A.8)     |                |             |               |
+| [A.9](../appendix_a/#A.9)     |                |             |               |
+| [A.10](../appendix_a/#A.10)   |                |             |               |
+| [A.11](../appendix_a/#A.11)   |                |             |               |
+| [A.12](../appendix_a/#A.12)   |                |             |               |
+| [A.13](../appendix_a/#A.13)   |                |             |               |
+| [A.14](../appendix_a/#A.14)   |                |             |               |
+| [A.15](../appendix_a/#A.15)   |                |             |               |
+| [A.16](../appendix_a/#A.16)   |                |             |               |
+| [A.17](../appendix_a/#A.17)   |                |             |               |
+| [A.18](../appendix_a/#A.18)   |                |             |               |
+| [A.19](../appendix_a/#A.19)   |                |             |               |
+| [A.20](../appendix_a/#A.20)   |                |             |               |
+| [A.21](../appendix_a/#A.21)   |                |             |               |
+| [A.22](../appendix_a/#A.22)   |                |             |               |
+| [A.23](../appendix_a/#A.23)   |                |             |               |
+| [A.24](../appendix_a/#A.24)   |                |             |               |
+| [A.25](../appendix_a/#A.25)   |                |             |               |
+| [A.26](../appendix_a/#A.26)   |                |             |               |
+| [A.27](../appendix_a/#A.27)   |                |             |               |
+| [A.28](../appendix_a/#A.28)   |                |             |               |
+| [A.29](../appendix_a/#A.29)   |                |             |               |
+| [A.30](../appendix_a/#A.30)   |                |             |               |
+| [A.31](../appendix_a/#A.31)   |                |             |               |
+| [A.32](../appendix_a/#A.32)   |                |             |               |
+| [A.33](../appendix_a/#A.33)   |                |             |               |
+| [A.34](../appendix_a/#A.34)   |                |             |               |
+| [A.35](../appendix_a/#A.35)   |                |             |               |
+| [A.36](../appendix_a/#A.36)   |                |             |               |
+| [A.37](../appendix_a/#A.37)   |                |             |               |
+| [A.38](../appendix_a/#A.38)   |                |             |               |
+| [A.39](../appendix_a/#A.39)   |                |             |               |
+| [A.40](../appendix_a/#A.40)   |                |             |               |
+| [A.41](../appendix_a/#A.41)   |                |             |               |
+| [A.42](../appendix_a/#A.42)   |                |             |               |
+| [A.43](../appendix_a/#A.43)   |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [B.1](../appendix_b/#B.1)     |                                                                              |             |               |
-| [B.2](../appendix_b/#B.2)     |                                                                              |             |               |
-| [B.3](../appendix_b/#B.3)     |                                                                              |             |               |
-| [B.4](../appendix_b/#B.4)     |                                                                              |             |               |
-| [B.5](../appendix_b/#B.5)     |                                                                              |             |               |
-| [B.6](../appendix_b/#B.6)     |                                                                              |             |               |
-| [B.7](../appendix_b/#B.7)     |                                                                              |             |               |
-| [B.8](../appendix_b/#B.8)     |                                                                              |             |               |
-| [B.9](../appendix_b/#B.9)     |                                                                              |             |               |
-| [B.10](../appendix_b/#B.10)   |                                                                              |             |               |
-| [B.11](../appendix_b/#B.11)   |                                                                              |             |               |
-| [B.12](../appendix_b/#B.12)   |                                                                              |             |               |
-| [B.13](../appendix_b/#B.13)   |                                                                              |             |               |
-| [B.14](../appendix_b/#B.14)   |                                                                              |             |               |
-| [B.15](../appendix_b/#B.15)   |                                                                              |             |               |
-| [B.16](../appendix_b/#B.16)   |                                                                              |             |               |
-| [B.17](../appendix_b/#B.17)   |                                                                              |             |               |
-| [B.18](../appendix_b/#B.18)   |                                                                              |             |               |
-| [B.19](../appendix_b/#B.19)   |                                                                              |             |               |
-| [B.20](../appendix_b/#B.20)   |                                                                              |             |               |
-| [B.21](../appendix_b/#B.21)   |                                                                              |             |               |
-| [B.22](../appendix_b/#B.22)   |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [B.1](../appendix_b/#B.1)     |                |             |               |
+| [B.2](../appendix_b/#B.2)     |                |             |               |
+| [B.3](../appendix_b/#B.3)     |                |             |               |
+| [B.4](../appendix_b/#B.4)     |                |             |               |
+| [B.5](../appendix_b/#B.5)     |                |             |               |
+| [B.6](../appendix_b/#B.6)     |                |             |               |
+| [B.7](../appendix_b/#B.7)     |                |             |               |
+| [B.8](../appendix_b/#B.8)     |                |             |               |
+| [B.9](../appendix_b/#B.9)     |                |             |               |
+| [B.10](../appendix_b/#B.10)   |                |             |               |
+| [B.11](../appendix_b/#B.11)   |                |             |               |
+| [B.12](../appendix_b/#B.12)   |                |             |               |
+| [B.13](../appendix_b/#B.13)   |                |             |               |
+| [B.14](../appendix_b/#B.14)   |                |             |               |
+| [B.15](../appendix_b/#B.15)   |                |             |               |
+| [B.16](../appendix_b/#B.16)   |                |             |               |
+| [B.17](../appendix_b/#B.17)   |                |             |               |
+| [B.18](../appendix_b/#B.18)   |                |             |               |
+| [B.19](../appendix_b/#B.19)   |                |             |               |
+| [B.20](../appendix_b/#B.20)   |                |             |               |
+| [B.21](../appendix_b/#B.21)   |                |             |               |
+| [B.22](../appendix_b/#B.22)   |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [C.1](../appendix_c/#C.1)     |                                                                              |             |               |
-| [C.2](../appendix_c/#C.2)     |                                                                              |             |               |
-| [C.3](../appendix_c/#C.3)     |                                                                              |             |               |
-| [C.4](../appendix_c/#C.4)     |                                                                              |             |               |
-| [C.5](../appendix_c/#C.5)     |                                                                              |             |               |
-| [C.6](../appendix_c/#C.6)     |                                                                              |             |               |
-| [C.7](../appendix_c/#C.7)     |                                                                              |             |               |
-| [C.8](../appendix_c/#C.8)     |                                                                              |             |               |
-| [C.9](../appendix_c/#C.9)     |                                                                              |             |               |
-| [C.10](../appendix_c/#C.10)   |                                                                              |             |               |
-| [C.11](../appendix_c/#C.11)   |                                                                              |             |               |
-| [C.12](../appendix_c/#C.12)   |                                                                              |             |               |
-| [C.13](../appendix_c/#C.13)   |                                                                              |             |               |
-| [C.14](../appendix_c/#C.14)   |                                                                              |             |               |
-| [C.15](../appendix_c/#C.15)   |                                                                              |             |               |
-| [C.16](../appendix_c/#C.16)   |                                                                              |             |               |
-| [C.17](../appendix_c/#C.17)   |                                                                              |             |               |
-| [C.18](../appendix_c/#C.18)   |                                                                              |             |               |
-| [C.19](../appendix_c/#C.19)   |                                                                              |             |               |
-| [C.20](../appendix_c/#C.20)   |                                                                              |             |               |
-| [C.21](../appendix_c/#C.21)   |                                                                              |             |               |
-| [C.22](../appendix_c/#C.22)   |                                                                              |             |               |
-| [C.23](../appendix_c/#C.23)   |                                                                              |             |               |
-| [C.24](../appendix_c/#C.24)   |                                                                              |             |               |
-| [C.25](../appendix_c/#C.25)   |                                                                              |             |               |
-| [C.26](../appendix_c/#C.26)   |                                                                              |             |               |
-| [C.27](../appendix_c/#C.27)   |                                                                              |             |               |
-| [C.28](../appendix_c/#C.28)   |                                                                              |             |               |
-| [C.29](../appendix_c/#C.29)   |                                                                              |             |               |
-| [C.30](../appendix_c/#C.30)   |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [C.1](../appendix_c/#C.1)     |                |             |               |
+| [C.2](../appendix_c/#C.2)     |                |             |               |
+| [C.3](../appendix_c/#C.3)     |                |             |               |
+| [C.4](../appendix_c/#C.4)     |                |             |               |
+| [C.5](../appendix_c/#C.5)     |                |             |               |
+| [C.6](../appendix_c/#C.6)     |                |             |               |
+| [C.7](../appendix_c/#C.7)     |                |             |               |
+| [C.8](../appendix_c/#C.8)     |                |             |               |
+| [C.9](../appendix_c/#C.9)     |                |             |               |
+| [C.10](../appendix_c/#C.10)   |                |             |               |
+| [C.11](../appendix_c/#C.11)   |                |             |               |
+| [C.12](../appendix_c/#C.12)   |                |             |               |
+| [C.13](../appendix_c/#C.13)   |                |             |               |
+| [C.14](../appendix_c/#C.14)   |                |             |               |
+| [C.15](../appendix_c/#C.15)   |                |             |               |
+| [C.16](../appendix_c/#C.16)   |                |             |               |
+| [C.17](../appendix_c/#C.17)   |                |             |               |
+| [C.18](../appendix_c/#C.18)   |                |             |               |
+| [C.19](../appendix_c/#C.19)   |                |             |               |
+| [C.20](../appendix_c/#C.20)   |                |             |               |
+| [C.21](../appendix_c/#C.21)   |                |             |               |
+| [C.22](../appendix_c/#C.22)   |                |             |               |
+| [C.23](../appendix_c/#C.23)   |                |             |               |
+| [C.24](../appendix_c/#C.24)   |                |             |               |
+| [C.25](../appendix_c/#C.25)   |                |             |               |
+| [C.26](../appendix_c/#C.26)   |                |             |               |
+| [C.27](../appendix_c/#C.27)   |                |             |               |
+| [C.28](../appendix_c/#C.28)   |                |             |               |
+| [C.29](../appendix_c/#C.29)   |                |             |               |
+| [C.30](../appendix_c/#C.30)   |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [D.1](../appendix_d/#D.1)     |                                                                              |             |               |
-| [D.2](../appendix_d/#D.2)     |                                                                              |             |               |
-| [D.3](../appendix_d/#D.3)     |                                                                              |             |               |
-| [D.4](../appendix_d/#D.4)     |                                                                              |             |               |
-| [D.5](../appendix_d/#D.5)     |                                                                              |             |               |
-| [D.6](../appendix_d/#D.6)     |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [D.1](../appendix_d/#D.1)     |                |             |               |
+| [D.2](../appendix_d/#D.2)     |                |             |               |
+| [D.3](../appendix_d/#D.3)     |                |             |               |
+| [D.4](../appendix_d/#D.4)     |                |             |               |
+| [D.5](../appendix_d/#D.5)     |                |             |               |
+| [D.6](../appendix_d/#D.6)     |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [E.1](../appendix_e/#E.1)     |                                                                              |             |               |
-| [E.2](../appendix_e/#E.2)     |                                                                              |             |               |
-| [E.3](../appendix_e/#E.3)     |                                                                              |             |               |
-| [E.4](../appendix_e/#E.4)     |                                                                              |             |               |
-| [E.5](../appendix_e/#E.5)     |                                                                              |             |               |
-| [E.6](../appendix_e/#E.6)     |                                                                              |             |               |
-| [E.7](../appendix_e/#E.7)     |                                                                              |             |               |
-| [E.8](../appendix_e/#E.8)     |                                                                              |             |               |
-| [E.9](../appendix_e/#E.9)     |                                                                              |             |               |
-| [E.10](../appendix_e/#E.10)   |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [E.1](../appendix_e/#E.1)     |                |             |               |
+| [E.2](../appendix_e/#E.2)     |                |             |               |
+| [E.3](../appendix_e/#E.3)     |                |             |               |
+| [E.4](../appendix_e/#E.4)     |                |             |               |
+| [E.5](../appendix_e/#E.5)     |                |             |               |
+| [E.6](../appendix_e/#E.6)     |                |             |               |
+| [E.7](../appendix_e/#E.7)     |                |             |               |
+| [E.8](../appendix_e/#E.8)     |                |             |               |
+| [E.9](../appendix_e/#E.9)     |                |             |               |
+| [E.10](../appendix_e/#E.10)   |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [F.1](../appendix_f/#F.1)     |                                                                              |             |               |
-| [F.2](../appendix_f/#F.2)     |                                                                              |             |               |
-| [F.3](../appendix_f/#F.3)     |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [F.1](../appendix_f/#F.1)     |                |             |               |
+| [F.2](../appendix_f/#F.2)     |                |             |               |
+| [F.3](../appendix_f/#F.3)     |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [G.1](../appendix_g/#G.1)     |                                                                              |             |               |
-| [G.2](../appendix_g/#G.2)     |                                                                              |             |               |
-| [G.3](../appendix_g/#G.3)     |                                                                              |             |               |
-| [G.4](../appendix_g/#G.4)     |                                                                              |             |               |
-| [G.5](../appendix_g/#G.5)     |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [G.1](../appendix_g/#G.1)     |                |             |               |
+| [G.2](../appendix_g/#G.2)     |                |             |               |
+| [G.3](../appendix_g/#G.3)     |                |             |               |
+| [G.4](../appendix_g/#G.4)     |                |             |               |
+| [G.5](../appendix_g/#G.5)     |                |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [H.1](../appendix_h/#H.1)     |                                                                              |             |               |
-| [H.2](../appendix_h/#H.2)     |                                                                              |             |               |
-| [H.3](../appendix_h/#H.3)     |                                                                              |             |               |
-| [H.4](../appendix_h/#H.4)     |                                                                              |             |               |
-| [H.5](../appendix_h/#H.5)     |                                                                              |             |               |
-| [H.6](../appendix_h/#H.6)     |                                                                              |             |               |
-| [H.7](../appendix_h/#H.7)     |                                                                              |             |               |
-| [H.8](../appendix_h/#H.8)     |                                                                              |             |               |
-| [H.9](../appendix_h/#H.9)     |                                                                              |             |               |
-| [H.10](../appendix_h/#H.10)   |                                                                              |             |               |
-| [H.11](../appendix_h/#H.11)   |                                                                              |             |               |
-| [H.12](../appendix_h/#H.12)   |                                                                              |             |               |
-| [H.13](../appendix_h/#H.13)   |                                                                              |             |               |
+| Equation                      | Implementation | Conformance | Documentation |
+|-------------------------------|----------------|-------------|---------------|
+| [H.1](../appendix_h/#H.1)     |                |             |               |
+| [H.2](../appendix_h/#H.2)     |                |             |               |
+| [H.3](../appendix_h/#H.3)     |                |             |               |
+| [H.4](../appendix_h/#H.4)     |                |             |               |
+| [H.5](../appendix_h/#H.5)     |                |             |               |
+| [H.6](../appendix_h/#H.6)     |                |             |               |
+| [H.7](../appendix_h/#H.7)     |                |             |               |
+| [H.8](../appendix_h/#H.8)     |                |             |               |
+| [H.9](../appendix_h/#H.9)     |                |             |               |
+| [H.10](../appendix_h/#H.10)   |                |             |               |
+| [H.11](../appendix_h/#H.11)   |                |             |               |
+| [H.12](../appendix_h/#H.12)   |                |             |               |
+| [H.13](../appendix_h/#H.13)   |                |             |               |
