@@ -278,7 +278,6 @@ class ServicesErrorCode(Serializable, enum.Enum):
 
 
 @dataclass
-# TODO: Possibly deprecated since GP-0.5.0
 class ServicesAfterPreimagesOutput(Serializable):
     """
     GP-0.5.0-eq:4.?? (δ') | Output of ServicesAfterPreimages STF.

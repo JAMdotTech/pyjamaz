@@ -4,7 +4,6 @@ from datetime import datetime
 import json
 import os
 import shutil
-import socket
 
 import anyio
 import ipaddress
@@ -236,24 +235,14 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                     pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
                     pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
                     tg.start_soon(nps_protocol.listen)
-                    #validator_metadata = [x.metadata for x in app.state.safrole.validators]
 
-                    #node_port_hex = validator_metadata[0].hex()
-                    #node_port = int.from_bytes(bytes.fromhex(node_port_hex[32:36]), 'little')
-
-                    #if node_port != port:
                     for validator in app.state.safrole.validators:
-                        # TODO: create proper encoder/decoder for this..
                         # The validators' IP-layer endpoints are given as IPv6/port combinations,
                         # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
                         # the latter 2 being a little endian representation of the port.
-                        bytes_data = validator.metadata
-                        validator_port = int.from_bytes(bytes_data[16:18], byteorder='little')
-                        if bytes_data[4:16] == bytes(12):
-                            validator_address = str(ipaddress.IPv4Address(bytes(bytes_data[:4])))
-                        else:
-                            #TODO: FIX: validator_address = socket.inet_ntop(socket.AF_INET6, ip_data)
-                            validator_address = socket.inet_ntop(socket.AF_INET6, bytes_data[:16]) #str(ipaddress.IPv6Address(bytes_data[:16]))
+
+                        validator_port = validator.get_metadata_port()
+                        validator_address = validator.get_metadata_ipaddress()
 
                         if validator.ed25519 == app.config.keys.ed25519.public_key:
                             logging.debug(
@@ -579,6 +568,12 @@ async def replay_traces(
 
             assert app.state_trie_root == trace.pre_state.state_root
             logging.info(f'🎬 Pre-state succesfully saved (state root: {format_hash(app.state_trie_root)})')
+
+            # Add stub parent as ancestor
+            stub_parent = Header.default()
+            stub_parent.hash = trace.block.header.parent
+            stub_parent.timeslot = trace.block.header.timeslot - 1
+            app.block_context.ancestor_headers.append(stub_parent)
 
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
         try:
