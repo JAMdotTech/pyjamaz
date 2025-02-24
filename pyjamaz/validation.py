@@ -81,8 +81,8 @@ class BlockValidation:
             )
 
             if author_key != sealer_key:
-                logging.error('Invalid author key')
-                #raise BlockValidationError("Invalid author key")
+                # logging.error('Invalid author key')
+                raise BlockValidationError("Invalid author key")
             try:
 
                 logging.debug(f"Validate Seal with entropy {entropy.hex()}")

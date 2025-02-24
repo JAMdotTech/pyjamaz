@@ -1,7 +1,7 @@
 import bisect
 import logging
 from copy import deepcopy, copy
-from typing import List, Union, Optional, Set, Dict
+from typing import List, Union, Optional, Set
 
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ietf_vrf_verify
 from ed25519_zebra import ed_verify
@@ -9,14 +9,14 @@ from jamcodec.types import Vec, U32
 
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
-from pyjamaz.accumulation import work_report_mapping, pvm_invoke_accumulate, PvmAccumulateOutput, \
-    full_sequential_accumulation, edit_queue, pvm_invoke_on_transfer, transfers_service_mapping
+from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue,
+                                  pvm_invoke_on_transfer, transfers_service_mapping)
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine, Transaction
-from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, AccumulationOperand
+from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
@@ -333,6 +333,8 @@ class Safrole(StateComponent):
                 # Don't accept tickets after TICKET_SUBMISSION_END_SLOT:
                 raise StateTransitionError(SafroleErrorCode.unexpected_ticket)
 
+        input_tickets = []
+
         if len(extrinsic_tickets) > 0:
 
             # Check for duplicate ticket_data; GP-0.5.0-eq:6.32
@@ -340,8 +342,6 @@ class Safrole(StateComponent):
                 raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
 
             ring_public_keys = [v.bandersnatch for v in self.post_state_safrole.validators]
-
-            input_tickets = []
 
             # Validate extrinsic
             for idx, ticket_data in enumerate(extrinsic_tickets):
@@ -359,11 +359,6 @@ class Safrole(StateComponent):
             if not self.tickets_in_order(input_tickets):
                 raise StateTransitionError(SafroleErrorCode.bad_ticket_order)
 
-            # Add tickets to ticket accumulator, sort and limit: GP-0.5.0-eq:6.34,6.35
-            self.post_state_safrole.ticket_accumulator += input_tickets
-            self.post_state_safrole.ticket_accumulator = sorted(
-                self.post_state_safrole.ticket_accumulator, key=lambda t: t.id
-            )[:gp_const.EPOCH_TIMESLOTS]
 
         # Create output markers if conditions are met
         epoch_mark = None
@@ -431,8 +426,16 @@ class Safrole(StateComponent):
                 self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators]
             )
 
-            # Clear ticket accumulator
-            self.post_state_safrole.ticket_accumulator = []
+        # Add tickets to ticket accumulator, sort and limit: GP-0.5.0-eq:6.34,6.35
+        if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
+            # Not checked by W3F test vectors
+            self.post_state_safrole.ticket_accumulator = input_tickets
+        else:
+            self.post_state_safrole.ticket_accumulator = input_tickets + pre_state_safrole.ticket_accumulator
+
+        self.post_state_safrole.ticket_accumulator = sorted(
+            self.post_state_safrole.ticket_accumulator, key=lambda t: t.id
+        )[:gp_const.EPOCH_TIMESLOTS]
 
         return SafroleOutput(
             post_state=self.post_state_safrole,
@@ -838,7 +841,9 @@ class Assurances(StateComponent):
         work_reports = [g.report for g in extrinsic_guarantees]
 
         # GP-0.5.3-eq:11.40 | Segment-root lookup
-        segment_root_lookup = {g.report.package_spec.hash: g.report.package_spec.exports_root for g in extrinsic_guarantees}
+        segment_root_lookup = {
+            g.report.package_spec.hash: g.report.package_spec.exports_root for g in extrinsic_guarantees
+        }
 
         # Extend segment-root lookup with recent history (GP-0.5.3-eq:11.41)
         for b in intermediate_state_recent_history.recent_history:
@@ -1001,8 +1006,7 @@ class Assurances(StateComponent):
                 > gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT):
             raise StateTransitionError(GuaranteeErrorCode.work_report_too_big)
 
-    @staticmethod
-    def check_gas_requirements(work_report: WorkReport, services_state: ServicesState):
+    def check_gas_requirements(self, work_report: WorkReport, services_state: ServicesState):
         """
         GP-0.5.3-eq:11.30 | Work report respects gas requirements
 
@@ -1018,7 +1022,9 @@ class Assurances(StateComponent):
         total_gas = 0
 
         for result in work_report.results:
-            if result.service_id not in services_state.services:
+            try:
+                services_state.retrieve_service_account(result.service_id)
+            except StateKeyNoResult:
                 raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
 
             service = services_state.services[result.service_id]
@@ -1028,7 +1034,7 @@ class Assurances(StateComponent):
 
             # GP-0.5.3-eq:11.30 | Work report respects gas requirements
 
-            if result.accumulate_gas < services_state.services[result.service_id].gas_limit_accumulate:
+            if result.accumulate_gas < service.gas_limit_accumulate:
                 raise StateTransitionError(GuaranteeErrorCode.service_item_gas_too_low)
 
             total_gas += result.accumulate_gas
@@ -1561,7 +1567,8 @@ class Statistics(StateComponent):
             post_state_timeslot: TimeslotState,
             post_state_validator_pool: ValidatorPoolState,
             pre_state_statistics: StatisticsState,
-            header: Header
+            header: Header,
+            reporters: List[bytes]
     ) -> StatisticsOutput:
         """
         GP-0.5.0-eq:13.3,13.4 (π') | State transition function for the state's statistics.
@@ -1586,6 +1593,8 @@ class Statistics(StateComponent):
             GP-0.5.0-eq:4.20 (π)
         header: Header
             GP-0.5.0-eq:4.20 (bold_H)
+        reporters: List[bytes]
+            GP-0.6.2-eq:??? TODO missing in dependency graph?
 
         Returns
         -------
@@ -1615,14 +1624,19 @@ class Statistics(StateComponent):
         for assurance in extrinsic_assurances:
             post_state.current[assurance.validator_index].assurances += 1
 
-        # TODO replace with bold_R (self.block_context.reporters)
-        for guarantee in extrinsic_guarantees:
-            for signature in guarantee.signatures:
-                post_state.current[signature.validator_index].guarantees += 1
+        for reporter in reporters:
+            post_state.current[self.retrieve_validator_index(reporter, post_state_validator_pool)].guarantees += 1
 
         return StatisticsOutput(
             post_state=post_state
         )
+    @staticmethod
+    def retrieve_validator_index(ed25519_key: bytes, post_validator_pool: ValidatorPoolState) -> int:
+        for validator_index, validator_data in enumerate(post_validator_pool.validators):
+            if validator_data.ed25519 == ed25519_key:
+                return validator_index
+        raise ValueError("Bandersnatch key not found in validator pool")
+
 
     def retrieve_state(self) -> StatisticsState:
         value = self.retrieve()
@@ -1652,7 +1666,10 @@ class Services(StateComponent):
         """
         if len(extrinsic_preimages) > 0:
             if not self.are_preimages_unique(extrinsic_preimages):
-                raise StateTransitionError(ServicesErrorCode.preimages_not_unique)
+                raise StateTransitionError(ServicesErrorCode.preimages_not_sorted_unique)
+
+            if not self.are_preimages_sorted(extrinsic_preimages):
+                raise StateTransitionError(ServicesErrorCode.preimages_not_sorted_unique)
 
             # GP-0.5.4-eq:12.31
             for preimage in extrinsic_preimages:
@@ -1662,7 +1679,7 @@ class Services(StateComponent):
     @staticmethod
     def are_preimages_unique(preimages: List[Preimage]) -> bool:
         """
-        GP-0.5.4-eq:12.29 | Are all preimages unique?
+        GP-0.6.2-eq:12.29 | Are all preimages unique?
 
         Parameters
         ----------
@@ -1673,6 +1690,26 @@ class Services(StateComponent):
         bool
         """
         return len(preimages) == len({(p.requester, p.blob) for p in preimages})
+
+    @staticmethod
+    def are_preimages_sorted(preimages: List[Preimage]) -> bool:
+        """
+        GP-0.6.2-eq:12.29 | Are all preimages sorted?
+
+        Parameters
+        ----------
+        preimages: List[Preimage]
+
+        Returns
+        -------
+        bool
+        """
+
+        sorted_preimage = lambda p: int(p.requester).to_bytes(2, byteorder="little") + p.blob
+
+        return all(
+            sorted_preimage(preimages[i]) <= sorted_preimage(preimages[i + 1]) for i in range(len(preimages) - 1)
+        )
 
     def state_transition_after_preimages(
             self,
@@ -1747,8 +1784,11 @@ class Services(StateComponent):
             Output containing: intermediate state of ServicesState (δ†) and BeefyCommitmentMap (C).
         """
 
+        services = ServicesState(services=deepcopy(pre_state_services.services))
+        services.set_storage_engine(self.storage_engine)
+
         accumulation_state = AccumulationStateComponents(
-            services=deepcopy(pre_state_services),
+            services=services,
             validator_queue=deepcopy(pre_state_validator_queue),
             authorizer_queues=deepcopy(pre_state_authorizer_queues),
             privileged_services=deepcopy(pre_state_privileged_services)
@@ -1805,7 +1845,10 @@ class Services(StateComponent):
             Output containing: intermediate state of ServicesState (δ‡)
         """
 
-        intermediate_state_after_transfers = deepcopy(intermediate_state_after_accumulation)
+        intermediate_state_after_transfers = ServicesState(
+            services=deepcopy(intermediate_state_after_accumulation.services)
+        )
+        intermediate_state_after_transfers.set_storage_engine(self.storage_engine)
 
         for service_id in intermediate_state_after_accumulation.services.keys():
             intermediate_state_after_transfers.services.update({
@@ -1837,13 +1880,13 @@ class Services(StateComponent):
         preimage_hash = blake2b_256_hash(preimage.blob)
 
         # Check if preimage isn't already available
-        if pre_state_services.preimage_exists(preimage.requester, preimage_hash, self.storage_engine):
+        if pre_state_services.preimage_exists(preimage.requester, preimage_hash):
             return False
 
         # Check if preimage is requested
         try:
             preimage_availability = pre_state_services.retrieve_preimage_availability(
-                preimage.requester, preimage_hash, len(preimage.blob), self.storage_engine
+                preimage.requester, preimage_hash, len(preimage.blob)
             )
             return preimage_availability == []
         except StateKeyNoResult:

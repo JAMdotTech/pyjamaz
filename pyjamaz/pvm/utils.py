@@ -8,10 +8,14 @@ from pyjamaz.pvm.exceptions import UIntValueError
 def rori64(x, shift_amount):
     return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
+def roli64(x, shift_amount):
+    return np.uint64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 def rori32(x, shift_amount):
     return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
+def roli32(x, shift_amount):
+    return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 def reverse_bytes(x):
     y = 0
@@ -30,20 +34,20 @@ def count_trailing_zeroes(value, max_bits=64):
     #https://stackoverflow.com/a/63552117
     #https://github.com/numpy/numpy/issues/16325
     #alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    return (value & -value).bit_length() - 1
+    if value == 0:
+        return max_bits
+    return int(value & -value).bit_length() - 1
 
 
 def count_leading_zeroes(value, max_bits=64):
     #https://stackoverflow.com/a/71888844
     #https://github.com/numpy/numpy/issues/16325
     #alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    top_bit = 1 << (max_bits - 1)
-    count = 0
-    value &= (1 << max_bits) - 1
-    while not value & top_bit:
-       count += 1
-       value <<= 1
-    return count
+    value &= (1 << max_bits) - 1  # truncate; treat negatives as 2's compliment
+    if value == 0:
+        return max_bits
+    significant_bits = len(bin(value)) - 2  # has "0b" prefix
+    return max_bits - significant_bits
 
 
 def pvm_smod(a: int, b: int) -> int:
@@ -73,6 +77,8 @@ def riscv_div(x: int, y: int) -> int:
         There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
         2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
         Instead of np.uint64(x_int + factor*term) directly:
+        18446744071562035200,00000381
+        18446744071562035200
     """
     x = int(x)
     y = int(y)
@@ -121,12 +127,12 @@ def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     assert 0 <= x < 2 ** (8 * n) <= 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
 
     sign_mask = (2 ** 64 - 2 ** (8 * n))
-    is_signed = x // (2 ** (8 * n - 1))
+    sign_bits = int(x // (2 ** (8 * n - 1)))
 
-    return x + is_signed * sign_mask
+    return x + sign_bits * sign_mask
 
 
-def pvm_Z(a:int, n:np.uint8) -> np.int32:
+def pvm_Z(a:int, n:np.uint8) -> np.int64:
     """
     Transform an unsigned number into a signed number using the MSB
 
@@ -148,7 +154,7 @@ def pvm_Z(a:int, n:np.uint8) -> np.int32:
         return a - max_value
 
 
-def pvm_Z_inv(a:int, n:np.uint8):
+def pvm_Z_inv(a:int, n:np.uint8) -> np.uint64:
     """
     Transform a signed number to an unsigned number
 
@@ -166,7 +172,9 @@ def pvm_Z_inv(a:int, n:np.uint8):
 
 
 def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
-    if l == 1:
+    if l == 0:
+        return 0
+    elif l == 1:
         return np.uint64(source[addr + 0]) % 2**8
     elif l == 2:
         byte0 = np.uint8(source[addr + 0])

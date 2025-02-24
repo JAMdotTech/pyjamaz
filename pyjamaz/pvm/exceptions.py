@@ -3,3 +3,6 @@ class UIntValueError(ValueError):
 
 class InvalidOpcode(ValueError):
     pass
+
+class MemoryError(ValueError):
+    pass

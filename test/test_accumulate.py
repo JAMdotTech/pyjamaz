@@ -90,11 +90,13 @@ class TestAccumulate(unittest.TestCase):
                 "footprint_storage_bytes": s["data"]["service"]["bytes"],
                 "threshold_balance": 0,
                 "storage_items": {},
-                "preimages": {},
+                "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
                 "preimage_availability": {}
 
             } for s in test_vector["pre_state"]["accounts"]}}
         )
+
+        pre_services.set_storage_engine(self.storage_engine)
 
         pre_privileged_services = PrivilegedServicesState(
             empower_service=test_vector["pre_state"]["privileges"]["bless"],
@@ -132,7 +134,7 @@ class TestAccumulate(unittest.TestCase):
                         "footprint_storage_bytes": s["data"]["service"]["bytes"],
                         "threshold_balance": 0,
                         "storage_items": {},
-                        "preimages": {},
+                        "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
                         "preimage_availability": {}
                     } for s in test_vector["post_state"]["accounts"]
                 }

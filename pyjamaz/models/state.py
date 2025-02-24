@@ -409,14 +409,27 @@ class ServicesState(State, Serializable):
         metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
     )
 
+    def set_storage_engine(self, storage_engine: StorageEngine):
+        setattr(self, '_storage_engine', storage_engine)
+
+    @property
+    def storage_engine(self) -> Optional[StorageEngine]:
+        return getattr(self, '_storage_engine', None)
+
     def retrieve_service_account(
             self,
-            service_account_id: int,
-            storage_engine: StorageEngine
-    ) -> Optional[ServiceAccount]:
+            service_account_id: int
+    ) -> ServiceAccount:
+
+        if service_account_id in self.services:
+            return self.services[service_account_id]
+
+        if self.storage_engine is None:
+            raise ValueError('storage engine must be set before retrieving preimage')
+
         storage_key = state_key_constructor_service_account(service_account_id)
 
-        data = storage_engine.get(storage_key)
+        data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
@@ -427,7 +440,7 @@ class ServicesState(State, Serializable):
 
         return service_account
 
-    def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes, storage_engine: StorageEngine) -> bytes:
+    def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes) -> bytes:
         """
         Host-function OMEGA_L (lookup)
 
@@ -443,11 +456,17 @@ class ServicesState(State, Serializable):
         """
 
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id, storage_engine)
+            self.retrieve_service_account(service_account_id)
+
+        if preimage_hash in self.services[service_account_id].preimages:
+            return self.services[service_account_id].preimages[preimage_hash]
+
+        if self.storage_engine is None:
+            raise ValueError('storage engine must be set before retrieving preimage')
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
 
-        data = storage_engine.get(storage_key)
+        data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(f'Preimage not found for hash {preimage_hash}')
@@ -456,23 +475,26 @@ class ServicesState(State, Serializable):
 
         return data
 
-    def preimage_exists(self, service_account_id: int, preimage_hash: bytes, storage_engine: StorageEngine) -> bool:
+    def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
         try:
-            self.retrieve_preimage(service_account_id, preimage_hash, storage_engine)
+            self.retrieve_preimage(service_account_id, preimage_hash)
             return True
         except StateKeyNoResult:
             return False
 
     def retrieve_preimage_availability(
-            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, storage_engine: StorageEngine
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int
     ) -> bytes:
 
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id, storage_engine)
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_engine is None:
+            raise ValueError('storage engine must be set before retrieving preimage availability')
 
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
-        data = storage_engine.get(storage_key)
+        data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(
@@ -487,7 +509,7 @@ class ServicesState(State, Serializable):
         return availability.value
 
     def retrieve_storage_item(
-            self, service_account_id: int, storage_item_hash: bytes, storage_engine: StorageEngine
+            self, service_account_id: int, storage_item_hash: bytes
     ) -> bytes:
         """
         Host-function: OMEGA_R (read)
@@ -503,10 +525,13 @@ class ServicesState(State, Serializable):
         bytes
         """
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id, storage_engine)
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_engine is None:
+            raise ValueError('storage engine must be set before retrieving storage items')
 
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
-        data = storage_engine.get(storage_key)
+        data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(
@@ -691,25 +716,26 @@ class AccumulationHistoryState(State, Serializable):
 @dataclass
 class BeefyCommitmentMap(Serializable):
     """
-    GP-0.3.8-eq:163 (bold_C) | Beefy Commitment Map Dictionary.
-    GP-0.6.0-eq:12.15 (B) | a service-indexed commitment to the accumulation output
+    GP-0.6.1-eq:12.15 (B) | a service-indexed commitment to the accumulation output
 
     Attributes
     ----------
     beefy_commitment_map: Dict(U32,H256)
-        GP-0.5.0-eq:12.21 (TODO: incorrect reference) (bold_C) | Beefy Commitment Map dictionary. Provides accumulation
+        GP-0.6.1-eq:12.15 (B) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
     beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
     def get_accumulate_root(self) -> bytes:
         """
-        GP-0.5.4-eq:7.3 (r)
+        GP-0.6.1-eq:7.3 (r) | The accumulation-result tree root of the beefy commitment map.
+
         Returns
         -------
         bytes
         """
-        data = [k.to_bytes(4, byteorder='little') + v for k, v in self.beefy_commitment_map.items()]
+        items = sorted(self.beefy_commitment_map.items(), key=lambda x: x[0])
+        data = [k.to_bytes(4, byteorder='little') + v for k, v in items]
         return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
 

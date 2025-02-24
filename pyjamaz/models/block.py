@@ -12,7 +12,7 @@ from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray, Tuple
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT, ROTATION_PERIOD_CORE
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody
+from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody, ValidatorData
 from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
@@ -387,14 +387,12 @@ class Header(Serializable):
         setattr(self, '_hash', value)
 
     def verify_ticket_seal(self, bandersnatch_key: bytes, ticket_body: TicketBody, entropy: bytes) -> bytes:
-        vrf_output = ietf_vrf_verify(
+        return ietf_vrf_verify(
             bytes(bandersnatch_key),
             vrf_input_ticket_seal(entropy, ticket_body.attempt),
             self.get_unsigned_payload(),
             bytes(self.seal)
         )
-
-        return ticket_body.id == vrf_output
 
     def verify_fallback_seal(self, sealer_key: bytes, entropy: bytes) -> bytes:
         return ietf_vrf_verify(
@@ -457,6 +455,36 @@ class Header(Serializable):
                 entropy_source=bytes(96),
                 seal=bytes(96)
             )
+
+    @classmethod
+    def genesis(cls, validators: List[ValidatorData]) -> 'Header':
+        """
+        Genesis header (Bold_H_0)
+
+        Parameters
+        ----------
+        validators: List[ValidatorData]
+
+        Returns
+        -------
+        Header
+        """
+        return Header(
+            parent=bytes(32),
+            parent_state_root=bytes(32),
+            extrinsic_hash=bytes(32),
+            timeslot=0,
+            epoch_marker=EpochMark(
+                entropy=bytes(32),
+                tickets_entropy=bytes(32),
+                validators=[v.bandersnatch for v in validators],
+            ),
+            tickets_marker=None,
+            offenders_marker=[],
+            author_index=65535,
+            entropy_source=bytes(96),
+            seal=bytes(96)
+        )
 
     @property
     def author_bandersnatch_key(self) -> Optional[bytes]:
@@ -556,6 +584,20 @@ class Extrinsic(Serializable):
 
         # GP-0.5.4-eq:5.5
         return blake2b_256_hash(extrinsic_hash)
+
+    @classmethod
+    def default(cls) -> "Extrinsic":
+        return cls(
+            tickets=[],
+            preimages=[],
+            guarantees=[],
+            assurances=[],
+            disputes=ExtrinsicDisputes(
+                verdicts=[],
+                culprits=[],
+                faults=[]
+            )
+        )
 
 
 @dataclass
@@ -705,7 +747,7 @@ class BlockContext:
     # TODO GP ref?
     seal_vrf_output: bytes = bytes(32)
     # A
-    ancestor_headers: Optional[List[Header]] = None
+    ancestor_headers: List[Header] = field(default_factory=list)
 
     # W
     available_work_reports: Optional[List[WorkReport]] = None
@@ -715,7 +757,7 @@ class BlockContext:
     queued_work_reports: Optional[List[AccumulationQueueWorkPackage]] = None
     # W*
     accumulatable_work_reports: Optional[List[WorkReport]] = None
-    # R
+    # R (Reporters set, containing Ed25519 key of validator)
     reporters: Optional[List[bytes]] = None
 
     # M_o
