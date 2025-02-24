@@ -51,87 +51,87 @@ This section has been updated to match Graypaper version 0.6.2.
 | [3.10](../section_03/#3.10)   |                                                                              |             |               |
 | [3.11](../section_03/#3.11)   |                                                                              |             |               |
 
-| Equation                      | Implementation                                                                                                                                                          | Conformance | Documentation |
-|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|---------------|
-| [4.1](../section_04/#4.1)     | (0/1):                                                                                                                                                                  |             |               |
-| [4.2](../section_04/#4.2)     | (1/1): [models.block.Block](../../types/types_blocks/#pyjamaz.models.block.Block)                                                                                       |             |               |
-| [4.3](../section_04/#4.3)     | (1/1): [models.block.Extrinsic](../../types/types_blocks/#pyjamaz.models.block.Extrinsic)                                                                               |             |               |
-| [4.4](../section_04/#4.4)     | (1/1): [models.state.JamState](../../types/types_blocks/#pyjamaz.models.state.JamState)                                                                                 |             |               |
-| [4.5](../section_04/#4.5)     | (1/1): [state.components.Timeslot.state_transition](../../types/types_blocks/#pyjamaz.state.components.Timeslot.state_transition)                                       |             |               |
-| [4.6](../section_04/#4.6)     | (1/1): [state.components.RecentHistory.state_transition_intermediate](../../types/types_blocks/#pyjamaz.state.components.RecentHistory.state_transition_intermediate)   |             |               |
-| [4.7](../section_04/#4.7)     | (1/1): [state.components.RecentHistory.state_transition](../../types/types_blocks/#pyjamaz.state.components.RecentHistory.state_transition)                             |             |               |
-| [4.8](../section_04/#4.8)     | (1/1): [state.components.Safrole.state_transition](../../types/types_blocks/#pyjamaz.state.components.Safrole.state_transition)                                         |             |               |
-| [4.9](../section_04/#4.9)     | (1/1): [state.components.Entropy.state_transition](../../types/types_blocks/#pyjamaz.state.components.Entropy.state_transition)                                         |             |               |
-| [4.10](../section_04/#4.10)   | (1/1): [state.components.ValidatorPool.state_transition](../../types/types_blocks/#pyjamaz.state.components.ValidatorPool.state_transition)                             |             |               |
-| [4.11](../section_04/#4.11)   | (1/1): [state.components.ValidatorArchive.state_transition](../../types/types_blocks/#pyjamaz.state.components.ValidatorArchive.state_transition)                       |             |               |
-| [4.12](../section_04/#4.12)   | (1/1): [state.components.Disputes.state_transition](../../types/types_blocks/#pyjamaz.state.components.Disputes.state_transition)                                       |             |               |
-| [4.13](../section_04/#4.13)   | (1/1): [state.components.Assurances.state_transition_after_disputes](../../types/types_blocks/#pyjamaz.state.components.Assurances.state_transition_after_disputes)     |             |               |
-| [4.14](../section_04/#4.14)   | (1/1): [state.components.Assurances.state_transition_after_assurances](../../types/types_blocks/#pyjamaz.state.components.Assurances.state_transition_after_assurances) |             |               |
-| [4.15](../section_04/#4.15)   | (1/1): [state.components.Assurances.state_transition_after_guarantees](../../types/types_blocks/#pyjamaz.state.components.Assurances.state_transition_after_guarantees) |             |               |
-| [4.16](../section_04/#4.16)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.17](../section_04/#4.17)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.18](../section_04/#4.18)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.19](../section_04/#4.19)   | (1/1): [state.components.AuthorizerPools.state_transition](../../types/types_blocks/#pyjamaz.state.components.AuthorizerPools.state_transition)                         |             |               |
-| [4.20](../section_04/#4.20)   | (1/1): [state.components.Statistics.state_transition](../../types/types_blocks/#pyjamaz.state.components.Statistics.state_transition)                                   |             |               |
-| [4.21](../section_04/#4.21)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.22](../section_04/#4.22)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.23](../section_04/#4.23)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.24](../section_04/#4.24)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.25](../section_04/#4.25)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.26](../section_04/#4.26)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.27](../section_04/#4.27)   | (0/1):                                                                                                                                                                  |             |               |
-| [4.28](../section_04/#4.28)   | (0/1):                                                                                                                                                                  |             |               |
+| Equation                      | Implementation                                                                                         | Conformance | Documentation |
+|-------------------------------|--------------------------------------------------------------------------------------------------------|-------------|---------------|
+| [4.1](../section_04/#4.1)     | (0/1):                                                                                                 |             |               |
+| [4.2](../section_04/#4.2)     | (1/1): [M](../../types/types_blocks/#pyjamaz.models.block.Block)                                       |             |               |
+| [4.3](../section_04/#4.3)     | (1/1): [M](../../types/types_blocks/#pyjamaz.models.block.Extrinsic)                                   |             |               |
+| [4.4](../section_04/#4.4)     | (1/1): [M](../../types/types_blocks/#pyjamaz.models.state.JamState)                                    |             |               |
+| [4.5](../section_04/#4.5)     | (1/1): [STF:τ'](../../stfs/tau/#pyjamaz.state.components.Timeslot.state_transition)                    |             |               |
+| [4.6](../section_04/#4.6)     | (1/1): [STF:β†](../../stfs/beta/#pyjamaz.state.components.RecentHistory.state_transition_intermediate) |             |               |
+| [4.7](../section_04/#4.7)     | (1/1): [STF:β'](../../stfs/beta/#pyjamaz.state.components.RecentHistory.state_transition)              |             |               |
+| [4.8](../section_04/#4.8)     | (1/1): [STF:γ'](../../stfs/gamma/#pyjamaz.state.components.Safrole.state_transition)                   |             |               |
+| [4.9](../section_04/#4.9)     | (1/1): [STF:η'](../../stfs/eta/#pyjamaz.state.components.Entropy.state_transition)                     |             |               |
+| [4.10](../section_04/#4.10)   | (1/1): [STF:κ'](../../stfs/kappa/#pyjamaz.state.components.ValidatorPool.state_transition)             |             |               |
+| [4.11](../section_04/#4.11)   | (1/1): [STF:λ'](../../stfs/lambda/#pyjamaz.state.components.ValidatorArchive.state_transition)         |             |               |
+| [4.12](../section_04/#4.12)   | (1/1): [STF:ψ'](../../stfs/psi/#pyjamaz.state.components.Disputes.state_transition)                    |             |               |
+| [4.13](../section_04/#4.13)   | (1/1): [STF:ρ†](../../stfs/rho/#pyjamaz.state.components.Assurances.state_transition_after_disputes)   |             |               |
+| [4.14](../section_04/#4.14)   | (1/1): [STF:ρ‡](../../stfs/rho/#pyjamaz.state.components.Assurances.state_transition_after_assurances) |             |               |
+| [4.15](../section_04/#4.15)   | (1/1): [STF:ρ'](../../stfs/rho/#pyjamaz.state.components.Assurances.state_transition_after_guarantees) |             |               |
+| [4.16](../section_04/#4.16)   | (0/1):                                                                                                 |             |               |
+| [4.17](../section_04/#4.17)   | (0/1):                                                                                                 |             |               |
+| [4.18](../section_04/#4.18)   | (0/1):                                                                                                 |             |               |
+| [4.19](../section_04/#4.19)   | (1/1): [STF:α'](../../stfs/alpha/#pyjamaz.state.components.AuthorizerPools.state_transition)           |             |               |
+| [4.20](../section_04/#4.20)   | (1/1): [STF:π'](../../stfs/pi/#pyjamaz.state.components.Statistics.state_transition)                   |             |               |
+| [4.21](../section_04/#4.21)   | (0/1):                                                                                                 |             |               |
+| [4.22](../section_04/#4.22)   | (0/1):                                                                                                 |             |               |
+| [4.23](../section_04/#4.23)   | (0/1):                                                                                                 |             |               |
+| [4.24](../section_04/#4.24)   | (0/1):                                                                                                 |             |               |
+| [4.25](../section_04/#4.25)   | (0/1):                                                                                                 |             |               |
+| [4.26](../section_04/#4.26)   | (0/1):                                                                                                 |             |               |
+| [4.27](../section_04/#4.27)   | (0/1):                                                                                                 |             |               |
+| [4.28](../section_04/#4.28)   | (0/1):                                                                                                 |             |               |
 
-| Equation                      | Implementation                                                                                | Conformance | Documentation |
-|-------------------------------|-----------------------------------------------------------------------------------------------|-------------|---------------|
-| [5.1](../section_05/#5.1)     | (1/1): [models.block.Header](../../types/types_blocks/#pyjamaz.models.block.Header)           |             |               |
-| [5.2](../section_05/#5.2)     | (1/1): [models.block.Header.hash](../../types/types_blocks/#pyjamaz.models.block.Header.hash) |             |               |
-| [5.3](../section_05/#5.3)     |                                                                                               |             |               |
-| [5.4](../section_05/#5.4)     |                                                                                               |             |               |
-| [5.5](../section_05/#5.5)     |                                                                                               |             |               |
-| [5.6](../section_05/#5.6)     |                                                                                               |             |               |
-| [5.7](../section_05/#5.7)     |                                                                                               |             |               |
-| [5.8](../section_05/#5.8)     |                                                                                               |             |               |
-| [5.9](../section_05/#5.9)     |                                                                                               |             |               |
-| [5.10](../section_05/#5.10)   |                                                                                               |             |               |
+| Equation                      | Implementation                                                         | Conformance | Documentation |
+|-------------------------------|------------------------------------------------------------------------|-------------|---------------|
+| [5.1](../section_05/#5.1)     | (1/1): [M:H](../../types/types_blocks/#pyjamaz.models.block.Header)    |             |               |
+| [5.2](../section_05/#5.2)     | (1/1): [M](../../types/types_blocks/#pyjamaz.models.block.Header.hash) |             |               |
+| [5.3](../section_05/#5.3)     |                                                                        |             |               |
+| [5.4](../section_05/#5.4)     |                                                                        |             |               |
+| [5.5](../section_05/#5.5)     |                                                                        |             |               |
+| [5.6](../section_05/#5.6)     |                                                                        |             |               |
+| [5.7](../section_05/#5.7)     |                                                                        |             |               |
+| [5.8](../section_05/#5.8)     |                                                                        |             |               |
+| [5.9](../section_05/#5.9)     |                                                                        |             |               |
+| [5.10](../section_05/#5.10)   |                                                                        |             |               |
 
-| Equation                      | Implementation                                                               | Conformance | Documentation |
-|-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
-| [6.1](../section_06/#6.1)     |                                                                              |             |               |
-| [6.2](../section_06/#6.2)     |                                                                              |             |               |
-| [6.3](../section_06/#6.3)     |                                                                              |             |               |
-| [6.4](../section_06/#6.4)     |                                                                              |             |               |
-| [6.5](../section_06/#6.5)     |                                                                              |             |               |
-| [6.6](../section_06/#6.6)     |                                                                              |             |               |
-| [6.7](../section_06/#6.7)     |                                                                              |             |               |
-| [6.8](../section_06/#6.8)     |                                                                              |             |               |
-| [6.9](../section_06/#6.9)     |                                                                              |             |               |
-| [6.10](../section_06/#6.10)   |                                                                              |             |               |
-| [6.11](../section_06/#6.11)   |                                                                              |             |               |
-| [6.12](../section_06/#6.12)   |                                                                              |             |               |
-| [6.13](../section_06/#6.13)   |                                                                              |             |               |
-| [6.14](../section_06/#6.14)   |                                                                              |             |               |
-| [6.15](../section_06/#6.15)   |                                                                              |             |               |
-| [6.16](../section_06/#6.16)   |                                                                              |             |               |
-| [6.17](../section_06/#6.17)   |                                                                              |             |               |
-| [6.18](../section_06/#6.18)   |                                                                              |             |               |
-| [6.19](../section_06/#6.19)   |                                                                              |             |               |
-| [6.20](../section_06/#6.20)   |                                                                              |             |               |
-| [6.21](../section_06/#6.21)   |                                                                              |             |               |
-| [6.22](../section_06/#6.22)   |                                                                              |             |               |
-| [6.23](../section_06/#6.23)   |                                                                              |             |               |
-| [6.24](../section_06/#6.24)   |                                                                              |             |               |
-| [6.25](../section_06/#6.25)   |                                                                              |             |               |
-| [6.26](../section_06/#6.26)   |                                                                              |             |               |
-| [6.27](../section_06/#6.27)   |                                                                              |             |               |
-| [6.28](../section_06/#6.28)   |                                                                              |             |               |
-| [6.29](../section_06/#6.29)   |                                                                              |             |               |
-| [6.30](../section_06/#6.30)   |                                                                              |             |               |
-| [6.31](../section_06/#6.31)   |                                                                              |             |               |
-| [6.32](../section_06/#6.32)   |                                                                              |             |               |
-| [6.33](../section_06/#6.33)   |                                                                              |             |               |
-| [6.34](../section_06/#6.34)   |                                                                              |             |               |
-| [6.35](../section_06/#6.35)   |                                                                              |             |               |
+| Equation                      | Implementation                                                                                                                                                              | Conformance | Documentation |
+|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|---------------|
+| [6.1](../section_06/#6.1)     | (2/2): [M](../../types/types_state/#pyjamaz.models.state.TimeslotState), [STF:τ'](../../stfs/tau/#pyjamaz.state.components.Timeslot.state_transition)                       |             |               |
+| [6.2](../section_06/#6.2)     | (2/2): [M:e](../../types/types_state/#pyjamaz.models.state.TimeslotState.epoch_number), [M:m](../../types/types_state/#pyjamaz.models.state.TimeslotState.slot_phase_index) |             |               |
+| [6.3](../section_06/#6.3)     |                                                                                                                                                                             |             |               |
+| [6.4](../section_06/#6.4)     |                                                                                                                                                                             |             |               |
+| [6.5](../section_06/#6.5)     |                                                                                                                                                                             |             |               |
+| [6.6](../section_06/#6.6)     |                                                                                                                                                                             |             |               |
+| [6.7](../section_06/#6.7)     |                                                                                                                                                                             |             |               |
+| [6.8](../section_06/#6.8)     |                                                                                                                                                                             |             |               |
+| [6.9](../section_06/#6.9)     |                                                                                                                                                                             |             |               |
+| [6.10](../section_06/#6.10)   |                                                                                                                                                                             |             |               |
+| [6.11](../section_06/#6.11)   |                                                                                                                                                                             |             |               |
+| [6.12](../section_06/#6.12)   |                                                                                                                                                                             |             |               |
+| [6.13](../section_06/#6.13)   |                                                                                                                                                                             |             |               |
+| [6.14](../section_06/#6.14)   |                                                                                                                                                                             |             |               |
+| [6.15](../section_06/#6.15)   |                                                                                                                                                                             |             |               |
+| [6.16](../section_06/#6.16)   |                                                                                                                                                                             |             |               |
+| [6.17](../section_06/#6.17)   |                                                                                                                                                                             |             |               |
+| [6.18](../section_06/#6.18)   |                                                                                                                                                                             |             |               |
+| [6.19](../section_06/#6.19)   |                                                                                                                                                                             |             |               |
+| [6.20](../section_06/#6.20)   |                                                                                                                                                                             |             |               |
+| [6.21](../section_06/#6.21)   |                                                                                                                                                                             |             |               |
+| [6.22](../section_06/#6.22)   |                                                                                                                                                                             |             |               |
+| [6.23](../section_06/#6.23)   |                                                                                                                                                                             |             |               |
+| [6.24](../section_06/#6.24)   |                                                                                                                                                                             |             |               |
+| [6.25](../section_06/#6.25)   |                                                                                                                                                                             |             |               |
+| [6.26](../section_06/#6.26)   |                                                                                                                                                                             |             |               |
+| [6.27](../section_06/#6.27)   |                                                                                                                                                                             |             |               |
+| [6.28](../section_06/#6.28)   |                                                                                                                                                                             |             |               |
+| [6.29](../section_06/#6.29)   |                                                                                                                                                                             |             |               |
+| [6.30](../section_06/#6.30)   |                                                                                                                                                                             |             |               |
+| [6.31](../section_06/#6.31)   |                                                                                                                                                                             |             |               |
+| [6.32](../section_06/#6.32)   |                                                                                                                                                                             |             |               |
+| [6.33](../section_06/#6.33)   |                                                                                                                                                                             |             |               |
+| [6.34](../section_06/#6.34)   |                                                                                                                                                                             |             |               |
+| [6.35](../section_06/#6.35)   |                                                                                                                                                                             |             |               |
 
 | Equation                      | Implementation                                                               | Conformance | Documentation |
 |-------------------------------|------------------------------------------------------------------------------|-------------|---------------|
