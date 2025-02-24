@@ -1990,7 +1990,18 @@ class Services(StateComponent):
         -------
 
         """
-        return
+        # Store all service accounts in current memory
+        for service_id, service_account in state.services.items():
+            self.store_service_account(service_id, service_account)
+            for preimage_hash, preimage_blob in service_account.preimages.items():
+                self.store_service_preimage(Preimage(requester=service_id, blob=preimage_blob))
+            for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
+                self.store_service_preimage_availability(
+                    service_account_id=service_id,
+                    preimage_hash=preimage_hash,
+                    preimage_length=preimage_length,
+                    value=availability
+                )
 
 
 class AccumulationQueue(StateComponent):

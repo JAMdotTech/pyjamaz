@@ -2,7 +2,7 @@ import json
 import unittest
 from os import path
 
-from jamcodec.types import Vec
+from jamcodec.types import Vec, BitArray
 
 from pyjamaz.models.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, Guarantee, Preimage, TicketEnvelope, Block, WorkItem, WorkPackage
 from pyjamaz.models.common import WorkResult, RefinementContext, WorkReport

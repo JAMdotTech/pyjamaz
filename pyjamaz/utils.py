@@ -64,24 +64,29 @@ def fisher_yates_shuffle(data: List[int], sequence: List[int]) -> List[int]:
 
     Parameters
     ----------
-    data
-    sequence
+    data: List[int]
+    sequence: List[int]
 
     Returns
     -------
-
+    List[int]
     """
     if len(data) == 0:
         return []
 
+    data = data.copy()
     length = len(data)
-    index = sequence[0] % length
-    head = data[index]
+    shuffled_data = []
 
-    data_post = data.copy()
-    data_post[index] = data[length-1]
+    for item in sequence:
+        if length == 0:
+            break
+        index = item % length
+        shuffled_data.append(data[index])
+        data[index] = data[length - 1]
+        length -= 1
 
-    return [head] + fisher_yates_shuffle(data_post[:-1], sequence[1:])
+    return shuffled_data
 
 
 def guarantor_rotation(core_indices: List[int], rotation_offset: int) -> List[int]:
