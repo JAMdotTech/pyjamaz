@@ -13,6 +13,7 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
     MINIMUM_BALANCE_OCTET
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
+from pyjamaz.pvm.invocation import InvocationContext
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
@@ -935,3 +936,45 @@ class AccumulationStateComponents(Serializable):
     validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
+
+    def to_invocation_context(self, service_account_id: int, entropy: bytes, timeslot: int) -> 'JamInvocationContext':
+        """
+        B.9 (I)
+
+        entropy: eta_0
+        timeslot: int post_state
+
+        """
+        # TODO implement check function B.13
+
+
+        return JamInvocationContext(
+            service_account_id=service_account_id,
+            state_context=self,
+            new_service_account_id=0,
+            deferred_transfers=[],
+            invocation_output=None
+        )
+
+# TODO move back to pvm_interface.models
+
+@dataclass
+class PvmAccumulateOutput:
+    state_context: AccumulationStateComponents
+    deferred_transfers: List[DeferredTransfer]
+    accumulation_output: Optional[bytes]
+    gas_used: int
+
+
+@dataclass
+class JamInvocationContext(InvocationContext):
+    """
+    GP-0.6.2-eq:B.6 (blackboard_X) | Invocation Result Context
+
+    TODO check service_account_id in state_context.services
+    """
+    service_account_id: int # s
+    state_context: AccumulationStateComponents # u
+    new_service_account_id: int #i
+    deferred_transfers: List[DeferredTransfer] # t
+    invocation_output: Optional[bytes] # y

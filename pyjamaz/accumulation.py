@@ -2,9 +2,8 @@ from dataclasses import dataclass
 from typing import List, Set, Dict
 from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
-    BeefyCommitmentMap, TimeslotState, ServiceAccount
+    BeefyCommitmentMap, TimeslotState, ServiceAccount, PvmAccumulateOutput, EntropyState
 from pyjamaz.pvm_interface.invocation import pvm_invoke_accumulate
-from pyjamaz.pvm_interface.models import PvmAccumulateOutput
 
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
@@ -154,7 +153,8 @@ def full_sequential_accumulation(
         work_reports: List[WorkReport],
         accumulation_state: AccumulationStateComponents,
         auto_accumulate_services: Dict[int, int],
-        post_state_timeslot: TimeslotState
+        post_state_timeslot: TimeslotState,
+        post_state_entropy: EntropyState
 ) -> FullAccumulationOutput:
     """
     GP-0.6.1-eq:12.16 ∆+ | full sequential accumulation function
@@ -194,7 +194,8 @@ def full_sequential_accumulation(
         accumulation_state=accumulation_state,
         work_reports=work_reports[:i],
         auto_accumulate_services=auto_accumulate_services,
-        post_state_timeslot=post_state_timeslot
+        post_state_timeslot=post_state_timeslot,
+        post_state_entropy=post_state_entropy
     )
 
     second_output = full_sequential_accumulation(
@@ -202,7 +203,8 @@ def full_sequential_accumulation(
         work_reports=work_reports[i:],
         accumulation_state=output.accumulation_state,
         auto_accumulate_services={},
-        post_state_timeslot=post_state_timeslot
+        post_state_timeslot=post_state_timeslot,
+        post_state_entropy=post_state_entropy
     )
 
     output.accumulation_commitment.beefy_commitment_map.update(
@@ -221,7 +223,8 @@ def parallel_accumulation(
         accumulation_state: AccumulationStateComponents,
         work_reports: List[WorkReport],
         auto_accumulate_services: Dict[int, int],
-        post_state_timeslot: TimeslotState
+        post_state_timeslot: TimeslotState,
+        post_state_entropy: EntropyState
 ) -> ParallelAccumulationOutput:
     """
     GP-0.6.1-eq:12.17 ∆* | parallel accumulation function
@@ -272,6 +275,7 @@ def parallel_accumulation(
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,
+            post_state_entropy=post_state_entropy,
             work_reports=work_reports,
             auto_accumulate_services=auto_accumulate_services,
             service_id=service_id
@@ -290,6 +294,7 @@ def parallel_accumulation(
     output = single_step_accumulation(
         accumulation_state=accumulation_state,
         post_state_timeslot=post_state_timeslot,
+        post_state_entropy=post_state_entropy,
         work_reports=work_reports,
         auto_accumulate_services=auto_accumulate_services,
         service_id=accumulation_state.privileged_services.empower_service
@@ -300,6 +305,7 @@ def parallel_accumulation(
     output = single_step_accumulation(
         accumulation_state=accumulation_state,
         post_state_timeslot=post_state_timeslot,
+        post_state_entropy=post_state_entropy,
         work_reports=work_reports,
         auto_accumulate_services=auto_accumulate_services,
         service_id=accumulation_state.privileged_services.empower_service
@@ -310,6 +316,7 @@ def parallel_accumulation(
     output = single_step_accumulation(
         accumulation_state=accumulation_state,
         post_state_timeslot=post_state_timeslot,
+        post_state_entropy=post_state_entropy,
         work_reports=work_reports,
         auto_accumulate_services=auto_accumulate_services,
         service_id=accumulation_state.privileged_services.empower_service
@@ -327,6 +334,7 @@ def parallel_accumulation(
 def single_step_accumulation(
         accumulation_state: AccumulationStateComponents,
         post_state_timeslot: TimeslotState,
+        post_state_entropy: EntropyState,
         work_reports: List[WorkReport],
         auto_accumulate_services: Dict[int, int],
         service_id: int
@@ -367,5 +375,6 @@ def single_step_accumulation(
         timeslot=post_state_timeslot.number,
         service_id=service_id,
         gas_limit=g,
-        operands=p
+        operands=p,
+        post_entropy=post_state_entropy
     )

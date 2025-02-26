@@ -205,7 +205,7 @@ class PVMProgram(Serializable):
                     registers=cls.init_registers(arguments),
                     memory=cls.init_memory(pvm_rom, pvm_ram, arguments, stack_mem_pages, stack_mem_size),
                 )
-        except RemainingScaleBytesNotEmptyException as e:
+        except RemainingScaleBytesNotEmptyException as e: # TODO deserialize exception
             pass
 
         return None

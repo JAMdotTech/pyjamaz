@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
@@ -6,6 +7,7 @@ PVM_PAGE_SIZE = 2**12 #ZP
 PVM_INIT_ZONE_SIZE = 2**16 #ZZ
 PVM_INPUT_DATA_SIZE = 2**24 #ZI
 
+
 class ExitCondition(Enum):
     none:int            = 0
     panic:int           = 1
@@ -13,6 +15,31 @@ class ExitCondition(Enum):
     out_of_gas:int      = 3
     page_fault:int      = 4
     host_halt:int       = 5
+
+    @property
+    def halt_output(self) -> bytes:
+        return getattr(self, "_halt_output")
+
+    @halt_output.setter
+    def halt_output(self, output: bytes):
+        setattr(self, "_halt_output", output)
+
+    @property
+    def host_halt_instruction(self) -> int:
+        return getattr(self, "_host_halt_instruction")
+
+    @host_halt_instruction.setter
+    def host_halt_instruction(self, instruction: int):
+        setattr(self, "_host_halt_instruction", instruction)
+
+    @property
+    def page_fault_address(self) -> int:
+        return getattr(self, "_page_fault_address")
+
+    @page_fault_address.setter
+    def page_fault_address(self, address: int):
+        setattr(self, "_page_fault_address", address)
+
 
 
 class InstructionType(Enum):

@@ -484,6 +484,7 @@ class PyjamazApp:
             pre_state_validator_queue=pre_state_validator_queue,
             pre_state_authorizer_queues=pre_state_authorizer_queues,
             post_state_timeslot=timeslot_output.post_state,
+            post_state_entropy=entropy_output.post_state
         )
 
         services_after_transfers_output = self.components.services.state_transition_transfers(

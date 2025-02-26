@@ -1761,6 +1761,7 @@ class Services(StateComponent):
             pre_state_validator_queue: ValidatorQueueState,
             pre_state_authorizer_queues: AuthorizerQueuesState,
             post_state_timeslot: TimeslotState,
+            post_state_entropy: EntropyState,
     ) -> ServicesAfterAccumulationOutput:
         """
         GP-0.6.0-eq:12.21,12.22 (δ†) | State transition function for the state's services.
@@ -1807,7 +1808,8 @@ class Services(StateComponent):
             work_reports=accumulatable_work_reports,
             accumulation_state=accumulation_state,
             auto_accumulate_services=pre_state_privileged_services.auto_accumulate_services,
-            post_state_timeslot=post_state_timeslot
+            post_state_timeslot=post_state_timeslot,
+            post_state_entropy=post_state_entropy
         )
 
         # GP-0.6.0-eq:12.22

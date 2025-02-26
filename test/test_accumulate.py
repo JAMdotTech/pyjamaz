@@ -164,6 +164,7 @@ class TestAccumulate(unittest.TestCase):
             pre_state_services=pre_services,
             pre_state_authorizer_queues=AuthorizerQueuesState(authorizer_queues=[]),
             pre_state_validator_queue=ValidatorQueueState(validators=[]),
+            post_state_entropy=post_entropy,
         )
 
         transfer_output = services.state_transition_transfers(
