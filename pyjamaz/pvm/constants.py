@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 import numpy as np
 
@@ -16,30 +17,12 @@ class ExitCondition(Enum):
     page_fault:int      = 4 #GP-A.2: F: page-fault
     host_halt:int       = 5 #GP-A.2: h: host-call
 
-    @property
-    def halt_output(self) -> bytes:
-        return getattr(self, "_halt_output")
 
-    @halt_output.setter
-    def halt_output(self, output: bytes):
-        setattr(self, "_halt_output", output)
+class ExitReason:
 
-    @property
-    def host_halt_instruction(self) -> int:
-        return getattr(self, "_host_halt_instruction")
-
-    @host_halt_instruction.setter
-    def host_halt_instruction(self, instruction: int):
-        setattr(self, "_host_halt_instruction", instruction)
-
-    @property
-    def page_fault_address(self) -> int:
-        return getattr(self, "_page_fault_address")
-
-    @page_fault_address.setter
-    def page_fault_address(self, address: int):
-        setattr(self, "_page_fault_address", address)
-
+    def __init__(self, code:ExitCondition, value:Any):
+        self.reason:int = code.value
+        self.value:Any = value
 
 
 class InstructionType(Enum):

@@ -13,7 +13,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger
 
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
-from pyjamaz.pvm.exceptions import UIntValueError
+from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 
 
 @dataclass
@@ -71,15 +71,13 @@ class MemoryPage:
     address: int
     length: int
     writable: bool
-    readable: bool
     contents: npt.NDArray[np.uint8]
 
     def __init__(self, address, length, writable, contents):
-        self.address = address
-        self.length = length
-        self.writable = writable
-        self.readable = True #TODO!!!!!!!!!!!!!!!!!!!!!!!!
-        self.contents = np.zeros(self.length, dtype=np.uint8)
+        self.address:int = address
+        self.length:int = length
+        self.writable:bool = writable
+        self.contents: npt.NDArray[np.uint8] = np.zeros(self.length, dtype=np.uint8)
         if contents:
             self.update(0, contents)
 
@@ -179,23 +177,30 @@ class MemoryPage:
 @dataclass
 class PVMMemory:
     pages: List[MemoryPage]
-
+    page_offsets: List[int]
+    _mem_addr: int
+    _page: int
+    _page_addr: int
 
     def __init__(self, mem_pages: List[MemoryPage]):
-        self.pages = mem_pages
+        self.pages: List[MemoryPage] = mem_pages
         self.page_offsets = [p.address for p in self.pages]
+        self._mem_addr = None
         self._page = None
         self._page_addr = None
 
-
     def find_page(self, addr):
         if not self.page_offsets:
-            raise MemoryError("Memory not initialized")
+            raise PVMMemoryError("Memory not initialized")
+
+        #GP-0.6.2-eq:A.7
+        if addr < 2**16:
+            raise PanicError("Invalid memory access")
 
         # Find rightmost index where addr would be inserted and then check if it falls in the page
         index = bisect.bisect_right(self.page_offsets, addr) - 1
         if index < 0:
-            raise MemoryError("Memory not initialized")
+            raise PVMMemoryError("Memory not initialized")
 
         page = self.pages[index]
         if page.contains(addr):
@@ -203,8 +208,10 @@ class PVMMemory:
         else:
             return None
 
+    def write(self, addr: int, value: int, length: int):
+        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
+        self._mem_addr = addr
 
-    def write(self, addr, value, length):
         # TODO: can span multiple pages?
         if not (self._page and self._page.address <= addr < self._page.address + self._page.length):
             page = self.find_page(addr)
@@ -212,23 +219,25 @@ class PVMMemory:
             page = self._page
 
         if not page:
-            raise MemoryError("Page not found")
+            raise PVMMemoryError("Page not found")
 
         if not page.writable:
-            raise MemoryError(f"Page {addr} is not writable")
+            raise PVMMemoryError(f"Page {addr} is not writable")
 
         page_addr = addr - page.address
         self._page = page
         self._page_addr = page_addr
 
         if page_addr + length > page.length:
-            raise MemoryError(f"Page {page_addr} overflow: {length} ({page.length})")
+            raise PVMMemoryError(f"Page {page_addr} overflow: {length} ({page.length})")
 
         # Set the mem page according to the found page for this range
         page.write(page_addr, value, length)
 
+    def read(self, addr: int, length: int):
+        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
+        self._mem_addr = addr
 
-    def read(self, addr, length):
         #TODO: can span multiple pages?
         if not (self._page and self._page.address <= addr < self._page.address + self._page.length):
             page = self.find_page(addr)
@@ -236,17 +245,17 @@ class PVMMemory:
             page = self._page
 
         if not page:
-            raise MemoryError("Page not found")
+            raise PVMMemoryError("Page not found")
 
-        if not page.readable:
-            raise MemoryError(f"Page {addr} is not writable")
+        # if not page.readable:
+        #     raise PVMMemoryError(f"Page {addr} is not writable")
 
         page_addr = addr - page.address
         self._page = page
         self._page_addr = page_addr
 
         if page_addr + length > page.length:
-            raise MemoryError(f"Page {page_addr} overflow: {length} ({page.length})")
+            raise PVMMemoryError(f"Page {page_addr} overflow: {length} ({page.length})")
 
         # Set the mem page according to the found page for this range
         return page.read(page_addr, length)

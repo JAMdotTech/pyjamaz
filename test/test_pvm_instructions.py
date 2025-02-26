@@ -68,7 +68,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
                     mem[offset + idx] = np.uint8(byt)
 
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
-        pvm = PVMInterpreter(pvm_program, log_ctx=log_ctx) # Note: uncomment to enable debug logging
+        pvm = PVMInterpreter(pvm_program)#, log_ctx=log_ctx) # Note: uncomment to enable debug logging
         pvm.invoke(
             test_vector["initial-pc"],
             test_vector["initial-gas"]

@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 from typing import List, Dict
 
-from .exceptions import InvalidOpcode
+from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
 from .types import PVMProgram, PVMMemory
 
 from .utils import (
@@ -53,7 +53,8 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
 
         self.mem:PVMMemory = None
-        self.status = ExitCondition.none.value
+        self.status:int = ExitCondition.none.value
+        self.exit_value:int = None
 
         self.reset(program)
 
@@ -113,7 +114,8 @@ class PVMInterpreter:
         if C:
             inst_pos = self.pc + b
             if inst_pos not in self.inst_pos:
-                self.status = ExitCondition.panic.value
+                #self.status = ExitCondition.panic.value
+                raise PanicError(f"Invalid branch instruction: C={C} b={b} inst_pos={inst_pos}")
             else:
                 self.skip_len = inst_pos  - self.pc
 
@@ -146,11 +148,6 @@ class PVMInterpreter:
             raise Exception(f"Not a valid memory write operation: {opcode}")
 
         bytes_to_write = MemOps[opcode]["bytes"]
-        # try:
-        #     self.mem.write(addr, value, bytes_to_write)
-        # except MemoryError:
-        #     self.status = ExitCondition.page_fault.value
-        #     self.gas -= 1
         self.mem.write(addr, value, bytes_to_write)
 
 
@@ -162,12 +159,6 @@ class PVMInterpreter:
             raise Exception(f"Not a valid memory read operation: {opcode}")
 
         bytes_to_read = MemOps[opcode]["bytes"]
-        # try:
-        #     return self.mem.read(addr, bytes_to_read)
-        # except MemoryError:
-        #     self.status = ExitCondition.page_fault.value
-        #     self.gas -= 1
-        #     return 0
         return self.mem.read(addr, bytes_to_read)
 
 
@@ -180,8 +171,9 @@ class PVMInterpreter:
               a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
               a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0 or
               self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] not in self.inst_pos):
-            self.status = ExitCondition.panic.value
-            return 0
+            #self.status = ExitCondition.panic.value
+            #return 0
+            raise PanicError(f"Invalid djump operation: a={a}")
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
 
@@ -221,8 +213,9 @@ class PVMInterpreter:
 
                         match opcode:
                             case op.trap.value:
-                                self.status = ExitCondition.panic.value
                                 self.log and self.log()
+                                #self.status = ExitCondition.panic.value
+                                raise PanicError(f"trap")
                             case op.fallthrough.value:
                                 self.log and self.log()
 
@@ -239,8 +232,8 @@ class PVMInterpreter:
                         match opcode:
                             case op.ecalli.value:
                                 self.status = ExitCondition.host_halt.value
+                                self.exit_value = v_x
                                 self.log and self.log(imm1=v_x)
-                                self.invoke_host_call(v_x)
 
                             case _:
                                 raise InvalidOpcode(f"Invalid imm opcode: {opcode} for instruction type {inst_type}")
@@ -1052,8 +1045,12 @@ class PVMInterpreter:
                     case _:
                         raise InvalidOpcode(f"Invalid instruction type: {inst_type}")
 
-            except MemoryError:
+            except PVMMemoryError:
                 self.status = ExitCondition.page_fault.value
                 self.gas -= 1
-                # TODO: kras mem_addr weg in een register?
+                self.exit_value = self.mem._mem_addr
+                break
+
+            except PanicError:
+                self.status = ExitCondition.panic.value
                 break

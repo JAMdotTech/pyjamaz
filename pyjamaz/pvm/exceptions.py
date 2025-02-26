@@ -4,5 +4,8 @@ class UIntValueError(ValueError):
 class InvalidOpcode(ValueError):
     pass
 
-class MemoryError(ValueError):
+class PVMMemoryError(ValueError):
+    pass
+
+class PanicError(ValueError):
     pass
