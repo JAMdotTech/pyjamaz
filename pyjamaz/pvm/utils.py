@@ -1,9 +1,6 @@
-from math import ceil
-
 import numpy as np
 import numpy.typing as npt
 
-from pyjamaz.pvm.constants import PVM_PAGE_SIZE, PVM_INIT_ZONE_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError
 
 
@@ -11,14 +8,18 @@ from pyjamaz.pvm.exceptions import UIntValueError
 def rori64(x, shift_amount):
     return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
+
 def roli64(x, shift_amount):
     return np.uint64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
+
 
 def rori32(x, shift_amount):
     return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
+
 def roli32(x, shift_amount):
     return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
+
 
 def reverse_bytes(x):
     y = 0
@@ -220,44 +221,3 @@ def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np
         )
     else:
         raise UIntValueError(f"Invalid uint length: {l}")
-
-
-def write_uint(dest: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8, val: int):
-    # Note: GP applies a modulus over the value to write denoted by their bit length
-    if l < 8:
-        val = val % (2 ** (l*8))
-
-    if l == 1:
-        dest[addr + 0] = np.uint8(val & 0xFF)
-    elif l == 2:
-        dest[addr + 0] = np.uint8( val & 0x00FF)
-        dest[addr + 1] = np.uint8((val & 0xFF00) >> 8)
-    elif l == 4:
-        dest[addr + 0] = np.uint8( val & 0x000000FF)
-        dest[addr + 1] = np.uint8((val & 0x0000FF00) >> 8)
-        dest[addr + 2] = np.uint8((val & 0x00FF0000) >> 16)
-        dest[addr + 3] = np.uint8((val & 0xFF000000) >> 24)
-    elif l == 8:
-        dest[addr + 0] = np.uint8( val & 0x00000000000000FF)
-        dest[addr + 1] = np.uint8((val & 0x000000000000FF00) >> 8)
-        dest[addr + 2] = np.uint8((val & 0x0000000000FF0000) >> 16)
-        dest[addr + 3] = np.uint8((val & 0x00000000FF000000) >> 24)
-        dest[addr + 4] = np.uint8((val & 0x000000FF00000000) >> 32)
-        dest[addr + 5] = np.uint8((val & 0x0000FF0000000000) >> 40)
-        dest[addr + 6] = np.uint8((val & 0x00FF000000000000) >> 48)
-        dest[addr + 7] = np.uint8((val & 0xFF00000000000000) >> 56)
-    else:
-        raise UIntValueError(f"Invalid uint length: {l}")
-
-
-def memory_page_size(items: int) -> int:
-    """
-    GP-0.6.2-eq:A.38 (P)
-    """
-    return PVM_PAGE_SIZE * ceil(items / PVM_PAGE_SIZE)
-
-def memory_zone_size(items: int) -> int:
-    """
-    GP-0.6.2-eq:A.38 (Z)
-    """
-    return PVM_INIT_ZONE_SIZE * ceil(items / PVM_INIT_ZONE_SIZE)
