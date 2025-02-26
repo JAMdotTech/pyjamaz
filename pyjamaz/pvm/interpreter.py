@@ -30,7 +30,7 @@ from .constants import (
     OpcodeScheme,
     InstructionType,
     ExitCondition,
-    MemOps,
+    MemOps, OpcodeNames,
 )
 
 from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -59,11 +59,15 @@ class PVMInterpreter:
 
         self.log = None
         self.log_init = None
-        self._log_dict = None
+        self.log_dict = None
         if log_ctx:
+            log_ctx["_pvm"] = self
             self.log = MethodType(log_ctx["log_func"], self)
-            self.log_init = MethodType(log_ctx["log_init"], self)
-            self._log_dict = log_ctx["log_dict"]
+            self.log_header = MethodType(log_ctx["log_header"], self)
+            self.log_state = MethodType(log_ctx["log_state"], self)
+            self.log_dict = log_ctx["log_dict"]
+            for opcode_name in OpcodeNames.values():
+                self.log_dict[opcode_name] = 0
 
 
     def create_instruction_lookup(self):
@@ -187,10 +191,12 @@ class PVMInterpreter:
         pc: int,
         gas: int
     ):
-        if self.log_init: self.log_init()
-
         self.pc = pc
         self.gas = gas
+
+        if self.log:
+            self.log_state()
+            self.log_header()
 
         while self.status == ExitCondition.none.value and self.gas > 0:
 

@@ -68,7 +68,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
                     mem[offset + idx] = np.uint8(byt)
 
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
-        pvm = PVMInterpreter(pvm_program)#, log_ctx=log_ctx)
+        pvm = PVMInterpreter(pvm_program, log_ctx=log_ctx) # Note: uncomment to enable debug logging
         pvm.invoke(
             test_vector["initial-pc"],
             test_vector["initial-gas"]
@@ -99,12 +99,14 @@ class TestPolkaVMInstructions(unittest.TestCase):
                 )
 
 
-def log_print_header(self):
+def log_state(self):
     print(
-        f"GAS: {self.gas}\n"
+        f"\nGAS: {self.gas}\n"
         f"PC: {self.pc}\n"
     )
 
+
+def log_header(self):
     print(
         f"PC  "
         f"INST                  "
@@ -118,7 +120,7 @@ def log_print_header(self):
         "CTX")
 
 
-def log_print(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
+def log_opcode(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
     ctx = {"reg": [int(x) for x in self.reg]}
     if context: ctx = ctx | context
 
@@ -144,10 +146,10 @@ def log_print(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=
     r8 = " " * (24-len(str(off1)))
     r9 = " " * (24-len(str(off2)))
 
-    if opn not in self._log_dict:
+    if opn not in self.log_dict:
         raise Exception(f"Unknown opcode {opn}")
     else:
-        self._log_dict[opn] += 1
+        self.log_dict[opn] += 1
 
     print(
         f"{self.pc}{r1}"
@@ -162,22 +164,30 @@ def log_print(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=
         f"{str(ctx)}"
     )
 
+# Note: Basic debug logging
+log_ctx = {
+    "_pvm": None,
+    "log_state": log_state,
+     "log_header": log_header,
+     #"log_footer": log_footer,
+     "log_func": log_opcode,
+     "log_dict": {},
+     "log_opcode_calls": True,
+     "log_opcode_calls_if_zero": False,
+}
 
-# log_ctx = {
-#      "log_init": log_print_header,
-#      "log_func": log_print,
-#      "log_dict": {},
-# }
-#
-# for opcode_name in OpcodeNames.values():
-#     log_ctx["log_dict"][opcode_name] = 0
-#
-#
-# # print some stats collected from logger
-# def tearDownModule():
-#     global log_ctx
-#     print(log_ctx["log_dict"])
-
+# print some stats collected from logger
+def tearDownModule():
+    global log_ctx
+    # Note: only show debug log when enabled
+    if log_ctx["_pvm"]:
+        log_ctx["_pvm"].log_state()
+        if log_ctx["log_opcode_calls"]:
+            print("Opcodes:")
+            opcodes = log_ctx["log_dict"]
+            if not log_ctx["log_opcode_calls_if_zero"]:
+                opcodes = {x:y for x,y in opcodes.items() if y > 0}
+            print(opcodes)
 
 if __name__ == '__main__':
     unittest.main()
