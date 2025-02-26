@@ -1,3 +1,9 @@
+import bisect
+
+import numpy as np
+import numpy.typing as npt
+
+from math import ceil
 from dataclasses import dataclass, field
 from typing import List, Union, Type, T, Optional
 
@@ -5,8 +11,9 @@ from jamcodec.base import JamBytes, JamCodecType
 from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger
+
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
-from pyjamaz.pvm.utils import memory_zone_size, memory_page_size
+from pyjamaz.pvm.exceptions import UIntValueError
 
 
 @dataclass
@@ -58,22 +65,209 @@ class PVMCode(Serializable):
     def serialize(self) -> List[int]:
         return [b for b in self.to_jam_bytes().to_bytes()]
 
+
 @dataclass
 class MemoryPage:
     address: int
     length: int
     writable: bool
-    contents: bytes
+    readable: bool
+    contents: npt.NDArray[np.uint8]
+
+    def __init__(self, address, length, writable, contents):
+        self.address = address
+        self.length = length
+        self.writable = writable
+        self.readable = True #TODO!!!!!!!!!!!!!!!!!!!!!!!!
+        self.contents = np.zeros(self.length, dtype=np.uint8)
+        if contents:
+            self.update(0, contents)
+
+    def update(self, idx, _bytes):
+        for c_idx, val in enumerate(_bytes):
+            self.contents[idx+c_idx] = np.uint8(val)
+
+    def contains(self, addr):
+        return self.address <= addr < self.address + self.length
+
+    def read(self, address: int, length: int) -> bytes:
+        """
+        TODO:
+        outofbounds offset
+        als we vanaf de outofbounds tot length lezen/scwijven -> aanzulen met nullen
+        """
+        if length == 0:
+            return 0
+
+        elif length == 1:
+            return np.uint64(self.contents[address + 0]) % 2**8
+
+        elif length == 2:
+            byte0 = np.uint8(self.contents[address + 0])
+            byte1 = np.uint16(self.contents[address + 1])
+            return np.uint64((byte1 << 8) + byte0) % 2**16
+
+        elif length == 3:
+            byte0 = np.uint8(self.contents[address + 0])
+            byte1 = np.uint16(self.contents[address + 1])
+            byte2 = np.uint32(self.contents[address + 2])
+            return np.uint64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
+
+        elif length == 4:
+            byte0 = np.uint8(self.contents[address + 0])
+            byte1 = np.uint16(self.contents[address + 1])
+            byte2 = np.uint32(self.contents[address + 2])
+            byte3 = np.uint32(self.contents[address + 3])
+            return np.uint64(
+                (byte3 << 24) +
+                (byte2 << 16) +
+                (byte1 << 8) +
+                byte0
+            ) % 2**32
+
+        elif length == 8:
+            byte0 = np.uint8(self.contents[address + 0])
+            byte1 = np.uint16(self.contents[address + 1])
+            byte2 = np.uint32(self.contents[address + 2])
+            byte3 = np.uint32(self.contents[address + 3])
+            byte4 = np.uint64(self.contents[address + 4])
+            byte5 = np.uint64(self.contents[address + 5])
+            byte6 = np.uint64(self.contents[address + 6])
+            byte7 = np.uint64(self.contents[address + 7])
+            return np.uint64(
+                (byte7 << 56) +
+                (byte6 << 48) +
+                (byte5 << 40) +
+                (byte4 << 32) +
+                (byte3 << 24) +
+                (byte2 << 16) +
+                (byte1 << 8) +
+                byte0
+            )
+        else:
+            raise UIntValueError(f"Invalid uint length: {length}")
+
+
+    def write(self, address: int, value: int, length: int):
+        # Note: GP applies a modulus over the value to write denoted by their bit length
+        if length < 8:
+            value = value % (2 ** (length*8))
+
+        if length == 1:
+            self.contents[address + 0] = np.uint8(value & 0xFF)
+        elif length == 2:
+            self.contents[address + 0] = np.uint8( value & 0x00FF)
+            self.contents[address + 1] = np.uint8((value & 0xFF00) >> 8)
+        elif length == 4:
+            self.contents[address + 0] = np.uint8( value & 0x000000FF)
+            self.contents[address + 1] = np.uint8((value & 0x0000FF00) >> 8)
+            self.contents[address + 2] = np.uint8((value & 0x00FF0000) >> 16)
+            self.contents[address + 3] = np.uint8((value & 0xFF000000) >> 24)
+        elif length == 8:
+            self.contents[address + 0] = np.uint8( value & 0x00000000000000FF)
+            self.contents[address + 1] = np.uint8((value & 0x000000000000FF00) >> 8)
+            self.contents[address + 2] = np.uint8((value & 0x0000000000FF0000) >> 16)
+            self.contents[address + 3] = np.uint8((value & 0x00000000FF000000) >> 24)
+            self.contents[address + 4] = np.uint8((value & 0x000000FF00000000) >> 32)
+            self.contents[address + 5] = np.uint8((value & 0x0000FF0000000000) >> 40)
+            self.contents[address + 6] = np.uint8((value & 0x00FF000000000000) >> 48)
+            self.contents[address + 7] = np.uint8((value & 0xFF00000000000000) >> 56)
+        else:
+            raise UIntValueError(f"Invalid uint length: {length}")
+
 
 @dataclass
 class PVMMemory:
     pages: List[MemoryPage]
 
-    def read(self, address: int, length: int) -> bytes:
-        pass
 
-    def write(self, address: int, value: bytes):
-        pass
+    def __init__(self, mem_pages: List[MemoryPage]):
+        self.pages = mem_pages
+        self.page_offsets = [p.address for p in self.pages]
+        self._page = None
+        self._page_addr = None
+
+
+    def find_page(self, addr):
+        if not self.page_offsets:
+            raise MemoryError("Memory not initialized")
+
+        # Find rightmost index where addr would be inserted and then check if it falls in the page
+        index = bisect.bisect_right(self.page_offsets, addr) - 1
+        if index < 0:
+            raise MemoryError("Memory not initialized")
+
+        page = self.pages[index]
+        if page.contains(addr):
+            return page
+        else:
+            return None
+
+
+    def write(self, addr, value, length):
+        # TODO: can span multiple pages?
+        if not (self._page and self._page.address <= addr < self._page.address + self._page.length):
+            page = self.find_page(addr)
+        else:
+            page = self._page
+
+        if not page:
+            raise MemoryError("Page not found")
+
+        if not page.writable:
+            raise MemoryError(f"Page {addr} is not writable")
+
+        page_addr = addr - page.address
+        self._page = page
+        self._page_addr = page_addr
+
+        if page_addr + length > page.length:
+            raise MemoryError(f"Page {page_addr} overflow: {length} ({page.length})")
+
+        # Set the mem page according to the found page for this range
+        page.write(page_addr, value, length)
+
+
+    def read(self, addr, length):
+        #TODO: can span multiple pages?
+        if not (self._page and self._page.address <= addr < self._page.address + self._page.length):
+            page = self.find_page(addr)
+        else:
+            page = self._page
+
+        if not page:
+            raise MemoryError("Page not found")
+
+        if not page.readable:
+            raise MemoryError(f"Page {addr} is not writable")
+
+        page_addr = addr - page.address
+        self._page = page
+        self._page_addr = page_addr
+
+        if page_addr + length > page.length:
+            raise MemoryError(f"Page {page_addr} overflow: {length} ({page.length})")
+
+        # Set the mem page according to the found page for this range
+        return page.read(page_addr, length)
+
+
+    @staticmethod
+    def page_size(items: int) -> int:
+        """
+        GP-0.6.2-eq:A.38 (P)
+        """
+        return PVM_PAGE_SIZE * ceil(items / PVM_PAGE_SIZE)
+
+
+    @staticmethod
+    def zone_size(items: int) -> int:
+        """
+        GP-0.6.2-eq:A.38 (Z)
+        """
+        return PVM_INIT_ZONE_SIZE * ceil(items / PVM_INIT_ZONE_SIZE)
+
+
 
 @dataclass
 class PVMProgram(Serializable):
@@ -81,62 +275,51 @@ class PVMProgram(Serializable):
 
     """
     # c
-    code: bytes
+    code: PVMCode
     # ω
     registers: List[int]
     # µ
     memory: PVMMemory
 
+    """
+    GP-0.6.2-eq:A.40 | Initializing of memory pages
+    """
     @staticmethod
     def init_memory(
-            rom: bytes, ram: bytes, arguments: bytes, stack_mem_pages: int, stack_mem_size: int
+            rom: bytes,
+            ram: bytes,
+            arguments: bytes,
+            stack_mem_pages: int,
+            stack_mem_size: int
     ) -> PVMMemory:
-        """
-        GP-0.6.2-eq:A.40 | Initializing of memory pages
 
-        """
-        memory = PVMMemory(pages=[])
+        # TODO check if fits in page and create one or mulitple pages, constant for page size?
+        pages = []
 
-        memory.pages.append(MemoryPage(
-            address=PVM_INIT_ZONE_SIZE,
-            length=len(rom),
-            writable=False,
-            contents=rom,
-        ))
-        # TODO create page for buffer overflow protection?
-        length = memory_page_size(len(rom)) - len(rom)
-        memory.pages.append(MemoryPage(
-            address=PVM_INIT_ZONE_SIZE + len(rom),
-            length=length,
-            writable=False,
-            contents=bytes(length)
-        ))
-        memory.pages.append(MemoryPage(
-            address=2*PVM_INIT_ZONE_SIZE + memory_zone_size(len(rom)),
-            length=len(ram),
-            writable=True,
-            contents=ram,
-        ))
-        length = memory_page_size(len(ram)) - len(ram) + stack_mem_pages * PVM_PAGE_SIZE
-        if length > 0:
-            memory.pages.append(
-                MemoryPage(
-                    address=2 * PVM_INIT_ZONE_SIZE + memory_zone_size(len(rom)) + len(ram),
-                    length=length,
-                    writable=True,
-                    contents=bytes(length),
-                )
-            )
-
-        memory.pages.append(
+        pages.append(
             MemoryPage(
-                address=2**32 - 2 * PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE - memory_page_size(stack_mem_size),
-                length=memory_page_size(stack_mem_size),
+                address=PVM_INIT_ZONE_SIZE,
+                length=PVMMemory.page_size(len(rom)),
+                writable=False,
+                contents=rom)
+        )
+        pages.append(
+            MemoryPage(
+                address=2 * PVM_INIT_ZONE_SIZE + PVMMemory.zone_size(len(rom)),
+                length=PVMMemory.page_size(len(ram)) - len(ram) + stack_mem_pages * PVM_PAGE_SIZE,
                 writable=True,
-                contents=bytes(memory_page_size(stack_mem_size)),
+                contents=ram
             )
         )
-        memory.pages.append(
+        pages.append(
+            MemoryPage(
+                address=2 ** 32 - 2 * PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
+                length=PVMMemory.page_size(stack_mem_size),
+                writable=True,
+                contents=bytes(PVMMemory.page_size(stack_mem_size)),
+            )
+        )
+        pages.append(
             MemoryPage(
                 address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
                 length=len(arguments),
@@ -145,17 +328,17 @@ class PVMProgram(Serializable):
             )
         )
         if len(arguments) > 0:
-            memory.pages.append(
+            pages.append(
                 MemoryPage(
                     address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE + len(arguments),
-                    length=memory_page_size(len(arguments)) - len(arguments),
+                    length=PVMMemory.page_size(len(arguments)) - len(arguments),
                     writable=False,
-                    contents=bytes(memory_page_size(len(arguments)) - len(arguments)),
+                    contents=bytes(PVMMemory.page_size(len(arguments)) - len(arguments)),
                 )
             )
 
+        return PVMMemory(pages)
 
-        return memory
 
     @staticmethod
     def init_registers(arguments: bytes) -> List[int]:
@@ -195,20 +378,25 @@ class PVMProgram(Serializable):
             pvm_code = jam_bytes.get_next_bytes(pvm_code_size)
 
             if (5 * PVM_INIT_ZONE_SIZE +
-                memory_zone_size(pvm_rom_size) +
-                memory_zone_size(pvm_ram_size + stack_mem_pages * PVM_PAGE_SIZE) +
-                memory_zone_size(stack_mem_size) + PVM_INPUT_DATA_SIZE
+                PVMMemory.zone_size(pvm_rom_size) +
+                PVMMemory.zone_size(pvm_ram_size + stack_mem_pages * PVM_PAGE_SIZE) +
+                PVMMemory.zone_size(stack_mem_size) + PVM_INPUT_DATA_SIZE
             ) <= 2**32:
 
                 return cls(
-                    code=pvm_code,
+                    code=PVMCode.from_jam_bytes(JamBytes(pvm_code)),
                     registers=cls.init_registers(arguments),
                     memory=cls.init_memory(pvm_rom, pvm_ram, arguments, stack_mem_pages, stack_mem_size),
                 )
+            else:
+                #TODO
+                raise Exception("HUH?")
+
         except RemainingScaleBytesNotEmptyException as e: # TODO deserialize exception
             pass
 
         return None
+
 
     @classmethod
     def initialize(cls, pvm_code: bytes) -> 'PVMProgram':
