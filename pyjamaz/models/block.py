@@ -558,27 +558,25 @@ class Extrinsic(Serializable):
         bytes
         """
 
-        # TODO optimize re-encoding
-
         # GP-0.5.4-eq:5.6
         extrinsic_hash = blake2b_256_hash(bytes(Vec(TicketEnvelope.to_codec_def()).encode([
-            t.to_json() for t in self.tickets
+            t.to_jam_bytes() for t in self.tickets
         ])))
 
         extrinsic_hash += blake2b_256_hash(bytes(Vec(Preimage.to_codec_def()).encode([
-            p.to_json() for p in self.preimages
+            p.to_jam_bytes() for p in self.preimages
         ])))
 
         hashed_guarantees = Vec(Tuple(H256, U32, Vec(Credential.to_codec_def()))).encode(
             [
-                (blake2b_256_hash(bytes(g.report.to_jam_bytes())), g.slot, [s.to_json() for s in g.signatures])
+                (blake2b_256_hash(bytes(g.report.to_jam_bytes())), g.slot, [s.to_jam_bytes() for s in g.signatures])
                 for g in self.guarantees
             ]
         )
 
         extrinsic_hash += blake2b_256_hash(bytes(hashed_guarantees))
         extrinsic_hash += blake2b_256_hash(bytes(Vec(Assurance.to_codec_def()).encode([
-            a.to_json() for a in self.assurances
+            a.to_jam_bytes() for a in self.assurances
         ])))
         extrinsic_hash += blake2b_256_hash(bytes(self.disputes.to_jam_bytes()))
 

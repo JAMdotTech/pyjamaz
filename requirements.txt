@@ -10,7 +10,7 @@ py-bip39-bindings>=0.1.9,<1
 plyvel-ci ~=1.5.1
 
 bandersnatch-vrfs~=0.3
-jamcodec~=0.1
+jamcodec~=0.1.1
 
 numpy~=2.1
 

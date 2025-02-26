@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
+import socket
 from typing import List, Dict
+import ipaddress
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map
@@ -26,6 +28,28 @@ class ValidatorData(Serializable):
     ed25519: bytes = field(metadata={'codec': H256})
     bls: bytes = field(metadata={'codec': Array(U8, 144)})
     metadata: bytes = field(metadata={'codec': Array(U8, 128)})
+
+    def get_metadata_ipaddress(self) -> str:
+        """
+        Extracts the IP address from the validator metadata
+
+        Returns
+        -------
+        str
+        """
+        if self.metadata[4:16] == bytes(12):
+            return str(ipaddress.IPv4Address(bytes(self.metadata[:4])))
+        else:
+            return socket.inet_ntop(socket.AF_INET6, self.metadata[:16])
+
+    def get_metadata_port(self) -> int:
+        """
+        Extracts the port number from the validator metadata
+        Returns
+        -------
+        int
+        """
+        return int.from_bytes(self.metadata[16:18], byteorder='little')
 
 
 @dataclass
