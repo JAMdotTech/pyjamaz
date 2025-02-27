@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from typing import Union, List
 
 from pyjamaz.pvm.constants import ExitCondition, PVM_INPUT_DATA_SIZE
-from pyjamaz.pvm.types import PVMProgram, PVMMemory
+from pyjamaz.pvm.types import PVMProgram, PVMMemory, PVMCode
+
 
 class InvocationContext:
     """
@@ -45,7 +46,7 @@ class PVMOutput:
     memory: PVMMemory               # μ′
 
 def pvm_general_invoke(
-        serialized_pvm_code: bytes,  # c TODO should be PMVCode?
+        pvm_code: PVMCode,  # c TODO should be PMVCode?
         instruction_counter: int,  # ı
         gas_limit: int,  # ρ
         registers: List[int],  # ω
@@ -58,7 +59,7 @@ def pvm_general_invoke(
     """
 
     return PVMOutput(
-        exit_condition=ExitCondition.panic.value,
+        exit_condition=ExitCondition.panic,
         instruction_counter=instruction_counter,
         gas_limit=gas_limit,
         registers=registers,
@@ -68,7 +69,7 @@ def pvm_general_invoke(
 
 @dataclass
 class PvmMarshallingOutput:
-    gas_used: int
+    gas_limit: int
     output: ExitCondition
     context: InvocationContext
 
@@ -82,7 +83,7 @@ class PvMHostCallOutput:
     invocation_context: InvocationContext  # x
 
 def pvm_invoke_host_call(
-        serialized_pvm_code: bytes,            # c TODO should be PMVCode?
+        pvm_code: PVMCode,            # c TODO should be PMVCode?
         instruction_counter: int,              # ı
         gas_limit: int,                        # ρ
         registers: List[int],                  # ω
@@ -96,7 +97,7 @@ def pvm_invoke_host_call(
 
     # invoke general PVM function (Ψ)
     output = pvm_general_invoke(
-        serialized_pvm_code,
+        pvm_code,
         instruction_counter,
         gas_limit,
         registers,
@@ -134,7 +135,7 @@ def pvm_invoke_host_call(
         elif host_call_output.output == ExitCondition.none:
             # TODO continue PVM
             return pvm_invoke_host_call(
-                serialized_pvm_code=serialized_pvm_code,
+                pvm_code=pvm_code,
                 instruction_counter=output.instruction_counter + 1 + skip(output.instruction_counter), # TODO
                 gas_limit=host_call_output.gas_limit,
                 registers=host_call_output.registers,
@@ -179,13 +180,13 @@ def pvm_invoke_marshalling(
 
     if pvm_program is None:
         return PvmMarshallingOutput(
-            gas_used=gas_limit,
+            gas_limit=gas_limit,
             output=ExitCondition.panic,
             context=invocation_context
         )
     else:
         output = pvm_invoke_host_call(
-            serialized_pvm_code=pvm_program.code,
+            pvm_code=pvm_program.code,
             instruction_counter=start_offset,
             gas_limit=gas_limit,
             registers=pvm_program.registers,
@@ -203,7 +204,7 @@ def pvm_invoke_marshalling(
             output = ExitCondition.panic
 
         return PvmMarshallingOutput(
-            gas_used=gas_limit,
+            gas_limit=gas_limit,
             output=output,
             context=invocation_context
         )

@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Tuple, Union, Set
 from jamcodec.base import JamBytes
 
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.hashing import keccak_256_hash
+from pyjamaz.hashing import keccak_256_hash, blake2b_256_hash
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple
@@ -939,7 +939,17 @@ class AccumulationStateComponents(Serializable):
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
 
-    def to_invocation_context(self, service_account_id: int, entropy: bytes, timeslot: int) -> 'JamInvocationContext':
+    def check_service_id(self, service_id: int) -> int:
+        """
+        B.13 | Find an unused service id
+        """
+        if service_id not in self.services.services:
+            return service_id
+        else:
+            return self.check_service_id((service_id - 2**8 + 1) % (2**32 - 2**9) + 2**8)
+
+
+    def to_invocation_context(self, service_account_id: int, entropy: bytes, timeslot: int) -> 'AccumulateInvocationContext':
         """
         B.9 (I)
 
@@ -947,15 +957,28 @@ class AccumulationStateComponents(Serializable):
         timeslot: int post_state
 
         """
-        # TODO implement check function B.13
+        # Generate new unique service id
+        check_payload = int.from_bytes(blake2b_256_hash(
+            service_account_id.to_bytes(length=4, byteorder='little') + entropy + timeslot.to_bytes(length=4, byteorder='little')
+        )[:4], byteorder='little')
 
+        new_service_account_id = self.check_service_id((check_payload % (2**32 - 2**9)) + 2**8)
 
-        return JamInvocationContext(
-            service_account_id=service_account_id,
-            state_context=self,
-            new_service_account_id=0,
-            deferred_transfers=[],
-            invocation_output=None
+        return AccumulateInvocationContext(
+            context=AccumulateContextItem(
+                service_account_id=service_account_id,
+                state_context=self,
+                new_service_account_id=new_service_account_id,
+                deferred_transfers=[],
+                invocation_output=None
+            ),
+            savepoint_context=AccumulateContextItem(
+                service_account_id=service_account_id,
+                state_context=self,
+                new_service_account_id=new_service_account_id,
+                deferred_transfers=[],
+                invocation_output=None
+            )
         )
 
 # TODO move back to pvm_interface.models
@@ -965,18 +988,24 @@ class PvmAccumulateOutput:
     state_context: AccumulationStateComponents
     deferred_transfers: List[DeferredTransfer]
     accumulation_output: Optional[bytes]
-    gas_used: int
+    gas_limit: int
 
 
 @dataclass
-class JamInvocationContext(InvocationContext):
+class AccumulateContextItem:
     """
     GP-0.6.2-eq:B.6 (blackboard_X) | Invocation Result Context
 
     TODO check service_account_id in state_context.services
     """
-    service_account_id: int # s
-    state_context: AccumulationStateComponents # u
-    new_service_account_id: int #i
-    deferred_transfers: List[DeferredTransfer] # t
-    invocation_output: Optional[bytes] # y
+    service_account_id: int  # s
+    state_context: AccumulationStateComponents  # u
+    new_service_account_id: int  # i
+    deferred_transfers: List[DeferredTransfer]  # t
+    invocation_output: Optional[bytes]  # y
+
+
+@dataclass
+class AccumulateInvocationContext(InvocationContext):
+    context: AccumulateContextItem           # X_x
+    savepoint_context: AccumulateContextItem # X_y

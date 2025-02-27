@@ -280,7 +280,7 @@ def parallel_accumulation(
             auto_accumulate_services=auto_accumulate_services,
             service_id=service_id
         )
-        total_gas_utilized += output.gas_used
+        total_gas_utilized += output.gas_limit
 
         deferred_transfers += output.deferred_transfers
 
