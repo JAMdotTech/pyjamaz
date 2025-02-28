@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from typing import Union, List
 
-from pyjamaz.pvm.constants import ExitCondition, PVM_INPUT_DATA_SIZE
+from pyjamaz.pvm import PVMInterpreter
+from pyjamaz.pvm.constants import ExitCondition, PVM_INPUT_DATA_SIZE, ExitReason
 from pyjamaz.pvm.types import PVMProgram, PVMMemory, PVMCode
 
 
@@ -45,8 +46,9 @@ class PVMOutput:
     registers: List[int]            # ω′
     memory: PVMMemory               # μ′
 
+
 def pvm_general_invoke(
-        pvm_code: PVMCode,  # c TODO should be PMVCode?
+        pvm_code: PVMCode,  # c
         instruction_counter: int,  # ı
         gas_limit: int,  # ρ
         registers: List[int],  # ω
@@ -55,15 +57,20 @@ def pvm_general_invoke(
     """
     A.1 Ψ
 
-    TODO Stub
     """
+    pvm_program = PVMProgram(pvm_code, registers, memory)
+    pvm = PVMInterpreter(pvm_program)
+    pvm.invoke(
+        instruction_counter,
+        gas_limit
+    )
 
     return PVMOutput(
-        exit_condition=ExitCondition.panic,
-        instruction_counter=instruction_counter,
+        exit_condition=ExitReason(pvm),
+        instruction_counter=pvm.pc,
         gas_limit=gas_limit,
-        registers=registers,
-        memory=memory
+        registers=pvm.reg,
+        memory=pvm.mem
     )
 
 
@@ -82,8 +89,9 @@ class PvMHostCallOutput:
     memory: PVMMemory                      # μ′
     invocation_context: InvocationContext  # x
 
+
 def pvm_invoke_host_call(
-        pvm_code: PVMCode,            # c TODO should be PMVCode?
+        pvm_code: PVMCode,                     # c
         instruction_counter: int,              # ı
         gas_limit: int,                        # ρ
         registers: List[int],                  # ω
@@ -115,6 +123,7 @@ def pvm_invoke_host_call(
             memory=output.memory,
             invocation_context=invocation_context
         )
+
     if output.exit_condition == ExitCondition.host_halt:
         host_call_output = invocation_mutator.execute(
             host_call_instr_nr=output.exit_condition.host_halt_instruction,
@@ -123,6 +132,7 @@ def pvm_invoke_host_call(
             memory=output.memory,
             invocation_context=invocation_context
         )
+
         if host_call_output.output == ExitCondition.page_fault:
             return PvMHostCallOutput(
                 exit_condition=host_call_output.output,
@@ -133,7 +143,7 @@ def pvm_invoke_host_call(
                 invocation_context=invocation_context
             )
         elif host_call_output.output == ExitCondition.none:
-            # TODO continue PVM
+            # TODO continue PVM!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             return pvm_invoke_host_call(
                 pvm_code=pvm_code,
                 instruction_counter=output.instruction_counter + 1 + skip(output.instruction_counter), # TODO
@@ -157,6 +167,7 @@ def pvm_invoke_host_call(
             )
 
     raise NotImplementedError
+
 
 def pvm_invoke_marshalling(
         serialized_program: bytes,              # p

@@ -4,11 +4,13 @@ from typing import Any
 
 import numpy as np
 
+from pyjamaz.pvm.exceptions import PVMMemoryError
+
 PVM_PAGE_SIZE = 2**12 #ZP
 PVM_INIT_ZONE_SIZE = 2**16 #ZZ
 PVM_INPUT_DATA_SIZE = 2**24 #ZI
 
-
+#TODO:ExitReason!!!!!!
 class ExitCondition(Enum):
     none:int            = 0
     halt:int            = 1 #GP-A.2: ∎: regular halt: halt
@@ -18,11 +20,25 @@ class ExitCondition(Enum):
     host_halt:int       = 5 #GP-A.2: h: host-call
 
 
+#TODO:ExitCondition !!!!!!
 class ExitReason:
 
-    def __init__(self, code:ExitCondition, value:Any):
-        self.reason:int = code.value
-        self.value:Any = value
+    def __init__(self, pvm):
+        if pvm.status in (ExitCondition.host_halt.value, ExitCondition.page_fault.value):
+            self.value = pvm.exit_value
+        elif pvm.status == ExitCondition.halt.value:
+            mem = bytes()
+            try:
+                mem = pvm.mem.read_bytes(pvm.reg[7], pvm.reg[8])
+            except PVMMemoryError:
+                pass
+            self.value = mem
+        elif pvm.status == ExitCondition.panic.value:
+            self.value = None
+        else:
+            self.value = []
+
+        self.reason:int = pvm.status
 
 
 class InstructionType(Enum):

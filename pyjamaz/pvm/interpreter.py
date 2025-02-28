@@ -465,10 +465,10 @@ class PVMInterpreter:
                                 self.reg[r_d] = self.reg[r_a]
                                 self.log and self.log(reg1=r_d, reg2=r_a)
 
-                            #TODO: NO_TEST:
-                            #TODO: implementeer wanneer memory management is geimplementeerd
-                            #TODO: zie note in GP onderaan deze sectie
-                            #case op.sbrk.value:
+                            case op.sbrk.value:
+                                # Note: set break / set break pointer (extend heap memory)
+                                self.reg[r_d] = self.mem.extend_heap(self.reg[r_a])
+                                self.log and self.log(reg1=r_d, reg2=r_a)
 
                             case op.count_set_bits_64.value:
                                 self.reg[r_d] = np.bitwise_count(self.reg[r_a])

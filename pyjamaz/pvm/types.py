@@ -70,6 +70,7 @@ class PVMCode(Serializable):
 class MemoryPage:
     address: int
     length: int
+    break_pointer: int
     writable: bool
     contents: npt.NDArray[np.uint8]
 
@@ -82,8 +83,10 @@ class MemoryPage:
             self.update(0, contents)
 
     def update(self, idx, _bytes):
+        # TODO: implement more efficiently
         for c_idx, val in enumerate(_bytes):
             self.contents[idx+c_idx] = np.uint8(val)
+        self.break_pointer = len(_bytes)
 
     def contains(self, addr):
         return self.address <= addr < self.address + self.length
@@ -178,13 +181,29 @@ class MemoryPage:
 class PVMMemory:
     pages: List[MemoryPage]
     page_offsets: List[int]
+    _rom: MemoryPage
+    _heap: MemoryPage
+    _stack: MemoryPage
+    _args: MemoryPage
     _mem_addr: int
     _page: int
     _page_addr: int
 
-    def __init__(self, mem_pages: List[MemoryPage]):
-        self.pages: List[MemoryPage] = mem_pages
+    def __init__(
+        self,
+        rom: MemoryPage,
+        heap: MemoryPage,
+        stack: MemoryPage,
+        arguments: MemoryPage
+    ):
+        self._rom = rom
+        self._heap = heap
+        self._stack = stack
+        self._args = arguments
+
+        self.pages: List[MemoryPage] = [rom, heap, stack, arguments]
         self.page_offsets = [p.address for p in self.pages]
+
         self._mem_addr = None
         self._page = None
         self._page_addr = None
@@ -208,11 +227,12 @@ class PVMMemory:
         else:
             return None
 
+    #TODO: rename to write_int
     def write(self, addr: int, value: int, length: int):
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
-        # TODO: can span multiple pages?
+        #TODO: can an int span two pages or is it always 'atomic'? if so, apply similar construct as write_bytes
         if not (self._page and self._page.address <= addr < self._page.address + self._page.length):
             page = self.find_page(addr)
         else:
@@ -234,11 +254,12 @@ class PVMMemory:
         # Set the mem page according to the found page for this range
         page.write(page_addr, value, length)
 
+    #TODO: rename to read_int
     def read(self, addr: int, length: int):
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
-        #TODO: can span multiple pages?
+        #TODO: can an int span multiple pages or is it always 'atomic'? if so, apply similar construct as read_bytes
         if not (self._page and self._page.address <= addr < self._page.address + self._page.length):
             page = self.find_page(addr)
         else:
@@ -260,6 +281,86 @@ class PVMMemory:
         # Set the mem page according to the found page for this range
         return page.read(page_addr, length)
 
+    def read_bytes(self, address: int, length: int) -> bytes:
+        """
+        """
+        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
+        self._mem_addr = address
+
+        if length == 0:
+            return bytes()
+
+        addr = address
+        pages = []
+        bytes_remaining = length
+        while bytes_remaining > 0:
+            page = self.find_page(addr)
+            if not page:
+                raise PVMMemoryError(f"Page not found {addr}")
+
+            page_addr = addr - page.address
+            page_bytes = (page.length - page_addr)
+            pages.append((page, page_addr, min(page_bytes, bytes_remaining)))
+
+            bytes_remaining -= page_bytes
+            if bytes_remaining > 0:
+                addr += page_bytes
+
+        bytez = bytes()
+        for pg in pages:
+            bytez += bytes(pg[0].contents[pg[1]:pg[1]+pg[2]])
+
+        return bytez
+
+    def write_bytes(self, address: int, content: bytes) -> bytes:
+        """
+        """
+        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
+        self._mem_addr = address
+
+        bytes_remaining = len(content)
+        if bytes_remaining == 0:
+            return
+
+        addr = address
+        pages = []
+
+        while bytes_remaining > 0:
+            page = self.find_page(addr)
+            if not page:
+                raise PVMMemoryError(f"Page not found {addr}")
+
+            page_addr = addr - page.address
+            page_bytes = (page.length - page_addr)
+            pages.append((page, page_addr, min(page_bytes, bytes_remaining)))
+
+            bytes_remaining -= page_bytes
+            if bytes_remaining > 0:
+                addr += page_bytes
+
+        offset = 0
+        for pg in pages:
+            pg[0].contents[pg[1]:pg[1] + pg[2]] = content[offset:offset+pg[2]]
+            offset += pg[2]
+
+    def extend_heap(self, size):
+        page_size = PVMMemory.page_size(size)
+        if self._heap.address + page_size >= self._stack.address:
+            raise PVMMemoryError("Heap overflow")
+
+        old_heap = self._heap.contents
+        new_heap = np.zeros(page_size, dtype=np.uint8)
+        old_size = len(old_heap)
+        if old_size > size:
+            old_size = size
+
+        new_heap[:old_size] = old_heap[:old_size]
+        self._heap.contents = new_heap
+
+        self._heap.length = page_size
+        self._heap.break_pointer = size
+
+        return page_size
 
     @staticmethod
     def page_size(items: int) -> int:
@@ -298,55 +399,41 @@ class PVMProgram(Serializable):
             rom: bytes,
             ram: bytes,
             arguments: bytes,
-            stack_mem_pages: int,
+            heap_mem_size: int,
             stack_mem_size: int
     ) -> PVMMemory:
 
-        # TODO check if fits in page and create one or mulitple pages, constant for page size?
-        pages = []
+        _rom = MemoryPage(
+            address=PVM_INIT_ZONE_SIZE,
+            length=PVMMemory.page_size(min(len(rom),1)),
+            writable=False,
+            contents=rom
+        )
 
-        pages.append(
-            MemoryPage(
-                address=PVM_INIT_ZONE_SIZE,
-                length=PVMMemory.page_size(len(rom)),
-                writable=False,
-                contents=rom)
+        # TODO: add sanity check on heap_mem_size
+        heap = MemoryPage(
+            address=2 * PVM_INIT_ZONE_SIZE + PVMMemory.zone_size(len(rom)),
+            length=PVMMemory.page_size(len(ram)) + heap_mem_size,
+            writable=True,
+            contents=ram
         )
-        pages.append(
-            MemoryPage(
-                address=2 * PVM_INIT_ZONE_SIZE + PVMMemory.zone_size(len(rom)),
-                length=PVMMemory.page_size(len(ram)) - len(ram) + stack_mem_pages * PVM_PAGE_SIZE,
-                writable=True,
-                contents=ram
-            )
-        )
-        pages.append(
-            MemoryPage(
-                address=2 ** 32 - 2 * PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
-                length=PVMMemory.page_size(stack_mem_size),
-                writable=True,
-                contents=bytes(PVMMemory.page_size(stack_mem_size)),
-            )
-        )
-        pages.append(
-            MemoryPage(
-                address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-                length=len(arguments),
-                writable=False,
-                contents=arguments,
-            )
-        )
-        if len(arguments) > 0:
-            pages.append(
-                MemoryPage(
-                    address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE + len(arguments),
-                    length=PVMMemory.page_size(len(arguments)) - len(arguments),
-                    writable=False,
-                    contents=bytes(PVMMemory.page_size(len(arguments)) - len(arguments)),
-                )
-            )
 
-        return PVMMemory(pages)
+        #TODO: add sanity check on stack_mem_size
+        stack = MemoryPage(
+            address=2 ** 32 - 2 * PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
+            length=PVMMemory.page_size(stack_mem_size),
+            writable=True,
+            contents=bytes(PVMMemory.page_size(stack_mem_size)),
+        )
+
+        arguments = MemoryPage(
+            address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
+            length=len(arguments),
+            writable=False,
+            contents=arguments,
+        )
+
+        return PVMMemory(rom=_rom, heap=heap, stack=stack, arguments=arguments)
 
 
     @staticmethod

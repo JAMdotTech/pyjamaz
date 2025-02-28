@@ -19,6 +19,7 @@ class AccumulateInvocationMutator(InvocationMutator):
         """
         B.10 | F ∈ Ω⟨(X,X)⟩∶(n,ρ,ω,μ,(x,y))
         TODO stub for host calls
+        !!!!!!!!!!!!!!!!!!!!!!!
         """
         pass
 
