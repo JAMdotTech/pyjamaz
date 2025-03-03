@@ -7,12 +7,12 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import keccak_256_hash, blake2b_256_hash
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
-from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, AccumulationOperand
 from pyjamaz.pvm.invocation import InvocationContext
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
@@ -1009,3 +1009,10 @@ class AccumulateContextItem:
 class AccumulateInvocationContext(InvocationContext):
     context: AccumulateContextItem           # X_x
     savepoint_context: AccumulateContextItem # X_y
+
+
+@dataclass
+class ArgumentData(Serializable):
+    timeslot: int = field(metadata={'codec': U32})
+    service_id: int = field(metadata={'codec': U32})
+    operands: List[AccumulationOperand] = field(metadata={'codec': Vec(AccumulationOperand.to_codec_def())})
