@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Union, List
+from typing import List
 
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.constants import ExitCondition, PVM_INPUT_DATA_SIZE, ExitReason
+from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
+from pyjamaz.pvm.debug import PVMDebugLog
 from pyjamaz.pvm.types import PVMProgram, PVMMemory, PVMCode
 
 
@@ -58,15 +59,16 @@ def pvm_general_invoke(
     A.1 Ψ
 
     """
+    logger = PVMDebugLog(None)
     pvm_program = PVMProgram(pvm_code, registers, memory)
-    pvm = PVMInterpreter(pvm_program)
+    pvm = PVMInterpreter(pvm_program, logger)
     pvm.invoke(
         instruction_counter,
         gas_limit
     )
 
     return PVMOutput(
-        exit_condition=ExitReason(pvm),
+        exit_condition=pvm.get_exit_condition(),
         instruction_counter=pvm.pc,
         gas_limit=gas_limit,
         registers=pvm.reg,
@@ -112,8 +114,8 @@ def pvm_invoke_host_call(
         memory
     )
 
-    if output.exit_condition in [
-        ExitCondition.halt, ExitCondition.panic, ExitCondition.out_of_gas, ExitCondition.page_fault
+    if output.exit_condition.reason in [
+        ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas, ExitReason.page_fault
     ]:
         return PvMHostCallOutput(
             exit_condition=output.exit_condition,
@@ -124,16 +126,16 @@ def pvm_invoke_host_call(
             invocation_context=invocation_context
         )
 
-    if output.exit_condition == ExitCondition.host_halt:
+    if output.exit_condition.reason == ExitReason.host_halt:
         host_call_output = invocation_mutator.execute(
-            host_call_instr_nr=output.exit_condition.host_halt_instruction,
+            host_call_instr_nr=output.exit_condition.value,
             gas_limit=output.gas_limit,
             registers=output.registers,
             memory=output.memory,
             invocation_context=invocation_context
         )
 
-        if host_call_output.output == ExitCondition.page_fault:
+        if host_call_output.output.reason == ExitReason.page_fault:
             return PvMHostCallOutput(
                 exit_condition=host_call_output.output,
                 instruction_counter=output.instruction_counter,
@@ -142,20 +144,21 @@ def pvm_invoke_host_call(
                 memory=output.memory,
                 invocation_context=invocation_context
             )
-        elif host_call_output.output == ExitCondition.none:
+        elif host_call_output.output.reason == ExitReason.none:
             # TODO continue PVM!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            return pvm_invoke_host_call(
-                pvm_code=pvm_code,
-                instruction_counter=output.instruction_counter + 1 + skip(output.instruction_counter), # TODO
-                gas_limit=host_call_output.gas_limit,
-                registers=host_call_output.registers,
-                memory=host_call_output.memory,
-                invocation_mutator=invocation_mutator,
-                invocation_context=invocation_context
-            )
+            # return pvm_invoke_host_call(
+            #     pvm_code=pvm_code,
+            #     instruction_counter=output.instruction_counter + 1 + skip(output.instruction_counter), # TODO
+            #     gas_limit=host_call_output.gas_limit,
+            #     registers=host_call_output.registers,
+            #     memory=host_call_output.memory,
+            #     invocation_mutator=invocation_mutator,
+            #     invocation_context=invocation_context
+            # )
+            raise Exception("TODO")
 
-        elif host_call_output.output in [
-            ExitCondition.halt, ExitCondition.panic, ExitCondition.out_of_gas
+        elif host_call_output.output.reason in [
+            ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas
         ]:
             return PvMHostCallOutput(
                 exit_condition=host_call_output.output,
@@ -192,7 +195,7 @@ def pvm_invoke_marshalling(
     if pvm_program is None:
         return PvmMarshallingOutput(
             gas_limit=gas_limit,
-            output=ExitCondition.panic,
+            output=ExitCondition(reason=ExitReason.panic, value=None),
             context=invocation_context
         )
     else:
@@ -206,16 +209,11 @@ def pvm_invoke_marshalling(
             invocation_context=invocation_context
         )
         # GP-0.6.2-eq:A.43
-        if output.exit_condition == ExitCondition.out_of_gas:
-            output = ExitCondition.out_of_gas
-        elif output.exit_condition == ExitCondition.halt:
-            output = ExitCondition.halt
-            output.halt_output = bytes(32) # TODO implement
-        else:
-            output = ExitCondition.panic
+        if output.exit_condition.reason not in (ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas):
+            raise Exception("TODO")
 
         return PvmMarshallingOutput(
             gas_limit=gas_limit,
-            output=output,
+            output=output.exit_condition,   #TODO: rename output to exit_condition
             context=invocation_context
         )

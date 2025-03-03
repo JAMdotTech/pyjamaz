@@ -1,4 +1,4 @@
-from pyjamaz.pvm.constants import ExitCondition
+from pyjamaz.pvm.constants import ExitReason
 
 
 class AccumulateInvocation:
@@ -19,7 +19,7 @@ class AccumulateInvocation:
 
         if c != "∇":
             return (
-                ExitCondition.halt,
+                ExitReason.halt,
                 bold_x.service_account.code_hash.update(c),
                 bold_x.service_account.gas_limit_accumulate.update(g),
                 bold_x.service_account.gas_limit_on_transfer.update(m),

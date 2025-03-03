@@ -494,6 +494,33 @@ class PVMProgram(Serializable):
         return None
 
 
+    def to_serialized_bytes(self) -> bytes:
+        """
+        GP-0.6.2-eq:A.35 (Y)
+        """
+        data = bytes()
+
+        # GP?? |o|
+        data += len(self.memory._rom.contents).to_bytes(length=3, byteorder='little')
+        # GP?? |w|
+        data += len(self.memory._ram.contents).to_bytes(length=3, byteorder='little')
+        # GP?? z
+        data += int(1).to_bytes(length=2, byteorder='little')
+        # GP?? s
+        data += len(self.memory._stack.contents).to_bytes(length=3, byteorder='little')
+
+        # GP?? o
+        data += len(self.memory._rom.contents).to_bytes(length=3, byteorder='little')
+        # GP?? w
+        data += len(self.memory._ram.contents).to_bytes(length=3, byteorder='little')
+
+        code_bytes = self.code.to_jam_bytes().to_bytes()
+        data += int(len(code_bytes)).to_bytes(length=4, byteorder='little')
+        data += code_bytes
+
+        return data
+
+
     @classmethod
     def initialize(cls, pvm_code: bytes) -> 'PVMProgram':
         pass

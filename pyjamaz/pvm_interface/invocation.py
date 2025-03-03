@@ -2,7 +2,7 @@ from typing import List
 
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, AccumulateInvocationContext
-from pyjamaz.pvm.constants import ExitCondition
+from pyjamaz.pvm.constants import ExitReason
 from pyjamaz.pvm.invocation import InvocationMutator, InvocationMutationOutput, pvm_invoke_marshalling
 from pyjamaz.pvm.types import PVMMemory
 
@@ -79,7 +79,7 @@ def pvm_invoke_accumulate(
         invocation_context=invocation_context
     )
     # GP-0.6.2-eq:B.12 (C)
-    if marshalling_output.output in [ExitCondition.out_of_gas, ExitCondition.panic]:
+    if marshalling_output.output in [ExitReason.out_of_gas, ExitReason.panic]:
 
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.savepoint_context.state_context,
@@ -87,7 +87,7 @@ def pvm_invoke_accumulate(
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
             gas_limit=marshalling_output.gas_limit
         )
-    elif marshalling_output.output == ExitCondition.halt and marshalling_output.output.halt_output: # Fix with ExitReason
+    elif marshalling_output.output == ExitReason.halt and marshalling_output.output.halt_output: # Fix with ExitReason
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,

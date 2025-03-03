@@ -29,8 +29,8 @@ from .constants import (
     Opcode as op,
     OpcodeScheme,
     InstructionType,
-    ExitCondition,
-    MemOps, OpcodeNames,
+    ExitReason,
+    MemOps, OpcodeNames, ExitCondition,
 )
 
 from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -38,7 +38,7 @@ from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 class PVMInterpreter:
 
-    def __init__(self, program: PVMProgram, log_ctx=None):
+    def __init__(self, program: PVMProgram, logger=None):
         self.reg = np.zeros(13, dtype=np.uint64)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
@@ -53,22 +53,18 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
 
         self.mem:PVMMemory = None
-        self.status:int = ExitCondition.none.value
+        self.status:int = ExitReason.none.value
         self.exit_value:int = None
 
         self.reset(program)
 
         self.log = None
-        self.log_init = None
-        self.log_dict = None
-        if log_ctx:
-            log_ctx["_pvm"] = self
-            self.log = MethodType(log_ctx["log_func"], self)
-            self.log_header = MethodType(log_ctx["log_header"], self)
-            self.log_state = MethodType(log_ctx["log_state"], self)
-            self.log_dict = log_ctx["log_dict"]
+        if logger:
+            self.log = logger
+            self.log._pvm = self
             for opcode_name in OpcodeNames.values():
-                self.log_dict[opcode_name] = 0
+                if opcode_name not in logger.log_opcodes:
+                    logger.log_opcodes[opcode_name] = 0
 
 
     def create_instruction_lookup(self):
@@ -132,7 +128,7 @@ class PVMInterpreter:
         for idx, val in enumerate(program.registers):
             self.reg[idx] = np.uint64(val)
 
-        self.status = ExitCondition.none.value
+        self.status = ExitReason.none.value
 
         self.inst_bitmask: List[bool] = program.code.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -165,7 +161,7 @@ class PVMInterpreter:
     # GP_A.15
     def djump(self, a: int):
         if a == 2 ** 32 - 2 ** 16:
-            self.status = ExitCondition.halt.value
+            self.status = ExitReason.halt.value
             return 0
         elif (a == 0 or
               a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
@@ -177,6 +173,25 @@ class PVMInterpreter:
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
 
+    def get_exit_condition(self) -> ExitCondition:
+        exit_value = None
+        exit_reason = self.status
+
+        if self.status in (ExitReason.host_halt.value, ExitReason.page_fault.value):
+            exit_value = self.exit_value
+        elif self.status == ExitReason.halt.value:
+            mem = bytes()
+            try:
+                mem = self.mem.read_bytes(self.reg[7], self.reg[8])
+            except PVMMemoryError:
+                pass
+            exit_value = mem
+        elif self.status == ExitReason.panic.value:
+            exit_value = None
+        else:
+            exit_value = []
+
+        return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
     def invoke(
         self,
@@ -187,17 +202,17 @@ class PVMInterpreter:
         self.gas = gas
 
         if self.log:
-            self.log_state()
-            self.log_header()
+            self.log.state()
+            self.log.header()
 
-        while self.status == ExitCondition.none.value and self.gas > 0:
+        while self.status == ExitReason.none.value and self.gas > 0:
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
 
             #gp_0.3.6-eq:215
             if self.pc >= self.code_size:
-                self.status = ExitCondition.panic.value
+                self.status = ExitReason.panic.value
                 break
 
             inst_index = self.inst_pos[self.pc]
@@ -231,7 +246,7 @@ class PVMInterpreter:
 
                         match opcode:
                             case op.ecalli.value:
-                                self.status = ExitCondition.host_halt.value
+                                self.status = ExitReason.host_halt.value
                                 self.exit_value = v_x
                                 self.log and self.log(imm1=v_x)
 
@@ -1046,11 +1061,11 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid instruction type: {inst_type}")
 
             except PVMMemoryError:
-                self.status = ExitCondition.page_fault.value
+                self.status = ExitReason.page_fault.value
                 self.gas -= 1
                 self.exit_value = self.mem._mem_addr
                 break
 
             except PanicError:
-                self.status = ExitCondition.panic.value
+                self.status = ExitReason.panic.value
                 break

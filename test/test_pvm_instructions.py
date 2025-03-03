@@ -10,7 +10,8 @@ from jamcodec.base import JamBytes
 from parameterized import parameterized
 
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.constants import ExitCondition, OpcodeNames
+from pyjamaz.pvm.constants import ExitReason, OpcodeNames
+from pyjamaz.pvm.debug import PVMDebugLog
 from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemoryPage
 
 
@@ -118,8 +119,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
         #     test_vector["initial-gas"]
         # )
 
-
-        pvm = PVMInterpreter(pvm_program, log_ctx=log_ctx) # Note: uncomment to enable debug logging
+        logger = PVMDebugLog(None)
+        pvm = PVMInterpreter(pvm_program, logger=logger) # Note: uncomment to enable debug logging
         pvm.invoke(
             5,
             10000
@@ -127,14 +128,14 @@ class TestPolkaVMInstructions(unittest.TestCase):
 
 
         # Mapping specific for test vectors
-        ExitConditionMap = {
-            ExitCondition.none.value: "none",
-            ExitCondition.panic.value: "panic",
-            ExitCondition.halt.value: "halt",
-            ExitCondition.page_fault.value: "page-fault",
+        ExitReasonMap = {
+            ExitReason.none.value: "none",
+            ExitReason.panic.value: "panic",
+            ExitReason.halt.value: "halt",
+            ExitReason.page_fault.value: "page-fault",
         }
 
-        self.assertEqual(test_vector["expected-status"], ExitConditionMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
+        self.assertEqual(test_vector["expected-status"], ExitReasonMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
         self.assertEqual(test_vector["expected-regs"], pvm.reg.tolist(), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg.tolist()}")
         self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
         self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
@@ -150,96 +151,18 @@ class TestPolkaVMInstructions(unittest.TestCase):
                     f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {pvm_mem}"
                 )
 
-
-def log_state(self):
-    print(
-        f"\nGAS: {self.gas}\n"
-        f"PC: {self.pc}\n"
-    )
-
-
-def log_header(self):
-    print(
-        f"PC      "
-        f"INST                  "
-        f"R1  "
-        f"R2  "
-        f"R3  "
-        f"IMM1                    "
-        f"IMM2                    "
-        f"OFF1                    "
-        f"OFF2                    "
-        "CTX")
-
-
-def log_opcode(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
-    ctx = {"reg": [int(x) for x in self.reg]}
-    if context: ctx = ctx | context
-
-    reg1 = reg1 or ''
-    reg2 = reg2 or ''
-    reg3 = reg3 or ''
-    imm1 = imm1 or ''
-    imm2 = imm2 or ''
-    off1 = off1 or ''
-    off2 = off2 or ''
-
-    opn = OpcodeNames[self.opcode]
-    r1 = " " * (8-len(str(self.pc)))
-    r2 = " " * (22-len(opn))
-    r3 = " " * (4-len(str(reg1)))
-    r33 = " " * (3-len(str(reg1)))
-    r4 = " " * (4-len(str(reg2)))
-    r44 = " " * (3-len(str(reg2)))
-    r5 = " " * (4-len(str(reg3)))
-    r55 = " " * (3-len(str(reg3)))
-    r6 = " " * (24-len(str(imm1)))
-    r7 = " " * (24-len(str(imm2)))
-    r8 = " " * (24-len(str(off1)))
-    r9 = " " * (24-len(str(off2)))
-
-    if opn not in self.log_dict:
-        raise Exception(f"Unknown opcode {opn}")
-    else:
-        self.log_dict[opn] += 1
-
-    print(
-        f"{self.pc}{r1}"
-        f"{opn}{r2}"
-        f"{reg1 and ('ω' + str(reg1) + r33) or r3}"
-        f"{reg2 and ('ω' + str(reg2) + r44) or r4}"
-        f"{reg3 and ('ω' + str(reg3) + r55) or r5}"
-        f"{imm1 and (str(imm1) + r6) or r6}"
-        f"{imm2 and (str(imm2) + r7) or r7}"
-        f"{off1 and (str(off1) + r8) or r8}"
-        f"{off2 and (str(off2) + r9) or r9}"
-        f"{str(ctx)}"
-    )
-
-# Note: Basic debug logging
-log_ctx = {
-    "_pvm": None,
-    "log_state": log_state,
-     "log_header": log_header,
-     #"log_footer": log_footer,
-     "log_func": log_opcode,
-     "log_dict": {},
-     "log_opcode_calls": True,
-     "log_opcode_calls_if_zero": False,
-}
-
 # print some stats collected from logger
-def tearDownModule():
-    global log_ctx
-    # Note: only show debug log when enabled
-    if log_ctx["_pvm"]:
-        log_ctx["_pvm"].log_state()
-        if log_ctx["log_opcode_calls"]:
-            print("Opcodes:")
-            opcodes = log_ctx["log_dict"]
-            if not log_ctx["log_opcode_calls_if_zero"]:
-                opcodes = {x:y for x,y in opcodes.items() if y > 0}
-            print(opcodes)
+# def tearDownModule():
+#     global log_ctx
+#     # Note: only show debug log when enabled
+#     if log_ctx["_pvm"]:
+#         log_ctx["_pvm"].log_state()
+#         if log_ctx["log_opcode_calls"]:
+#             print("Opcodes:")
+#             opcodes = log_ctx["log_dict"]
+#             if not log_ctx["log_opcode_calls_if_zero"]:
+#                 opcodes = {x:y for x,y in opcodes.items() if y > 0}
+#             print(opcodes)
 
 if __name__ == '__main__':
     unittest.main()
