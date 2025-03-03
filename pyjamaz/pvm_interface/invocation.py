@@ -1,7 +1,8 @@
 from typing import List
 
 from pyjamaz.models.common import AccumulationOperand
-from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, AccumulateInvocationContext
+from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
+    AccumulateInvocationContext, ArgumentData
 from pyjamaz.pvm.constants import ExitReason
 from pyjamaz.pvm.invocation import InvocationMutator, InvocationMutationOutput, pvm_invoke_marshalling
 from pyjamaz.pvm.types import PVMMemory
@@ -65,10 +66,11 @@ def pvm_invoke_accumulate(
             gas_limit=0
         )
 
-    # TODO serialize as varint64?
-    argument_data = timeslot.to_bytes(length=4, byteorder='little')
-    argument_data += service_id.to_bytes(length=4, byteorder='little')
-    argument_data += len(operands).to_bytes(length=4, byteorder='little')
+    argument_data = ArgumentData(
+        timeslot=timeslot,
+        service_id=service_id,
+        operands=operands,
+    ).to_jam_bytes().to_bytes()
 
     marshalling_output = pvm_invoke_marshalling(
         serialized_program=serialized_program,
@@ -79,7 +81,7 @@ def pvm_invoke_accumulate(
         invocation_context=invocation_context
     )
     # GP-0.6.2-eq:B.12 (C)
-    if marshalling_output.output in [ExitReason.out_of_gas, ExitReason.panic]:
+    if marshalling_output.output.reason in [ExitReason.out_of_gas, ExitReason.panic]:
 
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.savepoint_context.state_context,
@@ -87,11 +89,11 @@ def pvm_invoke_accumulate(
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
             gas_limit=marshalling_output.gas_limit
         )
-    elif marshalling_output.output == ExitReason.halt and marshalling_output.output.halt_output: # Fix with ExitReason
+    elif marshalling_output.output.reason == ExitReason.halt and marshalling_output.output.value:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
-            accumulation_output=marshalling_output.output.halt_output,
+            accumulation_output=marshalling_output.output.value,
             gas_limit=marshalling_output.gas_limit
         )
     else:
