@@ -11,7 +11,7 @@ from parameterized import parameterized
 
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, OpcodeNames
-from pyjamaz.pvm.debug import PVMDebugLog
+from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemoryPage
 
 

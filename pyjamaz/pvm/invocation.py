@@ -3,7 +3,7 @@ from typing import List
 
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
-from pyjamaz.pvm.debug import PVMDebugLog
+from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm.types import PVMProgram, PVMMemory, PVMCode
 
 
