@@ -299,7 +299,7 @@ class PVMMemory:
                 raise PVMMemoryError(f"Page not found {addr}")
 
             page_addr = addr - page.address
-            page_bytes = (page.length - page_addr)
+            page_bytes = min(length, page.length - page_addr)
             pages.append((page, page_addr, min(page_bytes, bytes_remaining)))
 
             bytes_remaining -= page_bytes
