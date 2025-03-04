@@ -3,8 +3,8 @@ from typing import List
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
     AccumulateInvocationContext, ArgumentData
-from pyjamaz.pvm.constants import ExitReason
-from pyjamaz.pvm.invocation import InvocationMutator, InvocationMutationOutput, pvm_invoke_marshalling
+from pyjamaz.pvm.constants import ExitReason, ExitCondition
+from pyjamaz.pvm.invocation import InvocationMutator, InvocationMutationOutput, PVMInvocation
 from pyjamaz.pvm.types import PVMMemory
 
 
@@ -22,7 +22,19 @@ class AccumulateInvocationMutator(InvocationMutator):
         TODO stub for host calls
         !!!!!!!!!!!!!!!!!!!!!!!
         """
-        pass
+
+        if host_call_instr_nr != 0:
+            raise NotImplementedError("thijs moet dit snel goed maken")
+
+        registers[7] = gas_limit - 10
+
+        return InvocationMutationOutput(
+            output=ExitCondition(reason=ExitReason.none),
+            gas_limit=registers[7],
+            registers=registers,
+            memory=memory,
+            context=invocation_context
+        )
 
 
 def pvm_invoke_accumulate(
@@ -72,7 +84,12 @@ def pvm_invoke_accumulate(
         operands=operands,
     ).to_jam_bytes().to_bytes()
 
-    marshalling_output = pvm_invoke_marshalling(
+    pvm_invocation = PVMInvocation(
+        invocation_context=invocation_context,
+        invocation_mutator=AccumulateInvocationMutator()
+    )
+
+    marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=serialized_program,
         start_offset=5,
         gas_limit=gas_limit,
@@ -80,6 +97,7 @@ def pvm_invoke_accumulate(
         invocation_mutator=AccumulateInvocationMutator(),
         invocation_context=invocation_context
     )
+
     # GP-0.6.2-eq:B.12 (C)
     if marshalling_output.output.reason in [ExitReason.out_of_gas, ExitReason.panic]:
 
