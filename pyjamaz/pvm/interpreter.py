@@ -193,6 +193,10 @@ class PVMInterpreter:
 
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
+    def next_instruction(self):
+        inst_index = self.inst_pos[self.pc]
+        self.skip_len = self.inst_arg_len[inst_index] + 1
+
     def invoke(
         self,
         pc: int,
