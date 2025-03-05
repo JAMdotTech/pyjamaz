@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import numpy as np
 
 from pyjamaz.pvm.constants import OpcodeNames
@@ -11,6 +13,12 @@ class PVMDebugLog:
         self.log_opcodes = {}
         self.log_opcode_calls = log_opcode_calls
         self.log_opcode_calls_if_zero = log_opcode_calls_if_zero
+
+    def dump_program(self):
+        with open(f"prog-{datetime.now().strftime("%H:%M:%S")}.bin", "wb") as binary_file:
+            data=self._pvm.program.to_serialized_bytes()
+            binary_file.write(data) #program_bytes)
+
 
     def state(self):
         print(

@@ -107,7 +107,7 @@ def pvm_invoke_accumulate(
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
             gas_limit=marshalling_output.gas_limit
         )
-    elif marshalling_output.output.reason == ExitReason.halt and marshalling_output.output.value:
+    elif marshalling_output.output.reason == ExitReason.halt and len(marshalling_output.output.value) > 0:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,

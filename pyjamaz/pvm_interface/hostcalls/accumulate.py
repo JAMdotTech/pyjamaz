@@ -6,28 +6,73 @@ class AccumulateInvocation:
     def __init__(self):
         pass
 
-    def upgrade(self, gas, registers, memory, bold_x, bold_y):
-        # Updates codehash and gas limits for a service account
-        o = registers[7]  # offset for service codehash
-        g = registers[8]  # gas_limit_accumulate
-        m = registers[9]  # gas_limit_on_transfer
+    # def upgrade(self, gas, registers, memory, bold_x, bold_y):
+    #     # Updates codehash and gas limits for a service account
+    #     o = registers[7]  # offset for service codehash
+    #     g = registers[8]  # gas_limit_accumulate
+    #     m = registers[9]  # gas_limit_on_transfer
+    #
+    #     if memory.is_readable(memory.data, o, o + 32):
+    #         c = memory.data[o:o+32]
+    #     else:
+    #         c = "∇"
+    #
+    #     if c != "∇":
+    #         return (
+    #             ExitReason.halt,
+    #             bold_x.service_account.code_hash.update(c),
+    #             bold_x.service_account.gas_limit_accumulate.update(g),
+    #             bold_x.service_account.gas_limit_on_transfer.update(m),
+    #         )
+    #     else:
+    #         return (
+    #
+    #         )
 
-        if memory.is_readable(memory.data, o, o + 32):
-            c = memory.data[o:o+32]
-        else:
-            c = "∇"
-
-        if c != "∇":
-            return (
-                ExitReason.halt,
-                bold_x.service_account.code_hash.update(c),
-                bold_x.service_account.gas_limit_accumulate.update(g),
-                bold_x.service_account.gas_limit_on_transfer.update(m),
-            )
-        else:
-            return (
-
-            )
+#     def new(self, pvm:PVM, x, y):
+#         # Maak nieuwe service aan en registreer deze in de services dictionary
+#         o = pvm.reg[7]  # offset to read service data from
+#         l = pvm.reg[8]  # size (byte length) of the code blob TODO: cast of eerste 4 bytes of modulus naar 32bit??
+#         g = pvm.reg[9]  # gas_limit_accumulate
+#         m = pvm.reg[10] # gas_limit_on_transfer
+#
+#         if pvm.is_readable(pvm.mem, o, o + 32):
+#             # Note: c == code_hash
+#             c = pvm.mem[o:o+32]
+#         else:
+#             c = "∇"
+#
+#         if c != "∇":
+#             bold_a = ServiceAccount(
+#                 code_hash=c,
+#                 balance=self.a_t,
+#                 gas_limit_accumulate=g,
+#                 gas_limit_on_transfer=m,
+#                 footprint_storage_items=self.a_l,
+#                 footprint_storage_bytes=self.a_i,
+#                 threshold_balance=self.a_t,
+#                 storage_items={},   #bold_s
+#                 preimages={},   #bold_p
+#                 preimage_availability={(c.tobytes(), l): []}   #bold_l TODO: c+l is een tuple dat de key in de preimage_availability vormt (model change onderhande werk Arjan)
+#             )
+#
+#         else:
+#             bold_a = "∇"
+#
+#         bold_s = x.service_account  #TODO: levert een service op, zie Eq B.6 & B.7!
+#         bold_s.balance = bold_a.balance - self.a_t
+#
+#         if bold_a != "∇" and bold_s.balance >= x.service_account.threshold_balance:
+#             # TODO: bij updaten service, moeten we ook related zaken (FK's, preimages & storageitems) updaten? -> helper functie maken!
+#             # NOTE: bij alteren service, dus ook deze state?
+#             pvm.reg[7] = x.i
+#             x.i = 2**8 + (x.i - 2**8 + 42) % (2**32 - 2**9) #TODO: HELPER FUNCTIES CHECK & BUMP IMPLEMENTEREN
+#             x.blackboard_u_TODO.services[x.i] = bold_a  #TODO: voeg nieuwe service met key/value toe?
+#         elif c == "∇":
+#             pvm.reg[7] = HostCallResult.oob.value
+#         else:
+#             pvm.reg[7] = HostCallResult.cash.value
+#
 
 
 # from typing import Dict

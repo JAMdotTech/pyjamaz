@@ -60,6 +60,7 @@ class PVMInterpreter:
 
         self.log = None
         if logger:
+            self.program = program
             self.log = logger
             self.log._pvm = self
             for opcode_name in OpcodeNames.values():
@@ -144,7 +145,7 @@ class PVMInterpreter:
             raise Exception(f"Not a valid memory write operation: {opcode}")
 
         bytes_to_write = MemOps[opcode]["bytes"]
-        self.mem.write(addr, value, bytes_to_write)
+        self.mem.write_int(addr, value, bytes_to_write)
 
 
     def mem_read(self, opcode, addr):
@@ -155,7 +156,7 @@ class PVMInterpreter:
             raise Exception(f"Not a valid memory read operation: {opcode}")
 
         bytes_to_read = MemOps[opcode]["bytes"]
-        return self.mem.read(addr, bytes_to_read)
+        return self.mem.read_int(addr, bytes_to_read)
 
 
     # GP_A.15
@@ -178,18 +179,18 @@ class PVMInterpreter:
         exit_reason = self.status
 
         if self.status in (ExitReason.host_halt.value, ExitReason.page_fault.value):
-            exit_value = self.exit_value
+            exit_value = int(self.exit_value)
         elif self.status == ExitReason.halt.value:
             mem = bytes()
             try:
-                mem = self.mem.read_bytes(self.reg[7], self.reg[8])
+                mem = bytes(self.mem.read_bytes(self.reg[7], self.reg[8]))
             except PVMMemoryError:
                 pass
             exit_value = mem
         elif self.status == ExitReason.panic.value:
             exit_value = None
         else:
-            exit_value = []
+            exit_value = b''
 
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
@@ -282,16 +283,16 @@ class PVMInterpreter:
                         match opcode:
                             case op.store_imm_u8.value:
                                 self.mem_write(opcode, v_x, v_y % 2 ** 8)
-                                self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read(v_x, 1)})
+                                self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 1)})
                             case op.store_imm_u16.value:
                                 self.mem_write(opcode, v_x, v_y % 2 ** 16)
-                                self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read(v_x, 2)})
+                                self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 2)})
                             case op.store_imm_u32.value:
                                 self.mem_write(opcode, v_x, v_y % 2 ** 32)
-                                self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read(v_x, 4)})
+                                self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 4)})
                             case op.store_imm_u64.value:
                                 self.mem_write(opcode, v_x, v_y)
-                                self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read(v_x, 8)})
+                                self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 8)})
 
                             case _:
                                 raise InvalidOpcode(f"Invalid imm_imm opcode: {opcode} for instruction type {inst_type}")
@@ -358,19 +359,19 @@ class PVMInterpreter:
 
                             case op.store_u8.value:
                                 self.mem_write(opcode, v_x, self.reg[r_a] % 2**8)
-                                self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read(v_x, 1)})
+                                self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 1)})
 
                             case op.store_u16.value:
                                 self.mem_write(opcode, v_x, self.reg[r_a] % 2**16)
-                                self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read(v_x, 2)})
+                                self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 2)})
 
                             case op.store_u32.value:
                                 self.mem_write(opcode, v_x, self.reg[r_a] % 2**32)
-                                self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read(v_x, 4)})
+                                self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 4)})
 
                             case op.store_u64.value:
                                 self.mem_write(opcode, v_x, self.reg[r_a])
-                                self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read(v_x, 8)})
+                                self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 8)})
 
                             case _:
                                 raise InvalidOpcode(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
@@ -394,19 +395,19 @@ class PVMInterpreter:
 
                             case op.store_imm_ind_u8.value:
                                 self.mem_write(opcode, w_a + v_x, v_y % 2**8)
-                                self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read(w_a + v_x, 1)})
+                                self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 1)})
 
                             case op.store_imm_ind_u16.value:
                                 self.mem_write(opcode, w_a + v_x, v_y % 2**16)
-                                self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read(w_a + v_x, 2)})
+                                self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 2)})
 
                             case op.store_imm_ind_u32.value:
                                 self.mem_write(opcode, w_a + v_x, v_y % 2**32)
-                                self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read(w_a + v_x, 4)})
+                                self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 4)})
 
                             case op.store_imm_ind_u64.value:
                                 self.mem_write(opcode, w_a + v_x, v_y)
-                                self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read(w_a + v_x, 8)})
+                                self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 8)})
 
                             case _:
                                 raise InvalidOpcode(f"Invalid reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
@@ -1070,6 +1071,7 @@ class PVMInterpreter:
                 self.exit_value = self.mem._mem_addr
                 break
 
-            except PanicError:
+            except PanicError as panic_error:
                 self.status = ExitReason.panic.value
+                self.log.dump_program()
                 break

@@ -67,7 +67,7 @@ class PVMCode(Serializable):
 
 
 @dataclass
-class MemoryPage:
+class MemorySection:
     address: int
     length: int
     break_pointer: int
@@ -91,14 +91,14 @@ class MemoryPage:
     def contains(self, addr):
         return self.address <= addr < self.address + self.length
 
-    def read(self, address: int, length: int) -> bytes:
+    def read_int(self, address: int, length: int) -> np.uint64:
         """
         TODO:
         outofbounds offset
         als we vanaf de outofbounds tot length lezen/scwijven -> aanzulen met nullen
         """
         if length == 0:
-            return 0
+            return np.uint64(0)
 
         elif length == 1:
             return np.uint64(self.contents[address + 0]) % 2**8
@@ -148,8 +148,7 @@ class MemoryPage:
         else:
             raise UIntValueError(f"Invalid uint length: {length}")
 
-
-    def write(self, address: int, value: int, length: int):
+    def write_int(self, address: int, value: int, length: int):
         # Note: GP applies a modulus over the value to write denoted by their bit length
         if length < 8:
             value = value % (2 ** (length*8))
@@ -179,37 +178,37 @@ class MemoryPage:
 
 @dataclass
 class PVMMemory:
-    pages: List[MemoryPage]
-    page_offsets: List[int]
-    _rom: MemoryPage
-    _heap: MemoryPage
-    _stack: MemoryPage
-    _args: MemoryPage
+    sections: List[MemorySection]
+    section_offsets: List[int]
+    _rom: MemorySection
+    _heap: MemorySection
+    _stack: MemorySection
+    _args: MemorySection
     _mem_addr: int
-    _page: int
-    _page_addr: int
+    _section: int
+    _section_addr: int
 
     def __init__(
         self,
-        rom: MemoryPage,
-        heap: MemoryPage,
-        stack: MemoryPage,
-        arguments: MemoryPage
+        rom: MemorySection,
+        heap: MemorySection,
+        stack: MemorySection,
+        arguments: MemorySection
     ):
         self._rom = rom
         self._heap = heap
         self._stack = stack
         self._args = arguments
 
-        self.pages: List[MemoryPage] = [rom, heap, stack, arguments]
-        self.page_offsets = [p.address for p in self.pages]
+        self.sections: List[MemorySection] = [m for m in (rom, heap, stack, arguments) if m]
+        self.section_offsets = [p.address for p in self.sections]
 
         self._mem_addr = None
-        self._page = None
-        self._page_addr = None
+        self._section = None
+        self._section_addr = None
 
-    def find_page(self, addr):
-        if not self.page_offsets:
+    def find_section(self, addr: int) -> Optional[MemorySection]:
+        if not self.section_offsets:
             raise PVMMemoryError("Memory not initialized")
 
         #GP-0.6.2-eq:A.7
@@ -217,69 +216,67 @@ class PVMMemory:
             raise PanicError("Invalid memory access")
 
         # Find rightmost index where addr would be inserted and then check if it falls in the page
-        index = bisect.bisect_right(self.page_offsets, addr) - 1
+        index = bisect.bisect_right(self.section_offsets, addr) - 1
         if index < 0:
             raise PVMMemoryError("Memory not initialized")
 
-        page = self.pages[index]
-        if page.contains(addr):
-            return page
+        section = self.sections[index]
+        if section.contains(addr):
+            return section
         else:
             return None
 
-    #TODO: rename to write_int
-    def write(self, addr: int, value: int, length: int):
+    def write_int(self, addr: int, value: int, length: int):
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
         #TODO: can an int span two pages or is it always 'atomic'? if so, apply similar construct as write_bytes
-        if not (self._page and self._page.address <= addr < self._page.address + self._page.length):
-            page = self.find_page(addr)
+        if not (self._section and self._section.address <= addr < self._section.address + self._section.length):
+            section = self.find_section(addr)
         else:
-            page = self._page
+            section = self._section
 
-        if not page:
-            raise PVMMemoryError("Page not found")
+        if not section:
+            raise PVMMemoryError("MemorySection not found")
 
-        if not page.writable:
-            raise PVMMemoryError(f"Page {addr} is not writable")
+        if not section.writable:
+            raise PVMMemoryError(f"MemorySection {addr} is not writable")
 
-        page_addr = addr - page.address
-        self._page = page
-        self._page_addr = page_addr
+        section_addr = addr - section.address
+        self._section = section
+        self._section_addr = section_addr
 
-        if page_addr + length > page.length:
-            raise PVMMemoryError(f"Page {page_addr} overflow: {length} ({page.length})")
+        if section_addr + length > section.length:
+            raise PVMMemoryError(f"Page {section_addr} overflow: {length} ({section.length})")
 
         # Set the mem page according to the found page for this range
-        page.write(page_addr, value, length)
+        section.write_int(section_addr, value, length)
 
-    #TODO: rename to read_int
-    def read(self, addr: int, length: int):
+    def read_int(self, addr: int, length: int):
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
         #TODO: can an int span multiple pages or is it always 'atomic'? if so, apply similar construct as read_bytes
-        if not (self._page and self._page.address <= addr < self._page.address + self._page.length):
-            page = self.find_page(addr)
+        if not (self._section and self._section.address <= addr < self._section.address + self._section.length):
+            section = self.find_section(addr)
         else:
-            page = self._page
+            section = self._section
 
-        if not page:
-            raise PVMMemoryError("Page not found")
+        if not section:
+            raise PVMMemoryError("MemorySection not found")
 
         # if not page.readable:
         #     raise PVMMemoryError(f"Page {addr} is not writable")
 
-        page_addr = addr - page.address
-        self._page = page
-        self._page_addr = page_addr
+        section_addr = addr - section.address
+        self._section = section
+        self._section_addr = section_addr
 
-        if page_addr + length > page.length:
-            raise PVMMemoryError(f"Page {page_addr} overflow: {length} ({page.length})")
+        if section_addr + length > section.length:
+            raise PVMMemoryError(f"MemorySection {section_addr} overflow: {length} ({section.length})")
 
         # Set the mem page according to the found page for this range
-        return page.read(page_addr, length)
+        return section.read_int(section_addr, length)
 
     def read_bytes(self, address: int, length: int) -> bytes:
         """
@@ -291,28 +288,19 @@ class PVMMemory:
             return bytes()
 
         addr = address
-        pages = []
-        bytes_remaining = length
-        while bytes_remaining > 0:
-            page = self.find_page(addr)
-            if not page:
-                raise PVMMemoryError(f"Page not found {addr}")
+        section = self.find_section(addr)
+        if not section:
+            raise PVMMemoryError(f"MemorySection not found {addr}")
 
-            page_addr = addr - page.address
-            page_bytes = (page.length - page_addr)
-            pages.append((page, page_addr, min(page_bytes, bytes_remaining)))
+        section_addr = addr - section.address
+        section_bytes = (section.length - section_addr)
 
-            bytes_remaining -= page_bytes
-            if bytes_remaining > 0:
-                addr += page_bytes
+        if section_bytes < length:
+            raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
 
-        bytez = bytes()
-        for pg in pages:
-            bytez += bytes(pg[0].contents[pg[1]:pg[1]+pg[2]])
+        return section.contents[section_addr:section_addr+section_bytes]
 
-        return bytez
-
-    def write_bytes(self, address: int, content: bytes) -> bytes:
+    def write_bytes(self, address: int, content: bytes) -> None:
         """
         """
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -323,44 +311,35 @@ class PVMMemory:
             return
 
         addr = address
-        pages = []
+        section = self.find_section(addr)
+        if not section:
+            raise PVMMemoryError(f"MemorySection not found {addr}")
 
-        while bytes_remaining > 0:
-            page = self.find_page(addr)
-            if not page:
-                raise PVMMemoryError(f"Page not found {addr}")
+        section_addr = addr - section.address
+        section_bytes = (section.length - section_addr)
 
-            page_addr = addr - page.address
-            page_bytes = (page.length - page_addr)
-            pages.append((page, page_addr, min(page_bytes, bytes_remaining)))
+        if section_bytes < len(content):
+            raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
 
-            bytes_remaining -= page_bytes
-            if bytes_remaining > 0:
-                addr += page_bytes
-
-        offset = 0
-        for pg in pages:
-            pg[0].contents[pg[1]:pg[1] + pg[2]] = content[offset:offset+pg[2]]
-            offset += pg[2]
+        section.contents[section_addr:section_addr+section_bytes] = content
 
     def extend_heap(self, size):
-        page_size = PVMMemory.page_size(size)
-        if self._heap.address + page_size >= self._stack.address:
+        # Note: sbrk opcode
+        # TODO: fix memory allocations
+        if self._heap.address + size >= self._stack.address:
             raise PVMMemoryError("Heap overflow")
 
         old_heap = self._heap.contents
-        new_heap = np.zeros(page_size, dtype=np.uint8)
+        new_heap = np.zeros(size, dtype=np.uint8)
         old_size = len(old_heap)
-        if old_size > size:
-            old_size = size
 
         new_heap[:old_size] = old_heap[:old_size]
         self._heap.contents = new_heap
 
-        self._heap.length = page_size
+        self._heap.length = size
         self._heap.break_pointer = size
 
-        return page_size
+        return self._heap.address
 
     @staticmethod
     def page_size(items: int) -> int:
@@ -403,7 +382,7 @@ class PVMProgram(Serializable):
             stack_mem_size: int
     ) -> PVMMemory:
 
-        _rom = MemoryPage(
+        _rom = MemorySection(
             address=PVM_INIT_ZONE_SIZE,
             length=PVMMemory.page_size(min(len(rom),1)),
             writable=False,
@@ -411,7 +390,7 @@ class PVMProgram(Serializable):
         )
 
         # TODO: add sanity check on heap_mem_size
-        heap = MemoryPage(
+        heap = MemorySection(
             address=2 * PVM_INIT_ZONE_SIZE + PVMMemory.zone_size(len(rom)),
             length=PVMMemory.page_size(len(ram)) + heap_mem_size,
             writable=True,
@@ -419,14 +398,14 @@ class PVMProgram(Serializable):
         )
 
         #TODO: add sanity check on stack_mem_size
-        stack = MemoryPage(
+        stack = MemorySection(
             address=2 ** 32 - 2 * PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
             length=PVMMemory.page_size(stack_mem_size),
             writable=True,
             contents=bytes(PVMMemory.page_size(stack_mem_size)),
         )
 
-        arguments = MemoryPage(
+        arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
             length=len(arguments),
             writable=False,
@@ -498,27 +477,28 @@ class PVMProgram(Serializable):
         """
         GP-0.6.2-eq:A.35 (Y)
         """
-        data = bytes()
-
-        # GP?? |o|
-        data += len(self.memory._rom.contents).to_bytes(length=3, byteorder='little')
-        # GP?? |w|
-        data += len(self.memory._ram.contents).to_bytes(length=3, byteorder='little')
-        # GP?? z
-        data += int(1).to_bytes(length=2, byteorder='little')
-        # GP?? s
-        data += len(self.memory._stack.contents).to_bytes(length=3, byteorder='little')
-
-        # GP?? o
-        data += len(self.memory._rom.contents).to_bytes(length=3, byteorder='little')
-        # GP?? w
-        data += len(self.memory._ram.contents).to_bytes(length=3, byteorder='little')
-
-        code_bytes = self.code.to_jam_bytes().to_bytes()
-        data += int(len(code_bytes)).to_bytes(length=4, byteorder='little')
-        data += code_bytes
-
-        return data
+        # data = bytes()
+        #
+        # # GP?? |o|
+        # data += len(self.memory._rom.contents).to_bytes(length=3, byteorder='little')
+        # # GP?? |w|
+        # data += len(self.memory._heap.contents).to_bytes(length=3, byteorder='little')
+        # # GP?? z
+        # data += int(1).to_bytes(length=2, byteorder='little')
+        # # GP?? s
+        # data += len(self.memory._stack.contents).to_bytes(length=3, byteorder='little')
+        #
+        # # GP?? o
+        # data += len(self.memory._rom.contents).to_bytes(length=3, byteorder='little')
+        # # GP?? w
+        # data += len(self.memory._heap.contents).to_bytes(length=3, byteorder='little')
+        #
+        # code_bytes = self.code.to_jam_bytes().to_bytes()
+        # data += int(len(code_bytes)).to_bytes(length=4, byteorder='little')
+        # data += code_bytes
+        #
+        # return data
+        return self.code.to_jam_bytes().to_bytes()
 
 
     @classmethod

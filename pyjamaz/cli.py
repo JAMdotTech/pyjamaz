@@ -601,10 +601,10 @@ async def replay_traces(
                 state_diff = DeepDiff(app.state.to_json(), actual_state, ignore_order=True)
                 if state_diff:
                     click.echo(json.dumps(state_diff, indent=2))
-                    response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
-                    if response.lower() == 'q':
-                        logging.info('✋ User aborted.')
-                        break
+                    # response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                    # if response.lower() == 'q':
+                    #     logging.info('✋ User aborted.')
+                    #     break
 
 
 @main.command('dump_state')
