@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from pyjamaz.models.common import AccumulationOperand
@@ -121,6 +122,8 @@ def pvm_invoke_accumulate(
             accumulation_output=marshalling_output.context.context.invocation_output,
             gas_limit=marshalling_output.gas_limit
         )
-
+    if output.accumulation_output is not None:
+        # TODO remove
+        logging.error(f'accumulation_output=0x{output.accumulation_output.hex()}')
     return output
 
