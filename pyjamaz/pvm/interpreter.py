@@ -1073,5 +1073,7 @@ class PVMInterpreter:
 
             except PanicError as panic_error:
                 self.status = ExitReason.panic.value
-                self.log.dump_program()
+                #TODO!!!!!!!!!!!!!!!!
+                self.log.dump_code()
+                self.log.dump_test_vector()
                 break

@@ -14,10 +14,43 @@ class PVMDebugLog:
         self.log_opcode_calls = log_opcode_calls
         self.log_opcode_calls_if_zero = log_opcode_calls_if_zero
 
-    def dump_program(self):
-        with open(f"prog-{datetime.now().strftime("%H:%M:%S")}.bin", "wb") as binary_file:
+    def dump_code(self):
+        with open(f"code-{datetime.now().strftime("%H:%M:%S")}.bin", "wb") as binary_file:
             data=self._pvm.program.to_serialized_bytes()
             binary_file.write(data) #program_bytes)
+
+    def dump_test_vector(self):
+        import json
+        with open(f"vector-{datetime.now().strftime("%H:%M:%S")}.json", 'w') as fp:
+            tt = {
+                "name": "gas_basic_consume_all",
+                "initial-regs": self._pvm.program.registers, #TODO: initial regs
+                "initial-pc": 5, #TODO
+                "initial-page-map": [],#TODO
+                "initial-memory": [],#TODO
+                "initial-gas": 10000,#TODO
+                "program": [x for x in self._pvm.program.to_serialized_bytes()],
+                "expected-status": "panic",
+                "expected-regs": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "expected-pc": 2,#TODO
+                "expected-memory": [],#TODO
+                "expected-gas": 0#TODO
+            }
+            json.dump(tt, fp)
 
 
     def state(self):
