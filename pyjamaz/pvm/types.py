@@ -79,6 +79,7 @@ class MemorySection:
         self.length:int = length
         self.writable:bool = writable
         self.contents: npt.NDArray[np.uint8] = np.zeros(self.length, dtype=np.uint8)
+        self.break_pointer = 0
         if contents:
             self.update(0, contents)
 
@@ -230,7 +231,6 @@ class PVMMemory:
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
-        #TODO: can an int span two pages or is it always 'atomic'? if so, apply similar construct as write_bytes
         if not (self._section and self._section.address <= addr < self._section.address + self._section.length):
             section = self.find_section(addr)
         else:
@@ -256,7 +256,6 @@ class PVMMemory:
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
-        #TODO: can an int span multiple pages or is it always 'atomic'? if so, apply similar construct as read_bytes
         if not (self._section and self._section.address <= addr < self._section.address + self._section.length):
             section = self.find_section(addr)
         else:
@@ -324,22 +323,37 @@ class PVMMemory:
         section.contents[section_addr:section_addr+section_bytes] = content
 
     def extend_heap(self, size):
-        # Note: sbrk opcode
-        # TODO: fix memory allocations
-        if self._heap.address + size >= self._stack.address:
-            raise PVMMemoryError("Heap overflow")
+        # # Note: sbrk opcode
+        # # TODO: fix memory allocations
+        if size == 0: return self._heap.address
+        page_size = PVMMemory.page_size(size)
 
-        old_heap = self._heap.contents
-        new_heap = np.zeros(size, dtype=np.uint8)
-        old_size = len(old_heap)
+        if page_size >= self._stack.address:
+            #raise PVMMemoryError("Heap overflow")
+            return 0
 
-        new_heap[:old_size] = old_heap[:old_size]
-        self._heap.contents = new_heap
-
-        self._heap.length = size
+        # old_heap = self._heap.contents
+        # new_heap = np.zeros(size, dtype=np.uint8)
+        # old_size = len(old_heap)
+        #
+        # new_heap[:old_size] = old_heap[:old_size]
+        # self._heap.contents = new_heap
         self._heap.break_pointer = size
+        return self._heap.break_pointer
 
-        return self._heap.address
+        # page_size = PVMMemory.page_size(size)
+        # if self._heap.address + page_size >= self._stack.address:
+        #     #raise PVMMemoryError("Heap overflow")
+        #     return 0
+        #
+        # old_heap = self._heap.contents
+        # new_heap = np.zeros(size, dtype=np.uint8)
+        # if len(old_heap) < size:
+        #     size = len(old_heap)
+        #
+        # new_heap[:size] = old_heap[:size]
+        # self._heap.contents = new_heap
+        # return page_size
 
     @staticmethod
     def page_size(items: int) -> int:
@@ -407,7 +421,7 @@ class PVMProgram(Serializable):
 
         arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            length=len(arguments),
+            length=PVMMemory.zone_size(len(arguments)),
             writable=False,
             contents=arguments,
         )

@@ -43,7 +43,7 @@ class PVMInterpreter:
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
         self.skip_len: int = 0
-        self.gas:np.uint64 = np.uint64(0)
+        self.gas:np.int64 = np.int64(0)
         self.code:npt.NDArray[np.uint8] = np.array(1, dtype=np.uint8)
         self.code_size: np.uint64 = np.uint64(0)
         self.jump_table = []
@@ -119,7 +119,7 @@ class PVMInterpreter:
 
     def reset(self, program: PVMProgram):
         self.pc = np.uint32(0)
-        self.gas = np.uint64(0)
+        self.gas = np.int64(0)
 
         self.code:npt.NDArray[np.uint8] = np.array(program.code.code, dtype=np.uint8)
         self.code_size: np.uint64 = np.uint64(len(self.code))
@@ -209,6 +209,8 @@ class PVMInterpreter:
         if self.log:
             self.log.state()
             self.log.header()
+            self._initial_gas = gas
+            self._initial_pc = pc
 
         while self.status == ExitReason.none.value and self.gas > 0:
 

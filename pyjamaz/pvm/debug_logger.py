@@ -15,20 +15,54 @@ class PVMDebugLog:
         self.log_opcode_calls_if_zero = log_opcode_calls_if_zero
 
     def dump_code(self):
-        with open(f"code-{datetime.now().strftime("%H:%M:%S")}.bin", "wb") as binary_file:
+        with open(f"code-spi-{datetime.now().strftime("%H:%M:%S")}.bin", "wb") as binary_file:
             data=self._pvm.program.to_serialized_bytes()
             binary_file.write(data) #program_bytes)
 
     def dump_test_vector(self):
         import json
-        with open(f"vector-{datetime.now().strftime("%H:%M:%S")}.json", 'w') as fp:
+
+        initial_page_map = []
+        initial_memory = []
+
+        mem_segments = [
+            self._pvm.program.memory._rom,
+            self._pvm.program.memory._heap,
+            self._pvm.program.memory._stack,
+            self._pvm.program.memory._args
+        ]
+
+        for mem in mem_segments:
+            if mem and mem.length > 0:
+                initial_page_map.append({
+                    "address": int(mem.address),
+                    "length": int(mem.length),
+                    "is-writable": mem.writable,
+                })
+
+                #end_idx = 0
+                for idx, value in enumerate(mem.contents):
+                    #if value > 0:
+                    initial_memory.append({
+                        "address": mem.address+idx,
+                        "contents": [int(value)]
+                    })
+                #     if value != 0:
+                #         end_idx = idx
+                # if end_idx != 0:
+                #     initial_memory.append({
+                #         "address": int(mem.address),
+                #         "contents": [int(x) for x in mem.contents[:end_idx]]
+                #     })
+
+        with open(f"code-testvector-{datetime.now().strftime("%H-%M-%S")}.json", 'w') as fp:
             tt = {
                 "name": "gas_basic_consume_all",
-                "initial-regs": self._pvm.program.registers, #TODO: initial regs
-                "initial-pc": 5, #TODO
-                "initial-page-map": [],#TODO
-                "initial-memory": [],#TODO
-                "initial-gas": 10000,#TODO
+                "initial-regs": self._pvm.program.registers,
+                "initial-pc": int(self._pvm._initial_pc),
+                "initial-page-map": initial_page_map,
+                "initial-memory": initial_memory,
+                "initial-gas": int(self._pvm._initial_gas),
                 "program": [x for x in self._pvm.program.to_serialized_bytes()],
                 "expected-status": "panic",
                 "expected-regs": [
@@ -46,7 +80,7 @@ class PVMDebugLog:
                     0,
                     0
                 ],
-                "expected-pc": 2,#TODO
+                "expected-pc": 1,#TODO
                 "expected-memory": [],#TODO
                 "expected-gas": 0#TODO
             }
