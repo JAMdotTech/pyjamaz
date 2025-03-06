@@ -87,7 +87,7 @@ class MemorySection:
         # TODO: implement more efficiently
         for c_idx, val in enumerate(_bytes):
             self.contents[idx+c_idx] = np.uint8(val)
-        self.break_pointer = len(_bytes)
+        self.break_pointer = PVMMemory.page_size(len(_bytes))
 
     def contains(self, addr):
         return self.address <= addr < self.address + self.length
@@ -324,36 +324,17 @@ class PVMMemory:
 
     def extend_heap(self, size):
         # # Note: sbrk opcode
-        # # TODO: fix memory allocations
-        if size == 0: return self._heap.address
+        # # TODO: not sure if this *whole* sbrk implementation is correct...??!!!!!!
+        #if size == 0: return self._heap.address
+        if size == 0: return self._heap.break_pointer
         page_size = PVMMemory.page_size(size)
 
         if page_size >= self._stack.address:
-            #raise PVMMemoryError("Heap overflow")
             return 0
 
-        # old_heap = self._heap.contents
-        # new_heap = np.zeros(size, dtype=np.uint8)
-        # old_size = len(old_heap)
-        #
-        # new_heap[:old_size] = old_heap[:old_size]
-        # self._heap.contents = new_heap
-        self._heap.break_pointer = size
+        self._heap.break_pointer = page_size
         return self._heap.break_pointer
 
-        # page_size = PVMMemory.page_size(size)
-        # if self._heap.address + page_size >= self._stack.address:
-        #     #raise PVMMemoryError("Heap overflow")
-        #     return 0
-        #
-        # old_heap = self._heap.contents
-        # new_heap = np.zeros(size, dtype=np.uint8)
-        # if len(old_heap) < size:
-        #     size = len(old_heap)
-        #
-        # new_heap[:size] = old_heap[:size]
-        # self._heap.contents = new_heap
-        # return page_size
 
     @staticmethod
     def page_size(items: int) -> int:
@@ -491,6 +472,7 @@ class PVMProgram(Serializable):
         """
         GP-0.6.2-eq:A.35 (Y)
         """
+        #TODO!!!!!!!!!!!!!!
         # data = bytes()
         #
         # # GP?? |o|

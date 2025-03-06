@@ -111,75 +111,64 @@ class PVMInvocation:
         A.33 Ψ_H
         """
 
-        # invoke general PVM function (Ψ)
-        self.pvm.invoke(
-            instruction_counter,
-            gas_limit
-        )
+        while True:
 
-        # TODO kan weg
-        output = PVMOutput(
-            exit_condition=self.pvm.get_exit_condition(),
-            instruction_counter=self.pvm.pc,
-            gas_limit=self.pvm.gas,
-            registers=self.pvm.reg,
-            memory=self.pvm.mem
-        )
-
-        if output.exit_condition.reason in [
-            ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas, ExitReason.page_fault
-        ]:
-            return PvMHostCallOutput(
-                exit_condition=output.exit_condition,
-                instruction_counter=output.instruction_counter,
-                gas_limit=output.gas_limit,
-                registers=output.registers,
-                memory=output.memory,
-                invocation_context=self.invocation_context
+            # invoke general PVM function (Ψ)
+            self.pvm.invoke(
+                instruction_counter,
+                gas_limit
             )
 
-        if output.exit_condition.reason == ExitReason.host_halt:
-            host_call_output = self.invocation_mutator.execute(
-                host_call_instr_nr=output.exit_condition.value,
-                gas_limit=output.gas_limit,
-                registers=output.registers,
-                memory=output.memory,
-                invocation_context=self.invocation_context
-            )
+            exit_condition = self.pvm.get_exit_condition()
 
-            if host_call_output.output.reason == ExitReason.page_fault:
-                return PvMHostCallOutput(
-                    exit_condition=host_call_output.output,
-                    instruction_counter=output.instruction_counter,
-                    gas_limit=output.gas_limit,
-                    registers=output.registers,
-                    memory=output.memory,
-                    invocation_context=self.invocation_context
-                )
-            elif host_call_output.output.reason == ExitReason.none:
-                # TODO continue PVM!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                self.pvm.status = ExitReason.none.value
-                self.pvm.next_instruction()
-                return self.pvm_invoke_host_call(
-                    # instruction_counter=output.instruction_counter + 1 + skip(output.instruction_counter), # TODO
-                    instruction_counter=self.pvm.pc,
-                    gas_limit=host_call_output.gas_limit
-                )
-                # raise Exception("TODO")
-
-            elif host_call_output.output.reason in [
-                ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas
+            if exit_condition.reason in [
+                ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas, ExitReason.page_fault
             ]:
                 return PvMHostCallOutput(
-                    exit_condition=host_call_output.output,
-                    instruction_counter=output.instruction_counter,
-                    gas_limit=host_call_output.gas_limit,
-                    registers=host_call_output.registers,
-                    memory=host_call_output.memory,
-                    invocation_context=host_call_output.context
+                    exit_condition=exit_condition,
+                    instruction_counter=int(self.pvm.pc),
+                    gas_limit=int(self.pvm.gas),
+                    registers=self.pvm.reg,
+                    memory=self.pvm.mem,
+                    invocation_context=self.invocation_context
                 )
 
-        raise NotImplementedError
+            if exit_condition.reason == ExitReason.host_halt:
+
+                #TODO: !!!!!!!!!!!!!???? waar wat hoe??
+                host_call_output = self.invocation_mutator.execute(
+                    host_call_instr_nr=exit_condition.value,
+                    gas_limit=int(self.pvm.gas),
+                    registers=self.pvm.registers,
+                    memory=self.pvm.memory,
+                    invocation_context=self.invocation_context
+                )
+
+                if host_call_output.output.reason == ExitReason.page_fault:
+                    return PvMHostCallOutput(
+                        exit_condition=host_call_output.output,
+                        instruction_counter=int(self.pvm.pc),
+                        gas_limit=int(self.pvm.gas),
+                        registers=self.pvm.reg,
+                        memory=self.pvm.reg,
+                        invocation_context=self.invocation_context
+                    )
+                elif host_call_output.output.reason == ExitReason.none:
+                    self.pvm.status = ExitReason.none.value
+                    self.pvm.next_instruction()
+
+                elif host_call_output.output.reason in [
+                    ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas
+                ]:
+                    return PvMHostCallOutput(
+                        exit_condition=host_call_output.output,
+                        instruction_counter=int(self.pvm.pc),
+                        gas_limit=host_call_output.gas_limit,
+                        registers=host_call_output.registers,
+                        memory=host_call_output.memory,
+                        invocation_context=host_call_output.context
+                    )
+
 
     def pvm_invoke_marshalling(
             self,
