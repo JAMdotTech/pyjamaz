@@ -1787,6 +1787,7 @@ class Services(StateComponent):
 
         services = ServicesState(services=deepcopy(pre_state_services.services))
         services.set_storage_engine(self.storage_engine)
+        services.set_storage_transaction(self.app_context.transaction)
 
         accumulation_state = AccumulationStateComponents(
             services=services,

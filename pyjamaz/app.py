@@ -291,7 +291,8 @@ class PyjamazApp:
         pre_state_services = self.state.services
 
         # Set storage engine for services
-        pre_state_services.set_storage_engine(self.state_db)
+        pre_state_services.set_storage_engine(self.state_db) # TODO remove
+        pre_state_services.set_storage_transaction(transaction)
 
         # Validate quality of dispute extrinsic data
         self.components.disputes.validate_extrinsic_disputes(

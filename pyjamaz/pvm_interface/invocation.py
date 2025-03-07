@@ -133,8 +133,12 @@ class AccumulateInvocationMutator(InvocationMutator):
                 registers[7] = HostCallResult.full.value
             else:
                 registers[7] = l
-                service_account.storage_items[storage_key] = service_storage_item
-                #TODO: state_context.services.store_storage_item(service_id, storage_key, service_storage_item)
+                invocation_context.context.state_context.services.store_storage_item(
+                    service_account_id=service_id,
+                    storage_item_hash=storage_key,
+                    value=service_storage_item,
+                )
+                # service_account.storage_items[storage_key] = service_storage_item
 
             return InvocationMutationOutput(
                 output=output,

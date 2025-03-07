@@ -17,7 +17,7 @@ from pyjamaz.pvm.invocation import InvocationContext
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
-from pyjamaz.storage import StorageEngine
+from pyjamaz.storage import StorageEngine, Transaction
 
 
 class State(Serializable):
@@ -412,12 +412,20 @@ class ServicesState(State, Serializable):
         metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
     )
 
+    # TODO replace with storage transaction
     def set_storage_engine(self, storage_engine: StorageEngine):
         setattr(self, '_storage_engine', storage_engine)
 
     @property
     def storage_engine(self) -> Optional[StorageEngine]:
         return getattr(self, '_storage_engine', None)
+
+    def set_storage_transaction(self, transaction: Transaction):
+        setattr(self, '_storage_transaction', transaction)
+
+    @property
+    def storage_transaction(self) -> Optional[Transaction]:
+        return getattr(self, '_storage_transaction', None)
 
     def retrieve_service_account(
             self,
@@ -519,9 +527,8 @@ class ServicesState(State, Serializable):
 
         Parameters
         ----------
-        service_account_id
-        storage_item_hash
-        storage_engine
+        service_account_id: int
+        storage_item_hash: bytes
 
         Returns
         -------
@@ -544,6 +551,37 @@ class ServicesState(State, Serializable):
 
         return data
 
+    def store_storage_item(self, service_account_id: int, storage_item_hash: bytes, value: bytes):
+        """
+        Store a storage item in the storage engine
+        """
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_transaction is None:
+            raise ValueError('storage_transaction must be set before storing storage items')
+
+        storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
+        # self.storage_transaction.put(storage_key, value)
+        # TODO TEMP not in transaction
+        self.storage_engine.put(storage_key, value)
+
+        self.services[service_account_id].storage_items[storage_item_hash] = value
+
+    def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes):
+        """
+        Delete a storage item in the storage engine
+        """
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_transaction is None:
+            raise ValueError('storage_transaction must be set before deleting storage items')
+
+        storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
+        self.storage_transaction.delete(storage_key)
+
+        self.services[service_account_id].storage_items[storage_item_hash] = None
 
 @dataclass
 class AssurancesState(State, Serializable):
