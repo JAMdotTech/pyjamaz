@@ -18,7 +18,7 @@ class InvocationMutationOutput:
     """
     A.34
     """
-    output: ExitCondition
+    output: ExitCondition   #TODO: rename
     gas_limit: int
     registers: List[int]
     memory: PVMMemory
@@ -156,6 +156,7 @@ class PVMInvocation:
                 elif host_call_output.output.reason == ExitReason.none:
                     self.pvm.status = ExitReason.none.value
                     self.pvm.next_instruction()
+                    instruction_counter = self.pvm.pc
 
                 elif host_call_output.output.reason in [
                     ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas
@@ -168,6 +169,8 @@ class PVMInvocation:
                         memory=host_call_output.memory,
                         invocation_context=host_call_output.context
                     )
+                else:
+                    raise Exception("OEPSIE!")
 
 
     def pvm_invoke_marshalling(

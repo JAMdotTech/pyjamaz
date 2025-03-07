@@ -6,16 +6,18 @@
 # from pyjamaz.hashing import blake2b_256_hash
 #
 # from .constants import HostCallGeneral as op, HostCallResult
-# from .exceptions import InvalidHostCall
-# from ..models.state import ServiceAccount
-# from ..pvm import PVM
 #
 #
 # # TODO: maak nette types & datamodellen voor parameters waar nodig
 # # TODO: we slaan nu direct resultaat op in bijv pvm registers... wellicht dit eerst in een intermediate state opslaan?
 # # GP_B.6 General Functions
 # class GeneralFunctionsMixin:
-#
+#     # hostcall 3
+#     def write(self, pvm, bold_s=None, s=None):
+#         """
+#         Writes/deletes a Service Preimage blob
+#         """
+
 #     #0
 #     def gas(self, pvm:PVM, bold_s:ServiceAccount=None, s:int=None, d:Dict[int, ServiceAccount]=None):
 #         """

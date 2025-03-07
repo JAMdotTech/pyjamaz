@@ -297,7 +297,7 @@ class PVMMemory:
         if section_bytes < length:
             raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
 
-        return section.contents[section_addr:section_addr+section_bytes]
+        return bytes(section.contents[section_addr:section_addr+section_bytes])
 
     def write_bytes(self, address: int, content: bytes) -> None:
         """

@@ -183,7 +183,7 @@ class PVMInterpreter:
         elif self.status == ExitReason.halt.value:
             mem = bytes()
             try:
-                mem = bytes(self.mem.read_bytes(self.reg[7], self.reg[8]))
+                mem = self.mem.read_bytes(self.reg[7], self.reg[8])
             except PVMMemoryError:
                 pass
             exit_value = mem

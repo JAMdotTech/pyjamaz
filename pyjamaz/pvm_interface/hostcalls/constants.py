@@ -4,18 +4,18 @@ import numpy as np
 
 
 #GP_B.1
-class HostCallResult(Enum):
-    none: np.uint32 = np.uint64(2**64-1)
-    what: np.uint32 = np.uint64(2**64-2)
-    oob: np.uint32  = np.uint64(2**64-3)
-    who: np.uint32  = np.uint64(2**64-4)
-    full: np.uint32 = np.uint64(2**64-5)
-    core: np.uint32 = np.uint64(2**64-6)
-    cash: np.uint32 = np.uint64(2**64-7)
-    low: np.uint32  = np.uint64(2**64-8)
-    high: np.uint32 = np.uint64(2**64-9)
-    huh: np.uint32  = np.uint64(2**64-10)
-    ok: np.uint32   = np.uint64(0)
+class HostCallResult(Enum): #TODO: refactor naar capital
+    none: np.uint32 = 2**64-1
+    what: np.uint32 = 2**64-2
+    oob: np.uint32  = 2**64-3
+    who: np.uint32  = 2**64-4
+    full: np.uint32 = 2**64-5
+    core: np.uint32 = 2**64-6
+    cash: np.uint32 = 2**64-7
+    low: np.uint32  = 2**64-8
+    high: np.uint32 = 2**64-9
+    huh: np.uint32  = 2**64-10
+    ok: np.uint32   = 0
 
 
 #?????????

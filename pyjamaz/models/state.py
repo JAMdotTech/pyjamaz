@@ -343,7 +343,7 @@ class ServiceAccount(Serializable):
     footprint_storage_items: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U32})
     threshold_balance: int = field(metadata={'codec': U64})
-    storage_items: Union[Dict[bytes, bytes], StorageItemMap] = field(metadata={'codec': Map(H256, Bytes)})
+    storage_items: Union[Dict[bytes, Optional[bytes]], StorageItemMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimages: Union[Dict[bytes, bytes], PreimageMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimage_availability: Union[Dict[Tuple[bytes, int], List[int]], PreimageAvailabilityMap] = field(metadata={
         'codec': Map(JamTuple(H256, U32), Vec(U32))}
