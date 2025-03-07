@@ -286,18 +286,17 @@ class PVMMemory:
         if length == 0:
             return bytes()
 
-        addr = address
-        section = self.find_section(addr)
+        section = self.find_section(address)
         if not section:
-            raise PVMMemoryError(f"MemorySection not found {addr}")
+            raise PVMMemoryError(f"MemorySection not found {address}")
 
-        section_addr = addr - section.address
+        section_addr = address - section.address
         section_bytes = (section.length - section_addr)
 
         if section_bytes < length:
             raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
 
-        return bytes(section.contents[section_addr:section_addr+section_bytes])
+        return bytes(section.contents[section_addr:section_addr+length])
 
     def write_bytes(self, address: int, content: bytes) -> None:
         """
@@ -309,18 +308,17 @@ class PVMMemory:
         if bytes_remaining == 0:
             return
 
-        addr = address
-        section = self.find_section(addr)
+        section = self.find_section(address)
         if not section:
-            raise PVMMemoryError(f"MemorySection not found {addr}")
+            raise PVMMemoryError(f"MemorySection not found {address}")
 
-        section_addr = addr - section.address
+        section_addr = address - section.address
         section_bytes = (section.length - section_addr)
 
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
 
-        section.contents[section_addr:section_addr+section_bytes] = content
+        section.contents[section_addr:section_addr+len(content)] = content
 
     def extend_heap(self, size):
         # # Note: sbrk opcode
