@@ -1,6 +1,7 @@
 import logging
 from typing import List
 
+from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
@@ -29,6 +30,71 @@ class AccumulateInvocationMutator(InvocationMutator):
 
         if host_call_instr_nr == 0:
             registers[7] = gas_limit - 10
+
+        elif host_call_instr_nr == 2:
+            """
+            Read from disk to memory
+            Puts a Service StorageItem blob into PVM memory
+            """
+            gas_limit -= 10
+            w7 = registers[7]
+            service_id = invocation_context.context.service_account_id
+
+            #gp: s*
+            if w7 == 2 ** 64 - 1:
+                new_service_id = service_id
+            else:
+                new_service_id = w7
+
+            #gp: bold_a
+            state = invocation_context.context.state_context
+            try:
+                if new_service_id == service_id:
+                    service_account = state.services.retrieve_service_account(service_id)
+                else:
+                    service_account = state.services.retrieve_service_account(new_service_id)
+            except StateKeyNoResult as e:
+                service_account = None
+
+            k_o = registers[8]  # offset to read from memory
+            k_z = registers[9]  # length to read from memory
+            o = registers[10]  # offset where to write to in pvm mem
+
+            # gp: bold_v (storage_item)
+            storage_item_mem_error = False
+            mem_blob = None
+            storage_item = None
+            if service_account is not None:
+                try:
+                    new_service_id_bytes = int(new_service_id).to_bytes(length=4, byteorder="little")
+                    storage_key = blake2b_256_hash(new_service_id_bytes + memory.read_bytes(k_o, k_z))
+                    storage_item = state.services.retrieve_storage_item(service_account_id=new_service_id, storage_item_hash=storage_key)
+                    f = min(registers[11], len(storage_item))
+                    l = min(registers[12], len(storage_item) - f)
+                    mem_blob = memory.read_bytes(o, l)
+                except StateKeyNoResult:
+                    storage_item = None
+                except PVMMemoryError:
+                    storage_item_mem_error = True
+                    storage_item = None
+
+            exit_condition = ExitCondition(reason=ExitReason.none)
+            if storage_item_mem_error or not mem_blob:
+                exit_condition = ExitCondition(reason=ExitReason.panic)
+            elif storage_item is None:
+                registers[7] = HostCallResult.none.value
+            else:
+                registers[7] = len(storage_item)
+                memory.write_bytes(o, storage_item[f:f+l])
+
+            return InvocationMutationOutput(
+                output=exit_condition,
+                gas_limit=gas_limit,
+                registers=registers,
+                memory=memory,
+                context=invocation_context
+            )
+
         elif host_call_instr_nr == 3:
             gas_limit -= 10
 
@@ -37,6 +103,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             v_o = registers[9]  # offset to write storage_item_value from memory
             v_z = registers[10]  # length to write storage_item_value from memory
 
+            state_context = invocation_context.context.state_context
             service_id = invocation_context.context.service_account_id
             service_id_bytes = int(service_id).to_bytes(length=4, byteorder="little")
             try:
@@ -44,14 +111,11 @@ class AccumulateInvocationMutator(InvocationMutator):
             except PVMMemoryError:
                 storage_key = "∇"
 
-            service_account = invocation_context.context.state_context.services.services[service_id]
+            service_account = state_context.services.services[service_id]
             try:
-                #ass = service_account.storage_items
                 if v_z == 0:
-                    #ass[k] = None
                     service_storage_item = None
                 else:
-                    #ass[k] = memory.read_bytes(v_o, v_z)
                     service_storage_item = memory.read_bytes(v_o, v_z)
             except PVMMemoryError:
                 service_storage_item = "∇"
@@ -70,6 +134,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             else:
                 registers[7] = l
                 service_account.storage_items[storage_key] = service_storage_item
+                #TODO: state_context.services.store_storage_item(service_id, storage_key, service_storage_item)
 
             return InvocationMutationOutput(
                 output=output,
