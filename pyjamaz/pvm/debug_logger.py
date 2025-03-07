@@ -15,7 +15,7 @@ class PVMDebugLog:
         self.log_opcode_calls_if_zero = log_opcode_calls_if_zero
 
     def dump_code(self):
-        with open(f"code-spi-{datetime.now().strftime("%H:%M:%S")}.bin", "wb") as binary_file:
+        with open(f"code-spi-{datetime.now().strftime('%H:%M:%S')}.bin", "wb") as binary_file:
             data=self._pvm.program.to_serialized_bytes()
             binary_file.write(data) #program_bytes)
 
@@ -55,7 +55,7 @@ class PVMDebugLog:
                 #         "contents": [int(x) for x in mem.contents[:end_idx]]
                 #     })
 
-        with open(f"code-testvector-{datetime.now().strftime("%H-%M-%S")}.json", 'w') as fp:
+        with open(f"code-testvector-{datetime.now().strftime('%H-%M-%S')}.json", 'w') as fp:
             tt = {
                 "name": "gas_basic_consume_all",
                 "initial-regs": self._pvm.program.registers,

@@ -189,11 +189,7 @@ class PyjamazApp:
             recent_history=self.components.recent_history.retrieve_state(),
             services=ServicesState(services={}),
             assurances=self.components.assurances.retrieve_state(),
-            authorizer_queues=AuthorizerQueuesState(
-                authorizer_queues=[
-                    [bytes(32) for _ in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS)] for _ in range(CORE_COUNT)
-                ]
-            ),
+            authorizer_queues=self.components.authorizer_queues.retrieve_state(),
             privileged_services=self.components.privileged_services.retrieve_state(),
             disputes=self.components.disputes.retrieve_state(),
             statistics=self.components.statistics.retrieve_state(),

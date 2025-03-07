@@ -220,6 +220,7 @@ class PVMInterpreter:
             #gp_0.3.6-eq:215
             if self.pc >= self.code_size:
                 self.status = ExitReason.panic.value
+                self.exit_value = None
                 break
 
             inst_index = self.inst_pos[self.pc]
@@ -248,8 +249,8 @@ class PVMInterpreter:
                     #GP_A.5.2
                     case InstructionType.imm:
 
-                        l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 2)))
-                        v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                        l_x = int(min(4, self.inst_arg_len[inst_index]))
+                        v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
 
                         match opcode:
                             case op.ecalli.value:

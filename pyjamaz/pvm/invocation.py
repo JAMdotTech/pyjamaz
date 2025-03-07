@@ -51,7 +51,7 @@ class PVMOutput:
 @dataclass
 class PvmMarshallingOutput:
     gas_limit: int
-    output: ExitCondition
+    exit_condition: ExitCondition
     context: InvocationContext
 
 @dataclass
@@ -139,8 +139,8 @@ class PVMInvocation:
                 host_call_output = self.invocation_mutator.execute(
                     host_call_instr_nr=exit_condition.value,
                     gas_limit=int(self.pvm.gas),
-                    registers=self.pvm.registers,
-                    memory=self.pvm.memory,
+                    registers=self.pvm.reg,
+                    memory=self.pvm.mem,
                     invocation_context=self.invocation_context
                 )
 
@@ -175,9 +175,7 @@ class PVMInvocation:
             serialized_program: bytes,              # p
             start_offset: int,                      # ı
             gas_limit: int,                         # ρ
-            argument_data: bytes,                   # a
-            invocation_mutator: InvocationMutator,  # f
-            invocation_context: InvocationContext   # x
+            argument_data: bytes                   # a
     ) -> PvmMarshallingOutput:
         """
         GP-0.6.2-eq:A.42 (Ψ_M) | Marshalling invocation function
@@ -194,23 +192,24 @@ class PVMInvocation:
         if self.pvm_program is None:
             return PvmMarshallingOutput(
                 gas_limit=gas_limit,
-                output=ExitCondition(reason=ExitReason.panic, value=None),
-                context=invocation_context
+                exit_condition=ExitCondition(reason=ExitReason.panic),
+                context=self.invocation_context
             )
 
-        logger = PVMDebugLog(None)
+        logger = PVMDebugLog(pvm=None)
         self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger)
 
         output = self.pvm_invoke_host_call(
             instruction_counter=start_offset,
             gas_limit=gas_limit
         )
+
         # GP-0.6.2-eq:A.43
-        if output.exit_condition.reason not in (ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas):
-            raise Exception("TODO")
+        if output.exit_condition.reason not in (ExitReason.halt, ExitReason.out_of_gas):
+            output.exit_condition = ExitCondition(reason=ExitReason.panic)
 
         return PvmMarshallingOutput(
-            gas_limit=gas_limit,
-            output=output.exit_condition,   #TODO: rename output to exit_condition
-            context=invocation_context
+            gas_limit=output.gas_limit,
+            exit_condition=output.exit_condition,
+            context=output.invocation_context
         )

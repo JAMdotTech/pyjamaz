@@ -94,13 +94,11 @@ def pvm_invoke_accumulate(
         serialized_program=serialized_program,
         start_offset=5,
         gas_limit=gas_limit,
-        argument_data=argument_data,
-        invocation_mutator=AccumulateInvocationMutator(),
-        invocation_context=invocation_context
+        argument_data=argument_data
     )
 
     # GP-0.6.2-eq:B.12 (C)
-    if marshalling_output.output.reason in [ExitReason.out_of_gas, ExitReason.panic]:
+    if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
 
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.savepoint_context.state_context,
@@ -108,11 +106,11 @@ def pvm_invoke_accumulate(
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
             gas_limit=marshalling_output.gas_limit
         )
-    elif marshalling_output.output.reason == ExitReason.halt and len(marshalling_output.output.value) > 0:
+    elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
-            accumulation_output=marshalling_output.output.value,
+            accumulation_output=marshalling_output.exit_condition.value,
             gas_limit=marshalling_output.gas_limit
         )
     else:
