@@ -1,4 +1,5 @@
 import bisect
+from enum import Enum
 
 import numpy as np
 import numpy.typing as npt
@@ -14,6 +15,13 @@ from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger
 
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
+
+
+
+class PVMMemoryMode(Enum):
+    non_readable:int        = 0
+    readable:int            = 1
+    writable:int            = 2
 
 
 @dataclass
@@ -277,12 +285,32 @@ class PVMMemory:
         # Set the mem page according to the found page for this range
         return section.read_int(section_addr, length)
 
+    def is_accessible(self, address: int, length: int, mode: int) -> bool:
+        section = self.find_section(address)
+        if not section:
+            return False
+
+        section_addr = address - section.address
+        section_bytes = (section.length - section_addr)
+
+        if section_bytes < length:
+            return False
+
+        if mode == PVMMemoryMode.readable.value:
+            return True
+        elif mode == PVMMemoryMode.writable.value:
+            return section.writable
+        else:
+            raise PVMMemoryError(f"Invalid mode: {mode}")
+
+
     def read_bytes(self, address: int, length: int) -> bytes:
         """
         """
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = address
 
+        # TODO: or raise PVMMemoryError?
         if length == 0:
             return bytes()
 
@@ -305,6 +333,7 @@ class PVMMemory:
         self._mem_addr = address
 
         bytes_remaining = len(content)
+        # TODO: or raise PVMMemoryError?
         if bytes_remaining == 0:
             return
 

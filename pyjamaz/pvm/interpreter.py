@@ -30,7 +30,9 @@ from .constants import (
     OpcodeScheme,
     InstructionType,
     ExitReason,
-    MemOps, OpcodeNames, ExitCondition,
+    MemOps,
+    OpcodeNames,
+    ExitCondition,
 )
 
 from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
