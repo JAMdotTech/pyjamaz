@@ -31,6 +31,14 @@ class AccumulateInvocationMutator(InvocationMutator):
         if host_call_instr_nr == HostCallGeneral.gas.value:
             registers[7] = gas_limit - 10
 
+            return InvocationMutationOutput(
+                output=ExitCondition(reason=ExitReason.none),
+                gas_limit=gas_limit,
+                registers=registers,
+                memory=memory,
+                context=invocation_context
+            )
+
         elif host_call_instr_nr == HostCallGeneral.lookup.value:
             """
             Puts a Service Preimage blob into PVM memory
@@ -113,25 +121,27 @@ class AccumulateInvocationMutator(InvocationMutator):
             # GP: bold_v (storage_item)
             storage_item_mem_error = False
             mem_writable = False
-            storage_item = None
+            storage_item = b''
             if service_account is not None:
                 try:
                     new_service_id_bytes = int(new_service_id).to_bytes(length=4, byteorder="little")
                     storage_key = blake2b_256_hash(new_service_id_bytes + memory.read_bytes(k_o, k_z))
                     storage_item = state.services.retrieve_storage_item(service_account_id=new_service_id, storage_item_hash=storage_key)
-                    f = min(registers[11], len(storage_item))
-                    l = min(registers[12], len(storage_item) - f)
-                    mem_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)
+
                 except StateKeyNoResult:
-                    storage_item = None
+                    storage_item = b''
                 except PVMMemoryError:
                     storage_item_mem_error = True
-                    storage_item = None
+                    storage_item = b''
+
+            f = min(registers[11], len(storage_item))
+            l = min(registers[12], len(storage_item) - f)
+            mem_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)
 
             exit_condition = ExitCondition(reason=ExitReason.none)
             if storage_item_mem_error or not mem_writable:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
-            elif storage_item is None:
+            elif storage_item == b'':
                 registers[7] = HostCallResult.none.value
             else:
                 registers[7] = len(storage_item)
@@ -205,7 +215,15 @@ class AccumulateInvocationMutator(InvocationMutator):
                 context=invocation_context
             )
         else:
-            raise Exception(f"TODO!!!!!!!! {host_call_instr_nr}")
+            print(f'DUMMY HOST CALL {host_call_instr_nr}')
+            return InvocationMutationOutput(
+                output=ExitCondition(reason=ExitReason.none),
+                gas_limit=gas_limit,
+                registers=registers,
+                memory=memory,
+                context=invocation_context
+            )
+            # raise Exception(f"TODO!!!!!!!! {host_call_instr_nr}")
 
 
 def pvm_invoke_accumulate(
