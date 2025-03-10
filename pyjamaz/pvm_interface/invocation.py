@@ -74,12 +74,13 @@ class AccumulateInvocationMutator(InvocationMutator):
                     mem_blob = memory.read_bytes(o, l)
                 except StateKeyNoResult:
                     storage_item = None
+                    mem_blob = bytes(0)
                 except PVMMemoryError:
                     storage_item_mem_error = True
                     storage_item = None
 
             exit_condition = ExitCondition(reason=ExitReason.none)
-            if storage_item_mem_error or not mem_blob:
+            if storage_item_mem_error or mem_blob is None:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
             elif storage_item is None:
                 registers[7] = HostCallResult.none.value
@@ -111,7 +112,8 @@ class AccumulateInvocationMutator(InvocationMutator):
             except PVMMemoryError:
                 storage_key = "∇"
 
-            service_account = state_context.services.services[service_id]
+            service_account = state_context.services.retrieve_service_account(service_id)
+
             try:
                 if v_z == 0:
                     service_storage_item = None
@@ -120,10 +122,10 @@ class AccumulateInvocationMutator(InvocationMutator):
             except PVMMemoryError:
                 service_storage_item = "∇"
 
-            si = service_account.storage_items.get(storage_key, None)
-            if si is not None:
+            try:
+                si = state_context.services.retrieve_storage_item(service_id, storage_key)
                 l = len(si)
-            else:
+            except StateKeyNoResult:
                 l = HostCallResult.none.value
 
             output = ExitCondition(reason=ExitReason.none)
@@ -174,6 +176,8 @@ def pvm_invoke_accumulate(
     -------
     PvmAccumulateOutput
     """
+
+    logging.debug(f'PVM invoke accumulate: service ID {service_id}')
 
     invocation_context = state_context.to_invocation_context(
         service_account_id=service_id,

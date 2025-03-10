@@ -562,9 +562,7 @@ class ServicesState(State, Serializable):
             raise ValueError('storage_transaction must be set before storing storage items')
 
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
-        # self.storage_transaction.put(storage_key, value)
-        # TODO TEMP not in transaction
-        self.storage_engine.put(storage_key, value)
+        self.storage_transaction.put(storage_key, value)
 
         self.services[service_account_id].storage_items[storage_item_hash] = value
 
