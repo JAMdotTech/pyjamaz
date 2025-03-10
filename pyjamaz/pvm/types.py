@@ -285,7 +285,7 @@ class PVMMemory:
         # Set the mem page according to the found page for this range
         return section.read_int(section_addr, length)
 
-    def is_accessible(self, address: int, length: int, mode: int) -> bool:
+    def is_accessible(self, address: int, length: int, mode: PVMMemoryMode) -> bool:
         section = self.find_section(address)
         if not section:
             return False
@@ -296,9 +296,9 @@ class PVMMemory:
         if section_bytes < length:
             return False
 
-        if mode == PVMMemoryMode.readable.value:
+        if mode == PVMMemoryMode.readable:
             return True
-        elif mode == PVMMemoryMode.writable.value:
+        elif mode == PVMMemoryMode.writable:
             return section.writable
         else:
             raise PVMMemoryError(f"Invalid mode: {mode}")

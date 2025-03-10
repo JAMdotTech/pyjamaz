@@ -9,7 +9,7 @@ from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutpu
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutator, InvocationMutationOutput, PVMInvocation
-from pyjamaz.pvm.types import PVMMemory
+from pyjamaz.pvm.types import PVMMemory, PVMMemoryMode
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallGeneral, HostCallResult
 
 
@@ -53,15 +53,14 @@ class AccumulateInvocationMutator(InvocationMutator):
             o = registers[9]  # offset to write image data to in pvm mem
 
             # GP: bold_v
+            preimage_bytes = bytes()
             preimage_unreadable = False
-            if service_account is None:
-                preimage_bytes = None
-            else:
+            if service_account is not None:
                 try:
                     preimage_bytes = service_account.preimages.get(memory.read_bytes(h, 32), None)
                     f = min(registers[10], len(preimage_bytes))
                     l = min(registers[11], len(preimage_bytes) - f)
-                    preimage_blob = memory.read_bytes(o, l)
+                    preimage_unreadable = not memory.is_accessible(o, l, PVMMemoryMode.readable)
                 except PVMMemoryError:
                     preimage_unreadable = True
 
@@ -73,6 +72,14 @@ class AccumulateInvocationMutator(InvocationMutator):
             else:
                 registers[7] = len(preimage_bytes)
                 memory.write_bytes(f, preimage_bytes[f:f + l])
+
+            return InvocationMutationOutput(
+                output=exit_condition,
+                gas_limit=gas_limit,
+                registers=registers,
+                memory=memory,
+                context=invocation_context
+            )
 
         elif host_call_instr_nr == HostCallGeneral.read.value:
             """
@@ -103,9 +110,9 @@ class AccumulateInvocationMutator(InvocationMutator):
             k_z = registers[9]  # length to read from memory
             o = registers[10]  # offset where to write to in pvm mem
 
-            # gp: bold_v (storage_item)
+            # GP: bold_v (storage_item)
             storage_item_mem_error = False
-            mem_blob = None
+            mem_writable = False
             storage_item = None
             if service_account is not None:
                 try:
@@ -114,16 +121,15 @@ class AccumulateInvocationMutator(InvocationMutator):
                     storage_item = state.services.retrieve_storage_item(service_account_id=new_service_id, storage_item_hash=storage_key)
                     f = min(registers[11], len(storage_item))
                     l = min(registers[12], len(storage_item) - f)
-                    mem_blob = memory.read_bytes(o, l)
+                    mem_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)
                 except StateKeyNoResult:
                     storage_item = None
-                    mem_blob = bytes(0)
                 except PVMMemoryError:
                     storage_item_mem_error = True
                     storage_item = None
 
             exit_condition = ExitCondition(reason=ExitReason.none)
-            if storage_item_mem_error or mem_blob is None:
+            if storage_item_mem_error or not mem_writable:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
             elif storage_item is None:
                 registers[7] = HostCallResult.none.value
