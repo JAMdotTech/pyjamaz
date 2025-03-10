@@ -166,11 +166,11 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
         "quic": logging.WARNING,
     }
 
-    # Setup logging
-    log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level, log_package_overrides)
-
     if ctx.invoked_subcommand is None:
+
+        # Setup logging
+        log_level = logging.DEBUG if verbose else logging.INFO
+        setup_logging(log_level, log_package_overrides)
 
         if seed is None:
             raise MissingParameter("--seed parameter is required")
@@ -503,10 +503,16 @@ async def init(
 )
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
 @click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def replay_traces(
         traces_dir, custom_db_path, force_overwrite, skip_block_validation,
-        only_block_import, trace_format, seed, chainspec
+        only_block_import, trace_format, seed, chainspec, verbose
 ):
+    log_level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(log_level)
+
+    db_path = custom_db_path or default_db_path
+
     if seed is None:
         raise MissingParameter("--seed parameter is required")
     elif not seed.startswith("0x") or len(seed) != 66:
@@ -516,7 +522,6 @@ async def replay_traces(
         app = await initialize_app(read_state=True, custom_db_path=custom_db_path)
     else:
         # Flush database and import genesis state
-        db_path = custom_db_path or default_db_path
         if os.path.isdir(db_path):
             if not force_overwrite:
                 click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
@@ -590,6 +595,17 @@ async def replay_traces(
                 logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
             else:
                 logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
+
+                # Diffing DBs
+                db_dump = {k.hex(): v.hex() for k, v in list(app.state_db)}
+                trace_db = [(k.hex(),v.hex(), name.decode(), metadata.decode()) for k, v, name, metadata in trace.post_state.keyvals]
+
+                for k, v, name, metadata in trace_db:
+                    if k not in db_dump:
+                        logging.warning(f'key {k} is missing ({name} | {metadata})')
+                    if v != db_dump[k]:
+                        logging.warning(f'key {k} is different: {db_dump[k]} != {v} ({name} | {metadata})')
+
                 logging.info('Dumping state differences:')
                 actual_state = app.state.to_json()
 
@@ -599,8 +615,16 @@ async def replay_traces(
                 app.state = app.retrieve_jam_state()
 
                 state_diff = DeepDiff(app.state.to_json(), actual_state, ignore_order=True)
+
+                # Flush DB
+                for key, _ in app.state_db:
+                    app.state_db.delete(key)
+
+
                 if state_diff:
-                    click.echo(json.dumps(state_diff, indent=2))
+                    logging.warning(json.dumps(state_diff, indent=2))
+                    # click.echo(json.dumps(state_diff, indent=2))
+                    continue
                     # response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
                     # if response.lower() == 'q':
                     #     logging.info('✋ User aborted.')

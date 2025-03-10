@@ -27,6 +27,7 @@ class AccumulateInvocationMutator(InvocationMutator):
         TODO stub for host calls
         !!!!!!!!!!!!!!!!!!!!!!!
         """
+        logging.debug(f'PVM host-call #{host_call_instr_nr}')
 
         if host_call_instr_nr == HostCallGeneral.gas.value:
             registers[7] = gas_limit - 10
@@ -296,6 +297,7 @@ def pvm_invoke_accumulate(
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
             gas_limit=marshalling_output.gas_limit
         )
+        logging.debug(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
@@ -303,6 +305,7 @@ def pvm_invoke_accumulate(
             accumulation_output=marshalling_output.exit_condition.value,
             gas_limit=marshalling_output.gas_limit
         )
+        logging.debug(f'PVM accumulate succesful, output=0x{output.accumulation_output.hex()}')
     else:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
@@ -310,8 +313,6 @@ def pvm_invoke_accumulate(
             accumulation_output=marshalling_output.context.context.invocation_output,
             gas_limit=marshalling_output.gas_limit
         )
-    if output.accumulation_output is not None:
-        # TODO remove
-        logging.error(f'accumulation_output=0x{output.accumulation_output.hex()}')
+        logging.error(f'PVM accumulate failed')
     return output
 

@@ -634,6 +634,8 @@ class RecentHistory(StateComponent):
         mmr = MerkleMountainRange(mmr_peaks)
         mmr.insert(accumulate_root)
 
+        logging.debug(f'accumulate_root={accumulate_root.hex()}')
+
         recent_block = RecentBlock(
             header_hash=header.hash,
             mmr=Mmr(
@@ -642,6 +644,7 @@ class RecentHistory(StateComponent):
             state_root=bytes(32),
             reported=reported_work_packages
         )
+        logging.debug(f"mmr={recent_block.mmr.to_json()['peaks']}")
 
         post_state_recent_history.recent_history.append(recent_block)
 
