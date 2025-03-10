@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -93,6 +94,7 @@ class PVMInvocation:
             instruction_counter,
             gas_limit
         )
+        # self.pvm.log.dump_test_vector()
 
         return PVMOutput(
             exit_condition=self.pvm.get_exit_condition(),
@@ -157,6 +159,7 @@ class PVMInvocation:
                     self.pvm.status = ExitReason.none.value
                     self.pvm.next_instruction()
                     instruction_counter = self.pvm.pc
+                    logging.debug(f'PVM continue @ {instruction_counter}')
 
                 elif host_call_output.output.reason in [
                     ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas
