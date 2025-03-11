@@ -610,6 +610,12 @@ async def replay_traces(
                     if v != db_dump[k]:
                         logging.warning(f'key {k} is different: {db_dump[k]} != {v} ({name} | {metadata})')
 
+                tracedb_keys = {k for k, v, name, metadata in trace_db}
+
+                for k, v in db_dump.items():
+                    if k not in tracedb_keys:
+                        logging.warning(f'key {k} is not present in trace: {v}')
+
                 logging.info('Dumping state differences:')
                 actual_state = app.state.to_json()
 

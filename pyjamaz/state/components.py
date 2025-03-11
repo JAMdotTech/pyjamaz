@@ -1742,10 +1742,13 @@ class Services(StateComponent):
         # GP-0.5.4-eq:12.33
         for preimage in extrinsic_preimages:
             # Store preimage
-            self.store_service_preimage(preimage)
+            intermediate_state_after_transfers.store_preimage(
+                service_account_id=preimage.requester,
+                preimage_blob=preimage.blob
+            )
 
             # Update availability information
-            self.store_service_preimage_availability(
+            intermediate_state_after_transfers.store_preimage_availability(
                 service_account_id=preimage.requester,
                 preimage_hash=blake2b_256_hash(preimage.blob),
                 preimage_length=len(preimage.blob),
@@ -1903,86 +1906,6 @@ class Services(StateComponent):
         # State is retrieve per service
         return ServicesState(services={})
 
-    def store_service_account(self,
-        service_account_id: int,
-        service_account: ServiceAccount,
-    ):
-        """
-        Stores a service account
-
-        Parameters
-        ----------
-        service_account_id
-        service_account
-
-        Returns
-        -------
-
-        """
-        state_key = state_key_constructor_service_account(service_account_id)
-
-        if self.app_context.transaction is not None:
-            self.app_context.transaction.put(state_key, service_account.to_serialized_bytes())
-        else:
-            self.storage_engine.put(state_key, service_account.to_serialized_bytes())
-
-    def store_service_preimage(self, preimage: Preimage):
-        """
-        Stores a preimage for a service account
-
-        Parameters
-        ----------
-        preimage
-        transaction
-
-        Returns
-        -------
-
-        """
-        state_key = state_key_constructor_preimage(
-            service_account_id=preimage.requester,
-            preimage_hash=blake2b_256_hash(preimage.blob)
-        )
-
-        if self.app_context.transaction is not None:
-            self.app_context.transaction.put(state_key, preimage.blob)
-        else:
-            self.storage_engine.put(state_key, preimage.blob)
-
-    def store_service_preimage_availability(self,
-        service_account_id: int,
-        preimage_hash: bytes,
-        preimage_length: int,
-        value: List[int]
-    ):
-        """
-        Stores the availability status for a preimage for a service account
-
-        Parameters
-        ----------
-        service_account_id
-        preimage_hash
-        preimage_length
-        value
-        transaction
-
-        Returns
-        -------
-
-        """
-        state_key = state_key_constructor_preimage_availability(
-            service_account_id=service_account_id,
-            preimage_hash=preimage_hash,
-            preimage_length=preimage_length
-        )
-
-        encoded_value = Vec(U32).encode(value).to_bytes()
-
-        if self.app_context.transaction is not None:
-            self.app_context.transaction.put(state_key, encoded_value)
-        else:
-            self.storage_engine.put(state_key, encoded_value)
-
     def store_state(self, state: ServicesState, transaction: Optional[Transaction] = None):
         """
         State for services are stored per service account
@@ -1996,18 +1919,18 @@ class Services(StateComponent):
         -------
 
         """
-        # Store all service accounts in current memory
-        for service_id, service_account in state.services.items():
-            self.store_service_account(service_id, service_account)
-            for preimage_hash, preimage_blob in service_account.preimages.items():
-                self.store_service_preimage(Preimage(requester=service_id, blob=preimage_blob))
-            for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
-                self.store_service_preimage_availability(
-                    service_account_id=service_id,
-                    preimage_hash=preimage_hash,
-                    preimage_length=preimage_length,
-                    value=availability
-                )
+        # # Store all service accounts in current memory
+        # for service_id, service_account in state.services.items():
+        #     self.store_service_account(service_id, service_account)
+        #     for preimage_hash, preimage_blob in service_account.preimages.items():
+        #         self.store_service_preimage(Preimage(requester=service_id, blob=preimage_blob))
+        #     for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
+        #         self.store_service_preimage_availability(
+        #             service_account_id=service_id,
+        #             preimage_hash=preimage_hash,
+        #             preimage_length=preimage_length,
+        #             value=availability
+        #         )
 
 
 class AccumulationQueue(StateComponent):

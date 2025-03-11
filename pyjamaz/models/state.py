@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Tuple, Union, Set
 
@@ -378,17 +379,6 @@ class ServiceAccount(Serializable):
         serialized_bytes += U32.encode(self.footprint_storage_bytes).to_bytes()
         return serialized_bytes
 
-    #TODO: zie GP ΩI, of missch fields parametrized maken?
-    def to_serialized_bytes2(self) -> bytes:
-        serialized_bytes = self.code_hash # c
-        serialized_bytes += U64.encode(self.balance).to_bytes() #b
-        serialized_bytes += U64.encode(self.threshold_balance).to_bytes()   #t
-        serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes() #g
-        serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes() #m
-        serialized_bytes += U64.encode(self.footprint_storage_items).to_bytes() #l
-        serialized_bytes += U32.encode(self.footprint_storage_bytes).to_bytes() #i
-        return serialized_bytes
-
 
 class ServiceAccountMap(StorageMap):
     def __init__(self, storage_engine: StorageEngine):
@@ -431,6 +421,7 @@ class ServicesState(State, Serializable):
     def storage_engine(self) -> Optional[StorageEngine]:
         return getattr(self, '_storage_engine', None)
 
+    # TODO refactor to setter
     def set_storage_transaction(self, transaction: Transaction):
         setattr(self, '_storage_transaction', transaction)
 
@@ -450,6 +441,7 @@ class ServicesState(State, Serializable):
             raise ValueError('storage engine must be set before retrieving preimage')
 
         storage_key = state_key_constructor_service_account(service_account_id)
+        logging.debug(f'retrieve_service_account({service_account_id}): {storage_key.hex()}')
 
         data = self.storage_engine.get(storage_key)
 
@@ -461,6 +453,32 @@ class ServicesState(State, Serializable):
         self.services[service_account_id] = service_account
 
         return service_account
+
+    def store_service_account(self, service_account_id: int, service_account: ServiceAccount):
+        """
+        Stores a service account
+
+        Parameters
+        ----------
+        service_account_id
+        service_account
+
+        Returns
+        -------
+
+        """
+        if self.storage_transaction is None:
+            raise ValueError('storage_transaction must be set before deleting preimage availability data')
+
+        state_key = state_key_constructor_service_account(service_account_id)
+        data = service_account.to_serialized_bytes()
+
+        self.storage_transaction.put(state_key, data)
+
+        self.services[service_account_id] = service_account
+
+        logging.debug(f'store_service_account({service_account_id}): {data.hex()}')
+
 
     def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes) -> bytes:
         """
@@ -487,6 +505,7 @@ class ServicesState(State, Serializable):
             raise ValueError('storage engine must be set before retrieving preimage')
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
+        logging.debug(f'retrieve_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
 
         data = self.storage_engine.get(storage_key)
 
@@ -496,6 +515,35 @@ class ServicesState(State, Serializable):
         self.services[service_account_id].preimages[preimage_hash] = data
 
         return data
+
+    def store_preimage(self, service_account_id: int, preimage_blob: bytes):
+        """
+        Stores a preimage
+
+        Parameters
+        ----------
+        service_account_id
+        preimage_blob
+
+        Returns
+        -------
+        None
+        """
+
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_transaction is None:
+            raise ValueError('storage_transaction must be set before storing preimage data')
+
+        preimage_hash = blake2b_256_hash(preimage_blob)
+
+        storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
+        logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
+
+        self.storage_engine.put(storage_key, preimage_blob)
+
+        self.services[service_account_id].preimages[preimage_hash] = preimage_blob
 
     def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
         try:
@@ -515,6 +563,7 @@ class ServicesState(State, Serializable):
             raise ValueError('storage engine must be set before retrieving preimage availability')
 
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
+        logging.debug(f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}')
 
         data = self.storage_engine.get(storage_key)
 
@@ -601,6 +650,8 @@ class ServicesState(State, Serializable):
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
         data = self.storage_engine.get(storage_key)
 
+        logging.debug(f'retrieve_storage_item({service_account_id}, {storage_item_hash.hex()}): {storage_key.hex()}')
+
         if data is None:
             raise StateKeyNoResult(
                 f'Storage item not found for hash {storage_item_hash} for service account {service_account_id}'
@@ -622,6 +673,8 @@ class ServicesState(State, Serializable):
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
         self.storage_transaction.put(storage_key, value)
 
+        logging.debug(f'store_storage_item({service_account_id}, {storage_item_hash.hex()}): {storage_key.hex()}')
+
         self.services[service_account_id].storage_items[storage_item_hash] = value
 
     def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes):
@@ -637,7 +690,7 @@ class ServicesState(State, Serializable):
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
         self.storage_transaction.delete(storage_key)
 
-        self.services[service_account_id].storage_items[storage_item_hash] = None
+        del self.services[service_account_id].storage_items[storage_item_hash]
 
 @dataclass
 class AssurancesState(State, Serializable):
@@ -1072,7 +1125,8 @@ class AccumulationStateComponents(Serializable):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None
-            )
+            ),
+            timeslot=timeslot
         )
 
 # TODO move back to pvm_interface.models
@@ -1103,6 +1157,7 @@ class AccumulateContextItem:
 class AccumulateInvocationContext(InvocationContext):
     context: AccumulateContextItem           # X_x
     savepoint_context: AccumulateContextItem # X_y
+    timeslot: int # TODO how to make available?
 
 
 @dataclass

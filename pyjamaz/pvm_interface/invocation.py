@@ -183,7 +183,8 @@ class AccumulateInvocationMutator(InvocationMutator):
             service_storage_item_mem_error = False
 
             try:
-                storage_key = blake2b_256_hash(service_id_bytes + memory.read_bytes(k_o, k_z))  # GP: k
+                mu_k = memory.read_bytes(k_o, k_z)
+                storage_key = blake2b_256_hash(service_id_bytes + mu_k)  # GP: k
                 service_account = state_context.services.retrieve_service_account(service_id)
                 try:
                     if v_z == 0:
@@ -217,14 +218,14 @@ class AccumulateInvocationMutator(InvocationMutator):
                         service_account_id=service_id,
                         storage_item_hash=storage_key
                     )
-                    _pvm.log.host_call("WRITE", f"NONE delete_storage_item({service_id}, {storage_key})")
+                    _pvm.log.host_call("WRITE", f"NONE delete_storage_item({service_id}, {storage_key}) mu_k={mu_k}")
                 else:
                     invocation_context.context.state_context.services.store_storage_item(
                         service_account_id=service_id,
                         storage_item_hash=storage_key,
                         value=service_storage_item,
                     )
-                    _pvm.log.host_call("WRITE", f"NONE store_storage_item({service_id}, {storage_key})")
+                    _pvm.log.host_call("WRITE", f"NONE store_storage_item({service_id}, {storage_key.hex()}, {service_storage_item.hex()})")
 
             return InvocationMutationOutput(
                 output=output,
@@ -259,7 +260,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             service_account_bytes = None
             mem_write_error = False
             if service_account:
-                service_account_bytes = service_account.to_serialized_bytes2()  #GP: bold_m
+                service_account_bytes = service_account.to_serialized_bytes()  #GP: bold_m
                 try:
                     memory.write_bytes(o, service_account_bytes)
                 except PVMMemoryError:
@@ -303,11 +304,13 @@ class AccumulateInvocationMutator(InvocationMutator):
             else:
                 preimage_hash = None #GP: h = ∇
 
-            timeslot = 0 #GP: t  #TODO: invocation_context.context.state_context.timeslot
+            timeslot = invocation_context.timeslot #GP: t
             # Note: x & y & w refer to the cardinality of the preimage_availability dictionary, see 9.2.2 EQ9.7
             preimage_updated = True #GP: bold_a = ∇
-            preimage_availability = service_account.preimage_availability.get((preimage_hash,preimage_length), None)
-            if preimage_availability:
+
+            try:
+                preimage_availability = state.services.retrieve_preimage_availability(service_id, preimage_hash, preimage_length)
+
                 preimage_cardinality = len(preimage_availability)
                 if preimage_cardinality in (0, 2) and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
                     state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
@@ -329,7 +332,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                     )
                 else:
                     preimage_updated = False
-            else:
+            except StateKeyNoResult:
                 preimage_updated = False
 
 
@@ -376,7 +379,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 exit_condition = ExitCondition(reason=ExitReason.none)
                 registers[7] = HostCallResult.ok.value
                 invocation_context.invocation_output = preimage_hash
-                _pvm.log.host_call("YIELD", f"NONE r7:HostCallResult.ok invocation_output={preimage_hash}")
+                _pvm.log.host_call("YIELD", f"NONE r7:HostCallResult.ok invocation_output={preimage_hash.hex()}")
 
             return InvocationMutationOutput(
                 output=exit_condition,

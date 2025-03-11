@@ -82,30 +82,6 @@ class PVMInvocation:
 
         self.pvm: Optional[PVMInterpreter] = None
 
-    def pvm_general_invoke(
-            self,
-            instruction_counter: int,  # ı
-            gas_limit: int  # ρ
-    ) -> PVMOutput:
-        """
-        A.1 Ψ
-        TODO kan weg
-        """
-
-        self.pvm.invoke(
-            instruction_counter,
-            gas_limit
-        )
-        # self.pvm.log.dump_test_vector()
-
-        return PVMOutput(
-            exit_condition=self.pvm.get_exit_condition(),
-            instruction_counter=self.pvm.pc,
-            gas_limit=self.pvm.gas,
-            registers=self.pvm.reg,
-            memory=self.pvm.mem
-        )
-
     def pvm_invoke_host_call(
             self,
             instruction_counter: int,              # ı
