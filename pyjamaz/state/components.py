@@ -1858,6 +1858,7 @@ class Services(StateComponent):
             services=deepcopy(intermediate_state_after_accumulation.services)
         )
         intermediate_state_after_transfers.set_storage_engine(self.storage_engine)
+        intermediate_state_after_transfers.set_storage_transaction(self.app_context.transaction)
 
         for service_id in intermediate_state_after_accumulation.services.keys():
             intermediate_state_after_transfers.services.update({

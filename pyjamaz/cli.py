@@ -607,7 +607,7 @@ async def replay_traces(
                 for k, v, name, metadata in trace_db:
                     if k not in db_dump:
                         logging.warning(f'key {k} is missing ({name} | {metadata})')
-                    if v != db_dump[k]:
+                    elif v != db_dump[k]:
                         logging.warning(f'key {k} is different: {db_dump[k]} != {v} ({name} | {metadata})')
 
                 tracedb_keys = {k for k, v, name, metadata in trace_db}

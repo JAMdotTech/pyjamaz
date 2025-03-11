@@ -72,10 +72,17 @@ class AccumulateInvocationMutator(InvocationMutator):
             if not memory.is_accessible(h, 32, PVMMemoryMode.readable):
                 preimage_unreadable = True  #bold_v = ∇
             if service_account is not None and not preimage_unreadable:
-                preimage_bytes = service_account.preimages.get(memory.read_bytes(h, 32), None)
-                f = min(registers[10], len(preimage_bytes))
-                l = min(registers[11], len(preimage_bytes) - f)
-                preimage_unreadable = not memory.is_accessible(o, l, PVMMemoryMode.readable)  #bold_v = ∇
+                try:
+                    preimage_bytes = state.services.retrieve_preimage(service_id, memory.read_bytes(h, 32))
+
+                    f = min(registers[10], len(preimage_bytes))
+                    l = min(registers[11], len(preimage_bytes) - f)
+                    preimage_unreadable = not memory.is_accessible(o, l, PVMMemoryMode.readable)  # bold_v = ∇
+
+                except StateKeyNoResult:
+                    preimage_bytes = None
+                    preimage_unreadable = True # TODO correct?
+
 
             exit_condition = ExitCondition(reason=ExitReason.none)
             if preimage_unreadable:
