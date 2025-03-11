@@ -378,6 +378,17 @@ class ServiceAccount(Serializable):
         serialized_bytes += U32.encode(self.footprint_storage_bytes).to_bytes()
         return serialized_bytes
 
+    #TODO: zie GP ΩI, of missch fields parametrized maken?
+    def to_serialized_bytes2(self) -> bytes:
+        serialized_bytes = self.code_hash # c
+        serialized_bytes += U64.encode(self.balance).to_bytes() #b
+        serialized_bytes += U64.encode(self.threshold_balance).to_bytes()   #t
+        serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes() #g
+        serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes() #m
+        serialized_bytes += U64.encode(self.footprint_storage_items).to_bytes() #l
+        serialized_bytes += U32.encode(self.footprint_storage_bytes).to_bytes() #i
+        return serialized_bytes
+
 
 class ServiceAccountMap(StorageMap):
     def __init__(self, storage_engine: StorageEngine):

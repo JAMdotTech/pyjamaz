@@ -2,15 +2,16 @@ import logging
 from typing import List
 
 from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.graypaper_constants import PREIMAGE_EXPUNGE_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
-    AccumulateInvocationContext, ArgumentData
+    AccumulateInvocationContext, ArgumentData, ServiceAccount
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutator, InvocationMutationOutput, PVMInvocation
 from pyjamaz.pvm.types import PVMMemory, PVMMemoryMode
-from pyjamaz.pvm_interface.hostcalls.constants import HostCallGeneral, HostCallResult
+from pyjamaz.pvm_interface.hostcalls.constants import HostCallGeneral, HostCallResult, HostCallAccumulate
 
 
 class AccumulateInvocationMutator(InvocationMutator):
@@ -47,22 +48,25 @@ class AccumulateInvocationMutator(InvocationMutator):
                 try:
                     service_account = state.services.retrieve_service_account(w7)
                 except:
-                    service_account = None
+                    service_account = None # bold_a = ∅
 
-            h = registers[8]  # offset to read image hash from pvm mem
+            preimage_hash = registers[8]  # offset to read image hash from pvm mem
             o = registers[9]  # offset to write image data to in pvm mem
 
-            # GP: bold_v
-            preimage_bytes = bytes()
+
+            preimage_bytes = bytes() # GP: bold_v
             preimage_unreadable = False
-            if service_account is not None:
+            if not memory.is_accessible(preimage_hash, 32, PVMMemoryMode.readable):
+                preimage_unreadable = True  #bold_v = ∇
+            if service_account is not None and not preimage_unreadable:
                 try:
-                    preimage_bytes = service_account.preimages.get(memory.read_bytes(h, 32), None)
-                    f = min(registers[10], len(preimage_bytes))
-                    l = min(registers[11], len(preimage_bytes) - f)
-                    preimage_unreadable = not memory.is_accessible(o, l, PVMMemoryMode.readable)
+                    preimage_bytes = service_account.preimages.get(memory.read_bytes(preimage_hash, 32), None)
                 except PVMMemoryError:
-                    preimage_unreadable = True
+                    preimage_unreadable = True  #bold_v = ∇
+
+            f = min(registers[10], len(preimage_bytes))
+            l = min(registers[11], len(preimage_bytes) - f)
+            preimage_unreadable = not memory.is_accessible(o, l, PVMMemoryMode.readable)  #bold_v = ∇
 
             exit_condition = ExitCondition(reason=ExitReason.none)
             if preimage_unreadable:
@@ -83,7 +87,6 @@ class AccumulateInvocationMutator(InvocationMutator):
 
         elif host_call_instr_nr == HostCallGeneral.read.value:
             """
-            Read from disk to memory
             Puts a Service StorageItem blob into PVM memory
             """
             gas_limit -= 10
@@ -104,7 +107,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 else:
                     service_account = state.services.retrieve_service_account(new_service_id)
             except StateKeyNoResult as e:
-                service_account = None
+                service_account = None  #GP: bold_a = ∅
 
             k_o = registers[8]  # offset to read from memory
             k_z = registers[9]  # length to read from memory
@@ -112,21 +115,21 @@ class AccumulateInvocationMutator(InvocationMutator):
 
             # GP: bold_v (storage_item)
             storage_item_mem_error = False
-            mem_writable = False
-            storage_item = None
+            storage_item = None # bold_v
             if service_account is not None:
                 try:
                     new_service_id_bytes = int(new_service_id).to_bytes(length=4, byteorder="little")
                     storage_key = blake2b_256_hash(new_service_id_bytes + memory.read_bytes(k_o, k_z))
                     storage_item = state.services.retrieve_storage_item(service_account_id=new_service_id, storage_item_hash=storage_key)
-                    f = min(registers[11], len(storage_item))
-                    l = min(registers[12], len(storage_item) - f)
-                    mem_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)
                 except StateKeyNoResult:
-                    storage_item = None
+                    storage_item = None # bold_v = ∅
                 except PVMMemoryError:
                     storage_item_mem_error = True
-                    storage_item = None
+                    storage_item = None # bold_v = ∇
+
+            f = min(registers[11], len(storage_item or bytes()))
+            l = min(registers[12], len(storage_item or bytes()) - f)
+            mem_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)
 
             exit_condition = ExitCondition(reason=ExitReason.none)
             if storage_item_mem_error or not mem_writable:
@@ -146,6 +149,10 @@ class AccumulateInvocationMutator(InvocationMutator):
             )
 
         elif host_call_instr_nr == HostCallGeneral.write.value:
+            """
+            Writes/deletes a Service StorageItem blob
+            """
+
             gas_limit -= 10
 
             k_o = registers[7]  # offset to read storage_item_key from memory
@@ -160,16 +167,15 @@ class AccumulateInvocationMutator(InvocationMutator):
             service_storage_item_mem_error = False
 
             try:
-                storage_key = blake2b_256_hash(service_id_bytes + memory.read_bytes(k_o, k_z))
-
+                storage_key = blake2b_256_hash(service_id_bytes + memory.read_bytes(k_o, k_z))  # GP: k
                 service_account = state_context.services.retrieve_service_account(service_id)
                 try:
                     if v_z == 0:
-                        service_storage_item = None
+                        service_storage_item = None # GP: bold_a (delete)
                     else:
-                        service_storage_item = memory.read_bytes(v_o, v_z)
+                        service_storage_item = memory.read_bytes(v_o, v_z)  # GP: bold_a
                 except PVMMemoryError:
-                    service_storage_item_mem_error = True
+                    service_storage_item_mem_error = True   #GP: a = ∇
 
                 try:
                     si = state_context.services.retrieve_storage_item(service_id, storage_key)
@@ -178,7 +184,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                     l = HostCallResult.none.value
 
             except PVMMemoryError:
-                storage_key_mem_error = True
+                storage_key_mem_error = True    #GP: k= ∇
 
             output = ExitCondition(reason=ExitReason.none)
 
@@ -190,12 +196,17 @@ class AccumulateInvocationMutator(InvocationMutator):
 
             else:
                 registers[7] = l
-                invocation_context.context.state_context.services.store_storage_item(
-                    service_account_id=service_id,
-                    storage_item_hash=storage_key,
-                    value=service_storage_item,
-                )
-                # service_account.storage_items[storage_key] = service_storage_item
+                if service_storage_item is None:
+                    invocation_context.context.state_context.services.delete_storage_item(
+                        service_account_id=service_id,
+                        storage_item_hash=storage_key
+                    )
+                else:
+                    invocation_context.context.state_context.services.store_storage_item(
+                        service_account_id=service_id,
+                        storage_item_hash=storage_key,
+                        value=service_storage_item,
+                    )
 
             return InvocationMutationOutput(
                 output=output,
@@ -204,6 +215,139 @@ class AccumulateInvocationMutator(InvocationMutator):
                 memory=memory,
                 context=invocation_context
             )
+
+        elif host_call_instr_nr == HostCallGeneral.info.value:
+            """
+            Writes ServiceAccount into PVM memory
+            """
+
+            gas_limit -= 10
+            state = invocation_context.context.state_context
+            service_id = invocation_context.context.service_account_id
+            w7 = registers[7]
+
+            #gp: bold_t
+            try:
+                if w7 == 2 ** 64 - 1:
+                    # TODO: nieuwe functie: retrieve_service_account_bytes -> nalopen waar allemaal toepassen
+                    service_account = state.services.retrieve_service_account(service_id)
+                else:
+                    service_account = state.services.retrieve_service_account(w7)
+            except StateKeyNoResult:
+                service_account = None # t = ∅
+
+            o = registers[8]
+
+            service_account_bytes = None
+            mem_write_error = False
+            if service_account:
+                service_account_bytes = service_account.to_serialized_bytes2()  #GP: bold_m
+                try:
+                    memory.write_bytes(o, service_account_bytes)
+                except PVMMemoryError:
+                    mem_write_error = True
+
+            exit_condition = ExitCondition(reason=ExitReason.none)
+            if mem_write_error:
+                exit_condition = ExitCondition(reason=ExitReason.panic)
+            elif service_account_bytes is None:
+                registers[7] = HostCallResult.none.value
+            else:
+                registers[7] = HostCallResult.ok.value
+
+            return InvocationMutationOutput(
+                output=exit_condition,
+                gas_limit=gas_limit,
+                registers=registers,
+                memory=memory,
+                context=invocation_context
+            )
+
+        elif host_call_instr_nr == HostCallAccumulate.forget.value:
+            """
+            Deletes PreimageAvailability (status queue)
+            """
+            gas_limit -= 10
+            state = invocation_context.context.state_context
+            service_id = invocation_context.context.service_account_id
+            service_account = state.services.retrieve_service_account(service_id)
+            o = registers[7]
+            preimage_length = registers[8]  #GP: z
+
+            #GP: h
+            if memory.is_accessible(o, 32):
+                preimage_hash = memory.read_bytes(o, 32)
+            else:
+                preimage_hash = None #GP: h = ∇
+
+            timeslot = 0 #GP: t  #TODO: invocation_context.context.state_context.timeslot
+            remove_preimage = False
+            # Note: x & y & w refer to the cardinality of the preimage_availability dictionary, see 9.2.2 EQ9.7
+            preimage_updated = True #GP: bold_a = ∇
+            preimage_availability = service_account.preimage_availability.get((preimage_hash,preimage_length), None)
+            if preimage_availability:
+                preimage_cardinality = len(preimage_availability)
+                if preimage_cardinality in (0, 2) and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
+                    service_account.preimage_availability.remove_TODO((preimage_hash, preimage_length)) #TODO: implement .remove
+                    service_account.preimages.remove_TODO(preimage_hash)  #TODO: implement .remove
+                elif preimage_cardinality == 1:
+                    service_account.preimage_availability.store_TODO(preimage_availability+ [timeslot])
+                elif preimage_cardinality == 3 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
+                    # Note: reset unreferenced preimage expunge time with current timeslot
+                    service_account.preimage_availability.store_TODO(preimage_availability[2] + [timeslot])
+                else:
+                    preimage_updated = False
+            else:
+                preimage_updated = False
+
+
+            exit_condition = ExitCondition(reason=ExitReason.none)
+            if preimage_hash is None:
+                exit_condition = ExitCondition(reason=ExitReason.panic)
+            elif preimage_updated is False:
+                registers[7] = HostCallResult.huh.value
+            else:
+                registers[7] = HostCallResult.ok.value
+
+            return InvocationMutationOutput(
+                output=exit_condition,
+                gas_limit=gas_limit,
+                registers=registers,
+                memory=memory,
+                context=invocation_context
+            )
+
+        elif host_call_instr_nr == HostCallAccumulate._yield.value:
+            """
+            Reads a ??? hash and returns that back into Xy????
+            """
+            gas_limit -= 10
+            state = invocation_context.context.state_context
+            service_id = invocation_context.context.service_account_id
+            service_account = state.services.retrieve_service_account(service_id)
+            o = registers[7]
+
+            # gp: h
+            if memory.is_accessible(o, 32):
+                preimage_hash = memory.read_bytes(o, 32)
+            else:
+                preimage_hash = None
+
+            if preimage_hash is None:
+                exit_condition = ExitCondition(reason=ExitReason.panic)
+            else:
+                exit_condition = ExitCondition(reason=ExitReason.none)
+                registers[7] = HostCallResult.ok.value
+                invocation_context.invocation_output = preimage_hash
+
+            return InvocationMutationOutput(
+                output=exit_condition,
+                gas_limit=gas_limit,
+                registers=registers,
+                memory=memory,
+                context=invocation_context
+            )
+
         else:
             raise Exception(f"TODO!!!!!!!! {host_call_instr_nr}")
 
