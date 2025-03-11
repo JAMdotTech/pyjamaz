@@ -5,6 +5,7 @@ from typing import List, Optional
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
 from pyjamaz.pvm.debug_logger import PVMDebugLog
+from pyjamaz.pvm.duna_logger import PVMDunaLog
 from pyjamaz.pvm.types import PVMProgram, PVMMemory
 
 
@@ -36,7 +37,8 @@ class InvocationMutator:
             gas_limit: int,
             registers: List[int],
             memory: PVMMemory,
-            invocation_context: InvocationContext
+            invocation_context: InvocationContext,
+            _pvm: PVMInterpreter #TODO: TMP!
     ) -> InvocationMutationOutput:
         pass
 
@@ -143,7 +145,8 @@ class PVMInvocation:
                     gas_limit=int(self.pvm.gas),
                     registers=self.pvm.reg,
                     memory=self.pvm.mem,
-                    invocation_context=self.invocation_context
+                    invocation_context=self.invocation_context,
+                    _pvm=self.pvm   #TODO
                 )
 
                 if host_call_output.output.reason == ExitReason.page_fault:
@@ -202,7 +205,8 @@ class PVMInvocation:
                 context=self.invocation_context
             )
 
-        logger = PVMDebugLog(pvm=None)
+        #logger = PVMDebugLog(pvm=None)
+        logger = PVMDunaLog(pvm=None)
         self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger)
 
         output = self.pvm_invoke_host_call(

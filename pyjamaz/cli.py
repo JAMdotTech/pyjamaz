@@ -581,13 +581,17 @@ async def replay_traces(
             app.block_context.ancestor_headers.append(stub_parent)
 
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
-        try:
-            await app.import_block(trace.block, dry_run=skip_block_validation)
-            logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
 
-        except TransactionRolledBack as e:
-            logging.error(f'Failed to import block {trace.block.header.timeslot}: {e}')
-            break
+        await app.import_block(trace.block, dry_run=skip_block_validation)
+        logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
+        #TODO:
+        # try:
+        #     await app.import_block(trace.block, dry_run=skip_block_validation)
+        #     logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
+        #
+        # except TransactionRolledBack as e:
+        #     logging.error(f'Failed to import block {trace.block.header.timeslot}: {e}')
+        #     break
 
         if not only_block_import:
 

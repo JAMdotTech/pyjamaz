@@ -42,6 +42,7 @@ class PVMInterpreter:
 
     def __init__(self, program: PVMProgram, logger=None):
         self.reg = np.zeros(13, dtype=np.uint64)
+        self.inst_nr:np.uint32 = np.uint32(0)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
         self.skip_len: int = 0
@@ -218,6 +219,7 @@ class PVMInterpreter:
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
+            self.inst_nr += 1
 
             #gp_0.3.6-eq:215
             if self.pc >= self.code_size:

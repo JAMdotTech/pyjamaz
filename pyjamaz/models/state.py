@@ -530,6 +530,53 @@ class ServicesState(State, Serializable):
 
         return availability.value
 
+    def store_preimage_availability(
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, value: List[int]
+    ):
+
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_transaction is None:
+            raise ValueError('storage_transaction must be set before storing preimage availability data')
+
+        availability = Vec(U32).new()
+        data = availability.encode(value)
+
+        storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
+
+        self.storage_transaction.put(storage_key, data.to_bytes())
+
+        self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = value
+
+    def delete_preimage(self, service_account_id: int, preimage_hash: bytes):
+
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_transaction is None:
+            raise ValueError('storage_transaction must be set before deleting preimage availability data')
+
+        storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
+
+        self.storage_transaction.delete(storage_key)
+        del self.services[service_account_id].preimages[preimage_hash]
+
+    def delete_preimage_availability(
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int
+    ):
+
+        if service_account_id not in self.services:
+            self.retrieve_service_account(service_account_id)
+
+        if self.storage_transaction is None:
+            raise ValueError('storage_transaction must be set before deleting preimage availability data')
+
+        storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
+
+        self.storage_transaction.delete(storage_key)
+        del self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
+
     def retrieve_storage_item(
             self, service_account_id: int, storage_item_hash: bytes
     ) -> bytes:

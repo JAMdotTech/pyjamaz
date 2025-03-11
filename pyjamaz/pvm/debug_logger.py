@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 import numpy as np
@@ -88,13 +89,10 @@ class PVMDebugLog:
 
 
     def state(self):
-        print(
-            f"\nGAS: {self._pvm.gas}\n"
-            f"PC: {self._pvm.pc}\n"
-        )
+        logging.debug(f"GAS: {self._pvm.gas} PC: {self._pvm.pc}")
 
     def header(self):
-        print(
+        logging.debug(
             f"PC      "
             f"INST                  "
             f"R1  "
@@ -137,7 +135,7 @@ class PVMDebugLog:
         else:
             self.log_opcodes[opn] += 1
 
-        print(
+        logging.debug(
             f"{self._pvm.pc}{r1}"
             f"{opn}{r2}"
             f"{reg1 and ('ω' + str(reg1) + r33) or r3}"

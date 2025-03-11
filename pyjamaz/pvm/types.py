@@ -347,7 +347,8 @@ class PVMMemory:
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
 
-        section.contents[section_addr:section_addr+len(content)] = content
+        section.contents[section_addr:section_addr+len(content)] = np.frombuffer(content, dtype=np.uint8)
+
 
     def extend_heap(self, size):
         # # Note: sbrk opcode
