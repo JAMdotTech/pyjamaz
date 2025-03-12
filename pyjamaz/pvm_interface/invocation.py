@@ -67,31 +67,33 @@ class AccumulateInvocationMutator(InvocationMutator):
             h = registers[8]  # offset to read image hash from pvm mem
             o = registers[9]  # offset to write image data to in pvm mem
 
+            preimage_writable = True
             preimage_bytes = bytes() # GP: bold_v
-            preimage_unreadable = False
+            preimage_hash_unreadable = False
             if not memory.is_accessible(h, 32, PVMMemoryMode.readable):
-                preimage_unreadable = True  #bold_v = ∇
-            if service_account is not None and not preimage_unreadable:
+                preimage_hash_unreadable = True  #bold_v = ∇
+            elif service_account is None:
+                preimage_bytes = None
+            elif service_account is not None:
                 try:
                     preimage_bytes = state.services.retrieve_preimage(service_id, memory.read_bytes(h, 32))
 
                     f = min(registers[10], len(preimage_bytes))
                     l = min(registers[11], len(preimage_bytes) - f)
-                    preimage_unreadable = not memory.is_accessible(o, l, PVMMemoryMode.readable)  # bold_v = ∇
-
+                    preimage_writable = not memory.is_accessible(o, l, PVMMemoryMode.writable)  # bold_v = ∇
                 except StateKeyNoResult:
                     preimage_bytes = None
-                    preimage_unreadable = True # TODO correct?
 
 
-            exit_condition = ExitCondition(reason=ExitReason.none)
-            if preimage_unreadable:
+            if preimage_hash_unreadable or preimage_writable is False:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
                 _pvm.log.host_call("LOOKUP", f"PANIC")
-            elif service_account is None:
+            elif preimage_bytes is None:
+                exit_condition = ExitCondition(reason=ExitReason.none)
                 registers[7] = HostCallResult.none.value
                 _pvm.log.host_call("LOOKUP", f"NONE r7=HostCallResult.none")
             else:
+                exit_condition = ExitCondition(reason=ExitReason.none)
                 registers[7] = len(preimage_bytes)
                 memory.write_bytes(f, preimage_bytes[f:f + l])
                 _pvm.log.host_call("LOOKUP", f"NONE write_bytes({f},{f + l}) r7={len(preimage_bytes)}")
@@ -190,7 +192,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             service_storage_item_mem_error = False
 
             try:
-                mu_k = memory.read_bytes(k_o, k_z)
+                mu_k = memory.read_bytes(k_o, k_z) # Note: service local storage key
                 storage_key = blake2b_256_hash(service_id_bytes + mu_k)  # GP: k
                 service_account = state_context.services.retrieve_service_account(service_id)
                 try:
@@ -210,15 +212,15 @@ class AccumulateInvocationMutator(InvocationMutator):
             except PVMMemoryError:
                 storage_key_mem_error = True    #GP: k= ∇
 
-            output = ExitCondition(reason=ExitReason.none)
-
             if storage_key_mem_error or service_storage_item_mem_error:
                 output = ExitCondition(reason=ExitReason.panic)
                 _pvm.log.host_call("WRITE", f"PANIC")
             elif service_account.threshold_balance > service_account.balance:
+                output = ExitCondition(reason=ExitReason.none)
                 registers[7] = HostCallResult.full.value
                 _pvm.log.host_call("WRITE", f"NONE r7=HostCallResult.full")
             else:
+                output = ExitCondition(reason=ExitReason.none)
                 registers[7] = l
                 if service_storage_item is None:
                     invocation_context.context.state_context.services.delete_storage_item(
@@ -395,6 +397,53 @@ class AccumulateInvocationMutator(InvocationMutator):
                 memory=memory,
                 context=invocation_context
             )
+
+
+        elif host_call_instr_nr == HostCallAccumulate._yield.value:
+            # # Maak nieuwe service aan en registreer deze in de services dictionary
+            # o = pvm.reg[7]  # offset to read service data from
+            # l = pvm.reg[8]  # size (byte length) of the code blob TODO: cast of eerste 4 bytes of modulus naar 32bit??
+            # g = pvm.reg[9]  # gas_limit_accumulate
+            # m = pvm.reg[10] # gas_limit_on_transfer
+            #
+            # if pvm.is_readable(pvm.mem, o, o + 32):
+            #     # Note: c == code_hash
+            #     c = pvm.mem[o:o+32]
+            # else:
+            #     c = "∇"
+            #
+            # if c != "∇":
+            #     bold_a = ServiceAccount(
+            #         code_hash=c,
+            #         balance=self.a_t,
+            #         gas_limit_accumulate=g,
+            #         gas_limit_on_transfer=m,
+            #         footprint_storage_items=self.a_l,
+            #         footprint_storage_bytes=self.a_i,
+            #         threshold_balance=self.a_t,
+            #         storage_items={},   #bold_s
+            #         preimages={},   #bold_p
+            #         preimage_availability={(c.tobytes(), l): []}   #bold_l TODO: c+l is een tuple dat de key in de preimage_availability vormt (model change onderhande werk Arjan)
+            #     )
+            #
+            # else:
+            #     bold_a = "∇"
+            #
+            # bold_s = x.service_account  #TODO: levert een service op, zie Eq B.6 & B.7!
+            # bold_s.balance = bold_a.balance - self.a_t
+            #
+            # if bold_a != "∇" and bold_s.balance >= x.service_account.threshold_balance:
+            #     # TODO: bij updaten service, moeten we ook related zaken (FK's, preimages & storageitems) updaten? -> helper functie maken!
+            #     # NOTE: bij alteren service, dus ook deze state?
+            #     pvm.reg[7] = x.i
+            #     x.i = 2**8 + (x.i - 2**8 + 42) % (2**32 - 2**9) #TODO: HELPER FUNCTIES CHECK & BUMP IMPLEMENTEREN
+            #     x.blackboard_u_TODO.services[x.i] = bold_a  #TODO: voeg nieuwe service met key/value toe?
+            # elif c == "∇":
+            #     pvm.reg[7] = HostCallResult.oob.value
+            # else:
+            #     pvm.reg[7] = HostCallResult.cash.value
+            pass
+
 
         else:
             raise Exception(f"TODO!!!!!!!! {host_call_instr_nr}")
