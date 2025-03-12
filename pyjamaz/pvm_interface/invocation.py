@@ -2,14 +2,13 @@ import logging
 from typing import List
 
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.graypaper_constants import PREIMAGE_EXPUNGE_TIMESLOTS
+from pyjamaz.graypaper_constants import PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
-    AccumulateInvocationContext, ArgumentData, ServiceAccount
+    AccumulateInvocationContext, ArgumentData, ServiceAccount, DeferredTransfer
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
-from pyjamaz.pvm.duna_logger import PVMDunaLog
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutator, InvocationMutationOutput, PVMInvocation
 from pyjamaz.pvm.types import PVMMemory, PVMMemoryMode
@@ -33,25 +32,21 @@ class AccumulateInvocationMutator(InvocationMutator):
         """
         logging.debug(f'PVM host-call #{host_call_instr_nr}')
 
+        #TODO: overal dees gebruiken!!!#@$@!$%@
+        service_id = invocation_context.context.service_account_id
+        state = invocation_context.context.state_context
+        exit_condition = ExitCondition(reason=ExitReason.panic)
+
         if host_call_instr_nr == HostCallGeneral.gas.value:
             registers[7] = gas_limit - 10
+            exit_condition = ExitCondition(reason=ExitReason.none)
             _pvm.log.host_call("GAS", f"charged gas: {10} gas_before: {_pvm.gas} gas_after: {registers[7]}")
-
-            return InvocationMutationOutput(
-                output=ExitCondition(reason=ExitReason.none),
-                gas_limit=gas_limit,
-                registers=registers,
-                memory=memory,
-                context=invocation_context
-            )
 
         elif host_call_instr_nr == HostCallGeneral.lookup.value:
             """
             Puts a Service Preimage blob into PVM memory
             """
             gas_limit -= 10
-            service_id = invocation_context.context.service_account_id
-            state = invocation_context.context.state_context
             _pvm.log.host_call("LOOKUP", f"charged gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
             # GP: bold_a
@@ -97,14 +92,6 @@ class AccumulateInvocationMutator(InvocationMutator):
                 registers[7] = len(preimage_bytes)
                 memory.write_bytes(f, preimage_bytes[f:f + l])
                 _pvm.log.host_call("LOOKUP", f"NONE write_bytes({f},{f + l}) r7={len(preimage_bytes)}")
-
-            return InvocationMutationOutput(
-                output=exit_condition,
-                gas_limit=gas_limit,
-                registers=registers,
-                memory=memory,
-                context=invocation_context
-            )
 
         elif host_call_instr_nr == HostCallGeneral.read.value:
             """
@@ -165,14 +152,6 @@ class AccumulateInvocationMutator(InvocationMutator):
                 memory.write_bytes(o, storage_item[f:f+l])
                 _pvm.log.host_call("READ", f"NONE write_bytes({len(storage_item[f:f+l])})")
 
-            return InvocationMutationOutput(
-                output=exit_condition,
-                gas_limit=gas_limit,
-                registers=registers,
-                memory=memory,
-                context=invocation_context
-            )
-
         elif host_call_instr_nr == HostCallGeneral.write.value:
             """
             Writes/deletes a Service StorageItem blob
@@ -213,14 +192,14 @@ class AccumulateInvocationMutator(InvocationMutator):
                 storage_key_mem_error = True    #GP: k= ∇
 
             if storage_key_mem_error or service_storage_item_mem_error:
-                output = ExitCondition(reason=ExitReason.panic)
+                exit_condition = ExitCondition(reason=ExitReason.panic)
                 _pvm.log.host_call("WRITE", f"PANIC")
             elif service_account.threshold_balance > service_account.balance:
-                output = ExitCondition(reason=ExitReason.none)
+                exit_condition = ExitCondition(reason=ExitReason.none)
                 registers[7] = HostCallResult.full.value
                 _pvm.log.host_call("WRITE", f"NONE r7=HostCallResult.full")
             else:
-                output = ExitCondition(reason=ExitReason.none)
+                exit_condition = ExitCondition(reason=ExitReason.none)
                 registers[7] = l
                 if service_storage_item is None:
                     invocation_context.context.state_context.services.delete_storage_item(
@@ -235,14 +214,6 @@ class AccumulateInvocationMutator(InvocationMutator):
                         value=service_storage_item,
                     )
                     _pvm.log.host_call("WRITE", f"NONE store_storage_item({service_id}, {storage_key.hex()}, {service_storage_item.hex()})")
-
-            return InvocationMutationOutput(
-                output=output,
-                gas_limit=gas_limit,
-                registers=registers,
-                memory=memory,
-                context=invocation_context
-            )
 
         elif host_call_instr_nr == HostCallGeneral.info.value:
             """
@@ -285,14 +256,6 @@ class AccumulateInvocationMutator(InvocationMutator):
             else:
                 registers[7] = HostCallResult.ok.value
                 _pvm.log.host_call("INFO", f"NONE r7=HostCallResult.ok")
-
-            return InvocationMutationOutput(
-                output=exit_condition,
-                gas_limit=gas_limit,
-                registers=registers,
-                memory=memory,
-                context=invocation_context
-            )
 
         elif host_call_instr_nr == HostCallAccumulate.forget.value:
             """
@@ -344,7 +307,6 @@ class AccumulateInvocationMutator(InvocationMutator):
             except StateKeyNoResult:
                 preimage_updated = False
 
-
             exit_condition = ExitCondition(reason=ExitReason.none)
             if preimage_hash is None:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -356,23 +318,12 @@ class AccumulateInvocationMutator(InvocationMutator):
                 registers[7] = HostCallResult.ok.value
                 _pvm.log.host_call("FORGET", f"NONE r7=HostCallResult.ok")
 
-            return InvocationMutationOutput(
-                output=exit_condition,
-                gas_limit=gas_limit,
-                registers=registers,
-                memory=memory,
-                context=invocation_context
-            )
-
         elif host_call_instr_nr == HostCallAccumulate._yield.value:
             """
             Reads a ??? hash and returns that back into Xy????
             """
             gas_limit -= 10
             _pvm.log.host_call("YIELD", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
-            # state = invocation_context.context.state_context
-            # service_id = invocation_context.context.service_account_id
-            # service_account = state.services.retrieve_service_account(service_id)
             o = registers[7]
 
             # gp: h
@@ -390,64 +341,121 @@ class AccumulateInvocationMutator(InvocationMutator):
                 invocation_context.invocation_output = preimage_hash
                 _pvm.log.host_call("YIELD", f"NONE r7:HostCallResult.ok invocation_output={preimage_hash.hex()}")
 
-            return InvocationMutationOutput(
-                output=exit_condition,
-                gas_limit=gas_limit,
-                registers=registers,
-                memory=memory,
-                context=invocation_context
-            )
+        elif host_call_instr_nr == HostCallAccumulate.new.value:
+            # Maak nieuwe service aan en registreer deze in de services dictionary
 
+            gas_limit -= 10
+            _pvm.log.host_call("NEW", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
-        elif host_call_instr_nr == HostCallAccumulate._yield.value:
-            # # Maak nieuwe service aan en registreer deze in de services dictionary
-            # o = pvm.reg[7]  # offset to read service data from
-            # l = pvm.reg[8]  # size (byte length) of the code blob TODO: cast of eerste 4 bytes of modulus naar 32bit??
-            # g = pvm.reg[9]  # gas_limit_accumulate
-            # m = pvm.reg[10] # gas_limit_on_transfer
-            #
-            # if pvm.is_readable(pvm.mem, o, o + 32):
-            #     # Note: c == code_hash
-            #     c = pvm.mem[o:o+32]
-            # else:
-            #     c = "∇"
-            #
-            # if c != "∇":
-            #     bold_a = ServiceAccount(
-            #         code_hash=c,
-            #         balance=self.a_t,
-            #         gas_limit_accumulate=g,
-            #         gas_limit_on_transfer=m,
-            #         footprint_storage_items=self.a_l,
-            #         footprint_storage_bytes=self.a_i,
-            #         threshold_balance=self.a_t,
-            #         storage_items={},   #bold_s
-            #         preimages={},   #bold_p
-            #         preimage_availability={(c.tobytes(), l): []}   #bold_l TODO: c+l is een tuple dat de key in de preimage_availability vormt (model change onderhande werk Arjan)
-            #     )
-            #
-            # else:
-            #     bold_a = "∇"
-            #
-            # bold_s = x.service_account  #TODO: levert een service op, zie Eq B.6 & B.7!
-            # bold_s.balance = bold_a.balance - self.a_t
-            #
-            # if bold_a != "∇" and bold_s.balance >= x.service_account.threshold_balance:
-            #     # TODO: bij updaten service, moeten we ook related zaken (FK's, preimages & storageitems) updaten? -> helper functie maken!
-            #     # NOTE: bij alteren service, dus ook deze state?
-            #     pvm.reg[7] = x.i
-            #     x.i = 2**8 + (x.i - 2**8 + 42) % (2**32 - 2**9) #TODO: HELPER FUNCTIES CHECK & BUMP IMPLEMENTEREN
-            #     x.blackboard_u_TODO.services[x.i] = bold_a  #TODO: voeg nieuwe service met key/value toe?
-            # elif c == "∇":
-            #     pvm.reg[7] = HostCallResult.oob.value
-            # else:
-            #     pvm.reg[7] = HostCallResult.cash.value
-            pass
+            o = registers[7]  # offset to read service data from
+            l = registers[8]  # size (byte length) of the code blob
+            g = registers[9]  # gas_limit_accumulate
+            m = registers[10] # gas_limit_on_transfer
 
+            try:
+                code_hash = memory.read_bytes(o, 32) # GP: c
+            except PVMMemoryError:
+                code_hash = None
+
+            service_account = None
+            new_service_id = None
+            deducted_balance = None
+            new_service_account = None # GP: bold_s
+            if not code_hash is None:
+                new_service_account = ServiceAccount(
+                    code_hash=code_hash,
+                    balance=0,
+                    gas_limit_accumulate=g,
+                    gas_limit_on_transfer=m,
+                    footprint_storage_items=0,
+                    footprint_storage_bytes=0,
+                    storage_items={},   #bold_s
+                    preimages={},   #bold_p
+                    preimage_availability={} # {(code_hash, l): []} #bold_l
+                )
+                new_service_id = invocation_context.context.new_service_account_id
+                new_service_account.balance = new_service_account.threshold_balance
+
+                service_account = state.services.retrieve_service_account(service_id)
+                deducted_balance = service_account.balance - new_service_account.threshold_balance
+
+            if code_hash is None:
+                exit_condition = ExitCondition(reason=ExitReason.panic)
+                _pvm.log.host_call("NEW", f"PANIC")
+            elif deducted_balance < service_account.threshold_balance:
+                exit_condition = ExitCondition(reason=ExitReason.none)
+                registers[7] = HostCallResult.cash.value
+                _pvm.log.host_call("NEW", f"CASH")
+            else:
+                exit_condition = ExitCondition(reason=ExitReason.none)
+                registers[7] = new_service_id
+                updated_new_service_id = 2**8 + (new_service_id - 2**8 + 42) % (2**32 - 2**9)
+                invocation_context.context.new_service_account_id = invocation_context.context.state_context.check_service_id(updated_new_service_id)
+                service_account.balance = deducted_balance
+                state.services.store_service_account(service_id, service_account)
+                state.services.store_service_account(new_service_id, new_service_account)
+                state.services.store_preimage_availability(new_service_id, code_hash, l, [])
+                _pvm.log.host_call("NEW", f"OK")
+
+        elif host_call_instr_nr == HostCallAccumulate.transfer.value:
+            # Create a new transfer and add to the defered transfers
+
+            gas_limit -= 10 + registers[9]
+            _pvm.log.host_call("TRANSFER", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
+
+            d = registers[7]      # destination
+            a = registers[8]      # amount
+            g = registers[9]      # gas_limit
+            o = registers[10]     # offset for memo
+
+            service_account = state.services.retrieve_service_account(service_id)
+            try:
+                dest_service_account = state.services.retrieve_service_account(d)
+            except StateKeyNoResult:
+                dest_service_account = None
+
+            try:
+                m = memory.read_bytes(o, SIZE_TRANSFER_MEMO)   # Transaction Memo (blob)
+                transfer = DeferredTransfer(
+                    sender=service_id,
+                    receiver=d,
+                    amount=a,
+                    memo=m,
+                    gas_limit=g,
+                )
+                b = service_account.balance - a
+            except PVMMemoryError:
+                transfer = None
+                b = None
+
+            if transfer is None:
+                exit_condition = ExitCondition(reason=ExitReason.panic)
+            elif dest_service_account is None:
+                exit_condition = ExitCondition(reason=ExitReason.none)
+                registers[7] = HostCallResult.who.value
+            elif g < dest_service_account.gas_limit_on_transfer:
+                exit_condition = ExitCondition(reason=ExitReason.none)
+                registers[7] = HostCallResult.low.value
+            elif b < service_account.threshold_balance:   # insufficient funds
+                exit_condition = ExitCondition(reason=ExitReason.none)
+                registers[7] = HostCallResult.cash.value
+            else:
+                exit_condition = ExitCondition(reason=ExitReason.none)
+                registers[7] = HostCallResult.ok.value
+                service_account.balance = b
+                invocation_context.context.deferred_transfers.append(transfer)
+                state.services.store_service_account(service_id, service_account)
 
         else:
             raise Exception(f"TODO!!!!!!!! {host_call_instr_nr}")
 
+        return InvocationMutationOutput(
+            output=exit_condition,
+            gas_limit=gas_limit,
+            registers=registers,
+            memory=memory,
+            context=invocation_context
+        )
 
 def pvm_invoke_accumulate(
         state_context: AccumulationStateComponents,

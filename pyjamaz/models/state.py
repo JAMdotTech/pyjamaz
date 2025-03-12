@@ -343,32 +343,32 @@ class ServiceAccount(Serializable):
     gas_limit_on_transfer: int = field(metadata={'codec': U64})
     footprint_storage_items: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U32})
-    threshold_balance: int = field(metadata={'codec': U64})
     storage_items: Union[Dict[bytes, Optional[bytes]], StorageItemMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimages: Union[Dict[bytes, bytes], PreimageMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimage_availability: Union[Dict[Tuple[bytes, int], List[int]], PreimageAvailabilityMap] = field(metadata={
         'codec': Map(JamTuple(H256, U32), Vec(U32))}
     )
 
+    @property
+    def threshold_balance(self):
+        return (
+            MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * self.footprint_storage_items +
+            MINIMUM_BALANCE_OCTET * self.footprint_storage_bytes
+        )
+
     @classmethod
     def from_serialized_bytes(cls, serialized_bytes: bytes) -> 'ServiceAccount':
-        service_account = ServiceAccount(
+        return ServiceAccount(
             code_hash=serialized_bytes[0:32],
             balance=U64.decode(JamBytes(serialized_bytes[32:40])),
             gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
             gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[48:56])),
             footprint_storage_items=U64.decode(JamBytes(serialized_bytes[56:64])),
             footprint_storage_bytes=U32.decode(JamBytes(serialized_bytes[64:68])),
-            threshold_balance=0,
             storage_items={},
             preimages={},
             preimage_availability={},
         )
-        service_account.threshold_balance = (
-                MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * service_account.footprint_storage_items +
-                MINIMUM_BALANCE_OCTET * service_account.footprint_storage_bytes
-        )
-        return service_account
 
     def to_serialized_bytes(self) -> bytes:
         serialized_bytes = self.code_hash
