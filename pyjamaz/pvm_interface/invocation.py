@@ -186,6 +186,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                     si = state_context.services.retrieve_storage_item(service_id, storage_key)
                     l = len(si)
                 except StateKeyNoResult:
+                    si = None
                     l = HostCallResult.none.value
 
             except PVMMemoryError:
@@ -206,14 +207,28 @@ class AccumulateInvocationMutator(InvocationMutator):
                         service_account_id=service_id,
                         storage_item_hash=storage_key
                     )
-                    _pvm.log.host_call("WRITE", f"NONE delete_storage_item({service_id}, {storage_key}) mu_k={mu_k}")
+                    _pvm.log.host_call("WRITE", f"NONE delete_storage_item({service_id}, {storage_key}) mu_k={mu_k.hex()}")
+
+                    # Update storage footprint
+                    service_account.update_footprint_remove_storage_item(len(si))
+
                 else:
                     invocation_context.context.state_context.services.store_storage_item(
                         service_account_id=service_id,
                         storage_item_hash=storage_key,
                         value=service_storage_item,
                     )
-                    _pvm.log.host_call("WRITE", f"NONE store_storage_item({service_id}, {storage_key.hex()}, {service_storage_item.hex()})")
+
+                    # Update storage footprint
+                    if si is None:
+                        service_account.update_footprint_add_storage_item(len(service_storage_item))
+                        _pvm.log.host_call("WRITE", f"NONE store_storage_item s={service_id} mu_k={mu_k.hex()} k={storage_key.hex()} v={service_storage_item.hex()}")
+                    else:
+                        service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
+                        _pvm.log.host_call("WRITE", f"{len(si)} store_storage_item s={service_id} mu_k={mu_k.hex()} k={storage_key.hex()} v={service_storage_item.hex()}")
+
+                # Update service_account TODO inefficient; move to end, only once per service
+                # state.services.store_service_account(service_id, service_account)
 
         elif host_call_instr_nr == HostCallGeneral.info.value:
             """
@@ -287,6 +302,8 @@ class AccumulateInvocationMutator(InvocationMutator):
                 if preimage_cardinality in (0, 2) and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
                     state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
                     state.services.delete_preimage(service_id, preimage_hash)
+                    # Update footprint
+                    service_account.update_footprint_remove_preimage(preimage_length)
                 elif preimage_cardinality == 1:
                     state.services.store_preimage_availability(
                         service_id,
@@ -347,10 +364,10 @@ class AccumulateInvocationMutator(InvocationMutator):
             gas_limit -= 10
             _pvm.log.host_call("NEW", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
-            o = registers[7]  # offset to read service data from
-            l = registers[8]  # size (byte length) of the code blob
-            g = registers[9]  # gas_limit_accumulate
-            m = registers[10] # gas_limit_on_transfer
+            o = int(registers[7])  # offset to read service data from
+            l = int(registers[8])  # size (byte length) of the code blob
+            g = int(registers[9])  # gas_limit_accumulate
+            m = int(registers[10]) # gas_limit_on_transfer
 
             try:
                 code_hash = memory.read_bytes(o, 32) # GP: c
@@ -392,9 +409,17 @@ class AccumulateInvocationMutator(InvocationMutator):
                 updated_new_service_id = 2**8 + (new_service_id - 2**8 + 42) % (2**32 - 2**9)
                 invocation_context.context.new_service_account_id = invocation_context.context.state_context.check_service_id(updated_new_service_id)
                 service_account.balance = deducted_balance
+
+                # TODO inefficient; move to end, only once per service
                 state.services.store_service_account(service_id, service_account)
+
+                new_service_account.update_footprint_add_preimage(l)
+
+                # TODO inefficient; move to end, only once per service
                 state.services.store_service_account(new_service_id, new_service_account)
+
                 state.services.store_preimage_availability(new_service_id, code_hash, l, [])
+
                 _pvm.log.host_call("NEW", f"OK")
 
         elif host_call_instr_nr == HostCallAccumulate.transfer.value:
@@ -403,10 +428,10 @@ class AccumulateInvocationMutator(InvocationMutator):
             gas_limit -= 10 + registers[9]
             _pvm.log.host_call("TRANSFER", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
-            d = registers[7]      # destination
-            a = registers[8]      # amount
-            g = registers[9]      # gas_limit
-            o = registers[10]     # offset for memo
+            d = int(registers[7])      # destination
+            a = int(registers[8])      # amount
+            g = int(registers[9])      # gas_limit
+            o = int(registers[10])     # offset for memo
 
             service_account = state.services.retrieve_service_account(service_id)
             try:
@@ -433,18 +458,25 @@ class AccumulateInvocationMutator(InvocationMutator):
             elif dest_service_account is None:
                 exit_condition = ExitCondition(reason=ExitReason.none)
                 registers[7] = HostCallResult.who.value
+                _pvm.log.host_call("TRANSFER WHO", f"")
             elif g < dest_service_account.gas_limit_on_transfer:
                 exit_condition = ExitCondition(reason=ExitReason.none)
                 registers[7] = HostCallResult.low.value
+                _pvm.log.host_call("TRANSFER LOW", f"")
             elif b < service_account.threshold_balance:   # insufficient funds
                 exit_condition = ExitCondition(reason=ExitReason.none)
                 registers[7] = HostCallResult.cash.value
+                _pvm.log.host_call("TRANSFER CASH", f"")
             else:
                 exit_condition = ExitCondition(reason=ExitReason.none)
                 registers[7] = HostCallResult.ok.value
                 service_account.balance = b
                 invocation_context.context.deferred_transfers.append(transfer)
+
+                # TODO inefficient; move to end, only once per service
                 state.services.store_service_account(service_id, service_account)
+
+                _pvm.log.host_call("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
 
         else:
             raise Exception(f"TODO!!!!!!!! {host_call_instr_nr}")
@@ -481,7 +513,7 @@ def pvm_invoke_accumulate(
     PvmAccumulateOutput
     """
 
-    logging.debug(f'PVM invoke accumulate: service ID {service_id}')
+    logging.debug(f'PVM invoke accumulate: s={service_id} operands={[o.to_json() for o in operands]}')
 
     invocation_context = state_context.to_invocation_context(
         service_account_id=service_id,

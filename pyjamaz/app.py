@@ -542,6 +542,7 @@ class PyjamazApp:
             self.state.recent_history = recent_history_output.post_state
             self.state.authorizer_pools = authorizer_pools_output.post_state
             self.state.authorizer_queues = services_after_accumulation_output.post_state_authorizer_queues
+            self.state.services = services_after_preimages_output.post_state
             self.state.statistics = statistics_output.post_state
             self.state.accumulation_queue = accumulation_queue_output.post_state
             self.state.accumulation_history = accumulation_history_output.post_state
@@ -557,8 +558,7 @@ class PyjamazApp:
             self.components.safrole.store_state(self.state.safrole, transaction)
             self.components.assurances.store_state(self.state.assurances, transaction)
             self.components.statistics.store_state(self.state.statistics, transaction)
-            # Todo: add remaining state components: services
-            # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root (deprecated by previous todo)
+            self.components.services.store_state(self.state.services, transaction)
             self.components.recent_history.store_state(self.state.recent_history, transaction)
             self.components.authorizer_pools.store_state(self.state.authorizer_pools, transaction)
             self.components.authorizer_queues.store_state(self.state.authorizer_queues, transaction)

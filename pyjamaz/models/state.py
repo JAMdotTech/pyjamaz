@@ -341,8 +341,8 @@ class ServiceAccount(Serializable):
     balance: int = field(metadata={'codec': U64})
     gas_limit_accumulate: int = field(metadata={'codec': U64})
     gas_limit_on_transfer: int = field(metadata={'codec': U64})
-    footprint_storage_items: int = field(metadata={'codec': U64})
-    footprint_storage_bytes: int = field(metadata={'codec': U32})
+    footprint_storage_bytes: int = field(metadata={'codec': U64})
+    footprint_storage_items: int = field(metadata={'codec': U32})
     storage_items: Union[Dict[bytes, Optional[bytes]], StorageItemMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimages: Union[Dict[bytes, bytes], PreimageMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimage_availability: Union[Dict[Tuple[bytes, int], List[int]], PreimageAvailabilityMap] = field(metadata={
@@ -363,8 +363,8 @@ class ServiceAccount(Serializable):
             balance=U64.decode(JamBytes(serialized_bytes[32:40])),
             gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
             gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[48:56])),
-            footprint_storage_items=U64.decode(JamBytes(serialized_bytes[56:64])),
-            footprint_storage_bytes=U32.decode(JamBytes(serialized_bytes[64:68])),
+            footprint_storage_bytes=U64.decode(JamBytes(serialized_bytes[56:64])),
+            footprint_storage_items=U32.decode(JamBytes(serialized_bytes[64:68])),
             storage_items={},
             preimages={},
             preimage_availability={},
@@ -375,9 +375,44 @@ class ServiceAccount(Serializable):
         serialized_bytes += U64.encode(self.balance).to_bytes()
         serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
         serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
-        serialized_bytes += U64.encode(self.footprint_storage_items).to_bytes()
-        serialized_bytes += U32.encode(self.footprint_storage_bytes).to_bytes()
+        serialized_bytes += U64.encode(self.footprint_storage_bytes).to_bytes()
+        serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
         return serialized_bytes
+
+
+    def update_footprint_add_storage_item(self, size: int) -> None:
+        """
+        GP-0.6.2-eq:9.8
+        """
+        self.footprint_storage_items += 1
+        self.footprint_storage_bytes += 32 + size
+
+    def update_footprint_remove_storage_item(self, size: int) -> None:
+        """
+        GP-0.6.2-eq:9.8
+        """
+        self.footprint_storage_items -= 1
+        self.footprint_storage_bytes -= 32 + size
+
+    def update_footprint_update_storage_item(self, old_size: int, new_size: int) -> None:
+        """
+        GP-0.6.2-eq:9.8
+        """
+        self.footprint_storage_bytes += new_size - old_size
+
+    def update_footprint_add_preimage(self, size: int) -> None:
+        """
+        GP-0.6.2-eq:9.8
+        """
+        self.footprint_storage_items += 2
+        self.footprint_storage_bytes += 81 + size
+
+    def update_footprint_remove_preimage(self, size: int) -> None:
+        """
+        GP-0.6.2-eq:9.8
+        """
+        self.footprint_storage_items -= 2
+        self.footprint_storage_bytes -= 81 + size
 
 
 class ServiceAccountMap(StorageMap):
@@ -477,7 +512,7 @@ class ServicesState(State, Serializable):
 
         self.services[service_account_id] = service_account
 
-        logging.debug(f'store_service_account({service_account_id}): {data.hex()}')
+        logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} storage_key={state_key.hex()}')
 
 
     def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes) -> bytes:
@@ -596,6 +631,10 @@ class ServicesState(State, Serializable):
 
         self.storage_transaction.put(storage_key, data.to_bytes())
 
+        logging.debug(
+            f'store_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}'
+        )
+
         self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = value
 
     def delete_preimage(self, service_account_id: int, preimage_hash: bytes):
@@ -650,7 +689,7 @@ class ServicesState(State, Serializable):
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
         data = self.storage_engine.get(storage_key)
 
-        logging.debug(f'retrieve_storage_item({service_account_id}, {storage_item_hash.hex()}): {storage_key.hex()}')
+        logging.debug(f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()}')
 
         if data is None:
             raise StateKeyNoResult(
@@ -673,7 +712,7 @@ class ServicesState(State, Serializable):
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
         self.storage_transaction.put(storage_key, value)
 
-        logging.debug(f'store_storage_item({service_account_id}, {storage_item_hash.hex()}): {storage_key.hex()}')
+        logging.debug(f'store_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex()} state_key={storage_key.hex()}')
 
         self.services[service_account_id].storage_items[storage_item_hash] = value
 

@@ -290,38 +290,42 @@ def parallel_accumulation(
         if output.accumulation_output is not None:
             beefy_commitment_map.update({service_id: output.accumulation_output})
 
+    # TODO Emiel: When to skip, >0 ?
     # Process privilege services (x')
-    output = single_step_accumulation(
-        accumulation_state=accumulation_state,
-        post_state_timeslot=post_state_timeslot,
-        post_state_entropy=post_state_entropy,
-        work_reports=work_reports,
-        auto_accumulate_services=auto_accumulate_services,
-        service_id=accumulation_state.privileged_services.empower_service
-    )
-    accumulation_state.privileged_services = output.state_context.privileged_services
+    if accumulation_state.privileged_services.empower_service > 0:
+        output = single_step_accumulation(
+            accumulation_state=accumulation_state,
+            post_state_timeslot=post_state_timeslot,
+            post_state_entropy=post_state_entropy,
+            work_reports=work_reports,
+            auto_accumulate_services=auto_accumulate_services,
+            service_id=accumulation_state.privileged_services.empower_service
+        )
+        accumulation_state.privileged_services = output.state_context.privileged_services
 
     # Process validator queue (i')
-    output = single_step_accumulation(
-        accumulation_state=accumulation_state,
-        post_state_timeslot=post_state_timeslot,
-        post_state_entropy=post_state_entropy,
-        work_reports=work_reports,
-        auto_accumulate_services=auto_accumulate_services,
-        service_id=accumulation_state.privileged_services.empower_service
-    )
-    accumulation_state.validator_queue = output.state_context.validator_queue
+    if accumulation_state.privileged_services.designate_service > 0:
+        output = single_step_accumulation(
+            accumulation_state=accumulation_state,
+            post_state_timeslot=post_state_timeslot,
+            post_state_entropy=post_state_entropy,
+            work_reports=work_reports,
+            auto_accumulate_services=auto_accumulate_services,
+            service_id=accumulation_state.privileged_services.designate_service
+        )
+        accumulation_state.validator_queue = output.state_context.validator_queue
 
     # Process authorizer queue (q')
-    output = single_step_accumulation(
-        accumulation_state=accumulation_state,
-        post_state_timeslot=post_state_timeslot,
-        post_state_entropy=post_state_entropy,
-        work_reports=work_reports,
-        auto_accumulate_services=auto_accumulate_services,
-        service_id=accumulation_state.privileged_services.empower_service
-    )
-    accumulation_state.authorizer_queues = output.state_context.authorizer_queues
+    if accumulation_state.privileged_services.assign_service > 0:
+        output = single_step_accumulation(
+            accumulation_state=accumulation_state,
+            post_state_timeslot=post_state_timeslot,
+            post_state_entropy=post_state_entropy,
+            work_reports=work_reports,
+            auto_accumulate_services=auto_accumulate_services,
+            service_id=accumulation_state.privileged_services.assign_service
+        )
+        accumulation_state.authorizer_queues = output.state_context.authorizer_queues
 
     return ParallelAccumulationOutput(
         total_gas_utilized=total_gas_utilized,
