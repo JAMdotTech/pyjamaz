@@ -125,6 +125,9 @@ class PVMInvocation:
                     _pvm=self.pvm   #TODO
                 )
 
+                # Update gas usage TODO
+                gas_limit = host_call_output.gas_limit
+
                 if host_call_output.output.reason == ExitReason.page_fault:
                     return PvMHostCallOutput(
                         exit_condition=host_call_output.output,

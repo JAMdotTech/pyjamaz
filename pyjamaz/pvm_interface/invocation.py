@@ -283,7 +283,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             service_id = invocation_context.context.service_account_id
             service_account = state.services.retrieve_service_account(service_id)
             o = registers[7]
-            preimage_length = registers[8]  #GP: z
+            preimage_length = int(registers[8])  #GP: z
 
             #GP: h
             if memory.is_accessible(o, 32, PVMMemoryMode.readable):
@@ -391,6 +391,10 @@ class AccumulateInvocationMutator(InvocationMutator):
                     preimage_availability={} # {(code_hash, l): []} #bold_l
                 )
                 new_service_id = invocation_context.context.new_service_account_id
+
+                # TODO move to store_preimage_availability() ?
+                new_service_account.update_footprint_add_preimage(l)
+
                 new_service_account.balance = new_service_account.threshold_balance
 
                 service_account = state.services.retrieve_service_account(service_id)
@@ -413,8 +417,6 @@ class AccumulateInvocationMutator(InvocationMutator):
                 # TODO inefficient; move to end, only once per service
                 state.services.store_service_account(service_id, service_account)
 
-                new_service_account.update_footprint_add_preimage(l)
-
                 # TODO inefficient; move to end, only once per service
                 state.services.store_service_account(new_service_id, new_service_account)
 
@@ -424,9 +426,9 @@ class AccumulateInvocationMutator(InvocationMutator):
 
         elif host_call_instr_nr == HostCallAccumulate.transfer.value:
             # Create a new transfer and add to the defered transfers
-
-            gas_limit -= 10 + registers[9]
-            _pvm.log.host_call("TRANSFER", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
+            gas_cost = 10 + int(registers[9])
+            gas_limit -= gas_cost
+            _pvm.log.host_call("TRANSFER", f"charged_gas: {gas_cost} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
             d = int(registers[7])      # destination
             a = int(registers[8])      # amount

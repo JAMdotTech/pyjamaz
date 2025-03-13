@@ -589,7 +589,7 @@ class ServicesState(State, Serializable):
 
     def retrieve_preimage_availability(
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int
-    ) -> bytes:
+    ) -> List[int]:
 
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
