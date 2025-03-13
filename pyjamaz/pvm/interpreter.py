@@ -56,7 +56,7 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
 
         self.mem:PVMMemory = None
-        self.status:int = ExitReason.none.value
+        self.status:int = ExitReason.resume.value
         self.exit_value:int = None
 
         self.reset(program)
@@ -132,7 +132,7 @@ class PVMInterpreter:
         for idx, val in enumerate(program.registers):
             self.reg[idx] = np.uint64(val)
 
-        self.status = ExitReason.none.value
+        self.status = ExitReason.resume.value
 
         self.inst_bitmask: List[bool] = program.code.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -215,7 +215,7 @@ class PVMInterpreter:
             self._initial_gas = gas
             self._initial_pc = pc
 
-        while self.status == ExitReason.none.value and self.gas > 0:
+        while self.status == ExitReason.resume.value and self.gas > 0:
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len

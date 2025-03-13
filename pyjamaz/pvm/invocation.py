@@ -134,8 +134,8 @@ class PVMInvocation:
                         memory=self.pvm.reg,
                         invocation_context=self.invocation_context
                     )
-                elif host_call_output.output.reason == ExitReason.none:
-                    self.pvm.status = ExitReason.none.value
+                elif host_call_output.output.reason == ExitReason.resume:
+                    self.pvm.status = ExitReason.resume.value
                     self.pvm.next_instruction()
                     instruction_counter = self.pvm.pc
                     logging.debug(f'PVM continue @ {instruction_counter}')

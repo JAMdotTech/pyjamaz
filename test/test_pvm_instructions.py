@@ -116,7 +116,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
 
         # Mapping specific for test vectors
         ExitReasonMap = {
-            ExitReason.none.value: "none",
+            ExitReason.resume.value: "none",
             ExitReason.panic.value: "panic",
             ExitReason.halt.value: "halt",
             ExitReason.page_fault.value: "page-fault",

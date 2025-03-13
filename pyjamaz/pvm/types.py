@@ -78,7 +78,7 @@ class PVMCode(Serializable):
 class MemorySection:
     address: int
     length: int
-    break_pointer: int
+    break_pointer: int  #TODO: necessary? remove?
     writable: bool
     contents: npt.NDArray[np.uint8]
 
@@ -352,16 +352,16 @@ class PVMMemory:
 
     def extend_heap(self, size):
         # # Note: sbrk opcode
-        # # TODO: not sure if this *whole* sbrk implementation is correct...??!!!!!!
-        #if size == 0: return self._heap.address
-        if size == 0: return self._heap.break_pointer
+        # # TODO: not sure if this implementation is correct...??!!!!!!
+        if size <= 0: return 0
         page_size = PVMMemory.page_size(size)
 
         if page_size >= self._stack.address:
             return 0
 
-        self._heap.break_pointer = page_size
-        return self._heap.break_pointer
+        self._heap.length += page_size
+        self.section_offsets = [p.address for p in self.sections]
+        return self._heap.address + self._heap.length - 1
 
 
     @staticmethod

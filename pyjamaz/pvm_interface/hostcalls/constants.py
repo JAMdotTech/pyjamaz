@@ -3,17 +3,17 @@ from enum import Enum
 
 #GP-0.6.2:B.1
 class HostCallResult(Enum): #TODO: refactor naar capital
-    none: int = 2**64-1
-    what: int = 2**64-2
-    oob: int  = 2**64-3
-    who: int  = 2**64-4
-    full: int = 2**64-5
-    core: int = 2**64-6
-    cash: int = 2**64-7
-    low: int  = 2**64-8
-    high: int = 2**64-9
-    huh: int  = 2**64-10
-    ok: int   = 0
+    NONE: int = 2 ** 64 - 1
+    WHAT: int = 2 ** 64 - 2
+    OOB: int  = 2 ** 64 - 3
+    WHO: int  = 2 ** 64 - 4
+    FULL: int = 2 ** 64 - 5
+    CORE: int = 2 ** 64 - 6
+    CASH: int = 2 ** 64 - 7
+    LOW: int  = 2 ** 64 - 8
+    HIGH: int = 2 ** 64 - 9
+    HUH: int  = 2 ** 64 - 10
+    OK: int   = 0
 
 
 #GP-0.6.2:B.6

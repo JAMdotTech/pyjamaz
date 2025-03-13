@@ -11,7 +11,7 @@ PVM_INIT_ZONE_SIZE = 2**16 #ZZ
 PVM_INPUT_DATA_SIZE = 2**24 #ZI
 
 class ExitReason(Enum):
-    none:int            = 0
+    resume:int          = 0 #GP:     ▸: continue PVM
     halt:int            = 1 #GP-A.2: ∎: regular halt: halt
     panic:int           = 2 #GP-A.2: ☇: unexpected program termination: panic
     out_of_gas:int      = 3 #GP-A.2: ∞: out-of-gas
