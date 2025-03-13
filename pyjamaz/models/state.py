@@ -1200,7 +1200,19 @@ class AccumulateInvocationContext(InvocationContext):
 
 
 @dataclass
-class ArgumentData(Serializable):
+class AccumulatePvmArguments(Serializable):
     timeslot: int = field(metadata={'codec': U32})
     service_id: int = field(metadata={'codec': U32})
     operands: List[AccumulationOperand] = field(metadata={'codec': Vec(AccumulationOperand.to_codec_def())})
+
+
+@dataclass
+class OnTransferInvocationContext(InvocationContext):
+    service_account: ServiceAccount           # A
+
+
+@dataclass
+class OnTransferPvmArguments(Serializable):
+    timeslot: int = field(metadata={'codec': U32})
+    service_id: int = field(metadata={'codec': U32})
+    deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})

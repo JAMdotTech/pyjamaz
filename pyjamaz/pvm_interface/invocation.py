@@ -1,12 +1,13 @@
 import logging
-from typing import List
+from typing import List, Dict
 
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
-    AccumulateInvocationContext, ArgumentData, ServiceAccount, DeferredTransfer
+    AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
+    OnTransferInvocationContext
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.exceptions import PVMMemoryError
@@ -491,6 +492,25 @@ class AccumulateInvocationMutator(InvocationMutator):
             context=invocation_context
         )
 
+class OnTransferInvocationMutator(InvocationMutator):
+    def execute(
+            self,
+            host_call_instr_nr: int,
+            gas_limit: int,
+            registers: List[int],
+            memory: PVMMemory,
+            invocation_context: OnTransferInvocationContext,
+            _pvm: PVMInterpreter  # TODO: TMP!
+    ) -> InvocationMutationOutput:
+
+        return InvocationMutationOutput(
+            output=ExitCondition(reason=ExitReason.none),
+            gas_limit=gas_limit,
+            registers=registers,
+            memory=memory,
+            context=invocation_context
+        )
+
 def pvm_invoke_accumulate(
         state_context: AccumulationStateComponents,
         timeslot: int,
@@ -534,7 +554,7 @@ def pvm_invoke_accumulate(
             gas_limit=0
         )
 
-    argument_data = ArgumentData(
+    argument_data = AccumulatePvmArguments(
         timeslot=timeslot,
         service_id=service_id,
         operands=operands,
@@ -581,3 +601,59 @@ def pvm_invoke_accumulate(
 
     return output
 
+
+def pvm_invoke_on_transfer(
+        services: Dict[int, ServiceAccount],
+        timeslot: int,
+        service_id: int,
+        deferred_transfers: List[DeferredTransfer]
+) -> ServiceAccount:
+    """
+    GP-0.6.2-eq:B.14 (Ψ_T) | the on-transfer service-account invocation function
+
+    Parameters
+    ----------
+    services: Dict[int, ServiceAccount]
+    timeslot: int
+    service_id: int
+    deferred_transfers: List[DeferredTransfer]
+
+    Returns
+    -------
+    ServiceAccount
+    """
+
+    logging.debug(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
+
+    service_account = services.get(service_id)
+
+    # Update balance
+    service_account.balance += sum([t.amount for t in deferred_transfers])
+
+    serialized_program = service_account.preimages.get(service_account.code_hash)
+
+    if serialized_program and len(deferred_transfers) > 0:
+
+        argument_data = OnTransferPvmArguments(
+            timeslot=timeslot,
+            service_id=service_id,
+            deferred_transfers=deferred_transfers,
+        ).to_jam_bytes().to_bytes()
+
+        pvm_invocation = PVMInvocation(
+            invocation_context=OnTransferInvocationContext(service_account=service_account),
+            invocation_mutator=OnTransferInvocationMutator()
+        )
+
+        gas_limit = sum([t.gas_limit for t in deferred_transfers])
+
+        marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+            serialized_program=serialized_program,
+            start_offset=10,
+            gas_limit=gas_limit,
+            argument_data=argument_data
+        )
+
+        service_account = marshalling_output.context
+
+    return service_account
