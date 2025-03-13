@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Dict
 
 from jamcodec.types import U32, U64
 
@@ -9,7 +9,8 @@ from pyjamaz.graypaper_constants import PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFE
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
-    AccumulateInvocationContext, ArgumentData, ServiceAccount, DeferredTransfer
+    AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
+    OnTransferInvocationContext
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.exceptions import PVMMemoryError
@@ -291,6 +292,11 @@ class AccumulateInvocationMutator(InvocationMutator):
             o = registers[10] # offset to read service indices and accompanying gas limits from
             n = registers[11] # number of entries in the auto_accumulate_services dictionary to read
 
+            state = invocation_context.context.state_context
+            service_id = invocation_context.context.service_account_id
+            service_account = state.services.retrieve_service_account(service_id)
+            preimage_length = int(registers[8])  #GP: z
+
             accumulate_services = None #GP: bold_g
             if memory.is_accessible(o, o + 12 * n, PVMMemoryMode.readable):
                 try:
@@ -434,6 +440,10 @@ class AccumulateInvocationMutator(InvocationMutator):
                     preimage_availability={}  # {(code_hash, l): []} #bold_l
                 )
                 new_service_id = invocation_context.context.new_service_account_id
+
+                # TODO move to store_preimage_availability() ?
+                new_service_account.update_footprint_add_preimage(l)
+
                 new_service_account.balance = new_service_account.threshold_balance
 
                 eject_service_account = state.services.retrieve_service_account(service_id)
@@ -456,8 +466,6 @@ class AccumulateInvocationMutator(InvocationMutator):
 
                 # TODO inefficient; move to end, only once per service
                 state.services.store_service_account(service_id, eject_service_account)
-
-                new_service_account.update_footprint_add_preimage(l)
 
                 # TODO inefficient; move to end, only once per service
                 state.services.store_service_account(new_service_id, new_service_account)
@@ -498,9 +506,9 @@ class AccumulateInvocationMutator(InvocationMutator):
 
         elif host_call_instr_nr == HostCallAccumulate.transfer.value:
             # Create a new transfer and add to the defered transfers
-
-            gas_limit -= 10 + registers[9]
-            _pvm.log.host_call("TRANSFER", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
+            gas_cost = 10 + int(registers[9])
+            gas_limit -= gas_cost
+            _pvm.log.host_call("TRANSFER", f"charged_gas: {gas_cost} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
             d = int(registers[7])      # destination
             a = int(registers[8])      # amount
@@ -812,6 +820,25 @@ class AccumulateInvocationMutator(InvocationMutator):
             context=invocation_context
         )
 
+class OnTransferInvocationMutator(InvocationMutator):
+    def execute(
+            self,
+            host_call_instr_nr: int,
+            gas_limit: int,
+            registers: List[int],
+            memory: PVMMemory,
+            invocation_context: OnTransferInvocationContext,
+            _pvm: PVMInterpreter  # TODO: TMP!
+    ) -> InvocationMutationOutput:
+
+        return InvocationMutationOutput(
+            output=ExitCondition(reason=ExitReason.none),
+            gas_limit=gas_limit,
+            registers=registers,
+            memory=memory,
+            context=invocation_context
+        )
+
 def pvm_invoke_accumulate(
         state_context: AccumulationStateComponents,
         timeslot: int,
@@ -855,7 +882,7 @@ def pvm_invoke_accumulate(
             gas_limit=0
         )
 
-    argument_data = ArgumentData(
+    argument_data = AccumulatePvmArguments(
         timeslot=timeslot,
         service_id=service_id,
         operands=operands,
@@ -902,3 +929,59 @@ def pvm_invoke_accumulate(
 
     return output
 
+
+def pvm_invoke_on_transfer(
+        services: Dict[int, ServiceAccount],
+        timeslot: int,
+        service_id: int,
+        deferred_transfers: List[DeferredTransfer]
+) -> ServiceAccount:
+    """
+    GP-0.6.2-eq:B.14 (Ψ_T) | the on-transfer service-account invocation function
+
+    Parameters
+    ----------
+    services: Dict[int, ServiceAccount]
+    timeslot: int
+    service_id: int
+    deferred_transfers: List[DeferredTransfer]
+
+    Returns
+    -------
+    ServiceAccount
+    """
+
+    logging.debug(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
+
+    service_account = services.get(service_id)
+
+    # Update balance
+    service_account.balance += sum([t.amount for t in deferred_transfers])
+
+    serialized_program = service_account.preimages.get(service_account.code_hash)
+
+    if serialized_program and len(deferred_transfers) > 0:
+
+        argument_data = OnTransferPvmArguments(
+            timeslot=timeslot,
+            service_id=service_id,
+            deferred_transfers=deferred_transfers,
+        ).to_jam_bytes().to_bytes()
+
+        pvm_invocation = PVMInvocation(
+            invocation_context=OnTransferInvocationContext(service_account=service_account),
+            invocation_mutator=OnTransferInvocationMutator()
+        )
+
+        gas_limit = sum([t.gas_limit for t in deferred_transfers])
+
+        marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+            serialized_program=serialized_program,
+            start_offset=10,
+            gas_limit=gas_limit,
+            argument_data=argument_data
+        )
+
+        service_account = marshalling_output.context
+
+    return service_account

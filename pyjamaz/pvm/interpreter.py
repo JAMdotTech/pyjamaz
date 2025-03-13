@@ -217,7 +217,7 @@ class PVMInterpreter:
 
         while self.status == ExitReason.resume.value and self.gas > 0:
 
-            self.gas -= 1
+            # self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
             self.inst_nr += 1
 
@@ -1074,7 +1074,7 @@ class PVMInterpreter:
 
             except PVMMemoryError:
                 self.status = ExitReason.page_fault.value
-                self.gas -= 1
+                # self.gas -= 1
                 self.exit_value = self.mem._mem_addr
                 break
 

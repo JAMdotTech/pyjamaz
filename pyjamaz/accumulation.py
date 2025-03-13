@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Set, Dict
 from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
-    BeefyCommitmentMap, TimeslotState, ServiceAccount, PvmAccumulateOutput, EntropyState
+    BeefyCommitmentMap, TimeslotState, PvmAccumulateOutput, EntropyState
 from pyjamaz.pvm_interface.invocation import pvm_invoke_accumulate
 
 
@@ -123,30 +123,6 @@ class FullAccumulationOutput:
     deferred_transfers: List[DeferredTransfer]
     accumulation_commitment: BeefyCommitmentMap
 
-
-def pvm_invoke_on_transfer(
-        services: Dict[int, ServiceAccount],
-        timeslot: int,
-        service_id: int,
-        deferred_transfers: List[DeferredTransfer]
-) -> ServiceAccount:
-    """
-    GP-0.6.1-eq:B.14 (Ψ_T) | the on-transfer service-account invocation function
-
-    TODO stub
-
-    Parameters
-    ----------
-    services: Dict[int, ServiceAccount]
-    timeslot: int
-    service_id: int
-    deferred_transfers: List[DeferredTransfer]
-
-    Returns
-    -------
-    ServiceAccount
-    """
-    return services.get(service_id)
 
 def full_sequential_accumulation(
         gas_limit: int,

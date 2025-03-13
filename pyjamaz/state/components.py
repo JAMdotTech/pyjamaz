@@ -10,7 +10,8 @@ from jamcodec.types import Vec, U32
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue,
-                                  pvm_invoke_on_transfer, transfers_service_mapping)
+                                  transfers_service_mapping)
+from pyjamaz.pvm_interface.invocation import pvm_invoke_on_transfer
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange

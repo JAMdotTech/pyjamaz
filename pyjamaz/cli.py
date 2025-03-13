@@ -616,29 +616,28 @@ async def replay_traces(
                     if k not in tracedb_keys:
                         logging.warning(f'key {k} is not present in trace: {v}')
 
-                logging.info('Dumping state differences:')
-                actual_state = app.state.to_json()
+                # logging.info('Dumping state differences:')
+                # actual_state = app.state.to_json()
 
-                for k, v, name, metadata in trace.post_state.keyvals:
-                    app.state_db.put(bytes(k), bytes(v))
-
-                app.state = app.retrieve_jam_state()
-
-                state_diff = DeepDiff(app.state.to_json(), actual_state, ignore_order=True)
+                # for k, v, name, metadata in trace.post_state.keyvals:
+                #     app.state_db.put(bytes(k), bytes(v))
+                #
+                # app.state = app.retrieve_jam_state()
+                #
+                # state_diff = DeepDiff(app.state.to_json(), actual_state, ignore_order=True)
 
                 # Flush DB
                 for key, _ in app.state_db:
                     app.state_db.delete(key)
-
-
-                if state_diff:
-                    logging.warning(json.dumps(state_diff, indent=2))
-                    # click.echo(json.dumps(state_diff, indent=2))
-                    continue
-                    # response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
-                    # if response.lower() == 'q':
-                    #     logging.info('✋ User aborted.')
-                    #     break
+                continue
+                # if state_diff:
+                #     logging.warning(json.dumps(state_diff, indent=2))
+                #     # click.echo(json.dumps(state_diff, indent=2))
+                #     continue
+                #     # response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                #     # if response.lower() == 'q':
+                #     #     logging.info('✋ User aborted.')
+                #     #     break
 
 
 @main.command('dump_state')
