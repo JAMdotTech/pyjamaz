@@ -951,37 +951,38 @@ def pvm_invoke_on_transfer(
     ServiceAccount
     """
 
-    logging.debug(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
-
     service_account = services.get(service_id)
 
-    # Update balance
-    service_account.balance += sum([t.amount for t in deferred_transfers])
+    if len(deferred_transfers) > 0:
+        logging.debug(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
 
-    serialized_program = service_account.preimages.get(service_account.code_hash)
+        # Update balance
+        service_account.balance += sum([t.amount for t in deferred_transfers])
 
-    if serialized_program and len(deferred_transfers) > 0:
+        serialized_program = service_account.preimages.get(service_account.code_hash)
 
-        argument_data = OnTransferPvmArguments(
-            timeslot=timeslot,
-            service_id=service_id,
-            deferred_transfers=deferred_transfers,
-        ).to_jam_bytes().to_bytes()
+        if serialized_program:
 
-        pvm_invocation = PVMInvocation(
-            invocation_context=OnTransferInvocationContext(service_account=service_account),
-            invocation_mutator=OnTransferInvocationMutator()
-        )
+            argument_data = OnTransferPvmArguments(
+                timeslot=timeslot,
+                service_id=service_id,
+                deferred_transfers=deferred_transfers,
+            ).to_jam_bytes().to_bytes()
 
-        gas_limit = sum([t.gas_limit for t in deferred_transfers])
+            pvm_invocation = PVMInvocation(
+                invocation_context=OnTransferInvocationContext(service_account=service_account),
+                invocation_mutator=OnTransferInvocationMutator()
+            )
 
-        marshalling_output = pvm_invocation.pvm_invoke_marshalling(
-            serialized_program=serialized_program,
-            start_offset=10,
-            gas_limit=gas_limit,
-            argument_data=argument_data
-        )
+            gas_limit = sum([t.gas_limit for t in deferred_transfers])
 
-        service_account = marshalling_output.context
+            marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+                serialized_program=serialized_program,
+                start_offset=10,
+                gas_limit=gas_limit,
+                argument_data=argument_data
+            )
+
+            service_account = marshalling_output.context
 
     return service_account
