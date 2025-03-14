@@ -1,13 +1,15 @@
 import logging
+from copy import deepcopy
 from typing import List, Dict
 
+from jamcodec.base import JamBytes
 from jamcodec.types import U32, U64
 
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import AccumulationOperand
+from pyjamaz.models.common import AccumulationOperand, ValidatorData
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
     AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
     OnTransferInvocationContext
@@ -54,13 +56,13 @@ class AccumulateInvocationMutator(InvocationMutator):
             _pvm.log.host_call("LOOKUP", f"charged gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
             # GP: bold_a
-            w7 = registers[7]
-            if w7 in (service_id, 2 ** 64 - 1):
+            core_index = registers[7]
+            if core_index in (service_id, 2 ** 64 - 1):
                 eject_service_account = state.services.retrieve_service_account(service_id)
             else:
                 try:
-                    eject_service_account = state.services.retrieve_service_account(w7)
-                except:
+                    eject_service_account = state.services.retrieve_service_account(core_index)
+                except StateKeyNoResult:
                     eject_service_account = None # bold_a = ∅
 
             preimage_hash = registers[8]  # offset to read image hash from pvm mem
@@ -102,15 +104,15 @@ class AccumulateInvocationMutator(InvocationMutator):
             Puts a Service StorageItem blob into PVM memory
             """
             gas_limit -= 10
-            w7 = registers[7]
+            core_index = registers[7]
             service_id = invocation_context.context.service_account_id
             _pvm.log.host_call("READ", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
             #gp: s*
-            if w7 == 2 ** 64 - 1:
+            if core_index == 2 ** 64 - 1:
                 new_service_id = service_id
             else:
-                new_service_id = w7
+                new_service_id = core_index
 
             #gp: bold_a
             state = invocation_context.context.state_context
@@ -241,16 +243,16 @@ class AccumulateInvocationMutator(InvocationMutator):
             gas_limit -= 10
             state = invocation_context.context.state_context
             service_id = invocation_context.context.service_account_id
-            w7 = registers[7]
+            core_index = registers[7]
             _pvm.log.host_call("INFO", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
             #gp: bold_t
             try:
-                if w7 == 2 ** 64 - 1:
+                if core_index == 2 ** 64 - 1:
                     # TODO: nieuwe functie: retrieve_service_account_bytes -> nalopen waar allemaal toepassen
                     eject_service_account = state.services.retrieve_service_account(service_id)
                 else:
-                    eject_service_account = state.services.retrieve_service_account(w7)
+                    eject_service_account = state.services.retrieve_service_account(core_index)
             except StateKeyNoResult:
                 eject_service_account = None # t = ∅
 
@@ -292,28 +294,29 @@ class AccumulateInvocationMutator(InvocationMutator):
             o = registers[10] # offset to read service indices and accompanying gas limits from
             n = registers[11] # number of entries in the auto_accumulate_services dictionary to read
 
-            state = invocation_context.context.state_context
-            service_id = invocation_context.context.service_account_id
-            service_account = state.services.retrieve_service_account(service_id)
-            preimage_length = int(registers[8])  #GP: z
-
-            accumulate_services = None #GP: bold_g
+            auto_accumulate_services = None #GP: bold_g
             if memory.is_accessible(o, o + 12 * n, PVMMemoryMode.readable):
                 try:
-                    accumulate_services = {}
+                    auto_accumulate_services = {}
                     for idx in range(n):
                         offset = o + idx * 12
                         service_idx = U32.decode(memory.read_bytes(offset, 4))
                         gas = U64.decode(memory.read_bytes(offset + 4, 4+8))
-                        accumulate_services[service_idx] = gas
+                        auto_accumulate_services[service_idx] = gas
                 except PVMMemoryError:
-                    accumulate_services = None   # bold_g = ∇
+                    auto_accumulate_services = None   # bold_g = ∇
 
-            if accumulate_services is None:
+            try:
+                service_exists = any(state.services.retrieve_service_account(idx) for idx in [m, a, v])
+            except StateKeyNoResult:
+                service_exists = False
+
+            if auto_accumulate_services is None:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
                 _pvm.log.host_call("BLESS", f"PANIC")
-            #elif any(idx not in pvm.app.service_accounts for idx in [m, a, v]):
-            elif any(idx >= 2**32 for idx in [m, a, v]):
+            #TODO: volgens GP hoeven we alleen ints te checken?
+            #elif any(idx >= 2**32 for idx in [m, a, v]):
+            elif service_exists:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.WHO.value
                 _pvm.log.host_call("BLESS", f"WHO")
@@ -321,12 +324,11 @@ class AccumulateInvocationMutator(InvocationMutator):
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.OK.value
 
-                ps = invocation_context.context.state_context.privileged_services
+                ps = invocation_context.context.state_context.privileged_services   #
                 ps.empower_service = m
                 ps.assign_service = a
                 ps.designate_service = v
-                ps.auto_accumulate_services = accumulate_services
-                #TODO!!!!!!!!!!!!!!!!!!!! nog verwerken?
+                ps.auto_accumulate_services = auto_accumulate_services
 
                 _pvm.log.host_call("BLESS", f"OK")
 
@@ -339,7 +341,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             _pvm.log.host_call("ASSIGN", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
             # Privileged services:
-            w7 = registers[7] # Core index to update (0..341)
+            core_index = registers[7] # Core index to update (0..341)
             o = registers[8] # memory offset
 
             if memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, PVMMemoryMode.readable):
@@ -356,16 +358,15 @@ class AccumulateInvocationMutator(InvocationMutator):
             if validator_queue is None:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
                 _pvm.log.host_call("ASSIGN", f"PANIC")
-            elif w7 >= CORE_COUNT:
+            elif core_index >= CORE_COUNT:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.CORE.value
                 _pvm.log.host_call("ASSIGN", f"CORE")
             else:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.OK.value
-                ps = invocation_context.context.state_context.authorizer_queues.authorizer_queues[w7] = validator_queue
+                invocation_context.context.state_context.authorizer_queues.authorizer_queues[core_index] = validator_queue
                 _pvm.log.host_call("ASSIGN", f"OK")
-                #TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         elif host_call_instr_nr == HostCallAccumulate.designate.value:
             """
@@ -381,7 +382,8 @@ class AccumulateInvocationMutator(InvocationMutator):
                 try:
                     for idx in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS):
                         offset = o + idx * 336
-                        validator_queue.append(memory.read_bytes(offset, 336))
+                        validator_data = ValidatorData.from_jam_bytes(JamBytes(memory.read_bytes(offset, 336)))
+                        validator_queue.append(validator_data)
                 except PVMMemoryError:
                     validator_queue = None # GP: bold_v = ∇
             else:
@@ -393,8 +395,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             else:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.OK.value
-                # TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                invocation_context.context.state_context.validator_queue.update(validator_queue)
+                invocation_context.context.state_context.validator_queue.validators = validator_queue
                 _pvm.log.host_call("DESIGNATE", f"OK")
 
         elif host_call_instr_nr == HostCallAccumulate.checkpoint.value:
@@ -404,8 +405,8 @@ class AccumulateInvocationMutator(InvocationMutator):
             gas_limit -= 10
             _pvm.log.host_call("CHECKPOINT", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
             registers[7] = gas_limit
-            exit_condition = None #TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            invocation_context = TODO_SWAP!!!!!!!!!!!!!!!!!!!!!!!
+            exit_condition = ExitCondition(reason=ExitReason.resume)
+            invocation_context.savepoint_context = deepcopy(invocation_context.context) #TODO: optimize deepcopy?
 
         elif host_call_instr_nr == HostCallAccumulate.new.value:
             # Maak nieuwe service aan en registreer deze in de services dictionary
@@ -486,7 +487,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             m = registers[9]  # gas_limit_on_transfer
 
             service_id = invocation_context.context.service_account_id
-            eject_service_account = state.services.retrieve_service_account(service_id)
+            service_account = state.services.retrieve_service_account(service_id)
 
             try:
                 code_hash = memory.read_bytes(o, 32)
@@ -499,9 +500,12 @@ class AccumulateInvocationMutator(InvocationMutator):
             else:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.OK.value
-                eject_service_account.code_hash = code_hash
-                eject_service_account.gas_limit_accumulate = g
-                eject_service_account.gas_limit_on_transfer = m
+                service_account.code_hash = code_hash
+                service_account.gas_limit_accumulate = g
+                service_account.gas_limit_on_transfer = m
+                # TODO inefficient; move to end, only once per service
+                state.services.store_service_account(service_id, service_account)
+
                 _pvm.log.host_call("UPGRADE", f"OK")
 
         elif host_call_instr_nr == HostCallAccumulate.transfer.value:
@@ -581,32 +585,45 @@ class AccumulateInvocationMutator(InvocationMutator):
             service_id = invocation_context.context.service_account_id
             service_account = state.services.retrieve_service_account(service_id)
 
+            l = None
+            updated_balance = None
+            preimage_availability = None
             eject_service_account = None  # GP: bold_d
             if d != service_id:
                 try:
                     eject_service_account = state.services.retrieve_service_account(d)
-                    l = max(81, eject_service_account.TODO!!!!!!!!!?????)
-                    balance = service_account.balance + eject_service_account.balance
+                    l = max(81, eject_service_account.footprint_storage_bytes) - 81
+                    updated_balance = service_account.balance + eject_service_account.balance
+                    try:
+                        preimage_availability = state.services.retrieve_preimage_availability(d, preimage_hash, l)
+                    except StateKeyNoResult:
+                        preimage_availability = None
                 except StateKeyNoResult as e:
                     eject_service_account = None  #GP: bold_d = ∇
 
             if preimage_hash is None:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
                 _pvm.log.host_call("EJECT", f"PANIC")
-            elif eject_service_account is None or len(eject_service_account.code_hash) != 32: #TODO:CHECK!!!!!!!!!
+            elif eject_service_account is None or eject_service_account.code_hash != int(service_id).to_bytes(length=32, byteorder="little"):
+                # Note: eject service grants eject by setting code_hash to current service_id
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.WHO.value
                 _pvm.log.host_call("EJECT", f"WHO")
-            elif (eject_service_account.footprint_storage_bytes != 2 or
-                  not state.services.preimage_exists(eject_service_account, (preimage_hash,l))): #TODO:CHECK!!!!!!!!!!!!!!!!!!!
+            elif eject_service_account.footprint_storage_items != 2 or preimage_availability is None:
+                # Note: if this storage_account emptied and the preimage exists
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.HUH.value
                 _pvm.log.host_call("EJECT", f"HUH")
-            elif len(state.services.retrieve_preimage_availability(eject_service_account, (preimage_hash,l))) == 2: #TODO:CHECK!!!!!!
+            elif len(preimage_availability) == 2 and preimage_availability[1] < invocation_context.timeslot - PREIMAGE_EXPUNGE_TIMESLOTS:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.OK.value
-                state.services.delete_preimage_availability(eject_service_account, (preimage_hash,l), preimage_length)
-                service_account.balance = balance #TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                # TODO: nodig?
+                state.services.delete_preimage(d, preimage_hash)
+                state.services.delete_preimage_availability(d, preimage_hash, l)
+                state.services.delete_service_account(d)
+                service_account.balance = updated_balance
+                state.services.store_service_account(service_id, service_account) # TODO: meenemen in de finalize vd transactie
                 _pvm.log.host_call("EJECT", f"OK")
             else:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -615,55 +632,60 @@ class AccumulateInvocationMutator(InvocationMutator):
 
         elif host_call_instr_nr == HostCallAccumulate.query.value:
             """
-            Bepaalt de beschikbaarheid van de preimage
+            Determines the availability of a preimage 
             """
             gas_limit -= 10
             _pvm.log.host_call("QUERY", f"charged_gas: {10} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 
             o = registers[7]    # memory offset
-            z = registers[8]    # preimage length
+            preimage_length = registers[8]    # preimage length
 
             # GP: h
             try:
-                preimage_hash    = memory.read_bytes(o, 32)
+                preimage_hash = memory.read_bytes(o, 32)
             except PVMMemoryError:
                 preimage_hash = None
 
             # GP: bold_a
             try:
-                preimage_availability = state.services.retrieve_preimage_availability(service_id, preimage_hash, z) # GP: (xs)l[h,z] == bold_a
+                preimage_availability = state.services.retrieve_preimage_availability(service_id, preimage_hash, preimage_length) # GP: (xs)l[h,z] == bold_a
             except StateKeyNoResult as e:
                 preimage_availability = None
 
             if preimage_hash is None:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
                 _pvm.log.host_call("QUERY", f"PANIC")
-            elif preimage_availability:
+            elif preimage_availability is None:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.NONE.value
                 registers[8] = 0
-                _pvm.log.host_call("QUERY", f"NONE")
+                _pvm.log.host_call("QUERY", f"NONE, 0")
             elif len(preimage_availability) == 0:
+                # Note: Marked as requested
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = 0
                 registers[8] = 0
                 _pvm.log.host_call("QUERY", f"0, 0")
             elif len(preimage_availability) == 1:
+                # Note: Marked as available
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = 1+2**32*preimage_availability[0]
                 registers[8] = 0
                 _pvm.log.host_call(f"QUERY", f"1+2**32*{preimage_availability[0]}, 0")
             elif len(preimage_availability) == 2:
+                # Note: Marked as unavailable
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = 2+2**32*preimage_availability[0]
                 registers[8] = preimage_availability[1]
                 _pvm.log.host_call(f"QUERY", f"1+2**32*{preimage_availability[0]}, {preimage_availability[1]}")
             elif len(preimage_availability) == 3:
+                # Note: Marked as re-available
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = 3+2**32*preimage_availability[0]
                 registers[8] = preimage_availability[1] + 2**32*preimage_availability[2]
                 _pvm.log.host_call(f"QUERY", f"1+2**32*{preimage_availability[0]}, {preimage_availability[1] + 2**32*preimage_availability[2]}")
             else:
+                exit_condition = ExitCondition(reason=ExitReason.panic)
                 _pvm.log.host_call("QUERY", f"preimage cardinality error: {len(preimage_availability)}")
 
         elif host_call_instr_nr == HostCallAccumulate.solicit.value:
@@ -678,7 +700,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             service_account = state.services.retrieve_service_account(service_id) # GP: bold_a
 
             o = registers[7]
-            z = registers[8]    # preimage length TODO: KLOPT DIT???????
+            preimage_length = registers[8]    # GP: z
 
             #GP: h
             try:
@@ -687,39 +709,53 @@ class AccumulateInvocationMutator(InvocationMutator):
                 preimage_hash = None #GP: h = ∇
 
             try:
-                preimage_availability = state.services.retrieve_preimage_availability(service_id, preimage_hash, z)
-                preimage_cardinality = len(preimage_availability)
-                timeslot = invocation_context.timeslot  # GP: t
-
-                if preimage_cardinality in (0, 2) and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
-                    state.services.store_preimage_availability(service_id, preimage_hash, z, [])  #TODO???????????
-                elif preimage_cardinality == 2:
-                    state.services.store_preimage_availability(
-                        service_id,
-                        preimage_hash,
-                        z,
-                        preimage_availability + [timeslot]
-                    )
-                else:
-                    service_account = None
-
+                preimage_availability = state.services.retrieve_preimage_availability(service_id, preimage_hash, preimage_length)
             except StateKeyNoResult:
-                service_account = None
+                preimage_availability = None
+
+            old_footprint_items = service_account.footprint_storage_items
+            old_footprint_bytes = service_account.footprint_storage_bytes
+
+            if not preimage_hash is None:
+                service_account.update_footprint_add_preimage(preimage_length)
 
             if preimage_hash is None:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
+                service_account.footprint_storage_items = old_footprint_items
+                service_account.footprint_storage_bytes = old_footprint_bytes
                 _pvm.log.host_call("SOLICIT", f"PANIC")
-            elif service_account is None:
+            elif preimage_availability is not None and len(preimage_availability) != 2:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.HUH.value
+                service_account.footprint_storage_items = old_footprint_items
+                service_account.footprint_storage_bytes = old_footprint_bytes
                 _pvm.log.host_call("SOLICIT", f"HUH")
             elif service_account.balance < service_account.threshold_balance:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.FULL.value
+                service_account.footprint_storage_items = old_footprint_items
+                service_account.footprint_storage_bytes = old_footprint_bytes
                 _pvm.log.host_call("SOLICIT", f"FULL")
             else:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.OK.value
+
+                if preimage_availability is None:
+                    state.services.store_preimage_availability(
+                        service_id,
+                        preimage_hash,
+                        preimage_length,
+                        []
+                    )
+
+                elif len(preimage_availability) == 2:
+                    state.services.store_preimage_availability(
+                        service_id,
+                        preimage_hash,
+                        preimage_length,
+                        preimage_availability + [invocation_context.timeslot]
+                    )
+
                 _pvm.log.host_call("SOLICIT", f"OK")
 
         elif host_call_instr_nr == HostCallAccumulate.forget.value:

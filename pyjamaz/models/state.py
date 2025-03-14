@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Tuple, Union, Set
 
@@ -308,33 +309,31 @@ class PreimageAvailabilityMap(StorageMap):
 @dataclass
 class ServiceAccount(Serializable):
     """
-    GP-0.5.2-eq:9.3 (blackboard_A) | A service account.
-
-    #TODO: implement a_o
+    GP-0.6.2-eq:9.3 (blackboard_A) | A service account.
 
     Attributes
     ----------
     code_hash: H256
-        GP-0.5.2-eq:9.3 (c) | Hash of the service account's code
+        GP-0.6.2-eq:9.3 (c) | Hash of the service account's code
     balance: U64
-        GP-0.5.2-eq:9.3 (b) | Balance of a service account
+        GP-0.6.2-eq:9.3 (b) | Balance of a service account
     gas_limit_accumulate: U64
-        GP-0.5.2-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
+        GP-0.6.2-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
     gas_limit_on_transfer: U64
-        GP-0.5.2-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
-    footprint_storage_items: U64
-        GP-0.5.2-eq:9.8 (a_l) | Storage footprint of the service account. The number of items in storage.
-    footprint_storage_bytes: U32
-        GP-0.5.2-eq:9.8 (a_i) | Storage footprint of the service account. The total number of bytes used in storage.
+        GP-0.6.2-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
+    footprint_storage_bytes: U64
+        GP-0.6.2-eq:9.8 (o) | Storage footprint of the service account. The total number of bytes used in storage.
+    footprint_storage_items: U32
+        GP-0.6.2-eq:9.8 (i) | Storage footprint of the service account. The number of items in storage.
     threshold_balance: U64
-        GP-0.5.2-eq:9.8 (a_t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
+        GP-0.6.2-eq:9.8 (t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
         footprint.
     storage_items: Dict(H256,Bytes)
-        GP-0.5.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
+        GP-0.6.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
     preimages: Dict(H256,Bytes)
-        GP-0.5.2-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
+        GP-0.6.2-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
     preimage_availability: Dict(Tuple(H256,U32), Vec<U32>)
-        GP-0.5.2-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
+        GP-0.6.2-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
     """
     # Remark: Only the following field need to be serialized/deserialized
     code_hash: bytes = field(metadata={'codec': H256})
@@ -448,6 +447,19 @@ class ServicesState(State, Serializable):
         metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
     )
 
+    def __deepcopy__(self, memo):
+        # Create a new instance without calling __init__
+        new_obj = self.__class__.__new__(self.__class__)
+        memo[id(self)] = new_obj
+
+        # Only copy attribute 'services'
+        new_obj.services = deepcopy(self.services, memo)
+
+        # Set new storage engine
+        new_obj.set_storage_engine(self.storage_engine)
+
+        return new_obj
+
     # TODO replace with storage transaction
     def set_storage_engine(self, storage_engine: StorageEngine):
         setattr(self, '_storage_engine', storage_engine)
@@ -503,7 +515,7 @@ class ServicesState(State, Serializable):
 
         """
         if self.storage_transaction is None:
-            raise ValueError('storage_transaction must be set before deleting preimage availability data')
+            raise ValueError('storage_transaction must be set before storing a service account')
 
         state_key = state_key_constructor_service_account(service_account_id)
         data = service_account.to_serialized_bytes()
@@ -513,6 +525,30 @@ class ServicesState(State, Serializable):
         self.services[service_account_id] = service_account
 
         logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} storage_key={state_key.hex()}')
+
+
+    def delete_service_account(self, service_account_id: int):
+        """
+        Deletes a service account
+
+        Parameters
+        ----------
+        service_account_id
+
+        Returns
+        -------
+
+        """
+        if self.storage_transaction is None:
+            raise ValueError('storage_transaction must be set before deleting service account data')
+
+        state_key = state_key_constructor_service_account(service_account_id)
+
+        self.storage_transaction.delete(state_key)
+
+        del self.services[service_account_id]
+
+        logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()}')
 
 
     def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes) -> bytes:
