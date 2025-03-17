@@ -30,9 +30,9 @@ class PVMDebugLog:
         arguments = self._pvm.mem._args
         mem_segments = [m for m in (rom, heap, stack, arguments) if m]
         for seg in mem_segments:
-            if seg.break_pointer > 0:
+            if seg.tail > 0:
                 page_begin_addr = seg.address
-                page_end_addr = PVMMemory.page_size(seg.break_pointer)
+                page_end_addr = seg.page_tail
                 nr_pages = (page_end_addr-page_begin_addr) // 4096 + 1
                 for xx in range(nr_pages):
                     bytez += int(seg.address // 4096).to_bytes(length=4, byteorder="little")
@@ -61,10 +61,10 @@ class PVMDebugLog:
         ]
 
         for mem in mem_segments:
-            if mem and mem.length > 0:
+            if mem and mem.size > 0:
                 initial_page_map.append({
                     "address": int(mem.address),
-                    "length": int(mem.length),
+                    "length": int(mem.size),
                     "is-writable": mem.writable,
                 })
 

@@ -77,18 +77,20 @@ class PVMCode(Serializable):
 
 @dataclass
 class MemorySection:
-    address: int
-    length: int
-    break_pointer: int
+    address: int    # The absolute memory address of this memory section
+    size: int # Note: The (theoretical) max size of this section
+    tail: int # Note: the address of the last written index for this section
+    page_tail: int  # Note: the last address of accessible memory (tail roofed to page_size)
     writable: bool
     contents: npt.NDArray[np.uint8]
 
     def __init__(self, address, length, writable, contents):
         self.address:int = address
-        self.length:int = length
+        self.size:int = length
         self.writable:bool = writable
-        self.contents: npt.NDArray[np.uint8] = np.zeros(self.length, dtype=np.uint8)
-        self.break_pointer = 0
+        self.contents: npt.NDArray[np.uint8] = np.zeros(len(contents), dtype=np.uint8)
+        self.tail = 0
+        self.page_tail = 0
         if len(contents) > 0:
             self.update(0, contents)
 
@@ -96,17 +98,19 @@ class MemorySection:
         # TODO: implement more efficiently
         for c_idx, val in enumerate(_bytes):
             self.contents[idx+c_idx] = np.uint8(val)
-        self.break_pointer = self.address + len(_bytes) - 1
+        self.tail = self.address + len(_bytes)
+        self.page_tail = PVMMemory.page_size(self.tail)
 
     def contains(self, addr):
-        return self.address <= addr < self.address + self.length
+        return self.address <= addr < self.address + self.size
 
     def read_int(self, address: int, length: int) -> np.uint64:
-        """
-        TODO:
-        outofbounds offset
-        als we vanaf de outofbounds tot length lezen/scwijven -> aanzulen met nullen
-        """
+        # if not page.readable:
+        #     raise PVMMemoryError(f"Page {addr} is not writable")
+
+        if address + length > self.page_tail:
+            raise PVMMemoryError(f"MemorySection {address} overflow: {length} (page tail: {self.page_tail} - size: {self.size})")
+
         if length == 0:
             return np.uint64(0)
 
@@ -159,12 +163,19 @@ class MemorySection:
             raise UIntValueError(f"Invalid uint length: {length}")
 
     def write_int(self, address: int, value: int, length: int):
+
+        if address + length > self.page_tail:
+            raise PVMMemoryError(f"MemorySection {address} overflow: {length} (page tail: {self.page_tail} - size: {self.size})")
+
+        if not self.writable:
+            raise PVMMemoryError(f"MemorySection {address} is not writable")
+
         # Note: GP applies a modulus over the value to write denoted by their bit length
         if length < 8:
             value = value % (2 ** (length*8))
 
-        if self.address+length > self.break_pointer:
-            self.break_pointer = self.address+length
+        if self.address+length > self.tail:
+            self.tail = self.address + length
 
         if length == 1:
             self.contents[address + 0] = np.uint8(value & 0xFF)
@@ -198,7 +209,7 @@ class PVMMemory:
     _stack: MemorySection
     _args: MemorySection
     _mem_addr: int
-    _section: int
+    _section: MemorySection
     _section_addr: int
 
     def __init__(
@@ -243,7 +254,7 @@ class PVMMemory:
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
-        if not (self._section and self._section.address <= addr < self._section.address + self._section.length):
+        if not (self._section and self._section.address <= addr < self._section.address + self._section.size):
             section = self.find_section(addr)
         else:
             section = self._section
@@ -251,15 +262,9 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError("MemorySection not found")
 
-        if not section.writable:
-            raise PVMMemoryError(f"MemorySection {addr} is not writable")
-
         section_addr = addr - section.address
         self._section = section
         self._section_addr = section_addr
-
-        if section_addr + length > section.length:
-            raise PVMMemoryError(f"Page {section_addr} overflow: {length} ({section.length})")
 
         # Set the mem page according to the found page for this range
         section.write_int(section_addr, value, length)
@@ -268,7 +273,7 @@ class PVMMemory:
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
-        if not (self._section and self._section.address <= addr < self._section.address + self._section.length):
+        if not (self._section and self._section.address <= addr < self._section.address + self._section.size):
             section = self.find_section(addr)
         else:
             section = self._section
@@ -276,15 +281,9 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError("MemorySection not found")
 
-        # if not page.readable:
-        #     raise PVMMemoryError(f"Page {addr} is not writable")
-
         section_addr = addr - section.address
         self._section = section
         self._section_addr = section_addr
-
-        if section_addr + length > section.length:
-            raise PVMMemoryError(f"MemorySection {section_addr} overflow: {length} ({section.length})")
 
         # Set the mem page according to the found page for this range
         return section.read_int(section_addr, length)
@@ -295,7 +294,7 @@ class PVMMemory:
             return False
 
         section_addr = address - section.address
-        section_bytes = (section.length - section_addr)
+        section_bytes = (section.page_tail - section_addr)
 
         if section_bytes < length:
             return False
@@ -323,7 +322,7 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = address - section.address
-        section_bytes = (section.length - section_addr)
+        section_bytes = (section.page_tail - section_addr)
 
         if section_bytes < length:
             raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
@@ -346,25 +345,31 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = address - section.address
-        section_bytes = (section.length - section_addr)
+        section_bytes = (section.page_tail - section_addr)
 
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
 
         section.contents[section_addr:section_addr+len(content)] = np.frombuffer(content, dtype=np.uint8)
-        end_addr = address + len(content) - 1
-        if end_addr > section.break_pointer:
-            section.break_pointer = end_addr
+        end_addr = address + len(content)
+        if end_addr > section.tail:
+            section.tail = end_addr
 
 
     def extend_heap(self, size):
         # # Note: sbrk opcode
         # # TODO: not sure if this implementation is correct...??!!!!!!
         if size <= 0: return 0
-        self._heap.break_pointer += size
-        #page_size = PVMMemory.page_size(self._heap.break_pointer)
-        #TODO: voeg extra mem toe!!!!!!!!!!!!
-        return self._heap.break_pointer
+        mem_size = PVMMemory.page_size(self._heap.tail + size)
+        if mem_size > self._heap.size:
+            raise PVMMemoryError(f"sbrk heap overflow {mem_size} > {self._heap.size}")
+        self._heap.tail += size
+        if mem_size > self._heap.page_tail:
+            growth = mem_size - self._heap.page_tail
+            self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
+            self._heap.page_tail = mem_size
+
+        return self._heap.tail
 
 
     @staticmethod

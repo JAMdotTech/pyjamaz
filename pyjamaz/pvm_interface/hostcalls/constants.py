@@ -2,7 +2,7 @@ from enum import Enum
 
 
 #GP-0.6.2:B.1
-class HostCallResult(Enum): #TODO: refactor naar capital
+class HostCallResult(Enum):
     NONE: int = 2 ** 64 - 1
     WHAT: int = 2 ** 64 - 2
     OOB: int  = 2 ** 64 - 3
