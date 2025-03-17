@@ -1,5 +1,3 @@
-from types import MethodType
-
 import numpy as np
 import numpy.typing as npt
 

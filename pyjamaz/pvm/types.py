@@ -1,4 +1,5 @@
 import bisect
+import logging
 from enum import Enum
 
 import numpy as np
@@ -78,7 +79,7 @@ class PVMCode(Serializable):
 class MemorySection:
     address: int
     length: int
-    break_pointer: int  #TODO: necessary? remove?
+    break_pointer: int
     writable: bool
     contents: npt.NDArray[np.uint8]
 
@@ -88,14 +89,14 @@ class MemorySection:
         self.writable:bool = writable
         self.contents: npt.NDArray[np.uint8] = np.zeros(self.length, dtype=np.uint8)
         self.break_pointer = 0
-        if contents:
+        if len(contents) > 0:
             self.update(0, contents)
 
     def update(self, idx, _bytes):
         # TODO: implement more efficiently
         for c_idx, val in enumerate(_bytes):
             self.contents[idx+c_idx] = np.uint8(val)
-        self.break_pointer = PVMMemory.page_size(len(_bytes))
+        self.break_pointer = self.address + len(_bytes) - 1
 
     def contains(self, addr):
         return self.address <= addr < self.address + self.length
@@ -161,6 +162,9 @@ class MemorySection:
         # Note: GP applies a modulus over the value to write denoted by their bit length
         if length < 8:
             value = value % (2 ** (length*8))
+
+        if self.address+length > self.break_pointer:
+            self.break_pointer = self.address+length
 
         if length == 1:
             self.contents[address + 0] = np.uint8(value & 0xFF)
@@ -348,20 +352,19 @@ class PVMMemory:
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
 
         section.contents[section_addr:section_addr+len(content)] = np.frombuffer(content, dtype=np.uint8)
+        end_addr = address + len(content) - 1
+        if end_addr > section.break_pointer:
+            section.break_pointer = end_addr
 
 
     def extend_heap(self, size):
         # # Note: sbrk opcode
         # # TODO: not sure if this implementation is correct...??!!!!!!
         if size <= 0: return 0
-        page_size = PVMMemory.page_size(size)
-
-        if page_size >= self._stack.address:
-            return 0
-
-        self._heap.length += page_size
-        self.section_offsets = [p.address for p in self.sections]
-        return self._heap.address + self._heap.length - 1
+        self._heap.break_pointer += size
+        #page_size = PVMMemory.page_size(self._heap.break_pointer)
+        #TODO: voeg extra mem toe!!!!!!!!!!!!
+        return self._heap.break_pointer
 
 
     @staticmethod
@@ -398,44 +401,44 @@ class PVMProgram(Serializable):
     """
     @staticmethod
     def init_memory(
-            rom: bytes,
-            ram: bytes,
-            arguments: bytes,
+            rom_contents: bytes,
+            heap_contents: bytes,
+            argument_contents: bytes,
             heap_mem_size: int,
             stack_mem_size: int
     ) -> PVMMemory:
 
         _rom = MemorySection(
             address=PVM_INIT_ZONE_SIZE,
-            length=PVMMemory.page_size(min(len(rom),1)),
+            length=PVMMemory.page_size(len(rom_contents)),
             writable=False,
-            contents=rom
+            contents=rom_contents
         )
 
         # TODO: add sanity check on heap_mem_size
-        heap = MemorySection(
-            address=2 * PVM_INIT_ZONE_SIZE + PVMMemory.zone_size(len(rom)),
-            length=PVMMemory.page_size(len(ram)) + heap_mem_size,
+        _heap = MemorySection(
+            address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
+            length=PVMMemory.page_size(len(heap_contents)) + heap_mem_size,
             writable=True,
-            contents=ram
+            contents=heap_contents
         )
 
         #TODO: add sanity check on stack_mem_size
-        stack = MemorySection(
-            address=2 ** 32 - 2 * PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
+        _stack = MemorySection(
+            address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
             length=PVMMemory.page_size(stack_mem_size),
             writable=True,
             contents=bytes(PVMMemory.page_size(stack_mem_size)),
         )
 
-        arguments = MemorySection(
+        _arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            length=PVMMemory.zone_size(len(arguments)),
+            length=PVMMemory.zone_size(len(argument_contents)),
             writable=False,
-            contents=arguments,
+            contents=argument_contents,
         )
 
-        return PVMMemory(rom=_rom, heap=heap, stack=stack, arguments=arguments)
+        return PVMMemory(rom=_rom, heap=_heap, stack=_stack, arguments=_arguments)
 
 
     @staticmethod
@@ -452,7 +455,7 @@ class PVMProgram(Serializable):
 
 
     @classmethod
-    def from_serialized_bytes(cls, serialized_program: bytes, arguments: bytes) -> Optional['PVMProgram']:
+    def from_serialized_bytes(cls, serialized_program: bytes, argument_contents: bytes) -> Optional['PVMProgram']:
         """
         GP-0.6.2-eq:A.35 (Y)
         """
@@ -462,29 +465,29 @@ class PVMProgram(Serializable):
             # GP?? |o|
             pvm_rom_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')
             # GP?? |w|
-            pvm_ram_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')
+            pvm_heap_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')
             # GP?? z
-            stack_mem_pages = int.from_bytes(jam_bytes.get_next_bytes(2), byteorder='little')
+            heap_mem_pages = int.from_bytes(jam_bytes.get_next_bytes(2), byteorder='little')
             # GP?? s
             stack_mem_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')
             # GP?? o
-            pvm_rom = jam_bytes.get_next_bytes(pvm_rom_size)
+            pvm_rom_contents = jam_bytes.get_next_bytes(pvm_rom_size)
             # GP?? w
-            pvm_ram = jam_bytes.get_next_bytes(pvm_ram_size)
+            pvm_heap_contents = jam_bytes.get_next_bytes(pvm_heap_size)
 
             pvm_code_size = int.from_bytes(jam_bytes.get_next_bytes(4), byteorder='little')
             pvm_code = jam_bytes.get_next_bytes(pvm_code_size)
 
             if (5 * PVM_INIT_ZONE_SIZE +
                 PVMMemory.zone_size(pvm_rom_size) +
-                PVMMemory.zone_size(pvm_ram_size + stack_mem_pages * PVM_PAGE_SIZE) +
+                PVMMemory.zone_size(pvm_heap_size + heap_mem_pages * PVM_PAGE_SIZE) +
                 PVMMemory.zone_size(stack_mem_size) + PVM_INPUT_DATA_SIZE
             ) <= 2**32:
 
                 return cls(
                     code=PVMCode.from_jam_bytes(JamBytes(pvm_code)),
-                    registers=cls.init_registers(arguments),
-                    memory=cls.init_memory(pvm_rom, pvm_ram, arguments, stack_mem_pages, stack_mem_size),
+                    registers=cls.init_registers(argument_contents),
+                    memory=cls.init_memory(pvm_rom_contents, pvm_heap_contents, argument_contents, heap_mem_pages * PVM_PAGE_SIZE, stack_mem_size),
                 )
             else:
                 #TODO

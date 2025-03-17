@@ -510,7 +510,8 @@ class AccumulateInvocationMutator(InvocationMutator):
 
         elif host_call_instr_nr == HostCallAccumulate.transfer.value:
             # Create a new transfer and add to the defered transfers
-            gas_cost = 10 + int(registers[9])
+            #TODO:!!!!!!!!!!!!!!!!!!!!!!!!gas_cost = 10 + int(registers[9])
+            gas_cost = int(registers[9])
             gas_limit -= gas_cost
             _pvm.log.host_call("TRANSFER", f"charged_gas: {gas_cost} gas_before: {_pvm.gas} gas_after: {gas_limit}")
 

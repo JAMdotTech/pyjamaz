@@ -3,7 +3,9 @@ from datetime import datetime
 
 import numpy as np
 
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.pvm.constants import OpcodeNames
+from pyjamaz.pvm.types import PVMMemory
 
 
 class PVMDebugLog:
@@ -14,6 +16,31 @@ class PVMDebugLog:
         self.log_opcodes = {}
         self.log_opcode_calls = log_opcode_calls
         self.log_opcode_calls_if_zero = log_opcode_calls_if_zero
+
+    def hash(self):
+        bytez = bytes()
+        for x in range(len(self._pvm.reg)):
+            bytez += int(self._pvm.reg[x]).to_bytes(length=8, byteorder="little")
+
+        bytez += int(self._pvm.gas).to_bytes(length=8, byteorder="little")
+
+        rom = self._pvm.mem._rom
+        heap = self._pvm.mem._heap
+        stack = self._pvm.mem._stack
+        arguments = self._pvm.mem._args
+        mem_segments = [m for m in (rom, heap, stack, arguments) if m]
+        for seg in mem_segments:
+            if seg.break_pointer > 0:
+                page_begin_addr = seg.address
+                page_end_addr = PVMMemory.page_size(seg.break_pointer)
+                nr_pages = (page_end_addr-page_begin_addr) // 4096 + 1
+                for xx in range(nr_pages):
+                    bytez += int(seg.address // 4096).to_bytes(length=4, byteorder="little")
+                    offset = xx*4096
+                    bytez += bytes(seg.contents[offset:offset+4096])
+
+        return blake2b_256_hash(bytez)
+
 
     def dump_code(self):
         with open(f"code-spi-{datetime.now().strftime('%H:%M:%S')}.bin", "wb") as binary_file:

@@ -174,7 +174,7 @@ class PVMInvocation:
 
         self.pvm_program = PVMProgram.from_serialized_bytes(
             serialized_program=serialized_program,
-            arguments=argument_data
+            argument_contents=argument_data
         )
 
         if self.pvm_program is None:

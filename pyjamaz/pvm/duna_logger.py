@@ -1,6 +1,7 @@
 import logging
 from pyjamaz.pvm.constants import OpcodeNames
 from pyjamaz.pvm.debug_logger import PVMDebugLog
+from pyjamaz.utils import format_hash
 
 
 class PVMDunaLog(PVMDebugLog):
@@ -35,6 +36,6 @@ class PVMDunaLog(PVMDebugLog):
             f"{inst_str}"
             f"{spacing}"
             f"g={self._pvm.gas} "
-            f"pvmHash=... "
+            f"pvmHash={format_hash(self.hash())} "
             f"reg={str(regs)}"
         )
