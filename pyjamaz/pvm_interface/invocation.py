@@ -81,12 +81,12 @@ class AccumulateInvocationMutator(InvocationMutator):
 
                     f = min(registers[10], len(preimage_bytes))
                     l = min(registers[11], len(preimage_bytes) - f)
-                    preimage_writable = not memory.is_accessible(o, l, PVMMemoryMode.writable)  # bold_v = ∇
+                    preimage_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)  # bold_v = ∇
                 except StateKeyNoResult:
                     preimage_bytes = None
 
 
-            if preimage_hash_unreadable or preimage_writable is False:
+            if preimage_hash_unreadable is True or preimage_writable is False:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
                 _pvm.log.host_call("LOOKUP", f"PANIC")
             elif preimage_bytes is None:
@@ -96,7 +96,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             else:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = len(preimage_bytes)
-                memory.write_bytes(f, preimage_bytes[f:f + l])
+                memory.write_bytes(o, preimage_bytes[f:f + l])
                 _pvm.log.host_call("LOOKUP", f"NONE write_bytes({f},{f + l}) r7={len(preimage_bytes)}")
 
         elif host_call_instr_nr == HostCallGeneral.read.value:
@@ -179,6 +179,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             try:
                 mu_k = memory.read_bytes(k_o, k_z) # Note: service local storage key
                 storage_key = blake2b_256_hash(service_id_bytes + mu_k)  # GP: k
+                # TODO duplicate service account reference?
                 eject_service_account = state_context.services.retrieve_service_account(service_id)
                 try:
                     if v_z == 0:
@@ -295,20 +296,20 @@ class AccumulateInvocationMutator(InvocationMutator):
             n = registers[11] # number of entries in the auto_accumulate_services dictionary to read
 
             auto_accumulate_services = None #GP: bold_g
-            if memory.is_accessible(o, o + 12 * n, PVMMemoryMode.readable):
+            if memory.is_accessible(o, 12 * n, PVMMemoryMode.readable):
                 try:
                     auto_accumulate_services = {}
                     for idx in range(n):
                         offset = o + idx * 12
-                        service_idx = U32.decode(memory.read_bytes(offset, 4))
-                        gas = U64.decode(memory.read_bytes(offset + 4, 4+8))
+                        service_idx = U32.decode(JamBytes(memory.read_bytes(offset, 4)))
+                        gas = U64.decode(JamBytes(memory.read_bytes(offset + 4, 4+8)))
                         auto_accumulate_services[service_idx] = gas
                 except PVMMemoryError:
                     auto_accumulate_services = None   # bold_g = ∇
 
             try:
                 service_exists = any(state.services.retrieve_service_account(idx) for idx in [m, a, v])
-            except StateKeyNoResult:
+            except (StateKeyNoResult, OverflowError):
                 service_exists = False
 
             if auto_accumulate_services is None:
@@ -316,7 +317,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 _pvm.log.host_call("BLESS", f"PANIC")
             #TODO: volgens GP hoeven we alleen ints te checken?
             #elif any(idx >= 2**32 for idx in [m, a, v]):
-            elif service_exists:
+            elif not service_exists:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.WHO.value
                 _pvm.log.host_call("BLESS", f"WHO")
@@ -325,9 +326,9 @@ class AccumulateInvocationMutator(InvocationMutator):
                 registers[7] = HostCallResult.OK.value
 
                 ps = invocation_context.context.state_context.privileged_services   #
-                ps.empower_service = m
-                ps.assign_service = a
-                ps.designate_service = v
+                ps.empower_service = int(m)
+                ps.assign_service = int(a)
+                ps.designate_service = int(v)
                 ps.auto_accumulate_services = auto_accumulate_services
 
                 _pvm.log.host_call("BLESS", f"OK")
@@ -666,7 +667,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = 0
                 registers[8] = 0
-                _pvm.log.host_call("QUERY", f"0, 0")
+                _pvm.log.host_call("QUERY", f"OK, 0")
             elif len(preimage_availability) == 1:
                 # Note: Marked as available
                 exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -847,6 +848,13 @@ class AccumulateInvocationMutator(InvocationMutator):
 
 
         else:
+            # return InvocationMutationOutput(
+            #     output=ExitCondition(reason=ExitReason.none),
+            #     gas_limit=gas_limit,
+            #     registers=registers,
+            #     memory=memory,
+            #     context=invocation_context
+            # )
             raise Exception(f"TODO!!!!!!!! {host_call_instr_nr}")
 
         return InvocationMutationOutput(

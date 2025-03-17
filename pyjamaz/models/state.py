@@ -501,7 +501,7 @@ class ServicesState(State, Serializable):
 
         return service_account
 
-    def store_service_account(self, service_account_id: int, service_account: ServiceAccount):
+    def store_service_account(self, service_account_id: int, service_account: ServiceAccount, commit=False):
         """
         Stores a service account
 
@@ -509,25 +509,29 @@ class ServicesState(State, Serializable):
         ----------
         service_account_id
         service_account
+        commit
 
         Returns
         -------
 
         """
-        if self.storage_transaction is None:
-            raise ValueError('storage_transaction must be set before storing a service account')
-
-        state_key = state_key_constructor_service_account(service_account_id)
-        data = service_account.to_serialized_bytes()
-
-        self.storage_transaction.put(state_key, data)
 
         self.services[service_account_id] = service_account
+        state_key = state_key_constructor_service_account(service_account_id)
 
-        logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} storage_key={state_key.hex()}')
+        if commit:
+
+            if self.storage_transaction is None:
+                raise ValueError('storage_transaction must be set before storing a service account')
+
+            data = service_account.to_serialized_bytes()
+
+            self.storage_transaction.put(state_key, data)
+
+        logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} storage_key={state_key.hex()} commit={commit}')
 
 
-    def delete_service_account(self, service_account_id: int):
+    def delete_service_account(self, service_account_id: int, commit=False):
         """
         Deletes a service account
 
@@ -539,16 +543,21 @@ class ServicesState(State, Serializable):
         -------
 
         """
-        if self.storage_transaction is None:
-            raise ValueError('storage_transaction must be set before deleting service account data')
 
-        state_key = state_key_constructor_service_account(service_account_id)
+        if commit:
 
-        self.storage_transaction.delete(state_key)
+            if self.storage_transaction is None:
+                raise ValueError('storage_transaction must be set before deleting service account data')
 
-        del self.services[service_account_id]
+            state_key = state_key_constructor_service_account(service_account_id)
 
-        logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()}')
+            self.storage_transaction.delete(state_key)
+
+            del self.services[service_account_id]
+        else:
+            self.services[service_account_id] = None
+
+        logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
 
 
     def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes) -> bytes:
@@ -587,7 +596,7 @@ class ServicesState(State, Serializable):
 
         return data
 
-    def store_preimage(self, service_account_id: int, preimage_blob: bytes):
+    def store_preimage(self, service_account_id: int, preimage_blob: bytes, commit=False):
         """
         Stores a preimage
 
@@ -601,20 +610,22 @@ class ServicesState(State, Serializable):
         None
         """
 
-        if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id)
-
-        if self.storage_transaction is None:
-            raise ValueError('storage_transaction must be set before storing preimage data')
-
         preimage_hash = blake2b_256_hash(preimage_blob)
+        self.services[service_account_id].preimages[preimage_hash] = preimage_blob
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
-        logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
 
-        self.storage_engine.put(storage_key, preimage_blob)
+        if commit:
 
-        self.services[service_account_id].preimages[preimage_hash] = preimage_blob
+            if service_account_id not in self.services:
+                self.retrieve_service_account(service_account_id)
+
+            if self.storage_transaction is None:
+                raise ValueError('storage_transaction must be set before storing preimage data')
+
+            self.storage_engine.put(storage_key, preimage_blob)
+
+        logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={commit}')
 
     def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
         try:
@@ -629,6 +640,9 @@ class ServicesState(State, Serializable):
 
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
+
+        if (preimage_hash, preimage_length) in self.services[service_account_id].preimage_availability:
+            return self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
 
         if self.storage_engine is None:
             raise ValueError('storage engine must be set before retrieving preimage availability')
@@ -651,55 +665,76 @@ class ServicesState(State, Serializable):
         return availability.value
 
     def store_preimage_availability(
-            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, value: List[int]
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, value: List[int], commit=False
     ):
 
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
 
-        if self.storage_transaction is None:
-            raise ValueError('storage_transaction must be set before storing preimage availability data')
-
-        availability = Vec(U32).new()
-        data = availability.encode(value)
-
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
-        self.storage_transaction.put(storage_key, data.to_bytes())
+        self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = value
+
+        if commit:
+
+            if self.storage_transaction is None:
+                raise ValueError('storage_transaction must be set before storing preimage availability data')
+
+            availability = Vec(U32).new()
+            data = availability.encode(value)
+
+
+            self.storage_transaction.put(storage_key, data.to_bytes())
 
         logging.debug(
             f'store_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}'
         )
 
-        self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = value
 
-    def delete_preimage(self, service_account_id: int, preimage_hash: bytes):
+    def delete_preimage(self, service_account_id: int, preimage_hash: bytes, commit=False):
 
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
 
-        if self.storage_transaction is None:
-            raise ValueError('storage_transaction must be set before deleting preimage availability data')
-
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
 
-        self.storage_transaction.delete(storage_key)
-        del self.services[service_account_id].preimages[preimage_hash]
+        if commit:
+
+            if self.storage_transaction is None:
+                raise ValueError('storage_transaction must be set before deleting preimage availability data')
+
+            self.storage_transaction.delete(storage_key)
+            del self.services[service_account_id].preimages[preimage_hash]
+        else:
+            self.services[service_account_id].preimages[preimage_hash] = None
+
+        logging.debug(
+            f'delete_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={commit}'
+            )
 
     def delete_preimage_availability(
-            self, service_account_id: int, preimage_hash: bytes, preimage_length: int
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, commit=False
     ):
 
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
 
-        if self.storage_transaction is None:
-            raise ValueError('storage_transaction must be set before deleting preimage availability data')
-
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
-        self.storage_transaction.delete(storage_key)
-        del self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
+        if commit:
+
+            if self.storage_transaction is None:
+                raise ValueError('storage_transaction must be set before deleting preimage availability data')
+
+            self.storage_transaction.delete(storage_key)
+            del self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
+
+        else:
+            self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = None
+
+        logging.debug(
+            f'delete_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}'
+        )
 
     def retrieve_storage_item(
             self, service_account_id: int, storage_item_hash: bytes
@@ -719,10 +754,14 @@ class ServicesState(State, Serializable):
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
 
+        if storage_item_hash in self.services[service_account_id].storage_items:
+            return self.services[service_account_id].storage_items[storage_item_hash]
+
         if self.storage_engine is None:
             raise ValueError('storage engine must be set before retrieving storage items')
 
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
+
         data = self.storage_engine.get(storage_key)
 
         logging.debug(f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()}')
@@ -735,37 +774,48 @@ class ServicesState(State, Serializable):
 
         return data
 
-    def store_storage_item(self, service_account_id: int, storage_item_hash: bytes, value: bytes):
+    def store_storage_item(self, service_account_id: int, storage_item_hash: bytes, value: bytes, commit=False):
         """
         Store a storage item in the storage engine
         """
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
 
-        if self.storage_transaction is None:
-            raise ValueError('storage_transaction must be set before storing storage items')
-
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
-        self.storage_transaction.put(storage_key, value)
 
-        logging.debug(f'store_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex()} state_key={storage_key.hex()}')
+        if commit:
+            if self.storage_transaction is None:
+                raise ValueError('storage_transaction must be set before storing storage items')
+            self.storage_transaction.put(storage_key, value)
+
+        logging.debug(f'store_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex()} state_key={storage_key.hex()} [commit={commit}]')
 
         self.services[service_account_id].storage_items[storage_item_hash] = value
 
-    def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes):
+    def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, commit=False):
         """
         Delete a storage item in the storage engine
         """
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
 
-        if self.storage_transaction is None:
-            raise ValueError('storage_transaction must be set before deleting storage items')
-
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
-        self.storage_transaction.delete(storage_key)
 
-        del self.services[service_account_id].storage_items[storage_item_hash]
+        if commit:
+
+            if self.storage_transaction is None:
+                raise ValueError('storage_transaction must be set before deleting storage items')
+
+            self.storage_transaction.delete(storage_key)
+
+            del self.services[service_account_id].storage_items[storage_item_hash]
+
+        else:
+            self.services[service_account_id].storage_items[storage_item_hash] = None
+
+        logging.debug(
+            f'delete_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()} [commit={commit}]'
+            )
 
 @dataclass
 class AssurancesState(State, Serializable):
