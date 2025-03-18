@@ -1921,18 +1921,40 @@ class Services(StateComponent):
         -------
 
         """
-        # # Store all service accounts in current memory
+        # Process all service accounts in current memory
         for service_id, service_account in state.services.items():
-            state.store_service_account(service_id, service_account)
-            # for preimage_hash, preimage_blob in service_account.preimages.items():
-            #     self.store_service_preimage(Preimage(requester=service_id, blob=preimage_blob))
-            # for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
-            #     self.store_service_preimage_availability(
-            #         service_account_id=service_id,
-            #         preimage_hash=preimage_hash,
-            #         preimage_length=preimage_length,
-            #         value=availability
-            #     )
+            # Process storage items
+            for storage_key, storage_value in service_account.storage_items.items():
+                if storage_value is None:
+                    state.delete_storage_item(service_id, storage_key, commit=True)
+                else:
+                    state.store_storage_item(service_id, storage_key, storage_value, commit=True)
+            # Process preimages
+            for preimage_hash, preimage_blob in service_account.preimages.items():
+                if preimage_blob is None:
+                    state.delete_preimage(service_id, preimage_hash, commit=True)
+                else:
+                    state.store_preimage(service_id, preimage_blob, commit=True)
+            # Process preimage availability
+            for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
+
+                if availability is None:
+                    state.delete_preimage_availability(
+                        service_id, preimage_hash, preimage_length, commit=True
+                    )
+                else:
+                    state.store_preimage_availability(
+                        service_account_id=service_id,
+                        preimage_hash=preimage_hash,
+                        preimage_length=preimage_length,
+                        value=availability,
+                        commit=True
+                    )
+            # Process service account
+            if service_account is None:
+                state.delete_service_account(service_id, commit=True)
+            else:
+                state.store_service_account(service_id, service_account, commit=True)
 
 
 class AccumulationQueue(StateComponent):

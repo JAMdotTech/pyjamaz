@@ -11,8 +11,7 @@ class HostCallResult(Enum):
     CORE: int = 2 ** 64 - 6
     CASH: int = 2 ** 64 - 7
     LOW: int  = 2 ** 64 - 8
-    HIGH: int = 2 ** 64 - 9
-    HUH: int  = 2 ** 64 - 10
+    HUH: int  = 2 ** 64 - 9
     OK: int   = 0
 
 

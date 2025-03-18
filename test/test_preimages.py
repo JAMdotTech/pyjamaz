@@ -77,7 +77,6 @@ class TestPreimages(unittest.TestCase):
                 gas_limit_on_transfer=0,
                 footprint_storage_items=0,
                 footprint_storage_bytes=0,
-                threshold_balance=0,
                 storage_items={},
                 preimages={},
                 preimage_availability={}
