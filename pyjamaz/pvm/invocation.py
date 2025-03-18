@@ -115,7 +115,7 @@ class PVMInvocation:
 
             if exit_condition.reason == ExitReason.host_halt:
 
-                #TODO: !!!!!!!!!!!!!???? waar wat hoe??
+                #TODO: refactor in seperate files? (general, accumulate, on_transfer & refine)
                 host_call_output = self.invocation_mutator.execute(
                     host_call_instr_nr=exit_condition.value,
                     gas_limit=int(self.pvm.gas),
@@ -124,6 +124,8 @@ class PVMInvocation:
                     invocation_context=self.invocation_context,
                     _pvm=self.pvm   #TODO
                 )
+                logging.info("ECALLI COMPLETE")
+                self.pvm.log()
 
                 # Update gas usage TODO
                 gas_limit = host_call_output.gas_limit
