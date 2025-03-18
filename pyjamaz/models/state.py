@@ -625,7 +625,7 @@ class ServicesState(State, Serializable):
 
             self.storage_engine.put(storage_key, preimage_blob)
 
-        logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={commit}')
+        logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): v={preimage_blob.hex()} sk={storage_key.hex()} commit={commit}')
 
     def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
         try:
@@ -642,13 +642,16 @@ class ServicesState(State, Serializable):
             self.retrieve_service_account(service_account_id)
 
         if (preimage_hash, preimage_length) in self.services[service_account_id].preimage_availability:
-            return self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
+            value = self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
+            logging.debug(
+                f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={value}'
+                )
+            return value
 
         if self.storage_engine is None:
             raise ValueError('storage engine must be set before retrieving preimage availability')
 
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
-        logging.debug(f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}')
 
         data = self.storage_engine.get(storage_key)
 
@@ -661,6 +664,10 @@ class ServicesState(State, Serializable):
         availability.decode(JamBytes(data))
 
         self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = availability.value
+
+        logging.debug(
+            f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={availability.value} sk={storage_key.hex()}'
+            )
 
         return availability.value
 
@@ -687,7 +694,7 @@ class ServicesState(State, Serializable):
             self.storage_transaction.put(storage_key, data.to_bytes())
 
         logging.debug(
-            f'store_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}'
+            f'store_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={value} {storage_key.hex()}'
         )
 
 
@@ -755,7 +762,11 @@ class ServicesState(State, Serializable):
             self.retrieve_service_account(service_account_id)
 
         if storage_item_hash in self.services[service_account_id].storage_items:
-            return self.services[service_account_id].storage_items[storage_item_hash]
+            value = self.services[service_account_id].storage_items[storage_item_hash]
+            logging.debug(
+                f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex()}'
+                )
+            return value
 
         if self.storage_engine is None:
             raise ValueError('storage engine must be set before retrieving storage items')
@@ -764,12 +775,15 @@ class ServicesState(State, Serializable):
 
         data = self.storage_engine.get(storage_key)
 
-        logging.debug(f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()}')
-
         if data is None:
             raise StateKeyNoResult(
                 f'Storage item not found for hash {storage_item_hash} for service account {service_account_id}'
             )
+
+        logging.debug(
+            f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={data.hex()} state_key={storage_key.hex()}'
+            )
+
         self.services[service_account_id].storage_items[storage_item_hash] = data
 
         return data
@@ -1239,14 +1253,14 @@ class AccumulationStateComponents(Serializable):
         return AccumulateInvocationContext(
             context=AccumulateContextItem(
                 service_account_id=service_account_id,
-                state_context=self,
+                state_context=deepcopy(self),
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None
             ),
             savepoint_context=AccumulateContextItem(
                 service_account_id=service_account_id,
-                state_context=self,
+                state_context=deepcopy(self),
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None

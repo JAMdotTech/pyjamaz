@@ -110,7 +110,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             if registers[7] == 2 ** 64 - 1:
                 new_service_id = service_id
             else:
-                new_service_id = registers[7]
+                new_service_id = int(registers[7])
 
             #gp: bold_a
             try:
@@ -445,7 +445,6 @@ class AccumulateInvocationMutator(InvocationMutator):
                 )
                 new_service_id = invocation_context.context.new_service_account_id
 
-                # TODO move to store_preimage_availability() ?
                 new_service_account.update_footprint_add_preimage(l)
 
                 new_service_account.balance = new_service_account.threshold_balance
@@ -703,7 +702,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             service_account = state.services.retrieve_service_account(service_id) # GP: bold_a
 
             o = registers[7]
-            preimage_length = registers[8]    # GP: z
+            preimage_length = int(registers[8])    # GP: z
 
             #GP: h
             try:
@@ -717,34 +716,27 @@ class AccumulateInvocationMutator(InvocationMutator):
             except StateKeyNoResult:
                 preimage_availability = None
 
-            old_footprint_items = service_account.footprint_storage_items
-            old_footprint_bytes = service_account.footprint_storage_bytes
-
-            if not preimage_hash is None:
+            if preimage_hash is not None and preimage_availability is None:
+                # preimage is being requested that is not already present in storage
                 service_account.update_footprint_add_preimage(preimage_length)
 
             if preimage_hash is None:
                 exit_condition = ExitCondition(reason=ExitReason.panic)
-                service_account.footprint_storage_items = old_footprint_items
-                service_account.footprint_storage_bytes = old_footprint_bytes
                 _pvm.log.host_call("SOLICIT PANIC", f"")
             elif preimage_availability is not None and len(preimage_availability) != 2:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.HUH.value
-                service_account.footprint_storage_items = old_footprint_items
-                service_account.footprint_storage_bytes = old_footprint_bytes
                 _pvm.log.host_call("SOLICIT HUH", f"h={preimage_hash} newvalue={preimage_availability}")
             elif service_account.balance < service_account.threshold_balance:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.FULL.value
-                service_account.footprint_storage_items = old_footprint_items
-                service_account.footprint_storage_bytes = old_footprint_bytes
                 _pvm.log.host_call("SOLICIT FULL", f"h={preimage_hash} newvalue={preimage_availability}")
             else:
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = HostCallResult.OK.value
 
                 if preimage_availability is None:
+
                     state.services.store_preimage_availability(
                         service_id,
                         preimage_hash,
@@ -753,6 +745,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                     )
 
                 elif len(preimage_availability) == 2:
+
                     state.services.store_preimage_availability(
                         service_id,
                         preimage_hash,
@@ -772,7 +765,7 @@ class AccumulateInvocationMutator(InvocationMutator):
 
             service_account = state.services.retrieve_service_account(service_id)
             o = registers[7]
-            preimage_length = registers[8]  #GP: z
+            preimage_length = int(registers[8])  #GP: z
 
             #GP: h
             try:
@@ -858,7 +851,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             #     memory=memory,
             #     context=invocation_context
             # )
-            raise Exception(f"TODO!!!!!!!! {host_call_instr_nr}")
+            raise NotImplementedError(f"Host-call {host_call_instr_nr} not implemented")
 
         return InvocationMutationOutput(
             output=exit_condition,
@@ -973,7 +966,7 @@ def pvm_invoke_accumulate(
             accumulation_output=marshalling_output.context.context.invocation_output,
             gas_limit=marshalling_output.gas_limit
         )
-        logging.error(f'PVM accumulate failed')
+        logging.debug(f'PVM accumulate succesful, no output')
 
     return output
 
