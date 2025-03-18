@@ -12,7 +12,6 @@ from os import path
 
 import asyncclick as click
 from asyncclick import BadParameter, MissingParameter
-from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
 
@@ -616,28 +615,20 @@ async def replay_traces(
                     if k not in tracedb_keys:
                         logging.warning(f'key {k} is not present in trace: {v}')
 
-                # logging.info('Dumping state differences:')
-                # actual_state = app.state.to_json()
+                state_dump_file = f'state_{block_file.replace(".bin", "")}.json'
 
-                # for k, v, name, metadata in trace.post_state.keyvals:
-                #     app.state_db.put(bytes(k), bytes(v))
-                #
-                # app.state = app.retrieve_jam_state()
-                #
-                # state_diff = DeepDiff(app.state.to_json(), actual_state, ignore_order=True)
+                with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
+                    json.dump(app.state.to_json(), file, indent=2)
+                logging.info(f"Current state written to disk: {state_dump_file}")
 
-                # Flush DB
-                for key, _ in app.state_db:
-                    app.state_db.delete(key)
-                continue
-                # if state_diff:
-                #     logging.warning(json.dumps(state_diff, indent=2))
-                #     # click.echo(json.dumps(state_diff, indent=2))
-                #     continue
-                #     # response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
-                #     # if response.lower() == 'q':
-                #     #     logging.info('✋ User aborted.')
-                #     #     break
+                response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                if response.lower() == 'q':
+                    logging.info('✋ User aborted.')
+                    break
+
+            # Flush DB
+            for key, _ in app.state_db:
+                app.state_db.delete(key)
 
 
 @main.command('dump_state')

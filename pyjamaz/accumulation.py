@@ -260,8 +260,8 @@ def parallel_accumulation(
 
         deferred_transfers += output.deferred_transfers
 
-        # TODO naive implementation
-        accumulation_state.services.services[service_id] = output.state_context.services.services[service_id]
+        # Update services state with output
+        accumulation_state.services.services.update(output.state_context.services.services)
 
         if output.accumulation_output is not None:
             beefy_commitment_map.update({service_id: output.accumulation_output})
