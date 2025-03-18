@@ -185,7 +185,7 @@ class PVMInterpreter:
             mem = bytes()
             try:
                 mem = self.mem.read_bytes(self.reg[7], self.reg[8])
-            except PVMMemoryError:
+            except (PVMMemoryError, PanicError):
                 pass
             exit_value = mem
         elif self.status == ExitReason.panic.value:
