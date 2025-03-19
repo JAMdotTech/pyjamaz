@@ -124,7 +124,7 @@ class PVMInvocation:
                     invocation_context=self.invocation_context,
                     _pvm=self.pvm   #TODO
                 )
-                logging.info("ECALLI COMPLETE")
+                logging.debug("ECALLI COMPLETE")
                 self.pvm.log()
 
                 # Update gas usage TODO
