@@ -556,7 +556,7 @@ async def replay_traces(
         lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin')})
     )
 
-    for block_file in traces_files:
+    for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
 
         with open(os.path.join(traces_dir, block_file), 'rb') as fp:
@@ -621,10 +621,11 @@ async def replay_traces(
                     json.dump(app.state.to_json(), file, indent=2)
                 logging.info(f"Current state written to disk: {state_dump_file}")
 
-                response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
-                if response.lower() == 'q':
-                    logging.info('✋ User aborted.')
-                    break
+                if nr < len(traces_files):
+                    response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                    if response.lower() == 'q':
+                        logging.info('✋ User aborted.')
+                        break
 
             # Flush DB
             for key, _ in app.state_db:

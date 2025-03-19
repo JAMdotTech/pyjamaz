@@ -155,7 +155,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 exit_condition = ExitCondition(reason=ExitReason.resume)
                 registers[7] = len(storage_item)
                 memory.write_bytes(o, storage_item[f:f+l])
-                _pvm.log.host_call("READ OK", f"s={new_service_id} k={storage_key} (len(storage_item)) write_bytes({o}, {o+l})")
+                _pvm.log.host_call("READ OK", f"s={new_service_id} k={storage_key.hex()} (len(storage_item)) write_bytes({o}, {o+l})")
 
 
         elif host_call_instr_nr == HostCallGeneral.write.value:

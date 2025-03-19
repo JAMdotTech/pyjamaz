@@ -1810,6 +1810,8 @@ class Services(StateComponent):
             )
         )
 
+        logging.debug(f'ORDERED ACCUMULATION: W^*={[w.package_spec.hash.hex() for w in accumulatable_work_reports]}')
+
         # GP-0.6.0-eq:12.21
         output = full_sequential_accumulation(
             gas_limit=gas_limit,
