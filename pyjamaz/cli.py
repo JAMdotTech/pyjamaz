@@ -22,6 +22,7 @@ from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.trace import Trace, StateDump
+from pyjamaz.settings import GP_VERSION
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.models.state import JamState
@@ -155,7 +156,7 @@ async def initialize_app(
 @click.option('--record-traces', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-@click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listnen on')
+@click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listen on')
 async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host):
     """PyJAMaz: Python JAM Client"""
 
@@ -197,17 +198,17 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         app.network_bootstrap = network_bootstrap
 
-        logging.info(f'🥋 Starting PyJAMaz client, listening on port {port}')
+        logging.info(f'🥋 PyJAMaz JAM client')
+        logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
         logging.info(f'💾 Storage path: {db_path}')
-        logging.info(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
-        logging.info(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
+        logging.info(f'🌐 Listening on address {host}:{port}')
+        logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
+        logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
         logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
-        logging.info(f'🌲 State trie root: 0x{app.state_trie_root.hex()}')
+        logging.info(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
         logging.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
-        logging.info(
-            f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}'
-            )
+        logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
 
         pubsub = PubSub()
 

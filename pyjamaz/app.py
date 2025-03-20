@@ -473,6 +473,14 @@ class PyjamazApp:
             accumulation_queue=pre_state_accumulation_queue
         )
 
+        nr_acc_reports = len(self.block_context.accumulatable_work_reports)
+        nr_queued_reports = max(0, len(self.block_context.queued_work_reports) - nr_acc_reports)
+
+        if nr_queued_reports > 0:
+            logging.info(f'📥 Accumulatable work-reports: {nr_acc_reports} ({nr_queued_reports} queued)')
+        elif nr_acc_reports > 0:
+            logging.info(f'📥 Accumulatable work-reports: {nr_acc_reports}')
+
         # Services Accumulation STF Block Data | GP-0.5.0-eq:4.18
         services_after_accumulation_output = self.components.services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
@@ -879,7 +887,7 @@ class PyjamazApp:
         with open(os.path.join(traces_dir, f'{base_filename}.bin'), 'wb') as file:
             file.write(trace.to_jam_bytes().to_bytes())
 
-        logging.debug(f"Succesfully stored trace data for #{block.header.timeslot}")
+        logging.info(f"💾 Succesfully stored trace data {base_filename}.bin")
 
 
 class StateComponents:
