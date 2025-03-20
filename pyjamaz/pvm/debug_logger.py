@@ -32,7 +32,7 @@ class PVMDebugLog:
         for seg in mem_segments:
             if seg.tail > 0:
                 page_begin_addr = seg.address
-                page_end_addr = seg.page_tail
+                page_end_addr = seg.paged_tail
                 nr_pages = (page_end_addr-page_begin_addr) // 4096 + 1
                 for xx in range(nr_pages):
                     bytez += int(seg.address // 4096).to_bytes(length=4, byteorder="little")

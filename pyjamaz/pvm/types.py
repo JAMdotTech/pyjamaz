@@ -80,17 +80,19 @@ class MemorySection:
     address: int    # The absolute memory address of this memory section
     size: int # Note: The (theoretical) max size of this section
     tail: int # Note: the address of the last written index for this section
-    page_tail: int  # Note: the last address of accessible memory (tail roofed to page_size)
+    paged_tail: int  # Note: the last address of accessible memory (tail roofed to page_size)
     writable: bool
     contents: npt.NDArray[np.uint8]
 
     def __init__(self, address, length, writable, contents):
+        if not contents:
+            contents = []
         self.address:int = address
         self.size:int = length
         self.writable:bool = writable
         self.contents: npt.NDArray[np.uint8] = np.zeros(len(contents), dtype=np.uint8)
         self.tail = 0
-        self.page_tail = 0
+        self.paged_tail = 0
         if len(contents) > 0:
             self.update(0, contents)
 
@@ -98,41 +100,41 @@ class MemorySection:
         # TODO: implement more efficiently
         for c_idx, val in enumerate(_bytes):
             self.contents[idx+c_idx] = np.uint8(val)
-        self.tail = self.address + len(_bytes)
-        self.page_tail = PVMMemory.page_size(self.tail)
+        self.tail = len(_bytes)
+        self.paged_tail = PVMMemory.page_size(self.tail)
 
     def contains(self, addr):
         return self.address <= addr < self.address + self.size
 
-    def read_int(self, address: int, length: int) -> np.uint64:
+    def read_int(self, section_addr: int, length: int) -> np.uint64:
         # if not page.readable:
         #     raise PVMMemoryError(f"Page {addr} is not writable")
 
-        if address + length > self.page_tail:
-            raise PVMMemoryError(f"MemorySection {address} overflow: {length} (page tail: {self.page_tail} - size: {self.size})")
+        if section_addr + length > self.paged_tail:
+            raise PVMMemoryError(f"MemorySection {self.address + section_addr} overflow: {length} (page tail: {self.paged_tail} - size: {self.size})")
 
         if length == 0:
             return np.uint64(0)
 
         elif length == 1:
-            return np.uint64(self.contents[address + 0]) % 2**8
+            return np.uint64(self.contents[section_addr + 0]) % 2**8
 
         elif length == 2:
-            byte0 = np.uint8(self.contents[address + 0])
-            byte1 = np.uint16(self.contents[address + 1])
+            byte0 = np.uint8(self.contents[section_addr + 0])
+            byte1 = np.uint16(self.contents[section_addr + 1])
             return np.uint64((byte1 << 8) + byte0) % 2**16
 
         elif length == 3:
-            byte0 = np.uint8(self.contents[address + 0])
-            byte1 = np.uint16(self.contents[address + 1])
-            byte2 = np.uint32(self.contents[address + 2])
+            byte0 = np.uint8(self.contents[section_addr + 0])
+            byte1 = np.uint16(self.contents[section_addr + 1])
+            byte2 = np.uint32(self.contents[section_addr + 2])
             return np.uint64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
 
         elif length == 4:
-            byte0 = np.uint8(self.contents[address + 0])
-            byte1 = np.uint16(self.contents[address + 1])
-            byte2 = np.uint32(self.contents[address + 2])
-            byte3 = np.uint32(self.contents[address + 3])
+            byte0 = np.uint8(self.contents[section_addr + 0])
+            byte1 = np.uint16(self.contents[section_addr + 1])
+            byte2 = np.uint32(self.contents[section_addr + 2])
+            byte3 = np.uint32(self.contents[section_addr + 3])
             return np.uint64(
                 (byte3 << 24) +
                 (byte2 << 16) +
@@ -141,14 +143,14 @@ class MemorySection:
             ) % 2**32
 
         elif length == 8:
-            byte0 = np.uint8(self.contents[address + 0])
-            byte1 = np.uint16(self.contents[address + 1])
-            byte2 = np.uint32(self.contents[address + 2])
-            byte3 = np.uint32(self.contents[address + 3])
-            byte4 = np.uint64(self.contents[address + 4])
-            byte5 = np.uint64(self.contents[address + 5])
-            byte6 = np.uint64(self.contents[address + 6])
-            byte7 = np.uint64(self.contents[address + 7])
+            byte0 = np.uint8(self.contents[section_addr + 0])
+            byte1 = np.uint16(self.contents[section_addr + 1])
+            byte2 = np.uint32(self.contents[section_addr + 2])
+            byte3 = np.uint32(self.contents[section_addr + 3])
+            byte4 = np.uint64(self.contents[section_addr + 4])
+            byte5 = np.uint64(self.contents[section_addr + 5])
+            byte6 = np.uint64(self.contents[section_addr + 6])
+            byte7 = np.uint64(self.contents[section_addr + 7])
             return np.uint64(
                 (byte7 << 56) +
                 (byte6 << 48) +
@@ -162,40 +164,40 @@ class MemorySection:
         else:
             raise UIntValueError(f"Invalid uint length: {length}")
 
-    def write_int(self, address: int, value: int, length: int):
+    def write_int(self, section_addr: int, value: int, length: int):
 
-        if address + length > self.page_tail:
-            raise PVMMemoryError(f"MemorySection {address} overflow: {length} (page tail: {self.page_tail} - size: {self.size})")
+        if section_addr + length > self.paged_tail:
+            raise PVMMemoryError(f"MemorySection {self.address + section_addr} overflow: {length} (page tail: {self.paged_tail} - size: {self.size})")
 
         if not self.writable:
-            raise PVMMemoryError(f"MemorySection {address} is not writable")
+            raise PVMMemoryError(f"MemorySection {section_addr} is not writable")
 
         # Note: GP applies a modulus over the value to write denoted by their bit length
         if length < 8:
             value = value % (2 ** (length*8))
 
-        if self.address+length > self.tail:
-            self.tail = self.address + length
+        if self.address+section_addr+length > self.tail:
+            self.tail = self.address+section_addr+length
 
         if length == 1:
-            self.contents[address + 0] = np.uint8(value & 0xFF)
+            self.contents[section_addr + 0] = np.uint8(value & 0xFF)
         elif length == 2:
-            self.contents[address + 0] = np.uint8( value & 0x00FF)
-            self.contents[address + 1] = np.uint8((value & 0xFF00) >> 8)
+            self.contents[section_addr + 0] = np.uint8(value & 0x00FF)
+            self.contents[section_addr + 1] = np.uint8((value & 0xFF00) >> 8)
         elif length == 4:
-            self.contents[address + 0] = np.uint8( value & 0x000000FF)
-            self.contents[address + 1] = np.uint8((value & 0x0000FF00) >> 8)
-            self.contents[address + 2] = np.uint8((value & 0x00FF0000) >> 16)
-            self.contents[address + 3] = np.uint8((value & 0xFF000000) >> 24)
+            self.contents[section_addr + 0] = np.uint8(value & 0x000000FF)
+            self.contents[section_addr + 1] = np.uint8((value & 0x0000FF00) >> 8)
+            self.contents[section_addr + 2] = np.uint8((value & 0x00FF0000) >> 16)
+            self.contents[section_addr + 3] = np.uint8((value & 0xFF000000) >> 24)
         elif length == 8:
-            self.contents[address + 0] = np.uint8( value & 0x00000000000000FF)
-            self.contents[address + 1] = np.uint8((value & 0x000000000000FF00) >> 8)
-            self.contents[address + 2] = np.uint8((value & 0x0000000000FF0000) >> 16)
-            self.contents[address + 3] = np.uint8((value & 0x00000000FF000000) >> 24)
-            self.contents[address + 4] = np.uint8((value & 0x000000FF00000000) >> 32)
-            self.contents[address + 5] = np.uint8((value & 0x0000FF0000000000) >> 40)
-            self.contents[address + 6] = np.uint8((value & 0x00FF000000000000) >> 48)
-            self.contents[address + 7] = np.uint8((value & 0xFF00000000000000) >> 56)
+            self.contents[section_addr + 0] = np.uint8(value & 0x00000000000000FF)
+            self.contents[section_addr + 1] = np.uint8((value & 0x000000000000FF00) >> 8)
+            self.contents[section_addr + 2] = np.uint8((value & 0x0000000000FF0000) >> 16)
+            self.contents[section_addr + 3] = np.uint8((value & 0x00000000FF000000) >> 24)
+            self.contents[section_addr + 4] = np.uint8((value & 0x000000FF00000000) >> 32)
+            self.contents[section_addr + 5] = np.uint8((value & 0x0000FF0000000000) >> 40)
+            self.contents[section_addr + 6] = np.uint8((value & 0x00FF000000000000) >> 48)
+            self.contents[section_addr + 7] = np.uint8((value & 0xFF00000000000000) >> 56)
         else:
             raise UIntValueError(f"Invalid uint length: {length}")
 
@@ -267,7 +269,11 @@ class PVMMemory:
         self._section_addr = section_addr
 
         # Set the mem page according to the found page for this range
-        section.write_int(section_addr, value, length)
+        try:
+            section.write_int(section_addr, value, length)
+        except IndexError:
+            section.write_int(section_addr, value, length)
+            pass
 
     def read_int(self, addr: int, length: int):
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -294,7 +300,7 @@ class PVMMemory:
             return False
 
         section_addr = address - section.address
-        section_bytes = (section.page_tail - section_addr)
+        section_bytes = (section.paged_tail - section_addr)
 
         if section_bytes < length:
             return False
@@ -305,7 +311,6 @@ class PVMMemory:
             return section.writable
         else:
             raise PVMMemoryError(f"Invalid mode: {mode}")
-
 
     def read_bytes(self, address: int, length: int) -> bytes:
         """
@@ -322,7 +327,7 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = address - section.address
-        section_bytes = (section.page_tail - section_addr)
+        section_bytes = (section.paged_tail - section_addr)
 
         if section_bytes < length:
             raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
@@ -345,7 +350,7 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = address - section.address
-        section_bytes = (section.page_tail - section_addr)
+        section_bytes = (section.paged_tail - section_addr)
 
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
@@ -360,16 +365,18 @@ class PVMMemory:
         # # Note: sbrk opcode
         # # TODO: not sure if this implementation is correct...??!!!!!!
         if size <= 0: return 0
-        mem_size = PVMMemory.page_size(self._heap.tail + size)
-        if mem_size > self._heap.size:
-            raise PVMMemoryError(f"sbrk heap overflow {mem_size} > {self._heap.size}")
-        self._heap.tail += size
-        if mem_size > self._heap.page_tail:
-            growth = mem_size - self._heap.page_tail
-            self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
-            self._heap.page_tail = mem_size
+        new_paged_size = PVMMemory.page_size(self._heap.tail + size)
+        if new_paged_size > self._heap.size:
+            raise PVMMemoryError(f"sbrk heap overflow {new_paged_size} > {self._heap.size}")
 
-        return self._heap.tail
+        prev_tail = self._heap.tail
+        if new_paged_size > self._heap.paged_tail:
+            growth = new_paged_size - self._heap.paged_tail
+            self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
+            self._heap.paged_tail = new_paged_size
+
+        #self._heap.tail += size #TODO: update or not?
+        return prev_tail
 
 
     @staticmethod
