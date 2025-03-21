@@ -6,6 +6,7 @@ import numpy as np
 
 from pyjamaz.pvm.exceptions import PVMMemoryError
 
+# TODO configurable during bootstrap
 PVM_PAGE_SIZE = 2**12 #ZP
 PVM_INIT_ZONE_SIZE = 2**16 #ZZ
 PVM_INPUT_DATA_SIZE = 2**24 #ZI

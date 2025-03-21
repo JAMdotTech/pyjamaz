@@ -1,4 +1,5 @@
 import logging
+import traceback
 from asyncio import CancelledError
 from datetime import datetime
 import json
@@ -67,16 +68,23 @@ def wrap_cli_import_block(traces_dir):
         if traces_dir:
             pre_state = await self.create_state_dump()
 
-        await self._import_block(block, dry_run=dry_run)
+        try:
+            await self._import_block(block, dry_run=dry_run)
 
-        if traces_dir:
-            await self.store_trace(pre_state, block, traces_dir)
+            if traces_dir:
+                await self.store_trace(pre_state, block, traces_dir)
 
-        current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
-        current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
+            current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
+            current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
 
-        logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
-        logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+            logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
+            logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+
+        except Exception as e:
+            # Rollback state
+            logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
+            logging.debug(traceback.format_exc())
+            self.state = self.retrieve_jam_state()
 
     return cli_import_block
 
@@ -584,14 +592,6 @@ async def replay_traces(
 
         await app.import_block(trace.block, dry_run=skip_block_validation)
         logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
-        #TODO:
-        # try:
-        #     await app.import_block(trace.block, dry_run=skip_block_validation)
-        #     logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
-        #
-        # except TransactionRolledBack as e:
-        #     logging.error(f'Failed to import block {trace.block.header.timeslot}: {e}')
-        #     break
 
         if not only_block_import:
 

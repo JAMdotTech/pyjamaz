@@ -499,7 +499,6 @@ class PyjamazApp:
         )
 
         # Services After Preimages STF Block Data | GP-0.5.0-eq:??
-        # TODO process state changes present in services post state
         services_after_preimages_output = self.components.services.state_transition_after_preimages(
             extrinsic_preimages=block.extrinsic.preimages,
             intermediate_state_after_transfers=services_after_transfers_output.intermediate_state_after_transfers,
@@ -586,20 +585,14 @@ class PyjamazApp:
         )
 
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
-        try:
-            with self.state_db.transaction() as transaction:
 
-                output = await self.state_transition(block, transaction, dry_run=dry_run)
+        with self.state_db.transaction() as transaction:
 
-            await self.update_state_trie()
-            await self.store_block(block)
-            return output
+            output = await self.state_transition(block, transaction, dry_run=dry_run)
 
-        except Exception as e:
-            # Rollback state
-            logging.debug(f'Import failed {e}; Rollback state')
-            self.state = self.retrieve_jam_state()
-            raise e
+        await self.update_state_trie()
+        await self.store_block(block)
+        return output
 
     async def store_block(self, block: Block):
         # Store block in DB

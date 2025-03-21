@@ -143,7 +143,7 @@ def full_sequential_accumulation(
     auto_accumulate_services: Dict[int, int]
     post_state_timeslot: TimeslotState
 
-    TODO how to deal with post_state_timeslot ?
+    TODO how to deal with post_state_timeslot and post_state_entropy, not according to GP?
 
     Returns
     -------
@@ -217,6 +217,7 @@ def parallel_accumulation(
     ParallelAccumulationOutput
     """
     # s
+    # TODO figure out if and how parallelization works, see matrix discussion Gavin https://matrix.to/#/!ddsEwXlCWnreEGuqXZ%3Apolkadot.io/%249iDmcU0V81515JjJMtEwsOvODWVj85gfzM0Zd_zAB3Q
     service_ids = list(
         dict.fromkeys([r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()))
     )
@@ -243,7 +244,7 @@ def parallel_accumulation(
     # Process services
     for service_id in service_ids:
 
-        # Prepare service account in accumulation_state
+        # Prepare service account in accumulation_state TODO why still necessary?
         service_account = accumulation_state.services.retrieve_service_account(service_id)
         preimage = accumulation_state.services.retrieve_preimage(
             service_account_id=service_id,
