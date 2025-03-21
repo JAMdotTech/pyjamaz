@@ -1,0 +1,107 @@
+services:
+
+  pyjamaz-alice:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz-data-alice:/app/pyjamaz/data'
+      - './data/traces-alice:/app/pyjamaz/data/traces'
+    #restart: unless-stopped
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces '
+    ports:
+      - '9000:9000'
+    networks:
+      custom_network:
+        ipv4_address: 192.168.1.100
+
+  pyjamaz-bob:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz-data-bob:/app/pyjamaz/data'
+      - './data/traces-bob:/app/pyjamaz/data/traces'
+    #restart: unless-stopped
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000001 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces '
+    ports:
+      - '9001:9000'
+    networks:
+      custom_network:
+        ipv4_address: 192.168.1.101
+
+  pyjamaz-charly:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz-data-charlie:/app/pyjamaz/data'
+      - './data/traces-charlie:/app/pyjamaz/data/traces'
+    #restart: unless-stopped
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000002 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces '
+    ports:
+      - '9002:9000'
+    networks:
+      custom_network:
+        ipv4_address: 192.168.1.102
+
+  pyjamaz-dave:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz-data-dave:/app/pyjamaz/data'
+      - './data/traces-dave:/app/pyjamaz/data/traces'
+    #restart: unless-stopped
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000003 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces'
+    ports:
+      - '9003:9000'
+    networks:
+      custom_network:
+        ipv4_address: 192.168.1.103
+
+  pyjamaz-eve:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz-data-eve:/app/pyjamaz/data'
+      - './data/traces-eve:/app/pyjamaz/data/traces'
+    #restart: unless-stopped
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000004 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces'
+    ports:
+      - '9004:9000'
+    networks:
+      custom_network:
+        ipv4_address: 192.168.1.104
+
+  pyjamaz-ferdi:
+    build: .
+    image: jamdottech/pyjamaz
+    volumes:
+      - 'pyjamaz-data-ferdie:/app/pyjamaz/data'
+      - './data/traces-ferdie:/app/pyjamaz/data/traces'
+    #restart: unless-stopped
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000005 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces'
+    ports:
+      - '9005:9000'
+    networks:
+      custom_network:
+        ipv4_address: 192.168.1.105
+
+volumes:
+  pyjamaz-blocks:
+  pyjamaz-data-alice:
+  pyjamaz-data-bob:
+  pyjamaz-data-charlie:
+  pyjamaz-data-dave:
+  pyjamaz-data-eve:
+  pyjamaz-data-ferdie:
+  pyjamaz-traces-alice:
+  pyjamaz-traces-bob:
+  pyjamaz-traces-charlie:
+  pyjamaz-traces-dave:
+  pyjamaz-traces-eve:
+  pyjamaz-traces-ferdie:
+
+networks:
+  custom_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24

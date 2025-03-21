@@ -1,0 +1,124 @@
+site_name: PyJAMaz Docs
+repo_url: https://github.com/JAMdotTech/pyjamaz
+edit_uri: edit/main/docs/
+site_description: Python implementation of the Jam graypaper
+
+theme:
+  name: "material"
+  logo: https://avatars.githubusercontent.com/u/171914595?s=48&v=4
+  features:
+    # - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    # - content.tabs.link
+    - content.tooltips
+    # - header.autohide
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.prune
+#    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+#    - toc.integrate
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+#            docstring_section_style: list
+            members_order: source
+            show_root_heading: false
+            show_source: true
+            show_signature_annotations: true
+            docstring_style: numpy
+            heading_level: 2
+
+  - autorefs
+  - search
+
+extra:
+  social:
+  - icon: fontawesome/brands/github
+    link: https://github.com/JAMdotTech
+  - icon: fontawesome/brands/twitter
+    link: https://twitter.com/JAMdotTech
+
+nav:
+  - Overview: index.md
+  - Type Definitions:
+      - Block Types: types/types_blocks.md
+      - State Types: types/types_state.md
+      - STF Output Types: types/types_stf_output.md
+  - State Transition Functions:
+      - Overall State (σ): stfs/sigma.md
+      - AuthorizerPools (α): stfs/alpha.md
+      - Recent History (β): stfs/beta.md
+      - Safrole (γ): stfs/gamma.md
+      - Services (δ): stfs/delta.md
+      - Entropy (η): stfs/eta.md
+      - Validator Queue (ι): stfs/iota.md
+      - Validator Pool (κ): stfs/kappa.md
+      - Validator Archive (λ): stfs/lambda.md
+      - Assurances (ρ): stfs/rho.md
+      - Timeslot (τ): stfs/tau.md
+      - Authorizer Queues (φ): stfs/phi.md
+      - Privileged Services (χ): stfs/chi.md
+      - Disputes (ψ): stfs/psi.md
+      - Statistics (π): stfs/pi.md
+  - Graypaper References:
+      - Summary: graypaper/summary.md
+      - 1. Introduction: graypaper/section_01.md
+      - 2. Previous Work & Present Trends: graypaper/section_02.md
+      - 3. Notational Conventions: graypaper/section_03.md
+      - 4. Overview: graypaper/section_04.md
+      - 5. The Header: graypaper/section_05.md
+      - 6. Block Production & Chain Growth : graypaper/section_06.md
+      - 7. Recent History: graypaper/section_07.md
+      - 8. Authorization: graypaper/section_08.md
+      - 9. Service Accounts: graypaper/section_09.md
+      - 10. Disputes, Verdicts & Judgements: graypaper/section_10.md
+      - 11. Reporting & Assurance: graypaper/section_11.md
+      - 12. Accumulation: graypaper/section_12.md
+      - 13. Validator Activity Statistics: graypaper/section_13.md
+      - 14. Work Packages & Work Reports: graypaper/section_14.md
+      - 15. Guaranteeing: graypaper/section_15.md
+      - 16. Availability Assurance: graypaper/section_16.md
+      - 17. Auditing & Judging: graypaper/section_17.md
+      - 18. Beefy Distribution: graypaper/section_18.md
+      - 19. Grandpa & The Best Chain: graypaper/section_19.md
+      - A. Polka Virtual Machine: graypaper/appendix_a.md
+      - B. Virtual Machine Invocations: graypaper/appendix_b.md
+      - C. Serialization Codec: graypaper/appendix_c.md
+      - D. State Merklization: graypaper/appendix_d.md
+      - E. General Merklization: graypaper/appendix_e.md
+      - F. Shuffling: graypaper/appendix_f.md
+      - G. Bandersnatch Ring VRF: graypaper/appendix_g.md
+      - H. Erasure Coding: graypaper/appendix_h.md
+      - I. Index of Notation: graypaper/appendix_i.md
+      - Graypaper Equations: graypaper/equations.md
+  - Function Reference:
+      - PVM: reference/pvm.md
+      - Signing: reference/signing.md
+      - Hashing: reference/hashing.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+      toc_depth: 4
+  - pymdownx.highlight:
+      linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+
