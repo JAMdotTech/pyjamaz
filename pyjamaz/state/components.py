@@ -10,7 +10,8 @@ from jamcodec.types import Vec, U32
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue,
-                                  pvm_invoke_on_transfer, transfers_service_mapping)
+                                  transfers_service_mapping)
+from pyjamaz.pvm_interface.invocation import pvm_invoke_on_transfer
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
@@ -634,6 +635,8 @@ class RecentHistory(StateComponent):
         mmr = MerkleMountainRange(mmr_peaks)
         mmr.insert(accumulate_root)
 
+        logging.debug(f'accumulate_root={accumulate_root.hex()}')
+
         recent_block = RecentBlock(
             header_hash=header.hash,
             mmr=Mmr(
@@ -642,6 +645,7 @@ class RecentHistory(StateComponent):
             state_root=bytes(32),
             reported=reported_work_packages
         )
+        logging.debug(f"mmr={recent_block.mmr.to_json()['peaks']}")
 
         post_state_recent_history.recent_history.append(recent_block)
 
@@ -1739,10 +1743,13 @@ class Services(StateComponent):
         # GP-0.5.4-eq:12.33
         for preimage in extrinsic_preimages:
             # Store preimage
-            self.store_service_preimage(preimage)
+            intermediate_state_after_transfers.store_preimage(
+                service_account_id=preimage.requester,
+                preimage_blob=preimage.blob
+            )
 
             # Update availability information
-            self.store_service_preimage_availability(
+            intermediate_state_after_transfers.store_preimage_availability(
                 service_account_id=preimage.requester,
                 preimage_hash=blake2b_256_hash(preimage.blob),
                 preimage_length=len(preimage.blob),
@@ -1761,6 +1768,7 @@ class Services(StateComponent):
             pre_state_validator_queue: ValidatorQueueState,
             pre_state_authorizer_queues: AuthorizerQueuesState,
             post_state_timeslot: TimeslotState,
+            post_state_entropy: EntropyState,
     ) -> ServicesAfterAccumulationOutput:
         """
         GP-0.6.0-eq:12.21,12.22 (δ†) | State transition function for the state's services.
@@ -1786,6 +1794,7 @@ class Services(StateComponent):
 
         services = ServicesState(services=deepcopy(pre_state_services.services))
         services.set_storage_engine(self.storage_engine)
+        services.set_storage_transaction(self.app_context.transaction)
 
         accumulation_state = AccumulationStateComponents(
             services=services,
@@ -1801,13 +1810,16 @@ class Services(StateComponent):
             )
         )
 
+        logging.debug(f'ORDERED ACCUMULATION: W^*={[w.package_spec.hash.hex() for w in accumulatable_work_reports]}')
+
         # GP-0.6.0-eq:12.21
         output = full_sequential_accumulation(
             gas_limit=gas_limit,
             work_reports=accumulatable_work_reports,
             accumulation_state=accumulation_state,
             auto_accumulate_services=pre_state_privileged_services.auto_accumulate_services,
-            post_state_timeslot=post_state_timeslot
+            post_state_timeslot=post_state_timeslot,
+            post_state_entropy=post_state_entropy
         )
 
         # GP-0.6.0-eq:12.22
@@ -1849,6 +1861,7 @@ class Services(StateComponent):
             services=deepcopy(intermediate_state_after_accumulation.services)
         )
         intermediate_state_after_transfers.set_storage_engine(self.storage_engine)
+        intermediate_state_after_transfers.set_storage_transaction(self.app_context.transaction)
 
         for service_id in intermediate_state_after_accumulation.services.keys():
             intermediate_state_after_transfers.services.update({
@@ -1897,86 +1910,6 @@ class Services(StateComponent):
         # State is retrieve per service
         return ServicesState(services={})
 
-    def store_service_account(self,
-        service_account_id: int,
-        service_account: ServiceAccount,
-    ):
-        """
-        Stores a service account
-
-        Parameters
-        ----------
-        service_account_id
-        service_account
-
-        Returns
-        -------
-
-        """
-        state_key = state_key_constructor_service_account(service_account_id)
-
-        if self.app_context.transaction is not None:
-            self.app_context.transaction.put(state_key, service_account.to_serialized_bytes())
-        else:
-            self.storage_engine.put(state_key, service_account.to_serialized_bytes())
-
-    def store_service_preimage(self, preimage: Preimage):
-        """
-        Stores a preimage for a service account
-
-        Parameters
-        ----------
-        preimage
-        transaction
-
-        Returns
-        -------
-
-        """
-        state_key = state_key_constructor_preimage(
-            service_account_id=preimage.requester,
-            preimage_hash=blake2b_256_hash(preimage.blob)
-        )
-
-        if self.app_context.transaction is not None:
-            self.app_context.transaction.put(state_key, preimage.blob)
-        else:
-            self.storage_engine.put(state_key, preimage.blob)
-
-    def store_service_preimage_availability(self,
-        service_account_id: int,
-        preimage_hash: bytes,
-        preimage_length: int,
-        value: List[int]
-    ):
-        """
-        Stores the availability status for a preimage for a service account
-
-        Parameters
-        ----------
-        service_account_id
-        preimage_hash
-        preimage_length
-        value
-        transaction
-
-        Returns
-        -------
-
-        """
-        state_key = state_key_constructor_preimage_availability(
-            service_account_id=service_account_id,
-            preimage_hash=preimage_hash,
-            preimage_length=preimage_length
-        )
-
-        encoded_value = Vec(U32).encode(value).to_bytes()
-
-        if self.app_context.transaction is not None:
-            self.app_context.transaction.put(state_key, encoded_value)
-        else:
-            self.storage_engine.put(state_key, encoded_value)
-
     def store_state(self, state: ServicesState, transaction: Optional[Transaction] = None):
         """
         State for services are stored per service account
@@ -1990,18 +1923,40 @@ class Services(StateComponent):
         -------
 
         """
-        # Store all service accounts in current memory
+        # Process all service accounts in current memory
         for service_id, service_account in state.services.items():
-            self.store_service_account(service_id, service_account)
+            # Process storage items
+            for storage_key, storage_value in service_account.storage_items.items():
+                if storage_value is None:
+                    state.delete_storage_item(service_id, storage_key, commit=True)
+                else:
+                    state.store_storage_item(service_id, storage_key, storage_value, commit=True)
+            # Process preimages
             for preimage_hash, preimage_blob in service_account.preimages.items():
-                self.store_service_preimage(Preimage(requester=service_id, blob=preimage_blob))
+                if preimage_blob is None:
+                    state.delete_preimage(service_id, preimage_hash, commit=True)
+                else:
+                    state.store_preimage(service_id, preimage_blob, commit=True)
+            # Process preimage availability
             for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
-                self.store_service_preimage_availability(
-                    service_account_id=service_id,
-                    preimage_hash=preimage_hash,
-                    preimage_length=preimage_length,
-                    value=availability
-                )
+
+                if availability is None:
+                    state.delete_preimage_availability(
+                        service_id, preimage_hash, preimage_length, commit=True
+                    )
+                else:
+                    state.store_preimage_availability(
+                        service_account_id=service_id,
+                        preimage_hash=preimage_hash,
+                        preimage_length=preimage_length,
+                        value=availability,
+                        commit=True
+                    )
+            # Process service account
+            if service_account is None:
+                state.delete_service_account(service_id, commit=True)
+            else:
+                state.store_service_account(service_id, service_account, commit=True)
 
 
 class AccumulationQueue(StateComponent):

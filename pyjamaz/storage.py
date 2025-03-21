@@ -25,6 +25,9 @@ class Transaction:
     def put(self, key: bytes, value: bytes):
         raise NotImplementedError()
 
+    def delete(self, key: bytes):
+        raise NotImplementedError()
+
     def __enter__(self):
         pass
 
@@ -40,6 +43,9 @@ class StorageEngine:
         raise NotImplementedError
 
     def get(self, key):
+        raise NotImplementedError
+
+    def delete(self, key):
         raise NotImplementedError
 
     def transaction(self):
@@ -63,6 +69,9 @@ class InMemoryTransaction(Transaction):
     def put(self, key: bytes, value: bytes):
         self.storage_engine.put(key, value)
 
+    def delete(self, key: bytes):
+        self.storage_engine.delete(key)
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         return
 
@@ -83,6 +92,9 @@ class InMemoryStorage(StorageEngine):
 
     def get(self, key: bytes) -> bytes:
         return self.storage.get(self.prefix + key)
+
+    def delete(self, key: bytes):
+        self.storage.pop(self.prefix + key, None)
 
     def transaction(self) -> InMemoryTransaction:
         return InMemoryTransaction(self)
@@ -200,6 +212,9 @@ class LevelDBTransaction(Transaction):
     def put(self, key: bytes, value: bytes):
         self.write_batch.put(key, value)
 
+    def delete(self, key: bytes):
+        self.write_batch.delete(key)
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is None:
             self.write_batch.write()
@@ -225,6 +240,9 @@ class LevelDBStorage(StorageEngine):
 
     def get(self, key: bytes) -> bytes:
         return self.db.get(key)
+
+    def delete(self, key: bytes):
+        return self.db.delete(key)
 
     def close(self):
         self.db.close()

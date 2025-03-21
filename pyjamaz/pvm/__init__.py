@@ -1,1 +1,1 @@
-from .pvm import PVM
+from .interpreter import PVMInterpreter

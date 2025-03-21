@@ -1,15 +1,29 @@
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Optional, Union
 
 import numpy as np
 
+from pyjamaz.pvm.exceptions import PVMMemoryError
 
-class ExitCondition(Enum):
-    none:int            = 0
-    panic:int           = 1
-    halt:int            = 2
-    out_of_gas:int      = 3
-    page_fault:int      = 4
-    host_halt:int       = 5
+# TODO configurable during bootstrap
+PVM_PAGE_SIZE = 2**12 #ZP
+PVM_INIT_ZONE_SIZE = 2**16 #ZZ
+PVM_INPUT_DATA_SIZE = 2**24 #ZI
+
+class ExitReason(Enum):
+    resume:int          = 0 #GP:     ▸: continue PVM
+    halt:int            = 1 #GP-A.2: ∎: regular halt: halt
+    panic:int           = 2 #GP-A.2: ☇: unexpected program termination: panic
+    out_of_gas:int      = 3 #GP-A.2: ∞: out-of-gas
+    page_fault:int      = 4 #GP-A.2: F: page-fault
+    host_halt:int       = 5 #GP-A.2: h: host-call
+
+
+@dataclass
+class ExitCondition:
+    reason: ExitReason
+    value: Optional[Union[int, bytes]] = None
 
 
 class InstructionType(Enum):

@@ -1,4 +1,5 @@
 import logging
+import traceback
 from asyncio import CancelledError
 from datetime import datetime
 import json
@@ -12,7 +13,6 @@ from os import path
 
 import asyncclick as click
 from asyncclick import BadParameter, MissingParameter
-from deepdiff import DeepDiff
 
 from jamcodec.base import JamBytes
 
@@ -23,6 +23,7 @@ from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.trace import Trace, StateDump
+from pyjamaz.settings import GP_VERSION
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.models.state import JamState
@@ -67,16 +68,23 @@ def wrap_cli_import_block(traces_dir):
         if traces_dir:
             pre_state = await self.create_state_dump()
 
-        await self._import_block(block, dry_run=dry_run)
+        try:
+            await self._import_block(block, dry_run=dry_run)
 
-        if traces_dir:
-            await self.store_trace(pre_state, block, traces_dir)
+            if traces_dir:
+                await self.store_trace(pre_state, block, traces_dir)
 
-        current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
-        current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
+            current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
+            current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
 
-        logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
-        logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+            logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
+            logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+
+        except Exception as e:
+            # Rollback state
+            logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
+            logging.debug(traceback.format_exc())
+            self.state = self.retrieve_jam_state()
 
     return cli_import_block
 
@@ -156,7 +164,7 @@ async def initialize_app(
 @click.option('--record-traces', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-@click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listnen on')
+@click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listen on')
 async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host):
     """PyJAMaz: Python JAM Client"""
 
@@ -166,11 +174,11 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
         "quic": logging.WARNING,
     }
 
-    # Setup logging
-    log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level, log_package_overrides)
-
     if ctx.invoked_subcommand is None:
+
+        # Setup logging
+        log_level = logging.DEBUG if verbose else logging.INFO
+        setup_logging(log_level, log_package_overrides)
 
         if seed is None:
             raise MissingParameter("--seed parameter is required")
@@ -198,17 +206,17 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         app.network_bootstrap = network_bootstrap
 
-        logging.info(f'🥋 Starting PyJAMaz client, listening on port {port}')
+        logging.info(f'🥋 PyJAMaz JAM client')
+        logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
         logging.info(f'💾 Storage path: {db_path}')
-        logging.info(f'🔑 Bandersnatch public: 0x{app.config.keys.bandersnatch.public_key.hex()}')
-        logging.info(f'🔑 Ed25519 public: 0x{app.config.keys.ed25519.public_key.hex()}')
+        logging.info(f'🌐 Listening on address {host}:{port}')
+        logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
+        logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
         logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
-        logging.info(f'🌲 State trie root: 0x{app.state_trie_root.hex()}')
+        logging.info(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
         logging.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
-        logging.info(
-            f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}'
-            )
+        logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
 
         pubsub = PubSub()
 
@@ -503,10 +511,16 @@ async def init(
 )
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
 @click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def replay_traces(
         traces_dir, custom_db_path, force_overwrite, skip_block_validation,
-        only_block_import, trace_format, seed, chainspec
+        only_block_import, trace_format, seed, chainspec, verbose
 ):
+    log_level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(log_level)
+
+    db_path = custom_db_path or default_db_path
+
     if seed is None:
         raise MissingParameter("--seed parameter is required")
     elif not seed.startswith("0x") or len(seed) != 66:
@@ -516,7 +530,6 @@ async def replay_traces(
         app = await initialize_app(read_state=True, custom_db_path=custom_db_path)
     else:
         # Flush database and import genesis state
-        db_path = custom_db_path or default_db_path
         if os.path.isdir(db_path):
             if not force_overwrite:
                 click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
@@ -552,7 +565,7 @@ async def replay_traces(
         lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin')})
     )
 
-    for block_file in traces_files:
+    for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
 
         with open(os.path.join(traces_dir, block_file), 'rb') as fp:
@@ -576,13 +589,9 @@ async def replay_traces(
             app.block_context.ancestor_headers.append(stub_parent)
 
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
-        try:
-            await app.import_block(trace.block, dry_run=skip_block_validation)
-            logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
 
-        except TransactionRolledBack as e:
-            logging.error(f'Failed to import block {trace.block.header.timeslot}: {e}')
-            break
+        await app.import_block(trace.block, dry_run=skip_block_validation)
+        logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
 
         if not only_block_import:
 
@@ -590,21 +599,38 @@ async def replay_traces(
                 logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
             else:
                 logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
-                logging.info('Dumping state differences:')
-                actual_state = app.state.to_json()
 
-                for k, v, name, metadata in trace.post_state.keyvals:
-                    app.state_db.put(bytes(k), bytes(v))
+                # Diffing DBs
+                db_dump = {k.hex(): v.hex() for k, v in list(app.state_db)}
+                trace_db = [(k.hex(),v.hex(), name.decode(), metadata.decode()) for k, v, name, metadata in trace.post_state.keyvals]
 
-                app.state = app.retrieve_jam_state()
+                for k, v, name, metadata in trace_db:
+                    if k not in db_dump:
+                        logging.warning(f'key {k} is missing ({name} | {metadata})')
+                    elif v != db_dump[k]:
+                        logging.warning(f'key {k} is different: {db_dump[k]} != {v} ({name} | {metadata})')
 
-                state_diff = DeepDiff(app.state.to_json(), actual_state, ignore_order=True)
-                if state_diff:
-                    click.echo(json.dumps(state_diff, indent=2))
+                tracedb_keys = {k for k, v, name, metadata in trace_db}
+
+                for k, v in db_dump.items():
+                    if k not in tracedb_keys:
+                        logging.warning(f'key {k} is not present in trace: {v}')
+
+                state_dump_file = f'state_{block_file.replace(".bin", "")}.json'
+
+                with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
+                    json.dump(app.state.to_json(), file, indent=2)
+                logging.info(f"Current state written to disk: {state_dump_file}")
+
+                if nr < len(traces_files):
                     response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
                     if response.lower() == 'q':
                         logging.info('✋ User aborted.')
                         break
+
+            # Flush DB
+            for key, _ in app.state_db:
+                app.state_db.delete(key)
 
 
 @main.command('dump_state')

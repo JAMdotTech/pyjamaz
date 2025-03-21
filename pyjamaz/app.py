@@ -189,11 +189,7 @@ class PyjamazApp:
             recent_history=self.components.recent_history.retrieve_state(),
             services=ServicesState(services={}),
             assurances=self.components.assurances.retrieve_state(),
-            authorizer_queues=AuthorizerQueuesState(
-                authorizer_queues=[
-                    [bytes(32) for _ in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS)] for _ in range(CORE_COUNT)
-                ]
-            ),
+            authorizer_queues=self.components.authorizer_queues.retrieve_state(),
             privileged_services=self.components.privileged_services.retrieve_state(),
             disputes=self.components.disputes.retrieve_state(),
             statistics=self.components.statistics.retrieve_state(),
@@ -295,7 +291,8 @@ class PyjamazApp:
         pre_state_services = self.state.services
 
         # Set storage engine for services
-        pre_state_services.set_storage_engine(self.state_db)
+        pre_state_services.set_storage_engine(self.state_db) # TODO remove
+        pre_state_services.set_storage_transaction(transaction)
 
         # Validate quality of dispute extrinsic data
         self.components.disputes.validate_extrinsic_disputes(
@@ -476,6 +473,14 @@ class PyjamazApp:
             accumulation_queue=pre_state_accumulation_queue
         )
 
+        nr_acc_reports = len(self.block_context.accumulatable_work_reports)
+        nr_queued_reports = max(0, len(self.block_context.queued_work_reports) - nr_acc_reports)
+
+        if nr_queued_reports > 0:
+            logging.info(f'📥 Accumulatable work-reports: {nr_acc_reports} ({nr_queued_reports} queued)')
+        elif nr_acc_reports > 0:
+            logging.info(f'📥 Accumulatable work-reports: {nr_acc_reports}')
+
         # Services Accumulation STF Block Data | GP-0.5.0-eq:4.18
         services_after_accumulation_output = self.components.services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
@@ -484,6 +489,7 @@ class PyjamazApp:
             pre_state_validator_queue=pre_state_validator_queue,
             pre_state_authorizer_queues=pre_state_authorizer_queues,
             post_state_timeslot=timeslot_output.post_state,
+            post_state_entropy=entropy_output.post_state
         )
 
         services_after_transfers_output = self.components.services.state_transition_transfers(
@@ -493,7 +499,6 @@ class PyjamazApp:
         )
 
         # Services After Preimages STF Block Data | GP-0.5.0-eq:??
-        # TODO process state changes present in services post state
         services_after_preimages_output = self.components.services.state_transition_after_preimages(
             extrinsic_preimages=block.extrinsic.preimages,
             intermediate_state_after_transfers=services_after_transfers_output.intermediate_state_after_transfers,
@@ -544,6 +549,7 @@ class PyjamazApp:
             self.state.recent_history = recent_history_output.post_state
             self.state.authorizer_pools = authorizer_pools_output.post_state
             self.state.authorizer_queues = services_after_accumulation_output.post_state_authorizer_queues
+            self.state.services = services_after_preimages_output.post_state
             self.state.statistics = statistics_output.post_state
             self.state.accumulation_queue = accumulation_queue_output.post_state
             self.state.accumulation_history = accumulation_history_output.post_state
@@ -559,8 +565,7 @@ class PyjamazApp:
             self.components.safrole.store_state(self.state.safrole, transaction)
             self.components.assurances.store_state(self.state.assurances, transaction)
             self.components.statistics.store_state(self.state.statistics, transaction)
-            # Todo: add remaining state components: services
-            # TODO TBD add when clear how to determine block hash, work_report_hashes and accumulate_root (deprecated by previous todo)
+            self.components.services.store_state(self.state.services, transaction)
             self.components.recent_history.store_state(self.state.recent_history, transaction)
             self.components.authorizer_pools.store_state(self.state.authorizer_pools, transaction)
             self.components.authorizer_queues.store_state(self.state.authorizer_queues, transaction)
@@ -580,20 +585,14 @@ class PyjamazApp:
         )
 
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
-        try:
-            with self.state_db.transaction() as transaction:
 
-                output = await self.state_transition(block, transaction, dry_run=dry_run)
+        with self.state_db.transaction() as transaction:
 
-            await self.update_state_trie()
-            await self.store_block(block)
-            return output
+            output = await self.state_transition(block, transaction, dry_run=dry_run)
 
-        except Exception as e:
-            # Rollback state
-            logging.debug(f'Import failed {e}; Rollback state')
-            self.state = self.retrieve_jam_state()
-            raise e
+        await self.update_state_trie()
+        await self.store_block(block)
+        return output
 
     async def store_block(self, block: Block):
         # Store block in DB
@@ -881,7 +880,7 @@ class PyjamazApp:
         with open(os.path.join(traces_dir, f'{base_filename}.bin'), 'wb') as file:
             file.write(trace.to_jam_bytes().to_bytes())
 
-        logging.debug(f"Succesfully stored trace data for #{block.header.timeslot}")
+        logging.info(f"💾 Succesfully stored trace data {base_filename}.bin")
 
 
 class StateComponents:
