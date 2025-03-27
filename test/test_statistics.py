@@ -53,11 +53,11 @@ class TestStatistics(unittest.TestCase):
 
         extrinsic = Extrinsic.from_json(test_vector["input"]["extrinsic"])
 
-        pre_state_statistics = StatisticsState.from_json(test_vector["pre_state"]["pi"])
+        pre_state_statistics = StatisticsState.from_json(test_vector["pre_state"]["statistics"])
 
-        pre_state_timeslot = TimeslotState(number=test_vector["pre_state"]["tau"])
-        post_state_timeslot = TimeslotState(number=test_vector["post_state"]["tau"])
-        post_state_validator_pool = ValidatorPoolState.from_json({"validators": test_vector["post_state"]["kappa_prime"]})
+        pre_state_timeslot = TimeslotState(number=test_vector["pre_state"]["slot"])
+        post_state_timeslot = TimeslotState(number=test_vector["post_state"]["slot"])
+        post_state_validator_pool = ValidatorPoolState.from_json({"validators": test_vector["post_state"]["curr_validators"]})
 
         statistics = Statistics(self.storage_engine, self.block_context, self.app_context)
 
@@ -81,7 +81,7 @@ class TestStatistics(unittest.TestCase):
         )
 
         self.assertDictEqual(
-            test_vector['post_state']['pi'], output.post_state.to_json(), f'{name} fails'
+            test_vector['post_state']['statistics'], output.post_state.to_json(), f'{name} fails'
         )
 
 

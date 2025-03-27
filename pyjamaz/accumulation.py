@@ -337,7 +337,7 @@ def single_step_accumulation(
     -------
     PvmAccumulateOutput
     """
-    # GP-0.6.1-eq:3.2 (function_U)
+    # GP-0.6.4-eq:3.2 (function_U) TODO explicit function
     g = auto_accumulate_services.get(service_id, 0)
     p = []
     for w in work_reports:
@@ -346,10 +346,12 @@ def single_step_accumulation(
                 g += r.accumulate_gas
                 p.append(
                     AccumulationOperand(
-                        work_item_result=r.result,
-                        work_item_payload_hash=r.payload_hash,
                         work_report_hash=w.package_spec.hash,
+                        work_report_exports_root=w.package_spec.exports_root,
+                        work_report_authorizer_hash=w.authorizer_hash,
                         work_report_auth_output=w.auth_output,
+                        work_result_payload_hash=r.payload_hash,
+                        work_exec_result=r.result,
                     )
                 )
 

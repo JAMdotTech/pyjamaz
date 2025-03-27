@@ -30,7 +30,8 @@ from pyjamaz.state.base import StateComponent, state_key_constructor_service_acc
     state_key_constructor_preimage_availability, AppContext
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext
+    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext, \
+    EpochMarkValidatorKeys
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
@@ -53,7 +54,7 @@ class Timeslot(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.5 (bold_H)
+            GP-0.6.4-eq:4.5 (bold_H)
 
         Returns
         -------
@@ -89,11 +90,11 @@ class Entropy(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.9 (bold_H)
+            GP-0.6.4-eq:4.9 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.5.0-eq:4.9 (τ)
+            GP-0.6.4-eq:4.9 (τ)
         pre_state_entropy: EntropyState
-            GP-0.5.0-eq:4.9 (η)
+            GP-0.6.4-eq:4.9 (η)
 
         Returns
         -------
@@ -298,21 +299,21 @@ class Safrole(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.8 (bold_H)
+            GP-0.6.4-eq:4.8 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.5.0-eq:4.8 (τ)
+            GP-0.6.4-eq:4.8 (τ)
         extrinsic_tickets: List[TicketEnvelope]
-            GP-0.5.0-eq:4.8 (bold_E_T)
+            GP-0.6.4-eq:4.8 (bold_E_T)
         pre_state_safrole: SafroleState
-            GP-0.5.0-eq:4.8 (γ)
+            GP-0.6.4-eq:4.8 (γ)
         pre_state_validator_queue: ValidatorQueueState
-            GP-0.5.0-eq:4.8 (ι)
+            GP-0.6.4-eq:4.8 (ι)
         post_state_entropy: EntropyState
-            GP-0.5.0-eq:4.8 (η')
+            GP-0.6.4-eq:4.8 (η')
         post_state_validator_pool: ValidatorPoolState
-            GP-0.5.0-eq:4.8 (κ')
+            GP-0.6.4-eq:4.8 (κ')
         post_state_disputes: DisputesState
-            GP-0.5.0-eq:4.8 (ψ')
+            GP-0.6.4-eq:4.8 (ψ')
         Returns
         -------
         SafroleOutput
@@ -391,7 +392,12 @@ class Safrole(StateComponent):
             epoch_mark = EpochMark(
                 entropy=post_state_entropy.entropy[1],
                 tickets_entropy=post_state_entropy.entropy[2],
-                validators=[validator.bandersnatch for validator in self.post_state_safrole.validators]
+                validators=[
+                    EpochMarkValidatorKeys(
+                        bandersnatch=validator.bandersnatch,
+                        ed25519=validator.ed25519
+                    ) for validator in self.post_state_safrole.validators
+                ]
             )
             logging.debug(f"Epoch Mark generated")
 
@@ -562,9 +568,9 @@ class RecentHistory(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.7 (bold_H)
+            GP-0.6.4-eq:4.7 (bold_H)
         pre_state_recent_history: RecentHistoryState
-            GP-0.5.0-eq:4.6 (β)
+            GP-0.6.4-eq:4.6 (β)
 
         Returns
         -------
@@ -594,13 +600,13 @@ class RecentHistory(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.7 (bold_H)
+            GP-0.6.4-eq:4.7 (bold_H)
         extrinsic_guarantees: List[Guarantee]
-            GP-0.5.0-eq:4.7 (bold_E_G)
+            GP-0.6.4-eq:4.7 (bold_E_G)
         intermediate_state_recent_history: RecentHistoryState
-            GP-0.5.0-eq:4.7 (β†)
+            GP-0.6.4-eq:4.7 (β†)
         beefy_commitment_map: BeefyCommitmentMap
-            GP-0.5.0-eq:4.7 (bold_C)
+            GP-0.6.4-eq:4.7 (bold_C)
 
         Returns
         -------
@@ -1609,8 +1615,8 @@ class Statistics(StateComponent):
 
         # GP-0.5.0-eq:13.3
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
-            post_state.last = post_state.current
-            post_state.current = [ActivityRecord(
+            post_state.vals_last = post_state.vals_current
+            post_state.vals_current = [ActivityRecord(
                 blocks=0,
                 tickets=0,
                 pre_images=0,
@@ -1620,16 +1626,16 @@ class Statistics(StateComponent):
             ) for _ in range(gp_const.VALIDATOR_COUNT)]
 
         # GP-0.5.0-eq:13.4
-        post_state.current[header.author_index].blocks += 1
-        post_state.current[header.author_index].tickets += len(extrinsic_tickets)
-        post_state.current[header.author_index].pre_images += len(extrinsic_preimages)
-        post_state.current[header.author_index].pre_images_size += sum([len(p.blob) for p in extrinsic_preimages])
+        post_state.vals_current[header.author_index].blocks += 1
+        post_state.vals_current[header.author_index].tickets += len(extrinsic_tickets)
+        post_state.vals_current[header.author_index].pre_images += len(extrinsic_preimages)
+        post_state.vals_current[header.author_index].pre_images_size += sum([len(p.blob) for p in extrinsic_preimages])
 
         for assurance in extrinsic_assurances:
-            post_state.current[assurance.validator_index].assurances += 1
+            post_state.vals_current[assurance.validator_index].assurances += 1
 
         for reporter in reporters:
-            post_state.current[self.retrieve_validator_index(reporter, post_state_validator_pool)].guarantees += 1
+            post_state.vals_current[self.retrieve_validator_index(reporter, post_state_validator_pool)].guarantees += 1
 
         return StatisticsOutput(
             post_state=post_state

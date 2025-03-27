@@ -18,13 +18,20 @@ from pyjamaz.signing import Ed25519Keypair
 from jamcodec.mixins import Serializable
 from pyjamaz.utils import guarantor_permute, vrf_input_ticket_seal, vrf_input_fallback_seal, flatten_list
 
+@dataclass
+class EpochMarkValidatorKeys(Serializable):
+    bandersnatch: bytes = field(metadata={'codec': H256})
+    ed25519: bytes = field(metadata={'codec': H256})
+
 
 @dataclass
 # Todo: (Re)move, annotate, reference-GP GP-0.5.0-eq:5.10
 class EpochMark(Serializable):
     entropy: bytes = field(metadata={'codec': H256})
     tickets_entropy: bytes = field(metadata={'codec': H256})
-    validators: List[bytes] = field(metadata={'codec': Array(H256, VALIDATOR_COUNT)})
+    validators: List[EpochMarkValidatorKeys] = field(metadata={
+        'codec': Array(EpochMarkValidatorKeys.to_codec_def(), VALIDATOR_COUNT)
+    })
 
 
 @dataclass
@@ -309,6 +316,8 @@ class Header(Serializable):
     GP-0.5.0-eq:5.1 (bold_H) | The header is a collection of metadata primarily concerned with cryptographic references
     to the blockchain ancestors and the operands and results of the present transition.
 
+    Serialization: GP-0.6.4-eq:C.19
+
     Attributes
     ----------
     parent: H256
@@ -375,6 +384,8 @@ class Header(Serializable):
     def get_unsigned_payload(self) -> bytes:
         """
         Payload to create seal signature GP-0.5.0-eq:6.15,6.16 E_U(H)
+
+        Serialization: GP-0.6.4-eq:C.20
 
         Returns
         -------
@@ -443,6 +454,10 @@ class Header(Serializable):
 
     @classmethod
     def default(cls) -> 'Header':
+        """
+        GP-0.6.4-section:5 | We already presume consensus over this genesis header H^0 and the state it represents
+        defined as σ^0. TODO make configurable
+        """
         return Header(
                 parent=bytes(32),
                 parent_state_root=bytes(32),
@@ -477,7 +492,12 @@ class Header(Serializable):
             epoch_marker=EpochMark(
                 entropy=bytes(32),
                 tickets_entropy=bytes(32),
-                validators=[v.bandersnatch for v in validators],
+                validators=[
+                    EpochMarkValidatorKeys(
+                        bandersnatch=v.bandersnatch,
+                        ed25519=v.ed25519
+                    ) for v in validators
+                ],
             ),
             tickets_marker=None,
             offenders_marker=[],
@@ -517,26 +537,28 @@ class Header(Serializable):
 @dataclass
 class Extrinsic(Serializable):
     """
-    GP-0.5.0-eq:4.3 (bold_E) | Extrinsic data is input data external to the system.
+    GP-0.6.4-eq:4.3 (bold_E) | Extrinsic data is input data external to the system.
     Extrinsic data is split into several discrete portions.
+
+    Serialization: GP-0.6.4-eq:C.13
 
     Attributes
     ----------
     tickets: Vec(TicketEnvelope)
-        GP-0.5.0-eq:6.29 (bold_E_T) |
+        GP-0.6.4-eq:6.29 (bold_E_T) |
         Manages selection of validators for permissioning of block authoring
     preimages: Vec(Preimage)
-        GP-0.5.0-eq:12.28 (bold_E_P) |
+        GP-0.6.4-eq:12.28 (bold_E_P) |
         Static data presently being requested to be available for workloads to be able to fetch on demand
     guarantees: Vec(Guarantee)
-        GP-0.5.0-eq:11.22 (bold_E_G) |
+        GP-0.6.4-eq:11.22 (bold_E_G) |
         Reports of newly completed workloads whose accuracy is guaranteed by specific validators
     assurances: Vec(Assurance)
-        GP-0.5.0-eq:11.8 (bold_E_A) |
+        GP-0.6.4-eq:11.8 (bold_E_A) |
         Assurances by each validator concerning which of the input data of workloads they have correctly received and
         are storing locally
     disputes: ExtrinsicDisputes
-        GP-0.5.0-eq:10.2 (bold_E_D) |
+        GP-0.6.4-eq:10.2 (bold_E_D) |
         Votes by validators on disputes
     """
     tickets: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})
@@ -544,10 +566,6 @@ class Extrinsic(Serializable):
     guarantees: List[Guarantee] = field(metadata={'codec': Vec(Guarantee.to_codec_def())})
     assurances: List[Assurance] = field(metadata={'codec': Vec(Assurance.to_codec_def())})
     disputes: ExtrinsicDisputes = field(metadata={'codec': ExtrinsicDisputes.to_codec_def()})
-
-    # TODO TEMP unclear, move when Extrinsic is fully defined
-    # work_report_hashes: Optional[List[bytes]] = field(metadata={'codec': Option(Vec(H256))})
-    # accumulate_root: Optional[bytes] = field(metadata={'codec': Option(H256)})
 
     def generate_extrinsic_hash(self) -> bytes:
         """
@@ -601,16 +619,16 @@ class Extrinsic(Serializable):
 @dataclass
 class Block(Serializable):
     """
-    GP-0.5.0-eq:4.2 (bold_B) | The header is a collection of metadata primarily concerned with cryptographic references
+    GP-0.6.4-eq:4.2 (bold_B) | The header is a collection of metadata primarily concerned with cryptographic references
     to the blockchain ancestors and the operands and results of the present transition.
 
     Attributes
     ----------
     header: Header
-        GP-0.5.0-eq:4.3 (bold_H) | Collection of metadata primarily concerned with cryptographic references to the
+        GP-0.6.4-eq:4.3 (bold_H) | Collection of metadata primarily concerned with cryptographic references to the
         blockchain ancestors and the operands and results of the present transition
     extrinsic: Extrinsic
-        GP-0.5.0-eq:4.3 (bold_E) |
+        GP-0.6.4-eq:4.3 (bold_E) |
         Extrinsic data is input data external to the system
     """
     header: Header = field(metadata={'codec': Header.to_codec_def()})
@@ -736,6 +754,9 @@ class GuarantorAssignment:
 
 @dataclass
 class BlockContext:
+    """
+    GP-0.6.4-section:I.4.1 | Block context terms.
+    """
     # G
     guarantor_assignments: Optional[List[GuarantorAssignment]] = None
     # G*
@@ -744,7 +765,7 @@ class BlockContext:
     author_bandersnatch_key: Optional[bytes] = None
     # TODO GP ref?
     seal_vrf_output: bytes = bytes(32)
-    # A
+    # GP-0.6.4-eq:5.3 (bold_A)
     ancestor_headers: List[Header] = field(default_factory=list)
 
     # W

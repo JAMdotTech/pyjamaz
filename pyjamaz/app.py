@@ -162,6 +162,10 @@ class PyjamazApp:
         self.block_context.ancestor_headers = self.retrieve_ancestor_headers()
 
     def retrieve_ancestor_headers(self) -> List[Header]:
+        """
+        GP-0.6.4-eq:5.3 | We only require implementations to store headers of ancestors which were authored in the
+        previous (constant_L) = 24 hours of any block (bold_B) they wish to validate.
+        """
         ancestor_headers = []
         best_block_hash = self.retrieve_block_hash(self.state.timeslot.number)
         if best_block_hash:
@@ -245,9 +249,9 @@ class PyjamazApp:
 
     async def state_transition(self, block: 'Block', transaction: Transaction, dry_run=False) -> 'STFOutput':
         """
-        GP-0.5.0-eq:4.1 (Υ, σ') | Block Level State Transition Function for the JAM state.
+        GP-0.6.4-eq:4.1 (Υ, σ') | Block Level State Transition Function for the JAM state.
 
-        Implicit first parameter (self) | Current State | GP-0.5.0-eq:4.1 (σ)
+        Implicit first parameter (self) | Current State | GP-0.6.4-eq:4.1 (σ)
 
         Parameters
         ----------

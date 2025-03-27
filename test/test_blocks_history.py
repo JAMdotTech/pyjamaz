@@ -82,8 +82,9 @@ class TestBlockHistory(unittest.TestCase):
                     core_index=0,
                     authorizer_hash=bytes(32),
                     auth_output=bytes(),
-                    segment_root_lookup=[],
-                    results=[]
+                    segment_root_lookup={},
+                    results=[],
+                    auth_gas_used=0
         ),
                 slot=0,
                 signatures=[]
