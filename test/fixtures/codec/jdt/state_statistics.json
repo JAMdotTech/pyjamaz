@@ -1,5 +1,5 @@
 {
-  "current": [
+  "vals_current": [
     {
       "blocks": 0,
       "tickets": 0,
@@ -49,7 +49,7 @@
       "assurances": 0
     }
   ],
-  "last": [
+  "vals_last": [
     {
       "blocks": 0,
       "tickets": 0,
@@ -98,5 +98,28 @@
       "guarantees": 0,
       "assurances": 0
     }
-  ]
+  ],
+  "cores": [
+    {
+      "gas_used": 0,
+      "imports": 0,
+      "extrinsic_count": 0,
+      "extrinsic_size": 0,
+      "exports": 0,
+      "bundle_size": 0,
+      "da_load": 0,
+      "popularity": 0
+    },
+    {
+      "gas_used": 0,
+      "imports": 0,
+      "extrinsic_count": 0,
+      "extrinsic_size": 0,
+      "exports": 0,
+      "bundle_size": 0,
+      "da_load": 0,
+      "popularity": 0
+    }
+  ],
+  "services": []
 }

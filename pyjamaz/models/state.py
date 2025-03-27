@@ -9,7 +9,7 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import keccak_256_hash, blake2b_256_hash
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64, U16
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET
@@ -937,20 +937,108 @@ class ActivityRecord(Serializable):
 
 
 @dataclass
+class CoreActivityRecord(Serializable):
+    """
+
+    Attributes
+    ----------
+    gas_used: U64
+         GP-0.6.4-eq:??? | Total gas consumed by core for reported work. Includes all refinement and authorizations.
+    imports: U16
+        GP-0.6.4-eq:??? | Number of segments imported from DA made by core for reported work.
+    extrinsic_count: U16
+        GP-0.6.4-eq:??? | Total number of extrinsics used by core for reported work.
+    extrinsic_size: U32
+        GP-0.6.4-eq:??? | Total size of extrinsics used by core for reported work.
+    exports: U16
+        GP-0.6.4-eq:??? | Number of segments exported into DA made by core for reported work.
+    bundle_size: U32
+        GP-0.6.4-eq:??? | The work-bundle size. This is the size of data being placed into Audits DA by the core.
+    da_load: U32
+        GP-0.6.4-eq:??? | Amount of bytes which are placed into either Audits or Segments DA.
+    popularity: U16
+        GP-0.6.4-eq:??? | Number of validators which formed super-majority for assurance.
+    """
+    gas_used: int = field(metadata={'codec': U64})
+    imports: int = field(metadata={'codec': U16})
+    extrinsic_count: int = field(metadata={'codec': U16})
+    extrinsic_size: int = field(metadata={'codec': U32})
+    exports: int = field(metadata={'codec': U16})
+    bundle_size: int = field(metadata={'codec': U32})
+    da_load: int = field(metadata={'codec': U32})
+    popularity: int = field(metadata={'codec': U16})
+
+
+@dataclass
+class ServiceActivityRecord(Serializable):
+    """
+
+    Attributes
+    ----------
+    provided_count: U16
+        GP-0.6.4-eq:??? | Number of preimages provided to this service.
+    provided_size: U32
+        GP-0.6.4-eq:??? | Total size of preimages provided to this service.
+    refinement_count: U32
+        GP-0.6.4-eq:??? | Number of work-items refined by service for reported work.
+    refinement_gas_used: U64
+        GP-0.6.4-eq:??? | Amount of gas used for refinement by service for reported work.
+    imports: U32
+        GP-0.6.4-eq:??? | Number of segments imported from the DL by service for reported work.
+    extrinsic_count: U32
+        GP-0.6.4-eq:??? | Total number of extrinsics used by service for reported work.
+    extrinsic_size: U32
+        GP-0.6.4-eq:??? | Total size of extrinsics used by service for reported work.
+    exports: U32
+        GP-0.6.4-eq:??? | Number of segments exported into the DL by service for reported work.
+    accumulate_count: U32
+        GP-0.6.4-eq:??? | Number of work-items accumulated by service.
+    accumulate_gas_used: U64
+        GP-0.6.4-eq:??? | Amount of gas used for accumulation by service.
+    on_transfers_count: U32
+        GP-0.6.4-eq:??? | Number of transfers processed by service.
+    on_transfers_gas_used: U64
+        GP-0.6.4-eq:??? | Amount of gas used for processing transfers by service.
+    """
+    provided_count: int = field(metadata={'codec': U16})
+    provided_size: int = field(metadata={'codec': U32})
+    refinement_count: int = field(metadata={'codec': U32})
+    refinement_gas_used: int = field(metadata={'codec': U64})
+    imports: int = field(metadata={'codec': U32})
+    extrinsic_count: int = field(metadata={'codec': U32})
+    extrinsic_size: int = field(metadata={'codec': U32})
+    exports: int = field(metadata={'codec': U32})
+    accumulate_count: int = field(metadata={'codec': U32})
+    accumulate_gas_used: int = field(metadata={'codec': U64})
+    on_transfers_count: int = field(metadata={'codec': U32})
+    on_transfers_gas_used: int = field(metadata={'codec': U64})
+
+
+@dataclass
 class StatisticsState(State, Serializable):
     """
-    GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
+    GP-0.6.4-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
 
     Attributes
     ----------
 
-    current: Array(Statistic,constant_V)
-        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for current epoch.
-    last: Array(Statistic,constant_V)
-        GP-0.5.0-eq:13.1 (π) | A collection of statistics for all validators for last epoch.
+    vals_current: Array(Statistic,constant_V)
+        GP-0.6.4-eq:13.1 (π) | A collection of statistics for all validators for current epoch.
+    vals_last: Array(Statistic,constant_V)
+        GP-0.6.4-eq:13.1 (π) | A collection of statistics for all validators for last epoch.
+    cores: Array(Statistic,constant_C)
+        GP-0.6.4-eq:13.1 (π) | Core activity statistics for last block.
+    services: Map(U32, ServiceActivityRecord)
+        GP-0.6.4-eq:13.1 (π) | Service activity statistics for last block.
     """
-    current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
-    last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+    vals_current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+    vals_last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
+    cores: List[CoreActivityRecord] = field(metadata={
+        'codec': Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
+    })
+    services: Dict[int, ServiceActivityRecord] = field(metadata={
+        'codec': Map(U32, ServiceActivityRecord.to_codec_def())
+    })
 
 
 
@@ -1031,44 +1119,44 @@ class BeefyCommitmentMap(Serializable):
 @dataclass
 class JamState(State, Serializable):
     """
-    GP-0.5.0-eq:4.4 (σ) | Logically partitioned state into several largely independent segments which can help both
+    GP-0.6.4-eq:4.4 (σ) | Logically partitioned state into several largely independent segments which can help both
     visual clutter within the protocol description and provide formality over elements of computation which may be
     simultaneously calculated (i.e. parallelized).
 
     Attributes
     ----------
     authorizer_pools: AuthorizerPoolsState
-        GP-0.5.0-eq:4.4 (α) | AuthorizerPool partition of the overall state
+        GP-0.6.4-eq:4.4 (α) | AuthorizerPool partition of the overall state
     recent_history: RecentHistoryState
-        GP-0.5.0-eq:4.4 (β) | RecentHistory partition of the overall state
+        GP-0.6.4-eq:4.4 (β) | RecentHistory partition of the overall state
     safrole: SafroleState
-        GP-0.5.0-eq:4.4 (γ) | Safrole partition of the overall state
+        GP-0.6.4-eq:4.4 (γ) | Safrole partition of the overall state
     services: ServicesState
-        GP-0.5.0-eq:4.4 (δ) | Services partition of the overall state
+        GP-0.6.4-eq:4.4 (δ) | Services partition of the overall state
     entropy: EntropyState
-        GP-0.5.0-eq:4.4 (η) | Entropy partition of the overall state
+        GP-0.6.4-eq:4.4 (η) | Entropy partition of the overall state
     validator_queue: ValidatorQueueState
-        GP-0.5.0-eq:4.4 (ι) | ValidatorQueue partition of the overall state
+        GP-0.6.4-eq:4.4 (ι) | ValidatorQueue partition of the overall state
     validator_pool: ValidatorPoolState
-        GP-0.5.0-eq:4.4 (κ) | ValidatorPool partition of the overall state
+        GP-0.6.4-eq:4.4 (κ) | ValidatorPool partition of the overall state
     validator_archive: ValidatorArchiveState
-        GP-0.5.0-eq:4.4 (λ) | ValidatorArchive partition of the overall state
+        GP-0.6.4-eq:4.4 (λ) | ValidatorArchive partition of the overall state
     assurances: AssurancesState
-        GP-0.5.0-eq:4.4 (ρ) | Assurances partition of the overall state
+        GP-0.6.4-eq:4.4 (ρ) | Assurances partition of the overall state
     timeslot: TimeslotState
-        GP-0.5.0-eq:4.4 (τ) | Timeslot partition of the overall state
+        GP-0.6.4-eq:4.4 (τ) | Timeslot partition of the overall state
     authorizer_queues: AuthorizerQueuesState
-        GP-0.5.0-eq:4.4 (φ) | AuthorizerQueue partition of the overall state
+        GP-0.6.4-eq:4.4 (φ) | AuthorizerQueue partition of the overall state
     privileged_services: PrivilegedServicesState
-        GP-0.5.0-eq:4.4 (χ) | PrivilegedServices partition of the overall state
+        GP-0.6.4-eq:4.4 (χ) | PrivilegedServices partition of the overall state
     disputes: DisputesState
-        GP-0.5.0-eq:4.4 (ψ) | Disputes partition of the overall state
+        GP-0.6.4-eq:4.4 (ψ) | Disputes partition of the overall state
     statistics: StatisticsState
-        GP-0.5.0-eq:4.4 (π) | Statistics partition of the overall state
+        GP-0.6.4-eq:4.4 (π) | Statistics partition of the overall state
     accumulation_queue: AccumulationQueueState
-        GP-0.5.0-eq:4.4 (ϑ) | AccumulationQueue partition of the overall state
+        GP-0.6.4-eq:4.4 (ϑ) | AccumulationQueue partition of the overall state
     accumulation_history: AccumulationHistoryState
-        GP-0.5.0-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
+        GP-0.6.4-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
@@ -1151,8 +1239,10 @@ class JamState(State, Serializable):
                 offenders=[],
             ),
             statistics=StatisticsState(
-                current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
-                last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+                vals_current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+                vals_last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+                cores=[CoreActivityRecord(0, 0, 0, 0, 0, 0 ,0, 0) for _ in range(CORE_COUNT)],
+                services={},
             ),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[

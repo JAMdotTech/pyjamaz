@@ -89,18 +89,18 @@ class TestReports(unittest.TestCase):
 
         pre_services = ServicesState.from_json(
             {"services": {s["id"]: {
-                "code_hash": bytes.fromhex(s["info"]["code_hash"][2:]),
-                "balance": s["info"]["balance"],
-                "gas_limit_accumulate": s["info"]["min_item_gas"],
-                "gas_limit_on_transfer": s["info"]["min_memo_gas"],
-                "footprint_storage_items": s["info"]["items"],
-                "footprint_storage_bytes": s["info"]["bytes"],
+                "code_hash": bytes.fromhex(s["data"]["service"]["code_hash"][2:]),
+                "balance": s["data"]["service"]["balance"],
+                "gas_limit_accumulate": s["data"]["service"]["min_item_gas"],
+                "gas_limit_on_transfer": s["data"]["service"]["min_memo_gas"],
+                "footprint_storage_items": s["data"]["service"]["items"],
+                "footprint_storage_bytes": s["data"]["service"]["bytes"],
                 "threshold_balance": 0,
                 "storage_items": {},
                 "preimages": {},
                 "preimage_availability": {}
 
-            } for s in test_vector["pre_state"]["services"]}}
+            } for s in test_vector["pre_state"]["accounts"]}}
         )
 
         pre_services.set_storage_engine(self.storage_engine)

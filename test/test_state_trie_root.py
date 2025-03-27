@@ -35,7 +35,6 @@ class TestStateRoot(unittest.IsolatedAsyncioTestCase):
             for k, v in genesis_data:
                 app.state_db.put(bytes(k.value_object), bytes(v.value_object))
 
-        app.state = app.retrieve_jam_state()
         # Calculate state trie
         await app.update_state_trie()
 
