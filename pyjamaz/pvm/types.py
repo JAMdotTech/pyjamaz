@@ -166,7 +166,7 @@ class MemorySection:
 
     def write_int(self, section_addr: int, value: int, length: int):
 
-        if section_addr + length > self.paged_tail:
+        if section_addr + length > self.size:
             raise PVMMemoryError(f"MemorySection {self.address + section_addr} overflow: {length} (page tail: {self.paged_tail} - size: {self.size})")
 
         if not self.writable:
@@ -178,6 +178,7 @@ class MemorySection:
 
         if self.address+section_addr+length > self.tail:
             self.tail = self.address+section_addr+length
+            self.paged_tail = PVMMemory.page_size(self.tail)
 
         if length == 1:
             self.contents[section_addr + 0] = np.uint8(value & 0xFF)
@@ -359,6 +360,7 @@ class PVMMemory:
         end_addr = address + len(content)
         if end_addr > section.tail:
             section.tail = end_addr
+            self.paged_tail = PVMMemory.page_size(section.tail)
 
 
     def extend_heap(self, size):
