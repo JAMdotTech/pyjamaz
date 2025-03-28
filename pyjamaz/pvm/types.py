@@ -12,7 +12,7 @@ from typing import List, Union, Type, T, Optional
 from jamcodec.base import JamBytes, JamCodecType
 from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
-from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger
+from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger, Bytes
 
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
@@ -408,6 +408,8 @@ class PVMProgram(Serializable):
     # µ
     memory: PVMMemory
 
+    metadata: bytes = b''
+
     """
     GP-0.6.2-eq:A.40 | Initializing of memory pages
     """
@@ -469,10 +471,13 @@ class PVMProgram(Serializable):
     @classmethod
     def from_serialized_bytes(cls, serialized_program: bytes, argument_contents: bytes) -> Optional['PVMProgram']:
         """
-        GP-0.6.2-eq:A.35 (Y)
+        GP-0.6.4-eq:A.35 (Y)
         """
         try:
             jam_bytes = JamBytes(serialized_program)
+
+            # metadata
+            metadata = Bytes.decode(jam_bytes)
 
             # GP?? |o|
             pvm_rom_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')
@@ -500,6 +505,7 @@ class PVMProgram(Serializable):
                     code=PVMCode.from_jam_bytes(JamBytes(pvm_code)),
                     registers=cls.init_registers(argument_contents),
                     memory=cls.init_memory(pvm_rom_contents, pvm_heap_contents, argument_contents, heap_mem_pages * PVM_PAGE_SIZE, stack_mem_size),
+                    metadata=metadata
                 )
             else:
                 #TODO
