@@ -4,7 +4,6 @@ from typing import List, Optional
 
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
-from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm.duna_logger import PVMDunaLog
 from pyjamaz.pvm.types import PVMProgram, PVMMemory
 
@@ -14,13 +13,12 @@ class InvocationContext:
     GP-0.6.2-eq:B.6 (X) | Invocation Result Context (abstract)
     """
 
-
 @dataclass
 class InvocationMutationOutput:
     """
     A.34
     """
-    output: ExitCondition   #TODO: rename
+    exit_condition: ExitCondition   #TODO: rename
     gas_limit: int
     registers: List[int]
     memory: PVMMemory
@@ -124,32 +122,32 @@ class PVMInvocation:
                     invocation_context=self.invocation_context,
                     _pvm=self.pvm   #TODO
                 )
-                logging.debug("ECALLI COMPLETE")
+                #logging.debug("ECALLI COMPLETE")
                 self.pvm.log()
 
                 # Update gas usage TODO
                 gas_limit = host_call_output.gas_limit
 
-                if host_call_output.output.reason == ExitReason.page_fault:
+                if host_call_output.exit_condition.reason == ExitReason.page_fault:
                     return PvMHostCallOutput(
-                        exit_condition=host_call_output.output,
+                        exit_condition=host_call_output.exit_condition,
                         instruction_counter=int(self.pvm.pc),
                         gas_limit=int(self.pvm.gas),
                         registers=self.pvm.reg,
                         memory=self.pvm.reg,
                         invocation_context=self.invocation_context
                     )
-                elif host_call_output.output.reason == ExitReason.resume:
+                elif host_call_output.exit_condition.reason == ExitReason.resume:
                     self.pvm.status = ExitReason.resume.value
                     self.pvm.next_instruction()
                     instruction_counter = self.pvm.pc
                     logging.debug(f'PVM continue @ {instruction_counter}')
 
-                elif host_call_output.output.reason in [
+                elif host_call_output.exit_condition.reason in [
                     ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas
                 ]:
                     return PvMHostCallOutput(
-                        exit_condition=host_call_output.output,
+                        exit_condition=host_call_output.exit_condition,
                         instruction_counter=int(self.pvm.pc),
                         gas_limit=host_call_output.gas_limit,
                         registers=host_call_output.registers,
