@@ -357,7 +357,7 @@ class PyjamazApp:
         # Validate quality of assurance extrinsic data
         self.components.assurances.validate_after_disputes(
             extrinsic_assurances=block.extrinsic.assurances,
-            post_state_validator_pool=validator_pool_output.post_state,
+            pre_state_validator_pool=pre_state_validator_pool,
             header=block.header
         )
 

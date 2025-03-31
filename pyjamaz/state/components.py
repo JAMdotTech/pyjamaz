@@ -701,7 +701,7 @@ class Assurances(StateComponent):
     def validate_after_disputes(
             self,
             extrinsic_assurances: List[Assurance],
-            post_state_validator_pool: ValidatorPoolState,
+            pre_state_validator_pool: ValidatorPoolState,
             header: Header
     ):
         """
@@ -710,7 +710,7 @@ class Assurances(StateComponent):
         Parameters
         ----------
         extrinsic_assurances
-        post_state_validator_pool
+        pre_state_validator_pool
         header
 
         Returns
@@ -718,7 +718,7 @@ class Assurances(StateComponent):
 
         """
 
-        if not self.have_valid_validators(extrinsic_assurances, post_state_validator_pool):
+        if not self.have_valid_validators(extrinsic_assurances, pre_state_validator_pool):
             raise StateTransitionError(AssurancesErrorCode.bad_validator_index)
 
         if not self.are_assurances_sorted(extrinsic_assurances):
@@ -732,7 +732,7 @@ class Assurances(StateComponent):
             if assurance.anchor != header.parent:
                 raise StateTransitionError(AssurancesErrorCode.bad_attestation_parent)
 
-            validator = post_state_validator_pool.validators[assurance.validator_index]
+            validator = pre_state_validator_pool.validators[assurance.validator_index]
 
             if not self.has_valid_signature(assurance, validator):
                 raise StateTransitionError(AssurancesErrorCode.bad_signature)

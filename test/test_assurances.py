@@ -52,7 +52,7 @@ class TestAssurances(unittest.TestCase):
 
         extrinsic_assurances = [Assurance.from_json(a) for a in test_vector["input"]["assurances"]]
         pre_state_assurances = AssurancesState.from_json({"assurances": test_vector["pre_state"]["avail_assignments"]})
-        post_state_validator_pool = ValidatorPoolState.from_json(
+        pre_state_validator_pool = ValidatorPoolState.from_json(
             {"validators": test_vector["pre_state"]["curr_validators"]}
         )
 
@@ -68,7 +68,7 @@ class TestAssurances(unittest.TestCase):
 
             assurances.validate_after_disputes(
                 extrinsic_assurances=extrinsic_assurances,
-                post_state_validator_pool=post_state_validator_pool,
+                pre_state_validator_pool=pre_state_validator_pool,
                 header=header,
             )
 
@@ -81,7 +81,7 @@ class TestAssurances(unittest.TestCase):
                 extrinsic_guarantees=[],
                 intermediate_state_assurances_after_assurances=intermediate_output.intermediate_state_after_assurances,
                 post_state_timeslot=post_state_timeslot,
-                pre_state_validator_pool=post_state_validator_pool
+                pre_state_validator_pool=pre_state_validator_pool
             )
 
 
