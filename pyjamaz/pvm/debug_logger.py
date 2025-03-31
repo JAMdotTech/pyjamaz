@@ -5,10 +5,10 @@ import numpy as np
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.pvm.constants import OpcodeNames
-from pyjamaz.pvm.types import PVMMemory
+from pyjamaz.pvm.types import PVMMemory, PVMLogger
 
 
-class PVMDebugLog:
+class PVMDebugLog(PVMLogger):
 
     def __init__(self, pvm, log_opcode_calls=True, log_opcode_calls_if_zero=False):
         np.seterr(over='ignore')
@@ -114,6 +114,8 @@ class PVMDebugLog:
             }
             json.dump(tt, fp)
 
+    def debug(self, level, core, service_idx, target, message):
+        logging.debug(f"{level}@{core}#{service_idx} {target} {message}")
 
     def state(self):
         logging.debug(f"GAS: {self._pvm.gas} PC: {self._pvm.pc}")

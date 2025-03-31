@@ -9,7 +9,8 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import keccak_256_hash, blake2b_256_hash
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64, U16
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64, U16, \
+    Null
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET
@@ -378,6 +379,16 @@ class ServiceAccount(Serializable):
         serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
         return serialized_bytes
 
+    #TODO: check!!!!!!!
+    def to_serialized_bytes2(self) -> bytes:
+        serialized_bytes = self.code_hash
+        serialized_bytes += U64.encode(self.balance).to_bytes()
+        serialized_bytes += U64.encode(self.threshold_balance).to_bytes()
+        serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
+        serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
+        serialized_bytes += U64.encode(self.footprint_storage_bytes).to_bytes()
+        serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
+        return serialized_bytes
 
     def update_footprint_add_storage_item(self, size: int) -> None:
         """
@@ -1034,10 +1045,10 @@ class StatisticsState(State, Serializable):
     vals_current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
     vals_last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
     cores: List[CoreActivityRecord] = field(metadata={
-        'codec': Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
+        'codec': Null #Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
     })
     services: Dict[int, ServiceActivityRecord] = field(metadata={
-        'codec': Map(U32, ServiceActivityRecord.to_codec_def())
+        'codec': Null #Map(U32, ServiceActivityRecord.to_codec_def())
     })
 
 

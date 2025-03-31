@@ -15,6 +15,10 @@ class HostCallResult(Enum):
     OK: int   = 0
 
 
+class HostCallDebug(Enum):
+    log:int              = 100
+
+
 #GP-0.6.2:B.6
 class HostCallGeneral(Enum):
     gas: int               = 0  #ΩG
@@ -38,3 +42,17 @@ class HostCallAccumulate(Enum):
     solicit: int                = 14 #ΩS
     forget: int                 = 15 #ΩF
     _yield: int                 = 16 #Ω?
+
+
+#GP-0.6.2:B.7
+class HostCallRefine(Enum):
+    historical_lookup: int      = 17 #ΩH
+    fetch: int                  = 18 #ΩY
+    export: int                 = 19 #ΩE
+    machine: int                = 20 #ΩM
+    peek: int                   = 21 #ΩP
+    poke: int                   = 22 #ΩO
+    zero: int                   = 23 #ΩZ
+    void: int                   = 24 #ΩV
+    invoke: int                 = 25 #ΩK
+    expunge: int                = 26 #ΩX

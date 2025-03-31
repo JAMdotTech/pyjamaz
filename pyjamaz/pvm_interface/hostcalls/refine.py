@@ -1,54 +1,15 @@
-# from typing import Dict
-#
-# import numpy as np
-#
-# from pyjamaz.hashing import blake2b_256_hash
-#
-# from .constants import HostCallGeneral as op, HostCallResult
-# from .exceptions import InvalidHostCall
-# from ..models.state import ServiceAccount
-# from ..pvm import PVM
-#
-#
-# # GP_B.3 Refine Invocations ΨR
-# class RefineInvocationsMixin:
-#
-#     # 17
-#     def historical_lookup():
-#         pass
-#
-#     # 18
-#     def fetch():
-#         pass
-#
-#     # 19
-#     def export():
-#         pass
-#
-#     # 20
-#     def machine():
-#         pass
-#
-#     # 21
-#     def peak():
-#         pass
-#
-#     # 22
-#     def poke():
-#         pass
-#
-#     # 23
-#     def zero():
-#         pass
-#
-#     # 24
-#     def void():
-#         pass
-#
-#     # 25
-#     def invoke():
-#         pass
-#
-#     # 26
-#     def expunge():
-#         pass
+from pyjamaz.pvm.invocation import InvocationMutationOutput
+from pyjamaz.pvm.types import PVMLogger
+from pyjamaz.pvm_interface.types import InvocationInput
+
+
+def hc_historical_lookup(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")
+def hc_fetch(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")
+def hc_export(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")
+def hc_machine(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")
+def hc_peek(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")
+def hc_poke(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")
+def hc_zero(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")
+def hc_void(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")
+def hc_invoke(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")
+def hc_expunge(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger): raise Exception("TODO: implement!!!!!!!")

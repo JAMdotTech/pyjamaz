@@ -19,6 +19,24 @@ from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 
 
 
+class PVMLogger:
+
+    def host_call(self, msg, data):
+        pass
+
+    def debug(self, level, core, service_idx, target, message):
+        pass
+
+    def hash(self):
+        pass
+
+    def state(self):
+        pass
+
+    def header(self):
+        pass
+
+
 class PVMMemoryMode(Enum):
     non_readable:int        = 0
     readable:int            = 1
@@ -90,11 +108,13 @@ class MemorySection:
         self.address:int = address
         self.size:int = length
         self.writable:bool = writable
-        self.contents: npt.NDArray[np.uint8] = np.zeros(len(contents), dtype=np.uint8)
+        #TODO!!!!!!!!!!!!!!!!! ode aan peter: make nicer!!!!!!
+        if self.size > 2**20:
+            raise Exception('Memory size too large')
+        self.contents: npt.NDArray[np.uint8] = np.zeros(self.size, dtype=np.uint8)
         self.tail = 0
         self.paged_tail = 0
-        if len(contents) > 0:
-            self.update(0, contents)
+        self.update(0, contents)
 
     def update(self, idx, _bytes):
         # TODO: implement more efficiently
@@ -110,8 +130,13 @@ class MemorySection:
         # if not page.readable:
         #     raise PVMMemoryError(f"Page {addr} is not writable")
 
-        if section_addr + length > self.paged_tail:
-            raise PVMMemoryError(f"MemorySection {self.address + section_addr} overflow: {length} (page tail: {self.paged_tail} - size: {self.size})")
+        if section_addr + length > self.size:
+            msg = f"MemorySection {self.address + section_addr} overflow: {length} (size: {self.size} - size: {self.size})"
+            logging.error(msg)
+            raise PVMMemoryError(msg)
+
+        if section_addr + length > self.tail:
+            return np.uint64(0)
 
         if length == 0:
             return np.uint64(0)
@@ -166,11 +191,15 @@ class MemorySection:
 
     def write_int(self, section_addr: int, value: int, length: int):
 
-        if section_addr + length > self.paged_tail:
-            raise PVMMemoryError(f"MemorySection {self.address + section_addr} overflow: {length} (page tail: {self.paged_tail} - size: {self.size})")
+        if section_addr + length > self.size:
+            msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.tail} - size: {self.size})"
+            logging.error(msg)
+            raise PVMMemoryError(msg)
 
         if not self.writable:
-            raise PVMMemoryError(f"MemorySection {section_addr} is not writable")
+            msg = f"MemorySection {section_addr} is not writable"
+            logging.error(msg)
+            raise PVMMemoryError(msg)
 
         # Note: GP applies a modulus over the value to write denoted by their bit length
         if length < 8:
@@ -235,16 +264,22 @@ class PVMMemory:
 
     def find_section(self, addr: int) -> Optional[MemorySection]:
         if not self.section_offsets:
-            raise PVMMemoryError("Memory not initialized")
+            msg = "Memory not initialized"
+            logging.error(msg)
+            raise PVMMemoryError(msg)
 
         #GP-0.6.2-eq:A.7
         if addr < 2**16:
-            raise PanicError("Invalid memory access")
+            msg = "Invalid memory access"
+            logging.error(msg)
+            raise PanicError(msg)
 
         # Find rightmost index where addr would be inserted and then check if it falls in the page
         index = bisect.bisect_right(self.section_offsets, addr) - 1
         if index < 0:
-            raise PVMMemoryError("Memory not initialized")
+            msg = "Memory not initialized"
+            logging.error(msg)
+            raise PVMMemoryError(msg)
 
         section = self.sections[index]
         if section.contains(addr):
@@ -299,8 +334,8 @@ class PVMMemory:
         if not section:
             return False
 
-        section_addr = address - section.address
-        section_bytes = (section.paged_tail - section_addr)
+        #section_addr = address - section.address
+        section_bytes = section.size #(section.size - section_addr)
 
         if section_bytes < length:
             return False
@@ -327,7 +362,7 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = address - section.address
-        section_bytes = (section.paged_tail - section_addr)
+        section_bytes = section.size #(section.size - section_addr)
 
         if section_bytes < length:
             raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
@@ -350,7 +385,7 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = address - section.address
-        section_bytes = (section.paged_tail - section_addr)
+        section_bytes = section.size #(section.size - section_addr)
 
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
@@ -365,18 +400,16 @@ class PVMMemory:
         # # Note: sbrk opcode
         # # TODO: not sure if this implementation is correct...??!!!!!!
         if size <= 0: return 0
-        new_paged_size = PVMMemory.page_size(self._heap.tail + size)
+        new_paged_size = PVMMemory.page_size(self._heap.size + size)
+        if new_paged_size > self._stack.address:
+            raise PVMMemoryError(f"sbrk heap overflow {new_paged_size} > {self._stack.address}")
+
         if new_paged_size > self._heap.size:
-            raise PVMMemoryError(f"sbrk heap overflow {new_paged_size} > {self._heap.size}")
-
-        prev_tail = self._heap.tail
-        if new_paged_size > self._heap.paged_tail:
-            growth = new_paged_size - self._heap.paged_tail
+            growth = new_paged_size - self._heap.size
             self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
-            self._heap.paged_tail = new_paged_size
+            self._heap.size = new_paged_size
 
-        #self._heap.tail += size #TODO: update or not?
-        return prev_tail
+        return new_paged_size
 
 
     @staticmethod
