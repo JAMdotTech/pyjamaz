@@ -22,11 +22,8 @@ class PVMDunaLog(PVMDebugLog):
             f"{data}"
         )
 
-    @staticmethod
-    def debug(logger, level, core, service_idx, target, message):
-        logger(
-            f"{level}@{core}#{service_idx} {target} {message}"
-        )
+    def debug(self, level, core, service_idx, target, message):
+        logging.log(level, f"{level}@{core}#{service_idx} {target} {message}")
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
         # regs = [int(x) for x in self._pvm.reg]

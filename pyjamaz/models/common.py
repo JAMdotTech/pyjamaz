@@ -86,10 +86,10 @@ class WorkExecResult(Serializable):
 @dataclass
 class RefineLoad(Serializable):
     gas_used: int = field(metadata={'codec': VarInt64})
-    imports: int = field(metadata={'codec': U8})
-    extrinsic_count: int = field(metadata={'codec': U8})
-    extrinsic_size: int = field(metadata={'codec': U8})
-    exports: int = field(metadata={'codec': U8})
+    imports: int = field(metadata={'codec': VarInt64})
+    extrinsic_count: int = field(metadata={'codec': VarInt64})
+    extrinsic_size: int = field(metadata={'codec': VarInt64})
+    exports: int = field(metadata={'codec': VarInt64})
 
 
 @dataclass

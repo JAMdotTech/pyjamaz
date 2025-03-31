@@ -16,7 +16,7 @@ def hc_log(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: P
     """
     """
     level = ctx_in.registers[7]
-    logger = LEVELS.get(level, None)
+    log_level = LEVELS.get(level, None)
 
     if ctx_in.registers[8] == 0 or ctx_in.registers[9] == 0:
         target = ""
@@ -25,4 +25,4 @@ def hc_log(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: P
 
     message = ctx_in.memory.read_bytes(ctx_in.registers[10], ctx_in.registers[11]).decode("utf-8")
 
-    logger.debug(logger[0], level, 1, ctx_in.service_id, target, message)
+    logger.debug(log_level[0], 1, ctx_in.service_id, target, message)

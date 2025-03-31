@@ -970,14 +970,14 @@ class CoreActivityRecord(Serializable):
     popularity: U16
         GP-0.6.4-eq:??? | Number of validators which formed super-majority for assurance.
     """
-    gas_used: int = field(metadata={'codec': U64})
-    imports: int = field(metadata={'codec': U16})
-    extrinsic_count: int = field(metadata={'codec': U16})
-    extrinsic_size: int = field(metadata={'codec': U32})
-    exports: int = field(metadata={'codec': U16})
-    bundle_size: int = field(metadata={'codec': U32})
-    da_load: int = field(metadata={'codec': U32})
-    popularity: int = field(metadata={'codec': U16})
+    gas_used: int = field(metadata={'codec': VarInt64})
+    imports: int = field(metadata={'codec': VarInt64})
+    extrinsic_count: int = field(metadata={'codec': VarInt64})
+    extrinsic_size: int = field(metadata={'codec': VarInt64})
+    exports: int = field(metadata={'codec': VarInt64})
+    bundle_size: int = field(metadata={'codec': VarInt64})
+    da_load: int = field(metadata={'codec': VarInt64})
+    popularity: int = field(metadata={'codec': VarInt64})
 
 
 @dataclass
@@ -1011,18 +1011,18 @@ class ServiceActivityRecord(Serializable):
     on_transfers_gas_used: U64
         GP-0.6.4-eq:??? | Amount of gas used for processing transfers by service.
     """
-    provided_count: int = field(metadata={'codec': U16})
-    provided_size: int = field(metadata={'codec': U32})
-    refinement_count: int = field(metadata={'codec': U32})
-    refinement_gas_used: int = field(metadata={'codec': U64})
-    imports: int = field(metadata={'codec': U32})
-    extrinsic_count: int = field(metadata={'codec': U32})
-    extrinsic_size: int = field(metadata={'codec': U32})
-    exports: int = field(metadata={'codec': U32})
-    accumulate_count: int = field(metadata={'codec': U32})
-    accumulate_gas_used: int = field(metadata={'codec': U64})
-    on_transfers_count: int = field(metadata={'codec': U32})
-    on_transfers_gas_used: int = field(metadata={'codec': U64})
+    provided_count: int = field(metadata={'codec': VarInt64})
+    provided_size: int = field(metadata={'codec': VarInt64})
+    refinement_count: int = field(metadata={'codec': VarInt64})
+    refinement_gas_used: int = field(metadata={'codec': VarInt64})
+    imports: int = field(metadata={'codec': VarInt64})
+    extrinsic_count: int = field(metadata={'codec': VarInt64})
+    extrinsic_size: int = field(metadata={'codec': VarInt64})
+    exports: int = field(metadata={'codec': VarInt64})
+    accumulate_count: int = field(metadata={'codec': VarInt64})
+    accumulate_gas_used: int = field(metadata={'codec': VarInt64})
+    on_transfers_count: int = field(metadata={'codec': VarInt64})
+    on_transfers_gas_used: int = field(metadata={'codec': VarInt64})
 
 
 @dataclass
@@ -1045,10 +1045,10 @@ class StatisticsState(State, Serializable):
     vals_current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
     vals_last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
     cores: List[CoreActivityRecord] = field(metadata={
-        'codec': Null #Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
+        'codec': Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
     })
     services: Dict[int, ServiceActivityRecord] = field(metadata={
-        'codec': Null #Map(U32, ServiceActivityRecord.to_codec_def())
+        'codec': Map(VarInt64, ServiceActivityRecord.to_codec_def())
     })
 
 
