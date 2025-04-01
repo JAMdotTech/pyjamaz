@@ -12,9 +12,9 @@ class PVMDunaLog(PVMDebugLog):
     def header(self):
         pass
 
-    def host_call(self, msg, data):
-        regs = [int(x) for x in self._pvm.reg]
-        logging.debug(f"reg={str(regs)}")
+    def hc_log(self, msg, data):
+
+        msg = f"{self._pvm_id}: {msg}"
         spacing = " " * (51 - len(str(msg)))
         logging.debug(
             f"{msg}"
@@ -22,8 +22,28 @@ class PVMDunaLog(PVMDebugLog):
             f"{data}"
         )
 
-    def debug(self, level, core, service_idx, target, message):
-        logging.log(level, f"{level}@{core}#{service_idx} {target} {message}")
+    def hc_regs(self, msg):
+        regs = [int(x) for x in self._pvm.reg]
+        reg_msg = f"reg={str(regs)}"
+        spacing = " " * (51 - len(str(msg)))
+        logging.debug(
+            f"{msg}"
+            f"{spacing}"
+            f"{reg_msg}"
+        )
+
+    #def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_bytes, message_bytes: bytes) -> None:
+    def hc_debug(self, level, level_str, core, service_idx, target, message):
+        target_str = ""
+        if target:
+            target_str = f"target={target} "
+        core_str = "corevm "
+        if core:
+            core_str = f"core={core} "#{service_idx}"
+        prefix_str = f"{level_str}#{core_str}"
+        msg_str = f'{target_str}msg="{message}"'
+        spacing = " " * (51-(len(prefix_str)))
+        logging.log(level,f'{prefix_str}{spacing}{msg_str}')
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
         # regs = [int(x) for x in self._pvm.reg]

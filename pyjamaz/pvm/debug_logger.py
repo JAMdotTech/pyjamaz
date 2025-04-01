@@ -13,6 +13,9 @@ class PVMDebugLog(PVMLogger):
     def __init__(self, pvm, log_opcode_calls=True, log_opcode_calls_if_zero=False):
         np.seterr(over='ignore')
         self._pvm = pvm
+        self._pvm_id = ""
+        if self._pvm:
+            self._pvm_id = str(self._pvm.metadata)
         self.log_opcodes = {}
         self.log_opcode_calls = log_opcode_calls
         self.log_opcode_calls_if_zero = log_opcode_calls_if_zero
@@ -114,8 +117,13 @@ class PVMDebugLog(PVMLogger):
             }
             json.dump(tt, fp)
 
-    def debug(self, level, core, service_idx, target, message):
-        logging.debug(f"{level}@{core}#{service_idx} {target} {message}")
+    def hc_regs(self, msg):
+        regs = [int(x) for x in self._pvm.reg]
+        reg_msg = f"reg={str(regs)}"
+        logging.debug(f"{msg} {reg_msg}")
+
+    def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
+        logging.log(log_lvl, f"{log_lvl_name}@{core_idx}#{service_id} {target_msg} {message}")
 
     def state(self):
         logging.debug(f"GAS: {self._pvm.gas} PC: {self._pvm.pc}")

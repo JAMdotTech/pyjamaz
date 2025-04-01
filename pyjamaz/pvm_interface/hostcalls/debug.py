@@ -5,11 +5,11 @@ from pyjamaz.pvm.types import PVMLogger
 from pyjamaz.pvm_interface.types import InvocationInput
 
 LEVELS = {
-    0: (logging.ERROR, "⛔"),
-    1: (logging.WARNING, "⚠"),
-    2: (logging.CRITICAL, "️ℹ️"),
-    3: (logging.INFO, "💁"),
-    4: (logging.DEBUG, "🪡"),
+    0: (logging.ERROR, "ERROR", "⛔"),
+    1: (logging.WARNING, "WARNING", "⚠"),
+    2: (logging.CRITICAL, "CRITICAL", "ℹ️"),
+    3: (logging.INFO, "INFO", "💁"),
+    4: (logging.DEBUG, "DEBUG", "🪡"),
 }
 
 def hc_log(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
@@ -25,4 +25,4 @@ def hc_log(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: P
 
     message = ctx_in.memory.read_bytes(ctx_in.registers[10], ctx_in.registers[11]).decode("utf-8")
 
-    logger.debug(log_level[0], 1, ctx_in.service_id, target, message)
+    logger.hc_debug(log_level[0], log_level[1], None, ctx_in.service_id, target, message)

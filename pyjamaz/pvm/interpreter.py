@@ -39,6 +39,7 @@ from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 class PVMInterpreter:
 
     def __init__(self, program: PVMProgram, logger=None):
+        self.name = program.metadata
         self.reg = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
         self.pc:np.uint32 = np.uint32(0)
@@ -53,6 +54,7 @@ class PVMInterpreter:
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
 
+        self.metadata:bytes = None
         self.mem:PVMMemory = None
         self.status:int = ExitReason.resume.value
         self.exit_value:int = None
@@ -64,6 +66,7 @@ class PVMInterpreter:
             self.program = program
             self.log = logger
             self.log._pvm = self
+            self.log._pvm_id = self.metadata.decode("utf-8")
             for opcode_name in OpcodeNames.values():
                 if opcode_name not in logger.log_opcodes:
                     logger.log_opcodes[opcode_name] = 0
@@ -122,6 +125,7 @@ class PVMInterpreter:
         self.pc = np.uint32(0)
         self.gas = np.int64(0)
 
+        self.metadata = program.metadata
         self.code:npt.NDArray[np.uint8] = np.array(program.code.code, dtype=np.uint8)
         self.code_size: np.uint64 = np.uint64(len(self.code))
         self.mem = program.memory

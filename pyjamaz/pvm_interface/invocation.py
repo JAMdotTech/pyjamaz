@@ -138,16 +138,6 @@ def pvm_invoke_accumulate(
     # GP-0.6.2-eq:B.12 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
 
-        marshalling_output = pvm_invocation.pvm_invoke_marshalling(
-            serialized_program=serialized_program,
-            start_offset=5,
-            gas_limit=gas_limit,
-            argument_data=argument_data
-        )
-
-
-
-
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.savepoint_context.state_context,
             deferred_transfers=marshalling_output.context.savepoint_context.deferred_transfers,

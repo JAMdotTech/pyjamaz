@@ -21,10 +21,13 @@ from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 
 class PVMLogger:
 
-    def host_call(self, msg, data):
+    def hc_log(self, msg, data):
         pass
 
-    def debug(self, level, core, service_idx, target, message):
+    def hc_regs(self, msg) -> None:
+        pass
+
+    def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
         pass
 
     def hash(self):
@@ -334,10 +337,10 @@ class PVMMemory:
         if not section:
             return False
 
-        #section_addr = address - section.address
-        section_bytes = section.size #(section.size - section_addr)
+        local_addr = address - section.address
+        bytes_required = local_addr + length
 
-        if section_bytes < length:
+        if bytes_required > section.size:
             return False
 
         if mode == PVMMemoryMode.readable:
@@ -465,22 +468,27 @@ class PVMProgram(Serializable):
         # TODO: add sanity check on heap_mem_size
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
-            length=PVMMemory.page_size(len(heap_contents)) + heap_mem_size,
+            length=PVMMemory.page_size(len(heap_contents)) + heap_mem_size * PVM_PAGE_SIZE,
             writable=True,
             contents=heap_contents
         )
 
+        #TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!TMP!!!!!!!!!!!
+        stack_start = 2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size)
+        arg_start = 2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE
+        stack_max = arg_start-stack_start-1
+
         #TODO: add sanity check on stack_mem_size
         _stack = MemorySection(
             address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
-            length=PVMMemory.page_size(stack_mem_size),
+            length=stack_max, #PVMMemory.page_size(stack_mem_size),
             writable=True,
             contents=bytes(PVMMemory.page_size(stack_mem_size)),
         )
 
         _arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            length=PVMMemory.zone_size(len(argument_contents)),
+            length=PVMMemory.page_size(len(argument_contents)),
             writable=False,
             contents=argument_contents,
         )
@@ -537,7 +545,7 @@ class PVMProgram(Serializable):
                 return cls(
                     code=PVMCode.from_jam_bytes(JamBytes(pvm_code)),
                     registers=cls.init_registers(argument_contents),
-                    memory=cls.init_memory(pvm_rom_contents, pvm_heap_contents, argument_contents, heap_mem_pages * PVM_PAGE_SIZE, stack_mem_size),
+                    memory=cls.init_memory(pvm_rom_contents, pvm_heap_contents, argument_contents, heap_mem_pages, stack_mem_size),
                     metadata=metadata
                 )
             else:
