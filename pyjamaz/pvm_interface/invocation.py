@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import List, Dict
 
 from pyjamaz.models.common import AccumulationOperand
@@ -9,8 +10,20 @@ from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemory
-from pyjamaz.pvm_interface.hostcalls.accumulate import HostCallLookup
-from pyjamaz.pvm_interface.types import InvocationInput
+from pyjamaz.pvm_interface.hostcalls.accumulate import HostCallLookup, hc_bless
+from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate
+
+
+@dataclass
+class GenericAccumulationInput:
+    """
+    """
+    service_id: int
+    invocation_context: AccumulateInvocationContext
+    gas_before: int
+    gas_limit: int
+    registers: List[int]
+    memory: PVMMemory
 
 
 class AccumulateInvocationMutator(InvocationMutator):
@@ -28,14 +41,14 @@ class AccumulateInvocationMutator(InvocationMutator):
         """
         logging.debug(f'PVM host-call #{host_call_instr_nr}')
 
-        ctx_in = InvocationInput(
-            service_id=invocation_context.context.service_account_id,
-            invocation_context=invocation_context,
-            gas_before=int(_pvm.gas),
-            gas_limit=gas_limit,
-            registers=registers,
-            memory=memory
-        )
+        # ctx_in = InvocationInput(
+        #     service_id=invocation_context.context.service_account_id,
+        #     invocation_context=invocation_context,
+        #     gas_before=int(_pvm.gas),
+        #     gas_limit=gas_limit,
+        #     registers=registers,
+        #     memory=memory
+        # )
         ctx_out = InvocationMutationOutput(
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
@@ -43,6 +56,32 @@ class AccumulateInvocationMutator(InvocationMutator):
             memory=memory,
             context=invocation_context
         )
+
+
+        HostCallAccumulate.assign.value: hc_assign,
+        HostCallAccumulate.designate.value: hc_designate,
+        HostCallAccumulate.checkpoint.value: hc_checkpoint,
+        HostCallAccumulate.new.value: hc_new,
+        HostCallAccumulate.upgrade.value: hc_upgrade,
+        HostCallAccumulate.transfer.value: hc_transfer,
+        HostCallAccumulate.eject.value: hc_eject,
+        HostCallAccumulate.query.value: hc_query,
+        HostCallAccumulate.solicit.value: hc_solicit,
+        HostCallAccumulate.forget.value: hc_forget,
+        HostCallAccumulate._yield.value: hc_yield,
+
+        match host_call_instr_nr:
+
+            case HostCallAccumulate.bless.value:
+                ctx_in = GenericAuccumulationInput(
+                    service_id=invocation_context.context.service_account_id,
+                    invocation_context=invocation_context,
+                    gas_before=int(_pvm.gas),
+                    gas_limit=gas_limit,
+                    registers=registers,
+                    memory=memory
+                )
+                hc_bless(ctx_in, ctx_out, _pvm.log)
 
         invoke_hostcall = HostCallLookup.get(host_call_instr_nr, None)
         if invoke_hostcall:

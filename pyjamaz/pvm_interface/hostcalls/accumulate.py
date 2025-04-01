@@ -596,25 +596,25 @@ def hc_yield(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
         logger.host_call("YIELD OK", f"invocation_data={invocation_data.hex()}")
 
 
-HostCallLookup = {
-    HostCallDebug.log.value: debug.hc_log,
-
-    HostCallGeneral.gas.value: general.hc_gas,
-    HostCallGeneral.lookup.value: general.hc_lookup,
-    HostCallGeneral.read.value: general.hc_read,
-    HostCallGeneral.write.value: general.hc_write,
-    HostCallGeneral.info.value: general.hc_info,
-
-    HostCallAccumulate.bless.value: hc_bless,
-    HostCallAccumulate.assign.value: hc_assign,
-    HostCallAccumulate.designate.value: hc_designate,
-    HostCallAccumulate.checkpoint.value: hc_checkpoint,
-    HostCallAccumulate.new.value: hc_new,
-    HostCallAccumulate.upgrade.value: hc_upgrade,
-    HostCallAccumulate.transfer.value: hc_transfer,
-    HostCallAccumulate.eject.value: hc_eject,
-    HostCallAccumulate.query.value: hc_query,
-    HostCallAccumulate.solicit.value: hc_solicit,
-    HostCallAccumulate.forget.value: hc_forget,
-    HostCallAccumulate._yield.value: hc_yield,
-}
+# HostCallLookup = {
+#     HostCallDebug.log.value: debug.hc_log,
+#
+#     HostCallGeneral.gas.value: general.hc_gas,
+#     HostCallGeneral.lookup.value: general.hc_lookup,
+#     HostCallGeneral.read.value: general.hc_read,
+#     HostCallGeneral.write.value: general.hc_write,
+#     HostCallGeneral.info.value: general.hc_info,
+#
+#     HostCallAccumulate.bless.value: hc_bless,
+#     HostCallAccumulate.assign.value: hc_assign,
+#     HostCallAccumulate.designate.value: hc_designate,
+#     HostCallAccumulate.checkpoint.value: hc_checkpoint,
+#     HostCallAccumulate.new.value: hc_new,
+#     HostCallAccumulate.upgrade.value: hc_upgrade,
+#     HostCallAccumulate.transfer.value: hc_transfer,
+#     HostCallAccumulate.eject.value: hc_eject,
+#     HostCallAccumulate.query.value: hc_query,
+#     HostCallAccumulate.solicit.value: hc_solicit,
+#     HostCallAccumulate.forget.value: hc_forget,
+#     HostCallAccumulate._yield.value: hc_yield,
+# }

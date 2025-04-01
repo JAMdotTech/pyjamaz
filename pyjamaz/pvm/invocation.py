@@ -113,7 +113,6 @@ class PVMInvocation:
 
             if exit_condition.reason == ExitReason.host_halt:
 
-                #TODO: refactor in seperate files? (general, accumulate, on_transfer & refine)
                 host_call_output = self.invocation_mutator.execute(
                     host_call_instr_nr=exit_condition.value,
                     gas_limit=int(self.pvm.gas),
