@@ -31,13 +31,13 @@ from pyjamaz.state.base import StateComponent, state_key_constructor_service_acc
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
     Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext, \
-    EpochMarkValidatorKeys
+    EpochMarkValidatorKeys, DeferredTransferStatistic
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
     AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
-    AccumulationQueueWorkPackage, DeferredTransfer
+    AccumulationQueueWorkPackage, DeferredTransfer, ServiceActivityRecord
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -1577,8 +1577,7 @@ class Statistics(StateComponent):
             post_state_timeslot: TimeslotState,
             post_state_validator_pool: ValidatorPoolState,
             pre_state_statistics: StatisticsState,
-            header: Header,
-            reporters: List[bytes]
+            header: Header
     ) -> StatisticsOutput:
         """
         GP-0.5.0-eq:13.3,13.4 (π') | State transition function for the state's statistics.
@@ -1603,8 +1602,6 @@ class Statistics(StateComponent):
             GP-0.5.0-eq:4.20 (π)
         header: Header
             GP-0.5.0-eq:4.20 (bold_H)
-        reporters: List[bytes]
-            GP-0.6.2-eq:??? TODO missing in dependency graph?
 
         Returns
         -------
@@ -1613,7 +1610,7 @@ class Statistics(StateComponent):
         """
         post_state = deepcopy(pre_state_statistics)
 
-        # GP-0.5.0-eq:13.3
+        # GP-0.6.4-eq:13.3
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             post_state.vals_last = post_state.vals_current
             post_state.vals_current = [ActivityRecord(
@@ -1625,7 +1622,7 @@ class Statistics(StateComponent):
                 assurances=0
             ) for _ in range(gp_const.VALIDATOR_COUNT)]
 
-        # GP-0.5.0-eq:13.4
+        # GP-0.6.4-eq:13.4
         post_state.vals_current[header.author_index].blocks += 1
         post_state.vals_current[header.author_index].tickets += len(extrinsic_tickets)
         post_state.vals_current[header.author_index].pre_images += len(extrinsic_preimages)
@@ -1634,8 +1631,49 @@ class Statistics(StateComponent):
         for assurance in extrinsic_assurances:
             post_state.vals_current[assurance.validator_index].assurances += 1
 
-        for reporter in reporters:
+        for reporter in self.block_context.reporters:
             post_state.vals_current[self.retrieve_validator_index(reporter, post_state_validator_pool)].guarantees += 1
+
+        incoming_work_reports = [g.report for g in extrinsic_guarantees]
+
+        # GP-0.6.4-eq:13.8
+        for c in range(gp_const.CORE_COUNT):
+            post_state.cores[c].update(
+                core_index=c,
+                incoming_work_reports=incoming_work_reports,
+                available_work_reports=self.block_context.available_work_reports,
+                extrinsic_assurances=extrinsic_assurances
+            )
+
+        post_state.services = {}
+
+        # GP-0.6.4-eq:13.12
+        services = [r.service_id for w in incoming_work_reports for r in w.results]
+        services += [p.requester for p in extrinsic_preimages]
+        services += [p.requester for p in extrinsic_preimages]
+        services += self.block_context.accumulation_statistics.keys()
+        services += self.block_context.deferred_transfer_statistics.keys()
+
+        # GP-0.6.4-eq:13.11
+        for s in set(services):
+            activity_record = ServiceActivityRecord()
+            for p in extrinsic_preimages:
+                if p.requester == s:
+                    activity_record.provided_count += 1
+                    activity_record.provided_size += len(p.blob)
+
+            for w in incoming_work_reports:
+                for r in w.results:
+                    if r.service_id == s:
+                        activity_record.refinement_count += 1
+                        activity_record.refinement_gas_used += r.refine_load.gas_used
+                        activity_record.imports += r.refine_load.imports
+                        activity_record.extrinsic_count += r.refine_load.extrinsic_count
+                        activity_record.extrinsic_size += r.refine_load.extrinsic_size
+                        activity_record.exports += r.refine_load.exports
+                        # TODO finish transfer
+
+            post_state.services[s] = activity_record
 
         return StatisticsOutput(
             post_state=post_state
@@ -1654,7 +1692,7 @@ class Statistics(StateComponent):
 
 
 class Services(StateComponent):
-    # component_id = 255
+    component_id = 255
 
     def validate_extrinsic_preimages(
             self,
@@ -1836,7 +1874,8 @@ class Services(StateComponent):
             post_state_authorizer_queues=output.post_accumulation_state.authorizer_queues,
             beefy_commitment_map=output.accumulation_commitment,
             nr_work_results_accumulated=output.nr_work_results_accumulated,
-            deferred_transfers=output.deferred_transfers
+            deferred_transfers=output.deferred_transfers,
+            accumulation_gas_utilized=output.accumulation_gas_utilized
         )
 
     def state_transition_transfers(
@@ -1869,18 +1908,32 @@ class Services(StateComponent):
         intermediate_state_after_transfers.set_storage_engine(self.storage_engine)
         intermediate_state_after_transfers.set_storage_transaction(self.app_context.transaction)
 
+        deferred_transfer_statistics = {}
+
         for service_id in intermediate_state_after_accumulation.services.keys():
+            deferred_transfers = transfers_service_mapping(deferred_transfers, service_id)
+
+            output = pvm_invoke_on_transfer(
+                services=intermediate_state_after_accumulation.services,
+                timeslot=post_state_timeslot.number,
+                service_id=service_id,
+                deferred_transfers=deferred_transfers
+            )
+
             intermediate_state_after_transfers.services.update({
-                service_id: pvm_invoke_on_transfer(
-                    services=intermediate_state_after_accumulation.services,
-                    timeslot=post_state_timeslot.number,
-                    service_id=service_id,
-                    deferred_transfers=transfers_service_mapping(deferred_transfers, service_id)
-                )
+                service_id: output.service_account
             })
 
+            # GP-0.6.4-eq:12.30
+            if len(deferred_transfers) > 0:
+                deferred_transfer_statistics[service_id] = DeferredTransferStatistic(
+                    nr_transfers=len(deferred_transfers),
+                    gas_used=output.gas_used,
+                )
+
         return ServicesAfterTransfersOutput(
-            intermediate_state_after_transfers=intermediate_state_after_transfers
+            intermediate_state_after_transfers=intermediate_state_after_transfers,
+            deferred_transfer_statistics=deferred_transfer_statistics
         )
 
     def is_preimage_needed(self, preimage: Preimage, pre_state_services: ServicesState) -> bool:

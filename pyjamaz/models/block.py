@@ -3,11 +3,11 @@ from functools import cached_property
 
 from bandersnatch_vrfs import ietf_vrf_verify, ietf_vrf_sign
 from math import floor
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from pyjamaz.accumulation import priority_queue, edit_queue, work_report_dependencies, work_report_mapping
 from pyjamaz.models.state import EntropyState, TimeslotState, ValidatorPoolState, ValidatorArchiveState, \
-    BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState, AccumulationQueueWorkPackage
+    BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState, AccumulationQueueWorkPackage, DeferredTransfer
 
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray, Tuple
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT, ROTATION_PERIOD_CORE
@@ -753,9 +753,22 @@ class GuarantorAssignment:
 
 
 @dataclass
+class AccumulationStatistic:
+    total_gas_utilized: int
+    nr_work_reports_accumulated: int
+
+
+@dataclass
+class DeferredTransferStatistic:
+    nr_transfers: int
+    gas_used: int
+
+
+@dataclass
 class BlockContext:
     """
     GP-0.6.4-section:I.4.1 | Block context terms.
+    TODO parameter docstring
     """
     # G
     guarantor_assignments: Optional[List[GuarantorAssignment]] = None
@@ -781,8 +794,18 @@ class BlockContext:
 
     # M_o
     state_root: Optional[bytes] = None
+
     # C
     beefy_commitment_map: Optional[BeefyCommitmentMap] = None
+
+    # S
+    accumulated_services: Optional[List[int]] = None
+
+    # I
+    accumulation_statistics: Optional[Dict[int, AccumulationStatistic]] = None
+
+    # X
+    deferred_transfer_statistics: Optional[Dict[int, DeferredTransferStatistic]] = None
 
     def reset(self):
         self.guarantor_assignments = None
@@ -794,6 +817,9 @@ class BlockContext:
         self.accumulatable_work_reports = None
         self.state_root = None
         self.beefy_commitment_map = None
+        self.accumulated_services = None
+        self.accumulation_statistics = None
+        self.deferred_transfer_statistics = None
 
 
     def get_parent(self, header: Header) -> Optional[Header]:
@@ -945,3 +971,11 @@ class BlockContext:
         )
         # GP-0.5.4-eq:12.11
         self.accumulatable_work_reports = self.ready_work_reports + priority_queue(q)
+
+    def set_accumulation_statistics(self, accumulation_gas_utilized: Dict[int, int], nr_work_results_accumulated: int):
+        """
+        GP-0.6.4-eq:12.24,12.25 | Compose accumulation statistics (I)
+        """
+        if self.ready_work_reports is None:
+            raise ValueError("No accumulatable reports set")
+        self.accumulation_statistics = {}

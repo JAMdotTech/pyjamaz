@@ -4,6 +4,7 @@ from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
     BeefyCommitmentMap, TimeslotState, PvmAccumulateOutput, EntropyState
 from pyjamaz.pvm_interface.invocation import pvm_invoke_accumulate
+from pyjamaz.utils import substitute_if_nothing
 
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
@@ -94,7 +95,7 @@ def transfers_service_mapping(
         service_id: int
 ) -> List[DeferredTransfer]:
     """
-    GP-0.6.1-eq:12.23 (R) | Maps a sequence of deferred transfers to a service
+    GP-0.6.4-eq:12.26 (R) | Maps a sequence of deferred transfers to a service
 
     Parameters
     ----------
@@ -111,17 +112,26 @@ def transfers_service_mapping(
 
 @dataclass
 class ParallelAccumulationOutput:
-    total_gas_utilized: int
     accumulation_state: AccumulationStateComponents
     deferred_transfers: List[DeferredTransfer]
     accumulation_commitment: BeefyCommitmentMap
+    accumulation_gas_utilized: Dict[int, int]
 
 @dataclass
 class FullAccumulationOutput:
+    """
+    GP-0.6.4-eq:12.21
+    """
+    # n
     nr_work_results_accumulated: int
+    # o
     post_accumulation_state: AccumulationStateComponents
+    # t
     deferred_transfers: List[DeferredTransfer]
+    # C
     accumulation_commitment: BeefyCommitmentMap
+    # u
+    accumulation_gas_utilized: Dict[int, int]
 
 
 def full_sequential_accumulation(
@@ -164,6 +174,7 @@ def full_sequential_accumulation(
             post_accumulation_state=accumulation_state,
             deferred_transfers=[],
             accumulation_commitment=BeefyCommitmentMap(beefy_commitment_map={}),
+            accumulation_gas_utilized={}
         )
 
     output = parallel_accumulation(
@@ -175,7 +186,7 @@ def full_sequential_accumulation(
     )
 
     second_output = full_sequential_accumulation(
-        gas_limit=gas_limit - output.total_gas_utilized,
+        gas_limit=gas_limit - sum([u for u in output.accumulation_gas_utilized.values()]),
         work_reports=work_reports[i:],
         accumulation_state=output.accumulation_state,
         auto_accumulate_services={},
@@ -187,11 +198,16 @@ def full_sequential_accumulation(
         second_output.accumulation_commitment.beefy_commitment_map
     )
 
+    output.accumulation_gas_utilized.update(
+        second_output.accumulation_gas_utilized
+    )
+
     return FullAccumulationOutput(
         nr_work_results_accumulated=i + second_output.nr_work_results_accumulated,
         post_accumulation_state=accumulation_state,
         deferred_transfers=output.deferred_transfers + second_output.deferred_transfers,
         accumulation_commitment=output.accumulation_commitment,
+        accumulation_gas_utilized=second_output.accumulation_gas_utilized,
     )
 
 
@@ -221,12 +237,14 @@ def parallel_accumulation(
     service_ids = list(
         dict.fromkeys([r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()))
     )
+
     # u
-    total_gas_utilized = 0
+    accumulation_gas_utilized = {}
     # b
     beefy_commitment_map = {}
     # t
     deferred_transfers = []
+
 
     # TODO parallelize
     # async def process_service_accumulation():
@@ -259,7 +277,8 @@ def parallel_accumulation(
             auto_accumulate_services=auto_accumulate_services,
             service_id=service_id
         )
-        total_gas_utilized += output.gas_limit
+
+        accumulation_gas_utilized[service_id] = output.gas_limit
 
         deferred_transfers += output.deferred_transfers
 
@@ -272,6 +291,9 @@ def parallel_accumulation(
     # TODO Emiel: When to skip, >0 ?
     # Process privilege services (x')
     if accumulation_state.privileged_services.empower_service > 0:
+        # TODO make DRY
+        service_id = accumulation_state.privileged_services.empower_service
+
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,
@@ -282,20 +304,34 @@ def parallel_accumulation(
         )
         accumulation_state.privileged_services = output.state_context.privileged_services
 
+        accumulation_gas_utilized[service_id] = output.gas_limit
+        if output.accumulation_output is not None:
+            beefy_commitment_map.update({service_id: output.accumulation_output})
+
     # Process validator queue (i')
     if accumulation_state.privileged_services.designate_service > 0:
+        # TODO make DRY
+        service_id = accumulation_state.privileged_services.designate_service
+
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,
             post_state_entropy=post_state_entropy,
             work_reports=work_reports,
             auto_accumulate_services=auto_accumulate_services,
-            service_id=accumulation_state.privileged_services.designate_service
+            service_id=service_id
         )
         accumulation_state.validator_queue = output.state_context.validator_queue
 
+        accumulation_gas_utilized[service_id] = output.gas_limit
+        if output.accumulation_output is not None:
+            beefy_commitment_map.update({service_id: output.accumulation_output})
+
     # Process authorizer queue (q')
     if accumulation_state.privileged_services.assign_service > 0:
+        # TODO make DRY
+        service_id = accumulation_state.privileged_services.assign_service
+
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,
@@ -305,12 +341,15 @@ def parallel_accumulation(
             service_id=accumulation_state.privileged_services.assign_service
         )
         accumulation_state.authorizer_queues = output.state_context.authorizer_queues
+        accumulation_gas_utilized[service_id] = output.gas_limit
+        if output.accumulation_output is not None:
+            beefy_commitment_map.update({service_id: output.accumulation_output})
 
     return ParallelAccumulationOutput(
-        total_gas_utilized=total_gas_utilized,
         accumulation_state=accumulation_state,
         deferred_transfers=deferred_transfers,
         accumulation_commitment=BeefyCommitmentMap(beefy_commitment_map=beefy_commitment_map),
+        accumulation_gas_utilized=accumulation_gas_utilized
     )
 
 
@@ -337,8 +376,7 @@ def single_step_accumulation(
     -------
     PvmAccumulateOutput
     """
-    # GP-0.6.4-eq:3.2 (function_U) TODO explicit function
-    g = auto_accumulate_services.get(service_id, 0)
+    g = substitute_if_nothing(auto_accumulate_services.get(service_id), 0)
     p = []
     for w in work_reports:
         for r in w.results:

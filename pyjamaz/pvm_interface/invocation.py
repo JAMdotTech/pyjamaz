@@ -4,7 +4,7 @@ from typing import List, Dict
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
     AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
-    OnTransferInvocationContext
+    OnTransferInvocationContext, PvmOnTransferOutput
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
@@ -170,7 +170,7 @@ def pvm_invoke_on_transfer(
         timeslot: int,
         service_id: int,
         deferred_transfers: List[DeferredTransfer]
-) -> ServiceAccount:
+) -> PvmOnTransferOutput:
     """
     GP-0.6.2-eq:B.14 (Ψ_T) | the on-transfer service-account invocation function
 
@@ -187,6 +187,7 @@ def pvm_invoke_on_transfer(
     """
 
     service_account = services.get(service_id)
+    gas_used = 0
 
     if len(deferred_transfers) > 0:
         logging.debug(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
@@ -219,5 +220,9 @@ def pvm_invoke_on_transfer(
             )
 
             service_account = marshalling_output.context
+            gas_used = marshalling_output.gas_limit
 
-    return service_account
+    return PvmOnTransferOutput(
+        service_account=service_account,
+        gas_used=gas_used
+    )

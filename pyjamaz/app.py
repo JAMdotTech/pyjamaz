@@ -451,20 +451,6 @@ class PyjamazApp:
         # GP-0.6.1-eq:11.26
         self.block_context.reporters = assurances_output.reporters
 
-        # Statistics STF Block Data | GP-0.5.0-eq:4.20
-        statistics_output = self.components.statistics.state_transition(
-            extrinsic_guarantees=block.extrinsic.guarantees,
-            extrinsic_preimages=block.extrinsic.preimages,
-            extrinsic_assurances=block.extrinsic.assurances,
-            extrinsic_tickets=block.extrinsic.tickets,
-            pre_state_timeslot=pre_state_timeslot,
-            post_state_timeslot=timeslot_output.post_state,
-            post_state_validator_pool=validator_pool_output.post_state,
-            pre_state_statistics=pre_state_statistics,
-            header=block.header,
-            reporters=self.block_context.reporters,
-        )
-
         # GP-0.5.4-eq:12.4
         self.block_context.set_ready_work_reports()
 
@@ -496,17 +482,39 @@ class PyjamazApp:
             post_state_entropy=entropy_output.post_state
         )
 
+        # GP-0.6.4-eq:12.24
+        self.block_context.set_accumulation_statistics(
+            accumulation_gas_utilized=services_after_accumulation_output.accumulation_gas_utilized,
+            nr_work_results_accumulated=services_after_accumulation_output.nr_work_results_accumulated,
+        )
+
         services_after_transfers_output = self.components.services.state_transition_transfers(
             intermediate_state_after_accumulation=services_after_accumulation_output.intermediate_state_after_accumulation,
             post_state_timeslot=timeslot_output.post_state,
             deferred_transfers=services_after_accumulation_output.deferred_transfers
         )
 
+        # GP-0.6.4-eq:12.30
+        self.block_context.deferred_transfer_statistics = services_after_transfers_output.deferred_transfer_statistics
+
         # Services After Preimages STF Block Data | GP-0.5.0-eq:??
         services_after_preimages_output = self.components.services.state_transition_after_preimages(
             extrinsic_preimages=block.extrinsic.preimages,
             intermediate_state_after_transfers=services_after_transfers_output.intermediate_state_after_transfers,
             post_state_timeslot=timeslot_output.post_state
+        )
+
+        # Statistics STF Block Data | GP-0.5.0-eq:4.20
+        statistics_output = self.components.statistics.state_transition(
+            extrinsic_guarantees=block.extrinsic.guarantees,
+            extrinsic_preimages=block.extrinsic.preimages,
+            extrinsic_assurances=block.extrinsic.assurances,
+            extrinsic_tickets=block.extrinsic.tickets,
+            pre_state_timeslot=pre_state_timeslot,
+            post_state_timeslot=timeslot_output.post_state,
+            post_state_validator_pool=validator_pool_output.post_state,
+            pre_state_statistics=pre_state_statistics,
+            header=block.header
         )
 
         # AuthorizerPools STF Block Data | GP-0.5.4-eq:4.19

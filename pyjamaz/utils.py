@@ -1,6 +1,6 @@
 import itertools
 from math import floor
-from typing import List
+from typing import List, Optional
 
 from pyjamaz.graypaper_constants import CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, ROTATION_PERIOD_CORE
 
@@ -123,11 +123,24 @@ def guarantor_permute(entropy: bytes, timeslot: int) -> List[int]:
     )
     return guarantor_rotation(core_indices, floor(timeslot % EPOCH_TIMESLOTS / ROTATION_PERIOD_CORE))
 
+
+def substitute_if_nothing(*args) -> Optional[any]:
+    """
+    GP-0.6.4-eq:3.2 (function_U) | Equivalent to the first argument which is not ∅, or ∅ if no such argument exists.
+    """
+    for arg in args:
+        if arg is not None:
+            return arg
+    return None
+
+
 def vrf_input_ticket_seal(entropy: bytes, ticket_attempt: int) -> bytes:
     return b"jam_ticket_seal" + entropy + int.to_bytes(ticket_attempt, byteorder='little', length=1)
 
+
 def vrf_input_fallback_seal(entropy: bytes) -> bytes:
     return b"jam_fallback_seal" + entropy
+
 
 def format_hash(hash: bytes) -> str:
     return f'0x{hash[:4].hex()}...{hash[-4:].hex()}'
