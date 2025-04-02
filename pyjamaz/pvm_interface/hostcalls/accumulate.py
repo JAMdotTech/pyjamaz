@@ -22,7 +22,7 @@ def hc_bless(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
     State transition function for privileged services.
     Updates gas limits for privileged services
     """
-    logger.hc_regs("BLESS")
+    logger.hc_regs(f"BLESS", "accumulate")
 
     ctx_out.gas_limit -= 10
 
@@ -47,7 +47,7 @@ def hc_bless(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
             auto_accumulate_services = None   # bold_g = ∇
 
     try:
-        service_exists = any(ctx_in.state.services.retrieve_service_account(idx) for idx in [m, a, v])
+        service_exists = any(ctx_in.invocation_context.context.state_context.services.retrieve_service_account(idx) for idx in [m, a, v])
     except (StateKeyNoResult, OverflowError):
         service_exists = False
 
@@ -73,14 +73,12 @@ def hc_bless(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
 
         logger.hc_log("BLESS OK", f"m={m} a={a} v={v}")
 
-    logger.hc_regs("LOG")
-
 
 def hc_assign(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Update authorization queue (state transition function of Phi)
     """
-    logger.hc_regs("ASSIGN")
+    logger.hc_regs(f"ASSIGN", "accumulate")
     ctx_out.gas_limit -= 10
 
     # Privileged services:
@@ -88,17 +86,17 @@ def hc_assign(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger
     o = ctx_in.registers[8] # memory offset
 
     if ctx_in.memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, PVMMemoryMode.readable):
-        validator_queue = [] #GP: bold_c
+        authorization_queue = [] #GP: bold_c
         try:
             for idx in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS):
                 offset = o + idx * 32
-                validator_queue.append(ctx_in.memory.read_bytes(offset, 32))
+                authorization_queue.append(ctx_in.memory.read_bytes(offset, 32))
         except PVMMemoryError:
-            validator_queue = None
+            authorization_queue = None
     else:
-        validator_queue = None # bold_c = ∇
+        authorization_queue = None # bold_c = ∇
 
-    if validator_queue is None:
+    if authorization_queue is None:
         ctx_out.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("ASSIGN PANIC", f"c={core_index}")
     elif core_index >= CORE_COUNT:
@@ -109,17 +107,15 @@ def hc_assign(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger
         ctx_out.exit_condition = ExitCondition(reason=ExitReason.resume)
         ctx_out.registers[7] = HostCallResult.OK.value
         # TODO: mark dirty? maybe register changes
-        ctx_in.invocation_context.context.state_context.authorizer_queues.authorizer_queues[core_index] = validator_queue
+        ctx_in.invocation_context.context.state_context.authorizer_queues.authorizer_queues[core_index] = authorization_queue
         logger.hc_log("ASSIGN OK", f"c={core_index} o={o}")
-
-    logger.hc_regs("LOG")
 
 
 def hc_designate(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Update the validator Queue (State transition function for the validator queue)
     """
-    logger.hc_regs("DESIGNATE")
+    logger.hc_regs(f"DESIGNATE", "accumulate")
     ctx_out.gas_limit -= 10
 
     o = ctx_in.registers[7] # memory offset
@@ -146,27 +142,24 @@ def hc_designate(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, log
         ctx_in.invocation_context.context.state_context.validator_queue.validators = validator_queue
         logger.hc_log("DESIGNATE OK", f"o={o}")
 
-    logger.hc_regs("LOG")
-
 
 def hc_checkpoint(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Copy the invocation result context x to y
     """
-    logger.hc_regs("CHECKPOINT")
+    logger.hc_regs(f"CHECKPOINT", "accumulate")
     ctx_out.gas_limit -= 10
     ctx_out.registers[7] = ctx_out.gas_limit
     ctx_out.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
     ctx_in.invocation_context.savepoint_context = deepcopy(ctx_in.invocation_context.context)
-    logger.hc_regs("LOG")
 
 
 def hc_new(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Creates a new service
     """
-    logger.hc_regs("NEW")
+    logger.hc_regs(f"NEW", "accumulate")
     ctx_out.gas_limit -= 10
 
     o = int(ctx_in.registers[7])  # offset to read service data from
@@ -225,14 +218,12 @@ def hc_new(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: P
         ctx_in.invocation_context.context.state_context.services.store_preimage_availability(new_service_id, code_hash, l, [])
         logger.hc_log("NEW OK", f"old_service={ctx_in.service_id} code_hash={code_hash} code_len={l}")
 
-    logger.hc_regs("LOG")
-
 
 def hc_upgrade(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Updates codehash and gas limits for a service account
     """
-    logger.hc_regs("UPGRADE")
+    logger.hc_regs(f"UPGRADE", "accumulate")
     ctx_out.gas_limit -= 10
 
     o = ctx_in.registers[7]  # offset for service codehash
@@ -261,14 +252,12 @@ def hc_upgrade(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logge
         ctx_in.invocation_context.context.state_context.services.store_service_account(ctx_in.service_id, service_account)
         logger.hc_log("UPGRADE OK", f"code_hash={code_hash} ")
 
-    logger.hc_regs("LOG")
-
 
 def hc_transfer(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Create a new transfer and add to the deferred transfers
     """
-    logger.hc_regs("TRANSFER")
+    logger.hc_regs(f"TRANSFER", "accumulate")
     gas_cost = 10 + int(ctx_in.registers[9])
     ctx_out.gas_limit -= gas_cost
 
@@ -323,13 +312,11 @@ def hc_transfer(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logg
         ctx_in.invocation_context.context.state_context.services.store_service_account(ctx_in.service_id, service_account)
         logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
 
-    logger.hc_regs("LOG")
-
 
 def hc_eject(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     """
-    logger.hc_regs("EJECT")
+    logger.hc_regs(f"EJECT", "accumulate")
     ctx_out.gas_limit -= 10
 
     d = ctx_in.registers[7]
@@ -390,14 +377,12 @@ def hc_eject(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
         ctx_out.registers[7] = HostCallResult.HUH.value
         logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
 
-    logger.hc_regs("LOG")
-
 
 def hc_query(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Determines the availability of a preimage
     """
-    logger.hc_regs("QUERY")
+    logger.hc_regs(f"QUERY", "accumulate")
     ctx_out.gas_limit -= 10
 
     o = ctx_in.registers[7]    # memory offset
@@ -451,14 +436,12 @@ def hc_query(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
         ctx_out.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("QUERY PANIC", f"")
 
-    logger.hc_regs("QUERY")
-
 
 def hc_solicit(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Modifies the preimage availability lookup (requests a preimage to be made available)
     """
-    logger.hc_regs("SOLICIT")
+    logger.hc_regs(f"SOLICIT", "accumulate")
     ctx_out.gas_limit -= 10
 
     state = ctx_in.invocation_context.context.state_context
@@ -521,14 +504,12 @@ def hc_solicit(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logge
 
         logger.hc_log("SOLICIT OK", f"h={preimage_hash.hex()} newvalue={preimage_availability}")
 
-    logger.hc_regs("LOG")
-
 
 def hc_forget(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Deletes PreimageAvailability (status queue)
     """
-    logger.hc_regs("FORGET")
+    logger.hc_regs(f"FORGET", "accumulate")
     ctx_out.gas_limit -= 10
 
     state = ctx_in.invocation_context.context.state_context
@@ -590,14 +571,12 @@ def hc_forget(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger
         ctx_out.registers[7] = HostCallResult.OK.value
         logger.hc_log("FORGET OK", f"preimage_hash={preimage_hash.hex()}")
 
-    logger.hc_regs("LOG")
-
 
 def hc_yield(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Sets the invocation output
     """
-    logger.hc_regs("YIELD")
+    logger.hc_regs(f"YIELD", "accumulate")
     ctx_out.gas_limit -= 10
     o = ctx_in.registers[7]
 
@@ -615,8 +594,6 @@ def hc_yield(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
         ctx_out.registers[7] = HostCallResult.OK.value
         ctx_in.invocation_context.invocation_output = invocation_data
         logger.hc_log("YIELD OK", f"invocation_data={invocation_data.hex()}")
-
-    logger.hc_regs("YIELD")
 
 
 #TODO: move & create specific context per hgostcall, see branch mb-hostcall-refactor

@@ -6,11 +6,24 @@ from pyjamaz.utils import format_hash
 
 class PVMDunaLog(PVMDebugLog):
 
-    def state(self):
+    def pvm_counters(self):
         pass
 
-    def header(self):
+    def pvm_header(self):
         pass
+
+    def hc_regs(self, msg, phase):
+        # TODO: set phase from pvm invoke, hardcoded accumulate for now
+        msg = f"{self._pvm_id}_{phase}: {msg}"
+        regs = [int(x) for x in self._pvm.reg]
+        reg_msg = f"reg={str(regs)}"
+        spacing = " " * (51 - len(str(msg)))
+        logging.debug(
+            f"{msg}"
+            f"{spacing}"
+            f"{reg_msg}"
+        )
+
 
     def hc_log(self, msg, data):
 
@@ -22,7 +35,7 @@ class PVMDunaLog(PVMDebugLog):
             f"{data}"
         )
 
-    def hc_regs(self, msg):
+    def pvm_regs(self, msg):
         regs = [int(x) for x in self._pvm.reg]
         reg_msg = f"reg={str(regs)}"
         spacing = " " * (51 - len(str(msg)))
@@ -32,18 +45,17 @@ class PVMDunaLog(PVMDebugLog):
             f"{reg_msg}"
         )
 
-    #def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_bytes, message_bytes: bytes) -> None:
-    def hc_debug(self, level, level_str, core, service_idx, target, message):
+    def hc_debug(self, log_lvl, log_lvl_name, core_idx, service_idx, target, message):
         target_str = ""
         if target:
             target_str = f"target={target} "
         core_str = "corevm "
-        if core:
-            core_str = f"core={core} "#{service_idx}"
-        prefix_str = f"{level_str}#{core_str}"
+        if core_idx:
+            core_str = f"core={core_idx} "#{service_idx}"
+        prefix_str = f"{log_lvl_name}#{core_str}"
         msg_str = f'{target_str}msg="{message}"'
         spacing = " " * (51-(len(prefix_str)))
-        logging.log(level,f'{prefix_str}{spacing}{msg_str}')
+        logging.log(log_lvl, f'{prefix_str}{spacing}{msg_str}')
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
         # regs = [int(x) for x in self._pvm.reg]

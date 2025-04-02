@@ -38,7 +38,7 @@ from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 class PVMInterpreter:
 
-    def __init__(self, program: PVMProgram, logger=None):
+    def __init__(self, program: PVMProgram, logger_cls=None):
         self.name = program.metadata
         self.reg = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
@@ -59,17 +59,18 @@ class PVMInterpreter:
         self.status:int = ExitReason.resume.value
         self.exit_value:int = None
 
+        self.log = None
+
         self.reset(program)
 
-        self.log = None
-        if logger:
+        if logger_cls:
             self.program = program
-            self.log = logger
+            self.log = logger_cls(pvm=self)
             self.log._pvm = self
             self.log._pvm_id = self.metadata.decode("utf-8")
             for opcode_name in OpcodeNames.values():
-                if opcode_name not in logger.log_opcodes:
-                    logger.log_opcodes[opcode_name] = 0
+                if opcode_name not in self.log.log_opcodes:
+                    self.log.log_opcodes[opcode_name] = 0
 
 
     def create_instruction_lookup(self):
@@ -212,10 +213,8 @@ class PVMInterpreter:
         self.gas = gas
 
         if self.log:
-            self.log.state()
-            self.log.header()
-            self._initial_gas = gas
-            self._initial_pc = pc
+            self.log.pvm_counters()
+            self.log.pvm_header()
 
         while self.status == ExitReason.resume.value and self.gas > 0:
 

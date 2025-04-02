@@ -13,37 +13,12 @@ class PVMDebugLog(PVMLogger):
     def __init__(self, pvm, log_opcode_calls=True, log_opcode_calls_if_zero=False):
         np.seterr(over='ignore')
         self._pvm = pvm
-        self._pvm_id = ""
-        if self._pvm:
-            self._pvm_id = str(self._pvm.metadata)
+        self._pvm_id = self._pvm.metadata.decode("utf-8")
+        self._initial_gas = pvm.gas  # TODO: sla op in logger!
+        self._initial_pc = pvm.pc
         self.log_opcodes = {}
         self.log_opcode_calls = log_opcode_calls
         self.log_opcode_calls_if_zero = log_opcode_calls_if_zero
-
-    def hash(self):
-        bytez = bytes()
-        for x in range(len(self._pvm.reg)):
-            bytez += int(self._pvm.reg[x]).to_bytes(length=8, byteorder="little")
-
-        bytez += int(self._pvm.gas).to_bytes(length=8, byteorder="little")
-
-        rom = self._pvm.mem._rom
-        heap = self._pvm.mem._heap
-        stack = self._pvm.mem._stack
-        arguments = self._pvm.mem._args
-        mem_segments = [m for m in (rom, heap, stack, arguments) if m]
-        for seg in mem_segments:
-            if seg.tail > 0:
-                page_begin_addr = seg.address
-                page_end_addr = seg.paged_tail
-                nr_pages = (page_end_addr-page_begin_addr) // 4096 + 1
-                for xx in range(nr_pages):
-                    bytez += int(seg.address // 4096).to_bytes(length=4, byteorder="little")
-                    offset = xx*4096
-                    bytez += bytes(seg.contents[offset:offset+4096])
-
-        return blake2b_256_hash(bytez)
-
 
     def dump_code(self):
         with open(f"code-spi-{datetime.now().strftime('%H:%M:%S')}.bin", "wb") as binary_file:
@@ -117,18 +92,48 @@ class PVMDebugLog(PVMLogger):
             }
             json.dump(tt, fp)
 
-    def hc_regs(self, msg):
+
+    def hc_regs(self, msg: str, phase: str) -> None:
+        #TODO: set phase from pvm invoke, hardcoded accumulate for now
+        msg = f"{self._pvm_id}_{phase}: {msg}"
         regs = [int(x) for x in self._pvm.reg]
         reg_msg = f"reg={str(regs)}"
-        logging.debug(f"{msg} {reg_msg}")
+        logging.debug(
+            f"{msg}"
+            f"{reg_msg}"
+        )
 
     def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
         logging.log(log_lvl, f"{log_lvl_name}@{core_idx}#{service_id} {target_msg} {message}")
 
-    def state(self):
+    def pvm_hash(self):
+        bytez = bytes()
+        for x in range(len(self._pvm.reg)):
+            bytez += int(self._pvm.reg[x]).to_bytes(length=8, byteorder="little")
+
+        bytez += int(self._pvm.gas).to_bytes(length=8, byteorder="little")
+
+        rom = self._pvm.mem._rom
+        heap = self._pvm.mem._heap
+        stack = self._pvm.mem._stack
+        arguments = self._pvm.mem._args
+        mem_segments = [m for m in (rom, heap, stack, arguments) if m]
+        for seg in mem_segments:
+            if seg.tail > 0:
+                page_begin_addr = seg.address
+                page_end_addr = seg.paged_tail
+                nr_pages = (page_end_addr-page_begin_addr) // 4096 + 1
+                for xx in range(nr_pages):
+                    bytez += int(seg.address // 4096).to_bytes(length=4, byteorder="little")
+                    offset = xx*4096
+                    bytez += bytes(seg.contents[offset:offset+4096])
+
+        return blake2b_256_hash(bytez)
+
+    def pvm_counters(self):
         logging.debug(f"GAS: {self._pvm.gas} PC: {self._pvm.pc}")
 
-    def header(self):
+    def pvm_header(self):
         logging.debug(
             f"PC      "
             f"INST                  "
@@ -140,6 +145,11 @@ class PVMDebugLog(PVMLogger):
             f"OFF1                    "
             f"OFF2                    "
             "CTX")
+
+    def pvm_regs(self, msg):
+        regs = [int(x) for x in self._pvm.reg]
+        reg_msg = f"reg={str(regs)}"
+        logging.debug(f"{msg} {reg_msg}")
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
         ctx = {"reg": [int(x) for x in self._pvm.reg]}

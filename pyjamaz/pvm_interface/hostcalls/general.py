@@ -9,17 +9,16 @@ from pyjamaz.pvm_interface.types import InvocationInput
 
 
 def hc_gas(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
-    logger.hc_regs("GAS")
+    logger.hc_regs(f"GAS", "accumulate")
     ctx_out.registers[7] = ctx_in.gas_limit - 10
     ctx_out.exit_condition = ExitCondition(reason=ExitReason.resume)
-    logger.hc_regs("LOG")
 
 
 def hc_lookup(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Puts a Service Preimage blob into PVM memory
     """
-    logger.hc_regs("LOOKUP")
+    logger.hc_regs(f"LOOKUP", "accumulate")
     ctx_out.gas_limit -= 10
 
     state = ctx_in.invocation_context.context.state_context
@@ -65,14 +64,12 @@ def hc_lookup(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger
         ctx_out.memory.write_bytes(o, preimage_bytes[f:f + l])
         logger.hc_log("LOOKUP OK",
                            f"s={service_account_id} h={preimage_hash} len(v)={len(preimage_bytes)} write_bytes({o},{o + l})")
-    logger.hc_regs("LOG")
-
 
 def hc_read(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Puts a Service StorageItem blob into PVM memory
     """
-    logger.hc_regs("READ")
+    logger.hc_regs(f"READ", "accumulate")
     ctx_out.gas_limit -= 10
 
     # gp: s*
@@ -128,14 +125,12 @@ def hc_read(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: 
         ctx_out.memory.write_bytes(o, storage_item[f:f + l])
         logger.hc_log("READ OK",
                            f"s={new_service_id} k={storage_key.hex()} (len(storage_item)) write_bytes({o}, {o + l})")
-    logger.hc_regs("LOG")
-
 
 def hc_write(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Writes/deletes a Service StorageItem blob
     """
-    logger.hc_regs("WRITE")
+    logger.hc_regs(f"WRITE", "accumulate")
     ctx_out.gas_limit -= 10
 
     k_o = ctx_in.registers[7]  # offset to read storage_item_key from memory
@@ -216,14 +211,12 @@ def hc_write(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
                 logger.hc_log("WRITE OK",
                                    f"l={l}  s={ctx_in.service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
 
-    logger.hc_regs("LOG")
-
 
 def hc_info(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     """
     Writes ServiceAccount into PVM memory
     """
-    logger.hc_regs("INFO")
+    logger.hc_regs(f"INFO", "accumulate")
     ctx_out.gas_limit -= 10
 
     state = ctx_in.invocation_context.context.state_context
@@ -260,5 +253,3 @@ def hc_info(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: 
         ctx_out.exit_condition = ExitCondition(reason=ExitReason.resume)
         ctx_out.registers[7] = HostCallResult.OK.value
         logger.hc_log("INFO OK", f"s={ctx_in.service_id} bytes={len(service_account_bytes)}")
-
-    logger.hc_regs("LOG")

@@ -182,9 +182,7 @@ class PVMInvocation:
                 context=self.invocation_context
             )
 
-        #logger = PVMDebugLog(pvm=None)
-        logger = PVMDunaLog(pvm=None)
-        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger)
+        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDunaLog)
 
         output = self.pvm_invoke_host_call(
             instruction_counter=start_offset,
