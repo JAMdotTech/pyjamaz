@@ -976,10 +976,10 @@ class BlockContext:
         """
         GP-0.6.4-eq:12.24,12.25 | Compose accumulation statistics (I)
         """
-        if self.ready_work_reports is None:
+        if self.accumulatable_work_reports is None:
             raise ValueError("No accumulatable reports set")
         self.accumulation_statistics = {}
-        for w in self.ready_work_reports[:nr_work_results_accumulated]:
+        for w in self.accumulatable_work_reports[:nr_work_results_accumulated]:
             for r in w.results:
                 if r.service_id not in self.accumulation_statistics:
                     self.accumulation_statistics[r.service_id] = AccumulationStatistic()
