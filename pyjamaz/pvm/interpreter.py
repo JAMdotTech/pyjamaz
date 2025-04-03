@@ -40,7 +40,7 @@ class PVMInterpreter:
 
     def __init__(self, program: PVMProgram, logger_cls=None):
         self.name = program.metadata
-        self.reg = np.zeros(13, dtype=np.uint64)
+        self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
@@ -142,6 +142,8 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
 
+    def get_registers(self):
+        return [int(x) for x in self.reg]
 
     def mem_write(self, opcode, addr, value):
         if opcode not in MemOps:

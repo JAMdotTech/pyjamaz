@@ -1982,40 +1982,64 @@ class Services(StateComponent):
         -------
 
         """
-        # Process all service accounts in current memory
+        #TODO: mark dirty state, so we have state_mutations directly available
+        state_mutations = []
+
+        # Collect all service accounts in current memory
         for service_id, service_account in state.services.items():
+
             # Process storage items
             for storage_key, storage_value in service_account.storage_items.items():
                 if storage_value is None:
-                    state.delete_storage_item(service_id, storage_key, commit=True)
+                    state_mutations.append(("storage_items_delete", service_id, storage_key))
                 else:
-                    state.store_storage_item(service_id, storage_key, storage_value, commit=True)
+                    state_mutations.append(("storage_items_update", service_id, storage_key, storage_value))
+
             # Process preimages
             for preimage_hash, preimage_blob in service_account.preimages.items():
                 if preimage_blob is None:
-                    state.delete_preimage(service_id, preimage_hash, commit=True)
+                    state_mutations.append(("preimages_delete", service_id, preimage_hash))
                 else:
-                    state.store_preimage(service_id, preimage_blob, commit=True)
+                    state_mutations.append(("preimages_update", service_id, preimage_blob))
+
             # Process preimage availability
             for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
 
                 if availability is None:
-                    state.delete_preimage_availability(
-                        service_id, preimage_hash, preimage_length, commit=True
-                    )
+                    state_mutations.append(("preimage_availability_delete", service_id, preimage_hash, preimage_length))
                 else:
-                    state.store_preimage_availability(
-                        service_account_id=service_id,
-                        preimage_hash=preimage_hash,
-                        preimage_length=preimage_length,
-                        value=availability,
-                        commit=True
-                    )
+                    state_mutations.append(("preimage_availability_update", service_id, preimage_hash, preimage_length, availability))
+
             # Process service account
             if service_account is None:
-                state.delete_service_account(service_id, commit=True)
+                state_mutations.append(("service_account_delete", service_id,))
             else:
-                state.store_service_account(service_id, service_account, commit=True)
+                state_mutations.append(("service_account_update", service_id, service_account))
+
+        # Process all mutations afterwards (in order) to prevent mutating the state while iterating over it
+        for mut in state_mutations:
+            if mut[0] == "storage_items_delete":
+                state.delete_storage_item(mut[1], mut[2], commit=True)
+            elif mut[0] == "storage_items_update":
+                state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
+            elif mut[0] == "preimages_delete":
+                state.delete_preimage(mut[1], mut[2], commit=True)
+            elif mut[0] == "preimages_update":
+                state.store_preimage(mut[1], mut[2], commit=True)
+            elif mut[0] == "preimage_availability_delete":
+                state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
+            elif mut[0] == "preimage_availability_update":
+                state.store_preimage_availability(
+                    service_account_id=mut[1],
+                    preimage_hash=mut[2],
+                    preimage_length=mut[3],
+                    value=mut[4],
+                    commit=True
+                )
+            elif mut[0] == "service_account_delete":
+                state.delete_service_account(mut[1], commit=True)
+            elif mut[0] == "service_account_update":
+                state.store_service_account(mut[1], mut[2], commit=True)
 
 
 class AccumulationQueue(StateComponent):

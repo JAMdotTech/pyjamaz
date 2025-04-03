@@ -22,18 +22,18 @@ def hc_lookup(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger
     ctx_out.gas_limit -= 10
 
     state = ctx_in.invocation_context.context.state_context
-    service_account_id = ctx_in.registers[7]
+    service_account_id = int(ctx_in.registers[7])
     if service_account_id in (ctx_in.service_id, 2 ** 64 - 1):
         service_account_id = ctx_in.service_id
-        service_account = state.services.retrieve_service_account(ctx_in.registers[7])
+        service_account = state.services.retrieve_service_account(int(ctx_in.registers[7]))
     else:
         try:
-            service_account = state.services.retrieve_service_account(ctx_in.registers[7])  # GP: bold_a
+            service_account = state.services.retrieve_service_account(int(ctx_in.registers[7]))  # GP: bold_a
         except StateKeyNoResult:
             service_account = None  # bold_a = ∅
 
-    preimage_hash = ctx_in.registers[8]  # GP: h (offset to read image hash from pvm mem)
-    o = ctx_in.registers[9]  # offset to write image data to in pvm mem
+    preimage_hash = int(ctx_in.registers[8])  # GP: h (offset to read image hash from pvm mem)
+    o = int(ctx_in.registers[9])  # offset to write image data to in pvm mem
 
     preimage_writable = True
     preimage_bytes = bytes()  # GP: bold_v
@@ -45,8 +45,8 @@ def hc_lookup(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger
     elif service_account is not None:
         try:
             preimage_bytes = state.services.retrieve_preimage(service_account_id, ctx_in.memory.read_bytes(preimage_hash, 32))
-            f = min(ctx_in.registers[10], len(preimage_bytes))
-            l = min(ctx_in.registers[11], len(preimage_bytes) - f)
+            f = min(int(ctx_in.registers[10]), len(preimage_bytes))
+            l = min(int(ctx_in.registers[11]), len(preimage_bytes) - f)
             preimage_writable = ctx_in.memory.is_accessible(o, l, PVMMemoryMode.writable)  # bold_v = ∇
         except StateKeyNoResult:
             preimage_bytes = None  # GP: bold_v = ∅
@@ -73,7 +73,7 @@ def hc_read(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: 
     ctx_out.gas_limit -= 10
 
     # gp: s*
-    if ctx_in.registers[7] == 2 ** 64 - 1:
+    if int(ctx_in.registers[7]) == 2 ** 64 - 1:
         new_service_id = ctx_in.service_id
     else:
         new_service_id = int(ctx_in.registers[7])
@@ -88,9 +88,9 @@ def hc_read(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: 
     except StateKeyNoResult as e:
         service_account = None  # GP: bold_a = ∅
 
-    k_o = ctx_in.registers[8]  # offset to read from memory
-    k_z = ctx_in.registers[9]  # length to read from memory
-    o = ctx_in.registers[10]  # offset where to write to in pvm mem
+    k_o = int(ctx_in.registers[8])  # offset to read from memory
+    k_z = int(ctx_in.registers[9] ) # length to read from memory
+    o = int(ctx_in.registers[10])  # offset where to write to in pvm mem
 
     # GP: bold_v (storage_item)
     storage_key = None
@@ -98,7 +98,7 @@ def hc_read(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: 
     storage_item = None  # bold_v
     if service_account is not None:
         try:
-            new_service_id_bytes = int(new_service_id).to_bytes(length=4, byteorder="little")
+            new_service_id_bytes = new_service_id.to_bytes(length=4, byteorder="little")
             storage_key = blake2b_256_hash(new_service_id_bytes + ctx_in.memory.read_bytes(k_o, k_z))
             storage_item = state.services.retrieve_storage_item(service_account_id=new_service_id,
                                                                 storage_item_hash=storage_key)
@@ -108,8 +108,8 @@ def hc_read(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: 
             storage_item_mem_error = True  # bold_v = ∇
             storage_item = None
 
-    f = min(ctx_in.registers[11], len(storage_item or bytes()))
-    l = min(ctx_in.registers[12], len(storage_item or bytes()) - f)
+    f = min(int(ctx_in.registers[11]), len(storage_item or bytes()))
+    l = min(int(ctx_in.registers[12]), len(storage_item or bytes()) - f)
     mem_writable = ctx_in.memory.is_accessible(o, l, PVMMemoryMode.writable)
 
     if storage_item_mem_error or not mem_writable:
@@ -133,10 +133,10 @@ def hc_write(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
     logger.hc_regs(f"WRITE", "accumulate")
     ctx_out.gas_limit -= 10
 
-    k_o = ctx_in.registers[7]  # offset to read storage_item_key from memory
-    k_z = ctx_in.registers[8]  # length to read storage_item_key from memory
-    v_o = ctx_in.registers[9]  # offset to write storage_item_value from memory
-    v_z = ctx_in.registers[10]  # length to write storage_item_value from memory
+    k_o = int(ctx_in.registers[7])  # offset to read storage_item_key from memory
+    k_z = int(ctx_in.registers[8])  # length to read storage_item_key from memory
+    v_o = int(ctx_in.registers[9])  # offset to write storage_item_value from memory
+    v_z = int(ctx_in.registers[10])  # length to write storage_item_value from memory
 
     state = ctx_in.invocation_context.context.state_context
 
@@ -144,7 +144,7 @@ def hc_write(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
     l = None
     si = None
     service_account = state.services.retrieve_service_account(ctx_in.service_id)
-    service_id_bytes = int(ctx_in.service_id).to_bytes(length=4, byteorder="little")
+    service_id_bytes = ctx_in.service_id.to_bytes(length=4, byteorder="little")
     storage_key_mem_error = False
     service_storage_item_mem_error = False
     service_storage_item = None
@@ -186,7 +186,7 @@ def hc_write(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
                 service_account_id=ctx_in.service_id,
                 storage_item_hash=storage_key
             )
-            logger.hc_log("WRITE NONE", f"l={l}  s={ctx_in.service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
+            logger.hc_log("WRITE DELETE", f"l={l}  s={ctx_in.service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
 
             # Update storage footprint
             service_account.update_footprint_remove_storage_item(len(si))
@@ -200,10 +200,10 @@ def hc_write(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
             )
 
             # Update storage footprint
-            if si is None:
+            if len(si) == 0:
                 # TODO: mark dirty? maybe register changes
                 service_account.update_footprint_add_storage_item(len(service_storage_item))
-                logger.hc_log("WRITE OK",
+                logger.hc_log("WRITE NONE",
                                    f"l={l}  s={ctx_in.service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
                 # TODO: mark dirty? maybe register changes
@@ -223,15 +223,15 @@ def hc_info(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: 
 
     # GP: bold_t
     try:
-        if ctx_in.registers[7] == 2 ** 64 - 1:
+        if int(ctx_in.registers[7]) == 2 ** 64 - 1:
             # TODO: nieuwe functie: retrieve_service_account_bytes -> nalopen waar allemaal toepassen
             service_account = state.services.retrieve_service_account(ctx_in.service_id)
         else:
-            service_account = state.services.retrieve_service_account(ctx_in.registers[7])
+            service_account = state.services.retrieve_service_account(int(ctx_in.registers[7]))
     except StateKeyNoResult:
         service_account = None  # GP: t = ∅
 
-    o = ctx_in.registers[8]
+    o = int(ctx_in.registers[8])
 
     service_account_bytes = None  # GP: bold_m
     mem_write_error = False

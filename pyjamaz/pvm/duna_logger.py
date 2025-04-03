@@ -15,7 +15,7 @@ class PVMDunaLog(PVMDebugLog):
     def hc_regs(self, msg, phase):
         # TODO: set phase from pvm invoke, hardcoded accumulate for now
         msg = f"{self._pvm_id}_{phase}: {msg}"
-        regs = [int(x) for x in self._pvm.reg]
+        regs = self._pvm.get_registers()
         reg_msg = f"reg={str(regs)}"
         spacing = " " * (51 - len(str(msg)))
         logging.debug(
@@ -36,7 +36,7 @@ class PVMDunaLog(PVMDebugLog):
         )
 
     def pvm_regs(self, msg):
-        regs = [int(x) for x in self._pvm.reg]
+        regs = self._pvm.get_registers()
         reg_msg = f"reg={str(regs)}"
         spacing = " " * (51 - len(str(msg)))
         logging.debug(
@@ -58,7 +58,7 @@ class PVMDunaLog(PVMDebugLog):
         logging.log(log_lvl, f'{prefix_str}{spacing}{msg_str}')
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
-        # regs = [int(x) for x in self._pvm.reg]
+        # regs = self._pvm.get_registers()
         #
         # opn = OpcodeNames[self._pvm.opcode]
         #

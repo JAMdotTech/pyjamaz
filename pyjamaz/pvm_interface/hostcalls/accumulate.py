@@ -27,12 +27,12 @@ def hc_bless(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
     ctx_out.gas_limit -= 10
 
     # Privileged services:
-    m = ctx_in.registers[7] # m: index of manager service (manager of chi(X))
-    a = ctx_in.registers[8] # a: index of assign service (authorization queue)
-    v = ctx_in.registers[9] # v: index of designate service (validator queue)
+    m = int(ctx_in.registers[7]) # m: index of manager service (manager of chi(X))
+    a = int(ctx_in.registers[8]) # a: index of assign service (authorization queue)
+    v = int(ctx_in.registers[9]) # v: index of designate service (validator queue)
 
-    o = ctx_in.registers[10] # offset to read service indices and accompanying gas limits from
-    n = ctx_in.registers[11] # number of entries in the auto_accumulate_services dictionary to read
+    o = int(ctx_in.registers[10]) # offset to read service indices and accompanying gas limits from
+    n = int(ctx_in.registers[11]) # number of entries in the auto_accumulate_services dictionary to read
 
     auto_accumulate_services = None #GP: bold_g
     if ctx_in.memory.is_accessible(o, 12 * n, PVMMemoryMode.readable):
@@ -66,9 +66,9 @@ def hc_bless(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
 
         # TODO: mark dirty? maybe register changes
         ps = ctx_in.invocation_context.context.state_context.privileged_services
-        ps.empower_service = int(m)
-        ps.assign_service = int(a)
-        ps.designate_service = int(v)
+        ps.empower_service = m
+        ps.assign_service = a
+        ps.designate_service = v
         ps.auto_accumulate_services = auto_accumulate_services
 
         logger.hc_log("BLESS OK", f"m={m} a={a} v={v}")
@@ -82,8 +82,8 @@ def hc_assign(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger
     ctx_out.gas_limit -= 10
 
     # Privileged services:
-    core_index = ctx_in.registers[7] # Core index to update (0..341)
-    o = ctx_in.registers[8] # memory offset
+    core_index = int(ctx_in.registers[7]) # Core index to update (0..341)
+    o = int(ctx_in.registers[8]) # memory offset
 
     if ctx_in.memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, PVMMemoryMode.readable):
         authorization_queue = [] #GP: bold_c
@@ -118,7 +118,7 @@ def hc_designate(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, log
     logger.hc_regs(f"DESIGNATE", "accumulate")
     ctx_out.gas_limit -= 10
 
-    o = ctx_in.registers[7] # memory offset
+    o = int(ctx_in.registers[7]) # memory offset
 
     if ctx_in.memory.is_accessible(o, 336 * VALIDATOR_COUNT, PVMMemoryMode.readable):
         validator_queue = [] #GP: bold_v
@@ -226,9 +226,9 @@ def hc_upgrade(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logge
     logger.hc_regs(f"UPGRADE", "accumulate")
     ctx_out.gas_limit -= 10
 
-    o = ctx_in.registers[7]  # offset for service codehash
-    g = ctx_in.registers[8]  # gas_limit_accumulate
-    m = ctx_in.registers[9]  # gas_limit_on_transfer
+    o = int(ctx_in.registers[7])  # offset for service codehash
+    g = int(ctx_in.registers[8])  # gas_limit_accumulate
+    m = int(ctx_in.registers[9])  # gas_limit_on_transfer
 
     service_account = ctx_in.invocation_context.context.state_context.services.retrieve_service_account(ctx_in.service_id)
 
@@ -319,8 +319,8 @@ def hc_eject(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
     logger.hc_regs(f"EJECT", "accumulate")
     ctx_out.gas_limit -= 10
 
-    d = ctx_in.registers[7]
-    o = ctx_in.registers[8]
+    d = int(ctx_in.registers[7])
+    o = int(ctx_in.registers[8])
 
     # gp: h
     try:
@@ -386,7 +386,7 @@ def hc_query(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
     ctx_out.gas_limit -= 10
 
     o = ctx_in.registers[7]    # memory offset
-    preimage_length = ctx_in.registers[8]    # preimage length
+    preimage_length = int(ctx_in.registers[8])    # preimage length
 
     # GP: h
     try:
@@ -447,7 +447,7 @@ def hc_solicit(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logge
     state = ctx_in.invocation_context.context.state_context
     service_account = state.services.retrieve_service_account(ctx_in.service_id) # GP: bold_a
 
-    o = ctx_in.registers[7]
+    o = int(ctx_in.registers[7])
     preimage_length = int(ctx_in.registers[8])    # GP: z
 
     #GP: h
@@ -514,7 +514,7 @@ def hc_forget(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger
 
     state = ctx_in.invocation_context.context.state_context
     service_account = state.services.retrieve_service_account(ctx_in.service_id)
-    o = ctx_in.registers[7]
+    o = int(ctx_in.registers[7])
     preimage_length = int(ctx_in.registers[8])  #GP: z
 
     #GP: h
@@ -578,7 +578,7 @@ def hc_yield(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
     """
     logger.hc_regs(f"YIELD", "accumulate")
     ctx_out.gas_limit -= 10
-    o = ctx_in.registers[7]
+    o = int(ctx_in.registers[7])
 
     # gp: h
     if ctx_in.memory.is_accessible(o, 32, PVMMemoryMode.readable):

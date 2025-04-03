@@ -497,21 +497,22 @@ class ServicesState(State, Serializable):
             service_account_id: int
     ) -> ServiceAccount:
 
+        service_account = None
         if service_account_id in self.services:
-            return self.services[service_account_id]
+            service_account = self.services[service_account_id]
+        else:
+            if self.storage_engine is None:
+                raise ValueError('storage engine must be set before retrieving preimage')
 
-        if self.storage_engine is None:
-            raise ValueError('storage engine must be set before retrieving preimage')
+            storage_key = state_key_constructor_service_account(service_account_id)
+            logging.debug(f'retrieve_service_account({service_account_id}): {storage_key.hex()}')
 
-        storage_key = state_key_constructor_service_account(service_account_id)
-        logging.debug(f'retrieve_service_account({service_account_id}): {storage_key.hex()}')
+            data = self.storage_engine.get(storage_key)
+            if data:
+                service_account = ServiceAccount.from_serialized_bytes(data)
 
-        data = self.storage_engine.get(storage_key)
-
-        if data is None:
+        if service_account is None:
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
-
-        service_account = ServiceAccount.from_serialized_bytes(data)
 
         self.services[service_account_id] = service_account
 
@@ -595,22 +596,23 @@ class ServicesState(State, Serializable):
             self.retrieve_service_account(service_account_id)
 
         if preimage_hash in self.services[service_account_id].preimages:
-            return self.services[service_account_id].preimages[preimage_hash]
+            preimage = self.services[service_account_id].preimages[preimage_hash]
+        else:
+            if self.storage_engine is None:
+                raise ValueError('storage engine must be set before retrieving preimage')
 
-        if self.storage_engine is None:
-            raise ValueError('storage engine must be set before retrieving preimage')
+            storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
+            logging.debug(f'retrieve_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
 
-        storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
-        logging.debug(f'retrieve_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
+            preimage = self.storage_engine.get(storage_key)
+            if preimage:
+                self.services[service_account_id].preimages[preimage_hash] = preimage
 
-        data = self.storage_engine.get(storage_key)
-
-        if data is None:
+        if preimage is None:
             raise StateKeyNoResult(f'Preimage not found for hash {preimage_hash}')
 
-        self.services[service_account_id].preimages[preimage_hash] = data
+        return preimage
 
-        return data
 
     def store_preimage(self, service_account_id: int, preimage_blob: bytes, commit=False):
         """
@@ -643,12 +645,14 @@ class ServicesState(State, Serializable):
 
         logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): v={preimage_blob.hex()} sk={storage_key.hex()} commit={commit}')
 
+
     def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
         try:
             self.retrieve_preimage(service_account_id, preimage_hash)
             return True
         except StateKeyNoResult:
             return False
+
 
     def retrieve_preimage_availability(
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int
@@ -657,35 +661,34 @@ class ServicesState(State, Serializable):
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
 
+        preimage_availability = None
+
         if (preimage_hash, preimage_length) in self.services[service_account_id].preimage_availability:
-            value = self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
-            logging.debug(
-                f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={value}'
-                )
-            return value
+            preimage_availability = self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
+        else:
+            if self.storage_engine is None:
+                raise ValueError('storage engine must be set before retrieving preimage availability')
 
-        if self.storage_engine is None:
-            raise ValueError('storage engine must be set before retrieving preimage availability')
+            storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
-        storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
+            data = self.storage_engine.get(storage_key)
+            if data:
+                availability = Vec(U32).new()
+                availability.decode(JamBytes(data))
+                self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = availability.value
+                preimage_availability = availability.value
 
-        data = self.storage_engine.get(storage_key)
-
-        if data is None:
+        if preimage_availability is None:
             raise StateKeyNoResult(
                 f'Preimage availability not found for hash {preimage_hash} and length {preimage_length}'
             )
 
-        availability = Vec(U32).new()
-        availability.decode(JamBytes(data))
-
-        self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = availability.value
-
         logging.debug(
-            f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={availability.value} sk={storage_key.hex()}'
+            f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={preimage_availability}'
             )
 
-        return availability.value
+        return preimage_availability
+
 
     def store_preimage_availability(
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int, value: List[int], commit=False
@@ -735,6 +738,7 @@ class ServicesState(State, Serializable):
             f'delete_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={commit}'
             )
 
+
     def delete_preimage_availability(
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int, commit=False
     ):
@@ -759,6 +763,7 @@ class ServicesState(State, Serializable):
             f'delete_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}'
         )
 
+
     def retrieve_storage_item(
             self, service_account_id: int, storage_item_hash: bytes
     ) -> bytes:
@@ -778,18 +783,13 @@ class ServicesState(State, Serializable):
             self.retrieve_service_account(service_account_id)
 
         if storage_item_hash in self.services[service_account_id].storage_items:
-            value = self.services[service_account_id].storage_items[storage_item_hash]
-            logging.debug(
-                f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex() if value is not None else 'None'}'
-                )
-            return value
+            data = self.services[service_account_id].storage_items[storage_item_hash]
+        else:
+            if self.storage_engine is None:
+                raise ValueError('storage engine must be set before retrieving storage items')
 
-        if self.storage_engine is None:
-            raise ValueError('storage engine must be set before retrieving storage items')
-
-        storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
-
-        data = self.storage_engine.get(storage_key)
+            storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
+            data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(
@@ -797,12 +797,13 @@ class ServicesState(State, Serializable):
             )
 
         logging.debug(
-            f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={data.hex()} state_key={storage_key.hex()}'
+            f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={data.hex()}'
             )
 
         self.services[service_account_id].storage_items[storage_item_hash] = data
 
         return data
+
 
     def store_storage_item(self, service_account_id: int, storage_item_hash: bytes, value: bytes, commit=False):
         """
@@ -821,6 +822,7 @@ class ServicesState(State, Serializable):
         logging.debug(f'store_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex()} state_key={storage_key.hex()} [commit={commit}]')
 
         self.services[service_account_id].storage_items[storage_item_hash] = value
+
 
     def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, commit=False):
         """
@@ -846,6 +848,7 @@ class ServicesState(State, Serializable):
         logging.debug(
             f'delete_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()} [commit={commit}]'
             )
+
 
 @dataclass
 class AssurancesState(State, Serializable):

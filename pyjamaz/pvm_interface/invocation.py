@@ -1,6 +1,9 @@
 import logging
 from typing import List, Dict
 
+import numpy as np
+import numpy.typing as npt
+
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
     AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
@@ -18,7 +21,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             self,
             host_call_instr_nr: int,
             gas_limit: int,
-            registers: List[int],
+            registers: npt.NDArray[np.uint64],
             memory: PVMMemory,
             invocation_context: AccumulateInvocationContext,
             _pvm: PVMInterpreter  # TODO: temporary, only used for logging calls, pass logger
@@ -59,7 +62,7 @@ class OnTransferInvocationMutator(InvocationMutator):
             self,
             host_call_instr_nr: int,
             gas_limit: int,
-            registers: List[int],
+            registers: npt.NDArray[np.uint64],
             memory: PVMMemory,
             invocation_context: OnTransferInvocationContext,
             _pvm: PVMInterpreter  # TODO: TMP!

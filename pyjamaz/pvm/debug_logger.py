@@ -96,7 +96,7 @@ class PVMDebugLog(PVMLogger):
     def hc_regs(self, msg: str, phase: str) -> None:
         #TODO: set phase from pvm invoke, hardcoded accumulate for now
         msg = f"{self._pvm_id}_{phase}: {msg}"
-        regs = [int(x) for x in self._pvm.reg]
+        regs = self._pvm.get_registers()
         reg_msg = f"reg={str(regs)}"
         logging.debug(
             f"{msg}"
@@ -147,12 +147,12 @@ class PVMDebugLog(PVMLogger):
             "CTX")
 
     def pvm_regs(self, msg):
-        regs = [int(x) for x in self._pvm.reg]
+        regs = self._pvm.get_registers()
         reg_msg = f"reg={str(regs)}"
         logging.debug(f"{msg} {reg_msg}")
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
-        ctx = {"reg": [int(x) for x in self._pvm.reg]}
+        ctx = {"reg": self._pvm.get_registers()}
         if context: ctx = ctx | context
 
         reg1 = reg1 or ''

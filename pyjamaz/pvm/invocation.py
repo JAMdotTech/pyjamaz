@@ -2,6 +2,9 @@ import logging
 from dataclasses import dataclass
 from typing import List, Optional
 
+import numpy as np
+import numpy.typing as npt
+
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
 from pyjamaz.pvm.duna_logger import PVMDunaLog
@@ -20,7 +23,7 @@ class InvocationMutationOutput:
     """
     exit_condition: ExitCondition   #TODO: rename
     gas_limit: int
-    registers: List[int]
+    registers: npt.NDArray[np.uint64]
     memory: PVMMemory
     context: InvocationContext
 
@@ -33,7 +36,7 @@ class InvocationMutator:
             self,
             host_call_instr_nr: int,
             gas_limit: int,
-            registers: List[int],
+            registers: npt.NDArray[np.uint64],
             memory: PVMMemory,
             invocation_context: InvocationContext,
             _pvm: PVMInterpreter #TODO: TMP!
@@ -106,14 +109,13 @@ class PVMInvocation:
                     exit_condition=exit_condition,
                     instruction_counter=int(self.pvm.pc),
                     gas_limit=int(self.pvm.gas),
-                    registers=self.pvm.reg,
+                    registers=self.pvm.get_registers(),
                     memory=self.pvm.mem,
                     invocation_context=self.invocation_context
                 )
 
             if exit_condition.reason == ExitReason.host_halt:
 
-                #TODO: refactor in seperate files? (general, accumulate, on_transfer & refine)
                 host_call_output = self.invocation_mutator.execute(
                     host_call_instr_nr=exit_condition.value,
                     gas_limit=int(self.pvm.gas),
@@ -123,7 +125,7 @@ class PVMInvocation:
                     _pvm=self.pvm   #TODO
                 )
 
-                # Update gas usage TODO
+                # Update gas usage TODO!!!!!!!!!!!!!!!!!!!!!!!
                 gas_limit = host_call_output.gas_limit
 
                 if host_call_output.exit_condition.reason == ExitReason.page_fault:
@@ -131,8 +133,8 @@ class PVMInvocation:
                         exit_condition=host_call_output.exit_condition,
                         instruction_counter=int(self.pvm.pc),
                         gas_limit=int(self.pvm.gas),
-                        registers=self.pvm.reg,
-                        memory=self.pvm.reg,
+                        registers=self.pvm.get_registers(),
+                        memory=self.pvm.mem,
                         invocation_context=self.invocation_context
                     )
                 elif host_call_output.exit_condition.reason == ExitReason.resume:
