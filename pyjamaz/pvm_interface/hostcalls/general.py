@@ -10,7 +10,8 @@ from pyjamaz.pvm_interface.types import InvocationInput
 
 def hc_gas(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
     logger.hc_regs(f"GAS", "accumulate")
-    ctx_out.registers[7] = ctx_in.gas_limit - 10
+    ctx_out.gas_limit -= 10
+    ctx_out.registers[7] = ctx_out.gas_limit
     ctx_out.exit_condition = ExitCondition(reason=ExitReason.resume)
 
 
