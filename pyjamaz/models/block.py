@@ -754,14 +754,14 @@ class GuarantorAssignment:
 
 @dataclass
 class AccumulationStatistic:
-    total_gas_utilized: int
-    nr_work_reports_accumulated: int
+    total_gas_utilized: int = 0
+    nr_work_reports_accumulated: int = 0
 
 
 @dataclass
 class DeferredTransferStatistic:
-    nr_transfers: int
-    gas_used: int
+    nr_transfers: int = 0
+    gas_used: int = 0
 
 
 @dataclass
@@ -979,3 +979,16 @@ class BlockContext:
         if self.ready_work_reports is None:
             raise ValueError("No accumulatable reports set")
         self.accumulation_statistics = {}
+        for w in self.ready_work_reports[:nr_work_results_accumulated]:
+            for r in w.results:
+                if r.service_id not in self.accumulation_statistics:
+                    self.accumulation_statistics[r.service_id] = AccumulationStatistic()
+                self.accumulation_statistics[r.service_id].nr_work_reports_accumulated += 1
+
+        for s, u in accumulation_gas_utilized.items():
+            if s not in self.accumulation_statistics:
+                self.accumulation_statistics[s] = AccumulationStatistic()
+            self.accumulation_statistics[s].total_gas_utilized = u
+
+
+

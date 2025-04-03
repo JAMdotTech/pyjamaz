@@ -207,7 +207,7 @@ def full_sequential_accumulation(
         post_accumulation_state=accumulation_state,
         deferred_transfers=output.deferred_transfers + second_output.deferred_transfers,
         accumulation_commitment=output.accumulation_commitment,
-        accumulation_gas_utilized=second_output.accumulation_gas_utilized,
+        accumulation_gas_utilized=output.accumulation_gas_utilized,
     )
 
 
@@ -278,7 +278,7 @@ def parallel_accumulation(
             service_id=service_id
         )
 
-        accumulation_gas_utilized[service_id] = output.gas_limit
+        accumulation_gas_utilized[service_id] = output.gas_used
 
         deferred_transfers += output.deferred_transfers
 

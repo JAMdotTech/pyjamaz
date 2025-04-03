@@ -86,7 +86,7 @@ def pvm_invoke_accumulate(
         post_entropy: EntropyState
 ) -> PvmAccumulateOutput:
     """
-    GP-0.6.2-eq:B.8 (Ψ_A) | Accumulation invocation function
+    GP-0.6.4-eq:B.9 (Ψ_A) | Accumulation invocation function
 
     Parameters
     ----------
@@ -145,7 +145,8 @@ def pvm_invoke_accumulate(
             state_context=marshalling_output.context.savepoint_context.state_context,
             deferred_transfers=marshalling_output.context.savepoint_context.deferred_transfers,
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
-            gas_limit=marshalling_output.gas_limit
+            gas_limit=marshalling_output.gas_limit,
+            gas_used=gas_limit - marshalling_output.gas_limit
         )
         logging.debug(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
@@ -153,7 +154,8 @@ def pvm_invoke_accumulate(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.exit_condition.value,
-            gas_limit=marshalling_output.gas_limit
+            gas_limit=marshalling_output.gas_limit,
+            gas_used=gas_limit - marshalling_output.gas_limit
         )
         logging.debug(f'PVM accumulate succesful, output=0x{output.accumulation_output.hex()}')
     else:
@@ -161,7 +163,8 @@ def pvm_invoke_accumulate(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.context.context.invocation_output,
-            gas_limit=marshalling_output.gas_limit
+            gas_limit=marshalling_output.gas_limit,
+            gas_used=gas_limit - marshalling_output.gas_limit
         )
         logging.debug(f'PVM accumulate succesful, no output')
 

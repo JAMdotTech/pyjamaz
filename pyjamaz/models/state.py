@@ -1435,6 +1435,7 @@ class PvmAccumulateOutput:
     deferred_transfers: List[DeferredTransfer]
     accumulation_output: Optional[bytes]
     gas_limit: int
+    gas_used: int = 0 # TODO check
 
 
 @dataclass

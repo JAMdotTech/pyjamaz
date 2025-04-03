@@ -1610,7 +1610,7 @@ class Statistics(StateComponent):
         """
         post_state = deepcopy(pre_state_statistics)
 
-        # GP-0.6.4-eq:13.3
+        # GP-0.6.4-eq:13.3 | Shift statistics after epoch change
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             post_state.vals_last = post_state.vals_current
             post_state.vals_current = [ActivityRecord(
@@ -1622,7 +1622,7 @@ class Statistics(StateComponent):
                 assurances=0
             ) for _ in range(gp_const.VALIDATOR_COUNT)]
 
-        # GP-0.6.4-eq:13.4
+        # GP-0.6.4-eq:13.4 | Update validator stats
         post_state.vals_current[header.author_index].blocks += 1
         post_state.vals_current[header.author_index].tickets += len(extrinsic_tickets)
         post_state.vals_current[header.author_index].pre_images += len(extrinsic_preimages)
@@ -1636,7 +1636,7 @@ class Statistics(StateComponent):
 
         incoming_work_reports = [g.report for g in extrinsic_guarantees]
 
-        # GP-0.6.4-eq:13.8
+        # GP-0.6.4-eq:13.8 | Update core statistics
         for c in range(gp_const.CORE_COUNT):
             post_state.cores[c].update(
                 core_index=c,
@@ -1647,14 +1647,13 @@ class Statistics(StateComponent):
 
         post_state.services = {}
 
-        # GP-0.6.4-eq:13.12
+        # GP-0.6.4-eq:13.12 | Determine affected services
         services = [r.service_id for w in incoming_work_reports for r in w.results]
-        services += [p.requester for p in extrinsic_preimages]
         services += [p.requester for p in extrinsic_preimages]
         services += self.block_context.accumulation_statistics.keys()
         services += self.block_context.deferred_transfer_statistics.keys()
 
-        # GP-0.6.4-eq:13.11
+        # GP-0.6.4-eq:13.11 | Update service statistics
         for s in set(services):
             activity_record = ServiceActivityRecord()
             for p in extrinsic_preimages:
@@ -1671,13 +1670,23 @@ class Statistics(StateComponent):
                         activity_record.extrinsic_count += r.refine_load.extrinsic_count
                         activity_record.extrinsic_size += r.refine_load.extrinsic_size
                         activity_record.exports += r.refine_load.exports
-                        # TODO finish transfer
+
+            accumulation_stats = self.block_context.accumulation_statistics.get(s)
+            if accumulation_stats:
+                activity_record.accumulate_count += accumulation_stats.nr_work_reports_accumulated
+                activity_record.accumulate_gas_used += accumulation_stats.total_gas_utilized
+
+            transfer_stats = self.block_context.deferred_transfer_statistics.get(s)
+            if transfer_stats:
+                activity_record.on_transfers_count += transfer_stats.nr_transfers
+                activity_record.on_transfers_gas_used += transfer_stats.gas_used
 
             post_state.services[s] = activity_record
 
         return StatisticsOutput(
             post_state=post_state
         )
+
     @staticmethod
     def retrieve_validator_index(ed25519_key: bytes, post_validator_pool: ValidatorPoolState) -> int:
         for validator_index, validator_data in enumerate(post_validator_pool.validators):
@@ -1911,13 +1920,13 @@ class Services(StateComponent):
         deferred_transfer_statistics = {}
 
         for service_id in intermediate_state_after_accumulation.services.keys():
-            deferred_transfers = transfers_service_mapping(deferred_transfers, service_id)
+            service_transfers = transfers_service_mapping(deferred_transfers, service_id)
 
             output = pvm_invoke_on_transfer(
                 services=intermediate_state_after_accumulation.services,
                 timeslot=post_state_timeslot.number,
                 service_id=service_id,
-                deferred_transfers=deferred_transfers
+                deferred_transfers=service_transfers
             )
 
             intermediate_state_after_transfers.services.update({
@@ -1925,9 +1934,9 @@ class Services(StateComponent):
             })
 
             # GP-0.6.4-eq:12.30
-            if len(deferred_transfers) > 0:
+            if len(service_transfers) > 0:
                 deferred_transfer_statistics[service_id] = DeferredTransferStatistic(
-                    nr_transfers=len(deferred_transfers),
+                    nr_transfers=len(service_transfers),
                     gas_used=output.gas_used,
                 )
 
