@@ -69,7 +69,7 @@ class OnTransferInvocationMutator(InvocationMutator):
     ) -> InvocationMutationOutput:
 
         return InvocationMutationOutput(
-            exit_condition=ExitCondition(reason=ExitReason.none),
+            exit_condition=ExitCondition(reason=ExitReason.resume),
             gas_limit=gas_limit,
             registers=registers,
             memory=memory,

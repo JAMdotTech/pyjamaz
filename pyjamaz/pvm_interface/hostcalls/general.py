@@ -187,10 +187,14 @@ def hc_write(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
                 service_account_id=ctx_in.service_id,
                 storage_item_hash=storage_key
             )
+            #TODO: REMOVE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!:::
+            ctx_out.registers[7] = HostCallResult.NONE.value
+            # TODO: REMOVE^^^^^^^^^^^^^^^^^^^^^^^
             logger.hc_log("WRITE DELETE", f"l={l}  s={ctx_in.service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
 
             # Update storage footprint
-            service_account.update_footprint_remove_storage_item(len(si))
+            if l != HostCallResult.NONE.value:
+                service_account.update_footprint_remove_storage_item(len(si))
 
         else:
             # TODO: mark dirty? maybe register changes
@@ -211,6 +215,8 @@ def hc_write(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
                 service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
                 logger.hc_log("WRITE OK",
                                    f"l={l}  s={ctx_in.service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
+
+        logger.hc_log("WRITE storage",f"a_o={service_account.footprint_storage_bytes} a_i={service_account.footprint_storage_items}")
 
 
 def hc_info(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
