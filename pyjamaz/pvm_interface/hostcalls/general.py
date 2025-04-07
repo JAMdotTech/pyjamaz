@@ -187,9 +187,6 @@ def hc_write(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger:
                 service_account_id=ctx_in.service_id,
                 storage_item_hash=storage_key
             )
-            #TODO: REMOVE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!:::
-            ctx_out.registers[7] = HostCallResult.NONE.value
-            # TODO: REMOVE^^^^^^^^^^^^^^^^^^^^^^^
             logger.hc_log("WRITE DELETE", f"l={l}  s={ctx_in.service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
 
             # Update storage footprint

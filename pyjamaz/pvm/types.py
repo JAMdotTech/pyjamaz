@@ -476,24 +476,12 @@ class PVMProgram(Serializable):
             contents=heap_contents
         )
 
-        #TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!TMP!!!!!!!!!!!
-        stack_start = 2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size)
-        arg_start = 2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE
-        stack_max = arg_start-stack_start-1
-
-        #TODO: add sanity check on stack_mem_size
         _stack = MemorySection(
             address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
-            length=PVMMemory.page_size(stack_max),
+            length=PVMMemory.page_size(stack_mem_size),
             writable=True,
             contents=bytes(PVMMemory.page_size(stack_mem_size)),    #TODO: hoeft niet dubbel hier
         )
-        # _stack = MemorySection(
-        #     address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
-        #     length=PVMMemory.page_size(stack_mem_size),
-        #     writable=True,
-        #     contents=bytes(PVMMemory.page_size(stack_mem_size)),    #TODO: hoeft niet dubbel hier
-        # )
 
         _arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,

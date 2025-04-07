@@ -142,6 +142,7 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
 
+    #TODO: registers_as_int
     def get_registers(self):
         return [int(x) for x in self.reg]
 
@@ -176,8 +177,6 @@ class PVMInterpreter:
               a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
               a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0 or
               self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] not in self.inst_pos):
-            #self.status = ExitCondition.panic.value
-            #return 0
             raise PanicError(f"Invalid djump operation: a={a}")
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
