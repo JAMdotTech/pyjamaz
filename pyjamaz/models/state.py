@@ -384,17 +384,6 @@ class ServiceAccount(Serializable):
         serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
         return serialized_bytes
 
-    #TODO: check!!!!!!!
-    def to_serialized_bytes2(self) -> bytes:
-        serialized_bytes = self.code_hash
-        serialized_bytes += U64.encode(self.balance).to_bytes()
-        serialized_bytes += U64.encode(self.threshold_balance).to_bytes()
-        serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
-        serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
-        serialized_bytes += U64.encode(self.footprint_storage_bytes).to_bytes()
-        serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
-        return serialized_bytes
-
     def update_footprint_add_storage_item(self, size: int) -> None:
         """
         GP-0.6.2-eq:9.8

@@ -1,3 +1,4 @@
+from jamcodec.types import U64, U32, VarInt64
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
@@ -240,7 +241,14 @@ def hc_info(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: 
     service_account_bytes = None  # GP: bold_m
     mem_write_error = False
     if service_account is not None:
-        service_account_bytes = service_account.to_serialized_bytes2()  # GP: bold_m
+        # GP: bold_m
+        service_account_bytes = service_account.code_hash
+        service_account_bytes += VarInt64.encode(service_account.balance).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.threshold_balance).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.gas_limit_accumulate).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.gas_limit_on_transfer).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.footprint_storage_bytes).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.footprint_storage_items).to_bytes()
         try:
             ctx_in.memory.write_bytes(o, service_account_bytes)
         except PVMMemoryError:
