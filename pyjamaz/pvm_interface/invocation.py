@@ -2,10 +2,13 @@ import logging
 from dataclasses import dataclass
 from typing import List, Dict
 
+import numpy as np
+import numpy.typing as npt
+
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
     AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
-    OnTransferInvocationContext
+    OnTransferInvocationContext, PvmOnTransferOutput
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
@@ -31,7 +34,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             self,
             host_call_instr_nr: int,
             gas_limit: int,
-            registers: List[int],
+            registers: npt.NDArray[np.uint64],
             memory: PVMMemory,
             invocation_context: AccumulateInvocationContext,
             _pvm: PVMInterpreter  # TODO: temporary, only used for logging calls, pass logger
@@ -98,14 +101,14 @@ class OnTransferInvocationMutator(InvocationMutator):
             self,
             host_call_instr_nr: int,
             gas_limit: int,
-            registers: List[int],
+            registers: npt.NDArray[np.uint64],
             memory: PVMMemory,
             invocation_context: OnTransferInvocationContext,
             _pvm: PVMInterpreter  # TODO: TMP!
     ) -> InvocationMutationOutput:
 
         return InvocationMutationOutput(
-            exit_condition=ExitCondition(reason=ExitReason.none),
+            exit_condition=ExitCondition(reason=ExitReason.resume),
             gas_limit=gas_limit,
             registers=registers,
             memory=memory,
@@ -122,7 +125,7 @@ def pvm_invoke_accumulate(
         post_entropy: EntropyState
 ) -> PvmAccumulateOutput:
     """
-    GP-0.6.2-eq:B.8 (Ψ_A) | Accumulation invocation function
+    GP-0.6.4-eq:B.9 (Ψ_A) | Accumulation invocation function
 
     Parameters
     ----------
@@ -177,21 +180,12 @@ def pvm_invoke_accumulate(
     # GP-0.6.2-eq:B.12 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
 
-        marshalling_output = pvm_invocation.pvm_invoke_marshalling(
-            serialized_program=serialized_program,
-            start_offset=5,
-            gas_limit=gas_limit,
-            argument_data=argument_data
-        )
-
-
-
-
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.savepoint_context.state_context,
             deferred_transfers=marshalling_output.context.savepoint_context.deferred_transfers,
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
-            gas_limit=marshalling_output.gas_limit
+            gas_limit=marshalling_output.gas_limit,
+            gas_used=gas_limit - marshalling_output.gas_limit
         )
         logging.debug(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
@@ -199,7 +193,8 @@ def pvm_invoke_accumulate(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.exit_condition.value,
-            gas_limit=marshalling_output.gas_limit
+            gas_limit=marshalling_output.gas_limit,
+            gas_used=gas_limit - marshalling_output.gas_limit
         )
         logging.debug(f'PVM accumulate succesful, output=0x{output.accumulation_output.hex()}')
     else:
@@ -207,7 +202,8 @@ def pvm_invoke_accumulate(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.context.context.invocation_output,
-            gas_limit=marshalling_output.gas_limit
+            gas_limit=marshalling_output.gas_limit,
+            gas_used=gas_limit - marshalling_output.gas_limit
         )
         logging.debug(f'PVM accumulate succesful, no output')
 
@@ -219,7 +215,7 @@ def pvm_invoke_on_transfer(
         timeslot: int,
         service_id: int,
         deferred_transfers: List[DeferredTransfer]
-) -> ServiceAccount:
+) -> PvmOnTransferOutput:
     """
     GP-0.6.2-eq:B.14 (Ψ_T) | the on-transfer service-account invocation function
 
@@ -236,6 +232,7 @@ def pvm_invoke_on_transfer(
     """
 
     service_account = services.get(service_id)
+    gas_used = 0
 
     if len(deferred_transfers) > 0:
         logging.debug(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
@@ -267,6 +264,10 @@ def pvm_invoke_on_transfer(
                 argument_data=argument_data
             )
 
-            service_account = marshalling_output.context
+            service_account = marshalling_output.context.service_account
+            gas_used = marshalling_output.gas_limit
 
-    return service_account
+    return PvmOnTransferOutput(
+        service_account=service_account,
+        gas_used=gas_used
+    )

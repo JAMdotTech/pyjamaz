@@ -61,11 +61,15 @@ class TestStatistics(unittest.TestCase):
 
         statistics = Statistics(self.storage_engine, self.block_context, self.app_context)
 
-        reporters = []
+        self.block_context.reporters = []
+        self.block_context.accumulation_statistics = {}
+        self.block_context.deferred_transfer_statistics = {}
 
         for guarantee in extrinsic.guarantees:
             for signature in guarantee.signatures:
-                reporters.append(post_state_validator_pool.validators[signature.validator_index].ed25519)
+                self.block_context.reporters.append(
+                    post_state_validator_pool.validators[signature.validator_index].ed25519
+                )
 
         output = statistics.state_transition(
             extrinsic_guarantees=extrinsic.guarantees,
@@ -76,8 +80,7 @@ class TestStatistics(unittest.TestCase):
             post_state_timeslot=post_state_timeslot,
             post_state_validator_pool=post_state_validator_pool,
             pre_state_statistics=pre_state_statistics,
-            header=header,
-            reporters=reporters
+            header=header
         )
 
         self.assertDictEqual(

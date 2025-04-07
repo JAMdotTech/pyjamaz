@@ -85,11 +85,27 @@ class WorkExecResult(Serializable):
 
 @dataclass
 class RefineLoad(Serializable):
+    """
+    GP-0.6.4-eq:11.6 (blackboard_L) | Part of a work result (todo: integrate with WorkResult?)
+
+    Attributes
+    ----------
+    gas_used: VarInt64
+        GP-0.6.4-eq:11.6 (u)
+    imports: VarInt64
+        GP-0.6.4-eq:11.6 (i)
+    extrinsic_count: VarInt64
+        GP-0.6.4-eq:11.6 (x)
+    extrinsic_size: VarInt64
+        GP-0.6.4-eq:11.6 (z)
+    exports: VarInt64
+        GP-0.6.4-eq:11.6 (e)
+    """
     gas_used: int = field(metadata={'codec': VarInt64})
-    imports: int = field(metadata={'codec': U8})
-    extrinsic_count: int = field(metadata={'codec': U8})
-    extrinsic_size: int = field(metadata={'codec': U8})
-    exports: int = field(metadata={'codec': U8})
+    imports: int = field(metadata={'codec': VarInt64})
+    extrinsic_count: int = field(metadata={'codec': VarInt64})
+    extrinsic_size: int = field(metadata={'codec': VarInt64})
+    exports: int = field(metadata={'codec': VarInt64})
 
 
 @dataclass
@@ -101,18 +117,18 @@ class WorkResult(Serializable):
     Attributes
     ----------
     service_id: U32
-        GP-0.5.0-eq:11.6 (s) | The index of a service whose state is to be altered and thus whose refine code was
+        GP-0.6.4-eq:11.6 (s) | The index of a service whose state is to be altered and thus whose refine code was
         already executed.
     code_hash: H256
-        GP-0.5.0-eq:11.6 (c) | The hash of the code  of the service at the time of being reported.
+        GP-0.6.4-eq:11.6 (c) | The hash of the code  of the service at the time of being reported.
     payload_hash: H256
-        GP-0.5.0-eq:11.6 (y) | The hash of the payload within the work item which was executed in the refine stage to
+        GP-0.6.4-eq:11.6 (y) | The hash of the payload within the work item which was executed in the refine stage to
         give this result.
     accumulate_gas: U64
-        GP-0.5.0-eq:11.6 (g) | The gas prioritization ration used when determining how much gas should be allocated to
+        GP-0.6.4-eq:11.6 (g) | The gas prioritization ration used when determining how much gas should be allocated to
         execute of this item's accumulate.
     result: WorkExecResult
-        GP-0.5.0-eq:11.6 (d) | Output or error of the execution of the code.
+        GP-0.6.4-eq:11.6 (d) | Output or error of the execution of the code.
     """
     service_id: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})

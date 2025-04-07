@@ -1,6 +1,8 @@
 import logging
+import typing
 from copy import deepcopy
 from dataclasses import dataclass, field
+from math import ceil
 from typing import List, Optional, Dict, Tuple, Union, Set
 
 from jamcodec.base import JamBytes
@@ -13,7 +15,7 @@ from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, E
     Null
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
-    MINIMUM_BALANCE_OCTET
+    MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, AccumulationOperand
 from pyjamaz.pvm.invocation import InvocationContext
@@ -21,6 +23,9 @@ from pyjamaz.pvm.invocation import InvocationContext
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
 from pyjamaz.storage import StorageEngine, Transaction
+
+if typing.TYPE_CHECKING:
+    from pyjamaz.models.block import Assurance as ExtrinsicAssurance, Preimage
 
 
 class State(Serializable):
@@ -492,21 +497,22 @@ class ServicesState(State, Serializable):
             service_account_id: int
     ) -> ServiceAccount:
 
+        service_account = None
         if service_account_id in self.services:
-            return self.services[service_account_id]
+            service_account = self.services[service_account_id]
+        else:
+            if self.storage_engine is None:
+                raise ValueError('storage engine must be set before retrieving preimage')
 
-        if self.storage_engine is None:
-            raise ValueError('storage engine must be set before retrieving preimage')
+            storage_key = state_key_constructor_service_account(service_account_id)
+            logging.debug(f'retrieve_service_account({service_account_id}): {storage_key.hex()}')
 
-        storage_key = state_key_constructor_service_account(service_account_id)
-        logging.debug(f'retrieve_service_account({service_account_id}): {storage_key.hex()}')
+            data = self.storage_engine.get(storage_key)
+            if data:
+                service_account = ServiceAccount.from_serialized_bytes(data)
 
-        data = self.storage_engine.get(storage_key)
-
-        if data is None:
+        if service_account is None:
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
-
-        service_account = ServiceAccount.from_serialized_bytes(data)
 
         self.services[service_account_id] = service_account
 
@@ -590,22 +596,23 @@ class ServicesState(State, Serializable):
             self.retrieve_service_account(service_account_id)
 
         if preimage_hash in self.services[service_account_id].preimages:
-            return self.services[service_account_id].preimages[preimage_hash]
+            preimage = self.services[service_account_id].preimages[preimage_hash]
+        else:
+            if self.storage_engine is None:
+                raise ValueError('storage engine must be set before retrieving preimage')
 
-        if self.storage_engine is None:
-            raise ValueError('storage engine must be set before retrieving preimage')
+            storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
+            logging.debug(f'retrieve_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
 
-        storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
-        logging.debug(f'retrieve_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
+            preimage = self.storage_engine.get(storage_key)
+            if preimage:
+                self.services[service_account_id].preimages[preimage_hash] = preimage
 
-        data = self.storage_engine.get(storage_key)
-
-        if data is None:
+        if preimage is None:
             raise StateKeyNoResult(f'Preimage not found for hash {preimage_hash}')
 
-        self.services[service_account_id].preimages[preimage_hash] = data
+        return preimage
 
-        return data
 
     def store_preimage(self, service_account_id: int, preimage_blob: bytes, commit=False):
         """
@@ -638,12 +645,14 @@ class ServicesState(State, Serializable):
 
         logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): v={preimage_blob.hex()} sk={storage_key.hex()} commit={commit}')
 
+
     def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
         try:
             self.retrieve_preimage(service_account_id, preimage_hash)
             return True
         except StateKeyNoResult:
             return False
+
 
     def retrieve_preimage_availability(
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int
@@ -652,35 +661,34 @@ class ServicesState(State, Serializable):
         if service_account_id not in self.services:
             self.retrieve_service_account(service_account_id)
 
+        preimage_availability = None
+
         if (preimage_hash, preimage_length) in self.services[service_account_id].preimage_availability:
-            value = self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
-            logging.debug(
-                f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={value}'
-                )
-            return value
+            preimage_availability = self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
+        else:
+            if self.storage_engine is None:
+                raise ValueError('storage engine must be set before retrieving preimage availability')
 
-        if self.storage_engine is None:
-            raise ValueError('storage engine must be set before retrieving preimage availability')
+            storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
-        storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
+            data = self.storage_engine.get(storage_key)
+            if data:
+                availability = Vec(U32).new()
+                availability.decode(JamBytes(data))
+                self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = availability.value
+                preimage_availability = availability.value
 
-        data = self.storage_engine.get(storage_key)
-
-        if data is None:
+        if preimage_availability is None:
             raise StateKeyNoResult(
                 f'Preimage availability not found for hash {preimage_hash} and length {preimage_length}'
             )
 
-        availability = Vec(U32).new()
-        availability.decode(JamBytes(data))
-
-        self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = availability.value
-
         logging.debug(
-            f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={availability.value} sk={storage_key.hex()}'
+            f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={preimage_availability}'
             )
 
-        return availability.value
+        return preimage_availability
+
 
     def store_preimage_availability(
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int, value: List[int], commit=False
@@ -730,6 +738,7 @@ class ServicesState(State, Serializable):
             f'delete_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={commit}'
             )
 
+
     def delete_preimage_availability(
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int, commit=False
     ):
@@ -754,6 +763,7 @@ class ServicesState(State, Serializable):
             f'delete_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}'
         )
 
+
     def retrieve_storage_item(
             self, service_account_id: int, storage_item_hash: bytes
     ) -> bytes:
@@ -773,18 +783,13 @@ class ServicesState(State, Serializable):
             self.retrieve_service_account(service_account_id)
 
         if storage_item_hash in self.services[service_account_id].storage_items:
-            value = self.services[service_account_id].storage_items[storage_item_hash]
-            logging.debug(
-                f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex()}'
-                )
-            return value
+            data = self.services[service_account_id].storage_items[storage_item_hash]
+        else:
+            if self.storage_engine is None:
+                raise ValueError('storage engine must be set before retrieving storage items')
 
-        if self.storage_engine is None:
-            raise ValueError('storage engine must be set before retrieving storage items')
-
-        storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
-
-        data = self.storage_engine.get(storage_key)
+            storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
+            data = self.storage_engine.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(
@@ -792,12 +797,13 @@ class ServicesState(State, Serializable):
             )
 
         logging.debug(
-            f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={data.hex()} state_key={storage_key.hex()}'
+            f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={data.hex()}'
             )
 
         self.services[service_account_id].storage_items[storage_item_hash] = data
 
         return data
+
 
     def store_storage_item(self, service_account_id: int, storage_item_hash: bytes, value: bytes, commit=False):
         """
@@ -816,6 +822,7 @@ class ServicesState(State, Serializable):
         logging.debug(f'store_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex()} state_key={storage_key.hex()} [commit={commit}]')
 
         self.services[service_account_id].storage_items[storage_item_hash] = value
+
 
     def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, commit=False):
         """
@@ -841,6 +848,7 @@ class ServicesState(State, Serializable):
         logging.debug(
             f'delete_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()} [commit={commit}]'
             )
+
 
 @dataclass
 class AssurancesState(State, Serializable):
@@ -950,35 +958,85 @@ class ActivityRecord(Serializable):
 @dataclass
 class CoreActivityRecord(Serializable):
     """
+    GP-0.6.4-eq:13.6 | Core activity statistics
 
     Attributes
     ----------
-    gas_used: U64
-         GP-0.6.4-eq:??? | Total gas consumed by core for reported work. Includes all refinement and authorizations.
-    imports: U16
-        GP-0.6.4-eq:??? | Number of segments imported from DA made by core for reported work.
-    extrinsic_count: U16
-        GP-0.6.4-eq:??? | Total number of extrinsics used by core for reported work.
-    extrinsic_size: U32
-        GP-0.6.4-eq:??? | Total size of extrinsics used by core for reported work.
-    exports: U16
-        GP-0.6.4-eq:??? | Number of segments exported into DA made by core for reported work.
-    bundle_size: U32
-        GP-0.6.4-eq:??? | The work-bundle size. This is the size of data being placed into Audits DA by the core.
     da_load: U32
-        GP-0.6.4-eq:??? | Amount of bytes which are placed into either Audits or Segments DA.
+        GP-0.6.4-eq:13.6 (d) | Amount of bytes which are placed into either Audits or Segments DA.
     popularity: U16
-        GP-0.6.4-eq:??? | Number of validators which formed super-majority for assurance.
+        GP-0.6.4-eq:13.6 (p) | Number of validators which formed super-majority for assurance.
+    imports: U16
+        GP-0.6.4-eq:13.6 (i) | Number of segments imported from DA made by core for reported work.
+    exports: U16
+        GP-0.6.4-eq:13.6 (e) | Number of segments exported into DA made by core for reported work.
+    extrinsic_size: U32
+        GP-0.6.4-eq:13.6 (z) | Total size of extrinsics used by core for reported work.
+    extrinsic_count: U16
+        GP-0.6.4-eq:13.6 (x) | Total number of extrinsics used by core for reported work.
+    bundle_size: U32
+        GP-0.6.4-eq:13.6 (b) | The work-bundle size. This is the size of data being placed into Audits DA by the core.
+    gas_used: U64
+         GP-0.6.4-eq:13.6 (u) | Total gas consumed by core for reported work. Includes all refinement and authorizations
     """
-    gas_used: int = field(metadata={'codec': U64})
-    imports: int = field(metadata={'codec': U16})
-    extrinsic_count: int = field(metadata={'codec': U16})
-    extrinsic_size: int = field(metadata={'codec': U32})
-    exports: int = field(metadata={'codec': U16})
-    bundle_size: int = field(metadata={'codec': U32})
-    da_load: int = field(metadata={'codec': U32})
-    popularity: int = field(metadata={'codec': U16})
+    da_load: int = field(metadata={'codec': VarInt64})
+    popularity: int = field(metadata={'codec': VarInt64})
+    imports: int = field(metadata={'codec': VarInt64})
+    exports: int = field(metadata={'codec': VarInt64})
+    extrinsic_size: int = field(metadata={'codec': VarInt64})
+    extrinsic_count: int = field(metadata={'codec': VarInt64})
+    bundle_size: int = field(metadata={'codec': VarInt64})
+    gas_used: int = field(metadata={'codec': VarInt64})
 
+    def update(self,
+               core_index: int,
+               incoming_work_reports: List[WorkReport],
+               available_work_reports: List[WorkReport],
+               extrinsic_assurances: List['ExtrinsicAssurance']
+    ):
+        """
+         GP-0.6.4-eq:13.8 | Updating core stats for specified core
+        """
+        self.gas_used = 0
+        self.imports = 0
+        self.extrinsic_count = 0
+        self.extrinsic_size = 0
+        self.exports = 0
+        self.bundle_size = 0
+        self.da_load = 0
+        self.popularity = 0
+
+        if incoming_work_reports:
+            self.update_from_incoming_work_reports(core_index, incoming_work_reports)
+
+        if available_work_reports:
+            self.update_from_available_work_reports(core_index, available_work_reports)
+
+        self.popularity = sum([1 for a in extrinsic_assurances if core_index in a.cores_engaged])
+
+
+    def update_from_incoming_work_reports(self, core_index: int, incoming_work_reports: List[WorkReport]):
+        """
+        GP-0.6.4-eq:13.9 (R) | Updating core stats using incoming work-reports in extrinsic data (GP-0.6.4-eq:11.28)
+        """
+        for w in incoming_work_reports:
+            if w.core_index == core_index:
+                self.bundle_size += w.package_spec.length
+                for r in w.results:
+                    self.imports += r.refine_load.imports
+                    self.extrinsic_count += r.refine_load.extrinsic_count
+                    self.extrinsic_size += r.refine_load.extrinsic_size
+                    self.exports += r.refine_load.exports
+                    self.gas_used += r.refine_load.gas_used
+
+    def update_from_available_work_reports(self, core_index: int, available_work_reports: List[WorkReport]):
+        """
+        GP-0.6.4-eq:13.10 (D) | Updating core stats using available work-reports (bold_W) (GP-0.6.4-eq:11.16)
+        """
+        self.da_load = sum([
+            w.package_spec.length + EC_SEGMENT_SIZE * ceil(w.package_spec.exports_count * 65/64)
+            for w in available_work_reports if w.core_index == core_index
+        ])
 
 @dataclass
 class ServiceActivityRecord(Serializable):
@@ -987,42 +1045,42 @@ class ServiceActivityRecord(Serializable):
     Attributes
     ----------
     provided_count: U16
-        GP-0.6.4-eq:??? | Number of preimages provided to this service.
+        GP-0.6.4-eq:13.7 (p_0) | Number of preimages provided to this service.
     provided_size: U32
-        GP-0.6.4-eq:??? | Total size of preimages provided to this service.
+        GP-0.6.4-eq:13.7 (p_1)| Total size of preimages provided to this service.
     refinement_count: U32
-        GP-0.6.4-eq:??? | Number of work-items refined by service for reported work.
+        GP-0.6.4-eq:13.7 (r_0)| Number of work-items refined by service for reported work.
     refinement_gas_used: U64
-        GP-0.6.4-eq:??? | Amount of gas used for refinement by service for reported work.
+        GP-0.6.4-eq:13.7 (r_0)| Amount of gas used for refinement by service for reported work.
     imports: U32
-        GP-0.6.4-eq:??? | Number of segments imported from the DL by service for reported work.
-    extrinsic_count: U32
-        GP-0.6.4-eq:??? | Total number of extrinsics used by service for reported work.
+        GP-0.6.4-eq:13.7 (i) | Number of segments imported from the DL by service for reported work.
     extrinsic_size: U32
-        GP-0.6.4-eq:??? | Total size of extrinsics used by service for reported work.
+        GP-0.6.4-eq:13.7 (z) | Total size of extrinsics used by service for reported work.
+    extrinsic_count: U32
+        GP-0.6.4-eq:13.7 (x) | Total number of extrinsics used by service for reported work.
     exports: U32
-        GP-0.6.4-eq:??? | Number of segments exported into the DL by service for reported work.
+        GP-0.6.4-eq:13.7 (e) | Number of segments exported into the DL by service for reported work.
     accumulate_count: U32
-        GP-0.6.4-eq:??? | Number of work-items accumulated by service.
+        GP-0.6.4-eq:13.7 (a_0) | Number of work-items accumulated by service.
     accumulate_gas_used: U64
-        GP-0.6.4-eq:??? | Amount of gas used for accumulation by service.
+        GP-0.6.4-eq:13.7 (a_1) | Amount of gas used for accumulation by service.
     on_transfers_count: U32
-        GP-0.6.4-eq:??? | Number of transfers processed by service.
+        GP-0.6.4-eq:13.7 (t_0) | Number of transfers processed by service.
     on_transfers_gas_used: U64
-        GP-0.6.4-eq:??? | Amount of gas used for processing transfers by service.
+        GP-0.6.4-eq:13.7 (t_1) | Amount of gas used for processing transfers by service.
     """
-    provided_count: int = field(metadata={'codec': U16})
-    provided_size: int = field(metadata={'codec': U32})
-    refinement_count: int = field(metadata={'codec': U32})
-    refinement_gas_used: int = field(metadata={'codec': U64})
-    imports: int = field(metadata={'codec': U32})
-    extrinsic_count: int = field(metadata={'codec': U32})
-    extrinsic_size: int = field(metadata={'codec': U32})
-    exports: int = field(metadata={'codec': U32})
-    accumulate_count: int = field(metadata={'codec': U32})
-    accumulate_gas_used: int = field(metadata={'codec': U64})
-    on_transfers_count: int = field(metadata={'codec': U32})
-    on_transfers_gas_used: int = field(metadata={'codec': U64})
+    provided_count: int = field(metadata={'codec': VarInt64}, default=0)
+    provided_size: int = field(metadata={'codec': VarInt64}, default=0)
+    refinement_count: int = field(metadata={'codec': VarInt64}, default=0)
+    refinement_gas_used: int = field(metadata={'codec': VarInt64}, default=0)
+    imports: int = field(metadata={'codec': VarInt64}, default=0)
+    exports: int = field(metadata={'codec': VarInt64}, default=0)
+    extrinsic_size: int = field(metadata={'codec': VarInt64}, default=0)
+    extrinsic_count: int = field(metadata={'codec': VarInt64}, default=0)
+    accumulate_count: int = field(metadata={'codec': VarInt64}, default=0)
+    accumulate_gas_used: int = field(metadata={'codec': VarInt64}, default=0)
+    on_transfers_count: int = field(metadata={'codec': VarInt64}, default=0)
+    on_transfers_gas_used: int = field(metadata={'codec': VarInt64}, default=0)
 
 
 @dataclass
@@ -1045,10 +1103,10 @@ class StatisticsState(State, Serializable):
     vals_current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
     vals_last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
     cores: List[CoreActivityRecord] = field(metadata={
-        'codec': Null #Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
+        'codec': Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
     })
     services: Dict[int, ServiceActivityRecord] = field(metadata={
-        'codec': Null #Map(U32, ServiceActivityRecord.to_codec_def())
+        'codec': Map(VarInt64, ServiceActivityRecord.to_codec_def())
     })
 
 
@@ -1377,7 +1435,13 @@ class PvmAccumulateOutput:
     deferred_transfers: List[DeferredTransfer]
     accumulation_output: Optional[bytes]
     gas_limit: int
+    gas_used: int = 0 # TODO check
 
+
+@dataclass
+class PvmOnTransferOutput:
+    service_account: ServiceAccount
+    gas_used: int
 
 @dataclass
 class AccumulateContextItem:

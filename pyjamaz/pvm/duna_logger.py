@@ -6,15 +6,28 @@ from pyjamaz.utils import format_hash
 
 class PVMDunaLog(PVMDebugLog):
 
-    def state(self):
+    def pvm_counters(self):
         pass
 
-    def header(self):
+    def pvm_header(self):
         pass
 
-    def host_call(self, msg, data):
-        regs = [int(x) for x in self._pvm.reg]
-        logging.debug(f"reg={str(regs)}")
+    def hc_regs(self, msg, phase):
+        # TODO: set phase from pvm invoke, hardcoded accumulate for now
+        msg = f"{self._pvm_id}_{phase}: {msg}"
+        regs = self._pvm.get_registers()
+        reg_msg = f"reg={str(regs)}"
+        spacing = " " * (51 - len(str(msg)))
+        logging.debug(
+            f"{msg}"
+            f"{spacing}"
+            f"{reg_msg}"
+        )
+
+
+    def hc_log(self, msg, data):
+
+        msg = f"{self._pvm_id}: {msg}"
         spacing = " " * (51 - len(str(msg)))
         logging.debug(
             f"{msg}"
@@ -22,14 +35,30 @@ class PVMDunaLog(PVMDebugLog):
             f"{data}"
         )
 
-    @staticmethod
-    def debug(logger, level, core, service_idx, target, message):
-        logger(
-            f"{level}@{core}#{service_idx} {target} {message}"
+    def pvm_regs(self, msg):
+        regs = self._pvm.get_registers()
+        reg_msg = f"reg={str(regs)}"
+        spacing = " " * (51 - len(str(msg)))
+        logging.debug(
+            f"{msg}"
+            f"{spacing}"
+            f"{reg_msg}"
         )
 
+    def hc_debug(self, log_lvl, log_lvl_name, core_idx, service_idx, target, message):
+        target_str = ""
+        if target:
+            target_str = f"target={target} "
+        core_str = "corevm "
+        if core_idx:
+            core_str = f"core={core_idx} "#{service_idx}"
+        prefix_str = f"{log_lvl_name}#{core_str}"
+        msg_str = f'{target_str}msg="{message}"'
+        spacing = " " * (51-(len(prefix_str)))
+        logging.log(log_lvl, f'{prefix_str}{spacing}{msg_str}')
+
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
-        # regs = [int(x) for x in self._pvm.reg]
+        # regs = self._pvm.get_registers()
         #
         # opn = OpcodeNames[self._pvm.opcode]
         #
