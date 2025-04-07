@@ -225,7 +225,7 @@ def pvm_invoke_on_transfer(
                 argument_data=argument_data
             )
 
-            service_account = marshalling_output.context
+            service_account = marshalling_output.context.service_account
             gas_used = marshalling_output.gas_limit
 
     return PvmOnTransferOutput(
