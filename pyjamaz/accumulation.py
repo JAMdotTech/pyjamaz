@@ -117,6 +117,7 @@ class ParallelAccumulationOutput:
     accumulation_commitment: BeefyCommitmentMap
     accumulation_gas_utilized: Dict[int, int]
 
+
 @dataclass
 class FullAccumulationOutput:
     """

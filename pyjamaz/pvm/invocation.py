@@ -13,13 +13,15 @@ from pyjamaz.pvm.types import PVMProgram, PVMMemory
 
 class InvocationContext:
     """
-    GP-0.6.2-eq:B.6 (X) | Invocation Result Context (abstract)
+    GP-0.6.4-eq:A.35 (X)
     """
+    pass
+
 
 @dataclass
 class InvocationMutationOutput:
     """
-    A.34
+    GP-0.6.4-eq:A.35
     """
     exit_condition: ExitCondition   #TODO: rename
     gas_limit: int
@@ -30,18 +32,19 @@ class InvocationMutationOutput:
 
 class InvocationMutator:
     """
-    GP-x.x.x-eq:A.34 (Ω⟨X⟩) Abstract class for mutator functions
+    GP-0.6.4-eq:A.35 (Ω⟨X⟩) Abstract class for mutator functions
     """
     def execute(
             self,
             host_call_instr_nr: int,
             gas_limit: int,
-            registers: npt.NDArray[np.uint64],
+            registers: List[int],
             memory: PVMMemory,
             invocation_context: InvocationContext,
             _pvm: PVMInterpreter #TODO: TMP!
     ) -> InvocationMutationOutput:
         pass
+
 
 @dataclass
 class PVMOutput:
@@ -57,6 +60,7 @@ class PvmMarshallingOutput:
     gas_limit: int
     exit_condition: ExitCondition
     context: InvocationContext
+
 
 @dataclass
 class PvMHostCallOutput:
@@ -77,11 +81,9 @@ class PVMInvocation:
 
     ):
         self.pvm_program: Optional[PVMProgram] = None
-
+        self.pvm: Optional[PVMInterpreter] = None
         self.invocation_mutator: InvocationMutator = invocation_mutator
         self.invocation_context:InvocationContext = invocation_context
-
-        self.pvm: Optional[PVMInterpreter] = None
 
     def pvm_invoke_host_call(
             self,
@@ -119,10 +121,10 @@ class PVMInvocation:
                 host_call_output = self.invocation_mutator.execute(
                     host_call_instr_nr=exit_condition.value,
                     gas_limit=int(self.pvm.gas),
-                    registers=self.pvm.reg,
+                    registers=self.pvm.get_registers(),
                     memory=self.pvm.mem,
                     invocation_context=self.invocation_context,
-                    _pvm=self.pvm   #TODO
+                    _pvm=self.pvm
                 )
 
                 # Update gas usage TODO!!!!!!!!!!!!!!!!!!!!!!!
