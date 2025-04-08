@@ -1,9 +1,10 @@
 import logging
+from typing import List
 
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.pvm.types import PVMLogger
-from pyjamaz.pvm_interface.types import InvocationInput
+from pyjamaz.pvm.types import PVMLogger, PVMMemory
+
 
 LEVELS = {
     0: (logging.ERROR, "ERROR", "⛔"),
@@ -13,20 +14,25 @@ LEVELS = {
     4: (logging.DEBUG, "DEBUG", "🪡"),
 }
 
-def hc_log(ctx_in: InvocationInput, ctx_out: InvocationMutationOutput, logger: PVMLogger):
+def hc_log(
+        registers: List[int],
+        memory: PVMMemory,
+        service_id: int,
+        invocation_output: InvocationMutationOutput,
+        logger: PVMLogger):
     """
     """
     logger.pvm_regs("LOG")
 
-    level = ctx_in.registers[7]
+    level = registers[7]
     log_level = LEVELS.get(level, None)
 
-    if ctx_in.registers[8] == 0 or ctx_in.registers[9] == 0:
+    if registers[8] == 0 or registers[9] == 0:
         target = ""
     else:
-        target = ctx_in.memory.read_bytes(ctx_in.registers[8], ctx_in.registers[9]).decode("utf-8")
+        target = memory.read_bytes(registers[8], registers[9]).decode("utf-8")
 
-    message = ctx_in.memory.read_bytes(ctx_in.registers[10], ctx_in.registers[11]).decode("utf-8")
+    message = memory.read_bytes(registers[10], registers[11]).decode("utf-8")
 
-    logger.hc_debug(log_level[0], log_level[1], None, ctx_in.service_id, target, message)
-    ctx_out.exit_condition = ExitCondition(reason=ExitReason.resume)
+    logger.hc_debug(log_level[0], log_level[1], None, service_id, target, message)
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)

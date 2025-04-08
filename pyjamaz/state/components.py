@@ -1923,7 +1923,7 @@ class Services(StateComponent):
             service_transfers = transfers_service_mapping(deferred_transfers, service_id)
 
             output = pvm_invoke_on_transfer(
-                services=intermediate_state_after_accumulation.services,
+                services_state=intermediate_state_after_accumulation,
                 timeslot=post_state_timeslot.number,
                 service_id=service_id,
                 deferred_transfers=service_transfers

@@ -384,6 +384,14 @@ class ServiceAccount(Serializable):
         serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
         return serialized_bytes
 
+    def update_from(self, service_account: "ServiceAccount"):
+        self.footprint_storage_bytes = service_account.footprint_storage_bytes
+        self.footprint_storage_items = service_account.footprint_storage_items
+        self.balance = service_account.balance
+        self.code_hash = service_account.code_hash
+        self.gas_limit_accumulate = service_account.gas_limit_on_transfer
+        self.gas_limit_on_transfer = service_account.gas_limit_on_transfer
+
     def update_footprint_add_storage_item(self, size: int) -> None:
         """
         GP-0.6.2-eq:9.8
@@ -521,8 +529,11 @@ class ServicesState(State, Serializable):
         -------
 
         """
+        if service_account_id not in self.services:
+            self.services[service_account_id] = service_account
+        else:
+            self.services[service_account_id].update_from(service_account)
 
-        self.services[service_account_id] = service_account
         state_key = state_key_constructor_service_account(service_account_id)
 
         if commit:
@@ -1432,6 +1443,7 @@ class PvmOnTransferOutput:
     service_account: ServiceAccount
     gas_used: int
 
+
 @dataclass
 class AccumulateContextItem:
     """
@@ -1448,8 +1460,11 @@ class AccumulateContextItem:
 
 @dataclass
 class AccumulateInvocationContext(InvocationContext):
-    context: AccumulateContextItem           # X_x
-    savepoint_context: AccumulateContextItem # X_y
+    """
+    GP-0.6.4-eq:B.7 (X) | Invocation Result Context
+    """
+    context: AccumulateContextItem           # GP-0.6.4-eq:B.11 X_x
+    savepoint_context: AccumulateContextItem # GP-0.6.4-eq:B.11 X_y
     timeslot: int # TODO how to make available?
 
 
@@ -1462,7 +1477,9 @@ class AccumulatePvmArguments(Serializable):
 
 @dataclass
 class OnTransferInvocationContext(InvocationContext):
-    service_account: ServiceAccount           # A
+    service_id: int           # GP-0.6.4-eq:B.16 s
+    service_account: ServiceAccount  # GP-0.6.4-eq:B.16 bold_s
+    services_state: ServicesState # GP-0.6.4-eq:B.16 bold_D
 
 
 @dataclass

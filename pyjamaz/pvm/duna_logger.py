@@ -24,7 +24,6 @@ class PVMDunaLog(PVMDebugLog):
             f"{reg_msg}"
         )
 
-
     def hc_log(self, msg, data):
 
         msg = f"{self._pvm_id}: {msg}"

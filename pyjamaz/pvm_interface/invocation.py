@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import List, Dict
 
 import numpy as np
@@ -7,74 +8,186 @@ import numpy.typing as npt
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
     AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
-    OnTransferInvocationContext, PvmOnTransferOutput
+    OnTransferInvocationContext, PvmOnTransferOutput, ServicesState
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemory
-from pyjamaz.pvm_interface.hostcalls.accumulate import HostCallLookup
-from pyjamaz.pvm_interface.types import InvocationInput
+from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_checkpoint, hc_upgrade, \
+    hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new
+from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug
+from pyjamaz.pvm_interface.hostcalls.debug import hc_log
+from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
 
 
+@dataclass
+class GenericAccumulationInput:
+    """
+    """
+    service_id: int
+    invocation_context: AccumulateInvocationContext
+    gas_before: int
+    gas_limit: int
+    registers: List[int]
+    memory: PVMMemory
+
+
+# GP-0.6.4-section:B.4 | Accumulate Invocations
 class AccumulateInvocationMutator(InvocationMutator):
     def execute(
             self,
             host_call_instr_nr: int,
             gas_limit: int,
-            registers: npt.NDArray[np.uint64],
+            registers: List[int],
             memory: PVMMemory,
             invocation_context: AccumulateInvocationContext,
-            _pvm: PVMInterpreter  # TODO: temporary, only used for logging calls, pass logger
+            _pvm: PVMInterpreter
     ) -> InvocationMutationOutput:
         """
-        B.10 | F ∈ Ω⟨(X,X)⟩∶(n,ρ,ω,μ,(x,y))
+        GP-0.6.4-eq:B.11 | F ∈ Ω⟨(X,X)⟩∶(n,ρ,ω,μ,(x,y))
         """
-        logging.debug(f'PVM host-call #{host_call_instr_nr}')
+        logging.debug(f'PVM Accumulate host-call #{host_call_instr_nr}')
 
-        ctx_in = InvocationInput(
-            service_id=invocation_context.context.service_account_id,
-            invocation_context=invocation_context,
-            gas_before=int(_pvm.gas),
-            gas_limit=gas_limit,
-            registers=registers,
-            memory=memory
-        )
-        ctx_out = InvocationMutationOutput(
+        invocation_output = InvocationMutationOutput(
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
-            registers=registers,
-            memory=memory,
+            registers=_pvm.reg,
+            memory=_pvm.mem,
             context=invocation_context
         )
 
-        invoke_hostcall = HostCallLookup.get(host_call_instr_nr, None)
-        if invoke_hostcall:
-            #TODO: context / signature can be different per hostcall category -> general hostcalls should accept/work with both accumulate
-            invoke_hostcall(ctx_in, ctx_out, _pvm.log)
-        else:
-            raise NotImplementedError(f"Host-call {host_call_instr_nr} not implemented")
+        service_id = invocation_context.context.service_account_id
+        services = invocation_context.context.state_context.services
 
-        return ctx_out
+        match host_call_instr_nr:
+
+            case HostCallDebug.log.value:
+                hc_log(registers, memory, service_id, invocation_output, _pvm.log)
+
+            case HostCallGeneral.gas.value:
+                #GP-0.6.4-eq:B.12 | G
+                hc_gas(registers, memory, invocation_output, _pvm.log)
+
+            case HostCallGeneral.lookup.value:
+                # GP-0.6.4-eq:B.12 | G
+                service = services.retrieve_service_account(service_id)
+                hc_lookup(registers, memory, service, service_id, services, invocation_output, _pvm.log)
+
+            case HostCallGeneral.read.value:
+                # GP-0.6.4-eq:B.12 | G
+                service = services.retrieve_service_account(service_id)
+                hc_read(registers, memory, service, service_id, services, invocation_output, _pvm.log)
+
+            case HostCallGeneral.write.value:
+                # GP-0.6.4-eq:B.12 | G
+                service = services.retrieve_service_account(service_id)
+                hc_write(registers, memory, service, service_id, services, invocation_output, _pvm.log)
+
+            case HostCallGeneral.info.value:
+                # GP-0.6.4-eq:B.12 | G
+                service = services.retrieve_service_account(service_id)
+                hc_info(registers, memory, service, service_id, services, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.bless.value:
+                hc_bless(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.assign.value:
+                hc_assign(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.designate.value:
+                hc_designate(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.checkpoint.value:
+                hc_checkpoint(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.upgrade.value:
+                hc_upgrade(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.transfer.value:
+                hc_transfer(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.eject.value:
+                hc_eject(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.query.value:
+                hc_query(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.solicit.value:
+                hc_solicit(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.new.value:
+                hc_new(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate.forget.value:
+                hc_forget(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case HostCallAccumulate._yield.value:
+                hc_yield(registers, memory, invocation_context, invocation_output, _pvm.log)
+
+            case _:
+                raise NotImplementedError(f"Accumulate invoked host-call {host_call_instr_nr} not implemented")
+
+        return invocation_output
 
 
+# GP-0.6.4-section:B.5 | On-Transfer Invocations
 class OnTransferInvocationMutator(InvocationMutator):
     def execute(
             self,
             host_call_instr_nr: int,
             gas_limit: int,
-            registers: npt.NDArray[np.uint64],
+            registers: List[int],
             memory: PVMMemory,
             invocation_context: OnTransferInvocationContext,
-            _pvm: PVMInterpreter  # TODO: TMP!
+            _pvm: PVMInterpreter
     ) -> InvocationMutationOutput:
 
-        return InvocationMutationOutput(
-            exit_condition=ExitCondition(reason=ExitReason.resume),
+        logging.debug(f'PVM On-Transfer host-call #{host_call_instr_nr}')
+
+        ctx_out = InvocationMutationOutput(
+            exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
-            registers=registers,
-            memory=memory,
+            registers=_pvm.reg,
+            memory=_pvm.mem,
             context=invocation_context
         )
+
+        service_id = invocation_context.service_id
+        services = invocation_context.services_state
+
+        match host_call_instr_nr:
+
+            case HostCallDebug.log.value:
+                hc_log(registers, memory, service_id, ctx_out, _pvm.log)
+
+            case HostCallGeneral.gas.value:
+                #GP-0.6.4-eq:B.12 | G
+                hc_gas(registers, memory, ctx_out, _pvm.log)
+
+            case HostCallGeneral.lookup.value:
+                # GP-0.6.4-eq:B.12 | G
+                service = services.retrieve_service_account(service_id)
+                hc_lookup(registers, memory, service, service_id, services, ctx_out, _pvm.log)
+
+            case HostCallGeneral.read.value:
+                # GP-0.6.4-eq:B.12 | G
+                service = services.retrieve_service_account(service_id)
+                hc_read(registers, memory, service, service_id, services, ctx_out, _pvm.log)
+
+            case HostCallGeneral.write.value:
+                # GP-0.6.4-eq:B.12 | G
+                service = services.retrieve_service_account(service_id)
+                hc_write(registers, memory, service, service_id, services, ctx_out, _pvm.log)
+
+            case HostCallGeneral.info.value:
+                # GP-0.6.4-eq:B.12 | G
+                service = services.retrieve_service_account(service_id)
+                hc_info(registers, memory, service, service_id, services, ctx_out, _pvm.log)
+
+            case _:
+                raise NotImplementedError(f"On-Transfer invoked host-call {host_call_instr_nr} not implemented")
+
+        return ctx_out
 
 
 def pvm_invoke_accumulate(
@@ -95,6 +208,7 @@ def pvm_invoke_accumulate(
     service_id: int
     gas_limit: int
     operands: List[AccumulationOperand]
+    post_entropy: EntropyState
 
     Returns
     -------
@@ -133,7 +247,7 @@ def pvm_invoke_accumulate(
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=serialized_program,
-        start_offset=5,
+        start_offset=5, #TODO: constant?
         gas_limit=gas_limit,
         argument_data=argument_data
     )
@@ -172,7 +286,7 @@ def pvm_invoke_accumulate(
 
 
 def pvm_invoke_on_transfer(
-        services: Dict[int, ServiceAccount],
+        services_state: ServicesState,
         timeslot: int,
         service_id: int,
         deferred_transfers: List[DeferredTransfer]
@@ -192,7 +306,7 @@ def pvm_invoke_on_transfer(
     ServiceAccount
     """
 
-    service_account = services.get(service_id)
+    service_account = services_state.services.get(service_id)
     gas_used = 0
 
     if len(deferred_transfers) > 0:
@@ -212,7 +326,11 @@ def pvm_invoke_on_transfer(
             ).to_jam_bytes().to_bytes()
 
             pvm_invocation = PVMInvocation(
-                invocation_context=OnTransferInvocationContext(service_account=service_account),
+                invocation_context=OnTransferInvocationContext(
+                    service_id=service_id,
+                    service_account=service_account,
+                    services_state=services_state
+                ),
                 invocation_mutator=OnTransferInvocationMutator()
             )
 
@@ -220,7 +338,7 @@ def pvm_invoke_on_transfer(
 
             marshalling_output = pvm_invocation.pvm_invoke_marshalling(
                 serialized_program=serialized_program,
-                start_offset=10,
+                start_offset=10,    #TODO: constant?
                 gas_limit=gas_limit,
                 argument_data=argument_data
             )
