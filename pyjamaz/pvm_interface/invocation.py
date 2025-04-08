@@ -344,7 +344,7 @@ def pvm_invoke_on_transfer(
             )
 
             service_account = marshalling_output.context.service_account
-            gas_used = marshalling_output.gas_limit
+            gas_used = gas_limit - marshalling_output.gas_limit
 
     return PvmOnTransferOutput(
         service_account=service_account,
