@@ -16,7 +16,7 @@ from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger, Bytes
 
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
-
+from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
 
 
 class PVMLogger:
@@ -513,9 +513,15 @@ class PVMProgram(Serializable):
         """
         try:
             jam_bytes = JamBytes(serialized_program)
-
             # metadata
             metadata = Bytes.decode(jam_bytes)
+
+            if DEBUG:
+                override_heap_mem_pages = None
+                if metadata in DEBUG_PROGRAM_OVERRIDE:
+                    with open(DEBUG_PROGRAM_OVERRIDE.get(metadata)['file'], 'rb') as fp:
+                        jam_bytes = JamBytes(fp.read())
+                    override_heap_mem_pages = DEBUG_PROGRAM_OVERRIDE.get(metadata)['heap_mem_pages']
 
             # GP?? |o|
             pvm_rom_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')
@@ -532,6 +538,9 @@ class PVMProgram(Serializable):
 
             pvm_code_size = int.from_bytes(jam_bytes.get_next_bytes(4), byteorder='little')
             pvm_code = jam_bytes.get_next_bytes(pvm_code_size)
+
+            if DEBUG and override_heap_mem_pages:
+                heap_mem_pages = override_heap_mem_pages
 
             # GP-0.6.4-eq:A.40
             if (5 * PVM_INIT_ZONE_SIZE +

@@ -383,6 +383,8 @@ def single_step_accumulation(
         for r in w.results:
             if r.service_id == service_id:
                 g += r.accumulate_gas
+                # TODO removeme
+                # r.result.ok = b'\x06' * 35
                 p.append(
                     AccumulationOperand(
                         work_report_hash=w.package_spec.hash,

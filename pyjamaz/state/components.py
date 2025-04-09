@@ -615,12 +615,12 @@ class RecentHistory(StateComponent):
         """
         post_state_recent_history = deepcopy(intermediate_state_recent_history)
 
-        reported_work_packages = [
+        reported_work_packages = sorted([
             ReportedWorkPackage(
                 hash=g.report.package_spec.hash,
                 exports_root=g.report.package_spec.exports_root
             ) for g in extrinsic_guarantees
-        ]
+        ], key=lambda g: g.hash)
 
         # No more work reports than number of cores GP-0.5.0-eq:7.1
         # TODO: implicit limit to work-reports. GP-0.5.0 has a model change making bold_p a dictionary.
@@ -1654,7 +1654,7 @@ class Statistics(StateComponent):
         services += self.block_context.deferred_transfer_statistics.keys()
 
         # GP-0.6.4-eq:13.11 | Update service statistics
-        for s in set(services):
+        for s in sorted(set(services)):
             activity_record = ServiceActivityRecord()
             for p in extrinsic_preimages:
                 if p.requester == s:
