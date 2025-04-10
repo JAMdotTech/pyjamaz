@@ -104,9 +104,10 @@ class MemorySection:
     address: int    # The absolute memory address of this memory section
     size: int # Note: The (theoretical) max size of this section
     tail: int # Note: the address of the last written index for this section
-    paged_tail: int  # Note: the last address of accessible memory (tail roofed to page_size)
     writable: bool
     contents: npt.NDArray[np.uint8]
+
+    logness: bool = False
 
     def __init__(self, address, length, writable, contents):
         if not contents:
@@ -119,7 +120,6 @@ class MemorySection:
             raise Exception('Memory size too large')
         self.contents: npt.NDArray[np.uint8] = np.zeros(self.size, dtype=np.uint8)
         self.tail = 0
-        self.paged_tail = 0
         self.update(0, contents)
 
     def update(self, idx, _bytes):
@@ -127,7 +127,6 @@ class MemorySection:
         for c_idx, val in enumerate(_bytes):
             self.contents[idx+c_idx] = np.uint8(val)
         self.tail = len(_bytes)
-        self.paged_tail = PVMMemory.page_size(self.tail)
 
     def contains(self, addr):
         return self.address <= addr < self.address + self.size
@@ -207,12 +206,19 @@ class MemorySection:
             logging.error(msg)
             raise PVMMemoryError(msg)
 
+        if self.logness: #and (196625 < self.address + section_addr <= 196625+16):
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print(f"mem write: {self.address + section_addr} ({section_addr}): {value} ({length})")
+            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
         # Note: GP applies a modulus over the value to write denoted by their bit length
         if length < 8:
             value = value % (2 ** (length*8))
 
-        if self.address+section_addr+length > self.tail:
-            self.tail = self.address+section_addr+length
+        if section_addr+length > self.tail:
+            self.tail = section_addr+length
+        # if self.address+section_addr+length > self.tail:
+        #     self.tail = self.address+section_addr+length
 
         if length == 1:
             self.contents[section_addr + 0] = np.uint8(value & 0xFF)
@@ -391,13 +397,15 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = address - section.address
-        section_bytes = section.size #(section.size - section_addr)
+        #section_bytes = section.size #(section.size - section_addr)
+        section_bytes = (section.size - section_addr)
 
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
 
         section.contents[section_addr:section_addr+len(content)] = np.frombuffer(content, dtype=np.uint8)
-        end_addr = address + len(content)
+        end_addr = section_addr + len(content)
+        #end_addr = address + len(content)
         if end_addr > section.tail:
             section.tail = end_addr
 

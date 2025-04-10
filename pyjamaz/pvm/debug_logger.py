@@ -32,10 +32,10 @@ class PVMDebugLog(PVMLogger):
         initial_memory = []
 
         mem_segments = [
-            self._pvm.program.memory._rom,
-            self._pvm.program.memory._heap,
-            self._pvm.program.memory._stack,
-            self._pvm.program.memory._args
+            self._pvm.mem._rom,
+            self._pvm.mem._heap,
+            self._pvm.mem._stack,
+            self._pvm.mem._args
         ]
 
         for mem in mem_segments:
@@ -46,29 +46,22 @@ class PVMDebugLog(PVMLogger):
                     "is-writable": mem.writable,
                 })
 
-                #end_idx = 0
-                for idx, value in enumerate(mem.contents):
-                    #if value > 0:
+                for idx in range(mem.tail):
+                    value = mem.contents[idx]
                     initial_memory.append({
                         "address": mem.address+idx,
                         "contents": [int(value)]
                     })
-                #     if value != 0:
-                #         end_idx = idx
-                # if end_idx != 0:
-                #     initial_memory.append({
-                #         "address": int(mem.address),
-                #         "contents": [int(x) for x in mem.contents[:end_idx]]
-                #     })
 
-        with open(f"code-testvector-{datetime.now().strftime('%H-%M-%S')}.json", 'w') as fp:
+
+        with open(f"/Users/matthijsblaas/dev/pyjamaz/pyjamaz/data/services/pvmcode-testvector-{datetime.now().strftime('%H-%M-%S')}.json", 'w') as fp:
             tt = {
-                "name": "gas_basic_consume_all",
-                "initial-regs": self._pvm.program.registers,
-                "initial-pc": int(self._pvm._initial_pc),
+                "name": "test",
+                "initial-regs": self._pvm.program.registers, #self._initial_registers,
+                "initial-pc": int(self._pvm.pc),  #int(self._initial_pc),
                 "initial-page-map": initial_page_map,
                 "initial-memory": initial_memory,
-                "initial-gas": int(self._pvm._initial_gas),
+                "initial-gas": int(self._pvm.gas), #int(self._initial_gas),
                 "program": [x for x in self._pvm.program.to_serialized_bytes()],
                 "expected-status": "panic",
                 "expected-regs": [
@@ -121,7 +114,7 @@ class PVMDebugLog(PVMLogger):
         for seg in mem_segments:
             if seg.tail > 0:
                 page_begin_addr = seg.address
-                page_end_addr = seg.paged_tail
+                page_end_addr = PVMMemory.page_size(seg.tail)
                 nr_pages = (page_end_addr-page_begin_addr) // 4096 + 1
                 for xx in range(nr_pages):
                     bytez += int(seg.address // 4096).to_bytes(length=4, byteorder="little")
