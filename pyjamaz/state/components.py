@@ -1563,6 +1563,20 @@ class Disputes(StateComponent):
             if not cls.has_valid_judgement_signatures(verdict, validators):
                 raise BlockValidationError(DisputesErrorCode.bad_signature)
 
+        validator_keys = [v.ed25519 for v in pre_state_validator_pool.validators]
+
+        # Check if culprit is in validator set
+        for culprit in extrinsic_disputes.culprits:
+            if culprit.key not in validator_keys:
+                raise BlockValidationError(DisputesErrorCode.bad_guarantor_key)
+
+        # Check if faulty auditor is in validator set
+        for fault in extrinsic_disputes.faults:
+            if fault.key not in validator_keys:
+                raise BlockValidationError(DisputesErrorCode.bad_auditor_key)
+
+
+
 
 class Statistics(StateComponent):
     component_id = 13
