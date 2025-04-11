@@ -9,7 +9,7 @@ from pyjamaz.models.block import TicketEnvelope
 from pyjamaz.models.common import TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
-from pyjamaz.utils import vrf_input_ticket_seal
+from pyjamaz.utils import vrf_input_ticket_seal, format_hash
 
 
 class ExtrinsicAccumulator:
@@ -70,8 +70,8 @@ class ExtrinsicAccumulator:
 
         ticket_id = vrf_output(keypair.private_key, vrf_input_data)
 
-        logging.info(f'🎫 Generated ticket: 0x{ticket_id.hex()}')
-        logging.debug(f'Generated ticket: id = {ticket_id.hex()} with entropy {entropy.hex()}')
+        logging.info(f'🎫 Generated ticket: {format_hash(ticket_id)}')
+        logging.debug(f'Generated ticket: id = {format_hash(ticket_id)} with entropy {format_hash(entropy)}')
 
         self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)

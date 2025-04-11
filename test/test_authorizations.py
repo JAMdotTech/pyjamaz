@@ -61,8 +61,9 @@ class TestAuthorizations(unittest.TestCase):
                     core_index=a["core"],
                     authorizer_hash=bytes.fromhex(a["auth_hash"][2:]),
                     auth_output=b'',
-                    segment_root_lookup=[],
-                    results=[]
+                    segment_root_lookup={},
+                    results=[],
+                    auth_gas_used=0
                 ),
                 slot=0,
                 signatures=[]

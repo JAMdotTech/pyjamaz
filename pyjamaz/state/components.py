@@ -30,13 +30,14 @@ from pyjamaz.state.base import StateComponent, state_key_constructor_service_acc
     state_key_constructor_preimage_availability, AppContext
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext
+    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext, \
+    EpochMarkValidatorKeys, DeferredTransferStatistic
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
     AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
-    AccumulationQueueWorkPackage, DeferredTransfer
+    AccumulationQueueWorkPackage, DeferredTransfer, ServiceActivityRecord
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -53,7 +54,7 @@ class Timeslot(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.5 (bold_H)
+            GP-0.6.4-eq:4.5 (bold_H)
 
         Returns
         -------
@@ -89,11 +90,11 @@ class Entropy(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.9 (bold_H)
+            GP-0.6.4-eq:4.9 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.5.0-eq:4.9 (τ)
+            GP-0.6.4-eq:4.9 (τ)
         pre_state_entropy: EntropyState
-            GP-0.5.0-eq:4.9 (η)
+            GP-0.6.4-eq:4.9 (η)
 
         Returns
         -------
@@ -298,21 +299,21 @@ class Safrole(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.8 (bold_H)
+            GP-0.6.4-eq:4.8 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.5.0-eq:4.8 (τ)
+            GP-0.6.4-eq:4.8 (τ)
         extrinsic_tickets: List[TicketEnvelope]
-            GP-0.5.0-eq:4.8 (bold_E_T)
+            GP-0.6.4-eq:4.8 (bold_E_T)
         pre_state_safrole: SafroleState
-            GP-0.5.0-eq:4.8 (γ)
+            GP-0.6.4-eq:4.8 (γ)
         pre_state_validator_queue: ValidatorQueueState
-            GP-0.5.0-eq:4.8 (ι)
+            GP-0.6.4-eq:4.8 (ι)
         post_state_entropy: EntropyState
-            GP-0.5.0-eq:4.8 (η')
+            GP-0.6.4-eq:4.8 (η')
         post_state_validator_pool: ValidatorPoolState
-            GP-0.5.0-eq:4.8 (κ')
+            GP-0.6.4-eq:4.8 (κ')
         post_state_disputes: DisputesState
-            GP-0.5.0-eq:4.8 (ψ')
+            GP-0.6.4-eq:4.8 (ψ')
         Returns
         -------
         SafroleOutput
@@ -391,7 +392,12 @@ class Safrole(StateComponent):
             epoch_mark = EpochMark(
                 entropy=post_state_entropy.entropy[1],
                 tickets_entropy=post_state_entropy.entropy[2],
-                validators=[validator.bandersnatch for validator in self.post_state_safrole.validators]
+                validators=[
+                    EpochMarkValidatorKeys(
+                        bandersnatch=validator.bandersnatch,
+                        ed25519=validator.ed25519
+                    ) for validator in self.post_state_safrole.validators
+                ]
             )
             logging.debug(f"Epoch Mark generated")
 
@@ -562,9 +568,9 @@ class RecentHistory(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.7 (bold_H)
+            GP-0.6.4-eq:4.7 (bold_H)
         pre_state_recent_history: RecentHistoryState
-            GP-0.5.0-eq:4.6 (β)
+            GP-0.6.4-eq:4.6 (β)
 
         Returns
         -------
@@ -594,13 +600,13 @@ class RecentHistory(StateComponent):
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.7 (bold_H)
+            GP-0.6.4-eq:4.7 (bold_H)
         extrinsic_guarantees: List[Guarantee]
-            GP-0.5.0-eq:4.7 (bold_E_G)
+            GP-0.6.4-eq:4.7 (bold_E_G)
         intermediate_state_recent_history: RecentHistoryState
-            GP-0.5.0-eq:4.7 (β†)
+            GP-0.6.4-eq:4.7 (β†)
         beefy_commitment_map: BeefyCommitmentMap
-            GP-0.5.0-eq:4.7 (bold_C)
+            GP-0.6.4-eq:4.7 (bold_C)
 
         Returns
         -------
@@ -609,12 +615,12 @@ class RecentHistory(StateComponent):
         """
         post_state_recent_history = deepcopy(intermediate_state_recent_history)
 
-        reported_work_packages = [
+        reported_work_packages = sorted([
             ReportedWorkPackage(
                 hash=g.report.package_spec.hash,
                 exports_root=g.report.package_spec.exports_root
             ) for g in extrinsic_guarantees
-        ]
+        ], key=lambda g: g.hash)
 
         # No more work reports than number of cores GP-0.5.0-eq:7.1
         # TODO: implicit limit to work-reports. GP-0.5.0 has a model change making bold_p a dictionary.
@@ -695,7 +701,7 @@ class Assurances(StateComponent):
     def validate_after_disputes(
             self,
             extrinsic_assurances: List[Assurance],
-            post_state_validator_pool: ValidatorPoolState,
+            pre_state_validator_pool: ValidatorPoolState,
             header: Header
     ):
         """
@@ -704,7 +710,7 @@ class Assurances(StateComponent):
         Parameters
         ----------
         extrinsic_assurances
-        post_state_validator_pool
+        pre_state_validator_pool
         header
 
         Returns
@@ -712,7 +718,7 @@ class Assurances(StateComponent):
 
         """
 
-        if not self.have_valid_validators(extrinsic_assurances, post_state_validator_pool):
+        if not self.have_valid_validators(extrinsic_assurances, pre_state_validator_pool):
             raise StateTransitionError(AssurancesErrorCode.bad_validator_index)
 
         if not self.are_assurances_sorted(extrinsic_assurances):
@@ -726,7 +732,7 @@ class Assurances(StateComponent):
             if assurance.anchor != header.parent:
                 raise StateTransitionError(AssurancesErrorCode.bad_attestation_parent)
 
-            validator = post_state_validator_pool.validators[assurance.validator_index]
+            validator = pre_state_validator_pool.validators[assurance.validator_index]
 
             if not self.has_valid_signature(assurance, validator):
                 raise StateTransitionError(AssurancesErrorCode.bad_signature)
@@ -1557,6 +1563,20 @@ class Disputes(StateComponent):
             if not cls.has_valid_judgement_signatures(verdict, validators):
                 raise BlockValidationError(DisputesErrorCode.bad_signature)
 
+        validator_keys = [v.ed25519 for v in pre_state_validator_pool.validators]
+
+        # Check if culprit is in validator set
+        for culprit in extrinsic_disputes.culprits:
+            if culprit.key not in validator_keys:
+                raise BlockValidationError(DisputesErrorCode.bad_guarantor_key)
+
+        # Check if faulty auditor is in validator set
+        for fault in extrinsic_disputes.faults:
+            if fault.key not in validator_keys:
+                raise BlockValidationError(DisputesErrorCode.bad_auditor_key)
+
+
+
 
 class Statistics(StateComponent):
     component_id = 13
@@ -1571,8 +1591,7 @@ class Statistics(StateComponent):
             post_state_timeslot: TimeslotState,
             post_state_validator_pool: ValidatorPoolState,
             pre_state_statistics: StatisticsState,
-            header: Header,
-            reporters: List[bytes]
+            header: Header
     ) -> StatisticsOutput:
         """
         GP-0.5.0-eq:13.3,13.4 (π') | State transition function for the state's statistics.
@@ -1597,8 +1616,6 @@ class Statistics(StateComponent):
             GP-0.5.0-eq:4.20 (π)
         header: Header
             GP-0.5.0-eq:4.20 (bold_H)
-        reporters: List[bytes]
-            GP-0.6.2-eq:??? TODO missing in dependency graph?
 
         Returns
         -------
@@ -1607,10 +1624,10 @@ class Statistics(StateComponent):
         """
         post_state = deepcopy(pre_state_statistics)
 
-        # GP-0.5.0-eq:13.3
+        # GP-0.6.4-eq:13.3 | Shift statistics after epoch change
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
-            post_state.last = post_state.current
-            post_state.current = [ActivityRecord(
+            post_state.vals_last = post_state.vals_current
+            post_state.vals_current = [ActivityRecord(
                 blocks=0,
                 tickets=0,
                 pre_images=0,
@@ -1619,21 +1636,71 @@ class Statistics(StateComponent):
                 assurances=0
             ) for _ in range(gp_const.VALIDATOR_COUNT)]
 
-        # GP-0.5.0-eq:13.4
-        post_state.current[header.author_index].blocks += 1
-        post_state.current[header.author_index].tickets += len(extrinsic_tickets)
-        post_state.current[header.author_index].pre_images += len(extrinsic_preimages)
-        post_state.current[header.author_index].pre_images_size += sum([len(p.blob) for p in extrinsic_preimages])
+        # GP-0.6.4-eq:13.4 | Update validator stats
+        post_state.vals_current[header.author_index].blocks += 1
+        post_state.vals_current[header.author_index].tickets += len(extrinsic_tickets)
+        post_state.vals_current[header.author_index].pre_images += len(extrinsic_preimages)
+        post_state.vals_current[header.author_index].pre_images_size += sum([len(p.blob) for p in extrinsic_preimages])
 
         for assurance in extrinsic_assurances:
-            post_state.current[assurance.validator_index].assurances += 1
+            post_state.vals_current[assurance.validator_index].assurances += 1
 
-        for reporter in reporters:
-            post_state.current[self.retrieve_validator_index(reporter, post_state_validator_pool)].guarantees += 1
+        for reporter in self.block_context.reporters:
+            post_state.vals_current[self.retrieve_validator_index(reporter, post_state_validator_pool)].guarantees += 1
+
+        incoming_work_reports = [g.report for g in extrinsic_guarantees]
+
+        # GP-0.6.4-eq:13.8 | Update core statistics
+        for c in range(gp_const.CORE_COUNT):
+            post_state.cores[c].update(
+                core_index=c,
+                incoming_work_reports=incoming_work_reports,
+                available_work_reports=self.block_context.available_work_reports,
+                extrinsic_assurances=extrinsic_assurances
+            )
+
+        post_state.services = {}
+
+        # GP-0.6.4-eq:13.12 | Determine affected services
+        services = [r.service_id for w in incoming_work_reports for r in w.results]
+        services += [p.requester for p in extrinsic_preimages]
+        services += self.block_context.accumulation_statistics.keys()
+        services += self.block_context.deferred_transfer_statistics.keys()
+
+        # GP-0.6.4-eq:13.11 | Update service statistics
+        for s in sorted(set(services)):
+            activity_record = ServiceActivityRecord()
+            for p in extrinsic_preimages:
+                if p.requester == s:
+                    activity_record.provided_count += 1
+                    activity_record.provided_size += len(p.blob)
+
+            for w in incoming_work_reports:
+                for r in w.results:
+                    if r.service_id == s:
+                        activity_record.refinement_count += 1
+                        activity_record.refinement_gas_used += r.refine_load.gas_used
+                        activity_record.imports += r.refine_load.imports
+                        activity_record.extrinsic_count += r.refine_load.extrinsic_count
+                        activity_record.extrinsic_size += r.refine_load.extrinsic_size
+                        activity_record.exports += r.refine_load.exports
+
+            accumulation_stats = self.block_context.accumulation_statistics.get(s)
+            if accumulation_stats:
+                activity_record.accumulate_count += accumulation_stats.nr_work_reports_accumulated
+                activity_record.accumulate_gas_used += accumulation_stats.total_gas_utilized
+
+            transfer_stats = self.block_context.deferred_transfer_statistics.get(s)
+            if transfer_stats:
+                activity_record.on_transfers_count += transfer_stats.nr_transfers
+                activity_record.on_transfers_gas_used += transfer_stats.gas_used
+
+            post_state.services[s] = activity_record
 
         return StatisticsOutput(
             post_state=post_state
         )
+
     @staticmethod
     def retrieve_validator_index(ed25519_key: bytes, post_validator_pool: ValidatorPoolState) -> int:
         for validator_index, validator_data in enumerate(post_validator_pool.validators):
@@ -1648,7 +1715,7 @@ class Statistics(StateComponent):
 
 
 class Services(StateComponent):
-    # component_id = 255
+    component_id = 255
 
     def validate_extrinsic_preimages(
             self,
@@ -1830,7 +1897,8 @@ class Services(StateComponent):
             post_state_authorizer_queues=output.post_accumulation_state.authorizer_queues,
             beefy_commitment_map=output.accumulation_commitment,
             nr_work_results_accumulated=output.nr_work_results_accumulated,
-            deferred_transfers=output.deferred_transfers
+            deferred_transfers=output.deferred_transfers,
+            accumulation_gas_utilized=output.accumulation_gas_utilized
         )
 
     def state_transition_transfers(
@@ -1863,18 +1931,32 @@ class Services(StateComponent):
         intermediate_state_after_transfers.set_storage_engine(self.storage_engine)
         intermediate_state_after_transfers.set_storage_transaction(self.app_context.transaction)
 
+        deferred_transfer_statistics = {}
+
         for service_id in intermediate_state_after_accumulation.services.keys():
+            service_transfers = transfers_service_mapping(deferred_transfers, service_id)
+
+            output = pvm_invoke_on_transfer(
+                services_state=intermediate_state_after_accumulation,
+                timeslot=post_state_timeslot.number,
+                service_id=service_id,
+                deferred_transfers=service_transfers
+            )
+
             intermediate_state_after_transfers.services.update({
-                service_id: pvm_invoke_on_transfer(
-                    services=intermediate_state_after_accumulation.services,
-                    timeslot=post_state_timeslot.number,
-                    service_id=service_id,
-                    deferred_transfers=transfers_service_mapping(deferred_transfers, service_id)
-                )
+                service_id: output.service_account
             })
 
+            # GP-0.6.4-eq:12.30
+            if len(service_transfers) > 0:
+                deferred_transfer_statistics[service_id] = DeferredTransferStatistic(
+                    nr_transfers=len(service_transfers),
+                    gas_used=output.gas_used,
+                )
+
         return ServicesAfterTransfersOutput(
-            intermediate_state_after_transfers=intermediate_state_after_transfers
+            intermediate_state_after_transfers=intermediate_state_after_transfers,
+            deferred_transfer_statistics=deferred_transfer_statistics
         )
 
     def is_preimage_needed(self, preimage: Preimage, pre_state_services: ServicesState) -> bool:
@@ -1923,40 +2005,64 @@ class Services(StateComponent):
         -------
 
         """
-        # Process all service accounts in current memory
+        #TODO: mark dirty state, so we have state_mutations directly available
+        state_mutations = []
+
+        # Collect all service accounts in current memory
         for service_id, service_account in state.services.items():
+
             # Process storage items
             for storage_key, storage_value in service_account.storage_items.items():
                 if storage_value is None:
-                    state.delete_storage_item(service_id, storage_key, commit=True)
+                    state_mutations.append(("storage_items_delete", service_id, storage_key))
                 else:
-                    state.store_storage_item(service_id, storage_key, storage_value, commit=True)
+                    state_mutations.append(("storage_items_update", service_id, storage_key, storage_value))
+
             # Process preimages
             for preimage_hash, preimage_blob in service_account.preimages.items():
                 if preimage_blob is None:
-                    state.delete_preimage(service_id, preimage_hash, commit=True)
+                    state_mutations.append(("preimages_delete", service_id, preimage_hash))
                 else:
-                    state.store_preimage(service_id, preimage_blob, commit=True)
+                    state_mutations.append(("preimages_update", service_id, preimage_blob))
+
             # Process preimage availability
             for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
 
                 if availability is None:
-                    state.delete_preimage_availability(
-                        service_id, preimage_hash, preimage_length, commit=True
-                    )
+                    state_mutations.append(("preimage_availability_delete", service_id, preimage_hash, preimage_length))
                 else:
-                    state.store_preimage_availability(
-                        service_account_id=service_id,
-                        preimage_hash=preimage_hash,
-                        preimage_length=preimage_length,
-                        value=availability,
-                        commit=True
-                    )
+                    state_mutations.append(("preimage_availability_update", service_id, preimage_hash, preimage_length, availability))
+
             # Process service account
             if service_account is None:
-                state.delete_service_account(service_id, commit=True)
+                state_mutations.append(("service_account_delete", service_id,))
             else:
-                state.store_service_account(service_id, service_account, commit=True)
+                state_mutations.append(("service_account_update", service_id, service_account))
+
+        # Process all mutations afterwards (in order) to prevent mutating the state while iterating over it
+        for mut in state_mutations:
+            if mut[0] == "storage_items_delete":
+                state.delete_storage_item(mut[1], mut[2], commit=True)
+            elif mut[0] == "storage_items_update":
+                state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
+            elif mut[0] == "preimages_delete":
+                state.delete_preimage(mut[1], mut[2], commit=True)
+            elif mut[0] == "preimages_update":
+                state.store_preimage(mut[1], mut[2], commit=True)
+            elif mut[0] == "preimage_availability_delete":
+                state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
+            elif mut[0] == "preimage_availability_update":
+                state.store_preimage_availability(
+                    service_account_id=mut[1],
+                    preimage_hash=mut[2],
+                    preimage_length=mut[3],
+                    value=mut[4],
+                    commit=True
+                )
+            elif mut[0] == "service_account_delete":
+                state.delete_service_account(mut[1], commit=True)
+            elif mut[0] == "service_account_update":
+                state.store_service_account(mut[1], mut[2], commit=True)
 
 
 class AccumulationQueue(StateComponent):

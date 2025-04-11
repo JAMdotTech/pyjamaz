@@ -4,7 +4,7 @@ from typing import List, Dict
 import ipaddress
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map
+from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64
 
 
 @dataclass
@@ -84,32 +84,58 @@ class WorkExecResult(Serializable):
 
 
 @dataclass
+class RefineLoad(Serializable):
+    """
+    GP-0.6.4-eq:11.6 (blackboard_L) | Part of a work result (todo: integrate with WorkResult?)
+
+    Attributes
+    ----------
+    gas_used: VarInt64
+        GP-0.6.4-eq:11.6 (u)
+    imports: VarInt64
+        GP-0.6.4-eq:11.6 (i)
+    extrinsic_count: VarInt64
+        GP-0.6.4-eq:11.6 (x)
+    extrinsic_size: VarInt64
+        GP-0.6.4-eq:11.6 (z)
+    exports: VarInt64
+        GP-0.6.4-eq:11.6 (e)
+    """
+    gas_used: int = field(metadata={'codec': VarInt64})
+    imports: int = field(metadata={'codec': VarInt64})
+    extrinsic_count: int = field(metadata={'codec': VarInt64})
+    extrinsic_size: int = field(metadata={'codec': VarInt64})
+    exports: int = field(metadata={'codec': VarInt64})
+
+
+@dataclass
 class WorkResult(Serializable):
     """
-    GP-0.5.0-eq:11.6 (blackboard_L) | A work result is the data conduit by which services' states may be altered through
+    GP-0.6.4-eq:11.6 (blackboard_L) | A work result is the data conduit by which services' states may be altered through
     the computation done within a work-package.
 
     Attributes
     ----------
     service_id: U32
-        GP-0.5.0-eq:11.6 (s) | The index of a service whose state is to be altered and thus whose refine code was
+        GP-0.6.4-eq:11.6 (s) | The index of a service whose state is to be altered and thus whose refine code was
         already executed.
     code_hash: H256
-        GP-0.5.0-eq:11.6 (c) | The hash of the code  of the service at the time of being reported.
+        GP-0.6.4-eq:11.6 (c) | The hash of the code  of the service at the time of being reported.
     payload_hash: H256
-        GP-0.5.0-eq:11.6 (l) | The hash of the payload within the work item which was executed in the refine stage to
+        GP-0.6.4-eq:11.6 (y) | The hash of the payload within the work item which was executed in the refine stage to
         give this result.
     accumulate_gas: U64
-        GP-0.5.0-eq:11.6 (g) | The gas prioritization ration used when determining how much gas should be allocated to
+        GP-0.6.4-eq:11.6 (g) | The gas prioritization ration used when determining how much gas should be allocated to
         execute of this item's accumulate.
     result: WorkExecResult
-        GP-0.5.0-eq:11.6 (o) | Output or error of the execution of the code.
+        GP-0.6.4-eq:11.6 (d) | Output or error of the execution of the code.
     """
     service_id: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
     payload_hash: bytes = field(metadata={'codec': H256})
     accumulate_gas: int = field(metadata={'codec': U64})
     result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
+    refine_load: RefineLoad = field(metadata={'codec': RefineLoad.to_codec_def()})
 
 
 @dataclass
@@ -170,7 +196,7 @@ class WorkPackageSpec(Serializable):
 @dataclass
 class WorkReport(Serializable):
     """
-    GP-0.5.0-eq:11.2 (blackboard_W) | A work report comprises several work outputs.
+    GP-0.6.4-eq:11.2 (blackboard_W) | A work report comprises several work outputs.
 
     Attributes
     ----------
@@ -196,6 +222,7 @@ class WorkReport(Serializable):
     auth_output: bytes = field(metadata={'codec': Bytes})
     segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
     results: List[WorkResult] = field(metadata={'codec': Vec(WorkResult.to_codec_def())})
+    auth_gas_used: int = field(metadata={'codec': VarInt64})
 
     def dependency_count(self) -> int:
         """
@@ -235,13 +262,17 @@ class TicketBody(Serializable):
 @dataclass
 class AccumulationOperand(Serializable):
     """
-    GP-0.6.0-eq:12.18 (blackboard_O) | Operand to the PVM accumulation function
+    GP-0.6.3-eq:12.18 (blackboard_O) | Operand to the PVM accumulation function
     """
-    # o
-    work_item_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
-    # l
-    work_item_payload_hash: bytes = field(metadata={'codec': H256})
-    # k
+    # h
     work_report_hash: bytes = field(metadata={'codec': H256})
+    # e
+    work_report_exports_root: bytes = field(metadata={'codec': H256})
     # a
+    work_report_authorizer_hash: bytes = field(metadata={'codec': H256})
+    # o
     work_report_auth_output: bytes = field(metadata={'codec': Bytes})
+    # y
+    work_result_payload_hash: bytes = field(metadata={'codec': H256})
+    # d
+    work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})

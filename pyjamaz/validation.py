@@ -55,7 +55,6 @@ class BlockValidation:
         if header.timeslot <= parent_header.timeslot or header.timeslot > self.current_timeslot():
             raise BlockValidationError(BlockValidationErrorCode.bad_slot)
 
-        # TODO Check calculation, currently doesn't match Duna
         if header.parent_state_root != self.block_context.state_root:
             raise BlockValidationError(
                 f"Parent state root {header.parent_state_root.hex()} does not match with  0x{self.block_context.state_root.hex()}"

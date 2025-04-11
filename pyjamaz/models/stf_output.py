@@ -1,11 +1,11 @@
 import enum
 from dataclasses import dataclass, field
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import Option, Vec, H256, Array, U32
+from jamcodec.types import Option, Vec, H256, Array, U32, Map, U64
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
-from pyjamaz.models.block import EpochMark
+from pyjamaz.models.block import EpochMark, DeferredTransferStatistic
 from pyjamaz.models.common import WorkReport, TicketBody
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
@@ -54,6 +54,8 @@ class DisputesErrorCode(Serializable, enum.Enum):
     bad_judgement_age = 11
     bad_validator_index = 12
     bad_signature = 13
+    bad_guarantor_key = 14
+    bad_auditor_key = 15
 
 
 @dataclass
@@ -301,6 +303,7 @@ class ServicesAfterTransfersOutput(Serializable):
         GP-0.5.0-eq:4.17 (δ‡) | Primary output of ServicesAfterTransfers STF.
     """
     intermediate_state_after_transfers: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
+    deferred_transfer_statistics: Dict[int, DeferredTransferStatistic]
 
 
 @dataclass
@@ -324,6 +327,8 @@ class ServicesAfterAccumulationOutput(Serializable):
         GP-0.6.1-eq:12.21 (n) | Number of work results accumulated
     deferred_transfers: List[DeferredTransfer]
         GP-0.6.1-eq:12.21 (bold_t) | Number of work results accumulated
+    accumulation_gas_utilized: Dict[int, int]
+        GP-0.6.4-eq:12.21 (bold_u) | accumulation gas utilized per service
 
     """
     intermediate_state_after_accumulation: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
@@ -333,6 +338,7 @@ class ServicesAfterAccumulationOutput(Serializable):
     beefy_commitment_map: BeefyCommitmentMap = field(metadata={'codec': BeefyCommitmentMap.to_codec_def()})
     nr_work_results_accumulated: int = field(metadata={'codec': U32})
     deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
+    accumulation_gas_utilized: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
 
 
 @dataclass

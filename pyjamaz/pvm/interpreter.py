@@ -38,8 +38,9 @@ from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 class PVMInterpreter:
 
-    def __init__(self, program: PVMProgram, logger=None):
-        self.reg = np.zeros(13, dtype=np.uint64)
+    def __init__(self, program: PVMProgram, logger_cls=None):
+        self.name = program.metadata
+        self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
@@ -53,20 +54,23 @@ class PVMInterpreter:
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
 
+        self.metadata:bytes = None
         self.mem:PVMMemory = None
         self.status:int = ExitReason.resume.value
         self.exit_value:int = None
 
+        self.log = None
+
         self.reset(program)
 
-        self.log = None
-        if logger:
+        if logger_cls:
             self.program = program
-            self.log = logger
+            self.log = logger_cls(pvm=self)
             self.log._pvm = self
+            self.log._pvm_id = self.metadata.decode("utf-8")
             for opcode_name in OpcodeNames.values():
-                if opcode_name not in logger.log_opcodes:
-                    logger.log_opcodes[opcode_name] = 0
+                if opcode_name not in self.log.log_opcodes:
+                    self.log.log_opcodes[opcode_name] = 0
 
 
     def create_instruction_lookup(self):
@@ -109,19 +113,23 @@ class PVMInterpreter:
 
 
     def branch(self, b:int, C:bool):
+        """
+        GP-0.6.4-eq:A.17
+        """
         if C:
             inst_pos = self.pc + b
             if inst_pos not in self.inst_pos:
                 #self.status = ExitCondition.panic.value
                 raise PanicError(f"Invalid branch instruction: C={C} b={b} inst_pos={inst_pos}")
             else:
-                self.skip_len = inst_pos  - self.pc
+                self.skip_len = b
 
 
     def reset(self, program: PVMProgram):
         self.pc = np.uint32(0)
         self.gas = np.int64(0)
 
+        self.metadata = program.metadata
         self.code:npt.NDArray[np.uint8] = np.array(program.code.code, dtype=np.uint8)
         self.code_size: np.uint64 = np.uint64(len(self.code))
         self.mem = program.memory
@@ -137,6 +145,9 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
 
+    #TODO: registers_as_int
+    def get_registers(self):
+        return [int(x) for x in self.reg]
 
     def mem_write(self, opcode, addr, value):
         if opcode not in MemOps:
@@ -169,8 +180,6 @@ class PVMInterpreter:
               a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
               a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0 or
               self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] not in self.inst_pos):
-            #self.status = ExitCondition.panic.value
-            #return 0
             raise PanicError(f"Invalid djump operation: a={a}")
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
@@ -208,10 +217,8 @@ class PVMInterpreter:
         self.gas = gas
 
         if self.log:
-            self.log.state()
-            self.log.header()
-            self._initial_gas = gas
-            self._initial_pc = pc
+            self.log.pvm_counters()
+            self.log.pvm_header()
 
         while self.status == ExitReason.resume.value and self.gas > 0:
 

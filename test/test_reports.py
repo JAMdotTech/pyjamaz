@@ -4,16 +4,16 @@ import unittest
 from os import path
 from typing import Optional
 
-from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
+from pyjamaz.exceptions import StateTransitionError
+from pyjamaz.models.block import Header, Guarantee, BlockContext, Extrinsic, ExtrinsicDisputes
+from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
+    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.state.base import AppContext
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee, BlockContext, Extrinsic, ExtrinsicDisputes
-from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -89,18 +89,18 @@ class TestReports(unittest.TestCase):
 
         pre_services = ServicesState.from_json(
             {"services": {s["id"]: {
-                "code_hash": bytes.fromhex(s["info"]["code_hash"][2:]),
-                "balance": s["info"]["balance"],
-                "gas_limit_accumulate": s["info"]["min_item_gas"],
-                "gas_limit_on_transfer": s["info"]["min_memo_gas"],
-                "footprint_storage_items": s["info"]["items"],
-                "footprint_storage_bytes": s["info"]["bytes"],
+                "code_hash": bytes.fromhex(s["data"]["service"]["code_hash"][2:]),
+                "balance": s["data"]["service"]["balance"],
+                "gas_limit_accumulate": s["data"]["service"]["min_item_gas"],
+                "gas_limit_on_transfer": s["data"]["service"]["min_memo_gas"],
+                "footprint_storage_items": s["data"]["service"]["items"],
+                "footprint_storage_bytes": s["data"]["service"]["bytes"],
                 "threshold_balance": 0,
                 "storage_items": {},
                 "preimages": {},
                 "preimage_availability": {}
 
-            } for s in test_vector["pre_state"]["services"]}}
+            } for s in test_vector["pre_state"]["accounts"]}}
         )
 
         pre_services.set_storage_engine(self.storage_engine)

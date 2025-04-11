@@ -1,235 +1,302 @@
-# from typing import Dict
-#
-# import numpy as np
-# from jamcodec.types import U32
-#
-# from pyjamaz.hashing import blake2b_256_hash
-#
-# from .constants import HostCallGeneral as op, HostCallResult
-#
-#
-# # TODO: maak nette types & datamodellen voor parameters waar nodig
-# # TODO: we slaan nu direct resultaat op in bijv pvm registers... wellicht dit eerst in een intermediate state opslaan?
-# # GP_B.6 General Functions
-# class GeneralFunctionsMixin:
-#     # hostcall 3
-#     def write(self, pvm, bold_s=None, s=None):
-#         """
-#         Writes/deletes a Service Preimage blob
-#         """
+from copy import deepcopy
+from typing import List
 
-#     #0
-#     def gas(self, pvm:PVM, bold_s:ServiceAccount=None, s:int=None, d:Dict[int, ServiceAccount]=None):
-#         """
-#         Puts available PVM gas in register 7
-#         """
-#         pvm.gas -= 10
-#         pvm.reg[7] = pvm.gas
-#
-#     # 1
-#     # bold_s: Service, s: ServiceIndex, d:ServiceLookup
-#     #(ϱ:Gas, ω:Pvm_registers, µ:pvm_memory, bold_s:Service, s:ServiceIndex, d:ServiceDict) K:element of???  H:scale encoded?????
-#     def lookup(self, pvm:PVM, bold_s:ServiceAccount=None, s:int=None, bold_d:Dict[int, ServiceAccount]=None):
-#         """
-#         Puts a Service Preimage blob into PVM memory
-#         """
-#         pvm.gas -= 10
-#         #TODO: alle register variabelen w vervangen in ω
-#         #w7==service_account_index
-#         w7 = pvm.reg[7]
-#         if w7 in (s, 2 ** 64 - 1):
-#             #bold_a==ServiceAccount
-#             bold_a = bold_s
-#         else:
-#             bold_a = bold_d.get_service_account(w7) #TODO: implementeer ServicesState.get_service_account
-#
-#         h_o = pvm.reg[8]  # offset to read image hash from pvm mem
-#         b_o = pvm.reg[9]  # offset to write image data to in pvm mem
-#         b_z = pvm.reg[10]  # max length to write in pvm mem
-#
-#         if pvm.is_readable(pvm.mem, h_o, h_o + 32):
-#             #h==preimage_hash
-#             #TODO: why do we hash over 32 bytes? isnt this already a hash in memory?
-#             h = blake2b_256_hash(pvm.mem[h_o:h_o + 32]) # create the preimage hash
-#         else:
-#             h = "∇"     #TODO: is eigenlijk geheugen niet leesbaar error code, overal toepassen?
-#
-#         if bold_a and bold_a.preimages.has_preimage_key(h):    #TODO: implementeer de lookup functie voor deze key
-#             #bold_v==preimage code blob
-#             bold_v = bold_a.preimages.get_preimage_value(h)    #TODO: service_account.preimages.get_preimage_value implementeren!
-#         else:
-#             bold_v = "∅"    #TODO: is eigenlijk None, overal toepassen?
-#
-#         # Note: b_o & b_z are defined as elements of Z, while PVM registers are defined as elements of N,
-#         # either Z is incorrect or we need a pvm_Z conversion
-#         if bold_v != "∅" and pvm.is_writable(pvm.mem, b_o, b_o + b_z):
-#             nr_bytes = min(b_z, len(bold_v))
-#             pvm.mem[b_o:b_o + nr_bytes] = np.frombuffer(bold_v[:nr_bytes], dtype=np.uint8)
-#         else:
-#             # Note: Memory unchanged
-#             pass
-#
-#         if h != "∇" and pvm.is_writable(pvm.mem, b_o, b_o + b_z):
-#             if bold_v == "∅":
-#                 pvm.reg[7] = HostCallResult.none.value
-#             else:
-#                 pvm.reg[7] = len(bold_v)
-#         else:
-#             pvm.reg[7] = HostCallResult.oob.value
-#
-#     # 2
-#     def read(self, pvm:PVM, bold_s:ServiceAccount=None, s:int=None, bold_d:Dict[int, ServiceAccount]=None):
-#         """
-#         Puts a Service StorageItem blob into PVM memory
-#         """
-#         pvm.gas -= 10
-#
-#         #TODO: inconsistentie met de lookup hostfuntie, waarschijnlijk moet GP aangepast worden (lookup gelijk maken aan read)
-#         w7 = pvm.reg[7]
-#         if w7 in (s, 2 ** 64 - 1):
-#             bold_a = bold_s
-#         elif w7 in bold_d:
-#             bold_a = bold_d.get_service_account(w7)
-#         else:
-#             bold_a = "∅"
-#
-#         k_o = pvm.reg[8]  # offset to read from memory
-#         k_z = pvm.reg[9]  # length to read from memory
-#         b_o = pvm.reg[10]  # offset where to write to in pvm mem
-#         b_z = pvm.reg[11]  # max length to write in pvm mem
-#
-#         if pvm.is_readable(pvm.mem, k_o, k_o + k_z):
-#             # Note: k == storage item key hash
-#             # TODO: use jam codec (catagorie premature optimalization)
-#             k = blake2b_256_hash(int(s).to_bytes(length=4, byteorder="little") + pvm.mem[k_o:k_o + k_z])
-#         else:
-#             k = "∇"
-#
-#         if bold_a != "∅" and k in bold_a.storage_items.has(k): #TODO: implement has & get
-#             bold_v = bold_a.storage_items.get(k)
-#         else:
-#             bold_v = "∅"
-#
-#         if bold_v != "∅" and pvm.is_writable(pvm.mem, b_o, b_o + b_z):
-#             nr_bytes = min(b_z, len(bold_v))
-#             pvm.mem[b_o:b_o + nr_bytes] = np.frombuffer(bold_v[:nr_bytes], dtype=np.uint8)
-#
-#         #TODO: hoe weten we dat de waarde voor storage_item misschien groter was dan max toegestaan (b_z), idem voor lookup
-#         if k != "∇" and pvm.is_writable(pvm.mem, b_o, b_o + b_z):
-#             if bold_v == "∅":
-#                 pvm.reg[7] = HostCallResult.none.value
-#             else:
-#                 pvm.reg[7] = len(bold_v)
-#         else:
-#             pvm.reg[7] = HostCallResult.oob.value
-#
-#     # 3
-#     def write(self, pvm, bold_s=None, s=None):
-#         """
-#         Writes/deletes a Service Preimage blob
-#         """
-#         pvm.gas -= 10
-#
-#         k_o = pvm.reg[7]  # offset to read storage_item_key from memory
-#         k_z = pvm.reg[8]  # length to read storage_item_key from memory
-#         v_o = pvm.reg[9]   # offset to write storage_item_value from memory
-#         v_z = pvm.reg[10]  # length to write storage_item_value from memory
-#
-#         if pvm.is_readable(pvm.mem, k_o, k_z):
-#             k = int(s).to_bytes(length=4, byteorder="little") +  pvm.mem[k_o:k_o + k_z]
-#         else:
-#             k = "∇"
-#
-#         if pvm.is_readable(pvm.mem, v_o, v_z):
-#             bold_a = clone(bold_s)  # TODO: clone functie maken
-#             if v_z == 0:
-#                 #TODO: s lijkt te worden gebruikt als index, maar bold_s is toch al een ServiceAccount object?
-#                 bold_a.storage_items.delete(k)  # TODO: implement service_account.storage_items.delete
-#             else:
-#                 bold_a.storage_items.set(k, pvm.mem[v_o:v_o + v_z])  # TODO: implement service_account.storage_items.set
-#         else:
-#             bold_a = "∇"
-#
-#         if bold_s.storage_items.has(k): #TODO: implementeer storage_items.has
-#             #TODO: waarom wordt hier niet bold_a.storage_items.get(k) gebruikt??
-#             l = len(bold_s.storage_items.set(k)) #TODO: implementeer storage_items.set
-#         else:
-#             l = HostCallResult.none.value
-#
-#         if k != "∇" and bold_a != "∇" and bold_a.threshold_balance <= bold_a.balance:
-#             pvm.reg[7] = l
-#             if v_z == 0:
-#                 bold_s.storage_items.delete(k)  # TODO: implement service_account.storage_items.delete
-#             else:
-#                 bold_s.storage_items.update(k, bold_a)  # TODO: implement service_account.storage_items.update
-#         elif bold_a.threshold_balance > bold_a.balance:
-#             pvm.reg[7] = HostCallResult.full.value
-#         else:
-#             pvm.reg[7] = HostCallResult.oob.value
-#
-#     # 4
-#     def info(self, pvm, s, bold_d:Dict[int, ServiceAccount]=None):
-#         """
-#         Writes ServiceAccount into PVM memory
-#         """
-#         pvm.gas -= 10
-#         w7 = pvm.reg[7]
-#         if w7 in (s, 2 ** 64 - 1):
-#             bold_t = bold_d.get_service_account(s)
-#         else:
-#             bold_t = bold_d.get_service_account(w7)
-#
-#         o = pvm.reg[8]
-#
-#         if bold_t:
-#             # TODO: add possibility to define which attributes and in which order to serialize
-#             m = bold_t.to_jam_bytes(
-#                 ServiceAccount.code_hash,
-#                 ServiceAccount.balance,
-#                 ServiceAccount.threshold_balance,
-#                 ServiceAccount.gas_limit_accumulate,
-#                 ServiceAccount.gas_limit_on_transfer,
-#                 ServiceAccount.footprint_storage_items,
-#                 ServiceAccount.footprint_storage_bytes
-#             ).to_bytes()
-#         else:
-#             m = "∅"
-#
-#         if m != "∅" and pvm.is_writable(pvm.mem, o, o + len(m)):
-#             pvm.mem[o:o + len(m)] = m
-#
-#         if m != "∅" and pvm.is_writable(pvm.mem, o, o + len(m)):
-#             pvm.reg[7] = HostCallResult.ok.value
-#         elif m == "∅":
-#             pvm.reg[7] = HostCallResult.none.value
-#         else:
-#             pvm.reg[7] = HostCallResult.oob.value
-#
-#
-#     def invoke_from_pvm(self, pvm:PVM, host_call:op):
-#         """
-#         A generic entrypoint to invoke a hostcall from the PVM using the ecalli opcode (using register 7 as hostcall type)
-#         """
-#
-#         #TODO: GENERIC handling of B.17 & B.19, B.21 (en in algemeen voor elke catagorie zoals general, accumulate en refine)
-#         #TODO: de afhandeling van niet genoeg gas verschilt per hostfunctie catagorie, B.18, B.20 en B.22 (general, accumulate en refine)
-#         match host_call:
-#
-#             case op.gas.value:
-#                 # ω'7 = ϱ
-#                 pvm.reg[7] = pvm.gas
-#
-#             case op.lookup.value:
-#                 return self.lookup(pvm)
-#
-#             case op.read.value:
-#                 return self.read(pvm)
-#
-#             case op.write.value:
-#                 return self.write(pvm)
-#
-#             case op.info.value:
-#                 return self.info(pvm)
-#
-#             case _:
-#                 raise InvalidHostCall(f"Invalid invoke_from_pvm hostcall: {host_call}")
+from jamcodec.types import U64, U32, VarInt64
+
+from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.models.state import ServiceAccount, ServicesState
+from pyjamaz.pvm.constants import ExitCondition, ExitReason
+from pyjamaz.pvm.exceptions import PVMMemoryError
+from pyjamaz.pvm.invocation import InvocationMutationOutput
+from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
+from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult
+
+
+def hc_gas(
+        registers: List[int],   #TODO: weg?
+        memory: PVMMemory,
+        invocation_output: InvocationMutationOutput,
+        logger: PVMLogger):
+    logger.hc_regs(f"GAS", "accumulate")
+    invocation_output.gas_limit -= 10
+    invocation_output.registers[7] = invocation_output.gas_limit
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+
+
+def hc_lookup(
+        registers: List[int],
+        memory: PVMMemory,
+        service: ServiceAccount,
+        service_id: int,
+        services: ServicesState,
+        invocation_output: InvocationMutationOutput,
+        logger: PVMLogger):
+    """
+    Puts a Service Preimage blob into PVM memory
+    """
+    logger.hc_regs(f"LOOKUP", "accumulate")
+    invocation_output.gas_limit -= 10
+
+    service_account_id = registers[7]
+    if service_account_id in (service_id, 2 ** 64 - 1):
+        service_account_id = service_id
+        service_account = service
+    else:
+        try:
+            service_account = services.retrieve_service_account(registers[7])  # GP: bold_a
+        except StateKeyNoResult:
+            service_account = None  # bold_a = ∅
+
+    preimage_hash = registers[8]  # GP: h (offset to read image hash from pvm mem)
+    o = registers[9]  # offset to write image data to in pvm mem
+
+    preimage_writable = True
+    preimage_bytes = bytes()  # GP: bold_v
+    preimage_hash_unreadable = False
+    if not memory.is_accessible(preimage_hash, 32, PVMMemoryMode.readable):
+        preimage_hash_unreadable = True  # GP: bold_v = ∇
+    elif service_account is None:
+        preimage_bytes = None  # GP: bold_v = ∅
+    elif service_account is not None:
+        try:
+            preimage_bytes = services.retrieve_preimage(service_account_id, memory.read_bytes(preimage_hash, 32))
+            f = min(registers[10], len(preimage_bytes))
+            l = min(registers[11], len(preimage_bytes) - f)
+            preimage_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)  # bold_v = ∇
+        except StateKeyNoResult:
+            preimage_bytes = None  # GP: bold_v = ∅
+
+    if preimage_hash_unreadable is True or preimage_writable is False:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        logger.hc_log("LOOKUP PANIC", f"s={service_account_id} h={preimage_hash} len(v)=none")
+    elif preimage_bytes is None:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.NONE.value
+        logger.hc_log("LOOKUP NONE", f"s={service_account_id} h={preimage_hash} len(v)=none")
+    else:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = len(preimage_bytes)
+        invocation_output.memory.write_bytes(o, preimage_bytes[f:f + l])
+        logger.hc_log("LOOKUP OK",
+                           f"s={service_account_id} h={preimage_hash} len(v)={len(preimage_bytes)} write_bytes({o},{o + l})")
+
+def hc_read(
+        registers: List[int],
+        memory: PVMMemory,
+        service: ServiceAccount,
+        service_id: int,
+        services: ServicesState,
+        invocation_output: InvocationMutationOutput,
+        logger: PVMLogger):
+    """
+    Puts a Service StorageItem blob into PVM memory
+    """
+    logger.hc_regs(f"READ", "accumulate")
+    invocation_output.gas_limit -= 10
+
+    # gp: s*
+    if registers[7] == 2 ** 64 - 1:
+        new_service_id = service_id
+    else:
+        new_service_id = registers[7]
+
+    #state = ctx_in.invocation_context.context.state_context
+    # gp: bold_a
+    try:
+        if new_service_id == service_id:
+            service_account = service
+        else:
+            service_account = services.retrieve_service_account(new_service_id)
+    except StateKeyNoResult as e:
+        service_account = None  # GP: bold_a = ∅
+
+    k_o = registers[8] # offset to read from memory
+    k_z = registers[9] # length to read from memory
+    o = registers[10]  # offset where to write to in pvm mem
+
+    # GP: bold_v (storage_item)
+    storage_key = None
+    storage_item_mem_error = False
+    storage_item = None  # bold_v
+    if service_account is not None:
+        try:
+            new_service_id_bytes = new_service_id.to_bytes(length=4, byteorder="little")
+            storage_key = blake2b_256_hash(new_service_id_bytes + memory.read_bytes(k_o, k_z))
+            storage_item = services.retrieve_storage_item(service_account_id=new_service_id, storage_item_hash=storage_key)
+        except StateKeyNoResult:
+            storage_item = None  # bold_v = ∅
+        except PVMMemoryError:
+            storage_item_mem_error = True  # bold_v = ∇
+            storage_item = None
+
+    f = min(registers[11], len(storage_item or bytes()))
+    l = min(registers[12], len(storage_item or bytes()) - f)
+    mem_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)
+
+    if storage_item_mem_error or not mem_writable:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key}")
+    elif storage_item is None:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.NONE.value
+        logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key}")
+    else:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = len(storage_item)
+        invocation_output.memory.write_bytes(o, storage_item[f:f + l])
+        logger.hc_log("READ OK",
+                           f"s={new_service_id} k={storage_key.hex()} (len(storage_item)) write_bytes({o}, {o + l})")
+
+
+#TODO: should work without services (bold_d??)
+def hc_write(
+        registers: List[int],
+        memory: PVMMemory,
+        service: ServiceAccount,
+        service_id: int,
+        services: ServicesState,
+        invocation_output: InvocationMutationOutput,
+        logger: PVMLogger):
+    """
+    Writes/deletes a Service StorageItem blob
+    """
+    logger.hc_regs(f"WRITE", "accumulate")
+    invocation_output.gas_limit -= 10
+
+    k_o = registers[7]  # offset to read storage_item_key from memory
+    k_z = registers[8]  # length to read storage_item_key from memory
+    v_o = registers[9]  # offset to write storage_item_value from memory
+    v_z = registers[10] # length to write storage_item_value from memory
+
+    k = None
+    l = None
+    si = None
+    service_account = deepcopy(service)
+    storage_key_mem_error = False
+    service_storage_item_mem_error = False
+    service_storage_item = None
+
+    try:
+        k = memory.read_bytes(k_o, k_z)  # Note: service local storage key
+        storage_key = blake2b_256_hash(service_id.to_bytes(length=4, byteorder="little") + k)  # GP: k
+        try:
+            if v_z == 0:
+                service_storage_item = None  # GP: bold_a (delete)
+            else:
+                service_storage_item = memory.read_bytes(v_o, v_z)  # GP: bold_a
+        except PVMMemoryError:
+            service_storage_item_mem_error = True  # GP: a = ∇
+
+        try:
+            si = services.retrieve_storage_item(service_id, storage_key)
+            l = len(si)
+        except StateKeyNoResult:
+            si = bytes()
+            l = HostCallResult.NONE.value
+
+    except PVMMemoryError:
+        storage_key_mem_error = True  # GP: k= ∇
+
+    if storage_key_mem_error or service_storage_item_mem_error:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        logger.hc_log("WRITE PANIC", f"l={l}  s={service_id} mu_k={k}")
+    elif service_account.threshold_balance > service_account.balance:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.FULL.value
+        logger.hc_log("WRITE FULL", f"l={l}  s={service_id} mu_k={k.hex()}")
+    else:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = l
+        if service_storage_item is None:
+            # TODO: mark dirty? maybe register changes
+            services.delete_storage_item(
+                service_account_id=service_id,
+                storage_item_hash=storage_key
+            )
+            logger.hc_log("WRITE DELETE", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
+
+            # Update storage footprint
+            if l != HostCallResult.NONE.value:
+                service_account.update_footprint_remove_storage_item(len(si))
+
+        else:
+            # TODO: mark dirty? maybe register changes
+            services.store_storage_item(
+                service_account_id=service_id,
+                storage_item_hash=storage_key,
+                value=service_storage_item,
+            )
+
+            # Update storage footprint
+            if len(si) == 0:
+                # TODO: mark dirty? maybe register changes
+                service_account.update_footprint_add_storage_item(len(service_storage_item))
+                logger.hc_log("WRITE NONE",
+                                   f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
+            else:
+                # TODO: mark dirty? maybe register changes
+                service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
+                logger.hc_log("WRITE OK",
+                                   f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
+
+        services.store_service_account(service_id, service_account)
+
+        logger.hc_log("WRITE storage",f"a_o={service_account.footprint_storage_bytes} a_i={service_account.footprint_storage_items}")
+
+
+def hc_info(
+        registers: List[int],
+        memory: PVMMemory,
+        service: ServiceAccount,
+        service_id: int,
+        services: ServicesState,
+        invocation_output: InvocationMutationOutput,
+        logger: PVMLogger):
+    """
+    Writes ServiceAccount into PVM memory
+    """
+    logger.hc_regs(f"INFO", "accumulate")
+    invocation_output.gas_limit -= 10
+
+    #state = ctx_in.invocation_context.context.state_context
+
+    # GP: bold_t
+    try:
+        if registers[7] == 2 ** 64 - 1:
+            # TODO: nieuwe functie: retrieve_service_account_bytes -> nalopen waar allemaal toepassen
+            service_account = services.retrieve_service_account(service_id)
+        else:
+            service_account = services.retrieve_service_account(registers[7])
+    except StateKeyNoResult:
+        service_account = None  # GP: t = ∅
+
+    o = registers[8]
+
+    service_account_bytes = None  # GP: bold_m
+    mem_write_error = False
+    if service_account is not None:
+        # GP: bold_m
+        service_account_bytes = service_account.code_hash
+        service_account_bytes += VarInt64.encode(service_account.balance).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.threshold_balance).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.gas_limit_accumulate).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.gas_limit_on_transfer).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.footprint_storage_bytes).to_bytes()
+        service_account_bytes += VarInt64.encode(service_account.footprint_storage_items).to_bytes()
+        try:
+            invocation_output.memory.write_bytes(o, service_account_bytes)
+        except PVMMemoryError:
+            mem_write_error = True
+
+    if mem_write_error:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        logger.hc_log("INFO PANIC", f"s={service_id}")
+    elif service_account_bytes is None:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.NONE.value
+        logger.hc_log("INFO NONE", f"s={service_id} bytes=none")
+    else:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
+        logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
