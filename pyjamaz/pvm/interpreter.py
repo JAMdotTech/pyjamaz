@@ -113,13 +113,16 @@ class PVMInterpreter:
 
 
     def branch(self, b:int, C:bool):
+        """
+        GP-0.6.4-eq:A.17
+        """
         if C:
             inst_pos = self.pc + b
             if inst_pos not in self.inst_pos:
                 #self.status = ExitCondition.panic.value
                 raise PanicError(f"Invalid branch instruction: C={C} b={b} inst_pos={inst_pos}")
             else:
-                self.skip_len = inst_pos  - self.pc
+                self.skip_len = b
 
 
     def reset(self, program: PVMProgram):
