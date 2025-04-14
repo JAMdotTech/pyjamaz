@@ -27,7 +27,7 @@ class InvocationMutationOutput:
     gas_limit: int
     registers: npt.NDArray[np.uint64]
     memory: PVMMemory
-    context: InvocationContext
+    context: Optional[InvocationContext]
 
 
 class InvocationMutator:
@@ -57,7 +57,7 @@ class PVMOutput:
 
 @dataclass
 class PvmMarshallingOutput:
-    gas_limit: int
+    gas_limit: int  #TODO: gas used
     exit_condition: ExitCondition
     context: InvocationContext
 
@@ -77,7 +77,7 @@ class PVMInvocation:
     def __init__(
         self,
         invocation_mutator: InvocationMutator,  # f
-        invocation_context: InvocationContext  # x
+        invocation_context: Optional[InvocationContext]  # x
 
     ):
         self.pvm_program: Optional[PVMProgram] = None

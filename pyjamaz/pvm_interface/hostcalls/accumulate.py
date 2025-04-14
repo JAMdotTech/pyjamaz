@@ -19,7 +19,7 @@ from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult, HostCallDe
 def hc_bless(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -51,7 +51,7 @@ def hc_bless(
             auto_accumulate_services = None   # bold_g = ∇
 
     try:
-        service_exists = any(ctx_in.context.state_context.services.retrieve_service_account(idx) for idx in [m, a, v])
+        service_exists = any(x.context.state_context.services.retrieve_service_account(idx) for idx in [m, a, v])
     except (StateKeyNoResult, OverflowError):
         service_exists = False
 
@@ -69,7 +69,7 @@ def hc_bless(
         output.registers[7] = HostCallResult.OK.value
 
         # TODO: mark dirty? maybe register changes
-        ps = ctx_in.context.state_context.privileged_services
+        ps = x.context.state_context.privileged_services
         ps.empower_service = m
         ps.assign_service = a
         ps.designate_service = v
@@ -81,7 +81,7 @@ def hc_bless(
 def hc_assign(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -116,14 +116,14 @@ def hc_assign(
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
         # TODO: mark dirty? maybe register changes
-        ctx_in.context.state_context.authorizer_queues.authorizer_queues[core_index] = authorization_queue
+        x.context.state_context.authorizer_queues.authorizer_queues[core_index] = authorization_queue
         logger.hc_log("ASSIGN OK", f"c={core_index} o={o}")
 
 
 def hc_designate(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -153,14 +153,14 @@ def hc_designate(
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
         # TODO: mark dirty? maybe register changes
-        ctx_in.context.state_context.validator_queue.validators = validator_queue
+        x.context.state_context.validator_queue.validators = validator_queue
         logger.hc_log("DESIGNATE OK", f"o={o}")
 
 
 def hc_checkpoint(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -171,13 +171,13 @@ def hc_checkpoint(
     output.registers[7] = output.gas_limit
     output.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
-    ctx_in.savepoint_context = deepcopy(ctx_in.context)
+    x.savepoint_context = deepcopy(x.context)
 
 
 def hc_new(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -198,7 +198,7 @@ def hc_new(
         except PVMMemoryError:
             pass
 
-    service_id = ctx_in.context.service_account_id
+    service_id = x.context.service_account_id
     service_account = None
     new_service_id = None
     deducted_balance = None
@@ -215,10 +215,10 @@ def hc_new(
             preimages={},  # bold_p
             preimage_availability={}  # {(code_hash, l): []} #bold_l
         )
-        new_service_id = ctx_in.context.new_service_account_id
+        new_service_id = x.context.new_service_account_id
         new_service_account.update_footprint_add_preimage(l)
         new_service_account.balance = new_service_account.threshold_balance
-        service_account = ctx_in.context.state_context.services.retrieve_service_account(service_id)
+        service_account = x.context.state_context.services.retrieve_service_account(service_id)
         deducted_balance = service_account.balance - new_service_account.threshold_balance
 
     if code_hash is None:
@@ -233,21 +233,21 @@ def hc_new(
         output.registers[7] = new_service_id
         updated_new_service_id = 2 ** 8 + (new_service_id - 2 ** 8 + 42) % (2 ** 32 - 2 ** 9)
         # TODO: mark dirty? maybe register changes
-        ctx_in.context.new_service_account_id = ctx_in.context.state_context.check_service_id(
+        x.context.new_service_account_id = x.context.state_context.check_service_id(
             updated_new_service_id)
         service_account.balance = deducted_balance
         # TODO inefficient; move to end, only once per service
-        ctx_in.context.state_context.services.store_service_account(service_id, service_account)
+        x.context.state_context.services.store_service_account(service_id, service_account)
         # TODO inefficient; move to end, only once per service
-        ctx_in.context.state_context.services.store_service_account(new_service_id, new_service_account)
-        ctx_in.context.state_context.services.store_preimage_availability(new_service_id, code_hash, l, [])
+        x.context.state_context.services.store_service_account(new_service_id, new_service_account)
+        x.context.state_context.services.store_preimage_availability(new_service_id, code_hash, l, [])
         logger.hc_log("NEW OK", f"old_service={service_id} code_hash={code_hash} code_len={l}")
 
 
 def hc_upgrade(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -260,8 +260,8 @@ def hc_upgrade(
     g = registers[8]  # gas_limit_accumulate
     m = registers[9]  # gas_limit_on_transfer
 
-    service_id = ctx_in.context.service_account_id
-    service_account = ctx_in.context.state_context.services.retrieve_service_account(service_id)
+    service_id = x.context.service_account_id
+    service_account = x.context.state_context.services.retrieve_service_account(service_id)
 
     try:
         code_hash = memory.read_bytes(o, 32)
@@ -280,14 +280,14 @@ def hc_upgrade(
         service_account.gas_limit_accumulate = g
         service_account.gas_limit_on_transfer = m
         # TODO inefficient; move to end, only once per service
-        ctx_in.context.state_context.services.store_service_account(service_id, service_account)
+        x.context.state_context.services.store_service_account(service_id, service_account)
         logger.hc_log("UPGRADE OK", f"code_hash={code_hash} ")
 
 
 def hc_transfer(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -302,10 +302,10 @@ def hc_transfer(
     g = registers[9]     # gas_limit
     o = registers[10]    # offset for memo
 
-    service_id = ctx_in.context.service_account_id
-    service_account = ctx_in.context.state_context.services.retrieve_service_account(service_id)
+    service_id = x.context.service_account_id
+    service_account = x.context.state_context.services.retrieve_service_account(service_id)
     try:
-        dest_service_account = ctx_in.context.state_context.services.retrieve_service_account(d)   #GP: bold_d
+        dest_service_account = x.context.state_context.services.retrieve_service_account(d)   #GP: bold_d
     except StateKeyNoResult:
         dest_service_account = None
 
@@ -344,16 +344,16 @@ def hc_transfer(
 
         # TODO: mark dirty? maybe register changes
         service_account.balance = b
-        ctx_in.context.deferred_transfers.append(transfer)
+        x.context.deferred_transfers.append(transfer)
         # TODO inefficient; move to end, only once per service
-        ctx_in.context.state_context.services.store_service_account(service_id, service_account)
+        x.context.state_context.services.store_service_account(service_id, service_account)
         logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
 
 
 def hc_eject(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -370,9 +370,9 @@ def hc_eject(
     except PVMMemoryError:
         preimage_hash = None
 
-    state = ctx_in.context.state_context
-    service_id = ctx_in.context.service_account_id
-    service_account = ctx_in.context.state_context.services.retrieve_service_account(service_id)
+    state = x.context.state_context
+    service_id = x.context.service_account_id
+    service_account = x.context.state_context.services.retrieve_service_account(service_id)
 
     l = None
     updated_balance = None
@@ -403,7 +403,7 @@ def hc_eject(
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability}")
-    elif len(preimage_availability) == 2 and preimage_availability[1] < ctx_in.timeslot - PREIMAGE_EXPUNGE_TIMESLOTS:
+    elif len(preimage_availability) == 2 and preimage_availability[1] < x.timeslot - PREIMAGE_EXPUNGE_TIMESLOTS:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
 
@@ -424,7 +424,7 @@ def hc_eject(
 def hc_query(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -436,7 +436,7 @@ def hc_query(
     o = registers[7]    # memory offset
     preimage_length = registers[8]    # preimage length
 
-    service_id = ctx_in.context.service_account_id
+    service_id = x.context.service_account_id
 
     # GP: h
     try:
@@ -447,7 +447,7 @@ def hc_query(
     # GP: bold_a
     try:
         # GP: (xs)l[h,z] == bold_a
-        preimage_availability = ctx_in.context.state_context.services.retrieve_preimage_availability(
+        preimage_availability = x.context.state_context.services.retrieve_preimage_availability(
             service_id,
             preimage_hash,
             preimage_length
@@ -495,7 +495,7 @@ def hc_query(
 def hc_solicit(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -504,9 +504,9 @@ def hc_solicit(
     logger.hc_regs(f"SOLICIT", "accumulate")
     output.gas_limit -= 10
 
-    state = ctx_in.context.state_context
-    service_id = ctx_in.context.service_account_id
-    service_account = ctx_in.context.state_context.services.retrieve_service_account(service_id) # GP: bold_a
+    state = x.context.state_context
+    service_id = x.context.service_account_id
+    service_account = x.context.state_context.services.retrieve_service_account(service_id) # GP: bold_a
 
     o = registers[7]
     preimage_length = registers[8]    # GP: z
@@ -564,7 +564,7 @@ def hc_solicit(
                 service_id,
                 preimage_hash,
                 preimage_length,
-                preimage_availability + [ctx_in.timeslot]
+                preimage_availability + [x.timeslot]
             )
 
         logger.hc_log("SOLICIT OK", f"h={preimage_hash.hex()} newvalue={preimage_availability}")
@@ -573,7 +573,7 @@ def hc_solicit(
 def hc_forget(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -585,9 +585,9 @@ def hc_forget(
     o = registers[7]
     preimage_length = registers[8]  #GP: z
 
-    state = ctx_in.context.state_context
-    service_id = ctx_in.context.service_account_id
-    service_account = ctx_in.context.state_context.services.retrieve_service_account(service_id) # GP: bold_a
+    state = x.context.state_context
+    service_id = x.context.service_account_id
+    service_account = x.context.state_context.services.retrieve_service_account(service_id) # GP: bold_a
 
     #GP: h
     try:
@@ -595,7 +595,7 @@ def hc_forget(
     except PVMMemoryError:
         preimage_hash = None #GP: h = ∇
 
-    timeslot = ctx_in.timeslot #GP: t
+    timeslot = x.timeslot #GP: t
     # Note: x & y & w refer to the cardinality of the preimage_availability dictionary, see 9.2.2 EQ9.7
     preimage_updated = True #GP: bold_a = ∇
 
@@ -651,11 +651,11 @@ def hc_forget(
 def hc_yield(
         registers: List[int],
         memory: PVMMemory,
-        ctx_in: AccumulateInvocationContext,
+        x: AccumulateInvocationContext,
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    Sets the invocation output
+    Sets the invocation output given what is put in pvm memory
     """
     logger.hc_regs(f"YIELD", "accumulate")
     output.gas_limit -= 10
@@ -673,5 +673,5 @@ def hc_yield(
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
-        ctx_in.context.invocation_output = invocation_data
+        x.context.invocation_output = invocation_data
         logger.hc_log("YIELD OK", f"invocation_data={invocation_data.hex()}")

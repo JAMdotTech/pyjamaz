@@ -691,7 +691,7 @@ class WorkItem(Serializable):
     export_count: U16
         GP-0.5.2-eq:14.3 (e) | The number of data segments exported by this work item.
     """
-    service: int = field(metadata={'codec': U32})
+    service: int = field(metadata={'codec': U32})   #TODO: refactor to service_id
     code_hash: bytes = field(metadata={'codec': H256})
     payload: bytes = field(metadata={'codec': Bytes})
     refine_gas_limit: int = field(metadata={'codec': U64})
@@ -744,6 +744,8 @@ class WorkPackage(Serializable):
     authorizer: Authorizer = field(metadata={'codec': Authorizer.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
     items: List[WorkItem] = field(metadata={'codec': Vec(WorkItem.to_codec_def())})
+
+    #TODO: implement bold_p_a & bold_p_c as mentioned in GP-0.6.4-eq:14.9
 
 
 @dataclass

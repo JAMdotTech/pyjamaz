@@ -17,7 +17,9 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
-from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, AccumulationOperand
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, AccumulationOperand, \
+    RefinementContext
+from pyjamaz.pvm.constants import ExitCondition
 from pyjamaz.pvm.invocation import InvocationContext
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
@@ -25,7 +27,7 @@ from pyjamaz.state.base import StorageMap, state_key_constructor_service_account
 from pyjamaz.storage import StorageEngine, Transaction
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.models.block import Assurance as ExtrinsicAssurance, Preimage
+    from pyjamaz.models.block import Assurance as ExtrinsicAssurance, Preimage, WorkPackage
 
 
 class State(Serializable):
@@ -1445,6 +1447,17 @@ class PvmOnTransferOutput:
 
 
 @dataclass
+class PvmIsAuthorizedOutput:
+    exit_condition: ExitCondition
+    gas_limit: int
+
+
+@dataclass
+class PvmRefineOutput:
+    pass
+
+
+@dataclass
 class AccumulateContextItem:
     """
     GP-0.6.2-eq:B.6 (blackboard_X) | Invocation Result Context
@@ -1487,3 +1500,31 @@ class OnTransferPvmArguments(Serializable):
     timeslot: int = field(metadata={'codec': U32})
     service_id: int = field(metadata={'codec': U32})
     deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
+
+
+@dataclass
+class IsAuthorizedPvmArguments(Serializable):
+    work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
+    core_index: int = field(metadata={'codec': VarInt64})
+
+
+@dataclass
+class RefinePvmArguments(Serializable):
+    service_id: int = field(metadata={'codec': U32})  # GP-0.6.4-eq:B.5 w_s
+    payload_blob: bytes = field(metadata={'codec': Bytes}) # GP-0.6.4-eq:B.5 w_y
+    work_package_hash: bytes = field(metadata={'codec': H256}) # GP-0.6.4-eq:B.5 H(p)
+    refinement_context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()}) # GP-0.6.4-eq:B.5 p_x
+    authorization_code_hash: bytes = field(metadata={'codec': H256}) # GP-0.6.4-eq:B.5 p_u
+
+
+@dataclass
+class IntegratedPVM:
+    code: bytes
+    memory: bytes
+    program_counter: int
+
+
+@dataclass
+class RefineInvocationContext:
+    inner_pvm_lookup: Dict[int, IntegratedPVM]   # GP-0.6.4-eq:B.6 bold_m
+    data_segments: List[bytes]                   # GP-0.6.4-eq:B.6 bold_e

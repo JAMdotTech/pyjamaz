@@ -1,5 +1,6 @@
 import bisect
 import logging
+from abc import ABC, abstractmethod
 from enum import Enum
 
 import numpy as np
@@ -19,26 +20,33 @@ from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
 
 
-class PVMLogger:
+class PVMLogger(ABC):
 
+    @abstractmethod
     def hc_regs(self, msg, phase):
         pass
 
+    @abstractmethod
     def hc_log(self, msg, data):
         pass
 
+    @abstractmethod
     def pvm_regs(self, msg) -> None:
         pass
 
+    @abstractmethod
     def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
         pass
 
+    @abstractmethod
     def pvm_hash(self):
         pass
 
+    @abstractmethod
     def pvm_counters(self):
         pass
 
+    @abstractmethod
     def pvm_header(self):
         pass
 
@@ -51,6 +59,7 @@ class PVMMemoryMode(Enum):
 
 @dataclass
 class PVMCode(Serializable):
+    # GP-6.4:eq:A.2 (deblob)
     jump_table_entry_count: int = field(metadata={'codec': VarInt64})
     jump_table_entry_size: int = field(metadata={'codec': U8})
     code_length: int = field(metadata={'codec': VarInt64})
@@ -514,6 +523,7 @@ class PVMProgram(Serializable):
         try:
             jam_bytes = JamBytes(serialized_program)
             # metadata
+            #TODO: fix!
             metadata = Bytes.decode(jam_bytes)
 
             if DEBUG:

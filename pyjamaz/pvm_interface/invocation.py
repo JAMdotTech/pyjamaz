@@ -2,13 +2,14 @@ import logging
 from dataclasses import dataclass
 from typing import List, Dict
 
-import numpy as np
-import numpy.typing as npt
-
+from pyjamaz.graypaper_constants import GAS_INVOKE
+from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.models.block import WorkPackage
 from pyjamaz.models.common import AccumulationOperand
 from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
     AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
-    OnTransferInvocationContext, PvmOnTransferOutput, ServicesState
+    OnTransferInvocationContext, PvmOnTransferOutput, ServicesState, PvmIsAuthorizedOutput, IsAuthorizedPvmArguments, \
+    PvmRefineOutput, RefinePvmArguments, RefineInvocationContext
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
@@ -125,6 +126,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 hc_yield(registers, memory, invocation_context, invocation_output, _pvm.log)
 
             case _:
+                # TODO: implement B.16: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
                 raise NotImplementedError(f"Accumulate invoked host-call {host_call_instr_nr} not implemented")
 
         return invocation_output
@@ -185,6 +187,7 @@ class OnTransferInvocationMutator(InvocationMutator):
                 hc_info(registers, memory, service, service_id, services, ctx_out, _pvm.log)
 
             case _:
+                #TODO: implement B.16: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
                 raise NotImplementedError(f"On-Transfer invoked host-call {host_call_instr_nr} not implemented")
 
         return ctx_out
@@ -349,4 +352,130 @@ def pvm_invoke_on_transfer(
     return PvmOnTransferOutput(
         service_account=service_account,
         gas_used=gas_used
+    )
+
+
+# GP-0.6.4-section:B.5 | On-Transfer Invocations
+class IsAuthorizedInvocationMutator(InvocationMutator):
+    def execute(
+            self,
+            host_call_instr_nr: int,
+            gas_limit: int,
+            registers: List[int],
+            memory: PVMMemory,
+            invocation_context: None,
+            _pvm: PVMInterpreter
+    ) -> InvocationMutationOutput:
+
+        logging.debug(f'PVM Is-Authorized host-call #{host_call_instr_nr}')
+
+        ctx_out = InvocationMutationOutput(
+            exit_condition=ExitCondition(reason=ExitReason.panic),
+            gas_limit=gas_limit,
+            registers=_pvm.reg,
+            memory=_pvm.mem,
+            context=invocation_context
+        )
+
+        match host_call_instr_nr:
+
+            case HostCallDebug.log.value:
+                hc_log(registers, memory, -1, ctx_out, _pvm.log)
+
+            case HostCallGeneral.gas.value:
+                #GP-0.6.4-eq:B.12 | G
+                hc_gas(registers, memory, ctx_out, _pvm.log)
+
+            case _:
+                #TODO: implement B.2: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
+                raise NotImplementedError(f"On-Transfer invoked host-call {host_call_instr_nr} not implemented")
+
+        return ctx_out
+
+
+def pvm_invoke_is_authorized(
+        work_package: WorkPackage,
+        core_index: int
+) -> PvmIsAuthorizedOutput:
+    """
+    GP-0.6.4-eq:B.1 (Ψ_I) | the is-authorized invocation function
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    """
+
+    argument_data = IsAuthorizedPvmArguments(
+        work_package=work_package,
+        core_index=core_index
+    ).to_jam_bytes().to_bytes()
+
+    pvm_invocation = PVMInvocation(
+        invocation_context=None,
+        invocation_mutator=IsAuthorizedInvocationMutator()
+    )
+
+    marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+        serialized_program=work_package.authorization,
+        start_offset=0,
+        gas_limit=GAS_INVOKE,
+        argument_data=argument_data
+    )
+
+    return PvmIsAuthorizedOutput(
+        exit_condition=marshalling_output.exit_condition,
+        gas_limit=marshalling_output.gas_limit
+    )
+
+
+# GP-0.6.4-eq:B.5: ΨR (refine invoke)
+def pvm_invoke_refine(
+    work_item_index: int,      # GP-0.6.4-eq:B.5: italic_i index of workitem
+    work_package: WorkPackage, # GP-0.6.4-eq:B.5: italic_p workpackage
+    authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_o is_authorized output
+    work_items_import_segments: List[List[bytes]],  # GP-0.6.4-eq:B.5: bold_i_flat list of import segments per workitem
+    export_segment_offset: int # GP-0.6.4-eq:B.5: c_cedie export segment offset
+) -> PvmRefineOutput:
+    """
+    GP-0.6.4-eq:B.4 (Ψ_R) | the refine service-account invocation function
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    """
+    work_item = work_package.items[work_item_index]
+
+    preimage_code = None #TODO: implement
+
+    argument_data = RefinePvmArguments(
+        service_id=work_item.service,
+        payload_blob=work_item.payload,
+        work_package_hash=blake2b_256_hash(work_package.to_jam_bytes().to_bytes()),
+        refinement_context=work_package.context,
+        authorization_code_hash=work_package.authorizer.code_hash,
+        preimage_metadata=None, #TODO: implement
+        preimage_code=preimage_code
+    ).to_jam_bytes().to_bytes()
+
+    pvm_invocation = PVMInvocation(
+        invocation_context=RefineInvocationContext(
+
+        ),
+        invocation_mutator=RefineInvocationMutator()
+    )
+
+    marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+        serialized_program=preimage_code,
+        start_offset=0,
+        gas_limit=GAS_INVOKE,
+        argument_data=argument_data
+    )
+
+    return PvmIsAuthorizedOutput(
+        exit_condition=marshalling_output.exit_condition,
+        gas_limit=marshalling_output.gas_limit
     )
