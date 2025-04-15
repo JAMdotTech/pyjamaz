@@ -17,12 +17,12 @@ from jamcodec.types import U32, H256, Vec, Array, U8, Option, Enum
 from pyjamaz.app import AppConfig
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.settings import TEST_SUITE
-from pyjamaz.state.base import AppContext
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Safrole, Entropy, ValidatorPool, ValidatorArchive, Timeslot
 from pyjamaz.storage import InMemoryStorage
 from pyjamaz.models.common import ValidatorData, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
-from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, EpochMark, BlockContext
+from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, EpochMark
 from pyjamaz.models.state import JamState, TimeslotState, EntropyState, SafroleState, ValidatorQueueState, \
     ValidatorPoolState, ValidatorArchiveState, SlotSealerSeries
 

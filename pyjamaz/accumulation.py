@@ -1,11 +1,15 @@
+import typing
 from dataclasses import dataclass
 from typing import List, Set, Dict
 from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
-    BeefyCommitmentMap, TimeslotState, PvmAccumulateOutput, EntropyState
+    BeefyCommitmentMap, TimeslotState, EntropyState
+
 from pyjamaz.pvm_interface.invocation import pvm_invoke_accumulate
 from pyjamaz.utils import substitute_if_nothing
 
+if typing.TYPE_CHECKING:
+    from pyjamaz.pvm_interface.models import PvmAccumulateOutput
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
     """
@@ -361,7 +365,7 @@ def single_step_accumulation(
         work_reports: List[WorkReport],
         auto_accumulate_services: Dict[int, int],
         service_id: int
-) -> PvmAccumulateOutput:
+) -> 'PvmAccumulateOutput':
     """
     GP-0.6.1-eq:12.19 ∆1 | single step accumulation function
 

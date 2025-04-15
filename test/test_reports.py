@@ -7,11 +7,11 @@ from typing import Optional
 from parameterized import parameterized
 
 from pyjamaz.exceptions import StateTransitionError
-from pyjamaz.models.block import Header, Guarantee, BlockContext, Extrinsic, ExtrinsicDisputes
+from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState
 from pyjamaz.settings import TEST_SUITE
-from pyjamaz.state.base import AppContext
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
 

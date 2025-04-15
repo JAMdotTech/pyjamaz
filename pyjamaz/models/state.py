@@ -3,7 +3,7 @@ import typing
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import ceil
-from typing import List, Optional, Dict, Tuple, Union, Set
+from typing import List, Optional, Dict, Tuple, Union
 
 from jamcodec.base import JamBytes
 
@@ -11,23 +11,19 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import keccak_256_hash, blake2b_256_hash
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64, U16, \
-    Null
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
-from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, AccumulationOperand, \
-    RefinementContext
-from pyjamaz.pvm.constants import ExitCondition
-from pyjamaz.pvm.invocation import InvocationContext
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
 from pyjamaz.storage import StorageEngine, Transaction
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.models.block import Assurance as ExtrinsicAssurance, Preimage, WorkPackage
+    from pyjamaz.models.block import Assurance as ExtrinsicAssurance
 
 
 class State(Serializable):
@@ -1442,6 +1438,8 @@ class AccumulationStateComponents(Serializable):
 
 
     def to_invocation_context(self, service_account_id: int, entropy: bytes, timeslot: int) -> 'AccumulateInvocationContext':
+
+        from pyjamaz.pvm_interface.models import AccumulateContextItem, AccumulateInvocationContext
         """
         B.9 (I)
 
@@ -1473,108 +1471,3 @@ class AccumulationStateComponents(Serializable):
             ),
             timeslot=timeslot
         )
-
-# TODO move back to pvm_interface.models
-
-@dataclass
-class PvmAccumulateOutput:
-    state_context: AccumulationStateComponents
-    deferred_transfers: List[DeferredTransfer]
-    accumulation_output: Optional[bytes]
-    gas_limit: int
-    gas_used: int = 0 # TODO check
-
-
-@dataclass
-class PvmOnTransferOutput:
-    service_account: ServiceAccount
-    gas_used: int
-
-
-@dataclass
-class PvmIsAuthorizedOutput:
-    exit_condition: ExitCondition
-    gas_limit: int
-
-
-@dataclass
-class PvmRefineOutput:
-    exit_condition: ExitCondition
-    data_segments: List[bytes]                   # GP-0.6.4-eq:B.6 [blackboard_G]
-    gas_used: int
-
-
-@dataclass
-class AccumulateContextItem:
-    """
-    GP-0.6.2-eq:B.6 (blackboard_X) | Invocation Result Context
-
-    TODO check service_account_id in state_context.services
-    """
-    service_account_id: int  # s
-    state_context: AccumulationStateComponents  # u
-    new_service_account_id: int  # i
-    deferred_transfers: List[DeferredTransfer]  # t
-    invocation_output: Optional[bytes]  # y
-
-
-@dataclass
-class AccumulateInvocationContext(InvocationContext):
-    """
-    GP-0.6.4-eq:B.7 (X) | Invocation Result Context
-    """
-    context: AccumulateContextItem           # GP-0.6.4-eq:B.11 X_x
-    savepoint_context: AccumulateContextItem # GP-0.6.4-eq:B.11 X_y
-    timeslot: int # TODO how to make available?
-
-
-@dataclass
-class AccumulatePvmArguments(Serializable):
-    timeslot: int = field(metadata={'codec': U32})
-    service_id: int = field(metadata={'codec': U32})
-    operands: List[AccumulationOperand] = field(metadata={'codec': Vec(AccumulationOperand.to_codec_def())})
-
-
-@dataclass
-class OnTransferInvocationContext(InvocationContext):
-    service_id: int           # GP-0.6.4-eq:B.16 s
-    service_account: ServiceAccount  # GP-0.6.4-eq:B.16 bold_s
-    services_state: ServicesState # GP-0.6.4-eq:B.16 bold_D
-
-
-@dataclass
-class OnTransferPvmArguments(Serializable):
-    timeslot: int = field(metadata={'codec': U32})
-    service_id: int = field(metadata={'codec': U32})
-    deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
-
-
-@dataclass
-class IsAuthorizedPvmArguments(Serializable):
-    work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
-    core_index: int = field(metadata={'codec': VarInt64})
-
-
-@dataclass
-class RefinePvmArguments(Serializable):
-    service_id: int = field(metadata={'codec': U32})  # GP-0.6.4-eq:B.5 w_s
-    payload_blob: bytes = field(metadata={'codec': Bytes}) # GP-0.6.4-eq:B.5 w_y
-    work_package_hash: bytes = field(metadata={'codec': H256}) # GP-0.6.4-eq:B.5 H(p)
-    refinement_context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()}) # GP-0.6.4-eq:B.5 p_x
-    authorization_code_hash: bytes = field(metadata={'codec': H256}) # GP-0.6.4-eq:B.5 p_u
-
-
-@dataclass
-class IntegratedPVM:
-    """
-    GP-0.6.4-eq:B.4 bold_M
-    """
-    code: bytes              # GP-0.6.4-eq:B.6 bold_p
-    memory: bytes            # GP-0.6.4-eq:B.6 bold_u
-    program_counter: int     # GP-0.6.4-eq:B.6 italic_i
-
-
-@dataclass
-class RefineInvocationContext(InvocationContext):
-    inner_pvm_lookup: Dict[int, IntegratedPVM]   # GP-0.6.4-eq:B.6 bold_M
-    data_segments: List[bytes]                   # GP-0.6.4-eq:B.6 bold_e

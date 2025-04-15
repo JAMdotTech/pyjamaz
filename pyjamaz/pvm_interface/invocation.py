@@ -1,15 +1,16 @@
 import logging
+import typing
 from dataclasses import dataclass
 from typing import List, Dict
 
 from pyjamaz.graypaper_constants import GAS_INVOKE
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.block import WorkPackage
 from pyjamaz.models.common import AccumulationOperand, Preimage
-from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
-    AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
-    OnTransferInvocationContext, PvmOnTransferOutput, ServicesState, PvmIsAuthorizedOutput, IsAuthorizedPvmArguments, \
-    PvmRefineOutput, RefinePvmArguments, RefineInvocationContext
+from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
+    ServiceAccount, DeferredTransfer, ServicesState
+from pyjamaz.pvm_interface.models import PvmAccumulateOutput, PvmOnTransferOutput, PvmIsAuthorizedOutput, \
+    PvmRefineOutput, AccumulateInvocationContext, AccumulatePvmArguments, OnTransferInvocationContext, \
+    OnTransferPvmArguments, IsAuthorizedPvmArguments, RefinePvmArguments, RefineInvocationContext
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput, InvocationContext
@@ -20,6 +21,8 @@ from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCa
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
 
+if typing.TYPE_CHECKING:
+    from pyjamaz.models.block import WorkPackage
 
 @dataclass
 class GenericAccumulationInput:
@@ -321,9 +324,14 @@ def pvm_invoke_on_transfer(
         # Update balance
         service_account.balance += sum([t.amount for t in deferred_transfers])
 
-        preimage = Preimage.extract(service_account.preimages.get(service_account.code_hash))
-        serialized_program = preimage.serialized_program
-        program_metadata = preimage.metadata
+        serialized_program = None
+        program_metadata = b''
+
+        preimage_blob = service_account.preimages.get(service_account.code_hash)
+        if preimage_blob is not None:
+            preimage = Preimage.extract(preimage_blob)
+            serialized_program = preimage.serialized_program
+            program_metadata = preimage.metadata
 
         if serialized_program:
 
@@ -400,7 +408,7 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
 
 
 def pvm_invoke_is_authorized(
-        work_package: WorkPackage,
+        work_package: 'WorkPackage',
         core_index: int
 ) -> PvmIsAuthorizedOutput:
     """
@@ -489,7 +497,7 @@ class RefineInvocationMutator(InvocationMutator):
 # GP-0.6.4-eq:B.5: ΨR (refine invoke)
 def pvm_invoke_refine(
     work_item_index: int,      # GP-0.6.4-eq:B.5: italic_i index of workitem
-    work_package: WorkPackage, # GP-0.6.4-eq:B.5: italic_p workpackage
+    work_package: 'WorkPackage', # GP-0.6.4-eq:B.5: italic_p workpackage
     authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_o is_authorized output
     work_items_import_segments: List[List[bytes]],  # GP-0.6.4-eq:B.5: bold_i_flat list of import segments per workitem
     export_segment_offset: int, # GP-0.6.4-eq:B.5: c_cedie export segment offset

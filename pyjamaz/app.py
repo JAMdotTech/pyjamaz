@@ -20,13 +20,13 @@ from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.trace import StateDump, Trace
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
-from pyjamaz.state.base import AppContext
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.storage import StorageEngine, Transaction
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services, \
     AccumulationQueue, AccumulationHistory
-from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, BlockContext
+from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, SafroleState, EntropyState
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal

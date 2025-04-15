@@ -9,10 +9,10 @@ from parameterized import parameterized
 
 from pyjamaz.models.common import WorkReport
 from pyjamaz.settings import TEST_SUITE
-from pyjamaz.state.base import AppContext
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import AuthorizerPools
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee, BlockContext
+from pyjamaz.models.block import Header, Guarantee
 from pyjamaz.models.state import AuthorizerPoolsState, AuthorizerQueuesState
 
 
