@@ -9,9 +9,9 @@ DEBUG_PROGRAM_OVERRIDE = {
     #     'heap_mem_pages': 2
     # },
     b'tribonacci': {
-        #'file': "/Users/matthijsblaas/dev/polkavm/services/tribonacci/tribonacci.pvm",
+        'file': "/Users/matthijsblaas/dev/polkavm/services/tribonacci/tribonacci.pvm",
         #'file': '/Users/matthijsblaas/dev/pyjamaz/pyjamaz/data/services/nok_tribonacci.pvm',
-        'file': '/Users/matthijsblaas/dev/pyjamaz/pyjamaz/data/services/ok_tribonacci.pvm',
+        #'file': '/Users/matthijsblaas/dev/pyjamaz/pyjamaz/data/services/ok_tribonacci.pvm',
         'heap_mem_pages': 2
     }
 }
