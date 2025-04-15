@@ -747,6 +747,9 @@ class WorkPackage(Serializable):
 
     #TODO: implement bold_p_a & bold_p_c as mentioned in GP-0.6.4-eq:14.9
 
+    def hash(self):
+        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
+
 
 @dataclass
 class GuarantorAssignment:

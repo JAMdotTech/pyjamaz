@@ -3,6 +3,7 @@ import socket
 from typing import List, Dict
 import ipaddress
 
+from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64
 
@@ -50,6 +51,20 @@ class ValidatorData(Serializable):
         int
         """
         return int.from_bytes(self.metadata[16:18], byteorder='little')
+
+
+@dataclass
+class Preimage(Serializable):
+    metadata: bytes
+    serialized_program: bytes
+
+    @classmethod
+    def extract(cls, data: bytes) -> "Preimage":
+        jam_bytes = JamBytes(data)
+        return Preimage(
+            metadata=Bytes.decode(jam_bytes),
+            serialized_program=jam_bytes.get_remaining_bytes(),
+        )
 
 
 @dataclass

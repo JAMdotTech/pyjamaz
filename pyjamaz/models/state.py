@@ -615,6 +615,51 @@ class ServicesState(State, Serializable):
 
         return preimage
 
+    #GP-0.6.4-eq:9.7 (historical lookup)
+    def historical_preimage_lookup(self, service_account_id: int, timeslot: int, preimage_hash: bytes) -> Optional[bytes]:
+        """
+        historical lookup
+        GP-0.6.4-eq:9.5
+        GP-0.6.4-eq:9.7
+
+
+        Parameters
+        ----------
+        service_account
+        timeslot
+        preimage_hash
+        storage_engine
+
+        Returns
+        -------
+        bytes
+        """
+
+        try:
+            preimage = self.retrieve_preimage(service_account_id, preimage_hash)
+            preimage_availability = self.retrieve_preimage_availability(service_account_id, preimage_hash, len(preimage))
+
+            # GP-0.6.4-eq:9.7
+            def is_preimage_available() -> bool:
+                if len(preimage_availability) == 0:
+                    return False
+                elif len(preimage_availability) == 1:
+                    return preimage_availability[0] <= timeslot
+                elif len(preimage_availability) == 2:
+                    return preimage_availability[0] <= timeslot < preimage_availability[1]
+                elif len(preimage_availability) == 3:
+                    return preimage_availability[0] <= timeslot < preimage_availability[1] or preimage_availability[2] <= timeslot
+
+                return False
+
+            if is_preimage_available():
+                return preimage
+
+        except StateKeyNoResult:
+            pass
+
+        return None
+
 
     def store_preimage(self, service_account_id: int, preimage_blob: bytes, commit=False):
         """
@@ -1454,7 +1499,9 @@ class PvmIsAuthorizedOutput:
 
 @dataclass
 class PvmRefineOutput:
-    pass
+    exit_condition: ExitCondition
+    data_segments: List[bytes]                   # GP-0.6.4-eq:B.6 [blackboard_G]
+    gas_used: int
 
 
 @dataclass
@@ -1519,12 +1566,15 @@ class RefinePvmArguments(Serializable):
 
 @dataclass
 class IntegratedPVM:
-    code: bytes
-    memory: bytes
-    program_counter: int
+    """
+    GP-0.6.4-eq:B.4 bold_M
+    """
+    code: bytes              # GP-0.6.4-eq:B.6 bold_p
+    memory: bytes            # GP-0.6.4-eq:B.6 bold_u
+    program_counter: int     # GP-0.6.4-eq:B.6 italic_i
 
 
 @dataclass
-class RefineInvocationContext:
-    inner_pvm_lookup: Dict[int, IntegratedPVM]   # GP-0.6.4-eq:B.6 bold_m
+class RefineInvocationContext(InvocationContext):
+    inner_pvm_lookup: Dict[int, IntegratedPVM]   # GP-0.6.4-eq:B.6 bold_M
     data_segments: List[bytes]                   # GP-0.6.4-eq:B.6 bold_e

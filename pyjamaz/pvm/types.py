@@ -516,15 +516,12 @@ class PVMProgram(Serializable):
 
 
     @classmethod
-    def from_serialized_bytes(cls, serialized_program: bytes, argument_contents: bytes) -> Optional['PVMProgram']:
+    def from_serialized_bytes(cls, serialized_program: bytes, argument_contents: bytes, metadata: Optional[bytes]) -> Optional['PVMProgram']:
         """
         GP-0.6.4-eq:A.35 (Y)
         """
         try:
             jam_bytes = JamBytes(serialized_program)
-            # metadata
-            #TODO: fix!
-            metadata = Bytes.decode(jam_bytes)
 
             if DEBUG:
                 override_heap_mem_pages = None
