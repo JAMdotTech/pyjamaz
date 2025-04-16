@@ -7,8 +7,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Vec, VarInt64, Bytes, H256
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.block import WorkPackage
-from pyjamaz.models.common import AccumulationOperand, RefinementContext
+from pyjamaz.models.common import AccumulationOperand, RefinementContext, WorkPackage
 from pyjamaz.models.state import AccumulationStateComponents, DeferredTransfer, ServiceAccount, ServicesState
 
 from pyjamaz.pvm.constants import ExitCondition

@@ -5,7 +5,7 @@ from typing import List, Dict
 
 from pyjamaz.graypaper_constants import GAS_INVOKE
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import AccumulationOperand, Preimage
+from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage
 from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
     ServiceAccount, DeferredTransfer, ServicesState
 from pyjamaz.pvm_interface.models import PvmAccumulateOutput, PvmOnTransferOutput, PvmIsAuthorizedOutput, \
@@ -21,8 +21,6 @@ from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCa
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
 
-if typing.TYPE_CHECKING:
-    from pyjamaz.models.block import WorkPackage
 
 @dataclass
 class GenericAccumulationInput:

@@ -24,7 +24,7 @@ class InvocationMutationOutput:
     """
     GP-0.6.4-eq:A.35
     """
-    exit_condition: ExitCondition   #TODO: rename
+    exit_condition: ExitCondition
     gas_limit: int
     registers: npt.NDArray[np.uint64]
     memory: PVMMemory

@@ -7,10 +7,10 @@ from typing import List, Optional
 
 from pyjamaz.models.state import ValidatorPoolState
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, U64, BitArray, Tuple
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, BitArray, Tuple
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import RefinementContext, WorkReport, TicketBody, ValidatorData
+from pyjamaz.models.common import WorkReport, TicketBody, ValidatorData
 from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
@@ -632,122 +632,6 @@ class Block(Serializable):
     """
     header: Header = field(metadata={'codec': Header.to_codec_def()})
     extrinsic: Extrinsic = field(metadata={'codec': Extrinsic.to_codec_def()})
-
-
-@dataclass
-class WorkItemExtrinsic(Serializable):
-    """
-    GP-0.5.0-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
-
-    Attributes
-    ----------
-    hash: H256
-        GP-0.5.0-eq:14.3 (blackboard_H) | Blob hashes.
-    len: U32
-        GP-0.5.0-eq:14.3 (blackboard_N type derived from encoding appendix) | A validator index.
-    """
-    hash: bytes = field(metadata={'codec': H256})
-    len: int = field(metadata={'codec': U32})
-
-
-@dataclass
-class ImportSegment(Serializable):
-    """
-    GP-0.3.8-eq:175 (i) | Imported data segments consisting of the root of the segment tree and the index into it.
-
-    Attributes
-    ----------
-    tree_root: H256
-        GP-0.5.0-eq:14.3 (blackboard_H) | Root of the segment tree.
-    index: U16
-        GP-0.5.0-eq:14.3 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
-    """
-    tree_root: bytes = field(metadata={'codec': H256})
-    index: int = field(metadata={'codec': U16})
-
-
-@dataclass
-class WorkItem(Serializable):
-    """
-    GP-0.5.0-eq:14.3 (blackboard_I) | Work item.
-
-    Attributes
-    ----------
-    service: U32
-        GP-0.5.2-eq:14.3 (s) | The index of a service to which it relates.
-    code_hash: H256
-        GP-0.5.2-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
-    payload: Bytes
-        GP-0.5.2-eq:14.3 (bold_y) | A payload blob.
-    refine_gas_limit: U64
-        GP-0.5.2-eq:14.3 (g) | The gas limit.
-    accumulate_gas_limit: U64
-        GP-0.5.2-eq:14.3 (a) | The gas limit.
-    import_segments: Vec(ImportSegment)
-        GP-0.5.2-eq:14.3 (bold_i) | Imported data segments.
-    extrinsic: Vec(WorkItemExtrinsic)
-        GP-0.5.2-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
-    export_count: U16
-        GP-0.5.2-eq:14.3 (e) | The number of data segments exported by this work item.
-    """
-    service: int = field(metadata={'codec': U32})   #TODO: refactor to service_id
-    code_hash: bytes = field(metadata={'codec': H256})
-    payload: bytes = field(metadata={'codec': Bytes})
-    refine_gas_limit: int = field(metadata={'codec': U64})
-    accumulate_gas_limit: int = field(metadata={'codec': U64})
-    import_segments: List[ImportSegment] = field(metadata={'codec': Vec(ImportSegment.to_codec_def())})
-    extrinsic: List[WorkItemExtrinsic] = field(metadata={'codec': Vec(WorkItemExtrinsic.to_codec_def())})
-    export_count: int = field(metadata={'codec': U16})
-
-
-@dataclass
-class Authorizer(Serializable):
-    """
-    GP-0.5.0-eq:14.2 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob.
-
-    Attributes
-    ----------
-    code_hash: H256
-        GP-0.5.0-eq:14.2 (u) | The authorization code hash.
-    params: Bytes
-        GP-0.5.0-eq:14.2 (bold_p) | A parameterization blob.
-    """
-    code_hash: bytes = field(metadata={'codec': H256})
-    params: bytes = field(metadata={'codec': Bytes})
-
-
-@dataclass
-class WorkPackage(Serializable):
-    """
-    GP-0.5.0-eq:14.2 (blackboard_P) | Work package.
-
-    Attributes
-    ----------
-    authorization: Bytes
-        GP-0.5.0-eq:14.2 (bold_j) | Authorization token blob.
-    auth_code_host: U32
-        GP-0.5.0-eq:14.2 (h) | Index of the service which hosts the authorization code.
-    # TODO: deviation from GP-0.5.0-eq:14.2 in which u & bold_p are separated.
-    # TODO: This impacts the structure of JSON (not JAM-codec).
-    authorizer: Authorizer
-        GP-0.5.0-eq:14.2 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob.
-    context: pyjamaz.models.common.RefinementContext
-        GP-0.5.0-eq:14.2 (bold_x) | The refinement context.
-    items: Vec(WorkItem)
-        GP-0.5.0-eq:14.2 (bold_w) | A sequence of work items.
-    """
-    authorization: bytes = field(metadata={'codec': Bytes})
-    auth_code_host: int = field(metadata={'codec': U32})
-    # TODO: deviation from GP-0.5.0-eq:14.2 in which u & bold_p are separated.
-    # TODO: This impacts the structure of JSON (not JAM-codec).
-    authorizer: Authorizer = field(metadata={'codec': Authorizer.to_codec_def()})
-    context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
-    items: List[WorkItem] = field(metadata={'codec': Vec(WorkItem.to_codec_def())})
-
-    #TODO: implement bold_p_a & bold_p_c as mentioned in GP-0.6.4-eq:14.9
-
-    def hash(self):
-        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
 
 @dataclass
