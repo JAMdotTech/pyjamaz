@@ -16,9 +16,10 @@ from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationM
 from pyjamaz.pvm.types import PVMMemory
 from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_checkpoint, hc_upgrade, \
     hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new
-from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug
+from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
+from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup
 
 
 @dataclass
@@ -444,11 +445,17 @@ class RefineInvocationMutator(InvocationMutator):
         self,
         authorizer_output: bytes,
         work_items_import_segments: List[List[bytes]],
-        export_segment_offset: int
+        export_segment_offset: int,
+        services: ServicesState,
+        service_account_id: int,
+        timeslot: int,
     ):
         self.authorizer_output = authorizer_output
         self.work_items_import_segments = work_items_import_segments
         self.export_segment_offset = export_segment_offset
+        self.services = services
+        self.service_account_id = service_account_id
+        self.timeslot = timeslot
 
     def execute(
             self,
@@ -475,9 +482,18 @@ class RefineInvocationMutator(InvocationMutator):
             case HostCallDebug.log.value:
                 hc_log(registers, memory, -1, ctx_out, _pvm.log)
 
-            case HostCallGeneral.gas.value:
+            case HostCallRefine.historical_lookup.value:
                 #GP-0.6.4-eq:B.12 | G
-                hc_gas(registers, memory, ctx_out, _pvm.log)
+                hc_historical_lookup(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    services=self.services,
+                    service_id=self.service_account_id,
+                    timeslot=self.timeslot,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
 
             case _:
                 #TODO: implement B.2: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
@@ -533,6 +549,9 @@ def pvm_invoke_refine(
             authorizer_output=authorizer_output,
             work_items_import_segments=work_items_import_segments,
             export_segment_offset=export_segment_offset,
+            services=services_state,
+            service_account_id=service_account_id,
+            timeslot=work_package.context.lookup_anchor_slot
         )
     )
 
