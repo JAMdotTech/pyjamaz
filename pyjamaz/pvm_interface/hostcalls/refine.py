@@ -5,7 +5,7 @@ from jamcodec.types import U64
 
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_IMPORTS_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
-from pyjamaz.models.block import WorkPackage
+from pyjamaz.models.common import WorkPackage
 from pyjamaz.models.state import RefineInvocationContext, ServicesState
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition

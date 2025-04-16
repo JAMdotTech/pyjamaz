@@ -17,7 +17,7 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
     MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, AccumulationOperand, \
-    RefinementContext
+    RefinementContext, WorkPackage
 from pyjamaz.pvm.constants import ExitCondition
 from pyjamaz.pvm.invocation import InvocationContext
 from pyjamaz.pvm.types import PVMCode, PVMMemory
@@ -27,7 +27,7 @@ from pyjamaz.state.base import StorageMap, state_key_constructor_service_account
 from pyjamaz.storage import StorageEngine, Transaction
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.models.block import Assurance as ExtrinsicAssurance, Preimage, WorkPackage
+    from pyjamaz.models.block import Assurance as ExtrinsicAssurance
 
 
 class State(Serializable):

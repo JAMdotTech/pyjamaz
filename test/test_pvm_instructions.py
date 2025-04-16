@@ -52,7 +52,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
                 page = MemorySection(
                     address=page_map["address"],
                     length=page_map["length"],
-                    writable=page_map["is-writable"],
+                    acl=2 if page_map["is-writable"] else 1,
                     contents=[0] * page_map["length"]
                 )
                 if page_map["address"] < 2*65536:
