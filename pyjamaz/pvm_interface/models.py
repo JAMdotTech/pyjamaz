@@ -1,10 +1,12 @@
 import typing
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Vec, VarInt64, Bytes, H256
 
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import WorkPackage
 from pyjamaz.models.common import AccumulationOperand, RefinementContext
 from pyjamaz.models.state import AccumulationStateComponents, DeferredTransfer, ServiceAccount, ServicesState
@@ -63,6 +65,47 @@ class AccumulateInvocationContext(InvocationContext):
     context: AccumulateContextItem           # GP-0.6.4-eq:B.11 X_x
     savepoint_context: AccumulateContextItem # GP-0.6.4-eq:B.11 X_y
     timeslot: int # TODO how to make available?
+
+    @classmethod
+    def create_from_accumulation_state(
+            cls, accumulation_state: AccumulationStateComponents, service_account_id: int, entropy: bytes, timeslot: int
+    ) -> 'AccumulateInvocationContext':
+        """
+                B.9 (I)
+
+                entropy: eta_0
+                timeslot: int post_state
+
+                """
+        # Generate new unique service id
+        check_payload = int.from_bytes(
+            blake2b_256_hash(
+                service_account_id.to_bytes(length=4, byteorder='little') +
+                entropy +
+                timeslot.to_bytes(length=4, byteorder='little')
+            )[:4],
+            byteorder='little'
+        )
+
+        new_service_account_id = accumulation_state.check_service_id((check_payload % (2 ** 32 - 2 ** 9)) + 2 ** 8)
+
+        return AccumulateInvocationContext(
+            context=AccumulateContextItem(
+                service_account_id=service_account_id,
+                state_context=deepcopy(accumulation_state),
+                new_service_account_id=new_service_account_id,
+                deferred_transfers=[],
+                invocation_output=None
+            ),
+            savepoint_context=AccumulateContextItem(
+                service_account_id=service_account_id,
+                state_context=deepcopy(accumulation_state),
+                new_service_account_id=new_service_account_id,
+                deferred_transfers=[],
+                invocation_output=None
+            ),
+            timeslot=timeslot
+        )
 
 
 @dataclass

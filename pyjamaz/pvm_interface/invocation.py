@@ -13,7 +13,7 @@ from pyjamaz.pvm_interface.models import PvmAccumulateOutput, PvmOnTransferOutpu
     OnTransferPvmArguments, IsAuthorizedPvmArguments, RefinePvmArguments, RefineInvocationContext
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
-from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput, InvocationContext
+from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemory
 from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_checkpoint, hc_upgrade, \
     hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new
@@ -223,11 +223,13 @@ def pvm_invoke_accumulate(
 
     logging.debug(f'PVM invoke accumulate: s={service_id} operands={[o.to_json() for o in operands]}')
 
-    invocation_context = state_context.to_invocation_context(
+    invocation_context = AccumulateInvocationContext.create_from_accumulation_state(
+        accumulation_state=state_context,
         service_account_id=service_id,
         entropy=post_entropy.entropy[0],
         timeslot=timeslot
     )
+
     try:
         code_hash = state_context.services.services[service_id].code_hash
         preimage = Preimage.extract(state_context.services.services[service_id].preimages[code_hash])

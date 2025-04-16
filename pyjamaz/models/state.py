@@ -1435,39 +1435,3 @@ class AccumulationStateComponents(Serializable):
             return service_id
         else:
             return self.check_service_id((service_id - 2**8 + 1) % (2**32 - 2**9) + 2**8)
-
-
-    def to_invocation_context(self, service_account_id: int, entropy: bytes, timeslot: int) -> 'AccumulateInvocationContext':
-
-        from pyjamaz.pvm_interface.models import AccumulateContextItem, AccumulateInvocationContext
-        """
-        B.9 (I)
-
-        entropy: eta_0
-        timeslot: int post_state
-
-        """
-        # Generate new unique service id
-        check_payload = int.from_bytes(blake2b_256_hash(
-            service_account_id.to_bytes(length=4, byteorder='little') + entropy + timeslot.to_bytes(length=4, byteorder='little')
-        )[:4], byteorder='little')
-
-        new_service_account_id = self.check_service_id((check_payload % (2**32 - 2**9)) + 2**8)
-
-        return AccumulateInvocationContext(
-            context=AccumulateContextItem(
-                service_account_id=service_account_id,
-                state_context=deepcopy(self),
-                new_service_account_id=new_service_account_id,
-                deferred_transfers=[],
-                invocation_output=None
-            ),
-            savepoint_context=AccumulateContextItem(
-                service_account_id=service_account_id,
-                state_context=deepcopy(self),
-                new_service_account_id=new_service_account_id,
-                deferred_transfers=[],
-                invocation_output=None
-            ),
-            timeslot=timeslot
-        )
