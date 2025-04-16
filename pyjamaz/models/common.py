@@ -6,6 +6,7 @@ import ipaddress
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64
+from pyjamaz.hashing import blake2b_256_hash
 
 
 @dataclass
@@ -54,6 +55,35 @@ class ValidatorData(Serializable):
 
 
 @dataclass
+class RefinementContext(Serializable):
+    """
+    GP-0.5.0-eq:11.4 (blackboard_X) | A refinement context describes the context of the chain at the point that the
+    report's corresponding work-package was evaluated.
+
+    Attributes
+    ----------
+    anchor: H256
+        GP-0.5.0-eq:11.4 (a) | The anchor header_hash.
+    state_root: H256
+        GP-0.5.0-eq:11.4 (s) | The anchor header's block associated posterior state-root.
+    beefy_root: H256
+        GP-0.5.0-eq:11.4 (b) | The anchor header's block associated posterior beefy-root.
+    lookup_anchor: H256
+        GP-0.5.0-eq:11.4 (l) | The lookup-anchor header_hash.
+    lookup_anchor_slot: U32
+        GP-0.5.0-eq:11.4 (t) | The lookup-anchor header's associated timeslot.
+    prerequisites: Vec(H256)
+        GP-0.5.0-eq:11.4 (bold_p) | An optional prerequisite work-package.
+    """
+    anchor: bytes = field(metadata={'codec': H256})
+    state_root: bytes = field(metadata={'codec': H256})
+    beefy_root: bytes = field(metadata={'codec': H256})
+    lookup_anchor: bytes = field(metadata={'codec': H256})
+    lookup_anchor_slot: int = field(metadata={'codec': U32})
+    prerequisites: List[bytes] = field(metadata={'codec': Vec(H256)})
+
+
+@dataclass
 class Preimage(Serializable):
     metadata: bytes
     serialized_program: bytes
@@ -65,6 +95,141 @@ class Preimage(Serializable):
             metadata=Bytes.decode(jam_bytes),
             serialized_program=jam_bytes.get_remaining_bytes(),
         )
+
+
+
+@dataclass
+class WorkItemExtrinsic(Serializable):
+    """
+    GP-0.6.4-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
+
+    Attributes
+    ----------
+    hash: H256
+        GP-0.6.4-eq:14.3 (blackboard_H) | Blob hashes.
+    len: U32
+        GP-0.6.4-eq:14.3 (blackboard_N type derived from encoding appendix) | A validator index.
+    """
+    hash: bytes = field(metadata={'codec': H256})
+    len: int = field(metadata={'codec': U32})
+
+
+@dataclass
+class ImportSegment(Serializable):
+    """
+    GP-0.6.4-eq:14.3 (bold_i) | Imported data segments consisting of the root of the segment tree and the index into it.
+
+    Attributes
+    ----------
+    tree_root: H256
+        GP-0.6.4-eq:14.3 (blackboard_H) | Root of the segment tree. # TODO what about H^[+] ?
+    index: U16
+        GP-0.6.4-eq:14.3 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
+    """
+    tree_root: bytes = field(metadata={'codec': H256})
+    index: int = field(metadata={'codec': U16})
+
+
+@dataclass
+class WorkItem(Serializable):
+    """
+    GP-0.6.4-eq:14.3 (blackboard_I) | Work item.
+
+    Attributes
+    ----------
+    service: U32
+        GP-0.6.4-eq:14.3 (s) | The index of a service to which it relates.
+    code_hash: H256
+        GP-0.6.4-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
+    payload: Bytes
+        GP-0.6.4-eq:14.3 (bold_y) | A payload blob.
+    refine_gas_limit: U64
+        GP-0.6.4-eq:14.3 (g) | The gas limit.
+    accumulate_gas_limit: U64
+        GP-0.6.4-eq:14.3 (a) | The gas limit.
+    import_segments: Vec(ImportSegment)
+        GP-0.6.4-eq:14.3 (bold_i) | Imported data segments.
+    extrinsic: Vec(WorkItemExtrinsic)
+        GP-0.6.4-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
+    export_count: U16
+        GP-0.6.4-eq:14.3 (e) | The number of data segments exported by this work item.
+    """
+    service: int = field(metadata={'codec': U32})
+    code_hash: bytes = field(metadata={'codec': H256})
+    payload: bytes = field(metadata={'codec': Bytes})
+    refine_gas_limit: int = field(metadata={'codec': U64})
+    accumulate_gas_limit: int = field(metadata={'codec': U64})
+    import_segments: List[ImportSegment] = field(metadata={'codec': Vec(ImportSegment.to_codec_def())})
+    extrinsic: List[WorkItemExtrinsic] = field(metadata={'codec': Vec(WorkItemExtrinsic.to_codec_def())})
+    export_count: int = field(metadata={'codec': U16})
+
+
+@dataclass
+class Authorizer(Serializable):
+    """
+    GP-0.6.4-eq:14.2 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob.
+
+    Attributes
+    ----------
+    code_hash: H256
+        GP-0.6.4-eq:14.2 (u) | The authorization code hash.
+    params: Bytes
+        GP-0.6.4-eq:14.2 (bold_p) | A parameterization blob.
+    """
+    code_hash: bytes = field(metadata={'codec': H256})
+    params: bytes = field(metadata={'codec': Bytes})
+
+
+@dataclass
+class WorkPackage(Serializable):
+    """
+    GP-0.6.4-eq:14.2 (blackboard_P) | Work package.
+
+    Attributes
+    ----------
+    authorization: Bytes
+        GP-0.6.4-eq:14.2 (bold_j) | Authorization token blob.
+    auth_code_host: U32
+        GP-0.6.4-eq:14.2 (h) | Index of the service which hosts the authorization code.
+    authorizer: Authorizer
+        GP-0.5.0-eq:14.2 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob.
+    context: pyjamaz.models.common.RefinementContext
+        GP-0.5.0-eq:14.2 (bold_x) | The refinement context.
+    items: Vec(WorkItem)
+        GP-0.5.0-eq:14.2 (bold_w) | A sequence of work items.
+    """
+    authorization: bytes = field(metadata={'codec': Bytes})
+    auth_code_host: int = field(metadata={'codec': U32})
+    authorizer: Authorizer = field(metadata={'codec': Authorizer.to_codec_def()})
+    context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
+    items: List[WorkItem] = field(metadata={'codec': Vec(WorkItem.to_codec_def())}) # TODO min 1, max constant_I (16)
+
+    #TODO: implement bold_p_a & bold_p_c as mentioned in GP-0.6.4-eq:14.9
+    #TODO: implement contraints as mentioned in GP-0.6.4-eq:14.4,14.5,14.7
+
+    def hash(self):
+        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
+
+    def authorizer_hash(self):
+        """
+        GP-0.6.4-eq:14.9 (blackboard_P_a) | Authorizer hash.
+        """
+        return blake2b_256_hash(self.authorizer.to_jam_bytes().to_bytes())
+
+
+    def authorization_metadata(self):
+        """
+        GP-0.6.4-eq:14.9 (blackboard_P_m) | Authorization.
+        """
+        # todo getattr()
+        pass
+
+    def authorization_code(self):
+        """
+        GP-0.6.4-eq:14.9 (blackboard_P_c) | Authorization.
+        """
+        # todo getattr()
+        pass
 
 
 @dataclass
@@ -152,34 +317,11 @@ class WorkResult(Serializable):
     result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
     refine_load: RefineLoad = field(metadata={'codec': RefineLoad.to_codec_def()})
 
+    @classmethod
+    def from_work_item(cls, work_item: WorkItem, result: WorkExecResult, gas_used: int) -> "WorkResult":
+        return cls(
 
-@dataclass
-class RefinementContext(Serializable):
-    """
-    GP-0.5.0-eq:11.4 (blackboard_X) | A refinement context describes the context of the chain at the point that the
-    report's corresponding work-package was evaluated.
-
-    Attributes
-    ----------
-    anchor: H256
-        GP-0.5.0-eq:11.4 (a) | The anchor header_hash.
-    state_root: H256
-        GP-0.5.0-eq:11.4 (s) | The anchor header's block associated posterior state-root.
-    beefy_root: H256
-        GP-0.5.0-eq:11.4 (b) | The anchor header's block associated posterior beefy-root.
-    lookup_anchor: H256
-        GP-0.5.0-eq:11.4 (l) | The lookup-anchor header_hash.
-    lookup_anchor_slot: U32
-        GP-0.5.0-eq:11.4 (t) | The lookup-anchor header's associated timeslot.
-    prerequisites: Vec(H256)
-        GP-0.5.0-eq:11.4 (bold_p) | An optional prerequisite work-package.
-    """
-    anchor: bytes = field(metadata={'codec': H256})
-    state_root: bytes = field(metadata={'codec': H256})
-    beefy_root: bytes = field(metadata={'codec': H256})
-    lookup_anchor: bytes = field(metadata={'codec': H256})
-    lookup_anchor_slot: int = field(metadata={'codec': U32})
-    prerequisites: List[bytes] = field(metadata={'codec': Vec(H256)})
+        )
 
 
 @dataclass

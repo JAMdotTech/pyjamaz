@@ -1,18 +1,19 @@
 import logging
+import typing
 from dataclasses import dataclass
 from typing import List, Dict
 
 from pyjamaz.graypaper_constants import GAS_INVOKE
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.block import WorkPackage
-from pyjamaz.models.common import AccumulationOperand, Preimage
-from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
-    AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
-    OnTransferInvocationContext, PvmOnTransferOutput, ServicesState, PvmIsAuthorizedOutput, IsAuthorizedPvmArguments, \
-    PvmRefineOutput, RefinePvmArguments, RefineInvocationContext
+from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage
+from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
+    ServiceAccount, DeferredTransfer, ServicesState
+from pyjamaz.pvm_interface.models import PvmAccumulateOutput, PvmOnTransferOutput, PvmIsAuthorizedOutput, \
+    PvmRefineOutput, AccumulateInvocationContext, AccumulatePvmArguments, OnTransferInvocationContext, \
+    OnTransferPvmArguments, IsAuthorizedPvmArguments, RefinePvmArguments, RefineInvocationContext
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
-from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput, InvocationContext
+from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemory
 from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_checkpoint, hc_upgrade, \
     hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new
@@ -221,11 +222,13 @@ def pvm_invoke_accumulate(
 
     logging.debug(f'PVM invoke accumulate: s={service_id} operands={[o.to_json() for o in operands]}')
 
-    invocation_context = state_context.to_invocation_context(
+    invocation_context = AccumulateInvocationContext.create_from_accumulation_state(
+        accumulation_state=state_context,
         service_account_id=service_id,
         entropy=post_entropy.entropy[0],
         timeslot=timeslot
     )
+
     try:
         code_hash = state_context.services.services[service_id].code_hash
         preimage = Preimage.extract(state_context.services.services[service_id].preimages[code_hash])
@@ -322,9 +325,14 @@ def pvm_invoke_on_transfer(
         # Update balance
         service_account.balance += sum([t.amount for t in deferred_transfers])
 
-        preimage = Preimage.extract(service_account.preimages.get(service_account.code_hash))
-        serialized_program = preimage.serialized_program
-        program_metadata = preimage.metadata
+        serialized_program = None
+        program_metadata = b''
+
+        preimage_blob = service_account.preimages.get(service_account.code_hash)
+        if preimage_blob is not None:
+            preimage = Preimage.extract(preimage_blob)
+            serialized_program = preimage.serialized_program
+            program_metadata = preimage.metadata
 
         if serialized_program:
 
@@ -401,7 +409,7 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
 
 
 def pvm_invoke_is_authorized(
-        work_package: WorkPackage,
+        work_package: 'WorkPackage',
         core_index: int
 ) -> PvmIsAuthorizedOutput:
     """
@@ -505,7 +513,7 @@ class RefineInvocationMutator(InvocationMutator):
 # GP-0.6.4-eq:B.5: ΨR (refine invoke)
 def pvm_invoke_refine(
     work_item_index: int,      # GP-0.6.4-eq:B.5: italic_i index of workitem
-    work_package: WorkPackage, # GP-0.6.4-eq:B.5: italic_p workpackage
+    work_package: 'WorkPackage', # GP-0.6.4-eq:B.5: italic_p workpackage
     authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_o is_authorized output
     work_items_import_segments: List[List[bytes]],  # GP-0.6.4-eq:B.5: bold_i_flat list of import segments per workitem
     export_segment_offset: int, # GP-0.6.4-eq:B.5: c_cedie export segment offset

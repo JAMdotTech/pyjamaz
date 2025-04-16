@@ -8,10 +8,10 @@ from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
 from pyjamaz.settings import TEST_SUITE
-from pyjamaz.state.base import AppContext
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Assurance, BlockContext
+from pyjamaz.models.block import Header, Assurance
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, TimeslotState
 
 

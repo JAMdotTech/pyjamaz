@@ -8,7 +8,8 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, \
     PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO
 from pyjamaz.models.common import ValidatorData
-from pyjamaz.models.state import ServiceAccount, DeferredTransfer, AccumulateInvocationContext
+from pyjamaz.models.state import ServiceAccount, DeferredTransfer
+from pyjamaz.pvm_interface.models import AccumulateInvocationContext
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
@@ -274,7 +275,7 @@ def hc_upgrade(
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
-        
+
         # TODO: mark dirty? maybe register changes
         service_account.code_hash = code_hash
         service_account.gas_limit_accumulate = g

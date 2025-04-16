@@ -3,7 +3,8 @@ import time
 
 from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
 from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS
-from pyjamaz.models.block import Header, BlockContext, Extrinsic
+from pyjamaz.models.block import Header, Extrinsic
+from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
 
 

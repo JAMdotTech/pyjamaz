@@ -27,10 +27,11 @@ from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, Validator
     AccumulationHistoryOutput, AccumulationQueueOutput, ServicesAfterTransfersOutput
 
 from pyjamaz.state.base import StateComponent, state_key_constructor_service_account, state_key_constructor_preimage, \
-    state_key_constructor_preimage_availability, AppContext
+    state_key_constructor_preimage_availability
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext, \
+    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, \
     EpochMarkValidatorKeys, DeferredTransferStatistic
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \

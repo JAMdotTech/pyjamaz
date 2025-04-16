@@ -8,10 +8,10 @@ from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.state.base import AppContext
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Services
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, BlockContext, Preimage
+from pyjamaz.models.block import Header, Preimage
 from pyjamaz.models.state import TimeslotState, ServicesState, ServiceAccount
 
 

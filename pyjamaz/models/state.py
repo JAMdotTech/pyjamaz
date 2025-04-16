@@ -3,7 +3,7 @@ import typing
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import ceil
-from typing import List, Optional, Dict, Tuple, Union, Set
+from typing import List, Optional, Dict, Tuple, Union
 
 from jamcodec.base import JamBytes
 
@@ -11,8 +11,7 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import keccak_256_hash, blake2b_256_hash
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64, U16, \
-    Null
+from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE
