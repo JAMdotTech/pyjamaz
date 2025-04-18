@@ -19,6 +19,14 @@ def flatten_list(nested_list: list) -> list:
     return list(itertools.chain(*nested_list))
 
 
+def transposition_operator(source_sequence: List[list]) -> List[list]:
+    """
+    GP-0.6.4-eq:H.5 | the transposition operator
+
+    TODO
+    """
+
+
 def numeric_sequence_from_entropy(entropy: bytes, lemgth: int) -> List[int]:
     """
     GP-0.5.2-eq:F.2

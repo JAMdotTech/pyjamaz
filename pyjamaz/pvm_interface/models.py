@@ -32,13 +32,13 @@ class PvmOnTransferOutput:
 @dataclass
 class PvmIsAuthorizedOutput:
     exit_condition: ExitCondition
-    gas_limit: int
+    gas_used: int
 
 
 @dataclass
 class PvmRefineOutput:
     exit_condition: ExitCondition
-    data_segments: List[bytes]                   # GP-0.6.4-eq:B.6 [blackboard_G]
+    export_segments: List[bytes]                   # GP-0.6.4-eq:B.6 [blackboard_G]
     gas_used: int
 
 
@@ -156,4 +156,4 @@ class IntegratedPVM:
 @dataclass
 class RefineInvocationContext(InvocationContext):
     inner_pvm_lookup: Dict[int, IntegratedPVM]   # GP-0.6.4-eq:B.6 bold_M
-    data_segments: List[bytes]                   # GP-0.6.4-eq:B.6 bold_e
+    export_segments: List[bytes]                   # GP-0.6.4-eq:B.6 bold_e

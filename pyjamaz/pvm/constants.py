@@ -18,6 +18,9 @@ class ExitReason(Enum):
     out_of_gas:int      = 3 #GP-A.2: ∞: out-of-gas
     page_fault:int      = 4 #GP-A.2: F: page-fault
     host_halt:int       = 5 #GP-A.2: h: host-call
+    bad_exports:int     = 6 # TODO move outside of PVM package
+    bad_code:int        = 7
+    code_oversize:int   = 8
 
 
 @dataclass

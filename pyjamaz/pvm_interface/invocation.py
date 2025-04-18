@@ -3,7 +3,7 @@ import typing
 from dataclasses import dataclass
 from typing import List, Dict
 
-from pyjamaz.graypaper_constants import GAS_INVOKE
+from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage
 from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
@@ -422,6 +422,9 @@ def pvm_invoke_is_authorized(
     -------
     """
 
+    if work_package.authorization_code is None:
+        raise ValueError('work_package.authorization_code is not set')
+
     argument_data = IsAuthorizedPvmArguments(
         work_package=work_package,
         core_index=core_index
@@ -433,16 +436,16 @@ def pvm_invoke_is_authorized(
     )
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
-        serialized_program=work_package.authorization,
+        serialized_program=work_package.authorization_code,
         start_offset=0,
         gas_limit=GAS_INVOKE,
         argument_data=argument_data,
-        program_metadata=f"is-authorized p={work_package.hash()} c={core_index}".encode()
+        program_metadata=f"is-authorized p_m={work_package.authorization_metadata} c={core_index}".encode()
     )
 
     return PvmIsAuthorizedOutput(
         exit_condition=marshalling_output.exit_condition,
-        gas_limit=marshalling_output.gas_limit
+        gas_used=GAS_INVOKE - marshalling_output.gas_limit
     )
 
 
@@ -517,7 +520,7 @@ def pvm_invoke_refine(
     authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_o is_authorized output
     work_items_import_segments: List[List[bytes]],  # GP-0.6.4-eq:B.5: bold_i_flat list of import segments per workitem
     export_segment_offset: int, # GP-0.6.4-eq:B.5: c_cedie export segment offset
-    services_state: ServicesState   #TODO: omniscient variables :S
+    services_state: ServicesState
 ) -> PvmRefineOutput:
     """
     GP-0.6.4-eq:B.4 (Ψ_R) | the refine service-account invocation function
@@ -538,6 +541,19 @@ def pvm_invoke_refine(
         work_item.code_hash
     )
 
+    if preimage_data is None:
+        return PvmRefineOutput(
+            exit_condition=ExitCondition(reason=ExitReason.bad_code),
+            export_segments=[],
+            gas_used=0
+        )
+    elif len(preimage_data) > MAXIMUM_SIZE_SERVICE_CODE:
+        return PvmRefineOutput(
+            exit_condition=ExitCondition(reason=ExitReason.code_oversize),
+            export_segments=[],
+            gas_used=0
+        )
+
     preimage = Preimage.extract(preimage_data)
 
     argument_data = RefinePvmArguments(
@@ -551,7 +567,7 @@ def pvm_invoke_refine(
     pvm_invocation = PVMInvocation(
         invocation_context=RefineInvocationContext(
             inner_pvm_lookup={},
-            data_segments=[]
+            export_segments=[]
         ),
         invocation_mutator=RefineInvocationMutator(
             authorizer_output=authorizer_output,
@@ -573,6 +589,6 @@ def pvm_invoke_refine(
 
     return PvmRefineOutput(
         exit_condition=marshalling_output.exit_condition,
-        data_segments=marshalling_output.context.data_segments,
+        export_segments=marshalling_output.context.export_segments,
         gas_used=marshalling_output.gas_limit
     )

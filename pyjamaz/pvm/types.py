@@ -376,10 +376,10 @@ class PVMMemory:
         if not section:
             return False
 
-        if mode not in (PVMMemoryMode.readable.value, PVMMemoryMode.writable.value):
+        if mode not in (PVMMemoryMode.readable, PVMMemoryMode.writable):
             raise PVMMemoryError(f"Invalid mode: {mode}")
 
-        if section.acl is not None and section.acl < mode:
+        if section.acl is not None and section.acl < mode.value:
             return False
 
         local_addr = address - section.address

@@ -1,3 +1,4 @@
+import typing
 from dataclasses import dataclass, field
 import socket
 from typing import List, Dict
@@ -7,6 +8,10 @@ from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.pvm.constants import ExitCondition, ExitReason
+
+if typing.TYPE_CHECKING:
+    from pyjamaz.models.state import ServicesState
 
 
 @dataclass
@@ -210,26 +215,39 @@ class WorkPackage(Serializable):
     def hash(self):
         return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
-    def authorizer_hash(self):
+    def authorizer_hash(self) -> bytes:
         """
         GP-0.6.4-eq:14.9 (blackboard_P_a) | Authorizer hash.
         """
         return blake2b_256_hash(self.authorizer.to_jam_bytes().to_bytes())
 
+    @property
+    def authorization_metadata(self) -> bytes:
+        """
+        GP-0.6.4-eq:14.9 (blackboard_P_m) | Authorization metadata.
+        """
+        return getattr(self, '_authorization_metadata', None)
 
-    def authorization_metadata(self):
-        """
-        GP-0.6.4-eq:14.9 (blackboard_P_m) | Authorization.
-        """
-        # todo getattr()
-        pass
+    @authorization_metadata.setter
+    def authorization_metadata(self, value: bytes) -> None:
+        setattr(self, '_authorization_metadata', value)
 
-    def authorization_code(self):
+    @property
+    def authorization_code(self) -> bytes:
         """
-        GP-0.6.4-eq:14.9 (blackboard_P_c) | Authorization.
+        GP-0.6.4-eq:14.9 (blackboard_P_c) | Authorization code.
         """
-        # todo getattr()
-        pass
+        return getattr(self, '_authorization_code', None)
+
+    def set_authorization_code(self, services_state: 'ServicesState') -> None:
+        preimage = Preimage.extract(services_state.historical_preimage_lookup(
+            service_account_id=self.auth_code_host,
+            timeslot=self.context.lookup_anchor_slot,
+            preimage_hash=self.authorizer.code_hash
+        ))
+
+        setattr(self, '_authorization_code', preimage.serialized_program)
+        self.authorization_metadata = preimage.metadata
 
 
 @dataclass
@@ -261,6 +279,28 @@ class WorkExecResult(Serializable):
     code_oversize: None = field(default=None, metadata={'codec': Null})
 
     _codec_enum = True
+
+    @classmethod
+    def from_exit_condition(cls, exit_condition: ExitCondition) -> "WorkExecResult":
+        work_exec_result = WorkExecResult()
+        # TODO WIP TBD merge WorkExecResult with ExitCondition, same according to GP
+        if exit_condition.reason == ExitReason.out_of_gas:
+            work_exec_result.out_of_gas = True
+        elif exit_condition.reason == ExitReason.panic:
+            work_exec_result.panic = True
+        elif exit_condition.reason == ExitReason.bad_exports:
+            work_exec_result.bad_exports = True
+        elif exit_condition.reason == ExitReason.bad_code:
+            work_exec_result.bad_code = True
+        elif exit_condition.reason == ExitReason.code_oversize:
+            work_exec_result.code_oversize = True
+        else:
+            raise ValueError(f"Unsupported exit reason {exit_condition.reason}")
+        return work_exec_result
+
+
+
+
 
 
 @dataclass
@@ -319,8 +359,22 @@ class WorkResult(Serializable):
 
     @classmethod
     def from_work_item(cls, work_item: WorkItem, result: WorkExecResult, gas_used: int) -> "WorkResult":
+        """
+        GP-0.6.4-eq:14.8 (function_C) | the item-to-result function
+        """
         return cls(
-
+            service_id=work_item.service,
+            code_hash=work_item.code_hash,
+            payload_hash=blake2b_256_hash(work_item.payload),
+            accumulate_gas=work_item.accumulate_gas_limit,
+            result=result,
+            refine_load=RefineLoad(
+                gas_used=gas_used,
+                imports=len(work_item.import_segments),
+                exports=work_item.export_count,
+                extrinsic_count=len(work_item.extrinsic),
+                extrinsic_size=sum([x.len for x in work_item.extrinsic])
+            )
         )
 
 
@@ -371,6 +425,8 @@ class WorkReport(Serializable):
         GP-0.5.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
     results: Vec(WorkResult)
         GP-0.5.0-eq:11.2 (bold_r) | The results of the evaluation of each of the items inn the work package.
+    auth_gas_used: VarInt64
+        GP-0.6.4-eq:11.2 (g)
     """
     package_spec: WorkPackageSpec = field(metadata={'codec': WorkPackageSpec.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})

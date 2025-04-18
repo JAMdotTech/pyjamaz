@@ -8,10 +8,10 @@ from pyjamaz.pvm.types import PVMLogger, PVMMemory
 
 LEVELS = {
     0: (logging.ERROR, "ERROR", "⛔"),
-    1: (logging.DEBUG, "DEBUG", "🪡"),
-    2: (logging.INFO, "INFO", "💁"),
-    3: (logging.WARNING, "WARNING", "⚠"),
-    4: (logging.CRITICAL, "CRITICAL", "ℹ️"),
+    1: (logging.WARNING, "WARNING", "⚠️"),
+    2: (logging.INFO, "INFO", "ℹ️"),
+    3: (logging.DEBUG, "DEBUG", "💁"),
+    4: (logging.DEBUG, "DEBUG", "🪡"),
 }
 
 def hc_log(
