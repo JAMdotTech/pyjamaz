@@ -22,7 +22,7 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
-from pyjamaz.models.trace import Trace, StateDump
+from pyjamaz.models.app import Trace, StateDump, ChainspecDump
 from pyjamaz.settings import GP_VERSION
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block, Header, Extrinsic
@@ -441,9 +441,10 @@ async def init(
     app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
 
     if chainspec:
+
         with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
-            genesis_state = StateDump.from_jam_bytes(JamBytes(fp.read()))
-            for k, v, name, metadata in genesis_state.keyvals:
+            genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
+            for k, v in genesis_state.keyvals:
                 app.state_db.put(bytes(k), bytes(v))
 
         with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:

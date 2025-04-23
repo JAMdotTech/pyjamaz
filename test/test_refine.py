@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import unittest
@@ -5,9 +6,9 @@ import unittest
 from jamcodec.base import JamBytes
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
+from pyjamaz.models.app import ChainspecDump
 from pyjamaz.models.common import WorkPackage
 from pyjamaz.models.state import ServicesState
-from pyjamaz.models.trace import Trace
 from pyjamaz.refine import work_result_computation
 from pyjamaz.storage import InMemoryStorage
 
@@ -17,14 +18,12 @@ class TestRefine(unittest.TestCase):
         log_level = logging.DEBUG
         setup_logging(log_level)
 
-        abs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fixtures', 'refine')
+        abs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'pyjamaz', 'data', 'chainspecs')
+        state_db = InMemoryStorage()
 
-        with open(os.path.join(abs_dir, '1_011.bin'), 'rb') as fp:
-            trace = Trace.from_jam_bytes(JamBytes(fp.read()))
-
-            state_db = InMemoryStorage()
-
-            for k, v, name, metadata in trace.pre_state.keyvals:
+        with open(os.path.join(abs_dir, f'testnet-tiny-db.bin'), 'rb') as fp:
+            genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
+            for k, v in genesis_state.keyvals:
                 state_db.put(bytes(k), bytes(v))
 
         # Create services state obj

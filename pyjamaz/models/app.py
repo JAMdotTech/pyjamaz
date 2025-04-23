@@ -6,6 +6,11 @@ from jamcodec.types import H256, Tuple as JamTuple, Vec, Bytes
 
 from pyjamaz.models.block import Block
 
+@dataclass
+class ChainspecDump(Serializable):
+    keyvals: List[Tuple[bytes, bytes]] = field(metadata={'codec': Vec(JamTuple(H256, Bytes))})
+    state_root: bytes = field(metadata={'codec': H256})
+
 
 @dataclass
 class StateDump(Serializable):
