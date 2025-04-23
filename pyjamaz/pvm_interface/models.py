@@ -7,7 +7,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Vec, VarInt64, Bytes, H256
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import AccumulationOperand, RefinementContext, WorkPackage
+from pyjamaz.models.common import AccumulationOperand, RefinementContext, WorkPackage, WorkExecResult
 from pyjamaz.models.state import AccumulationStateComponents, DeferredTransfer, ServiceAccount, ServicesState
 
 from pyjamaz.pvm.constants import ExitCondition
@@ -37,7 +37,7 @@ class PvmIsAuthorizedOutput:
 
 @dataclass
 class PvmRefineOutput:
-    exit_condition: ExitCondition
+    work_exec_result: WorkExecResult
     export_segments: List[bytes]                   # GP-0.6.4-eq:B.6 [blackboard_G]
     gas_used: int
 

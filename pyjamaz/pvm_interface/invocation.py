@@ -5,7 +5,7 @@ from typing import List, Dict
 
 from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage
+from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage, WorkExecResult
 from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
     ServiceAccount, DeferredTransfer, ServicesState
 from pyjamaz.pvm_interface.models import PvmAccumulateOutput, PvmOnTransferOutput, PvmIsAuthorizedOutput, \
@@ -20,7 +20,7 @@ from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_d
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
-from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup
+from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_fetch
 
 
 @dataclass
@@ -460,6 +460,9 @@ class RefineInvocationMutator(InvocationMutator):
         services: ServicesState,
         service_account_id: int,
         timeslot: int,
+        work_item_index: int,
+        work_package: WorkPackage,
+        extrinsics: dict[bytes, bytes]
     ):
         self.authorizer_output = authorizer_output
         self.work_items_import_segments = work_items_import_segments
@@ -467,6 +470,9 @@ class RefineInvocationMutator(InvocationMutator):
         self.services = services
         self.service_account_id = service_account_id
         self.timeslot = timeslot
+        self.work_item_index = work_item_index
+        self.work_package = work_package
+        self.extrinsics = extrinsics
 
     def execute(
             self,
@@ -505,6 +511,19 @@ class RefineInvocationMutator(InvocationMutator):
                     invocation_output=ctx_out,
                     logger=_pvm.log
                 )
+            case HostCallRefine.fetch.value:
+                hc_fetch(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    work_item_index=self.work_item_index,
+                    work_package=self.work_package,
+                    auth_output=self.authorizer_output,
+                    work_item_segs=self.work_items_import_segments,
+                    extrinsics=self.extrinsics,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
 
             case _:
                 #TODO: implement B.2: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
@@ -520,10 +539,13 @@ def pvm_invoke_refine(
     authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_o is_authorized output
     work_items_import_segments: List[List[bytes]],  # GP-0.6.4-eq:B.5: bold_i_flat list of import segments per workitem
     export_segment_offset: int, # GP-0.6.4-eq:B.5: c_cedie export segment offset
-    services_state: ServicesState
+    services_state: ServicesState,
+    extrinsics: dict[bytes, bytes]
 ) -> PvmRefineOutput:
     """
     GP-0.6.4-eq:B.4 (Ψ_R) | the refine service-account invocation function
+
+    # TODO integrate with app?
 
     Parameters
     ----------
@@ -543,13 +565,13 @@ def pvm_invoke_refine(
 
     if preimage_data is None:
         return PvmRefineOutput(
-            exit_condition=ExitCondition(reason=ExitReason.bad_code),
+            work_exec_result=WorkExecResult(bad_code=True),
             export_segments=[],
             gas_used=0
         )
     elif len(preimage_data) > MAXIMUM_SIZE_SERVICE_CODE:
         return PvmRefineOutput(
-            exit_condition=ExitCondition(reason=ExitReason.code_oversize),
+            work_exec_result=WorkExecResult(code_oversize=True),
             export_segments=[],
             gas_used=0
         )
@@ -575,7 +597,10 @@ def pvm_invoke_refine(
             export_segment_offset=export_segment_offset,
             services=services_state,
             service_account_id=service_account_id,
-            timeslot=work_package.context.lookup_anchor_slot
+            timeslot=work_package.context.lookup_anchor_slot,
+            work_package=work_package,
+            work_item_index=work_item_index,
+            extrinsics=extrinsics
         )
     )
 
@@ -588,7 +613,7 @@ def pvm_invoke_refine(
     )
 
     return PvmRefineOutput(
-        exit_condition=marshalling_output.exit_condition,
+        work_exec_result=WorkExecResult.from_exit_condition(marshalling_output.exit_condition),
         export_segments=marshalling_output.context.export_segments,
-        gas_used=marshalling_output.gas_limit
+        gas_used=GAS_INVOKE - marshalling_output.gas_limit
     )

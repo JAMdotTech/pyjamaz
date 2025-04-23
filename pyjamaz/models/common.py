@@ -7,6 +7,7 @@ import ipaddress
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64
+from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 
@@ -168,6 +169,9 @@ class WorkItem(Serializable):
     extrinsic: List[WorkItemExtrinsic] = field(metadata={'codec': Vec(WorkItemExtrinsic.to_codec_def())})
     export_count: int = field(metadata={'codec': U16})
 
+    def add_extrinsic(self, extrinsic_data: bytes):
+        self.extrinsic.append(WorkItemExtrinsic(hash=blake2b_256_hash(extrinsic_data), len=len(extrinsic_data)))
+
 
 @dataclass
 class Authorizer(Serializable):
@@ -212,7 +216,7 @@ class WorkPackage(Serializable):
     #TODO: implement bold_p_a & bold_p_c as mentioned in GP-0.6.4-eq:14.9
     #TODO: implement contraints as mentioned in GP-0.6.4-eq:14.4,14.5,14.7
 
-    def hash(self):
+    def hash(self) -> bytes:
         return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
     def authorizer_hash(self) -> bytes:
@@ -240,14 +244,22 @@ class WorkPackage(Serializable):
         return getattr(self, '_authorization_code', None)
 
     def set_authorization_code(self, services_state: 'ServicesState') -> None:
-        preimage = Preimage.extract(services_state.historical_preimage_lookup(
+        preimage_blob = services_state.historical_preimage_lookup(
             service_account_id=self.auth_code_host,
             timeslot=self.context.lookup_anchor_slot,
             preimage_hash=self.authorizer.code_hash
-        ))
+        )
+        if preimage_blob:
+            preimage = Preimage.extract(preimage_blob)
 
-        setattr(self, '_authorization_code', preimage.serialized_program)
-        self.authorization_metadata = preimage.metadata
+            setattr(self, '_authorization_code', preimage.serialized_program)
+            self.authorization_metadata = preimage.metadata
+
+    def add_work_item(self, work_item: WorkItem) -> None:
+        # Check contraints
+        if sum([len(w.extrinsic) for w in self.items + [work_item]]) > MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE:
+            raise ValueError(f"Too many extrinsics in this work package (max {MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE})")
+        self.items.append(work_item)
 
 
 @dataclass
@@ -272,28 +284,24 @@ class WorkExecResult(Serializable):
     """
     # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-oversize) don't match
     ok: bytes = field(default=None, metadata={'codec': Bytes})
-    out_of_gas: None = field(default=None, metadata={'codec': Null})
-    panic: None = field(default=None, metadata={'codec': Null})
-    bad_exports: None = field(default=None, metadata={'codec': Null})
-    bad_code: None = field(default=None, metadata={'codec': Null})
-    code_oversize: None = field(default=None, metadata={'codec': Null})
+    out_of_gas: bool = field(default=None, metadata={'codec': Null})
+    panic: bool = field(default=None, metadata={'codec': Null})
+    bad_exports: bool = field(default=None, metadata={'codec': Null})
+    bad_code: bool = field(default=None, metadata={'codec': Null})
+    code_oversize: bool = field(default=None, metadata={'codec': Null})
 
     _codec_enum = True
 
     @classmethod
     def from_exit_condition(cls, exit_condition: ExitCondition) -> "WorkExecResult":
         work_exec_result = WorkExecResult()
-        # TODO WIP TBD merge WorkExecResult with ExitCondition, same according to GP
+
         if exit_condition.reason == ExitReason.out_of_gas:
             work_exec_result.out_of_gas = True
         elif exit_condition.reason == ExitReason.panic:
             work_exec_result.panic = True
-        elif exit_condition.reason == ExitReason.bad_exports:
-            work_exec_result.bad_exports = True
-        elif exit_condition.reason == ExitReason.bad_code:
-            work_exec_result.bad_code = True
-        elif exit_condition.reason == ExitReason.code_oversize:
-            work_exec_result.code_oversize = True
+        elif exit_condition.reason == ExitReason.halt:
+            work_exec_result.ok = exit_condition.value
         else:
             raise ValueError(f"Unsupported exit reason {exit_condition.reason}")
         return work_exec_result

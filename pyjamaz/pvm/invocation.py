@@ -77,8 +77,8 @@ class PVMInvocation:
 
     def __init__(
         self,
-        invocation_mutator: Type[InvocationMutator],  # f
-        invocation_context: Optional[Type[InvocationContext]]  # x
+        invocation_mutator: InvocationMutator,  # f
+        invocation_context: Optional[InvocationContext]  # x
 
     ):
         self.pvm_program: Optional[PVMProgram] = None

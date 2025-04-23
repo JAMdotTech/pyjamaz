@@ -1,10 +1,17 @@
-from pyjamaz.models.common import WorkReport, WorkPackage, WorkResult, WorkExecResult
+from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE
+from pyjamaz.merkle import WellBalancedMerkleTree
+from pyjamaz.models.common import WorkReport, WorkPackage, WorkResult, WorkExecResult, WorkPackageSpec
 from pyjamaz.models.state import ServicesState
-from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm_interface.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
+from pyjamaz.utils import flatten_list
 
 
-def work_result_computation(work_package: WorkPackage, core_index: int, services_state: ServicesState) -> WorkReport:
+def work_result_computation(
+        work_package: WorkPackage,
+        core_index: int,
+        services_state: ServicesState,
+        extrinsics: dict[bytes, bytes]
+) -> WorkReport:
     """
     GP-0.6.4-eq:14.11 (function Ξ) | the work result computation function.
 
@@ -34,26 +41,42 @@ def work_result_computation(work_package: WorkPackage, core_index: int, services
             authorizer_output=auth_output.exit_condition.value,
             work_items_import_segments=[], # TODO
             export_segment_offset=export_segment_offset,
-            services_state=services_state
+            services_state=services_state,
+            extrinsics=extrinsics
         )
 
         if len(refine_output.export_segments) == work_item.export_count:
-            result = WorkExecResult.from_exit_condition(refine_output.exit_condition)
-            work_result = WorkResult.from_work_item(
-                work_item=work_package.items[j],
-                result=result,
-                gas_used=refine_output.gas_used
-            )
-        elif type(refine_output.exit_condition.value) is not bytes: # TODO
-            raise NotImplementedError("TODO")
+            work_exec_result = refine_output.work_exec_result
+            export_segments = refine_output.export_segments
+        elif not refine_output.work_exec_result.ok:
+            work_exec_result = refine_output.work_exec_result
+            export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
         else:
-            exit_condition = ExitCondition(reason=ExitReason.bad_exports) # TODO
-            raise NotImplementedError("TODO")
+            work_exec_result = WorkExecResult(bad_exports=True)
+            export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
 
-        refine_outputs.append((work_result, refine_output.exit_condition))
+        work_result = WorkResult.from_work_item(
+            work_item=work_package.items[j],
+            result=work_exec_result,
+            gas_used=refine_output.gas_used
+        )
+
+        refine_outputs.append((work_result, export_segments))
+
+    # TODO inefficient: refactor refine_outputs to work_results and all_export_segments ?
+    all_export_segments = flatten_list([o[1] for o in refine_outputs])
+
+    # TODO finish implementation
+    package_spec = WorkPackageSpec(
+        hash=work_package.hash(),
+        length=work_package.to_jam_bytes().length,
+        erasure_root=bytes(32),
+        exports_root=WellBalancedMerkleTree(all_export_segments).root(), # TODO replace with ConstantDepthMerkleTree
+        exports_count=len(all_export_segments),
+    )
 
     return WorkReport(
-        package_spec=None, # TODO
+        package_spec=package_spec,
         context=work_package.context,
         core_index=core_index,
         authorizer_hash=work_package.authorizer_hash(),

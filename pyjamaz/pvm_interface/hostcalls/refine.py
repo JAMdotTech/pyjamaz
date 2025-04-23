@@ -82,8 +82,12 @@ def hc_fetch(
         work_package: WorkPackage,    #GP: p
         auth_output: bytes, #GP: bold_o
         work_item_segs: List[List[bytes]], #GP: i_flat
+        extrinsics: dict[bytes, bytes],
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+
+    logger.hc_regs(f"FETCH", "refine")
+    invocation_output.gas_limit -= 10
 
     w7 = registers[7]
     w8 = registers[8]
@@ -95,23 +99,28 @@ def hc_fetch(
     bold_v = None
     if w10 == 0:
         bold_v = work_package.to_jam_bytes().to_bytes()
+
     elif w10 == 1:
         bold_v = auth_output
     elif w10 == 2 and w11 < len(work_package.items):
         bold_v = work_package.items[w11].payload
+
     elif w10 == 3 and w11 < len(work_package.items) and w12 < len(work_package.items[w11].extrinsic):
-        #TODO:bold_x -> get extrinsic from datalake
-        #if (blake2b_256_hash(work_package.items[w11].extrinsic),
-        #    len(work_package.items[w11].extrinsic)) == work_package.items[w11].extrinsic[w11]:
-        bold_v = extrinsic = bytes(work_package.items[w11].extrinsic[w12].len)
+        extrinsic = extrinsics.get(work_package.items[w11].extrinsic[w12].hash)
+        if extrinsic and len(extrinsic) == work_package.items[w11].extrinsic[w12].len:
+            bold_v = extrinsic
+
     elif w10 == 4 and w11 < len(work_package.items[work_item_index].extrinsic):
-        # TODO:bold_x -> get extrinsic from datalake
-        #if (blake2b_256_hash(work_package.items[w11].extrinsic), len(work_package.items[w11].extrinsic)):
-        bold_v = extrinsic = bytes(work_package.items[work_item_index].extrinsic[w11].len)
+        extrinsic = extrinsics.get(work_package.items[work_item_index].extrinsic[w11].hash)
+        if extrinsic and len(extrinsic) == work_package.items[work_item_index].extrinsic[w11].len:
+            bold_v = extrinsic
+
     elif w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
         bold_v = work_item_segs[w11][w12]
+
     elif w10 == 6 and w11 < len(work_item_segs[w11]):
         bold_v = work_item_segs[work_item_index][w11]
+
     elif w10 == 7:
         bold_v = work_package.authorizer.params
 
@@ -127,7 +136,7 @@ def hc_fetch(
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(bold_v)
-        invocation_output.memory.write_bytes(f, bold_v[f:f+l])
+        invocation_output.memory.write_bytes(o, bold_v[f:f+l])
 
 
 def hc_export(

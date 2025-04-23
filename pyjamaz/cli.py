@@ -493,7 +493,7 @@ async def init(
     await app.update_state_trie()
 
     click.echo(f"✅ Initialization complete.")
-    click.echo(f'🌲 State trie root: 0x{format_hash(app.state_trie_root)}')
+    click.echo(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
 
 
 @main.command('replay_traces')
