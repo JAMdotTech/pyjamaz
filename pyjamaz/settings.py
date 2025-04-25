@@ -2,6 +2,7 @@ TEST_SUITE = 'tiny' # tiny or full
 GP_VERSION = '0.6.4'
 
 DEBUG = False
+SOLO_MODE = False
 
 DEBUG_PROGRAM_OVERRIDE = {
     b'fib': {

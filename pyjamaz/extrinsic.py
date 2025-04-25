@@ -5,7 +5,7 @@ from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify, v
 
 from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
     EPOCH_TIMESLOTS
-from pyjamaz.models.block import TicketEnvelope
+from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage
 from pyjamaz.models.common import TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
@@ -18,6 +18,9 @@ class ExtrinsicAccumulator:
         self.tickets_queue: Dict[bytes, TicketEnvelope] = {}
         self.own_tickets_next: List[bytes] = []
         self.own_tickets_current: List[bytes] = []
+        self.guarentees_queue: List[Guarantee] = []
+        self.assurances_queue: List[Assurance] = []
+        self.preimage_queue: List[Preimage] = []
         self.ring_data = ring_data
 
     def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes) -> TicketBody:
@@ -112,4 +115,28 @@ class ExtrinsicAccumulator:
         self.own_tickets_current = self.own_tickets_next
         self.own_tickets_next = []
         self.tickets_queue = {}
+
+    def add_guarantee(self, guarantee: Guarantee):
+        self.guarentees_queue.append(guarantee)
+
+    def collect_guarantees(self) -> List[Guarantee]:
+        guarentees = self.guarentees_queue
+        self.guarentees_queue = []
+        return guarentees
+
+    def add_assurance(self, assurance: Assurance):
+        self.assurances_queue.append(assurance)
+
+    def collect_assurances(self) -> List[Assurance]:
+        assurances = self.assurances_queue
+        self.assurances_queue = []
+        return assurances
+
+    def add_preimage(self, preimage: Preimage):
+        self.preimage_queue.append(preimage)
+
+    def collect_preimages(self) -> List[Preimage]:
+        preimages = self.preimage_queue
+        self.preimage_queue = []
+        return preimages
 

@@ -223,7 +223,7 @@ class WorkPackage(Serializable):
         """
         GP-0.6.4-eq:14.9 (blackboard_P_a) | Authorizer hash.
         """
-        return blake2b_256_hash(self.authorizer.to_jam_bytes().to_bytes())
+        return blake2b_256_hash(self.authorizer.code_hash + self.authorizer.params)
 
     @property
     def authorization_metadata(self) -> bytes:

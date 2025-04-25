@@ -5,20 +5,23 @@ import os
 import time
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TypeVar, Optional, List, Callable
+from typing import TypeVar, Optional, List, Callable, Dict
 
 from bandersnatch_vrfs import ietf_vrf_sign
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from jamcodec.types import Vec
+from jamcodec.types import Vec, BitArray
 
 from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.app import StateDump, Trace
+from pyjamaz.models.common import WorkPackage, WorkReport, Authorizer, RefinementContext, WorkItem
+from pyjamaz.refine import work_result_computation
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.storage import StorageEngine, Transaction
@@ -26,10 +29,11 @@ from pyjamaz.storage import StorageEngine, Transaction
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services, \
     AccumulationQueue, AccumulationHistory
-from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope
+from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, Guarantee, Credential, \
+    Assurance
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, SafroleState, EntropyState
 from pyjamaz.models.stf_output import STFOutput
-from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal
+from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash
 from pyjamaz.validation import BlockValidation
 
 T = TypeVar('T')
@@ -45,6 +49,7 @@ class Keys(Serializable):
         return cls(
             bandersnatch=BandersnatchKeypair.from_seed(seed),
             ed25519=Ed25519Keypair.from_private_key(seed)
+            #ed25519=Ed25519Keypair.from_seed(seed) TODO should be from seed
         )
 
 
@@ -80,6 +85,12 @@ class PyjamazApp:
         )
 
         self.extrinsic = ExtrinsicAccumulator(self.config.ring_data)
+
+        # refine
+        self.work_packages: List[WorkPackage] = []
+        self.work_package_extrinsics: Dict[bytes, bytes] = {}
+        # TODO temp
+        self.wp_counter = 0
 
         self.state: Optional[JamState] = None
         self.state_trie_root = bytes(32)
@@ -181,8 +192,8 @@ class PyjamazApp:
         return ancestor_headers
 
 
-    def retrieve_jam_state(self):
-        return JamState(
+    def retrieve_jam_state(self) -> JamState:
+        jam_state = JamState(
             timeslot=self.components.timeslot.retrieve_state(),
             entropy=self.components.entropy.retrieve_state(),
             safrole=self.components.safrole.retrieve_state(),
@@ -200,6 +211,9 @@ class PyjamazApp:
             accumulation_queue=self.components.accumulation_queue.retrieve_state(),
             accumulation_history=self.components.accumulation_history.retrieve_state()
         )
+        # Set storage engine for services
+        jam_state.services.set_storage_engine(self.state_db)
+        return jam_state
 
     async def store_jam_state(self, state: JamState, transaction: Optional[Transaction] = None):
         self.components.timeslot.store_state(state.timeslot, transaction)
@@ -802,6 +816,15 @@ class PyjamazApp:
                 return index
         raise ValueError(f"Bandersnatch {self.config.keys.bandersnatch.public_key} not found in current validator set")
 
+    def get_validator_index(self) -> Optional[int]:
+        """
+        Get the validator index for current node in the validator pool
+        """
+        for index, validator in enumerate(self.state.validator_pool.validators):
+            if validator.bandersnatch == self.config.keys.bandersnatch.public_key:
+                return index
+        return None
+
     async def produce_block(self, timeslot: int, safrole_state: SafroleState, entropy_state: EntropyState) -> Block:
 
         if timeslot % EPOCH_TIMESLOTS > 0:
@@ -827,8 +850,8 @@ class PyjamazApp:
             tickets=self.extrinsic.collect_tickets(),
             disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
             preimages=[],
-            assurances=[],
-            guarantees=[]
+            assurances=self.extrinsic.collect_assurances(),
+            guarantees=self.extrinsic.collect_guarantees(),
         )
 
         header = Header(
@@ -893,6 +916,204 @@ class PyjamazApp:
             file.write(trace.to_jam_bytes().to_bytes())
 
         logging.info(f"💾 Succesfully stored trace data {base_filename}.bin")
+
+    # TODO move refine function?
+    def get_core_assigment(self) -> Optional[int]:
+        if self.block_context.guarantor_assignments:
+            for assignment in self.block_context.guarantor_assignments:
+                if assignment.validator_ed25519 == self.config.keys.ed25519.public_key:
+                    return assignment.core_index
+        return None
+
+    def get_other_guarantors(self):
+        core_assignment = self.get_core_assigment()
+        guarantors = []
+        for assignment in self.block_context.guarantor_assignments:
+            if assignment.validator_ed25519 != self.config.keys.ed25519.public_key and assignment.core_index != core_assignment:
+                guarantors.append(assignment.validator_ed25519)
+        return guarantors
+
+    def add_work_package(self, work_package: WorkPackage, extrinsics: List[bytes]):
+        self.work_packages.append(work_package)
+        for extrinsic in extrinsics:
+            self.work_package_extrinsics[blake2b_256_hash(extrinsic)] = extrinsic
+        logging.debug(f"Added work package: {format_hash(work_package.hash())}")
+
+    async def process_work_package(self, work_package: WorkPackage) -> WorkReport:
+        if self.get_core_assigment() is None:
+            raise ValueError("Cannot process work package: no core assignment")
+
+        # Set code
+        work_package.set_authorization_code(self.state.services)
+        work_report = work_result_computation(
+            work_package=work_package,
+            core_index=self.get_core_assigment(),
+            services_state=self.state.services,
+            extrinsics=self.work_package_extrinsics
+        )
+        logging.debug(f"Processed work package: {format_hash(work_package.hash())}")
+        return work_report
+
+    async def guarantee_work_report(self, work_report: WorkReport):
+
+        credential = await self.create_guarantee_signature(work_report)
+
+        guarantee = Guarantee(
+            report=work_report,
+            slot=self.state.timeslot.number,
+            signatures=[
+                credential
+            ]
+        )
+
+        # TODO exchange signature with other validators
+        for v_idx, assignment in enumerate(self.block_context.guarantor_assignments):
+            if assignment.validator_ed25519 != self.config.keys.ed25519.public_key and assignment.core_index == self.get_core_assigment():
+                guarantee.signatures.append(await self.create_guarantee_signature_for_validator(work_report, v_idx))
+
+        self.extrinsic.add_guarantee(guarantee)
+
+    async def create_guarantee_signature(self, work_report: WorkReport) -> Credential:
+        payload = b"jam_guarantee" + blake2b_256_hash(work_report.to_jam_bytes().to_bytes())
+        signature = self.config.keys.ed25519.sign(payload)
+
+        return Credential(
+            validator_index=self.get_author_index(),
+            signature=signature
+        )
+
+    # TODO temp function
+    async def create_guarantee_signature_for_validator(self, work_report: WorkReport, validator_index: int) -> Credential:
+        payload = b"jam_guarantee" + blake2b_256_hash(work_report.to_jam_bytes().to_bytes())
+
+        keypair = Ed25519Keypair.from_private_key(validator_index.to_bytes(4, 'little') * 8)
+        signature = keypair.sign(payload)
+
+        return Credential(
+            validator_index=validator_index,
+            signature=signature
+        )
+
+    def create_assurance(self, cores: List[int]) -> Assurance:
+        bitfield = [False] * CORE_COUNT
+        anchor = self.retrieve_block_hash(self.state.timeslot.number) # TODO keep current block hash in block_context?
+
+        for core in cores:
+            bitfield[core] = True
+
+        bitfield_bytes = BitArray(CORE_COUNT).encode(bitfield).to_bytes()
+
+        sign_payload = b"jam_available" + blake2b_256_hash(anchor + bitfield_bytes)
+
+        signature = self.config.keys.ed25519.sign(sign_payload)
+
+        return Assurance(
+            anchor=anchor,
+            bitfield=bitfield,
+            signature=signature,
+            validator_index=self.get_validator_index()
+        )
+
+    def create_assurance_for_validator_index(self, cores: List[int], validator_index: int) -> Assurance:
+        """
+        TODO temp function for SOLO_MODE
+        """
+        bitfield = [False] * CORE_COUNT
+        anchor = self.retrieve_block_hash(self.state.timeslot.number)  # TODO keep current block hash in block_context?
+
+        for core in cores:
+            bitfield[core] = True
+
+        bitfield_bytes = BitArray(CORE_COUNT).encode(bitfield).to_bytes()
+
+        sign_payload = b"jam_available" + blake2b_256_hash(anchor + bitfield_bytes)
+
+        keypair = Ed25519Keypair.from_private_key(validator_index.to_bytes(4, 'little') * 8)
+        signature = keypair.sign(sign_payload)
+
+        return Assurance(
+            anchor=anchor,
+            bitfield=bitfield,
+            signature=signature,
+            validator_index=validator_index
+        )
+
+
+    async def process_refine(self) -> Optional[WorkReport]:
+        """
+        Process queued work packages and guarantee work reports.
+        """
+        # TODO temp generate work packages
+
+        if self.state.timeslot.number > 0:
+            if self.wp_counter == 0:
+
+                bootstrap_service = self.state.services.retrieve_service_account(0)
+
+                anchor = self.retrieve_block_hash(self.state.timeslot.number)
+
+                work_package = WorkPackage(
+                    authorization=bytes.fromhex('3078'),
+                    auth_code_host=0,
+                    authorizer=Authorizer(
+                        code_hash=bytes.fromhex('c16326432b5b3213dfd1609495e13c6b276cb474d679645337e5c2c09f19b53c'),
+                        params=b''
+                    ),
+                    context=RefinementContext(
+                        anchor=anchor,
+                        state_root=self.state_trie_root,
+                        beefy_root=bytes(32),
+                        lookup_anchor=anchor,
+                        lookup_anchor_slot=self.state.timeslot.number,
+                        prerequisites=[]
+                    ),
+                    items=[]
+                )
+
+                work_package.items.append(WorkItem(
+                    service=0,
+                    code_hash=bootstrap_service.code_hash,
+                    payload=bytes.fromhex('ccbea4bf12716bc7f7583dd834aac2ca1b05af8dc5be285336156d0de73d9b9e') + int(25120).to_bytes(length=4, byteorder='little'),
+                    refine_gas_limit=6000,
+                    accumulate_gas_limit=6000,
+                    import_segments=[],
+                    extrinsic=[],
+                    export_count=0
+                ))
+
+                self.add_work_package(work_package, [])
+
+
+            if len(self.work_packages) > 0:
+                self.wp_counter += 1
+
+                work_package = self.work_packages.pop(0)
+
+                work_report = await self.process_work_package(work_package)
+
+                await self.guarantee_work_report(work_report)
+
+                return work_report
+
+        return None
+
+
+    async def process_assurances(self):
+        """
+        Check for active assignments and create assurances
+        TODO finish naive implementation
+        """
+        for core_index, assignment in enumerate(self.state.assurances.assurances):
+            if assignment is not None:
+                # create assurance extrinsic
+                assurance = self.create_assurance([core_index])
+                self.extrinsic.add_assurance(assurance)
+
+                # TODO temp SOLO mode
+                for val_idx in [i for i in range(6) if i != self.get_validator_index()]:
+                    assurance = self.create_assurance_for_validator_index([core_index], val_idx)
+                    self.extrinsic.add_assurance(assurance)
+
 
 
 class StateComponents:

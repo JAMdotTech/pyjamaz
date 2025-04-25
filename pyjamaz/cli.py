@@ -325,6 +325,7 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
         if app.should_produce_block(timeslot, safrole_state):
 
             try:
+                await app.process_assurances()
 
                 block = await app.produce_block(timeslot, safrole_state, entropy_state)
 
@@ -343,6 +344,15 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
+
+        if app.get_core_assigment() is not None:
+
+            # TODO TBD when does refine etc start
+            work_report = await app.process_refine()
+
+            if work_report:
+                logging.info(f'👨‍💻 Refine complete | core={app.get_core_assigment()} | work_report={format_hash(work_report.package_spec.hash)}')
+
 
         await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
 
@@ -441,6 +451,27 @@ async def init(
     app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
 
     if chainspec:
+
+
+        # Temp convert trace to genesis
+        # with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
+        #     orig_genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
+        #
+        # with open(os.path.join(data_dir, 'chainspecs', f'1_011.bin'), 'rb') as fp:
+        #     trace = Trace.from_jam_bytes(JamBytes(fp.read()))
+        #
+        #     keyvals = [(i[0], i[1]) for i in trace.pre_state.keyvals]
+        #     for idx, (key, val) in enumerate(keyvals):
+        #         if key == b'\x0b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00':
+        #             keyvals[idx] = (key, b'\x00\x00\x00\x00')
+        #
+        #     genesis_state = ChainspecDump(
+        #         keyvals=keyvals,
+        #         state_root=trace.pre_state.state_root
+        #     )
+        #
+        #     with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'wb') as fp:
+        #         fp.write(genesis_state.to_jam_bytes().to_bytes())
 
         with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
             genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))

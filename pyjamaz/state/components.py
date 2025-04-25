@@ -15,6 +15,7 @@ from pyjamaz.pvm_interface.invocation import pvm_invoke_on_transfer
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
+from pyjamaz.settings import SOLO_MODE
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine, Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
@@ -415,6 +416,8 @@ class Safrole(StateComponent):
                     validator_idx = int.from_bytes(
                         blake_hash[:4], byteorder='little'
                     ) % len(post_state_validator_pool.validators)
+                    if SOLO_MODE:
+                        validator_idx = 0
                     validators.append(post_state_validator_pool.validators[validator_idx].bandersnatch)
 
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
@@ -989,7 +992,7 @@ class Assurances(StateComponent):
         Dict[bytes, int] Mapping of Validator ED25519 and assigned core index
         """
         if post_state_timeslot.number // gp_const.ROTATION_PERIOD_CORE == \
-                guarantee.slot // gp_const.ROTATION_PERIOD_CORE:
+                guarantee.slot // gp_const.ROTATION_PERIOD_CORE or SOLO_MODE:
             return self.block_context.guarantor_assignments
         else:
             return self.block_context.prev_guarantor_assignments
@@ -999,6 +1002,7 @@ class Assurances(StateComponent):
         for block in recent_history_state.recent_history:
             if block.header_hash == block_hash:
                 return block
+        return None
 
     @staticmethod
     def check_size_limit(work_report: WorkReport):
