@@ -109,9 +109,9 @@ class RefineLoad(Serializable):
 
 
 @dataclass
-class WorkResult(Serializable):
+class WorkDigest(Serializable):
     """
-    GP-0.6.4-eq:11.6 (blackboard_L) | A work result is the data conduit by which services' states may be altered through
+    GP-0.6.4-eq:11.6 (blackboard_L) | A work digest is the data conduit by which services' states may be altered through
     the computation done within a work-package.
 
     Attributes
@@ -120,7 +120,7 @@ class WorkResult(Serializable):
         GP-0.6.4-eq:11.6 (s) | The index of a service whose state is to be altered and thus whose refine code was
         already executed.
     code_hash: H256
-        GP-0.6.4-eq:11.6 (c) | The hash of the code  of the service at the time of being reported.
+        GP-0.6.4-eq:11.6 (h) | The hash of the code of the service at the time of being reported.
     payload_hash: H256
         GP-0.6.4-eq:11.6 (y) | The hash of the payload within the work item which was executed in the refine stage to
         give this result.
@@ -221,7 +221,7 @@ class WorkReport(Serializable):
     authorizer_hash: bytes = field(metadata={'codec': H256})
     auth_output: bytes = field(metadata={'codec': Bytes})
     segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
-    results: List[WorkResult] = field(metadata={'codec': Vec(WorkResult.to_codec_def())})
+    results: List[WorkDigest] = field(metadata={'codec': Vec(WorkDigest.to_codec_def())})
     auth_gas_used: int = field(metadata={'codec': VarInt64})
 
     def dependency_count(self) -> int:
@@ -274,5 +274,7 @@ class AccumulationOperand(Serializable):
     work_report_auth_output: bytes = field(metadata={'codec': Bytes})
     # y
     work_result_payload_hash: bytes = field(metadata={'codec': H256})
+    # g
+    work_result_gas_limit: int = field(metadata={'codec': U64})
     # d
     work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})

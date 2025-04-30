@@ -677,7 +677,7 @@ class WorkItem(Serializable):
     service: U32
         GP-0.5.2-eq:14.3 (s) | The index of a service to which it relates.
     code_hash: H256
-        GP-0.5.2-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
+        GP-0.5.2-eq:14.3 (h) | The hash of the code  of the service at the time of being reported.
     payload: Bytes
         GP-0.5.2-eq:14.3 (bold_y) | A payload blob.
     refine_gas_limit: U64

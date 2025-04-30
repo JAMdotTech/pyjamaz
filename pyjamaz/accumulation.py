@@ -378,20 +378,19 @@ def single_step_accumulation(
     PvmAccumulateOutput
     """
     g = substitute_if_nothing(auto_accumulate_services.get(service_id), 0)
-    p = []
+    i = []
     for w in work_reports:
         for r in w.results:
             if r.service_id == service_id:
                 g += r.accumulate_gas
-                # TODO removeme
-                # r.result.ok = b'\x06' * 35
-                p.append(
+                i.append(
                     AccumulationOperand(
                         work_report_hash=w.package_spec.hash,
                         work_report_exports_root=w.package_spec.exports_root,
                         work_report_authorizer_hash=w.authorizer_hash,
                         work_report_auth_output=w.auth_output,
                         work_result_payload_hash=r.payload_hash,
+                        work_result_gas_limit=r.accumulate_gas,
                         work_exec_result=r.result,
                     )
                 )
@@ -401,6 +400,6 @@ def single_step_accumulation(
         timeslot=post_state_timeslot.number,
         service_id=service_id,
         gas_limit=g,
-        operands=p,
+        operands=i,
         post_entropy=post_state_entropy
     )
