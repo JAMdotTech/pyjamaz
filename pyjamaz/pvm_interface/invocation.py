@@ -577,6 +577,7 @@ def pvm_invoke_refine(
         )
 
     preimage = Preimage.extract(preimage_data)
+    # preimage.serialized_program = preimage_data
 
     argument_data = RefinePvmArguments(
         service_id=service_account_id,

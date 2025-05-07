@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict
 
@@ -115,6 +116,8 @@ class BlockContext:
 
         """
         assignments = guarantor_permute(post_entropy.entropy[2], post_timeslot.number)
+
+        logging.debug(f"Guarantor assignments for {post_timeslot.number}: {assignments}")
 
         self.guarantor_assignments = [
             GuarantorAssignment(

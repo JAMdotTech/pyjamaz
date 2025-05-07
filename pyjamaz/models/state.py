@@ -26,8 +26,7 @@ from pyjamaz.state.base import StorageMap, state_key_constructor_service_account
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
 from pyjamaz.storage import StorageEngine, Transaction
 
-if typing.TYPE_CHECKING:
-    from pyjamaz.models.block import Assurance as ExtrinsicAssurance
+from pyjamaz.models.block import Assurance as ExtrinsicAssurance, Preimage
 
 
 class State(Serializable):
@@ -660,6 +659,32 @@ class ServicesState(State, Serializable):
 
         return None
 
+    def is_preimage_needed(self, preimage: Preimage) -> bool:
+        """
+        GP-0.5.4-eq:12.30 | Is preimage needed
+
+        Parameters
+        ----------
+        preimage: Primage
+
+        Returns
+        -------
+        bool
+        """
+        preimage_hash = blake2b_256_hash(preimage.blob)
+
+        # Check if preimage isn't already available
+        if self.preimage_exists(preimage.requester, preimage_hash):
+            return False
+
+        # Check if preimage is requested
+        try:
+            preimage_availability = self.retrieve_preimage_availability(
+                preimage.requester, preimage_hash, len(preimage.blob)
+            )
+            return preimage_availability == []
+        except StateKeyNoResult:
+            return False
 
     def store_preimage(self, service_account_id: int, preimage_blob: bytes, commit=False):
         """
@@ -851,6 +876,12 @@ class ServicesState(State, Serializable):
 
         return data
 
+    def retrieve_storage_local_key(self, service_account_id: int, key: bytes) -> bytes:
+        """
+        Retrieves a storage item from a service by its local key
+        """
+        storage_item_hash = blake2b_256_hash(int(service_account_id).to_bytes(length=4, byteorder="little") + key)
+        return self.retrieve_storage_item(service_account_id, storage_item_hash)
 
     def store_storage_item(self, service_account_id: int, storage_item_hash: bytes, value: bytes, commit=False):
         """

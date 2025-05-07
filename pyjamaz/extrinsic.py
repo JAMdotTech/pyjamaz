@@ -7,6 +7,7 @@ from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKET
     EPOCH_TIMESLOTS
 from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage
 from pyjamaz.models.common import TicketBody
+from pyjamaz.models.state import ServicesState
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
 from pyjamaz.utils import vrf_input_ticket_seal, format_hash
@@ -135,8 +136,18 @@ class ExtrinsicAccumulator:
     def add_preimage(self, preimage: Preimage):
         self.preimage_queue.append(preimage)
 
-    def collect_preimages(self) -> List[Preimage]:
-        preimages = self.preimage_queue
-        self.preimage_queue = []
+    def collect_preimages(self, service_state: ServicesState) -> List[Preimage]:
+        # Check which of present preimages are actually requested
+        preimages = []
+        new_queue = []
+
+        for preimage in self.preimage_queue:
+            if service_state.is_preimage_needed(preimage):
+                preimages.append(preimage)
+            else:
+                new_queue.append(preimage)
+
+        self.preimage_queue = new_queue
+
         return preimages
 

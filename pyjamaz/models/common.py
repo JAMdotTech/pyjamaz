@@ -119,6 +119,13 @@ class WorkItemExtrinsic(Serializable):
     hash: bytes = field(metadata={'codec': H256})
     len: int = field(metadata={'codec': U32})
 
+    @classmethod
+    def from_blob(cls, blob: bytes) -> "WorkItemExtrinsic":
+        return WorkItemExtrinsic(
+            hash=blake2b_256_hash(blob),
+            len=len(blob)
+        )
+
 
 @dataclass
 class ImportSegment(Serializable):
@@ -370,6 +377,7 @@ class WorkResult(Serializable):
         """
         GP-0.6.4-eq:14.8 (function_C) | the item-to-result function
         """
+        # Rename to WorkDigest
         return cls(
             service_id=work_item.service,
             code_hash=work_item.code_hash,

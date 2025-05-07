@@ -3,9 +3,7 @@ from functools import cached_property
 
 from bandersnatch_vrfs import ietf_vrf_verify, ietf_vrf_sign
 from math import floor
-from typing import List, Optional
-
-from pyjamaz.models.state import ValidatorPoolState
+from typing import List, Optional, TYPE_CHECKING
 
 from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, BitArray, Tuple
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
@@ -15,6 +13,9 @@ from pyjamaz.signing import Ed25519Keypair
 
 from jamcodec.mixins import Serializable
 from pyjamaz.utils import vrf_input_ticket_seal, vrf_input_fallback_seal
+
+if TYPE_CHECKING:
+    from pyjamaz.models.state import ValidatorPoolState
 
 
 @dataclass
@@ -238,6 +239,12 @@ class Preimage(Serializable):
     """
     requester: int = field(metadata={'codec': U32})
     blob: bytes = field(metadata={'codec': Bytes})
+
+    def hash(self):
+        return blake2b_256_hash(self.blob)
+
+    def length(self):
+        return len(self.blob)
 
 
 @dataclass
@@ -515,7 +522,7 @@ class Header(Serializable):
         """
         return getattr(self, '_author_bandersnatch_key', None)
 
-    def set_author_bandersnatch_key(self, post_state_validator_pool: ValidatorPoolState):
+    def set_author_bandersnatch_key(self, post_state_validator_pool: 'ValidatorPoolState'):
         """
         GP-0.6.1-eq:5.9 (bold_H_a) | Derive author bandersnatch key from validator pool (κ')
 

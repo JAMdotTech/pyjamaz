@@ -312,7 +312,7 @@ class PVMMemory:
         #GP-0.6.2-eq:A.7
         if addr < 2**16:
             msg = "Invalid memory access"
-            logging.error(msg)
+            logging.debug(msg)
             raise PanicError(msg)
 
         # Find rightmost index where addr would be inserted and then check if it falls in the page

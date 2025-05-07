@@ -992,7 +992,7 @@ class Assurances(StateComponent):
         Dict[bytes, int] Mapping of Validator ED25519 and assigned core index
         """
         if post_state_timeslot.number // gp_const.ROTATION_PERIOD_CORE == \
-                guarantee.slot // gp_const.ROTATION_PERIOD_CORE or SOLO_MODE:
+                guarantee.slot // gp_const.ROTATION_PERIOD_CORE:
             return self.block_context.guarantor_assignments
         else:
             return self.block_context.prev_guarantor_assignments
@@ -1749,7 +1749,7 @@ class Services(StateComponent):
 
             # GP-0.5.4-eq:12.31
             for preimage in extrinsic_preimages:
-                if not self.is_preimage_needed(preimage, pre_state_services):
+                if not pre_state_services.is_preimage_needed(preimage):
                     raise StateTransitionError(ServicesErrorCode.preimage_unneeded)
 
     @staticmethod
@@ -1963,34 +1963,6 @@ class Services(StateComponent):
             intermediate_state_after_transfers=intermediate_state_after_transfers,
             deferred_transfer_statistics=deferred_transfer_statistics
         )
-
-    def is_preimage_needed(self, preimage: Preimage, pre_state_services: ServicesState) -> bool:
-        """
-        GP-0.5.4-eq:12.30 | Is preimage needed
-
-        Parameters
-        ----------
-        preimage
-        pre_state_services
-
-        Returns
-        -------
-        bool
-        """
-        preimage_hash = blake2b_256_hash(preimage.blob)
-
-        # Check if preimage isn't already available
-        if pre_state_services.preimage_exists(preimage.requester, preimage_hash):
-            return False
-
-        # Check if preimage is requested
-        try:
-            preimage_availability = pre_state_services.retrieve_preimage_availability(
-                preimage.requester, preimage_hash, len(preimage.blob)
-            )
-            return preimage_availability == []
-        except StateKeyNoResult:
-            return False
 
 
     def retrieve_state(self) -> ServicesState:

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import traceback
 from asyncio import CancelledError
@@ -20,13 +21,17 @@ from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.app import Trace, StateDump, ChainspecDump
+from pyjamaz.rpc import start_rpc_server, SubscriptionManager
 from pyjamaz.settings import GP_VERSION
+from pyjamaz.state.base import state_key_constructor_service_account, state_key_constructor_preimage, \
+    state_key_constructor_preimage_availability
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block, Header, Extrinsic
-from pyjamaz.models.state import JamState
+from pyjamaz.models.state import JamState, ServiceAccount, ServiceActivityRecord
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
@@ -80,11 +85,33 @@ def wrap_cli_import_block(traces_dir):
             logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
             logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
 
+            # stats = deepcopy(self.state.statistics)
+            #
+            # stats.services = {
+            #     0: ServiceActivityRecord(
+            #         provided_count=1,
+            #         provided_size=1,
+            #         refinement_count=1,
+            #         refinement_gas_used=1,
+            #         imports=1,
+            #         exports=1,
+            #         extrinsic_size=1,
+            #         extrinsic_count=1,
+            #         accumulate_count=1,
+            #         accumulate_gas_used=1,
+            #         on_transfers_count=1,
+            #         on_transfers_gas_used=1,
+            #     )
+            # }
+
+            await self.sub_manager.publish("statistics", list(self.state.statistics.to_jam_bytes().to_bytes()))
+
         except Exception as e:
             # Rollback state
             logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state = self.retrieve_jam_state()
+            # raise e
 
     return cli_import_block
 
@@ -173,6 +200,8 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
         #"pyjamaz.transport": logging.DEBUG
         "quic": logging.WARNING,
     }
+    log_level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(log_level)
 
     if ctx.invoked_subcommand is None:
 
@@ -220,8 +249,18 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         pubsub = PubSub()
 
+        manager = SubscriptionManager()
+        # TODO move to a better place
+        app.sub_manager = manager
+
+
         try:
             async with anyio.create_task_group() as tg:
+
+                rpc_stop_event = anyio.Event()
+
+                # Start WebSocket server
+                tg.start_soon(start_rpc_server, app, manager, rpc_stop_event, "localhost", 19800)
 
                 # Create a subscriber to process incomming messages (fx from a protocol)
                 tg.start_soon(pubsub.process_messages)
@@ -262,19 +301,22 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                         tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
                 await anyio.sleep(ts - time.time())
-                tg.start_soon(timeslot_ticker, app, pubsub)
+                tg.start_soon(timeslot_ticker, app, pubsub, manager)
         except (KeyboardInterrupt, CancelledError):
             logging.info("Stopping node...")
+            # stop_event.set()
         finally:
             logging.info(f'Node stopped.')
 
 
-async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
+async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub, manager: SubscriptionManager):
 
     while True:
         # TODO centralize
         app.block_context.reset()
         timeslot = app.current_timeslot()
+
+        await manager.publish("stats", timeslot)
 
         epoch = timeslot // EPOCH_TIMESLOTS
         phase = timeslot % EPOCH_TIMESLOTS
@@ -348,10 +390,10 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
         if app.get_core_assigment() is not None:
 
             # TODO TBD when does refine etc start
-            work_report = await app.process_refine()
+            work_report = await app.process_refine(timeslot)
 
             if work_report:
-                logging.info(f'👨‍💻 Refine complete | core={app.get_core_assigment()} | work_report={format_hash(work_report.package_spec.hash)}')
+                logging.info(f'👨‍💻 Refine complete | slot={timeslot} | core={app.get_core_assigment()} | work_report={format_hash(work_report.package_spec.hash)}')
 
 
         await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
@@ -711,6 +753,75 @@ async def dump_block(timeslot, output_format):
             click.echo(json.dumps(Block.from_jam_bytes(JamBytes(block)).to_json(), indent=2))
         elif output_format == 'bin':
             click.echo(block, file=click.get_binary_stream('stdout'), nl=False)
+
+
+@main.command('set_bootstrap')
+@click.argument('bootstrap_service', type=click.Path(exists=True))
+@click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
+async def set_bootstrap(
+        bootstrap_service, chainspec
+):
+    # log_level = logging.INFO
+    # setup_logging(log_level)
+
+    # with open(os.path.join(data_dir, 'chainspecs', f'testnet-tiny-db.bin'), 'rb') as fp:
+    #     genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
+    #
+    # del genesis_state.keyvals[1]
+    # del genesis_state.keyvals[2]
+    # del genesis_state.keyvals[17]
+    #
+    #
+    # with open(os.path.join(data_dir, 'chainspecs', f'skeleton-tiny-db.bin'), 'wb') as fp:
+    #     fp.write(genesis_state.to_jam_bytes().to_bytes())
+    #
+    # exit()
+
+    with open(os.path.join(data_dir, 'chainspecs', f'skeleton-tiny-db.bin'), 'rb') as fp:
+        genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
+
+    with open(bootstrap_service, 'rb') as fp:
+        bootstrap_blob = fp.read()
+
+    bootstrap_hash = blake2b_256_hash(bootstrap_blob)
+
+    service_account_id = 0
+
+    # Service account
+    state_key = state_key_constructor_service_account(service_account_id)
+    service_account = ServiceAccount(
+        code_hash=bootstrap_hash,
+        balance=10000000000,
+        gas_limit_accumulate=100,
+        gas_limit_on_transfer=100,
+        footprint_storage_items=0,
+        footprint_storage_bytes=0,
+        storage_items={},
+        preimages={},
+        preimage_availability={}
+    )
+
+    service_account.update_footprint_add_preimage(len(bootstrap_blob))
+
+    genesis_state.keyvals.append((state_key, service_account.to_serialized_bytes()))
+
+    # Preimage
+    genesis_state.keyvals.append(
+        (state_key_constructor_preimage(service_account_id, bootstrap_hash), bootstrap_blob)
+    )
+
+    # Preimage availability
+    genesis_state.keyvals.append(
+        (state_key_constructor_preimage_availability(service_account_id, bootstrap_hash, len(bootstrap_blob)),
+         bytes.fromhex('0100000000'))
+    )
+
+    genesis_state.keyvals = sorted(genesis_state.keyvals, key=lambda x: x[0])
+
+    output = genesis_state.to_json()
+
+    with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'wb') as fp:
+        fp.write(genesis_state.to_jam_bytes().to_bytes())
 
 
 if __name__ == '__main__':

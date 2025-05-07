@@ -4,7 +4,7 @@ from jamcodec.base import JamBytes
 from jamcodec.types import U64
 
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_IMPORTS_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
+from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
 from pyjamaz.models.common import WorkPackage
 from pyjamaz.models.state import RefineInvocationContext, ServicesState
 from pyjamaz.pvm import PVMInterpreter
@@ -156,7 +156,7 @@ def hc_export(
 
     if data_segment is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-    elif export_segment_offset + len(m_e.data_segments) >= MAXIMUM_NUMBER_IMPORTS_EXPORTS_WORK_PACKAGE:
+    elif export_segment_offset + len(m_e.data_segments) >= MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.FULL.value
     else:
