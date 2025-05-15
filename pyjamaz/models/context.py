@@ -10,12 +10,14 @@ from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMa
     ValidatorPoolState, ValidatorArchiveState, AccumulationHistoryState, AccumulationQueueState
 
 from pyjamaz.storage import Transaction
+from pyjamaz.transport.pubsub import PubSub
 from pyjamaz.utils import guarantor_permute, flatten_list
 
 
 @dataclass
 class AppContext:
     transaction: Optional[Transaction] = None
+    pubsub: Optional[PubSub] = None
 
 
 @dataclass

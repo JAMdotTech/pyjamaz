@@ -5,6 +5,7 @@ from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify, v
 
 from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
     EPOCH_TIMESLOTS
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage
 from pyjamaz.models.common import TicketBody
 from pyjamaz.models.state import ServicesState
@@ -135,6 +136,7 @@ class ExtrinsicAccumulator:
 
     def add_preimage(self, preimage: Preimage):
         self.preimage_queue.append(preimage)
+        logging.info(f"Added preimage: {format_hash(blake2b_256_hash(preimage.blob))} for service: {preimage.requester}")
 
     def collect_preimages(self, service_state: ServicesState) -> List[Preimage]:
         # Check which of present preimages are actually requested

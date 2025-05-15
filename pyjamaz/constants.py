@@ -37,4 +37,9 @@ WELL_KNOWN_STORAGE_KEYS = {
 class MESSAGE_TYPES(Enum):
     PRODUCED_BLOCK:str      = "PRODUCED_BLOCK"
     RECEIVED_BLOCK:str      = "RECEIVED_BLOCK"
-    REQUESTED_BLOCKS        = "REQUESTED_BLOCKS"
+    REQUESTED_BLOCKS:str    = "REQUESTED_BLOCKS"
+
+    STATISTICS:str = "statistics"
+    SERVICE_ACCOUNT:str = "service_account"
+    STORAGE_ITEM:str = "storage_item"
+    PREIMAGE:str = "preimage"

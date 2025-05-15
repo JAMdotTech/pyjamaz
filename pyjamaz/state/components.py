@@ -11,6 +11,7 @@ import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue,
                                   transfers_service_mapping)
+from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.pvm_interface.invocation import pvm_invoke_on_transfer
 
 from pyjamaz.hashing import blake2b_256_hash
@@ -40,6 +41,7 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
     AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
     AccumulationQueueWorkPackage, DeferredTransfer, ServiceActivityRecord
+from pyjamaz.transport.pubsub import PubSubSignal
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -2000,7 +2002,7 @@ class Services(StateComponent):
                 if preimage_blob is None:
                     state_mutations.append(("preimages_delete", service_id, preimage_hash))
                 else:
-                    state_mutations.append(("preimages_update", service_id, preimage_blob))
+                    state_mutations.append(("preimages_update", service_id, preimage_hash, preimage_blob))
 
             # Process preimage availability
             for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
@@ -2019,16 +2021,22 @@ class Services(StateComponent):
         # Process all mutations afterwards (in order) to prevent mutating the state while iterating over it
         for mut in state_mutations:
             if mut[0] == "storage_items_delete":
+                #TODO: self.app_context.pubsub.publish()
                 state.delete_storage_item(mut[1], mut[2], commit=True)
             elif mut[0] == "storage_items_update":
+                self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
                 state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimages_delete":
+                # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage(mut[1], mut[2], commit=True)
             elif mut[0] == "preimages_update":
-                state.store_preimage(mut[1], mut[2], commit=True)
+                self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
+                state.store_preimage(mut[1], mut[3], commit=True)
             elif mut[0] == "preimage_availability_delete":
+                # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimage_availability_update":
+                # TODO: self.app_context.pubsub.publish()
                 state.store_preimage_availability(
                     service_account_id=mut[1],
                     preimage_hash=mut[2],
@@ -2037,8 +2045,10 @@ class Services(StateComponent):
                     commit=True
                 )
             elif mut[0] == "service_account_delete":
+                # TODO: self.app_context.pubsub.publish()
                 state.delete_service_account(mut[1], commit=True)
             elif mut[0] == "service_account_update":
+                self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
                 state.store_service_account(mut[1], mut[2], commit=True)
 
 

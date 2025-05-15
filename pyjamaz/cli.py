@@ -25,7 +25,7 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.app import Trace, StateDump, ChainspecDump
-from pyjamaz.rpc import start_rpc_server, SubscriptionManager
+from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION
 from pyjamaz.state.base import state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_preimage_availability
@@ -35,7 +35,7 @@ from pyjamaz.models.state import JamState, ServiceAccount, ServiceActivityRecord
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
-from pyjamaz.transport.pubsub import PubSub
+from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import format_hash
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
@@ -104,7 +104,7 @@ def wrap_cli_import_block(traces_dir):
             #     )
             # }
 
-            await self.sub_manager.publish("statistics", list(self.state.statistics.to_jam_bytes().to_bytes()))
+            self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
 
         except Exception as e:
             # Rollback state
@@ -170,6 +170,8 @@ async def initialize_app(
     )
 
     app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
+    app.pubsub = PubSub()
+    app.app_context.pubsub = app.pubsub
 
     if read_state:
         await app.initialize()
@@ -200,14 +202,12 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
         #"pyjamaz.transport": logging.DEBUG
         "quic": logging.WARNING,
     }
+
+    # Setup logging
     log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level)
+    setup_logging(log_level, log_package_overrides)
 
     if ctx.invoked_subcommand is None:
-
-        # Setup logging
-        log_level = logging.DEBUG if verbose else logging.INFO
-        setup_logging(log_level, log_package_overrides)
 
         if seed is None:
             raise MissingParameter("--seed parameter is required")
@@ -247,40 +247,34 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
 
-        pubsub = PubSub()
-
-        manager = SubscriptionManager()
-        # TODO move to a better place
-        app.sub_manager = manager
-
+        rpc_server = WebSocketServer(app, 'localhost', 19800)
 
         try:
             async with anyio.create_task_group() as tg:
 
-                rpc_stop_event = anyio.Event()
+                # TODO: we need to start this manually in all event loops, make an AppFactory that handles this in a generic way
+                # Create a subscriber to process incomming messages (fx from a protocol)
+                tg.start_soon(app.pubsub.process_messages)
 
                 # Start WebSocket server
-                tg.start_soon(start_rpc_server, app, manager, rpc_stop_event, "localhost", 19800)
-
-                # Create a subscriber to process incomming messages (fx from a protocol)
-                tg.start_soon(pubsub.process_messages)
+                tg.start_soon(start_rpc_server, rpc_server)
 
                 if block_dir:
                     logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    fs_protocol = FSProtocol(block_dir, pubsub, app)
+                    fs_protocol = FSProtocol(block_dir, app)
                     app.protocol = fs_protocol
-                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
-                    pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_json)
-                    pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
+                    app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
+                    app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_json)
+                    app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
                     tg.start_soon(fs_protocol.listen)
                 else:
                     certificate_file = os.path.join(db_path, "cert.pem")
                     pk_file = os.path.join(db_path, "cert.key")
-                    nps_protocol = JAMNPS(host, port, certificate_file, pk_file, pubsub, app)
+                    nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
                     app.protocol = nps_protocol
-                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
-                    pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
-                    pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
+                    app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
+                    app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
+                    app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
                     tg.start_soon(nps_protocol.listen)
 
                     for validator in app.state.safrole.validators:
@@ -301,7 +295,7 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                         tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
                 await anyio.sleep(ts - time.time())
-                tg.start_soon(timeslot_ticker, app, pubsub, manager)
+                tg.start_soon(timeslot_ticker, app)
         except (KeyboardInterrupt, CancelledError):
             logging.info("Stopping node...")
             # stop_event.set()
@@ -309,14 +303,12 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
             logging.info(f'Node stopped.')
 
 
-async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub, manager: SubscriptionManager):
+async def timeslot_ticker(app: PyjamazApp):
 
     while True:
         # TODO centralize
         app.block_context.reset()
         timeslot = app.current_timeslot()
-
-        await manager.publish("stats", timeslot)
 
         epoch = timeslot // EPOCH_TIMESLOTS
         phase = timeslot % EPOCH_TIMESLOTS
@@ -371,10 +363,7 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub, manager: Subscription
 
                 block = await app.produce_block(timeslot, safrole_state, entropy_state)
 
-                pubsub.send_stream.send_nowait({
-                    "message_type": MESSAGE_TYPES.PRODUCED_BLOCK,
-                    "data": block
-                 })
+                app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
 
                 logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
