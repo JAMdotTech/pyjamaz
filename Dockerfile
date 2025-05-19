@@ -13,4 +13,7 @@ COPY ./pyjamaz ./pyjamaz
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/app"
 
+EXPOSE 8000
+EXPOSE 9000
+
 ENTRYPOINT ["python", "pyjamaz/cli.py"]

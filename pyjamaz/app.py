@@ -18,6 +18,7 @@ from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
 from pyjamaz.merkle import PatriciaMerkleTrie
+from pyjamaz.metrics import total_workreports_accumulated
 from pyjamaz.models.trace import StateDump, Trace
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.state.base import AppContext
@@ -577,6 +578,8 @@ class PyjamazApp:
             # Add header to ancestor
             self.block_context.ancestor_headers.append(block.header)
 
+        # Update metrics TODO move to central location?
+        total_workreports_accumulated.inc(services_after_accumulation_output.nr_work_results_accumulated)
 
         return STFOutput(
             epoch_mark=safrole_output.epoch_mark,

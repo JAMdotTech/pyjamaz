@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 3s
+
+scrape_configs:
+  - job_name: 'cli_app'
+    static_configs:
+      - targets: ['pyjamaz-alice:8000', 'pyjamaz-bob:8000', 'pyjamaz-charly:8000', 'pyjamaz-dave:8000', 'pyjamaz-eve:8000', 'pyjamaz-ferdi:8000']

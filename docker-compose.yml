@@ -10,8 +10,9 @@ services:
     command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces '
     ports:
       - '9000:9000'
+      - '8000:8000'
     networks:
-      custom_network:
+      jam_network:
         ipv4_address: 192.168.1.100
 
   pyjamaz-bob:
@@ -24,8 +25,9 @@ services:
     command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000001 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces '
     ports:
       - '9001:9000'
+      - '8001:8000'
     networks:
-      custom_network:
+      jam_network:
         ipv4_address: 192.168.1.101
 
   pyjamaz-charly:
@@ -38,8 +40,9 @@ services:
     command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000002 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces '
     ports:
       - '9002:9000'
+      - '8002:8000'
     networks:
-      custom_network:
+      jam_network:
         ipv4_address: 192.168.1.102
 
   pyjamaz-dave:
@@ -52,8 +55,9 @@ services:
     command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000003 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces'
     ports:
       - '9003:9000'
+      - '8003:8000'
     networks:
-      custom_network:
+      jam_network:
         ipv4_address: 192.168.1.103
 
   pyjamaz-eve:
@@ -66,8 +70,9 @@ services:
     command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000004 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces'
     ports:
       - '9004:9000'
+      - '8004:8000'
     networks:
-      custom_network:
+      jam_network:
         ipv4_address: 192.168.1.104
 
   pyjamaz-ferdi:
@@ -80,9 +85,26 @@ services:
     command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000005 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces'
     ports:
       - '9005:9000'
+      - '8005:8000'
     networks:
-      custom_network:
+      jam_network:
         ipv4_address: 192.168.1.105
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - jam_network
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - jam_network
 
 volumes:
   pyjamaz-blocks:
@@ -100,7 +122,7 @@ volumes:
   pyjamaz-traces-ferdie:
 
 networks:
-  custom_network:
+  jam_network:
     driver: bridge
     ipam:
       config:

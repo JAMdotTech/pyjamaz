@@ -13,6 +13,7 @@ from os import path
 
 import asyncclick as click
 from asyncclick import BadParameter, MissingParameter
+from prometheus_client import start_http_server, Gauge
 
 from jamcodec.base import JamBytes
 
@@ -21,6 +22,7 @@ from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
+from pyjamaz.metrics import current_timeslot_gauge, state_timeslot_gauge, tickets_accumulator_count
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.trace import Trace, StateDump
 from pyjamaz.settings import GP_VERSION
@@ -79,6 +81,11 @@ def wrap_cli_import_block(traces_dir):
 
             logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
             logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+
+            # Update metrics
+            tickets_accumulator_count.set(len(self.state.safrole.ticket_accumulator))
+            state_timeslot_gauge.set(self.state.timeslot.number)
+            state_timeslot_gauge.set(self.state.timeslot.number)
 
         except Exception as e:
             # Rollback state
@@ -223,6 +230,8 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
         try:
             async with anyio.create_task_group() as tg:
 
+                tg.start_soon(metrics_server)
+
                 # Create a subscriber to process incomming messages (fx from a protocol)
                 tg.start_soon(pubsub.process_messages)
 
@@ -272,9 +281,12 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
 
     while True:
+
         # TODO centralize
         app.block_context.reset()
         timeslot = app.current_timeslot()
+
+        current_timeslot_gauge.set(timeslot)
 
         epoch = timeslot // EPOCH_TIMESLOTS
         phase = timeslot % EPOCH_TIMESLOTS
@@ -680,6 +692,9 @@ async def dump_block(timeslot, output_format):
         elif output_format == 'bin':
             click.echo(block, file=click.get_binary_stream('stdout'), nl=False)
 
+async def metrics_server(port=8000):
+    logging.info(f"📈 Starting prometheus server on port {port}")
+    start_http_server(8000)
 
 if __name__ == '__main__':
     main(_anyio_backend="asyncio")

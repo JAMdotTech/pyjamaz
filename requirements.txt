@@ -15,3 +15,4 @@ jamcodec~=0.1.1
 numpy~=2.1
 
 aioquic==1.2.0
+prometheus_client==0.21.1
