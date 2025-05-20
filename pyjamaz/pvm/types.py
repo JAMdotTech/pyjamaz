@@ -255,6 +255,9 @@ class PVMMemory:
     _section: MemorySection
     _section_addr: int
 
+    SIZE:int = 2**32
+
+
     @classmethod
     def allocate(cls, rom_pages, heap_pages, stack_pages, arg_pages):
         _rom = MemorySection(
@@ -575,6 +578,9 @@ class PVMProgram(Serializable):
         GP-0.6.4-eq:A.35 (Y)
         """
         try:
+            # with open(metadata.decode() + ".pvm", "wb") as f:
+            #     f.write(serialized_program)
+
             jam_bytes = JamBytes(serialized_program)
 
             if DEBUG:

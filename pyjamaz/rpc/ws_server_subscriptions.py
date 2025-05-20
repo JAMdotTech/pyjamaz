@@ -75,9 +75,9 @@ class SubscriptionStorageItem(WSubscription):
     DATA_SERVICE_BLOB = 2
 
     def check_params(self, data: Any):
-        #print("CHECKING PARAMS FOR subscribeServiceValue", data, self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and self.params[self.PARAM_STORAGE_KEY] == data[self.PARAM_STORAGE_KEY])
+        #print("CHECKING PARAMS FOR subscribeServiceValue",  self.params[self.PARAM_SERVICE_ID], self.params[self.PARAM_STORAGE_KEY], self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and self.params[self.PARAM_STORAGE_KEY] == list(data[self.PARAM_STORAGE_KEY]))
         if data:
-            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and self.params[self.PARAM_STORAGE_KEY] == data[self.PARAM_STORAGE_KEY]
+            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and self.params[self.PARAM_STORAGE_KEY] == list(data[self.PARAM_STORAGE_KEY])
         return True
 
     def create_data(self, data: Any):
@@ -99,6 +99,27 @@ class SubscriptionPreimage(WSubscription):
         return list(data[self.DATA_PREIMAGE_BLOB])
 
 
+class SubscriptionPreimageAvailability(WSubscription):
+    PARAM_SERVICE_ID = 1
+    PARAM_PREIMAGE_HASH = 2
+    PARAM_PREIMAGE_LENGTH = 3
+    DATA_SERVICE_ID = 0
+    DATA_PREIMAGE_HASH = 1
+    DATA_PREIMAGE_LENGTH = 2
+    DATA_PREIMAGE_BLOB = 3
+
+    def check_params(self, data: Any):
+        #print("CHECKING PARAMS FOR subscribeServicePreimageAvailability",data,tt)
+        if data:
+            return (self.params[self.PARAM_SERVICE_ID] == data[self.DATA_SERVICE_ID] and
+                    bytes(self.params[self.PARAM_PREIMAGE_HASH]) == data[self.DATA_PREIMAGE_HASH] and
+                    self.params[self.PARAM_PREIMAGE_LENGTH] == data[self.DATA_PREIMAGE_LENGTH])
+        return True
+
+    def create_data(self, data: Any):
+        return list(data[self.DATA_PREIMAGE_BLOB])
+
+
 class SubscriptionManager:
 
     SUBSCRIPTION_MAP = {
@@ -106,6 +127,7 @@ class SubscriptionManager:
         "subscribeServiceData": SubscriptionServiceAccount,
         "subscribeServiceValue": SubscriptionStorageItem,
         "subscribePreimage": SubscriptionPreimage,
+        "subscribeServiceRequest": SubscriptionPreimageAvailability,
     }
 
     def __init__(self, server: "WebSocketServer"):
@@ -119,6 +141,7 @@ class SubscriptionManager:
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.SERVICE_ACCOUNT, self.broadcast_service_data)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.STORAGE_ITEM, self.broadcast_service_value)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.PREIMAGE, self.broadcast_preimage)
+        self.server.app.pubsub.subscribe(MESSAGE_TYPES.PREIMAGE_AVAILABILITY, self.broadcast_preimage_availability)
 
     async def subscribe(self, ws: WebSocketServerProtocol, topic: str, params: Any) -> WSubscription:
         async with self._lock:
@@ -157,6 +180,9 @@ class SubscriptionManager:
     async def broadcast_preimage(self, message):
         await self.broadcast("subscribePreimage", message)
 
+    async def broadcast_preimage_availability(self, message):
+        await self.broadcast("subscribeServiceRequest", message)
+
     async def broadcast(self, topic: str, data):
         async with self._lock:
             subs = list(self._topics.get(topic, ()))
@@ -167,7 +193,7 @@ class SubscriptionManager:
             return
 
         for sub in subs:
-            if sub.check_params(data):
+            if not sub.check_params(data):
                 continue
 
             msg_data = sub.create_data(data)

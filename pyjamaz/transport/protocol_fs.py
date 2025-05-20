@@ -40,10 +40,10 @@ class FSProtocol(ProtocolType):
 
                             with open(filepath, 'r') as file:
                                 if filename.startswith("block-req-"):
-                                    self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.REQUESTED_BLOCKS, data=json.load(file)))
+                                    await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.REQUESTED_BLOCKS, data=json.load(file)))
 
                                 else:
-                                    self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.RECEIVED_BLOCK,data=json.load(file)))
+                                    await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.RECEIVED_BLOCK,data=json.load(file)))
 
                     except Exception as e:
                         logging.error(f"Failed to process {filepath}: {e}")

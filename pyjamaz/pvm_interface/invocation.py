@@ -20,7 +20,8 @@ from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_d
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
-from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_fetch
+from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_fetch, hc_export, hc_machine, hc_peek, \
+    hc_poke, hc_zero, hc_void, hc_invoke, hc_expunge
 
 
 @dataclass
@@ -497,7 +498,11 @@ class RefineInvocationMutator(InvocationMutator):
         match host_call_instr_nr:
 
             case HostCallDebug.log.value:
-                hc_log(registers, memory, -1, ctx_out, _pvm.log)
+                hc_log(registers, memory, self.service_account_id, ctx_out, _pvm.log)
+
+            case HostCallGeneral.gas.value:
+                #GP-0.6.4-eq:B.12 | G
+                hc_gas(registers, memory, ctx_out, _pvm.log)
 
             case HostCallRefine.historical_lookup.value:
                 #GP-0.6.4-eq:B.12 | G
@@ -511,6 +516,7 @@ class RefineInvocationMutator(InvocationMutator):
                     invocation_output=ctx_out,
                     logger=_pvm.log
                 )
+
             case HostCallRefine.fetch.value:
                 hc_fetch(
                     registers=registers,
@@ -521,6 +527,79 @@ class RefineInvocationMutator(InvocationMutator):
                     auth_output=self.authorizer_output,
                     work_item_segs=self.work_items_import_segments,
                     extrinsics=self.extrinsics,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.export.value:
+                hc_export(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    export_segment_offset=self.export_segment_offset,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.machine.value:
+                hc_machine(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.peek.value:
+                hc_peek(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.poke.value:
+                hc_poke(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.zero.value:
+                hc_zero(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.void.value:
+                hc_void(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.invoke.value:
+                hc_invoke(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.expunge.value:
+                hc_expunge(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
                     invocation_output=ctx_out,
                     logger=_pvm.log
                 )

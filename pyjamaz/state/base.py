@@ -160,7 +160,7 @@ class StateComponent:
         else:
             self.storage_engine.put(self._state_key_constructor_component(), data)
 
-    def store_state(self, state: 'State', transaction: Optional[Transaction] = None):
+    async def store_state(self, state: 'State', transaction: Optional[Transaction] = None):
         data = state.to_jam_bytes().to_bytes()
         self.store(data, transaction)
 

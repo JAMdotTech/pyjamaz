@@ -104,7 +104,7 @@ def wrap_cli_import_block(traces_dir):
             #     )
             # }
 
-            self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
+            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
 
         except Exception as e:
             # Rollback state
@@ -363,7 +363,7 @@ async def timeslot_ticker(app: PyjamazApp):
 
                 block = await app.produce_block(timeslot, safrole_state, entropy_state)
 
-                app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+                await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
 
                 logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:

@@ -102,6 +102,13 @@ def rpcSubmitPreimage(app: PyjamazApp, params):
     app.extrinsic.add_preimage(pr)
 
 
+def rpcServiceRequest(app: PyjamazApp, params):
+    try:
+        return app.state.services.retrieve_preimage_availability(params[1], bytes(params[2]), params[3])
+    except StateKeyNoResult:
+        return None
+
+
 rpc_requests = {
     "parameters": rpcParameters,
     "bestBlock": rpcBestBlock,
@@ -112,4 +119,5 @@ rpc_requests = {
     "servicePreimage": rpcServicePreimage,
     "submitWorkPackage": rpcSubmitWorkPackage,
     "submitPreimage": rpcSubmitPreimage,
+    "serviceRequest": rpcServiceRequest,
 }

@@ -206,3 +206,7 @@ class PVMDebugLog(PVMLogger):
     #     "log_opcode_calls": True,
     #     "log_opcode_calls_if_zero": False,
     # }
+
+
+    def hc_log(self, msg, data):
+        pass

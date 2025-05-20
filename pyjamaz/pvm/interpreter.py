@@ -20,7 +20,9 @@ from .utils import (
     pvm_rtz_div,
     roli32,
     roli64,
-    read_uint
+    read_uint,
+    reverse_bits_32,
+    reverse_bits_64
 )
 
 from .constants import (
@@ -157,7 +159,7 @@ class PVMInterpreter:
             raise Exception(f"Not a valid memory write operation: {opcode}")
 
         bytes_to_write = MemOps[opcode]["bytes"]
-        self.mem.write_int(addr, value, bytes_to_write)
+        self.mem.write_int(addr % self.mem.SIZE, value, bytes_to_write)
 
 
     def mem_read(self, opcode, addr):
@@ -168,7 +170,7 @@ class PVMInterpreter:
             raise Exception(f"Not a valid memory read operation: {opcode}")
 
         bytes_to_read = MemOps[opcode]["bytes"]
-        return self.mem.read_int(addr, bytes_to_read)
+        return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
 
 
     # GP_A.15
@@ -395,10 +397,10 @@ class PVMInterpreter:
                         w_a = self.reg[r_a]
 
                         # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
-                        v_x = 0
+                        #v_x = 0
                         l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
-                        if l_x > 0:
-                            v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                        #if l_x > 0:
+                        v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
 
                         l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
                         v_y = pvm_X(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
@@ -511,11 +513,11 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.leading_zero_bits_64.value:
-                                self.reg[r_d] = count_leading_zeroes(self.reg[r_a])
+                                self.reg[r_d] = count_leading_zeroes(reverse_bits_64(self.reg[r_a]))
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.leading_zero_bits_32.value:
-                                self.reg[r_d] = count_leading_zeroes(np.uint32(self.reg[r_a]), 32)
+                                self.reg[r_d] = count_leading_zeroes(np.uint32(reverse_bits_32(self.reg[r_a])), 32)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.trailing_zero_bits_64.value:
@@ -560,16 +562,16 @@ class PVMInterpreter:
                         match opcode:
 
                             case op.store_ind_u8.value:
-                                self.mem_write(opcode, w_b + v_x, w_a)
-                                self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
+                                self.mem_write(opcode, w_b + v_x, w_a % 2**8)
+                                self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**8, "w_b": w_b})
 
                             case op.store_ind_u16.value:
-                                self.mem_write(opcode, w_b + v_x, w_a)
-                                self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
+                                self.mem_write(opcode, w_b + v_x, w_a % 2**16)
+                                self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**16, "w_b": w_b})
 
                             case op.store_ind_u32.value:
-                                self.mem_write(opcode, w_b + v_x, w_a)
-                                self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
+                                self.mem_write(opcode, w_b + v_x, w_a % 2**32)
+                                self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**32, "w_b": w_b})
 
                             case op.store_ind_u64.value:
                                 self.mem_write(opcode, w_b + v_x, w_a)
@@ -1047,7 +1049,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.xnor.value:
-                                self.reg[r_d] = np.uint64(~(w_a ^ w_b) & 0xFFFFFFFFFFFFFFFF)
+                                self.reg[r_d] = np.uint64(~(w_a ^ w_b))
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op._max.value:

@@ -71,7 +71,7 @@ class PVMDunaLog(PVMDebugLog):
         #     f"{inst_str}"
         #     f"{spacing}"
         #     f"g={self._pvm.gas} "
-        #     f"pvmHash={format_hash(self.hash())} "
+        #     #f"pvmHash={format_hash(self.hash())} "
         #     f"reg={str(regs)}"
         # )
         pass

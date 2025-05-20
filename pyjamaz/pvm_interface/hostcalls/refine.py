@@ -6,7 +6,7 @@ from jamcodec.types import U64
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
 from pyjamaz.models.common import WorkPackage
-from pyjamaz.models.state import RefineInvocationContext, ServicesState
+from pyjamaz.models.state import RefineInvocationContext, ServicesState, IntegratedPVM
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.exceptions import PVMMemoryError
@@ -63,7 +63,7 @@ def hc_historical_lookup(
     f = min(registers[10], len(preimage or []))
     l = min(registers[11], len(preimage or []) - f)
 
-    if mem_inaccessible is True or memory.is_accessible(o, l, PVMMemoryMode.writable):
+    if mem_inaccessible is True or not memory.is_accessible(o, l, PVMMemoryMode.writable):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif preimage is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -71,7 +71,7 @@ def hc_historical_lookup(
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(preimage)
-        invocation_output.memory.write_bytes(f, preimage[f:f+l])
+        invocation_output.memory.write_bytes(o, preimage[f:f+l])
 
 
 def hc_fetch(
@@ -182,12 +182,23 @@ def hc_machine(
 
     pvm_program = None
     try:
-        pvm_program = PVMProgram.from_jam_bytes(program_blob)
+        pvm_program = PVMProgram.from_serialized_bytes(program_blob, bytes(), bytes())
     except Exception as e:
         pass
 
-    n = min(m_e.inner_pvm_lookup, key=m_e.inner_pvm_lookup.get) + 1
-    mem = PVMMemory.allocate(0,0,0,0)   #TODO: hoeveel pages, dynamisch groeiend mem mogelijk maken??????????????
+    # TODO: GP states that this should be the first available key, which implies we should fill in gaps
+    # sorted_keys = [x for x in m_e.inner_pvm_lookup.keys()].sort()
+    # n = 0
+    # prev_key = 0
+    # for key in sorted_keys:
+    #     if key > prev_key + 1:
+    #         n = key + 1
+    #         break
+    n = 0
+    keys = [x for x in m_e.inner_pvm_lookup.keys()]
+    if keys:
+        keys.sort()
+        n = keys[-1] + 1
 
     if program_blob is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -197,8 +208,13 @@ def hc_machine(
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = n
-        #m_e.inner_pvm_lookup[n] = (program_blob, mem, i)
-        m_e.inner_pvm_lookup[n] = (pvm_program, mem, i)
+        # TODO: hoeveel pages, dynamisch groeiend mem mogelijk maken??????????????
+        mem = PVMMemory.allocate(0, 0, 0, 0)
+        m_e.inner_pvm_lookup[n] = IntegratedPVM(
+            code=pvm_program.code,
+            memory=mem,
+            program_counter=i
+        )
 
 
 def hc_peek(

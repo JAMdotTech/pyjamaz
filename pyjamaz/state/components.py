@@ -1971,7 +1971,7 @@ class Services(StateComponent):
         # State is retrieve per service
         return ServicesState(services={})
 
-    def store_state(self, state: ServicesState, transaction: Optional[Transaction] = None):
+    async def store_state(self, state: ServicesState, transaction: Optional[Transaction] = None):
         """
         State for services are stored per service account
 
@@ -2024,19 +2024,19 @@ class Services(StateComponent):
                 #TODO: self.app_context.pubsub.publish()
                 state.delete_storage_item(mut[1], mut[2], commit=True)
             elif mut[0] == "storage_items_update":
-                self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
                 state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimages_delete":
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage(mut[1], mut[2], commit=True)
             elif mut[0] == "preimages_update":
-                self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
                 state.store_preimage(mut[1], mut[3], commit=True)
             elif mut[0] == "preimage_availability_delete":
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimage_availability_update":
-                # TODO: self.app_context.pubsub.publish()
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
                 state.store_preimage_availability(
                     service_account_id=mut[1],
                     preimage_hash=mut[2],
@@ -2048,7 +2048,7 @@ class Services(StateComponent):
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_service_account(mut[1], commit=True)
             elif mut[0] == "service_account_update":
-                self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
                 state.store_service_account(mut[1], mut[2], commit=True)
 
 

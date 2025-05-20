@@ -27,8 +27,8 @@ class PubSub(object):
             self.subscriptions[msg_type.value] = []
 
 
-    def publish(self, message: PubSubSignal) -> None:#topic: MESSAGE_TYPES, data: any) -> None:
-       self.send_stream.send_nowait(message)
+    async def publish(self, message: PubSubSignal) -> None:#topic: MESSAGE_TYPES, data: any) -> None:
+       await self.send_stream.send(message)
 
 
     def subscribe(self, topic: MESSAGE_TYPES, callback: Callable,) -> None:

@@ -43,3 +43,4 @@ class MESSAGE_TYPES(Enum):
     SERVICE_ACCOUNT:str = "service_account"
     STORAGE_ITEM:str = "storage_item"
     PREIMAGE:str = "preimage"
+    PREIMAGE_AVAILABILITY:str = "preimage_availability"

@@ -216,7 +216,7 @@ class ClientProtocol(JAMNPSProtocol):
         logger.debug(f"ClientProtocol Block Requests sent to stream {self.stream_up_0} ({len(data)})")
 
 
-    def quic_event_received(self, event: QuicEvent) -> None:
+    async def quic_event_received(self, event: QuicEvent) -> None:
         logger.debug(f'ClientProtocol received data')
 
         if isinstance(event, StreamDataReceived):
@@ -251,11 +251,11 @@ class ClientProtocol(JAMNPSProtocol):
 
                             case JAMNPS.MSG.UP0_BlockAnnouncement.value:
                                 logger.debug(f'ClientProtocol RECEIVED_BLOCK: {self._msg_len}')
-                                self.wrapper.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.RECEIVED_BLOCK, data=self._msg_buffer[self._msg_offset:self._msg_len]))
+                                await self.wrapper.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.RECEIVED_BLOCK, data=self._msg_buffer[self._msg_offset:self._msg_len]))
 
                             case JAMNPS.MSG.CE128_BlockRequest.value:
                                 logger.debug(f'ClientProtocol RECEIVED REQUESTED BLOCKS: {self._msg_len}')
-                                self.wrapper.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.REQUESTED_BLOCKS, data=self._msg_buffer[self._msg_offset:self._msg_len]))
+                                await self.wrapper.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.REQUESTED_BLOCKS, data=self._msg_buffer[self._msg_offset:self._msg_len]))
 
                             case _:
                                 raise InvalidJAMNPSMessage(f"Invalid JAMNPS message: {self._msg_type}")
