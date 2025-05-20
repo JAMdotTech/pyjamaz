@@ -217,7 +217,7 @@ class WorkReport(Serializable):
     """
     package_spec: WorkPackageSpec = field(metadata={'codec': WorkPackageSpec.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
-    core_index: int = field(metadata={'codec': U16})
+    core_index: int = field(metadata={'codec': VarInt64})
     authorizer_hash: bytes = field(metadata={'codec': H256})
     auth_output: bytes = field(metadata={'codec': Bytes})
     segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
