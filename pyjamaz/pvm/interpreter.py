@@ -1053,6 +1053,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op._max.value:
+                                #TODO: should probably just cast to np.uint64 <-> np.int64 ??
                                 self.reg[r_d] = pvm_Z_inv(
                                     max(pvm_Z(w_a, 8), pvm_Z(w_b, 8)),
                                     8

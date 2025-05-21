@@ -11,7 +11,7 @@ from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.pvm.types import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram
+from pyjamaz.pvm.types import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram, PVMCode
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult, InnerPVMResult
 
 
@@ -180,9 +180,9 @@ def hc_machine(
     if memory.is_accessible(p_o, p_z, PVMMemoryMode.readable):
         program_blob = memory.read_bytes(p_o, p_z)
 
-    pvm_program = None
+    pvm_code = None
     try:
-        pvm_program = PVMProgram.from_serialized_bytes(program_blob, bytes(), bytes())
+        pvm_code = PVMCode.from_jam_bytes(JamBytes(program_blob))
     except Exception as e:
         pass
 
@@ -202,7 +202,7 @@ def hc_machine(
 
     if program_blob is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-    elif pvm_program is None:
+    elif pvm_code is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
     else:
@@ -211,7 +211,7 @@ def hc_machine(
         # TODO: hoeveel pages, dynamisch groeiend mem mogelijk maken??????????????
         mem = PVMMemory.allocate(0, 0, 0, 0)
         m_e.inner_pvm_lookup[n] = IntegratedPVM(
-            code=pvm_program.code,
+            code=pvm_code,
             memory=mem,
             program_counter=i
         )
