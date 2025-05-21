@@ -222,7 +222,7 @@ class PVMInterpreter:
 
         while self.status == ExitReason.resume.value and self.gas > 0:
 
-            # self.gas -= 1
+            self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
             self.inst_nr += 1
 
@@ -257,7 +257,7 @@ class PVMInterpreter:
 
                     #GP_A.5.2
                     case InstructionType.imm:
-
+                        self.gas += 1
                         l_x = int(min(4, self.inst_arg_len[inst_index]))
                         v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
 
