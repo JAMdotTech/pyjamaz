@@ -643,7 +643,7 @@ class ServicesState(State, Serializable):
 
             self.storage_engine.put(storage_key, preimage_blob)
 
-        logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): v={preimage_blob.hex()} sk={storage_key.hex()} commit={commit}')
+        logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): sk={storage_key.hex()} commit={commit}')
 
 
     def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
@@ -1106,7 +1106,7 @@ class StatisticsState(State, Serializable):
         'codec': Array(CoreActivityRecord.to_codec_def(), CORE_COUNT)
     })
     services: Dict[int, ServiceActivityRecord] = field(metadata={
-        'codec': Map(VarInt64, ServiceActivityRecord.to_codec_def())
+        'codec': Map(U32, ServiceActivityRecord.to_codec_def())
     })
 
 
@@ -1415,14 +1415,16 @@ class AccumulationStateComponents(Serializable):
                 state_context=deepcopy(self),
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
-                invocation_output=None
+                invocation_output=None,
+                # preimages=[] TODO 0.6.6
             ),
             savepoint_context=AccumulateContextItem(
                 service_account_id=service_account_id,
                 state_context=deepcopy(self),
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
-                invocation_output=None
+                invocation_output=None,
+                # preimages=[] TODO 0.6.6
             ),
             timeslot=timeslot
         )
@@ -1434,8 +1436,8 @@ class PvmAccumulateOutput:
     state_context: AccumulationStateComponents
     deferred_transfers: List[DeferredTransfer]
     accumulation_output: Optional[bytes]
-    gas_limit: int
-    gas_used: int = 0 # TODO check
+    gas_used: int
+    # preimages: List[Tuple[int, bytes]] # TODO 0.6.6
 
 
 @dataclass
@@ -1456,6 +1458,7 @@ class AccumulateContextItem:
     new_service_account_id: int  # i
     deferred_transfers: List[DeferredTransfer]  # t
     invocation_output: Optional[bytes]  # y
+    # preimages: List[Tuple[int, bytes]] # p TODO 0.6.6
 
 
 @dataclass
@@ -1470,8 +1473,8 @@ class AccumulateInvocationContext(InvocationContext):
 
 @dataclass
 class AccumulatePvmArguments(Serializable):
-    timeslot: int = field(metadata={'codec': U32})
-    service_id: int = field(metadata={'codec': U32})
+    timeslot: int = field(metadata={'codec': VarInt64})
+    service_id: int = field(metadata={'codec': VarInt64})
     operands: List[AccumulationOperand] = field(metadata={'codec': Vec(AccumulationOperand.to_codec_def())})
 
 

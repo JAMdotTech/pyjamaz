@@ -55,7 +55,7 @@ class ValidatorData(Serializable):
 @dataclass
 class WorkExecResult(Serializable):
     """
-    GP-0.5.0-eq:11.6 (o) | Work result output or error of the execution of the code in the refine stage. Either a byte
+    GP-0.6.5-eq:11.7 (blackboard_J) | Work result output or error of the execution of the code in the refine stage. Either a byte
     sequence in case it was successful or one of the possible errors
 
     Attributes
@@ -213,7 +213,7 @@ class WorkReport(Serializable):
     segment_root_lookup: Vec(SegmentRootLookupItem)
         GP-0.5.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
     results: Vec(WorkResult)
-        GP-0.5.0-eq:11.2 (bold_r) | The results of the evaluation of each of the items inn the work package.
+        GP-0.5.0-eq:11.2 (bold_r) | The results of the evaluation of each of the items in the work package.
     """
     package_spec: WorkPackageSpec = field(metadata={'codec': WorkPackageSpec.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
@@ -262,7 +262,7 @@ class TicketBody(Serializable):
 @dataclass
 class AccumulationOperand(Serializable):
     """
-    GP-0.6.3-eq:12.18 (blackboard_O) | Operand to the PVM accumulation function
+    GP-0.6.5-eq:12.19 (blackboard_O) | Operand to the PVM accumulation function
     """
     # h
     work_report_hash: bytes = field(metadata={'codec': H256})
@@ -275,6 +275,26 @@ class AccumulationOperand(Serializable):
     # y
     work_result_payload_hash: bytes = field(metadata={'codec': H256})
     # g
-    work_result_gas_limit: int = field(metadata={'codec': U64})
+    work_result_gas_limit: int = field(metadata={'codec': VarInt64})
     # d
     work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
+
+# @dataclass
+# class AccumulationOperand(Serializable):
+#     """
+#     GP-0.6.6-eq:12.19 (blackboard_O) | Operand to the PVM accumulation function
+#     """
+#     # h
+#     work_report_hash: bytes = field(metadata={'codec': H256})
+#     # e
+#     work_report_exports_root: bytes = field(metadata={'codec': H256})
+#     # a
+#     work_report_authorizer_hash: bytes = field(metadata={'codec': H256})
+#     # y
+#     work_result_payload_hash: bytes = field(metadata={'codec': H256})
+#     # g
+#     work_result_gas_limit: int = field(metadata={'codec': VarInt64})
+#     # d
+#     work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
+#     # o
+#     work_report_auth_output: bytes = field(metadata={'codec': Bytes})

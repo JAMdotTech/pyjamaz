@@ -222,7 +222,7 @@ def parallel_accumulation(
         post_state_entropy: EntropyState
 ) -> ParallelAccumulationOutput:
     """
-    GP-0.6.1-eq:12.17 ∆* | parallel accumulation function
+    GP-0.6.5-eq:12.17 ∆* | parallel accumulation function
 
     Parameters
     ----------

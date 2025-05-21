@@ -19,7 +19,7 @@ T = TypeVar('T')
 
 def state_key_constructor_service_account(service_account_id) -> bytes:
     """
-    GP-0.5.4-eq:D.1 | State key constructor for a service account
+    GP-0.6.6-eq:D.1 | State key constructor for a service account
 
     Parameters
     ----------
@@ -31,7 +31,7 @@ def state_key_constructor_service_account(service_account_id) -> bytes:
     """
     service_account_key = int(service_account_id).to_bytes(4, byteorder="little")
 
-    state_key = bytearray(32)
+    state_key = bytearray(31)
     state_key[0] = 255
     state_key[1] = service_account_key[0]
     state_key[3] = service_account_key[1]
@@ -42,7 +42,7 @@ def state_key_constructor_service_account(service_account_id) -> bytes:
 
 def state_key_constructor_service_account_value(service_account_id: int, value: bytes) -> bytes:
     """
-    GP-0.5.4-eq:D.1 | State key constructor for a service account value
+    GP-0.6.6-eq:D.1 | State key constructor for a service account value
 
     Parameters
     ----------
@@ -64,12 +64,11 @@ def state_key_constructor_service_account_value(service_account_id: int, value: 
     state_key[5] = value[2]
     state_key[6] = service_account_key[3]
 
-
-    return bytes(state_key) + value[3:28]
+    return bytes(state_key) + value[3:27]
 
 def state_key_constructor_storage_item(service_account_id: int, storage_item_hash: bytes) -> bytes:
     """
-    GP-0.5.4-eq:D.2 | State key constructor for a storage item hash
+    GP-0.6.6-eq:D.2 | State key constructor for a storage item hash
 
     Parameters
     ----------
@@ -82,12 +81,12 @@ def state_key_constructor_storage_item(service_account_id: int, storage_item_has
     """
     return state_key_constructor_service_account_value(
         service_account_id=service_account_id,
-        value=int(2**32-1).to_bytes(4, byteorder='little') + storage_item_hash[0:28]
+        value=int(2**32-1).to_bytes(4, byteorder='little') + storage_item_hash[0:27]
     )
 
 def state_key_constructor_preimage(service_account_id: int, preimage_hash: bytes) -> bytes:
     """
-    GP-0.5.4-eq:D.2 | State key constructor for a preimage hash
+    GP-0.6.6-eq:D.2 | State key constructor for a preimage hash
 
     Parameters
     ----------
@@ -100,7 +99,7 @@ def state_key_constructor_preimage(service_account_id: int, preimage_hash: bytes
     """
     state_key = state_key_constructor_service_account_value(
         service_account_id=service_account_id,
-        value=int(2**32-2).to_bytes(4, byteorder='little') + preimage_hash[1:29]
+        value=int(2**32-2).to_bytes(4, byteorder='little') + preimage_hash[1:28]
     )
 
     return state_key
@@ -110,7 +109,7 @@ def state_key_constructor_preimage_availability(
         service_account_id: int, preimage_hash: bytes, preimage_length: int
 ) -> bytes:
     """
-    GP-0.5.4-eq:D.2 | State key constructor for a preimage availability
+    GP-0.6.6-eq:D.2 | State key constructor for a preimage availability
 
     Parameters
     ----------
@@ -123,7 +122,7 @@ def state_key_constructor_preimage_availability(
     """
     return state_key_constructor_service_account_value(
         service_account_id=service_account_id,
-        value=int(preimage_length).to_bytes(4, byteorder="little") + blake2b_256_hash(preimage_hash)[2:30]
+        value=int(preimage_length).to_bytes(4, byteorder="little") + blake2b_256_hash(preimage_hash)[2:29]
     )
 
 

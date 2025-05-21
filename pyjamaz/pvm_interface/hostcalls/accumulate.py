@@ -7,13 +7,15 @@ from jamcodec.types import U64, U32
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, \
     PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import ValidatorData
-from pyjamaz.models.state import ServiceAccount, DeferredTransfer, AccumulateInvocationContext
+from pyjamaz.models.state import ServiceAccount, DeferredTransfer, AccumulateInvocationContext, ServicesState
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult, HostCallDebug, HostCallGeneral, HostCallAccumulate
+from pyjamaz.utils import format_hash
 
 
 def hc_bless(
@@ -274,7 +276,7 @@ def hc_upgrade(
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
-        
+
         # TODO: mark dirty? maybe register changes
         service_account.code_hash = code_hash
         service_account.gas_limit_accumulate = g
@@ -675,3 +677,76 @@ def hc_yield(
         output.registers[7] = HostCallResult.OK.value
         ctx_in.context.invocation_output = invocation_data
         logger.hc_log("YIELD OK", f"invocation_data={invocation_data.hex()}")
+
+
+def hc_provide(
+        registers: List[int],
+        memory: PVMMemory,
+        ctx_in: AccumulateInvocationContext,
+        services: ServicesState,
+        service_id: int,
+        output: InvocationMutationOutput,
+        logger: PVMLogger):
+    """
+    Provides a preimage for specified service ID
+    """
+
+    logger.hc_regs(f"PROVIDE", "accumulate")
+    output.gas_limit -= 10
+
+    preimage_address = registers[8] # GP: o
+    preimage_length = registers[9]  # GP: z
+
+    # GP: s*
+    if registers[7] == 2 ** 64 - 1:
+        service_account_id = service_id
+    else:
+        service_account_id = registers[7]
+
+    # GP: i
+    if memory.is_accessible(preimage_address, preimage_length, PVMMemoryMode.readable):
+        preimage_blob = memory.read_bytes(preimage_address, preimage_length)
+        # TODO -6 offset met DUNA testdata????????
+        # preimage_blob = memory.read_bytes(preimage_address - 6, preimage_length)
+    else:
+        preimage_blob = None
+
+    # GP: bold_a
+    try:
+        service_account = services.retrieve_service_account(service_account_id)
+    except StateKeyNoResult:
+        service_account = None  # bold_a = ∅
+
+    # GP: A_l[(H(i), z)]
+    if preimage_blob is not None:
+        try:
+            preimage_availability = services.retrieve_preimage_availability(
+                service_account_id, blake2b_256_hash(preimage_blob), preimage_length
+            )
+        except StateKeyNoResult:
+            preimage_availability = None
+    else:
+        preimage_availability = None
+
+    if preimage_blob is None:
+        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        logger.hc_log("PROVIDE PANIC", f"")
+    elif service_account is None:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.WHO.value
+        logger.hc_log("PROVIDE WHO", f"")
+    elif preimage_availability != []:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.HUH.value
+        logger.hc_log("PROVIDE HUH", f"")
+    elif (service_account_id, preimage_blob) in ctx_in.context.preimages:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.HUH.value
+        logger.hc_log("PROVIDE HUH", f"")
+    else:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.OK.value
+        ctx_in.context.preimages.append((service_id, preimage_blob))
+        logger.hc_log("PROVIDE OK", f"h={format_hash(blake2b_256_hash(preimage_blob))}")
+
+
