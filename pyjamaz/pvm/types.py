@@ -125,8 +125,8 @@ class MemorySection:
         self.address:int = address
         self.size:int = length
         #TODO!!!!!!!!!!!!!!!!! ode aan peter: make nicer!!!!!!
-        if self.size > 2**20:
-            raise Exception('Memory size too large')
+        if self.size > 2**21:
+            raise Exception(f'Memory size too large: {self.size}')
         self.contents: npt.NDArray[np.uint8] = np.zeros(self.size, dtype=np.uint8)
         self.tail = 0
         self.update(0, contents)
@@ -374,8 +374,12 @@ class PVMMemory:
         return section.read_int(section_addr, length)
 
     def is_accessible(self, address: int, length: int, mode: PVMMemoryMode) -> bool:
-        #TODO: allow for acl per page
-        section = self.find_section(address)
+        # TODO: allow for acl per page
+        try:
+            section = self.find_section(address)
+        except (PanicError, PVMMemoryError):
+            section = None
+
         if not section:
             return False
 

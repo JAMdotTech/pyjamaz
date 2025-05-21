@@ -5,7 +5,7 @@ from os import path
 from jamcodec.types import Vec, BitArray
 
 from pyjamaz.models.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, Guarantee, Preimage, TicketEnvelope, Block
-from pyjamaz.models.common import WorkResult, RefinementContext, WorkReport, WorkItem, WorkPackage
+from pyjamaz.models.common import WorkDigest, RefinementContext, WorkReport, WorkItem, WorkPackage
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
@@ -443,7 +443,7 @@ class TestCodec(unittest.TestCase):
             # translate fields
             # None
 
-            work_result = WorkResult.from_json(test_vector)
+            work_result = WorkDigest.from_json(test_vector)
             value = work_result.serialize()
             self.assertDictEqual(test_vector, value)
 

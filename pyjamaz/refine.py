@@ -1,6 +1,6 @@
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE
 from pyjamaz.merkle import WellBalancedMerkleTree
-from pyjamaz.models.common import WorkReport, WorkPackage, WorkResult, WorkExecResult, WorkPackageSpec
+from pyjamaz.models.common import WorkReport, WorkPackage, WorkDigest, WorkExecResult, WorkPackageSpec
 from pyjamaz.models.state import ServicesState
 from pyjamaz.pvm_interface.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
 from pyjamaz.utils import flatten_list
@@ -55,7 +55,7 @@ def work_result_computation(
             work_exec_result = WorkExecResult(bad_exports=True)
             export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
 
-        work_result = WorkResult.from_work_item(
+        work_result = WorkDigest.from_work_item(
             work_item=work_package.items[j],
             result=work_exec_result,
             gas_used=refine_output.gas_used
