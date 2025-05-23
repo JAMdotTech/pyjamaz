@@ -2025,21 +2025,21 @@ class Services(StateComponent):
                 state.delete_storage_item(mut[1], mut[2], commit=True)
             elif mut[0] == "storage_items_update":
                 # TODO async blocking exception??
-                # await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
                 state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimages_delete":
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage(mut[1], mut[2], commit=True)
             elif mut[0] == "preimages_update":
                 # TODO async blocking exception??
-                # await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
                 state.store_preimage(mut[1], mut[3], commit=True)
             elif mut[0] == "preimage_availability_delete":
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimage_availability_update":
                 # TODO async blocking exception??
-                # await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
                 state.store_preimage_availability(
                     service_account_id=mut[1],
                     preimage_hash=mut[2],
