@@ -6,14 +6,14 @@ import ssl
 from aioquic.asyncio import serve, QuicConnectionProtocol
 from aioquic.asyncio import connect
 from aioquic.quic.configuration import QuicConfiguration
-from aioquic.quic.events import QuicEvent
+from aioquic.quic.events import QuicEvent, HandshakeCompleted, ConnectionTerminated
 from cryptography import x509
 
 from pyjamaz.app import Keys
 
 #certificate_file = os.path.join("./pyjamaz/data/karel", "cert.pem")
 certificate_file = os.path.join("./", "clone.pem")
-pk_file = os.path.join("./pyjamaz/data/karel", "cert.key")
+pk_file = os.path.join("./pyjamaz/data/alice", "cert.key")
 
 
 from cryptography import x509
@@ -29,7 +29,10 @@ class ServerProtocol(QuicConnectionProtocol):
     def quic_event_received(self, event: QuicEvent) -> None:
         logging.info("EVENT from %s: %s", event)
         print("HUH????", event)
-
+        if isinstance(event, HandshakeCompleted):
+            print("Handshake")
+        if isinstance(event, ConnectionTerminated):
+            print("Terminated")
 
 
 async def server():
@@ -56,7 +59,7 @@ async def client():
         alpn_protocols=["jamnp-s/0/0259fbe9"],
         is_client=True,
         # verify_mode=ssl.CERT_REQUIRED,
-        verify_mode=ssl.CERT_NONE,
+        verify_mode=False,
         idle_timeout=300000
     )
     configuration.load_cert_chain(certfile=certificate_file, keyfile=pk_file)
@@ -64,8 +67,10 @@ async def client():
     print("CLIENt")
     async with connect("127.0.0.1", 40001, configuration=configuration)  as connection:
 
-        cert = connection._quic.tls._peer_certificate
+        await connection.wait_connected()
 
+        await asyncio.sleep(2)
+        cert = connection._quic.tls._peer_certificate
         keys = Keys.from_seed(bytes(32))
         #priv = ed25519.Ed25519PrivateKey.from_private_bytes(keys.ed25519.private_key)
         priv = ed25519.Ed25519PrivateKey.from_private_bytes(keys.ed25519.private_key)
@@ -78,6 +83,7 @@ async def client():
             .serial_number(cert.serial_number)
             .not_valid_before(cert.not_valid_before)
             .not_valid_after(cert.not_valid_after)
+            .add_extension(x509.SubjectAlternativeName(x509.GeneralNames([x509.DNSName("e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka")])), critical=False)
         )
 
         # copy every extension verbatim
@@ -86,9 +92,6 @@ async def client():
 
         # @127.0.0.1:40000
         #ehnvcppgow2sc2yvdvdicu3ynonsteflxdxrehjr2ybekdc2z3iuq
-        builder.add_extension(
-            x509.SubjectAlternativeName(x509.GeneralNames([x509.DNSName("e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka")])), critical=False
-        )
 
         # ------------------------------------------------------------
         # 2) sign with the *same* private key
