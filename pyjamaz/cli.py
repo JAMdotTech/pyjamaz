@@ -37,7 +37,7 @@ from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.jamnp_s.protocol import JAMNPS
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
-from pyjamaz.utils import format_hash
+from pyjamaz.utils import format_hash, quic_connection_dns
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
@@ -236,11 +236,12 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
             raise BadParameter(f'DB is not yet initialized; run init first')
 
         app.network_bootstrap = network_bootstrap
+        quic_dns = quic_connection_dns(app.config.keys.ed25519.public_key, host, port)
 
         logging.info(f'🥋 PyJAMaz JAM client')
         logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
         logging.info(f'💾 Storage path: {db_path}')
-        logging.info(f'🌐 Listening on address {host}:{port}')
+        logging.info(f'🌐 Connection DNS {quic_dns}')
         logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
         logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
         logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
@@ -498,6 +499,18 @@ async def init(
 
     if chainspec:
 
+        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
+            chainspec_data = json.load(fp)
+
+        # Store state data
+        for k, v in chainspec_data["genesis_state"].items():
+            app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
+
+        # Create genesis block
+        genesis_block = Block(
+            header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
+            extrinsic=Extrinsic.default()
+        )
 
         # Temp convert trace to genesis
         # with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
@@ -519,13 +532,13 @@ async def init(
         #     with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'wb') as fp:
         #         fp.write(genesis_state.to_jam_bytes().to_bytes())
 
-        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
-            genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
-            for k, v in genesis_state.keyvals:
-                app.state_db.put(bytes(k), bytes(v))
-
-        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
-            genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
+        # with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
+        #     genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
+        #     for k, v in genesis_state.keyvals:
+        #         app.state_db.put(bytes(k), bytes(v))
+        #
+        # with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
+        #     genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
 
     else:
         if initial_state is not None:

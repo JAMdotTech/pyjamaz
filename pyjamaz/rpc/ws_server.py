@@ -1,6 +1,8 @@
 import asyncio
+import json
 import signal
 import logging
+import typing
 from typing import Set
 import websockets
 
@@ -9,6 +11,8 @@ from pyjamaz.rpc.ws_common import jsonapi_response, WS_UNKNOW_MESSAGE_TYPE, json
     RPCCallException, WS_INVALID_MESSAGE_TYPE
 from pyjamaz.rpc.ws_server_subscriptions import SubscriptionManager
 
+if typing.TYPE_CHECKING:
+    from pyjamaz.app import PyjamazApp
 
 class WebSocketServer:
 
@@ -43,7 +47,7 @@ class WebSocketServer:
                     try:
                         # Process message and send response
                         try:
-                            logging.debug(f"INCOMMING MESSAGE: {message}")
+                            logging.debug(f"INCOMING MESSAGE: {message}")
                             req_id, rpc_call, params, rpc_type, result = jsonapi_parse(message)
 
                             #TODO: switch maken en nettere typings
@@ -51,6 +55,25 @@ class WebSocketServer:
                                 result = await self.subscriptions.subscribe(websocket, rpc_call, params)
                                 response = jsonapi_response(req_id, rpc_call, result.id)
                                 logging.debug("NEW SUBSCRIPTION")
+                                # TEMP SEND INITIAL VALUE
+                                await websocket.send(response)
+                                response = None
+                                value = rpc_requests[rpc_call](self.app, params)
+                                message = json.dumps({
+                                    "jsonrpc": "2.0",
+                                    "method": rpc_call,
+                                    "params": {
+                                        "subscription": result.id,
+                                        "result": {
+                                            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+                                            "slot": self.app.state.timeslot.number,
+                                            "value": value
+                                        }
+                                    }
+                                })
+                                await result.send(message)
+
+                                logging.debug("SENT INITIAL VALUE")
 
                             elif rpc_type == RPC_TYPE_UNSUBSCRIBE:
                                 await self.subscriptions.unsubscribe(params[0])

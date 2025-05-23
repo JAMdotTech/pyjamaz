@@ -1,4 +1,5 @@
 import typing
+from base64 import b32encode
 from dataclasses import dataclass, field
 import socket
 from typing import List, Dict
@@ -58,6 +59,10 @@ class ValidatorData(Serializable):
         int
         """
         return int.from_bytes(self.metadata[16:18], byteorder='little')
+
+    def get_connection_dns(self) -> str:
+        dns = b32encode(self.ed25519)
+        return f"e{dns}@{self.get_metadata_ipaddress()}:{self.get_metadata_port()}"
 
 
 @dataclass
@@ -140,7 +145,7 @@ class ImportSegment(Serializable):
         GP-0.6.4-eq:14.3 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
     """
     tree_root: bytes = field(metadata={'codec': H256})
-    index: int = field(metadata={'codec': U16})
+    index: int = field(metadata={'codec': VarInt64})
 
 
 @dataclass

@@ -50,8 +50,8 @@ class Keys(Serializable):
     def from_seed(cls, seed: bytes) -> 'Keys':
         return cls(
             bandersnatch=BandersnatchKeypair.from_seed(seed),
-            ed25519=Ed25519Keypair.from_private_key(seed)
-            #ed25519=Ed25519Keypair.from_seed(seed) TODO should be from seed
+            # ed25519=Ed25519Keypair.from_private_key(seed)
+            ed25519=Ed25519Keypair.from_seed(seed) #TODO should be from seed
         )
 
 

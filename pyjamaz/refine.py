@@ -25,8 +25,6 @@ def work_result_computation(
     if type(auth_output.exit_condition.value) is not bytes:
         raise ValueError("unauthorized") # TODO
 
-    # TODO check gas_used auth_output.gas_limit
-
     refine_outputs = []
 
     for j in range(len(work_package.items)):
