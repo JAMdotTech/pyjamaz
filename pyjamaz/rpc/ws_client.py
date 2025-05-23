@@ -104,7 +104,6 @@ class WebsocketClient(RPCMethods):
         res[0] = bytes(res[0])
         return res
 
-
     async def listServices(self) -> List[int]:
         return await self._send_and_wait("listServices", None)
 

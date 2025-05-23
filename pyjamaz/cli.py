@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import traceback
 from asyncio import CancelledError
 from datetime import datetime
@@ -34,7 +35,7 @@ from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.models.state import JamState, ServiceAccount, ServiceActivityRecord
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
-from pyjamaz.transport.protocol_jamnp_s import JAMNPS
+from pyjamaz.transport.jamnp_s.protocol import JAMNPS
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import format_hash
 
@@ -194,12 +195,13 @@ async def initialize_app(
 @click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listen on')
-async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host):
+@click.option('--bootnode', 'bootnode', type=str, default="", show_default=True, help='Specific bootnode to connect to')
+async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode):
     """PyJAMaz: Python JAM Client"""
 
     # Note: Add packages that need a different logging level here
     log_package_overrides = {
-        #"pyjamaz.transport": logging.DEBUG
+        "pyjamaz.transport": logging.DEBUG,
         "quic": logging.WARNING,
     }
 
@@ -257,7 +259,7 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                 tg.start_soon(app.pubsub.process_messages)
 
                 # Start WebSocket server
-                tg.start_soon(start_rpc_server, rpc_server)
+                #tg.start_soon(start_rpc_server, rpc_server)
 
                 if block_dir:
                     logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
@@ -270,29 +272,47 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                 else:
                     certificate_file = os.path.join(db_path, "cert.pem")
                     pk_file = os.path.join(db_path, "cert.key")
-                    nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
+                    nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app, 0, "0259fbe9b7dd6f3ce7d7027d87453e886bf39ea902b7bae59af1d3c63b2db4ec")
                     app.protocol = nps_protocol
                     app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
                     app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
                     app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
                     tg.start_soon(nps_protocol.listen)
 
-                    for validator in app.state.safrole.validators:
-                        # The validators' IP-layer endpoints are given as IPv6/port combinations,
-                        # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
-                        # the latter 2 being a little endian representation of the port.
+                    if bootnode:
+                        #ecjn4brac2kgu25kiykefww6p6ai7noueo6p5af5tnwjgra4eisya@172.16.238.11:40001
+                        conn = re.match(
+                            r"^(?P<key>[A-Za-z0-9]+)"
+                            r"@"
+                            r"(?P<addr>(?:\d{1,3}\.){3}\d{1,3})"
+                            r":"
+                            r"(?P<port>\d{1,5})$",
+                            bootnode,
+                        )
 
-                        validator_port = validator.get_metadata_port()
-                        validator_address = validator.get_metadata_ipaddress()
+                        logging.debug(f'Connecting to node {conn["key"]} at {conn["addr"]}:{conn["port"]}')
+                        #tg.start_soon(nps_protocol.connect, conn["addr"], conn["port"])
+                        try:
+                            await nps_protocol.connect(conn["addr"], conn["port"])
+                        except Exception as exc:
+                            traceback.print_exc()
+                    else:
+                        for validator in app.state.safrole.validators:
+                            # The validators' IP-layer endpoints are given as IPv6/port combinations,
+                            # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
+                            # the latter 2 being a little endian representation of the port.
 
-                        if validator.ed25519 == app.config.keys.ed25519.public_key:
-                            logging.debug(
-                                f'Skipping own node ({validator_address}:{validator_port})'
-                            )
-                            continue
+                            validator_port = validator.get_metadata_port()
+                            validator_address = validator.get_metadata_ipaddress()
 
-                        logging.debug(f'Connecting to node {validator_address}:{validator_port}')
-                        tg.start_soon(nps_protocol.connect, validator_address, validator_port)
+                            if validator.ed25519 == app.config.keys.ed25519.public_key:
+                                logging.debug(
+                                    f'Skipping own node ({validator_address}:{validator_port})'
+                                )
+                                continue
+
+                            logging.debug(f'Connecting to node {validator_address}:{validator_port}')
+                            tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
                 await anyio.sleep(ts - time.time())
                 tg.start_soon(timeslot_ticker, app)
@@ -432,13 +452,8 @@ async def init_certificate(db_path, seed):
 
     pk_pem, cert_pem = generate_cert(
         keys,
-        ips="0.0.0.0",
-        domains="test.com",
-        country="US",
-        state="CA",
-        city="LA",
-        organization="Test Corp",
-        website="test.com",
+        ips="127.0.0.1",    #TODO: hardcoded for now
+        alternative_name="e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka@127.0.0.1:40000",
     )
     pk_file = os.path.join(db_path, "cert.key")
     pem_file = os.path.join(db_path, "cert.pem")
