@@ -39,7 +39,7 @@ class TestStateRoot(unittest.IsolatedAsyncioTestCase):
         await app.update_state_trie()
 
         self.assertEqual(
-            "798dcc9482ea19920f2586a2e72324a1af2891460bbde74f163f7c0ee62bf96b", app.state_trie_root.hex()
+            "3fadb2a1744994aa3643db8016d9418dbe0f1548eb55ff879bc034dc6807822c", app.state_trie_root.hex()
         )
 
 

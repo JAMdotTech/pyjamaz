@@ -18,14 +18,14 @@ class PatriciaMerkleTrie:
     @staticmethod
     def _leaf(key: bytes, value: bytes) -> bytes:
         """
-        GP-0.5.0-eq:D.4 | Creates a leaf node encoding the key-value pair.
+        GP-0.6.6-eq:D.4 | Creates a leaf node encoding the key-value pair.
         """
         if len(value) <= 32:
             head = 0b10000000 | len(value)
-            return bytes([head]) + key[:-1] + value.ljust(32, b'\0')
+            return bytes([head]) + key + value.ljust(32, b'\0')
         else:
             head = 0b11000000
-            return bytes([head]) + key[:-1] + blake2b_256_hash(value)
+            return bytes([head]) + key + blake2b_256_hash(value)
 
     @staticmethod
     def _bit(key: bytes, index: int) -> bool:
@@ -36,7 +36,7 @@ class PatriciaMerkleTrie:
 
     def merkle(self, data: List[Tuple[bytes, bytes]], index: int = 0) -> bytes:
         """
-        GP-0.5.0-eq:D.6 |
+        GP-0.6.6-eq:D.6 |
         """
         if len(data) == 0:
             return b'\0' * 32
@@ -47,8 +47,6 @@ class PatriciaMerkleTrie:
             for key, value in data:
                 (right if self._bit(key, index) else left).append((key, value))
             encoded = self._branch(self.merkle(left, index + 1), self.merkle(right, index + 1))
-
-        assert len(encoded) == 64, "Encoded node length must be 64 bytes."
 
         return blake2b_256_hash(encoded)
 

@@ -59,7 +59,7 @@ class PVMOutput:
 
 @dataclass
 class PvmMarshallingOutput:
-    gas_limit: int  #TODO: gas used
+    gas_used: int
     exit_condition: ExitCondition
     context: InvocationContext
 
@@ -185,7 +185,7 @@ class PVMInvocation:
 
         if self.pvm_program is None:
             return PvmMarshallingOutput(
-                gas_limit=gas_limit,
+                gas_used=0,
                 exit_condition=ExitCondition(reason=ExitReason.panic),
                 context=self.invocation_context
             )
@@ -203,7 +203,7 @@ class PVMInvocation:
             output.exit_condition = ExitCondition(reason=ExitReason.panic)
 
         return PvmMarshallingOutput(
-            gas_limit=output.gas_limit,
+            gas_used=gas_limit - max(output.gas_limit, 0),
             exit_condition=output.exit_condition,
             context=output.invocation_context
         )

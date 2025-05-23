@@ -649,9 +649,13 @@ async def replay_traces(
         with open(os.path.join(traces_dir, block_file), 'rb') as fp:
             trace = Trace.from_jam_bytes(JamBytes(fp.read()))
 
+        if trace.pre_state.state_root == bytes(32):
+            # Skip genesis creation
+            continue
+
         if not only_block_import:
 
-            for k, v, name, metadata in trace.pre_state.keyvals:
+            for k, v in trace.pre_state.keyvals:
                 app.state_db.put(bytes(k), bytes(v))
 
             app.state = app.retrieve_jam_state()
@@ -680,15 +684,15 @@ async def replay_traces(
 
                 # Diffing DBs
                 db_dump = {k.hex(): v.hex() for k, v in list(app.state_db)}
-                trace_db = [(k.hex(),v.hex(), name.decode(), metadata.decode()) for k, v, name, metadata in trace.post_state.keyvals]
+                trace_db = [(k.hex(),v.hex()) for k, v in trace.post_state.keyvals]
 
-                for k, v, name, metadata in trace_db:
+                for k, v in trace_db:
                     if k not in db_dump:
-                        logging.warning(f'key {k} is missing ({name} | {metadata})')
+                        logging.warning(f'key {k} is missing')
                     elif v != db_dump[k]:
-                        logging.warning(f'key {k} is different: {db_dump[k]} != {v} ({name} | {metadata})')
+                        logging.warning(f'key {k} is different: {db_dump[k]} != {v}')
 
-                tracedb_keys = {k for k, v, name, metadata in trace_db}
+                tracedb_keys = {k for k, v in trace_db}
 
                 for k, v in db_dump.items():
                     if k not in tracedb_keys:

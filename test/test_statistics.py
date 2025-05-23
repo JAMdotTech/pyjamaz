@@ -53,7 +53,33 @@ class TestStatistics(unittest.TestCase):
 
         extrinsic = Extrinsic.from_json(test_vector["input"]["extrinsic"])
 
-        pre_state_statistics = StatisticsState.from_json(test_vector["pre_state"]["statistics"])
+        pre_state_statistics = StatisticsState.from_json({
+            "vals_current": test_vector["pre_state"]["vals_curr_stats"],
+            "vals_last": test_vector["pre_state"]["vals_last_stats"],
+            "cores": [
+                {
+                    "da_load": 0,
+                    "popularity": 0,
+                    "imports": 0,
+                    "exports": 0,
+                    "extrinsic_size": 0,
+                    "extrinsic_count": 0,
+                    "bundle_size": 0,
+                    "gas_used": 0
+                },
+                {
+                    "da_load": 0,
+                    "popularity": 0,
+                    "imports": 0,
+                    "exports": 0,
+                    "extrinsic_size": 0,
+                    "extrinsic_count": 0,
+                    "bundle_size": 0,
+                    "gas_used": 0
+                }
+            ],
+            "services": [],
+        })
 
         pre_state_timeslot = TimeslotState(number=test_vector["pre_state"]["slot"])
         post_state_timeslot = TimeslotState(number=test_vector["post_state"]["slot"])
@@ -85,11 +111,11 @@ class TestStatistics(unittest.TestCase):
 
         output_json =output.post_state.to_json()
 
-        # TODO temp stats output mod until: https://github.com/davxy/jam-test-vectors/issues/39
-        output_json['services']= []
-
-        self.assertDictEqual(
-            test_vector['post_state']['statistics'], output_json, f'{name} fails'
+        self.assertEqual(
+            test_vector['post_state']['vals_curr_stats'], output_json['vals_current'], f'vals_current fails'
+        )
+        self.assertEqual(
+            test_vector['post_state']['vals_last_stats'], output_json['vals_last'], f'vals_last fails'
         )
 
 

@@ -16,7 +16,7 @@ from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemory
 from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_checkpoint, hc_upgrade, \
-    hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new
+    hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new, hc_provide
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
@@ -128,6 +128,8 @@ class AccumulateInvocationMutator(InvocationMutator):
             case HostCallAccumulate._yield.value:
                 hc_yield(registers, memory, invocation_context, invocation_output, _pvm.log)
 
+            case HostCallAccumulate.provide.value:
+                hc_provide(registers, memory, invocation_context, services, service_id, invocation_output, _pvm.log)
             case _:
                 # TODO: implement B.16: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
                 raise NotImplementedError(f"Accumulate invoked host-call {host_call_instr_nr} not implemented")
@@ -241,7 +243,8 @@ def pvm_invoke_accumulate(
             state_context=state_context,
             deferred_transfers=[],
             accumulation_output=None,
-            gas_limit=0
+            gas_used=0,
+            #preimages=[]
         )
 
     argument_data = AccumulatePvmArguments(
@@ -270,8 +273,8 @@ def pvm_invoke_accumulate(
             state_context=marshalling_output.context.savepoint_context.state_context,
             deferred_transfers=marshalling_output.context.savepoint_context.deferred_transfers,
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
-            gas_limit=marshalling_output.gas_limit,
-            gas_used=gas_limit - marshalling_output.gas_limit
+            gas_used=marshalling_output.gas_used,
+            # preimages=marshalling_output.context.savepoint_context.preimages TODO 0.6.6
         )
         logging.debug(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
@@ -279,8 +282,8 @@ def pvm_invoke_accumulate(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.exit_condition.value,
-            gas_limit=marshalling_output.gas_limit,
-            gas_used=gas_limit - marshalling_output.gas_limit
+            gas_used=marshalling_output.gas_used,
+            # preimages=marshalling_output.context.context.preimages TODO 0.6.6
         )
         logging.debug(f'PVM accumulate succesful, output=0x{output.accumulation_output.hex()}')
     else:
@@ -288,8 +291,8 @@ def pvm_invoke_accumulate(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.context.context.invocation_output,
-            gas_limit=marshalling_output.gas_limit,
-            gas_used=gas_limit - marshalling_output.gas_limit
+            gas_used=marshalling_output.gas_used,
+            # preimages=marshalling_output.context.context.preimages TODO 0.6.6
         )
         logging.debug(f'PVM accumulate succesful, no output')
 
