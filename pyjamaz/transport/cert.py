@@ -22,26 +22,27 @@ def generate_cert(keys, ips: str, alternative_name: str):
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.utcnow() - timedelta(minutes=5))
         .not_valid_after(datetime.utcnow() + timedelta(days=365))
-        .add_extension(
-            x509.BasicConstraints(ca=False, path_length=None), critical=True
-        )
-        .add_extension(
-            x509.KeyUsage(
-                digital_signature=True,       # <- still present
-                key_encipherment=False,
-                content_commitment=False,
-                data_encipherment=False,
-                key_agreement=False,
-                key_cert_sign=False,
-                crl_sign=False,
-                encipher_only=False,
-                decipher_only=False,
-            ),
-            critical=False,
-        )
-        .add_extension(
-            x509.ExtendedKeyUsage([EKU.SERVER_AUTH]), critical=False
-        )
+        # ---- LEAF EXTENSIONS – **none** of them critical -------------------
+        # .add_extension(
+        #     x509.BasicConstraints(ca=False, path_length=None), critical=False
+        # )
+        # .add_extension(
+        #     x509.KeyUsage(
+        #         digital_signature=True,
+        #         key_encipherment=False,
+        #         content_commitment=False,
+        #         data_encipherment=False,
+        #         key_agreement=False,
+        #         key_cert_sign=False,
+        #         crl_sign=False,
+        #         encipher_only=False,
+        #         decipher_only=False,
+        #     ),
+        #     critical=False,
+        # )
+        # .add_extension(
+        #     x509.ExtendedKeyUsage([EKU.SERVER_AUTH]), critical=False
+        # )
         .add_extension(
             x509.SubjectAlternativeName(sans), critical=False
         )

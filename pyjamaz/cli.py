@@ -259,7 +259,7 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                 tg.start_soon(app.pubsub.process_messages)
 
                 # Start WebSocket server
-                #tg.start_soon(start_rpc_server, rpc_server)
+                tg.start_soon(start_rpc_server, rpc_server)
 
                 if block_dir:
                     logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
@@ -453,7 +453,7 @@ async def init_certificate(db_path, seed):
     pk_pem, cert_pem = generate_cert(
         keys,
         ips="127.0.0.1",    #TODO: hardcoded for now
-        alternative_name="e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka@127.0.0.1:40000",
+        alternative_name="e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka",
     )
     pk_file = os.path.join(db_path, "cert.key")
     pem_file = os.path.join(db_path, "cert.pem")
