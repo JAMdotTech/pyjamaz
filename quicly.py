@@ -27,7 +27,7 @@ class ServerProtocol(QuicConnectionProtocol):
     """
 
     def quic_event_received(self, event: QuicEvent) -> None:
-        logging.info("EVENT from %s: %s", event)
+        #logging.info("EVENT from %s: %s", event)
         print("HUH????", event)
 
 
