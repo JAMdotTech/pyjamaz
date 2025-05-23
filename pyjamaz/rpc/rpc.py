@@ -37,14 +37,18 @@ def rpcParameters(app, params):
             "availability_timeout": gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD,
             "val_count": gp_const.VALIDATOR_COUNT,
             "max_input": gp_const.MAXIMUM_SIZE_WORK_PACKAGE,
-            "max_refine_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
+            # "max_refine_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
+            "max_service_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
             "basic_piece_len": gp_const.SIZE_ERASURE_CODED_PIECES,
             "max_imports": gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE,
-            # TODO not yet defined
-            "max_is_authorized_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
+            "max_authorizer_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
+            # "max_is_authorized_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
+            # TODO not yet defined in JIP2
             "max_exports": gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE,
             "max_refine_memory": 2**16,
-            "max_is_authorized_memory": 2**16
+            "max_is_authorized_memory": 2**16,
+            "slot_period_ns": gp_const.SLOT_PERIOD * 1000000000,
+            "epoch_tail_start": gp_const.TICKET_SUBMISSION_END_SLOT,
         }
     }
 
@@ -55,6 +59,11 @@ def rpcBestBlock(app, params):
         app.state.timeslot.number
     ]
 
+def rpcFinalizedBlock(app, params):
+    return [
+        list(app.retrieve_block_hash(app.state.timeslot.number)),
+        app.state.timeslot.number
+    ]
 
 def rpcServiceData(app, params):
     try:
@@ -84,11 +93,11 @@ def rpcStateRoot(app, params):
     return list(app.state_trie_root)
 
 
-def rpcBeefyRoot(app, params):
+def rpcBeefyRoot(app: PyjamazApp, params):
     return list(app.get_beefy_root())
 
 
-def rpcSubmitWorkPackage(app, params):
+def rpcSubmitWorkPackage(app: PyjamazApp, params):
     #TODO: should assign to a specific core
     ex = [bytes(x) for x in params[2]]
     wp = WorkPackage.from_jam_bytes(JamBytes(bytes(params[1])))
@@ -108,10 +117,17 @@ def rpcServiceRequest(app: PyjamazApp, params):
     except StateKeyNoResult:
         return None
 
+def subscribeServiceRequest(app: PyjamazApp, params):
+    try:
+        return app.state.services.retrieve_preimage_availability(params[0], bytes(params[1]), params[2])
+    except StateKeyNoResult:
+        return None
+
 
 rpc_requests = {
     "parameters": rpcParameters,
     "bestBlock": rpcBestBlock,
+    "finalizedBlock": rpcFinalizedBlock,
     "stateRoot": rpcStateRoot,
     "beefyRoot": rpcBeefyRoot,
     "serviceData": rpcServiceData,
@@ -120,4 +136,5 @@ rpc_requests = {
     "submitWorkPackage": rpcSubmitWorkPackage,
     "submitPreimage": rpcSubmitPreimage,
     "serviceRequest": rpcServiceRequest,
+    "subscribeServiceRequest": subscribeServiceRequest,
 }

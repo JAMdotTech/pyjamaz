@@ -392,6 +392,8 @@ def single_step_accumulation(
         for r in w.results:
             if r.service_id == service_id:
                 g += r.accumulate_gas
+                # # TODO removeme
+                # r.result.ok = bytes(list(range(1, 32)))
                 i.append(
                     AccumulationOperand(
                         work_report_hash=w.package_spec.hash,

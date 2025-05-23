@@ -1,4 +1,5 @@
 import itertools
+from base64 import b32encode
 from math import floor
 from typing import List, Optional
 
@@ -152,3 +153,8 @@ def vrf_input_fallback_seal(entropy: bytes) -> bytes:
 
 def format_hash(hash: bytes) -> str:
     return f'0x{hash[:4].hex()}...{hash[-4:].hex()}'
+
+
+def quic_connection_dns(ed25519_key: bytes, host: str, port: int) -> str:
+    dns = b32encode(ed25519_key).decode('utf-8').lower().rstrip("=")
+    return f"e{dns}@{host}:{port}"

@@ -449,7 +449,7 @@ def pvm_invoke_is_authorized(
 
     return PvmIsAuthorizedOutput(
         exit_condition=marshalling_output.exit_condition,
-        gas_used=GAS_INVOKE - marshalling_output.gas_limit
+        gas_used=marshalling_output.gas_used
     )
 
 
