@@ -166,3 +166,19 @@ def quic_peer_id(ed25519_public_key: bytes) -> str:
         n //= 32
 
     return peer_id
+
+
+def ed25519_pubkey_from_peer_id(peer_id: str) -> bytes:
+    if not peer_id.startswith('e') or len(peer_id) != 53:
+        raise ValueError("Invalid peer ID format")
+
+    alphabet = 'abcdefghijklmnopqrstuvwxyz234567'
+    char_to_value = {c: i for i, c in enumerate(alphabet)}
+
+    n = 0
+    for c in reversed(peer_id[1:]):  # Skip the 'e' prefix
+        if c not in char_to_value:
+            raise ValueError(f"Invalid character in peer ID: {c}")
+        n = n * 32 + char_to_value[c]
+
+    return n.to_bytes(32, 'little')
