@@ -155,6 +155,14 @@ def format_hash(hash: bytes) -> str:
     return f'0x{hash[:4].hex()}...{hash[-4:].hex()}'
 
 
-def quic_connection_dns(ed25519_key: bytes, host: str, port: int) -> str:
-    dns = b32encode(ed25519_key).decode('utf-8').lower().rstrip("=")
-    return f"e{dns}@{host}:{port}"
+def quic_peer_id(ed25519_public_key: bytes) -> str:
+    peer_id = 'e'
+
+    alphabet = 'abcdefghijklmnopqrstuvwxyz234567'
+    n = int.from_bytes(ed25519_public_key, "little")
+
+    for i in range(51, -1 , -1):
+        peer_id += alphabet[n % 32]
+        n //= 32
+
+    return peer_id

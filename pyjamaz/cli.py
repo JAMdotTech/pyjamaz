@@ -27,7 +27,7 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.app import Trace, StateDump, ChainspecDump
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
-from pyjamaz.settings import GP_VERSION
+from pyjamaz.settings import GP_VERSION, SOLO_MODE
 from pyjamaz.state.base import state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_preimage_availability
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
@@ -37,7 +37,7 @@ from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.jamnp_s.protocol import JAMNPS
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
-from pyjamaz.utils import format_hash, quic_connection_dns
+from pyjamaz.utils import format_hash, quic_peer_id
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
@@ -86,26 +86,8 @@ def wrap_cli_import_block(traces_dir):
             logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
             logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
 
-            # stats = deepcopy(self.state.statistics)
-            #
-            # stats.services = {
-            #     0: ServiceActivityRecord(
-            #         provided_count=1,
-            #         provided_size=1,
-            #         refinement_count=1,
-            #         refinement_gas_used=1,
-            #         imports=1,
-            #         exports=1,
-            #         extrinsic_size=1,
-            #         extrinsic_count=1,
-            #         accumulate_count=1,
-            #         accumulate_gas_used=1,
-            #         on_transfers_count=1,
-            #         on_transfers_gas_used=1,
-            #     )
-            # }
-
-            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
+            # TODO WouldBlock async issue
+            # await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
 
         except Exception as e:
             # Rollback state
@@ -236,12 +218,11 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
             raise BadParameter(f'DB is not yet initialized; run init first')
 
         app.network_bootstrap = network_bootstrap
-        quic_dns = quic_connection_dns(app.config.keys.ed25519.public_key, host, port)
 
         logging.info(f'🥋 PyJAMaz JAM client')
         logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
         logging.info(f'💾 Storage path: {db_path}')
-        logging.info(f'🌐 Connection DNS {quic_dns}')
+        logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
         logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
         logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
         logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
@@ -607,6 +588,11 @@ async def replay_traces(
         traces_dir, custom_db_path, force_overwrite, skip_block_validation,
         only_block_import, trace_format, seed, chainspec, verbose
 ):
+    # Safety checks
+    if SOLO_MODE is True:
+        raise BadParameter("settings.SOLO_MODE cannot be True when running traces")
+
+
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
