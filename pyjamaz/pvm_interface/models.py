@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, Vec, VarInt64, Bytes, H256
+from jamcodec.types import U32, Vec, VarInt64, Bytes, H256, U16
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand, RefinementContext, WorkPackage, WorkExecResult
@@ -108,8 +108,8 @@ class AccumulateInvocationContext(InvocationContext):
 
 @dataclass
 class AccumulatePvmArguments(Serializable):
-    timeslot: int = field(metadata={'codec': U32})
-    service_id: int = field(metadata={'codec': U32})
+    timeslot: int = field(metadata={'codec': VarInt64})
+    service_id: int = field(metadata={'codec': VarInt64})
     operands: List[AccumulationOperand] = field(metadata={'codec': Vec(AccumulationOperand.to_codec_def())})
 
 
@@ -129,6 +129,7 @@ class OnTransferPvmArguments(Serializable):
 
 @dataclass
 class IsAuthorizedPvmArguments(Serializable):
+    # auth_param: bytes = field(metadata={'codec': Bytes})
     work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
     core_index: int = field(metadata={'codec': VarInt64})
 

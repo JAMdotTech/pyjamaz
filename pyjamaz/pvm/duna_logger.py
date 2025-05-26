@@ -57,21 +57,21 @@ class PVMDunaLog(PVMDebugLog):
         logging.log(log_lvl, f'{prefix_str}{spacing}{msg_str}')
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
-        # regs = self._pvm.get_registers()
-        #
-        # opn = OpcodeNames[self._pvm.opcode]
-        #
-        # inst_str = (
-        #     f"{self._pvm.inst_nr}: "
-        #     f"PC {self._pvm.pc} "
-        #     f"{opn}"
-        # )
-        # spacing = " " * (51 - len(str(inst_str)))
-        # logging.debug(
-        #     f"{inst_str}"
-        #     f"{spacing}"
-        #     f"g={self._pvm.gas} "
-        #     #f"pvmHash={format_hash(self.hash())} "
-        #     f"reg={str(regs)}"
-        # )
+        regs = self._pvm.get_registers()
+
+        opn = OpcodeNames[self._pvm.opcode]
+
+        inst_str = (
+            f"{self._pvm.inst_nr}: "
+            f"PC {self._pvm.pc} "
+            f"{opn} ({self._pvm.opcode})"
+        )
+        spacing = " " * (51 - len(str(inst_str)))
+        logging.info(
+            f"{inst_str}"
+            f"{spacing}"
+            f"g={self._pvm.gas} "
+            #f"pvmHash={format_hash(self.hash())} "
+            f"reg={str(regs)}"
+        )
         pass

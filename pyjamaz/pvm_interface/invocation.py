@@ -430,6 +430,7 @@ def pvm_invoke_is_authorized(
         raise ValueError('work_package.authorization_code is not set')
 
     argument_data = IsAuthorizedPvmArguments(
+        # auth_param=b'',
         work_package=work_package,
         core_index=core_index
     ).to_jam_bytes().to_bytes()
