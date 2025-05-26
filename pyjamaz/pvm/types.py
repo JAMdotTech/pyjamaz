@@ -128,13 +128,15 @@ class MemorySection:
         if self.size > 2**21:
             raise Exception(f'Memory size too large: {self.size}')
         self.contents: npt.NDArray[np.uint8] = np.zeros(self.size, dtype=np.uint8)
+        self.tail = address
         self.update(0, contents)
-        self.tail = address + length
+        self.paged_tail = address + length
 
     def update(self, idx, _bytes):
         # TODO: implement more efficiently
         for c_idx, val in enumerate(_bytes):
             self.contents[idx+c_idx] = np.uint8(val)
+        self.tail += len(_bytes)
 
     def contains(self, addr):
         return self.address <= addr < self.address + self.size
@@ -148,7 +150,7 @@ class MemorySection:
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        if self.address + section_addr + length > self.tail:
+        if self.address + section_addr + length > self.paged_tail:
             return np.uint64(0)
 
         if length == 0:
@@ -216,8 +218,9 @@ class MemorySection:
         if length < 8:
             value = value % (2 ** (length*8))
 
-        # if self.address + section_addr + length > self.tail:
-        #     self.tail = self.address + section_addr + length
+        if self.address + section_addr + length > self.paged_tail:
+            raise PVMMemoryError(f"address > paged_tail: {self.paged_tail}")
+        self.tail += length
 
         if length == 1:
             self.contents[section_addr + 0] = np.uint8(value & 0xFF)
@@ -253,8 +256,6 @@ class PVMMemory:
     _mem_addr: int
     _section: MemorySection
     _section_addr: int
-
-    _sbrk_ptr: int = 0
 
     SIZE:int = 2**32
 
@@ -455,8 +456,9 @@ class PVMMemory:
 
         section.contents[section_addr:section_addr+len(content)] = np.frombuffer(content, dtype=np.uint8)
         end_addr = address + len(content)
-        # if end_addr > section.tail:
-        #     section.tail = end_addr
+        if end_addr > section.paged_tail:
+            raise PVMMemoryError(f"Heap overflow {end_addr} > {section.paged_tail}")
+        section.tail += len(content)
 
 
     def extend_heap(self, size):
@@ -475,7 +477,7 @@ class PVMMemory:
         # return new_paged_size
 
         if size == 0:
-            return self._heap.tail
+            return self._heap.paged_tail
 
         current_heap_ptr = self._heap.tail
         new_heap_ptr = current_heap_ptr + size
@@ -486,9 +488,10 @@ class PVMMemory:
         if new_heap_ptr > next_page_boundary:
             growth = PVMMemory.page_size(new_heap_ptr) - next_page_boundary
             self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
+            self._heap.paged_tail += size
 
         self._heap.tail += size
-        return self._heap.tail
+        return self._heap.paged_tail
 
 
     def reset(self, page_idx: int, nr_pages: int, mode: PVMMemoryMode):
