@@ -255,6 +255,8 @@ class PVMMemory:
     _section: MemorySection
     _section_addr: int
 
+    _sbrk_ptr: int = 0
+
     SIZE:int = 2**32
 
 
@@ -461,17 +463,34 @@ class PVMMemory:
     def extend_heap(self, size):
         # # Note: sbrk opcode
         # # TODO: not sure if this implementation is correct...??!!!!!!
-        if size <= 0: return 0
-        new_paged_size = PVMMemory.page_size(self._heap.size + size)
-        if new_paged_size > self._stack.address:
-            raise PVMMemoryError(f"sbrk heap overflow {new_paged_size} > {self._stack.address}")
+        # if size <= 0: return 0
+        # new_paged_size = PVMMemory.page_size(self._heap.size + size)
+        # if new_paged_size > self._stack.address:
+        #     raise PVMMemoryError(f"sbrk heap overflow {new_paged_size} > {self._stack.address}")
+        #
+        # if new_paged_size > self._heap.size:
+        #     growth = new_paged_size - self._heap.size
+        #     self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
+        #     self._heap.size = new_paged_size
+        #
+        # return new_paged_size
 
-        if new_paged_size > self._heap.size:
-            growth = new_paged_size - self._heap.size
+        if size == 0:
+            return self._sbrk_ptr
+
+        current_heap_ptr = self._sbrk_ptr
+        new_heap_ptr = current_heap_ptr + size
+        if new_heap_ptr >= self._stack.address:
+            return 0
+
+        next_page_boundary = PVMMemory.page_size(current_heap_ptr)
+        if new_heap_ptr > next_page_boundary:
+            growth = PVMMemory.page_size(new_heap_ptr) - next_page_boundary
             self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
-            self._heap.size = new_paged_size
 
-        return new_paged_size
+        self._sbrk_ptr += size
+        return self._sbrk_ptr
+
 
     def reset(self, page_idx: int, nr_pages: int, mode: PVMMemoryMode):
         mem_addr = page_idx * PVM_PAGE_SIZE

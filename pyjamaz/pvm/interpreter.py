@@ -513,11 +513,13 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.leading_zero_bits_64.value:
-                                self.reg[r_d] = count_leading_zeroes(reverse_bits_64(self.reg[r_a]))
+                                #self.reg[r_d] = count_leading_zeroes(reverse_bits_64(self.reg[r_a]))
+                                self.reg[r_d] = count_leading_zeroes(self.reg[r_a])
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.leading_zero_bits_32.value:
-                                self.reg[r_d] = count_leading_zeroes(np.uint32(reverse_bits_32(self.reg[r_a])), 32)
+                                #self.reg[r_d] = count_leading_zeroes(np.uint32(reverse_bits_32(self.reg[r_a])), 32)
+                                self.reg[r_d] = count_leading_zeroes(np.uint32(self.reg[r_a]), 32)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.trailing_zero_bits_64.value:
