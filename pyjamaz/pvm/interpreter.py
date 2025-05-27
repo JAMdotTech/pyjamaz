@@ -259,7 +259,6 @@ class PVMInterpreter:
 
                     #GP_A.5.2
                     case InstructionType.imm:
-                        self.gas += 1
                         l_x = int(min(4, self.inst_arg_len[inst_index]))
                         v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
 

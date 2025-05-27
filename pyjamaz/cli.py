@@ -94,7 +94,7 @@ def wrap_cli_import_block(traces_dir):
             logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state = self.retrieve_jam_state()
-            # raise e
+            raise e
 
     return cli_import_block
 

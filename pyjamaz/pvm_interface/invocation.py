@@ -1,5 +1,4 @@
 import logging
-import typing
 from dataclasses import dataclass
 from typing import List, Dict
 
@@ -276,7 +275,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             # preimages=marshalling_output.context.savepoint_context.preimages TODO 0.6.6
         )
-        logging.debug(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
+        logging.info(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
@@ -285,7 +284,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             # preimages=marshalling_output.context.context.preimages TODO 0.6.6
         )
-        logging.debug(f'PVM accumulate succesful, output=0x{output.accumulation_output.hex()}')
+        logging.info(f'PVM accumulate succesful, output=0x{output.accumulation_output.hex()}')
     else:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
@@ -294,7 +293,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             # preimages=marshalling_output.context.context.preimages TODO 0.6.6
         )
-        logging.debug(f'PVM accumulate succesful, no output')
+        logging.info(f'PVM accumulate succesful, no output')
 
     return output
 
