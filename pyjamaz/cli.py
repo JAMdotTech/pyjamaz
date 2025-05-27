@@ -556,7 +556,7 @@ async def init(
 
     # Store genesis block
     await app.store_block(genesis_block)
-    click.echo(f'📦 Genesis block succesfully saved (hash: {format_hash(genesis_block.header.hash)})')
+    click.echo(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
 
     # Initialize certificate
     await init_certificate(db_path, seed)
@@ -591,7 +591,6 @@ async def replay_traces(
     # Safety checks
     if SOLO_MODE is True:
         raise BadParameter("settings.SOLO_MODE cannot be True when running traces")
-
 
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
@@ -629,14 +628,14 @@ async def replay_traces(
                 await app.update_state_trie()
 
                 assert app.state_trie_root == genesis_state.state_root
-                logging.info(f'🎬 Genesis succesfully saved (state root: {format_hash(app.state_trie_root)})')
+                logging.info(f'🎬 Genesis successfully saved (state root: {format_hash(app.state_trie_root)})')
 
             with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
                 genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
 
                 app.block_context.ancestor_headers.append(genesis_block.header)
 
-                logging.info(f'📦 Genesis block succesfully saved (hash: {format_hash(genesis_block.header.hash)})')
+                logging.info(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
 
     traces_files = await anyio.to_thread.run_sync(
         lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin')})
@@ -654,6 +653,7 @@ async def replay_traces(
 
         if not only_block_import:
 
+            # Update state from trace pre-state
             for k, v in trace.pre_state.keyvals:
                 app.state_db.put(bytes(k), bytes(v))
 
@@ -661,7 +661,7 @@ async def replay_traces(
             await app.update_state_trie()
 
             assert app.state_trie_root == trace.pre_state.state_root
-            logging.info(f'🎬 Pre-state succesfully saved (state root: {format_hash(app.state_trie_root)})')
+            logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
 
             # Add stub parent as ancestor
             stub_parent = Header.default()
@@ -672,7 +672,7 @@ async def replay_traces(
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
 
         await app.import_block(trace.block, dry_run=skip_block_validation)
-        logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
+        logging.info(f'✅ Block {trace.block.header.timeslot} successfully imported.')
 
         if not only_block_import:
 
@@ -702,6 +702,19 @@ async def replay_traces(
                 with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
                     json.dump(app.state.to_json(), file, indent=2)
                 logging.info(f"Current state written to disk: {state_dump_file}")
+
+                # Update state from trace post-state
+                for k, v in trace.post_state.keyvals:
+                    app.state_db.put(bytes(k), bytes(v))
+
+                app.state = app.retrieve_jam_state()
+                await app.update_state_trie()
+
+                state_dump_file = f'trace_post_{block_file.replace(".bin", "")}.json'
+
+                with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
+                    json.dump(app.state.to_json(), file, indent=2)
+                logging.info(f"Trace post-state written to disk: {state_dump_file}")
 
                 if nr < len(traces_files):
                     response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
