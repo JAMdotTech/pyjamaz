@@ -67,7 +67,7 @@ class PVMDunaLog(PVMDebugLog):
         #     f"{opn} ({self._pvm.opcode})"
         # )
         # spacing = " " * (51 - len(str(inst_str)))
-        # logging.info(
+        # logging.debug(
         #     f"{inst_str}"
         #     f"{spacing}"
         #     f"g={self._pvm.gas} "

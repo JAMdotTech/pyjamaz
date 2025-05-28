@@ -129,14 +129,15 @@ class OnTransferPvmArguments(Serializable):
 
 @dataclass
 class IsAuthorizedPvmArguments(Serializable):
-    # auth_param: bytes = field(metadata={'codec': Bytes})
+    # TODO polkajam deviates from GP 0.6.5 (no auth_param and VarInt core_index)
+    auth_param: bytes = field(metadata={'codec': Bytes})
     work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
-    core_index: int = field(metadata={'codec': VarInt64})
+    core_index: int = field(metadata={'codec': U16})
 
 
 @dataclass
 class RefinePvmArguments(Serializable):
-    service_id: int = field(metadata={'codec': U32})  # GP-0.6.4-eq:B.5 w_s
+    service_id: int = field(metadata={'codec': VarInt64})  # GP-0.6.4-eq:B.5 w_s
     payload_blob: bytes = field(metadata={'codec': Bytes}) # GP-0.6.4-eq:B.5 w_y
     work_package_hash: bytes = field(metadata={'codec': H256}) # GP-0.6.4-eq:B.5 H(p)
     refinement_context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()}) # GP-0.6.4-eq:B.5 p_x

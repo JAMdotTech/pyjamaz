@@ -31,70 +31,6 @@ async def create_workpackage(client, instruction: Instruction):
         prerequisites=[]
     )
 
-    WorkPackage.from_json({
-        'auth_code_host': 0,
-        'authorization': '0x',
-        'authorizer': {'code_hash': '0xe29d48602a9bbdb9b19dad28a1c0294087403334ca5bcd2dfaa0f0ec2617e4f6', 'params': '0x'},
-        'context': {
-            'anchor': '0x7f8712c7f0053662d60058129ff1fde66a04bcf2c3f139ef19c7b09d1662db6c',
-            'beefy_root': '0xb4c11951957c6f8f642c4af61cd6b24640fec6dc7fc607ee8206a99e92410d30',
-            'lookup_anchor': '0x09d2d75cda3d9fb7625471b26511dbdf141dc8278fff6c44bc6a2b83170bfdfe',
-            'lookup_anchor_slot': 7301962,
-            'prerequisites': [],
-            'state_root': '0xdfcf3a3920bdb348a18b2b8894172da33aa011c266ddec4355cd41856267206b'
-        },
-        'items': [{
-            'accumulate_gas_limit': 10000000, 'code_hash': '0x222d8ee75d00825472308296fec9e3c978638d564701e33c7f1a051156999abd', 'export_count': 0, 'extrinsic': [], 'import_segments': [], 'payload': '0x009936eca4cd8b1e226364b5d15229daf9c04f2450ce495502f052cdd7ed0429ce040000000000000040420f000000000040420f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000', 'refine_gas_limit': 5000000000, 'service': 0}]})
-
-    work_package = WorkPackage.from_json({
-        'auth_code_host': 0,
-        'authorization': '0x',
-        'authorizer': {'code_hash': '0xabbb966ae117c77bb9ab3b051f20677509ecd0819d0c4294e5d739790383602c', 'params': '0x'},
-        'context': {
-            'anchor': '0xc040027172ff7a9a9af6639ea4b577d450498bdb483419f5a4feb5ccf85ffb57',
-            'beefy_root': '0xfee77aea940e38601cb828d2878308e32529f8382cf85f7a29b75f1c826985bc',
-            'lookup_anchor': '0xc040027172ff7a9a9af6639ea4b577d450498bdb483419f5a4feb5ccf85ffb57',
-            'lookup_anchor_slot': 7300565,
-            'prerequisites': [],
-            'state_root': '0x25335d1767a975e7b41899bada9b34ae5677020a20f9d5a35054cf57a0d619a5'},
-        'items': [
-            {
-                'accumulate_gas_limit': 10000000,
-                'code_hash': '0x81023fd7fb1825e1de728fa24199db7f56b870b89a164d7cab24fbd89263aec6',
-                'export_count': 0,
-                'extrinsic': [],
-                'import_segments': [],
-                'payload': '0x00206556cf29bfba1220f2cfbcefe2c0f22c1cdb677a4e1e2e602572fecbd67a03acc100000000000040420f000000000040420f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
-                'refine_gas_limit': 5000000000, 'service': 0
-            }
-        ]
-    })
-
-    # work_package = WorkPackage.from_json({
-    #     'auth_code_host': 0,
-    #     'authorization': '0x',
-    #     'authorizer': {'code_hash': '0xabbb966ae117c77bb9ab3b051f20677509ecd0819d0c4294e5d739790383602c', 'params': '0x'},
-    #     'context': {
-    #         'anchor': '0x2a73c86ed9457ca43d63930e0178326c56304667966d82de5b8f40e289ac0a89',
-    #         'beefy_root': '0x0000000000000000000000000000000000000000000000000000000000000000',
-    #         'lookup_anchor': '0x2a73c86ed9457ca43d63930e0178326c56304667966d82de5b8f40e289ac0a89',
-    #         'lookup_anchor_slot': 7299673,
-    #         'prerequisites': [],
-    #         'state_root': '0x7f47152e8b3fcce53cefe35b05f7d9d78b4d137e695247618aa4f93d547b2939'},
-    #     'items': [
-    #         {
-    #             'accumulate_gas_limit': 10000000,
-    #             'code_hash': '0x81023fd7fb1825e1de728fa24199db7f56b870b89a164d7cab24fbd89263aec6',
-    #             'export_count': 0,
-    #             'extrinsic': [],
-    #             'import_segments': [],
-    #             'payload': '0x000b77f392fed2d02b19a885627ffc96123394881a44fbb535af31fc3ba8394a740b0000000000000040420f000000000040420f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
-    #             'refine_gas_limit': 5000000000,
-    #             'service': 0
-    #         }
-    #     ]
-    # })
-
     work_package = WorkPackage(
         authorization=b'',
         auth_code_host=0,
@@ -103,7 +39,7 @@ async def create_workpackage(client, instruction: Instruction):
         items=[
             WorkItem(
                 accumulate_gas_limit=10000000,
-                code_hash=bytes.fromhex('222d8ee75d00825472308296fec9e3c978638d564701e33c7f1a051156999abd'),
+                code_hash=bytes.fromhex('6c63e601e26279872a93b9b443aa52ad1c26e795647f63c0b7e0abff0d3680da'),
                 export_count=0,
                 extrinsic=[],
                 import_segments=[],
@@ -128,7 +64,7 @@ async def main():
                 'CreateService': {
                     'code_hash': '0x0b77f392fed2d02b19a885627ffc96123394881a44fbb535af31fc3ba8394a74',
                     'code_len': 11,
-                    'endowment': 0,
+                    'endowment': 100000,
                     'memo': '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
                     'min_item_gas': 1000000,
                     'min_memo_gas': 1000000
