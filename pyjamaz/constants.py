@@ -44,3 +44,5 @@ class MESSAGE_TYPES(Enum):
     STORAGE_ITEM:str = "storage_item"
     PREIMAGE:str = "preimage"
     PREIMAGE_AVAILABILITY:str = "preimage_availability"
+    BEST_BLOCK:str = "best_block"
+    FINALIZED_BLOCK:str = "finalized_block"

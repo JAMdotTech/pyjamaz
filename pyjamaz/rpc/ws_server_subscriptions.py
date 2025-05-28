@@ -4,13 +4,16 @@ from abc import ABC, abstractmethod
 from typing import Any
 from websockets.legacy.server import WebSocketServerProtocol
 
+from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.rpc.ws_common import jsonapi_response, generate_req_id
+from pyjamaz.models.block import Block
+from pyjamaz.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR
 
 
 class WSubscription(ABC):
 
-    def __init__(self, topic: str, params: Any, ws: WebSocketServerProtocol, changes_only = False):
+    def __init__(self, app: PyjamazApp, topic: str, params: Any, ws: WebSocketServerProtocol, changes_only = False):
+        self.app = app
         self.topic = topic
         self.params = params
         self.ws = ws
@@ -46,13 +49,38 @@ class WSubscription(ABC):
         pass
 
 
-class SubscriptionStatistics(WSubscription):
-
+class SubscriptionBestBlock(WSubscription):
     def check_params(self, data: Any):
         return True
 
     def create_data(self, data: Any):
-        return data
+        return {
+            "header_hash": data.header.hash,
+            "slot": data.header.timeslot,
+        }
+
+
+class SubscriptionFinalizedBlock(WSubscription):
+    def check_params(self, data: Any):
+        return True
+
+    def create_data(self, data: Block):
+        return {
+            "header_hash": data.header.hash,
+            "slot": data.header.timeslot,
+        }
+
+
+class SubscriptionStatistics(WSubscription):
+    def check_params(self, data: Any):
+        return True
+
+    def create_data(self, data: Any):
+        return {
+            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "slot": self.app.state.timeslot.number,
+            "value": data
+        }
 
 
 class SubscriptionServiceAccount(WSubscription):
@@ -66,7 +94,12 @@ class SubscriptionServiceAccount(WSubscription):
         return True
 
     def create_data(self, data: Any):
-        return list(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
+        #return list(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
+        return {
+            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "slot": self.app.state.timeslot.number,
+            "value": list(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
+        }
 
 
 class SubscriptionStorageItem(WSubscription):
@@ -81,7 +114,12 @@ class SubscriptionStorageItem(WSubscription):
         return True
 
     def create_data(self, data: Any):
-        return list(data[self.DATA_SERVICE_BLOB])
+        #return list(data[self.DATA_SERVICE_BLOB])
+        return {
+            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "slot": self.app.state.timeslot.number,
+            "value": list(data[self.DATA_SERVICE_BLOB])
+        }
 
 
 class SubscriptionPreimage(WSubscription):
@@ -96,7 +134,12 @@ class SubscriptionPreimage(WSubscription):
         return True
 
     def create_data(self, data: Any):
-        return list(data[self.DATA_PREIMAGE_BLOB])
+        #return list(data[self.DATA_PREIMAGE_BLOB])
+        return {
+            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "slot": self.app.state.timeslot.number,
+            "value": list(data[self.DATA_PREIMAGE_BLOB])
+        }
 
 
 class SubscriptionPreimageAvailability(WSubscription):
@@ -117,12 +160,19 @@ class SubscriptionPreimageAvailability(WSubscription):
         return True
 
     def create_data(self, data: Any):
-        return list(data[self.DATA_PREIMAGE_BLOB])
+        #return list(data[self.DATA_PREIMAGE_BLOB])
+        return {
+            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "slot": self.app.state.timeslot.number,
+            "value": list(data[self.DATA_PREIMAGE_BLOB])
+        }
 
 
 class SubscriptionManager:
 
     SUBSCRIPTION_MAP = {
+        "subscribeBestBlock": SubscriptionBestBlock,
+        "subscribeFinalizedBlock": SubscriptionFinalizedBlock,
         "subscribeStatistics": SubscriptionStatistics,
         "subscribeServiceData": SubscriptionServiceAccount,
         "subscribeServiceValue": SubscriptionStorageItem,
@@ -137,36 +187,46 @@ class SubscriptionManager:
         self.server = server
 
         # Subscribe to all broadcast messages relevant for our RPC
+        self.server.app.pubsub.subscribe(MESSAGE_TYPES.BEST_BLOCK, self.broadcast_best_block)
+        self.server.app.pubsub.subscribe(MESSAGE_TYPES.FINALIZED_BLOCK, self.broadcast_finalized_block)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.STATISTICS, self.broadcast_stats)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.SERVICE_ACCOUNT, self.broadcast_service_data)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.STORAGE_ITEM, self.broadcast_service_value)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.PREIMAGE, self.broadcast_preimage)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.PREIMAGE_AVAILABILITY, self.broadcast_preimage_availability)
 
-    async def subscribe(self, ws: WebSocketServerProtocol, topic: str, params: Any) -> WSubscription:
+    async def subscribe(self, ws: WebSocketServerProtocol, req_id, topic: str, params: Any) -> WSubscription:
         async with self._lock:
             subs = self._topics.setdefault(topic, set())
             sub_cls = self.SUBSCRIPTION_MAP.get(topic, None)
             if not sub_cls:
-                raise Exception(f"Subscription topic not mapped: {topic}")
-            sub = sub_cls(topic, params, ws)
+                raise RPCCallException(RPC_ERROR["UNKNOWN_MESSAGE_TYPE"], req_id, topic, params)
+            sub = sub_cls(self.server.app, topic, params, ws)
             subs.add(sub)
             self._subscriptions[sub.id] = sub
             logging.info(f'{sub.id} subscribed to {topic}')
             return sub
 
-
     async def unsubscribe(self, subscription_id: str):
         async with self._lock:
+            removed_sub_id = None
             sub = self._subscriptions.pop(subscription_id, None)
             if sub is not None:
                 subs = self._topics.get(sub.topic)
                 if subs:
+                    removed_sub_id = sub.id
                     subs.discard(sub)
                     if not subs:
                         del self._topics[sub.topic]
                         logging.info(f'{sub.id} unsubscribed from {sub.topic}')
 
+            return removed_sub_id
+
+    async def broadcast_best_block(self, message):
+        await self.broadcast("subscribeBestBlock", message)
+
+    async def broadcast_finalized_block(self, message):
+        await self.broadcast("subscribeFinalizedBlock", message)
 
     async def broadcast_stats(self, message):
         await self.broadcast("subscribeStatistics", message)
@@ -187,8 +247,6 @@ class SubscriptionManager:
         async with self._lock:
             subs = list(self._topics.get(topic, ()))
 
-        #print("BROADCAST: ",topic, len(subs))
-
         if not subs:
             return
 
@@ -197,8 +255,7 @@ class SubscriptionManager:
                 continue
 
             msg_data = sub.create_data(data)
-            #print(f"SENDING {topic} : {len(msg_data)}")
-            message = jsonapi_response(sub.id, sub.topic, msg_data)
+            message = jsonapi_ws_response(sub.id, sub.topic, msg_data)
             try:
                 await sub.ws.send(message)
             except:

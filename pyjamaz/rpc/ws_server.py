@@ -6,13 +6,14 @@ import typing
 from typing import Set
 import websockets
 
-from pyjamaz.rpc.rpc import rpc_requests, RPC_TYPE_SUBSCRIBE, RPC_TYPE_UNSUBSCRIBE
-from pyjamaz.rpc.ws_common import jsonapi_response, WS_UNKNOW_MESSAGE_TYPE, jsonapi_parse, \
-    RPCCallException, WS_INVALID_MESSAGE_TYPE
+from pyjamaz.rpc.rpc import RPC_REQUESTS, RPC_TYPE_SUBSCRIBE, RPC_TYPE_UNSUBSCRIBE, jsonapi_response, jsonapi_parse, RPCCallException, jsonapi_ws_subscribed, \
+    jsonapi_ws_response, RPC_ERROR, jsonapi_error
 from pyjamaz.rpc.ws_server_subscriptions import SubscriptionManager
+
 
 if typing.TYPE_CHECKING:
     from pyjamaz.app import PyjamazApp
+
 
 class WebSocketServer:
 
@@ -48,51 +49,40 @@ class WebSocketServer:
                         # Process message and send response
                         try:
                             logging.debug(f"INCOMING MESSAGE: {message}")
-                            req_id, rpc_call, params, rpc_type, result = jsonapi_parse(message)
 
-                            #TODO: switch maken en nettere typings
+                            req_id = None
+                            req_id, rpc_call, params, rpc_type, _ = jsonapi_parse(message)
+
                             if rpc_type == RPC_TYPE_SUBSCRIBE:
-                                result = await self.subscriptions.subscribe(websocket, rpc_call, params)
-                                response = jsonapi_response(req_id, rpc_call, result.id)
-                                logging.debug("NEW SUBSCRIPTION")
-                                # TEMP SEND INITIAL VALUE
+                                result = await self.subscriptions.subscribe(websocket, req_id, rpc_call, params)
+                                response = jsonapi_ws_subscribed(req_id, result.id)
+                                logging.debug(f"RPC NEW SUBSCRIPTION request_id={req_id} subscription_id={result.id}")
                                 await websocket.send(response)
                                 response = None
-                                value = rpc_requests[rpc_call](self.app, params)
-                                message = json.dumps({
-                                    "jsonrpc": "2.0",
-                                    "method": rpc_call,
-                                    "params": {
-                                        "subscription": result.id,
-                                        "result": {
-                                            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
-                                            "slot": self.app.state.timeslot.number,
-                                            "value": value
-                                        }
-                                    }
-                                })
-                                await result.send(message)
-
-                                logging.debug("SENT INITIAL VALUE")
+                                # Directly trigger a first response
+                                value = RPC_REQUESTS[rpc_call](self.app, params)
+                                await result.send(jsonapi_ws_response(result.id, rpc_call, value))
 
                             elif rpc_type == RPC_TYPE_UNSUBSCRIBE:
-                                await self.subscriptions.unsubscribe(params[0])
-                                response = jsonapi_response(req_id, rpc_call, None)
+                                sub_id = await self.subscriptions.unsubscribe(params[0])
+                                response = jsonapi_response(req_id, rpc_call, sub_id is not None)
 
                             else:
-                                resp_data = rpc_requests[rpc_call](self.app, params)
+                                resp_data = RPC_REQUESTS[rpc_call](self.app, params)
                                 response = jsonapi_response(req_id, rpc_call, resp_data)
 
                         except RPCCallException as e:
                             logging.error(f"Invalid RPC method: {e.reason}")
-                            if e.reason == WS_UNKNOW_MESSAGE_TYPE:
-                                return jsonapi_response(e.req_id, WS_UNKNOW_MESSAGE_TYPE, e.params)
+                            if e.reason in RPC_ERROR:
+                                return jsonapi_error(req_id or e.req_id, RPC_ERROR[e.reason])
+                            else:
+                                return jsonapi_error(req_id or e.req_id, RPC_ERROR["PARSE_ERROR"])
 
                         except Exception as e:
                             logging.error(f"Invalid message: {message}")
                             logging.error(e)
                             try:
-                                return jsonapi_response(req_id, WS_INVALID_MESSAGE_TYPE, message)
+                                return jsonapi_error(None, RPC_ERROR["PARSE_ERROR"])
                             except Exception as e:
                                 pass
 
@@ -185,5 +175,3 @@ async def start_rpc_server(server: WebSocketServer):
         await server.shutdown()
         logging.info("Server stopped")
         raise Exception("SIGKILL, fix nicer! :)")
-
-    logging.info("WebSocket server stopped.")

@@ -3,11 +3,10 @@ from typing import List, Optional, Tuple, Dict
 import websockets
 import asyncio
 
-from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import Authorizer, RefinementContext, WorkPackage, WorkItem
 from pyjamaz.models.state import ServiceAccount
 from pyjamaz.rpc.interface import RPCMethods
-from pyjamaz.rpc.ws_common import generate_req_id, jsonapi_parse, RPCCallException, jsonapi_request
+from pyjamaz.rpc.rpc import generate_req_id, jsonapi_parse, RPCCallException, jsonapi_request
 
 
 class WebsocketClient(RPCMethods):
@@ -38,7 +37,7 @@ class WebsocketClient(RPCMethods):
 
             # Note: we can always trust we're dealing with one message at a time: https://stackoverflow.com/a/21025321
             try:
-                req_id, rpc_call, params, is_subscription, result = jsonapi_parse(data)
+                req_id, rpc_call, params, req_type, result = jsonapi_parse(data)
 
                 if req_id and req_id in self.pending:
                     self.pending[req_id].set_result(result)

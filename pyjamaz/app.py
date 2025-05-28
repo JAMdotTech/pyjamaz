@@ -13,6 +13,7 @@ from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
 from jamcodec.types import Vec, BitArray, U32
 
+from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult
 from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
@@ -34,7 +35,7 @@ from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Ti
     Assurance, Preimage
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, SafroleState, EntropyState
 from pyjamaz.models.stf_output import STFOutput
-from pyjamaz.transport.pubsub import PubSub
+from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash
 from pyjamaz.validation import BlockValidation
 
@@ -620,6 +621,8 @@ class PyjamazApp:
 
         await self.update_state_trie()
         await self.store_block(block)
+        await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.BEST_BLOCK, data=block))
+        await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))    #TODO: placeholder for now, move when implemented
         return output
 
     async def store_block(self, block: Block):

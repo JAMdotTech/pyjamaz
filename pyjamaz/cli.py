@@ -87,7 +87,7 @@ def wrap_cli_import_block(traces_dir):
             logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
 
             # TODO WouldBlock async issue
-            # await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
+            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
 
         except Exception as e:
             # Rollback state
