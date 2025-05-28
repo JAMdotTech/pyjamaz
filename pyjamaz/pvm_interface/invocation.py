@@ -21,6 +21,7 @@ from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
 from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_fetch, hc_export, hc_machine, hc_peek, \
     hc_poke, hc_zero, hc_void, hc_invoke, hc_expunge
+from pyjamaz.utils import format_hash
 
 
 @dataclass
@@ -284,7 +285,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             # preimages=marshalling_output.context.context.preimages TODO 0.6.6
         )
-        logging.info(f'PVM accumulate succesful, output=0x{output.accumulation_output.hex()}')
+        logging.info(f'PVM accumulate successful, output=0x{output.accumulation_output.hex()}')
     else:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
@@ -293,7 +294,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             # preimages=marshalling_output.context.context.preimages TODO 0.6.6
         )
-        logging.info(f'PVM accumulate succesful, no output')
+        logging.info(f'PVM accumulate successful, no output')
 
     return output
 
@@ -323,7 +324,7 @@ def pvm_invoke_on_transfer(
     gas_used = 0
 
     if len(deferred_transfers) > 0:
-        logging.debug(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
+        logging.info(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
 
         # Update balance
         service_account.balance += sum([t.amount for t in deferred_transfers])
@@ -429,7 +430,7 @@ def pvm_invoke_is_authorized(
         raise ValueError('work_package.authorization_code is not set')
 
     argument_data = IsAuthorizedPvmArguments(
-        # auth_param=b'',
+        auth_param=b'',
         work_package=work_package,
         core_index=core_index
     ).to_jam_bytes().to_bytes()
@@ -439,13 +440,19 @@ def pvm_invoke_is_authorized(
         invocation_mutator=IsAuthorizedInvocationMutator()
     )
 
+    work_package_hash = work_package.hash()
+
+    logging.info(f'PVM is-auth: wp={format_hash(work_package_hash)} c={core_index} a={argument_data.hex()}')
+
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=work_package.authorization_code,
         start_offset=0,
         gas_limit=GAS_INVOKE,
         argument_data=argument_data,
-        program_metadata=f"is-authorized p_m={work_package.authorization_metadata} c={core_index}".encode()
+        program_metadata=b"auth"
     )
+
+    logging.info(f'PVM is-auth result: exit={marshalling_output.exit_condition.reason} v={marshalling_output.exit_condition.value}')
 
     return PvmIsAuthorizedOutput(
         exit_condition=marshalling_output.exit_condition,
@@ -661,13 +668,17 @@ def pvm_invoke_refine(
     preimage = Preimage.extract(preimage_data)
     # preimage.serialized_program = preimage_data
 
+    work_package_hash = work_package.hash()
+
     argument_data = RefinePvmArguments(
         service_id=service_account_id,
         payload_blob=work_item.payload,
-        work_package_hash=blake2b_256_hash(work_package.to_jam_bytes().to_bytes()),
+        work_package_hash=work_package_hash,
         refinement_context=work_package.context,
         authorization_code_hash=work_package.authorizer.code_hash
     ).to_jam_bytes().to_bytes()
+
+    logging.debug(f'PVM refine start: wp={format_hash(work_package_hash)} a={argument_data.hex()}')
 
     pvm_invocation = PVMInvocation(
         invocation_context=RefineInvocationContext(
@@ -695,8 +706,12 @@ def pvm_invoke_refine(
         program_metadata=preimage.metadata
     )
 
+    work_exec_result = WorkExecResult.from_exit_condition(marshalling_output.exit_condition)
+
+    logging.info(f'PVM refine work result: {work_exec_result.to_json()}')
+
     return PvmRefineOutput(
-        work_exec_result=WorkExecResult.from_exit_condition(marshalling_output.exit_condition),
+        work_exec_result=work_exec_result,
         export_segments=marshalling_output.context.export_segments,
-        gas_used=GAS_INVOKE - marshalling_output.gas_limit
+        gas_used=marshalling_output.gas_used
     )

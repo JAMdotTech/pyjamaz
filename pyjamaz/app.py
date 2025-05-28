@@ -163,7 +163,7 @@ class PyjamazApp:
                 continue
 
             await self.import_block(block)
-            logging.debug(f'✅ Block {block.header.timeslot} succesfully imported from process_import_queue.')
+            logging.debug(f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')
 
 
     async def initialize(self):
@@ -917,7 +917,7 @@ class PyjamazApp:
         with open(os.path.join(traces_dir, f'{base_filename}.bin'), 'wb') as file:
             file.write(trace.to_jam_bytes().to_bytes())
 
-        logging.info(f"💾 Succesfully stored trace data {base_filename}.bin")
+        logging.info(f"💾 successfully stored trace data {base_filename}.bin")
 
     def get_beefy_root(self) -> bytes:
         # TODO review if this is desired, or keep a separate bookkeeping, like state root
@@ -946,7 +946,7 @@ class PyjamazApp:
         self.work_packages.append(work_package)
         for extrinsic in extrinsics:
             self.work_package_extrinsics[blake2b_256_hash(extrinsic)] = extrinsic
-        logging.info(f"Added work package: {format_hash(work_package.hash())}")
+        logging.info(f"📥 Added work package to queue: {format_hash(work_package.hash())}")
 
     async def process_work_package(self, work_package: WorkPackage) -> WorkReport:
         if self.get_core_assigment() is None:
