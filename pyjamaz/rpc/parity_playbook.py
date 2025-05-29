@@ -9,7 +9,7 @@ from pyjamaz.pvm.utils import count_leading_zeroes, count_trailing_zeroes, rever
 from pyjamaz.rpc.ws_client import WebsocketClient
 
 
-async def create_workpackage(client, instruction: Instruction):
+async def create_bootservice_workpackage(client, instruction: Instruction):
     best_block = await client.bestBlock()
     block_hash = best_block[0]
     block_timeslot = best_block[1]
@@ -55,11 +55,12 @@ async def create_workpackage(client, instruction: Instruction):
 
 
 async def main():
+
     async with WebsocketClient("ws://127.0.0.1:19800") as client:
 
         bootstrap_service_id = 0
 
-        instruction = Instruction.from_json(
+        create_instruction = Instruction.from_json(
             {
                 'CreateService': {
                     'code_hash': '0x0b77f392fed2d02b19a885627ffc96123394881a44fbb535af31fc3ba8394a74',
@@ -72,7 +73,19 @@ async def main():
             }
         )
 
-        work_package = await create_workpackage(client, instruction)
+        transfer_instruction = Instruction.from_json({'Transfer': {
+            'destination': 3081892978,
+            'amount': 66666666,
+            'gas_limit': 1000000,
+            'memo': '0x0102030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+        }})
+
+        random_storage_instruction = Instruction.from_json({'RandomStorageRefine': {
+            'seed': 3081892978,
+            'nb_items': 6
+        }})
+
+        work_package = await create_bootservice_workpackage(client, create_instruction)
 
         # block_hash = work_package.context.anchor
         #
@@ -131,7 +144,7 @@ async def main():
 
 
         # CoreVM service is activated, create a new workpackage for corevm and provide corevm_child code blob
-        work_package = await create_workpackage(client)
+        work_package = await create_bootservice_workpackage(client)
         block_hash = work_package.context.anchor
         extrinsic = blake2b_256_hash(core_vm_child_blob) + int(len(core_vm_child_blob)).to_bytes(
             length=4, byteorder='little'
@@ -174,7 +187,7 @@ async def main():
                 break
         print("core_vm_child preimage available")
 
-        work_package = await create_workpackage(client)
+        work_package = await create_bootservice_workpackage(client)
         block_hash = work_package.context.anchor
         extrinsic = blake2b_256_hash(core_vm_child_blob) + int(len(core_vm_child_blob)).to_bytes(
             length=4, byteorder='little'

@@ -1,3 +1,4 @@
+from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE
 from pyjamaz.merkle import WellBalancedMerkleTree
 from pyjamaz.models.common import WorkReport, WorkPackage, WorkDigest, WorkExecResult, WorkPackageSpec
@@ -23,7 +24,7 @@ def work_result_computation(
     auth_output = pvm_invoke_is_authorized(work_package, core_index)
 
     if type(auth_output.exit_condition.value) is not bytes:
-        raise ValueError("unauthorized") # TODO
+        raise ProcessWorkpackageError("Unauthorized")
 
     refine_outputs = []
 

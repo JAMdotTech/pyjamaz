@@ -14,7 +14,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import Vec, BitArray, U32
 
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult
+from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError
 from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
@@ -52,6 +52,8 @@ class Keys(Serializable):
         return cls(
             bandersnatch=BandersnatchKeypair.from_seed(seed),
             ed25519=Ed25519Keypair.from_seed(seed)
+            # bandersnatch = BandersnatchKeypair.from_seed(blake2b_256_hash(b"jam_val_key_bandersnatch" + seed)),
+            # ed25519 = Ed25519Keypair.from_seed(blake2b_256_hash(b"jam_val_key_ed25519" + seed))
         )
 
 
@@ -953,7 +955,7 @@ class PyjamazApp:
 
     async def process_work_package(self, work_package: WorkPackage) -> WorkReport:
         if self.get_core_assigment() is None:
-            raise ValueError("Cannot process work package: no core assignment")
+            raise ProcessWorkpackageError("Cannot process work package: no core assignment")
 
         # Set code
         work_package.set_authorization_code(self.state.services)
@@ -1214,11 +1216,15 @@ class PyjamazApp:
 
             work_package = self.work_packages.pop(0)
 
-            work_report = await self.process_work_package(work_package)
+            try:
+                work_report = await self.process_work_package(work_package)
+                await self.guarantee_work_report(work_report, timeslot)
+                return work_report
 
-            await self.guarantee_work_report(work_report, timeslot)
+            except ProcessWorkpackageError as e:
+                logging.error(f"Error processing work package {format_hash(work_package.hash())}: {e}")
 
-            return work_report
+        return None
 
 
     async def process_assurances(self):

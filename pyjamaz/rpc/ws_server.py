@@ -3,6 +3,7 @@ import json
 import signal
 import logging
 import typing
+from asyncio import CancelledError
 from typing import Set
 import websockets
 
@@ -107,7 +108,7 @@ class WebSocketServer:
 
     async def shutdown(self):
         """Gracefully shutdown the server"""
-        logging.info("Shutting down server...")
+        logging.debug("Shutting down server...")
         self.shutdown_event.set()
 
         # Close all client connections
@@ -121,7 +122,7 @@ class WebSocketServer:
             self.server.close()
             await self.server.wait_closed()
 
-        logging.info("Server shutdown complete")
+        logging.debug("Server shutdown complete")
 
 
     async def start(self):
@@ -174,4 +175,4 @@ async def start_rpc_server(server: WebSocketServer):
     finally:
         await server.shutdown()
         logging.info("Server stopped")
-        raise Exception("SIGKILL, fix nicer! :)")
+        raise CancelledError()

@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import List, Dict
 
+from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage, WorkExecResult
@@ -366,7 +367,7 @@ def pvm_invoke_on_transfer(
             )
 
             service_account = marshalling_output.context.service_account
-            gas_used = gas_limit - marshalling_output.gas_limit
+            gas_used = marshalling_output.gas_used
 
     return PvmOnTransferOutput(
         service_account=service_account,
@@ -427,7 +428,7 @@ def pvm_invoke_is_authorized(
     """
 
     if work_package.authorization_code is None:
-        raise ValueError('work_package.authorization_code is not set')
+        raise ProcessWorkpackageError('work_package.authorization_code is not set')
 
     argument_data = IsAuthorizedPvmArguments(
         auth_param=b'',
