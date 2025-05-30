@@ -6,13 +6,14 @@ from jamcodec.types import U64
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
 from pyjamaz.models.common import WorkPackage
-from pyjamaz.models.state import RefineInvocationContext, ServicesState, IntegratedPVM
+from pyjamaz.models.state import ServicesState
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram, PVMCode
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult, InnerPVMResult
+from pyjamaz.pvm_interface.models import RefineInvocationContext
 
 
 def hc_historical_lookup(
@@ -156,13 +157,13 @@ def hc_export(
 
     if data_segment is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-    elif export_segment_offset + len(m_e.data_segments) >= MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE:
+    elif export_segment_offset + len(m_e.export_segments) >= MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.FULL.value
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = export_segment_offset + len(m_e.data_segments)
-        m_e.data_segments.append(data_segment)
+        invocation_output.registers[7] = export_segment_offset + len(m_e.export_segments)
+        m_e.export_segments.append(data_segment)
 
 
 def hc_machine(

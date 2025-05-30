@@ -4,7 +4,6 @@ from typing import List, Dict
 
 from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
-from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage, WorkExecResult
 from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
     ServiceAccount, DeferredTransfer, ServicesState

@@ -145,7 +145,7 @@ class ImportSegment(Serializable):
         GP-0.6.4-eq:14.3 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
     """
     tree_root: bytes = field(metadata={'codec': H256})
-    index: int = field(metadata={'codec': VarInt64})
+    index: int = field(metadata={'codec': U16})
 
 
 @dataclass

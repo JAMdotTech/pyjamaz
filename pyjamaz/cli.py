@@ -94,14 +94,13 @@ def wrap_cli_import_block(traces_dir):
             logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state = self.retrieve_jam_state()
-            raise e
+            # raise e
 
     return cli_import_block
 
 
 def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
     async def produced_block_jamnp(block: Block):
-        await app.import_block(block)
         await np_protocol.broadcast_block(block)
 
     return produced_block_jamnp
@@ -374,6 +373,7 @@ async def timeslot_ticker(app: PyjamazApp):
                 app.state = app.retrieve_jam_state()
                 # TODO Make transactional
                 app.extrinsic.clear_tickets()
+                # raise e
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
@@ -672,6 +672,9 @@ async def replay_traces(
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
 
         await app.import_block(trace.block, dry_run=skip_block_validation)
+        # Update Patricia Trie
+        await app.update_state_trie()
+
         logging.info(f'✅ Block {trace.block.header.timeslot} successfully imported.')
 
         if not only_block_import:

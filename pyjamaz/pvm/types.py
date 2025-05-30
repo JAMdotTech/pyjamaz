@@ -52,9 +52,9 @@ class PVMLogger(ABC):
 
 
 class PVMMemoryMode(Enum):
-    non_readable:int        = 0
-    readable:int            = 1
-    writable:int            = 2
+    non_readable        = 0
+    readable            = 1
+    writable            = 2
 
 
 @dataclass
@@ -315,13 +315,13 @@ class PVMMemory:
             logging.debug(msg)
             raise PanicError(msg)
 
-        if addr >= self._heap.address and addr <= self._heap.paged_tail:
+        if self._heap and addr >= self._heap.address and addr <= self._heap.paged_tail:
             return self._heap
-        elif addr >= self._stack.address and addr <= self._stack.paged_tail:
+        elif self._stack and addr >= self._stack.address and addr <= self._stack.paged_tail:
             return self._stack
-        elif addr >= self._rom.address and addr <= self._rom.paged_tail:
+        elif self._rom and addr >= self._rom.address and addr <= self._rom.paged_tail:
             return self._rom
-        elif addr >= self._args.address and addr <= self._args.paged_tail:
+        elif self._args and addr >= self._args.address and addr <= self._args.paged_tail:
             return self._args
         else:
             return None

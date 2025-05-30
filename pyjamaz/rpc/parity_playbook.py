@@ -85,6 +85,16 @@ async def main():
             'nb_items': 6
         }})
 
+        export_instruction = Instruction.from_json(
+            {'Export': {
+                'data': [b'test'],
+            }}
+        )
+
+        zombify_instruction = Instruction.from_json({'Zombify': {'ejector': 0}})
+
+        eject_instruction = Instruction.from_json({'Eject': {'target': 0, 'code_hash': '0x6c63e601e26279872a93b9b443aa52ad1c26e795647f63c0b7e0abff0d3680da'}})
+
         work_package = await create_bootservice_workpackage(client, create_instruction)
 
         # block_hash = work_package.context.anchor

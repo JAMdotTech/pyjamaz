@@ -74,6 +74,11 @@ class WebSocketServer:
 
                         except RPCCallException as e:
                             logging.error(f"Invalid RPC method: {e.reason}")
+
+                            if type(e.reason) == dict:
+                                # TODO refactor?
+                                return jsonapi_error(req_id or e.req_id, e.reason, None)
+
                             if e.reason in RPC_ERROR:
                                 return jsonapi_error(req_id or e.req_id, RPC_ERROR[e.reason])
                             else:
