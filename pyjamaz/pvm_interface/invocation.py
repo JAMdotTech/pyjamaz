@@ -324,7 +324,7 @@ def pvm_invoke_on_transfer(
     gas_used = 0
 
     if len(deferred_transfers) > 0:
-        logging.info(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
+        logging.info(f'💸 Processing transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
 
         # Update balance
         service_account.balance += sum([t.amount for t in deferred_transfers])
@@ -442,7 +442,7 @@ def pvm_invoke_is_authorized(
 
     work_package_hash = work_package.hash()
 
-    logging.info(f'PVM is-auth: wp={format_hash(work_package_hash)} c={core_index} a={argument_data.hex()}')
+    logging.debug(f'PVM is-auth: wp={format_hash(work_package_hash)} c={core_index} a={argument_data.hex()}')
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=work_package.authorization_code,
@@ -452,7 +452,7 @@ def pvm_invoke_is_authorized(
         program_metadata=b"auth"
     )
 
-    logging.info(f'PVM is-auth result: exit={marshalling_output.exit_condition.reason} v={marshalling_output.exit_condition.value}')
+    logging.debug(f'PVM is-auth result: exit={marshalling_output.exit_condition.reason} v={marshalling_output.exit_condition.value}')
 
     return PvmIsAuthorizedOutput(
         exit_condition=marshalling_output.exit_condition,
@@ -708,7 +708,7 @@ def pvm_invoke_refine(
 
     work_exec_result = WorkExecResult.from_exit_condition(marshalling_output.exit_condition)
 
-    logging.info(f'PVM refine work result: {work_exec_result.to_json()}')
+    logging.debug(f'PVM refine work result: {work_exec_result.to_json()}')
 
     return PvmRefineOutput(
         work_exec_result=work_exec_result,

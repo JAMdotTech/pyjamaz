@@ -66,7 +66,8 @@ class BlockContext:
     def reset(self):
         self.guarantor_assignments = None
         self.prev_guarantor_assignments = None
-        self.seal_vrf_output = bytes(32)
+        # TODO refactor
+        # self.seal_vrf_output = bytes(32)
         self.available_work_reports = None
         self.ready_work_reports = None
         self.queued_work_reports = None

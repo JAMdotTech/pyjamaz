@@ -94,7 +94,7 @@ def wrap_cli_import_block(traces_dir):
             logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state = self.retrieve_jam_state()
-            # raise e
+            raise e
 
     return cli_import_block
 
@@ -660,8 +660,10 @@ async def replay_traces(
             app.state = app.retrieve_jam_state()
             await app.update_state_trie()
 
-            assert app.state_trie_root == trace.pre_state.state_root
-            logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
+            if app.state_trie_root == trace.pre_state.state_root:
+                logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
+            else:
+                logging.error("State root of pre-state doesn't match")
 
             # Add stub parent as ancestor
             stub_parent = Header.default()

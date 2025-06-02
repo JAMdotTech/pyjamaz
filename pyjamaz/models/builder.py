@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
+from typing import Optional
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, U64, Array, U8, U32, Null, Vec, Bytes
+from jamcodec.types import H256, U64, Array, U8, U32, Null, Vec, Bytes, Option
 
 
 @dataclass
@@ -18,6 +19,7 @@ class CreateServiceInstruction(Serializable):
     endowment: int = field(metadata={'codec': U64})
     # The memo to be attached to the transfer.
     memo: bytes = field(metadata={'codec': Array(U8, 128)})
+    registration: Optional[bytes] = field(metadata={'codec': Option(Bytes)})
 
 
 @dataclass

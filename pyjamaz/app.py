@@ -266,7 +266,7 @@ class PyjamazApp:
 
         return self.state.timeslot.number // EPOCH_TIMESLOTS != slotnumber // EPOCH_TIMESLOTS
 
-    async def state_transition(self, block: 'Block', transaction: Transaction, dry_run=False) -> 'STFOutput':
+    async def state_transition(self, block: 'Block', transaction: Transaction, produce=False) -> 'STFOutput':
         """
         GP-0.6.4-eq:4.1 (Υ, σ') | Block Level State Transition Function for the JAM state.
 
@@ -277,7 +277,7 @@ class PyjamazApp:
         block: Block
             Block Data | GP-0.5.0-eq:4.1 (bold_B)
         transaction: Transaction
-        dry_run: bool
+        produce: bool
 
         Returns
         ----------
@@ -287,6 +287,10 @@ class PyjamazApp:
         # Reset block context
         self.block_context.reset()
         self.block_context.state_root = self.state_trie_root
+
+        if not produce:
+            # todo refactor
+            self.block_context.seal_vrf_output = bytes(96)
 
         # Update app context
         self.app_context.transaction = transaction
@@ -339,9 +343,8 @@ class PyjamazApp:
             pre_state_safrole=pre_state_safrole
         )
 
-        if not dry_run:
-            # Set H_a
-            block.header.set_author_bandersnatch_key(post_state_validator_pool=validator_pool_output.post_state)
+        # Set H_a
+        block.header.set_author_bandersnatch_key(post_state_validator_pool=validator_pool_output.post_state)
 
         # Timeslot STF Block Data | GP-0.5.0-eq:4.5
         timeslot_output = self.components.timeslot.state_transition(
@@ -402,7 +405,7 @@ class PyjamazApp:
 
         # Validate quality of header data
 
-        if not dry_run:
+        if not produce:
             block_validation.validate_header(
                 header=block.header,
                 pre_state_timeslot=pre_state_timeslot,
@@ -420,7 +423,7 @@ class PyjamazApp:
             pre_state_entropy=pre_state_entropy
         )
 
-        if dry_run:
+        if produce:
             block.header.epoch_marker = safrole_output.epoch_mark
             block.header.tickets_marker = safrole_output.tickets_mark
             block.header.offenders_marker = disputes_output.offenders_mark
@@ -641,7 +644,7 @@ class PyjamazApp:
 
         with self.state_db.transaction() as transaction:
 
-            output = await self.state_transition(block, transaction, dry_run=dry_run)
+            output = await self.state_transition(block, transaction, produce=False)
 
         await self.process_block(block)
 
@@ -795,13 +798,13 @@ class PyjamazApp:
         bytes
         """
 
-        seal_vrf_output = self.config.keys.bandersnatch.vrf_output(
+        self.block_context.seal_vrf_output = self.config.keys.bandersnatch.vrf_output(
             self.get_block_seal_vrf_input(timeslot, safrole_state, entropy_state)
         )
 
         return ietf_vrf_sign(
             self.config.keys.bandersnatch.private_key,
-            b"jam_entropy" + seal_vrf_output,
+            b"jam_entropy" + self.block_context.seal_vrf_output,
             b""
         )
 
@@ -905,17 +908,18 @@ class PyjamazApp:
             header=header,
             extrinsic=extrinsic
         )
+
+        if self.config.create_traces:
+            pre_state = await self.create_state_dump()
+
         with self.state_db.transaction() as transaction:
 
-            if self.config.create_traces:
-                pre_state = await self.create_state_dump()
+            await self.state_transition(block, transaction, produce=True)
 
-            await self.state_transition(block, transaction, dry_run=True)
+        await self.process_block(block)
 
-            if self.config.create_traces:
-                await self.store_trace(pre_state, block, self.config.create_traces)
-
-            await self.process_block(block)
+        if self.config.create_traces:
+            await self.store_trace(pre_state, block, self.config.create_traces)
 
         return block
 

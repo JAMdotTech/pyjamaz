@@ -484,7 +484,6 @@ class PVMMemory:
         return PVM_INIT_ZONE_SIZE * ceil(items / PVM_INIT_ZONE_SIZE)
 
 
-
 @dataclass
 class PVMProgram(Serializable):
     """
@@ -568,7 +567,9 @@ class PVMProgram(Serializable):
                 if metadata in DEBUG_PROGRAM_OVERRIDE:
                     with open(DEBUG_PROGRAM_OVERRIDE.get(metadata)['file'], 'rb') as fp:
                         jam_bytes = JamBytes(fp.read())
-                    override_heap_mem_pages = DEBUG_PROGRAM_OVERRIDE.get(metadata)['heap_mem_pages']
+                        override_heap_mem_pages = DEBUG_PROGRAM_OVERRIDE.get(metadata)['heap_mem_pages']
+
+                        metadata = Bytes.decode(jam_bytes)
 
             # GP?? |o|
             pvm_rom_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')

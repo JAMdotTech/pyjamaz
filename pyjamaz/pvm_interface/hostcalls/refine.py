@@ -119,7 +119,7 @@ def hc_fetch(
     elif w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
         bold_v = work_item_segs[w11][w12]
 
-    elif w10 == 6 and w11 < len(work_item_segs[w11]):
+    elif w10 == 6 and work_item_index < len(work_item_segs) and w11 < len(work_item_segs[work_item_index]):
         bold_v = work_item_segs[work_item_index][w11]
 
     elif w10 == 7:

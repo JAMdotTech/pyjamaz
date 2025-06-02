@@ -144,7 +144,7 @@ class Entropy(StateComponent):
         if len(header.entropy_source) == 32:
             return header.entropy_source
 
-        if header.author_bandersnatch_key is None or self.block_context.seal_vrf_output == bytes(32):
+        if header.author_bandersnatch_key is None or self.block_context.seal_vrf_output == bytes(96):
             return bytes(32)
 
         return ietf_vrf_verify(
