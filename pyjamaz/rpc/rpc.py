@@ -256,6 +256,21 @@ def rpcServiceRequest(app: PyjamazApp, params):
         return None
 
 
+def rpcFetchSegments(app: PyjamazApp, params):
+    """
+    TODO:
+    "error": {
+        "code": 4000,
+        "message": "Data recovery error: Data can not be recovered"
+    }
+    """
+    return []
+
+
+def rpcSyncState(app: PyjamazApp, params):
+    return {"num_peers": 0, "status": "Completed"} #"InProgress"
+
+
 def rpcSubscribeBestBlock(app: PyjamazApp, params):
     # Note: initial response after subscription
     data = rpcBestBlock(app, params)
@@ -290,13 +305,14 @@ def rpcSubscribeStatistics(app: PyjamazApp, params):
     except StateKeyNoResult:
         return None
 
+
 def rpcSubscribeServiceRequest(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
             "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
             "slot": app.state.timeslot.number,
-            "value": rpcServiceRequest(app, params)
+            "value": rpcServiceRequest(app, [None, params[0], params[1], params[2]])
         }
     except StateKeyNoResult:
         return None
@@ -325,6 +341,13 @@ def rpcSubscribeServicePreimage(app: PyjamazApp, params):
     except StateKeyNoResult:
         return None
 
+
+def rpcSubscribeSyncStatus(app: PyjamazApp, params):
+    # Note: initial response after subscription
+    try:
+        return "Completed" #"InProgress"
+    except StateKeyNoResult:
+        return None
 
 
 # Note: The actual (realtime) (un)subscription handlers are mapped in ws_server_subscriptions.py::SubscriptionManager
@@ -366,4 +389,12 @@ RPC_REQUESTS = {
     "submitWorkPackage": rpcSubmitWorkPackage,
     "submitPreimage": rpcSubmitPreimage,
     "listServices": rpcListServices,
+    "fetchSegments": rpcFetchSegments,
+
+    "syncState": rpcSyncState,
+    "subscribeSyncStatus": rpcSubscribeSyncStatus,
+    "unsubscribeSyncStatus": None,
 }
+
+
+
