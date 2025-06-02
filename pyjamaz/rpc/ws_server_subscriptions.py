@@ -55,7 +55,7 @@ class SubscriptionBestBlock(WSubscription):
 
     def create_data(self, data: Any):
         return {
-            "header_hash": data.header.hash,
+            "header_hash": list(data.header.hash),
             "slot": data.header.timeslot,
         }
 
@@ -66,7 +66,7 @@ class SubscriptionFinalizedBlock(WSubscription):
 
     def create_data(self, data: Block):
         return {
-            "header_hash": data.header.hash,
+            "header_hash": list(data.header.hash),
             "slot": data.header.timeslot,
         }
 
@@ -168,6 +168,15 @@ class SubscriptionPreimageAvailability(WSubscription):
         }
 
 
+class SubscriptionSyncStatus(WSubscription):
+
+    def check_params(self, data: Any):
+        return True
+
+    def create_data(self, data: Any):
+        return "Completed" #"InProgress"
+
+
 class SubscriptionManager:
 
     SUBSCRIPTION_MAP = {
@@ -178,6 +187,7 @@ class SubscriptionManager:
         "subscribeServiceValue": SubscriptionStorageItem,
         "subscribePreimage": SubscriptionPreimage,
         "subscribeServiceRequest": SubscriptionPreimageAvailability,
+        "subscribeSyncStatus": SubscriptionSyncStatus,  #TODO: hook to networking events
     }
 
     def __init__(self, server: "WebSocketServer"):

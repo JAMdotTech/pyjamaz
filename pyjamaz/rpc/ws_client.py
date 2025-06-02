@@ -158,13 +158,3 @@ class WebsocketClient(RPCMethods):
     async def subscribeServiceRequest(self, block_hash: bytes, service_id:int, preimage_hash: bytes, preimage_length: int):
         return await self.subscribe("subscribeServiceRequest", [list(block_hash), service_id, list(preimage_hash), preimage_length], lambda x: x)
 
-
-#
-# async def main():
-#     # async with WebsocketClient("ws://127.0.0.1:19800") as client:
-#     #     pass
-#     client = WebsocketClient("ws://127.0.0.1:19800")
-#
-#
-# if __name__ == "__main__":
-#     asyncio.run(main())
