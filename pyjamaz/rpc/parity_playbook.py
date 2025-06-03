@@ -59,6 +59,41 @@ async def main():
         bootstrap_service_id = 0
 
         # Check storage item
+        #new_service_id = await client.serviceValue(bytes(32), bootstrap_service_id, b'created')
+        #services = await client.serviceValue(bytes(32), bootstrap_service_id, b'\x10service_registry')
+        #print(services)
+
+        created_key = blake2b_256_hash(int(bootstrap_service_id).to_bytes(length=4, byteorder="little") + b'created')
+
+        create_instruction = Instruction.from_json(
+            {
+                'CreateService': {
+                    'code_hash': '0x0b77f392fed2d02b19a885627ffc96123394881a44fbb535af31fc3ba8394a74',
+                    'code_len': 11,
+                    'endowment': 100000,
+                    'memo': '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+                    'min_item_gas': 1000000,
+                    'min_memo_gas': 1000000,
+                    'registration': 'Arie'
+                }
+            }
+        )
+
+        work_package = await create_bootservice_workpackage(client, create_instruction, [])
+        await client.submitWorkPackage(0, work_package, [])
+        print("WORKPACKAGE SUBMITTED")
+
+        new_service = await client.subscribeServiceValue(bootstrap_service_id,  created_key)
+        async for data in new_service:
+            print("SUBSCRIPTION RECEIVED DATA")
+            break
+
+
+        """
+
+        bootstrap_service_id = 0
+
+        # Check storage item
         new_service_id = await client.serviceValue(bytes(32), bootstrap_service_id, b'created')
         services = await client.serviceValue(bytes(32), bootstrap_service_id, b'\x10service_registry')
         print(services)
@@ -226,8 +261,7 @@ async def main():
 
         await client.submitWorkPackage(0, work_package, [extrinsic])
         print("core_vm trigger corevm child vm")
-
-
+        """
 
         print("FIN!!!!!!!!")
 

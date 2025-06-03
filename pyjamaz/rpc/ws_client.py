@@ -1,3 +1,4 @@
+import json
 from typing import List, Optional, Tuple, Dict
 
 import websockets
@@ -37,6 +38,16 @@ class WebsocketClient(RPCMethods):
 
             # Note: we can always trust we're dealing with one message at a time: https://stackoverflow.com/a/21025321
             try:
+                print("!!!!!!!!!!!!!!!", data)
+
+                # Subscriptions have a different message format, hack:
+                json_data = json.loads(data)
+                if not "method" in json_data:
+                    if json_data["id"] in self.pending:
+                        self.pending[json_data["id"]].set_result(json_data["result"])
+                        del self.pending[json_data["id"]]
+                        return
+
                 req_id, rpc_call, params, req_type, result = jsonapi_parse(data)
 
                 if req_id and req_id in self.pending:
@@ -157,7 +168,7 @@ class WebsocketClient(RPCMethods):
 
 
     async def subscribeServiceValue(self, service_id, storage_item_key):
-        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key)], lambda x: bytes(x))
+        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key)], lambda x: x and bytes(x) or None)
 
 
     async def subscribeServiceRequest(self, block_hash: bytes, service_id:int, preimage_hash: bytes, preimage_length: int):

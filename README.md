@@ -85,3 +85,6 @@ pip install ".[dev]"
 mkdocs serve
 ```
 
+# Resources
+* https://hackmd.io/@polkadot/jamsdk#JAM-Client-Tooling
+* https://github.com/polkadot-fellows/JIPs
