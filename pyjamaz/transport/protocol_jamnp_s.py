@@ -251,7 +251,7 @@ class ClientProtocol(JAMNPSProtocol):
 
                             case JAMNPS.MSG.UP0_BlockAnnouncement.value:
                                 logger.debug(f'ClientProtocol RECEIVED_BLOCK: {self._msg_len}')
-                                self.wrapper.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.RECEIVED_BLOCK, data=self._msg_buffer[self._msg_offset:self._msg_len]))
+                                self.wrapper.broadcaster.send_stream.send_nowait(PubSubSignal(topic=MESSAGE_TYPES.RECEIVED_BLOCK, data=self._msg_buffer[self._msg_offset:self._msg_len]))
                                 # self.wrapper.broadcaster.send_stream.send_nowait({
                                 #     "message_type": MESSAGE_TYPES.RECEIVED_BLOCK,
                                 #     "data": self._msg_buffer[self._msg_offset:self._msg_len]
@@ -259,7 +259,7 @@ class ClientProtocol(JAMNPSProtocol):
 
                             case JAMNPS.MSG.CE128_BlockRequest.value:
                                 logger.debug(f'ClientProtocol RECEIVED REQUESTED BLOCKS: {self._msg_len}')
-                                self.wrapper.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.REQUESTED_BLOCKS,
+                                self.wrapper.broadcaster.send_stream.send_nowait(PubSubSignal(topic=MESSAGE_TYPES.REQUESTED_BLOCKS,
                                                                          data=self._msg_buffer[self._msg_offset:self._msg_len]))
                                 # self.wrapper.broadcaster.send_stream.send_nowait({
                                 #     "message_type": MESSAGE_TYPES.REQUESTED_BLOCKS,
