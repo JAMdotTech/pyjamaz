@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import os
 import ssl
@@ -11,11 +12,14 @@ from aioquic.quic.events import QuicEvent, HandshakeCompleted, ConnectionTermina
 from cryptography import x509
 
 from pyjamaz.app import Keys
+from pyjamaz.utils import quic_peer_id
 
 #certificate_file = os.path.join("./pyjamaz/data/alice", "cert.pem")
-certificate_file = os.path.join("./", "clone.pem")
+#certificate_file = os.path.join("./", "clone2.pem")
+certificate_file = os.path.join("./pyjamaz/data/alice", "cert.pem")
 pk_file = os.path.join("./pyjamaz/data/alice", "cert.key")
 
+PROTOCOL_ALPN = "jamnp-s/0/b5af8eda"
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization, hashes
@@ -38,7 +42,7 @@ class ServerProtocol(QuicConnectionProtocol):
 
 async def server():
     configuration = QuicConfiguration(
-        alpn_protocols=["jamnp-s/0/0259fbe9"],
+        alpn_protocols=[PROTOCOL_ALPN],
         is_client=False,
         # verify_mode=ssl.CERT_REQUIRED,
         verify_mode=ssl.CERT_NONE,
@@ -57,7 +61,9 @@ async def server():
 
 # async def client():
 #     configuration = QuicConfiguration(
-#         alpn_protocols=["jamnp-s/0/0259fbe9"],
+#         #b5af8edad70d962097eefa2cef92c8284cf0a7578b70a6b7554cf53ae6d51222
+#         alpn_protocols=[PROTOCOL_APLN],
+#         #alpn_protocols=["jamnp-s/0/0259fbe9"],
 #         is_client=True,
 #         # verify_mode=ssl.CERT_REQUIRED,
 #         verify_mode=False,
@@ -76,38 +82,55 @@ async def server():
 #         #priv = ed25519.Ed25519PrivateKey.from_private_bytes(keys.ed25519.private_key)
 #         priv = ed25519.Ed25519PrivateKey.from_private_bytes(keys.ed25519.private_key)
 #
-#         # builder = (
-#         #     x509.CertificateBuilder()
-#         #     .subject_name(cert.subject)
-#         #     .issuer_name(cert.issuer)
-#         #     .public_key(priv.public_key())
-#         #     .serial_number(cert.serial_number)
-#         #     .not_valid_before(cert.not_valid_before)
-#         #     .not_valid_after(cert.not_valid_after)
-#         #     .add_extension(x509.SubjectAlternativeName(x509.GeneralNames([x509.DNSName("e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka")])), critical=False)
-#         # )
-#         #
-#         # # copy every extension verbatim
-#         # # for ext in cert.extensions:
-#         # #     builder = builder.add_extension(ext.value, critical=ext.critical)
-#         #
-#         # # @127.0.0.1:40000
-#         # #ehnvcppgow2sc2yvdvdicu3ynonsteflxdxrehjr2ybekdc2z3iuq
-#         #
-#         # # ------------------------------------------------------------
-#         # # 2) sign with the *same* private key
-#         # # ------------------------------------------------------------
-#         # clone = builder.sign(private_key=priv, algorithm=None)  # Ed25519 = algorithm None
-#         #
-#         # # ------------------------------------------------------------
-#         # # 3) serialize
-#         # # ------------------------------------------------------------
-#         # der_bytes = clone.public_bytes(serialization.Encoding.DER)
-#         # pem_bytes = clone.public_bytes(serialization.Encoding.PEM)
-#         #
-#         # with open("clone.pem", "wb") as f:
-#         #     f.write(pem_bytes)
-
+#         """
+#         from cryptography import x509
+#         from cryptography.x509.oid import NameOID
+#
+#         subject = x509.Name([
+#             x509.NameAttribute(NameOID.COMMON_NAME, u"rcgen self signed cert"),
+#         ])
+#         issuer = x509.Name([
+#             x509.NameAttribute(NameOID.COMMON_NAME, u"rcgen self signed cert"),
+#         ])
+#         pubkey!!!!!
+#         serial_numer = 76354585232599687591316365089471291226684720524
+#         not_valid_before=datetime.datetime(1975, 1, 1, 0, 0)
+#         not_valid_after=datetime.datetime(4096, 1, 1, 0, 0)
+#         extension = x509.SubjectAlternativeName(x509.GeneralNames([x509.DNSName("e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka")])
+#         """
+#
+#         builder = (
+#             x509.CertificateBuilder()
+#             .subject_name(cert.subject)
+#             .issuer_name(cert.issuer)
+#             .public_key(priv.public_key())
+#             .serial_number(cert.serial_number)
+#             .not_valid_before(cert.not_valid_before)
+#             .not_valid_after(cert.not_valid_after)
+#             .add_extension(x509.SubjectAlternativeName(x509.GeneralNames([x509.DNSName("e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka")])), critical=False)
+#         )
+#
+#         # copy every extension verbatim
+#         # for ext in cert.extensions:
+#         #     builder = builder.add_extension(ext.value, critical=ext.critical)
+#
+#         # @127.0.0.1:40000
+#         #ehnvcppgow2sc2yvdvdicu3ynonsteflxdxrehjr2ybekdc2z3iuq
+#
+#         # ------------------------------------------------------------
+#         # 2) sign with the *same* private key
+#         # ------------------------------------------------------------
+#         clone = builder.sign(private_key=priv, algorithm=None)  # Ed25519 = algorithm None
+#
+#         # ------------------------------------------------------------
+#         # 3) serialize
+#         # ------------------------------------------------------------
+#         der_bytes = clone.public_bytes(serialization.Encoding.DER)
+#         pem_bytes = clone.public_bytes(serialization.Encoding.PEM)
+#
+#         with open("clone.pem", "wb") as f:
+#             f.write(pem_bytes)
+#
 
 
 class ClientProtocol(QuicConnectionProtocol):
@@ -116,10 +139,9 @@ class ClientProtocol(QuicConnectionProtocol):
         print("CLIENT????", event)
 
 
-
 async def client():
     configuration = QuicConfiguration(
-        alpn_protocols=["jamnp-s/0/0259fbe9"],
+        alpn_protocols=[PROTOCOL_ALPN],
         is_client=True,
         #verify_mode=ssl.CERT_REQUIRED,
         verify_mode=ssl.CERT_NONE,
@@ -148,5 +170,44 @@ if __name__ == "__main__":
     # loop.run_until_complete(test())
     # loop.run_until_complete(server())
     # print("fin?")
+    #
+    # keys = Keys.from_seed(bytes(32))
+    # priv = ed25519.Ed25519PrivateKey.from_private_bytes(keys.ed25519.private_key)
+    #
+    # from cryptography import x509
+    # from cryptography.x509.oid import NameOID
+    #
+    # subject = x509.Name([
+    #     x509.NameAttribute(NameOID.COMMON_NAME, u"rcgen self signed cert"),
+    # ])
+    # issuer = x509.Name([
+    #     x509.NameAttribute(NameOID.COMMON_NAME, u"rcgen self signed cert"),
+    # ])
+    # serial_numer = 76354585232599687591316365089471291226684720524
+    # not_valid_before = datetime.datetime(1975, 1, 1, 0, 0)
+    # not_valid_after = datetime.datetime(4096, 1, 1, 0, 0)
+    # peer_id = quic_peer_id(keys.ed25519.public_key)
+    # print(peer_id)
+    # ext = x509.SubjectAlternativeName(x509.GeneralNames([x509.DNSName(peer_id)]))
+    #
+    # builder = (
+    #     x509.CertificateBuilder()
+    #     .subject_name(subject)
+    #     .issuer_name(issuer)
+    #     .public_key(priv.public_key())
+    #     .serial_number(serial_numer)
+    #     .not_valid_before(not_valid_before)
+    #     .not_valid_after(not_valid_after)
+    #     .add_extension(x509.SubjectAlternativeName(
+    #         x509.GeneralNames(ext)), critical=False)
+    # )
+    #
+    # clone = builder.sign(private_key=priv, algorithm=None)  # Note: Ed25519 = algorithm None
+    #
+    # der_bytes = clone.public_bytes(serialization.Encoding.DER)
+    # pem_bytes = clone.public_bytes(serialization.Encoding.PEM)
+    #
+    # with open("clone2.pem", "wb") as f:
+    #     f.write(pem_bytes)
 
     asyncio.run(main())

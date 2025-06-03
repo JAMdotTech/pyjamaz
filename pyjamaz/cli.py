@@ -415,11 +415,7 @@ def generate(seed, ip, port):
 async def init_certificate(db_path, seed):
     keys = Keys.from_seed(bytes.fromhex(seed[2:]))
 
-    pk_pem, cert_pem = generate_cert(
-        keys,
-        ips="127.0.0.1",    #TODO: hardcoded for now
-        alternative_name="e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka",
-    )
+    pk_pem, cert_pem = generate_cert(keys, ips="127.0.0.1")
     pk_file = os.path.join(db_path, "cert.key")
     pem_file = os.path.join(db_path, "cert.pem")
     write_cert(pk_pem, pk_file, cert_pem, pem_file)
