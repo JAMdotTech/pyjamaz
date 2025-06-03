@@ -215,8 +215,17 @@ def rpcServicePreimage(app, params):
         return None
 
 
-def rpcStateRoot(app, params):
-    return list(app.state_trie_root)
+def rpcStateRoot(app: PyjamazApp, params):
+
+    header_hash = bytes(params[0])
+    for n, block in enumerate(reversed(app.state.recent_history.recent_history)):
+        if block.header_hash == header_hash:
+            if n == 0:
+                return list(app.state_trie_root)
+            else:
+                return list(block.state_root)
+
+    return None
 
 
 def rpcStatistics(app, params):
@@ -225,7 +234,8 @@ def rpcStatistics(app, params):
 
 
 def rpcBeefyRoot(app: PyjamazApp, params):
-    return list(app.get_beefy_root())
+    header_hash = bytes(params[0])
+    return list(app.get_beefy_root(header_hash))
 
 
 def rpcSubmitWorkPackage(app: PyjamazApp, params):

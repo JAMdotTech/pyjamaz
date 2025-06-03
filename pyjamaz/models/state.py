@@ -1494,7 +1494,7 @@ class AccumulationStateComponents(Serializable):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                # preimages=[] TODO 0.6.6
+                preimages=[]
             ),
             savepoint_context=AccumulateContextItem(
                 service_account_id=service_account_id,
@@ -1502,39 +1502,10 @@ class AccumulationStateComponents(Serializable):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                # preimages=[] TODO 0.6.6
+                preimages=[]
             ),
             timeslot=timeslot
         )
-
-# TODO move back to pvm_interface.models
-
-@dataclass
-class PvmAccumulateOutput:
-    state_context: AccumulationStateComponents
-    deferred_transfers: List[DeferredTransfer]
-    accumulation_output: Optional[bytes]
-    gas_used: int
-    # preimages: List[Tuple[int, bytes]] # TODO 0.6.6
-
-
-@dataclass
-class PvmOnTransferOutput:
-    service_account: ServiceAccount
-    gas_used: int
-
-
-@dataclass
-class PvmIsAuthorizedOutput:
-    exit_condition: ExitCondition
-    gas_limit: int
-
-
-@dataclass
-class PvmRefineOutput:
-    exit_condition: ExitCondition
-    data_segments: List[bytes]                   # GP-0.6.4-eq:B.6 [blackboard_G]
-    gas_used: int
 
 
 @dataclass
@@ -1549,7 +1520,7 @@ class AccumulateContextItem:
     new_service_account_id: int  # i
     deferred_transfers: List[DeferredTransfer]  # t
     invocation_output: Optional[bytes]  # y
-    # preimages: List[Tuple[int, bytes]] # p TODO 0.6.6
+    preimages: List[Tuple[int, bytes]] # p
 
 
 @dataclass

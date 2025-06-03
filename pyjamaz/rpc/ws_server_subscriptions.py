@@ -6,6 +6,7 @@ from websockets.legacy.server import WebSocketServerProtocol
 
 from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Block
 from pyjamaz.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR
 
@@ -77,7 +78,7 @@ class SubscriptionStatistics(WSubscription):
 
     def create_data(self, data: Any):
         return {
-            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "header_hash": list(self.app.get_best_header_hash()),
             "slot": self.app.state.timeslot.number,
             "value": data
         }
@@ -96,7 +97,7 @@ class SubscriptionServiceAccount(WSubscription):
     def create_data(self, data: Any):
         #return list(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
         return {
-            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "header_hash": list(self.app.get_best_header_hash()),
             "slot": self.app.state.timeslot.number,
             "value": list(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
         }
@@ -108,15 +109,16 @@ class SubscriptionStorageItem(WSubscription):
     DATA_SERVICE_BLOB = 2
 
     def check_params(self, data: Any):
-        #print("CHECKING PARAMS FOR subscribeServiceValue",  self.params[self.PARAM_SERVICE_ID], self.params[self.PARAM_STORAGE_KEY], self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and self.params[self.PARAM_STORAGE_KEY] == list(data[self.PARAM_STORAGE_KEY]))
+        #print("CHECKING PARAMS FOR subscribeServiceValue", self.params[self.PARAM_SERVICE_ID], self.params[self.PARAM_STORAGE_KEY], self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and self.params[self.PARAM_STORAGE_KEY] == list(data[self.PARAM_STORAGE_KEY]))
         if data:
-            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and self.params[self.PARAM_STORAGE_KEY] == list(data[self.PARAM_STORAGE_KEY])
+            storage_hash = blake2b_256_hash(int(self.params[self.PARAM_SERVICE_ID]).to_bytes(length=4, byteorder="little") + bytes(self.params[self.PARAM_STORAGE_KEY]))
+            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and list(storage_hash) == list(data[self.PARAM_STORAGE_KEY])
         return True
 
     def create_data(self, data: Any):
         #return list(data[self.DATA_SERVICE_BLOB])
         return {
-            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "header_hash": list(self.app.get_best_header_hash()),
             "slot": self.app.state.timeslot.number,
             "value": list(data[self.DATA_SERVICE_BLOB])
         }
@@ -136,16 +138,16 @@ class SubscriptionPreimage(WSubscription):
     def create_data(self, data: Any):
         #return list(data[self.DATA_PREIMAGE_BLOB])
         return {
-            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "header_hash": list(self.app.get_best_header_hash()),
             "slot": self.app.state.timeslot.number,
             "value": list(data[self.DATA_PREIMAGE_BLOB])
         }
 
 
 class SubscriptionPreimageAvailability(WSubscription):
-    PARAM_SERVICE_ID = 1
-    PARAM_PREIMAGE_HASH = 2
-    PARAM_PREIMAGE_LENGTH = 3
+    PARAM_SERVICE_ID = 0
+    PARAM_PREIMAGE_HASH = 1
+    PARAM_PREIMAGE_LENGTH = 2
     DATA_SERVICE_ID = 0
     DATA_PREIMAGE_HASH = 1
     DATA_PREIMAGE_LENGTH = 2
@@ -162,7 +164,7 @@ class SubscriptionPreimageAvailability(WSubscription):
     def create_data(self, data: Any):
         #return list(data[self.DATA_PREIMAGE_BLOB])
         return {
-            "header_hash": list(self.app.retrieve_block_hash(self.app.state.timeslot.number)),
+            "header_hash": list(self.app.get_best_header_hash()),
             "slot": self.app.state.timeslot.number,
             "value": list(data[self.DATA_PREIMAGE_BLOB])
         }

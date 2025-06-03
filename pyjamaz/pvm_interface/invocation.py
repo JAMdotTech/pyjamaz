@@ -274,7 +274,7 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.savepoint_context.deferred_transfers,
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
             gas_used=marshalling_output.gas_used,
-            # preimages=marshalling_output.context.savepoint_context.preimages TODO 0.6.6
+            preimages=marshalling_output.context.savepoint_context.preimages
         )
         logging.info(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
@@ -283,7 +283,7 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.exit_condition.value,
             gas_used=marshalling_output.gas_used,
-            # preimages=marshalling_output.context.context.preimages TODO 0.6.6
+            preimages=marshalling_output.context.context.preimages
         )
         logging.info(f'PVM accumulate successful, output=0x{output.accumulation_output.hex()}')
     else:
@@ -292,7 +292,7 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.context.context.invocation_output,
             gas_used=marshalling_output.gas_used,
-            # preimages=marshalling_output.context.context.preimages TODO 0.6.6
+            preimages=marshalling_output.context.context.preimages
         )
         logging.info(f'PVM accumulate successful, no output')
 

@@ -98,6 +98,7 @@ def hc_fetch(
     w12 = registers[12]
 
     bold_v = None
+
     if w10 == 0:
         bold_v = work_package.to_jam_bytes().to_bytes()
 
@@ -111,7 +112,8 @@ def hc_fetch(
         if extrinsic and len(extrinsic) == work_package.items[w11].extrinsic[w12].len:
             bold_v = extrinsic
 
-    elif w10 == 4 and w11 < len(work_package.items[work_item_index].extrinsic):
+    # elif w10 == 4 and w11 < len(work_package.items[work_item_index].extrinsic): TODO polkajam deviation
+    elif w10 == 6 and w11 < len(work_package.items[work_item_index].extrinsic):
         extrinsic = extrinsics.get(work_package.items[work_item_index].extrinsic[w11].hash)
         if extrinsic and len(extrinsic) == work_package.items[work_item_index].extrinsic[w11].len:
             bold_v = extrinsic

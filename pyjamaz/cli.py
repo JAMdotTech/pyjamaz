@@ -87,9 +87,6 @@ def wrap_cli_import_block(traces_dir):
             logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
             logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
 
-            # TODO WouldBlock async issue
-            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
-
         except Exception as e:
             # Rollback state
             logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')

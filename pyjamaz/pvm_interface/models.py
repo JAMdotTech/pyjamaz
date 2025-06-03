@@ -20,6 +20,7 @@ class PvmAccumulateOutput:
     deferred_transfers: List[DeferredTransfer]
     accumulation_output: Optional[bytes]
     gas_used: int
+    preimages: List[typing.Tuple[int, bytes]]
 
 
 @dataclass
@@ -53,6 +54,7 @@ class AccumulateContextItem:
     new_service_account_id: int  # i
     deferred_transfers: List[DeferredTransfer]  # t
     invocation_output: Optional[bytes]  # y
+    preimages: List[typing.Tuple[int, bytes]]  # p
 
 
 @dataclass
@@ -93,14 +95,16 @@ class AccumulateInvocationContext(InvocationContext):
                 state_context=deepcopy(accumulation_state),
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
-                invocation_output=None
+                invocation_output=None,
+                preimages=[]
             ),
             savepoint_context=AccumulateContextItem(
                 service_account_id=service_account_id,
                 state_context=deepcopy(accumulation_state),
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
-                invocation_output=None
+                invocation_output=None,
+                preimages = []
             ),
             timeslot=timeslot
         )

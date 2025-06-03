@@ -636,6 +636,7 @@ class PyjamazApp:
 
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.BEST_BLOCK, data=block))
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))  # TODO: placeholder for now, move when implemented
+        await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
 
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
 
@@ -949,12 +950,16 @@ class PyjamazApp:
 
         logging.info(f"💾 successfully stored trace data {base_filename}.bin")
 
-    def get_beefy_root(self) -> bytes:
-        # TODO review if this is desired, or keep a separate bookkeeping, like state root
-        if len(self.state.recent_history.recent_history) > 0:
-            return self.state.recent_history.recent_history[-1].mmr.super_peak()
-        else:
+    def get_beefy_root(self, header_hash: bytes = None) -> Optional[bytes]:
+
+        if len(self.state.recent_history.recent_history) == 0:
             return bytes(32)
+
+        for block in reversed(self.state.recent_history.recent_history):
+            if header_hash is None or block.header_hash == header_hash:
+                return block.mmr.super_peak()
+
+        return None
 
     # TODO move refine function?
     def get_core_assigment(self) -> Optional[int]:
@@ -1270,6 +1275,8 @@ class PyjamazApp:
                         assurance = self.create_assurance_for_validator_index([core_index], val_idx)
                         self.extrinsic.add_assurance(assurance)
 
+    def get_best_header_hash(self):
+        return self.state.recent_history.recent_history[-1].header_hash
 
 
 class StateComponents:
