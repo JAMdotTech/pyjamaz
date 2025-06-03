@@ -199,13 +199,6 @@ def rpcServiceData(app, params):
         return None
 
 
-def rpcServiceValue(app, params):
-    try:
-        return list(app.state.services.retrieve_storage_item(service_account_id=params[1], storage_item_hash=params[0]))
-    except StateKeyNoResult:
-        return None
-
-
 def rpcListServices(app, params):
     try:
         #TODO:
@@ -317,6 +310,11 @@ def rpcSubscribeServiceRequest(app: PyjamazApp, params):
     except StateKeyNoResult:
         return None
 
+def rpcServiceValue(app: PyjamazApp, params):
+    try:
+        return list(app.state.services.retrieve_storage_local_key(service_account_id=params[1], key=bytes(params[2])))
+    except StateKeyNoResult:
+        return None
 
 def rpcSubscribeServiceValue(app: PyjamazApp, params):
     # Note: initial response after subscription
@@ -324,7 +322,7 @@ def rpcSubscribeServiceValue(app: PyjamazApp, params):
         return {
             "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
             "slot": app.state.timeslot.number,
-            "value": rpcServiceValue(app, params)
+            "value": rpcServiceValue(app, [None] + params)
         }
     except StateKeyNoResult:
         return None

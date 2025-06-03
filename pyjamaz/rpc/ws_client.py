@@ -135,6 +135,11 @@ class WebsocketClient(RPCMethods):
         block_hash = list(block_hash)
         return await self._send_and_wait("submitPreimage", [service_id, preimage_blob, block_hash])
 
+    async def serviceValue(self, block_hash: bytes , service_id: int, storage_key: bytes) -> Optional[bytes]:
+        result = await self._send_and_wait("serviceValue", [list(block_hash), service_id, list(storage_key)])
+        if result is not None:
+            result = bytes(result)
+        return result
 
     async def serviceData(self, block_hash: bytes, service_id:int) -> Optional[ServiceAccount]:
         blob = await self._send_and_wait("serviceData", [list(block_hash), service_id])

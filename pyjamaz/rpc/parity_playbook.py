@@ -58,6 +58,11 @@ async def main():
 
         bootstrap_service_id = 0
 
+        # Check storage item
+        new_service_id = await client.serviceValue(bytes(32), bootstrap_service_id, b'created')
+        services = await client.serviceValue(bytes(32), bootstrap_service_id, b'\x10service_registry')
+        print(services)
+
         create_instruction = Instruction.from_json(
             {
                 'CreateService': {
@@ -67,7 +72,7 @@ async def main():
                     'memo': '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
                     'min_item_gas': 1000000,
                     'min_memo_gas': 1000000,
-                    'registration': None
+                    'registration': 'Arie'
                 }
             }
         )
