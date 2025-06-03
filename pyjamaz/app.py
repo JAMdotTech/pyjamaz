@@ -50,10 +50,8 @@ class Keys(Serializable):
     @classmethod
     def from_seed(cls, seed: bytes) -> 'Keys':
         return cls(
-            bandersnatch=BandersnatchKeypair.from_seed(seed),
-            ed25519=Ed25519Keypair.from_seed(seed)
-            # bandersnatch = BandersnatchKeypair.from_seed(blake2b_256_hash(b"jam_val_key_bandersnatch" + seed)),
-            # ed25519 = Ed25519Keypair.from_seed(blake2b_256_hash(b"jam_val_key_ed25519" + seed))
+            bandersnatch = BandersnatchKeypair.from_seed(blake2b_256_hash(b"jam_val_key_bandersnatch" + seed)),
+            ed25519 = Ed25519Keypair.from_seed(blake2b_256_hash(b"jam_val_key_ed25519" + seed))
         )
 
 
@@ -427,7 +425,6 @@ class PyjamazApp:
             block.header.epoch_marker = safrole_output.epoch_mark
             block.header.tickets_marker = safrole_output.tickets_mark
             block.header.offenders_marker = disputes_output.offenders_mark
-            block.header.author_index = self.get_author_index()
 
             block.header.seal = self.generate_block_seal(
                 block.header, safrole_output.post_state, entropy_output.post_state
@@ -797,11 +794,10 @@ class PyjamazApp:
         -------
         bytes
         """
-
         self.block_context.seal_vrf_output = self.config.keys.bandersnatch.vrf_output(
             self.get_block_seal_vrf_input(timeslot, safrole_state, entropy_state)
         )
-
+        logging.debug(f"Entropy source generated with: bs_pub={self.config.keys.bandersnatch.public_key.hex()} seal_vrf={self.block_context.seal_vrf_output.hex()} ")
         return ietf_vrf_sign(
             self.config.keys.bandersnatch.private_key,
             b"jam_entropy" + self.block_context.seal_vrf_output,
@@ -827,7 +823,7 @@ class PyjamazApp:
         elapsed_timeslots = (time.time() - self.config.common_era) // SLOT_PERIOD
         return self.config.common_era + (elapsed_timeslots + 1) * SLOT_PERIOD
 
-    def get_author_index(self) -> int:
+    def get_author_index(self, safrole_post_state: SafroleState = None) -> int:
         """
         Get the author index for current node in the current validator set
 
@@ -840,8 +836,10 @@ class PyjamazApp:
         -------
         int
         """
+        if safrole_post_state is None:
+            safrole_post_state = self.state.safrole
 
-        for index, validator in enumerate(self.state.safrole.validators):
+        for index, validator in enumerate(safrole_post_state.validators):
             if validator.bandersnatch == self.config.keys.bandersnatch.public_key:
                 return index
         raise ValueError(f"Bandersnatch {self.config.keys.bandersnatch.public_key} not found in current validator set")
@@ -860,21 +858,21 @@ class PyjamazApp:
         if timeslot % EPOCH_TIMESLOTS > 0:
             entropy = entropy_state.entropy[2]
 
-            if not SOLO_MODE and self.extrinsic.can_add_own_ticket(timeslot):
-
-                ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
-
-                self.extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
-                )
-
-                self.extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
-                )
-
-                self.extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
-                )
+            # if not SOLO_MODE and self.extrinsic.can_add_own_ticket(timeslot):
+            #
+            #     ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
+            #
+            #     self.extrinsic.add_own_ticket(
+            #         ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+            #     )
+            #
+            #     self.extrinsic.add_own_ticket(
+            #         ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+            #     )
+            #
+            #     self.extrinsic.add_own_ticket(
+            #         ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+            #     )
 
         extrinsic = Extrinsic(
             tickets=self.extrinsic.collect_tickets(),
@@ -896,7 +894,7 @@ class PyjamazApp:
             # Placeholder
             offenders_marker=[],
             # Placeholder
-            author_index=0,
+            author_index=self.get_author_index(safrole_state),
             entropy_source=self.generate_entropy_source(timeslot, safrole_state, entropy_state),
             # Placeholder
             seal=bytes(96)
@@ -917,6 +915,8 @@ class PyjamazApp:
             await self.state_transition(block, transaction, produce=True)
 
         await self.process_block(block)
+
+        logging.debug(f'New state root: {format_hash(self.state_trie_root)}')
 
         if self.config.create_traces:
             await self.store_trace(pre_state, block, self.config.create_traces)
@@ -1025,8 +1025,9 @@ class PyjamazApp:
     async def create_guarantee_signature_for_validator(self, work_report: WorkReport, validator_index: int) -> Credential:
         payload = b"jam_guarantee" + blake2b_256_hash(work_report.to_jam_bytes().to_bytes())
 
-        keypair = Ed25519Keypair.from_private_key(validator_index.to_bytes(4, 'little') * 8)
-        signature = keypair.sign(payload)
+        validator_keys = Keys.from_seed(validator_index.to_bytes(4, 'little') * 8)
+
+        signature = validator_keys.ed25519.sign(payload)
 
         return Credential(
             validator_index=validator_index,
@@ -1067,8 +1068,8 @@ class PyjamazApp:
 
         sign_payload = b"jam_available" + blake2b_256_hash(anchor + bitfield_bytes)
 
-        keypair = Ed25519Keypair.from_private_key(validator_index.to_bytes(4, 'little') * 8)
-        signature = keypair.sign(sign_payload)
+        validator_keys = Keys.from_seed(validator_index.to_bytes(4, 'little') * 8)
+        signature = validator_keys.ed25519.sign(sign_payload)
 
         return Assurance(
             anchor=anchor,

@@ -63,7 +63,7 @@ class BlockValidation:
 
         # Validate seal
         entropy = post_entropy.entropy[3]
-        author_key = header.author_bandersnatch_key
+        author_key = post_validator_pool.validators[header.author_index].bandersnatch
 
         if post_safrole.slot_sealer_series.tickets is not None:
             ticket = post_safrole.slot_sealer_series.tickets[header.timeslot % EPOCH_TIMESLOTS]

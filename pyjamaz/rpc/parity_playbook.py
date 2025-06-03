@@ -16,7 +16,7 @@ async def create_bootservice_workpackage(client, instruction: Instruction, extri
     beefy_root = await client.beefyRoot(block_hash)
 
     authorizer = Authorizer(
-        code_hash=bytes.fromhex('e29d48602a9bbdb9b19dad28a1c0294087403334ca5bcd2dfaa0f0ec2617e4f6'),
+        code_hash=bytes.fromhex('4c4e4f63481b4b2b4726611dee56d0d8d1a3e163808b3ef678ab25dfa7c32419'),
         params=b''
     )
 
@@ -37,7 +37,7 @@ async def create_bootservice_workpackage(client, instruction: Instruction, extri
         items=[
             WorkItem(
                 accumulate_gas_limit=10000000,
-                code_hash=bytes.fromhex('6c63e601e26279872a93b9b443aa52ad1c26e795647f63c0b7e0abff0d3680da'),
+                code_hash=bytes.fromhex('7d952fd5905548e08a9a7d8fca521139f7e2573a2207d6a6d0e706a13070487b'),
                 export_count=0,
                 extrinsic=[WorkItemExtrinsic.from_blob(e) for e in extrinsic],
                 import_segments=[],

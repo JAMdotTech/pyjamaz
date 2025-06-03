@@ -7,7 +7,7 @@ services:
       - 'pyjamaz-data-alice:/app/pyjamaz/data'
       - './data/traces-alice:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces '
+    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces --verbose'
     ports:
       - '9000:9000'
     networks:
@@ -21,7 +21,7 @@ services:
       - 'pyjamaz-data-bob:/app/pyjamaz/data'
       - './data/traces-bob:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000001 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces '
+    command: '--seed 0x0100000001000000010000000100000001000000010000000100000001000000 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces --verbose'
     ports:
       - '9001:9000'
     networks:
@@ -35,7 +35,7 @@ services:
       - 'pyjamaz-data-charlie:/app/pyjamaz/data'
       - './data/traces-charlie:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000002 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces '
+    command: '--seed 0x0200000002000000020000000200000002000000020000000200000002000000 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces --verbose'
     ports:
       - '9002:9000'
     networks:
@@ -49,7 +49,7 @@ services:
       - 'pyjamaz-data-dave:/app/pyjamaz/data'
       - './data/traces-dave:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000003 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces'
+    command: '--seed 0x0300000003000000030000000300000003000000030000000300000003000000 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces --verbose'
     ports:
       - '9003:9000'
     networks:
@@ -63,7 +63,7 @@ services:
       - 'pyjamaz-data-eve:/app/pyjamaz/data'
       - './data/traces-eve:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000004 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces'
+    command: '--seed 0x0400000004000000040000000400000004000000040000000400000004000000 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces --verbose'
     ports:
       - '9004:9000'
     networks:
@@ -77,7 +77,7 @@ services:
       - 'pyjamaz-data-ferdie:/app/pyjamaz/data'
       - './data/traces-ferdie:/app/pyjamaz/data/traces'
     #restart: unless-stopped
-    command: '--seed 0x0000000000000000000000000000000000000000000000000000000000000005 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces'
+    command: '--seed 0x0500000005000000050000000500000005000000050000000500000005000000 --host 0.0.0.0 --port 9000 --ts 12 --record-traces /app/pyjamaz/data/traces --verbose'
     ports:
       - '9005:9000'
     networks:

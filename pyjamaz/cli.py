@@ -356,7 +356,7 @@ async def timeslot_ticker(app: PyjamazApp):
                 app.state = app.retrieve_jam_state()
                 # TODO Make transactional
                 app.extrinsic.clear_tickets()
-                # raise e
+                raise e
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
@@ -426,15 +426,11 @@ async def init_certificate(db_path, seed):
 
 
 @main.command()
-@click.option('--initial-state', type=click.Path(exists=True))
-@click.option('--genesis', type=click.Path(exists=True))
+@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
+@click.option('--chainspec', 'chainspec', type=click.Choice(['dev', 'docker']), help="Chainspec to use as genesis", default='dev')
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
-@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
-@click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
 async def init(
-        initial_state,
-        genesis,
         custom_db_path,
         force_overwrite,
         seed,
@@ -461,84 +457,23 @@ async def init(
 
     app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
 
-    if chainspec:
+    # Load chainspec
+    with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
+        chainspec_data = json.load(fp)
 
-        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
-            chainspec_data = json.load(fp)
+    # Store state data
+    for k, v in chainspec_data["genesis_state"].items():
+        app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
 
-        # Store state data
-        for k, v in chainspec_data["genesis_state"].items():
-            app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
-
-        # Create genesis block
-        genesis_block = Block(
-            header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
-            extrinsic=Extrinsic.default()
-        )
-
-        # Temp convert trace to genesis
-        # with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
-        #     orig_genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
-        #
-        # with open(os.path.join(data_dir, 'chainspecs', f'1_011.bin'), 'rb') as fp:
-        #     trace = Trace.from_jam_bytes(JamBytes(fp.read()))
-        #
-        #     keyvals = [(i[0], i[1]) for i in trace.pre_state.keyvals]
-        #     for idx, (key, val) in enumerate(keyvals):
-        #         if key == b'\x0b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00':
-        #             keyvals[idx] = (key, b'\x00\x00\x00\x00')
-        #
-        #     genesis_state = ChainspecDump(
-        #         keyvals=keyvals,
-        #         state_root=trace.pre_state.state_root
-        #     )
-        #
-        #     with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'wb') as fp:
-        #         fp.write(genesis_state.to_jam_bytes().to_bytes())
-
-        # with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
-        #     genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
-        #     for k, v in genesis_state.keyvals:
-        #         app.state_db.put(bytes(k), bytes(v))
-        #
-        # with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
-        #     genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
-
-    else:
-        if initial_state is not None:
-
-            if initial_state.endswith('.json'):
-                with open(initial_state, 'r') as fp:
-                    state_data = json.load(fp)
-                jam_state = JamState.from_json(state_data)
-
-            elif initial_state.endswith('.bin'):
-                with open(initial_state, 'rb') as fp:
-                    jam_state = JamState.from_jam_bytes(JamBytes(fp.read()))
-
-            else:
-                raise BadParameter('initial_state can only be .json or .bin')
-        else:
-            if genesis is None:
-                genesis = path.join(data_dir,  'genesis.json')
-            with open(genesis, 'r') as fp:
-                click.echo(f'Genesis file at {genesis}')
-                genesis_data = json.load(fp)
-                app.config.common_era = genesis_data['common_era']
-                jam_state = JamState.create_genesis_state(
-                    validators=[ValidatorData.from_json(v) for v in genesis_data['validators']],
-                )
-        # Store genesis state
-        await app.store_jam_state(jam_state)
-
-        # Create genesis block
-        genesis_block = Block(
-            header=Header.genesis(jam_state.safrole.validators),
-            extrinsic=Extrinsic.default()
-        )
+    # Create genesis block
+    genesis_block = Block(
+        header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
+        extrinsic=Extrinsic.default()
+    )
 
     # Store genesis block
     await app.store_block(genesis_block)
+
     click.echo(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
 
     # Initialize certificate

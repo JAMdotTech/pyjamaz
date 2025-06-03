@@ -147,6 +147,8 @@ class Entropy(StateComponent):
         if header.author_bandersnatch_key is None or self.block_context.seal_vrf_output == bytes(96):
             return bytes(32)
 
+        logging.debug(f"Verifying entropy source signature: {bytes(header.author_bandersnatch_key).hex()} {self.block_context.seal_vrf_output.hex()}")
+
         return ietf_vrf_verify(
             bytes(header.author_bandersnatch_key),
             b"jam_entropy" + self.block_context.seal_vrf_output,
