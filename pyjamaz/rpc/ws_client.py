@@ -68,11 +68,14 @@ class WebsocketClient(RPCMethods):
 
     async def _send_and_wait(self, op, params):
         req_id = generate_req_id()
-        fut = asyncio.get_event_loop().create_future()
-        self.pending[req_id] = fut
-        await self.ws.send(jsonapi_request(req_id, op, params))
-        response = await fut
-        return response
+        # fut = asyncio.get_event_loop().create_future()
+        # self.pending[req_id] = fut
+        req = jsonapi_request(req_id, op, params)
+        print(f">REQ: {req}")
+        await self.ws.send(req)
+        response = await self.ws.recv()
+        # response = await fut
+        return json.loads(response).get('result')
 
 
     async def subscribe(self, op, params, result_parser):
@@ -111,7 +114,7 @@ class WebsocketClient(RPCMethods):
         res = await self._send_and_wait("bestBlock", None)
         if not res:
             return None
-        res[0] = bytes(res[0])
+        res["header_hash"] = bytes(res["header_hash"])
         return res
 
     async def listServices(self) -> List[int]:
@@ -168,7 +171,7 @@ class WebsocketClient(RPCMethods):
 
 
     async def subscribeServiceValue(self, service_id, storage_item_key):
-        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key)], lambda x: x and bytes(x) or None)
+        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key), False], lambda x: x and bytes(x) or None)
 
 
     async def subscribeServiceRequest(self, block_hash: bytes, service_id:int, preimage_hash: bytes, preimage_length: int):

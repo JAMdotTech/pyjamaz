@@ -163,17 +163,17 @@ def rpcParameters(app, params):
 
 
 def rpcBestBlock(app, params):
-    return [
-        list(app.retrieve_block_hash(app.state.timeslot.number)),
-        app.state.timeslot.number
-    ]
+    return {
+        "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
+        "slot": app.state.timeslot.number
+    }
 
 
 def rpcFinalizedBlock(app, params):
-    return [
-        list(app.retrieve_block_hash(app.state.timeslot.number)),
-        app.state.timeslot.number
-    ]
+    return {
+        "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
+        "slot": app.state.timeslot.number
+    }
 
 
 def rpcParent(app, params):

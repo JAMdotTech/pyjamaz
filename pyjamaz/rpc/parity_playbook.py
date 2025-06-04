@@ -9,8 +9,10 @@ from pyjamaz.rpc.ws_client import WebsocketClient
 
 async def create_bootservice_workpackage(client, instruction: Instruction, extrinsic: List[bytes]):
     best_block = await client.bestBlock()
-    block_hash = best_block[0]
-    block_timeslot = best_block[1]
+    block_hash = best_block["header_hash"]
+    block_timeslot = best_block["slot"]
+    # block_hash = best_block[0]
+    # block_timeslot = best_block[1]
 
     state_root = await client.stateRoot(block_hash)
     beefy_root = await client.beefyRoot(block_hash)
@@ -63,7 +65,7 @@ async def main():
         #services = await client.serviceValue(bytes(32), bootstrap_service_id, b'\x10service_registry')
         #print(services)
 
-        created_key = blake2b_256_hash(int(bootstrap_service_id).to_bytes(length=4, byteorder="little") + b'created')
+        # created_key = blake2b_256_hash(int(bootstrap_service_id).to_bytes(length=4, byteorder="little") + b'created')
 
         create_instruction = Instruction.from_json(
             {
@@ -84,6 +86,7 @@ async def main():
             )
 
         extrinsic = [core_vm_child_blob]
+        extrinsic = []
 
         work_package = await create_bootservice_workpackage(client, create_instruction, extrinsic)
         # work_package = await create_bootservice_workpackage(client, create_instruction, [])
@@ -91,10 +94,12 @@ async def main():
         await client.submitWorkPackage(0, work_package, extrinsic)
         print("WORKPACKAGE SUBMITTED")
 
-        new_service = await client.subscribeServiceValue(bootstrap_service_id,  created_key)
+        new_service = await client.subscribeServiceValue(bootstrap_service_id,  b'created')
         async for data in new_service:
             print("SUBSCRIPTION RECEIVED DATA")
             break
+
+        await asyncio.sleep(600)
 
 
         """
