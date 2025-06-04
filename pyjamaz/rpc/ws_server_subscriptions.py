@@ -269,6 +269,7 @@ class SubscriptionManager:
             msg_data = sub.create_data(data)
             message = jsonapi_ws_response(sub.id, sub.topic, msg_data)
             try:
+                print("SENDING SUBDATA:", sub.id, sub.topic, msg_data)
                 await sub.ws.send(message)
             except Exception as e:
                 print(f"ERROR {e}")

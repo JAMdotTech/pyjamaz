@@ -38,58 +38,68 @@ class WebsocketClient(RPCMethods):
 
             # Note: we can always trust we're dealing with one message at a time: https://stackoverflow.com/a/21025321
             try:
-                print("!!!!!!!!!!!!!!!", data)
-
                 # Subscriptions have a different message format, hack:
                 json_data = json.loads(data)
-                if not "method" in json_data:
+
+                if "id" in json_data:
                     if json_data["id"] in self.pending:
                         self.pending[json_data["id"]].set_result(json_data["result"])
                         del self.pending[json_data["id"]]
-                        return
+                        #print(f"RESOLVED PENDING REQUEST ({len(self.pending)} pending)")
+                        continue
+                    else:
+                        #print(f"REQUEST NOT PENDING????? ({len(self.pending)} pending)")
+                        continue
 
-                req_id, rpc_call, params, req_type, result = jsonapi_parse(data)
+                elif "params" in json_data and json_data["params"].get("subscription") is not None:
+                    if json_data["params"]["subscription"] in self.subs:
+                        #self.subs[json_data["params"]["subscription"]].set_result(json_data["result"])
+                        await self.subs[json_data["params"]["subscription"]].put(json_data["params"]["result"])
+                        #print(f"RESOLVED SUBSCRIPTION ({len(self.subs.keys())} pending)")
+                        continue
+                    else:
+                        #print(f"SUBSCRIPTION NOT PENDING????? ({len(self.subs.keys())} pending)")
+                        continue
+                else:
+                    #print("INVALID RESPONSE????????")
+                    continue
 
-                if req_id and req_id in self.pending:
-                    self.pending[req_id].set_result(result)
-                    del self.pending[req_id]
-
-                elif req_id in self.subs:
-                    await self.subs[req_id].put(result)
+                # req_id, rpc_call, params, req_type, result = jsonapi_parse(data)
+                #
+                # if req_id and req_id in self.pending:
+                #     self.pending[req_id].set_result(result)
+                #     del self.pending[req_id]
+                #
+                # elif req_id in self.subs:
+                #     await self.subs[req_id].put(result)
 
             except RPCCallException as e:
+                print("INVALID RESPONSE MESSAGE")
                 if e.req_id and e.req_id in self.pending:
                     self.pending[e.req_id].set_result(None)
                     del self.pending[e.req_id]
 
             except Exception as e:
-                print("UNKNOWN????????:::: ", e)
+                print("UNKNOWN ERROR????????:::: ", e)
 
 
     async def _send_and_wait(self, op, params):
         req_id = generate_req_id()
-        # fut = asyncio.get_event_loop().create_future()
-        # self.pending[req_id] = fut
+        fut = asyncio.get_event_loop().create_future()
+        self.pending[req_id] = fut
         req = jsonapi_request(req_id, op, params)
-        print(f">REQ: {req}")
         await self.ws.send(req)
-        response = await self.ws.recv()
-        # response = await fut
-        return json.loads(response).get('result')
+        response = await fut
+        return response
 
 
     async def subscribe(self, op, params, result_parser):
-        req_id = generate_req_id()
+        sub_id = await self._send_and_wait(op, params)
 
         qu = asyncio.Queue()
-        ack = asyncio.get_running_loop().create_future()
-
-        self.pending[req_id] = ack
-
-        await self.ws.send(jsonapi_request(req_id, op, params))
-        sub_id = await ack
         self.subs[sub_id] = qu
-        print(f"SUBSCRIBED TO {op} with id {sub_id}")
+
+        print(f"SUBSCRIBED TO {op} with id {sub_id} and params {params}")
 
         async def gen():
             try:
@@ -171,7 +181,7 @@ class WebsocketClient(RPCMethods):
 
 
     async def subscribeServiceValue(self, service_id, storage_item_key):
-        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key), False], lambda x: x and bytes(x) or None)
+        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key), False], lambda x: x and x or None)
 
 
     async def subscribeServiceRequest(self, block_hash: bytes, service_id:int, preimage_hash: bytes, preimage_length: int):

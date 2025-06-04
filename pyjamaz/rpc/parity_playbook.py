@@ -96,10 +96,9 @@ async def main():
 
         new_service = await client.subscribeServiceValue(bootstrap_service_id,  b'created')
         async for data in new_service:
-            print("SUBSCRIPTION RECEIVED DATA")
-            break
-
-        await asyncio.sleep(600)
+            print("SUBSCRIPTION RECEIVED DATA", data)
+            if data and data["value"]:
+                break
 
 
         """
