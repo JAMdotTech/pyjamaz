@@ -21,7 +21,7 @@ class PubSub(object):
         #self.send_stream: MemoryObjectSendStream[Dict], self.receive_stream: MemoryObjectReceiveStream[Dict] = anyio.create_memory_object_stream[Dict](max_buffer_size=10)
         self.send_stream: MemoryObjectSendStream[PubSubSignal] = None
         self.receive_stream: MemoryObjectReceiveStream[PubSubSignal] = None
-        self.send_stream, self.receive_stream = anyio.create_memory_object_stream[PubSubSignal](max_buffer_size=1000)
+        self.send_stream, self.receive_stream = anyio.create_memory_object_stream[PubSubSignal](max_buffer_size=10000)
         self.subscriptions: Dict[str, List[Callable]] = {}
         for msg_type in MESSAGE_TYPES:
             self.subscriptions[msg_type.value] = []

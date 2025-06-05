@@ -181,7 +181,11 @@ class WebsocketClient(RPCMethods):
 
 
     async def subscribeServiceValue(self, service_id, storage_item_key):
-        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key), False], lambda x: x and x or None)
+        def result_parser(result):
+            if result.get('value') is not None:
+                return bytes(result.get('value'))
+            return None
+        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key), False], result_parser)
 
 
     async def subscribeServiceRequest(self, block_hash: bytes, service_id:int, preimage_hash: bytes, preimage_length: int):

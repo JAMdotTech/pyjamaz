@@ -13,7 +13,7 @@ from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram, PVMCode
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult, InnerPVMResult
-from pyjamaz.pvm_interface.models import RefineInvocationContext
+from pyjamaz.pvm_interface.models import RefineInvocationContext, IntegratedPVM
 
 
 def hc_historical_lookup(
@@ -335,8 +335,8 @@ def hc_invoke(
     if memory.is_accessible(o, 112, PVMMemoryMode.writable):
         jam_bytes = JamBytes(memory.read_bytes(o, 112))
         gas = U64.decode(jam_bytes)
-        for idx in range(13):
-            reg[idx] = U64.decode(jam_bytes)
+        for _ in range(13):
+            reg.append(U64.decode(jam_bytes))
 
     pvm_program = None
     if n in m_e.inner_pvm_lookup:

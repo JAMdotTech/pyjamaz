@@ -89,13 +89,11 @@ class SubscriptionServiceAccount(WSubscription):
     DATA_SERVICE_BLOB = 1
 
     def check_params(self, data: Any):
-        #print("CHECKING PARAMS FOR subscribeServiceData")
         if data:
             return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID]
         return True
 
     def create_data(self, data: Any):
-        #return list(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
         return {
             "header_hash": list(self.app.get_best_header_hash()),
             "slot": self.app.state.timeslot.number,
@@ -111,7 +109,6 @@ class SubscriptionStorageItem(WSubscription):
     def check_params(self, data: Any):
         if data:
             storage_hash = blake2b_256_hash(int(self.params[self.PARAM_SERVICE_ID]).to_bytes(length=4, byteorder="little") + bytes(self.params[self.PARAM_STORAGE_KEY]))
-            print("CHECKING PARAMS FOR subscribeServiceValue", self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and list(storage_hash) == list(data[self.PARAM_STORAGE_KEY]))
             return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and list(storage_hash) == list(data[self.PARAM_STORAGE_KEY])
         return True
 
@@ -269,8 +266,8 @@ class SubscriptionManager:
             msg_data = sub.create_data(data)
             message = jsonapi_ws_response(sub.id, sub.topic, msg_data)
             try:
-                print("SENDING SUBDATA:", sub.id, sub.topic, msg_data)
+                # print("SENDING SUBDATA:", sub.id, sub.topic, msg_data)
                 await sub.ws.send(message)
             except Exception as e:
-                print(f"ERROR {e}")
+                # print(f"ERROR {e}")
                 await self.unsubscribe(sub.id)

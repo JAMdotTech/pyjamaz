@@ -2,6 +2,8 @@ import logging
 from dataclasses import dataclass
 from typing import List, Dict
 
+from pyjamaz.constants import PVM_MARSHALLING_OFFSET_ACCUMULATE, PVM_MARSHALLING_OFFSET_TRANSFER, \
+    PVM_MARSHALLING_OFFSET_AUTH, PVM_MARSHALLING_OFFSET_REFINE
 from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
 from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage, WorkExecResult
@@ -244,7 +246,7 @@ def pvm_invoke_accumulate(
             deferred_transfers=[],
             accumulation_output=None,
             gas_used=0,
-            #preimages=[]
+            preimages=[]
         )
 
     argument_data = AccumulatePvmArguments(
@@ -260,7 +262,7 @@ def pvm_invoke_accumulate(
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=serialized_program,
-        start_offset=5, #TODO: constant?
+        start_offset=PVM_MARSHALLING_OFFSET_ACCUMULATE,
         gas_limit=gas_limit,
         argument_data=argument_data,
         program_metadata=program_metadata
@@ -359,7 +361,7 @@ def pvm_invoke_on_transfer(
 
             marshalling_output = pvm_invocation.pvm_invoke_marshalling(
                 serialized_program=serialized_program,
-                start_offset=10,    #TODO: constant?
+                start_offset=PVM_MARSHALLING_OFFSET_TRANSFER,
                 gas_limit=gas_limit,
                 argument_data=argument_data,
                 program_metadata=program_metadata
@@ -446,7 +448,7 @@ def pvm_invoke_is_authorized(
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=work_package.authorization_code,
-        start_offset=0,
+        start_offset=PVM_MARSHALLING_OFFSET_AUTH,
         gas_limit=GAS_INVOKE,
         argument_data=argument_data,
         program_metadata=b"auth"
@@ -700,7 +702,7 @@ def pvm_invoke_refine(
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=preimage.serialized_program,
-        start_offset=0,
+        start_offset=PVM_MARSHALLING_OFFSET_REFINE,
         gas_limit=GAS_INVOKE,
         argument_data=argument_data,
         program_metadata=preimage.metadata

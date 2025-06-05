@@ -12,6 +12,7 @@ from pyjamaz.models.state import AccumulationStateComponents, DeferredTransfer, 
 
 from pyjamaz.pvm.constants import ExitCondition
 from pyjamaz.pvm.invocation import InvocationContext
+from pyjamaz.pvm.types import PVMCode, PVMMemory
 
 
 @dataclass
@@ -153,8 +154,8 @@ class IntegratedPVM:
     """
     GP-0.6.4-eq:B.4 bold_M
     """
-    code: bytes              # GP-0.6.4-eq:B.6 bold_p
-    memory: bytes            # GP-0.6.4-eq:B.6 bold_u
+    code: PVMCode              # GP-0.6.4-eq:B.6 bold_p
+    memory: PVMMemory            # GP-0.6.4-eq:B.6 bold_u
     program_counter: int     # GP-0.6.4-eq:B.6 italic_i
 
 
