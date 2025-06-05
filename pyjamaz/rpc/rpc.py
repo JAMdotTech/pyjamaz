@@ -276,13 +276,11 @@ def rpcSyncState(app: PyjamazApp, params):
 
 def rpcSubscribeBestBlock(app: PyjamazApp, params):
     # Note: initial response after subscription
-    data = rpcBestBlock(app, params)
-    return {"header_hash": data[0], "slot": data[1]}
+    return rpcBestBlock(app, params)
 
 
 def rpcSubscribeFinalizedBlock(app: PyjamazApp, params):
-    data = rpcFinalizedBlock(app, params)
-    return {"header_hash": data[0], "slot": data[1]}
+    return rpcFinalizedBlock(app, params)
 
 
 def rpcSubscribeServiceData(app: PyjamazApp, params):
