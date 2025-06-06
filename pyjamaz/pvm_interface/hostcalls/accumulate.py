@@ -747,7 +747,7 @@ def hc_provide(
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
-        ctx_in.context.preimages.append((service_id, preimage_blob))
+        ctx_in.context.preimages.append((service_account_id, preimage_blob))
         logger.hc_log("PROVIDE OK", f"h={format_hash(blake2b_256_hash(preimage_blob))}")
 
 

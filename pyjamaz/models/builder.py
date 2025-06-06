@@ -75,6 +75,12 @@ class ExportInstruction(Serializable):
 
 
 @dataclass
+class SolicitInstruction(Serializable):
+    hash: int = field(metadata={'codec': H256})
+    len: int = field(metadata={'codec': U64})
+
+
+@dataclass
 class Instruction(Serializable):
 
     CreateService: CreateServiceInstruction = field(default=None, metadata={'codec': CreateServiceInstruction.to_codec_def()})
@@ -83,7 +89,7 @@ class Instruction(Serializable):
     Zombify: ZombifyInstruction = field(default=None, metadata={'codec': ZombifyInstruction.to_codec_def()})
     Eject: EjectInstruction = field(default=None, metadata={'codec': EjectInstruction.to_codec_def()})
     DeleteItems: None = field(default=None, metadata={'codec': Null})
-    Solicit: None = field(default=None, metadata={'codec': Null})
+    Solicit: SolicitInstruction = field(default=None, metadata={'codec': SolicitInstruction.to_codec_def()})
     Forget: None = field(default=None, metadata={'codec': Null})
     Lookup: None = field(default=None, metadata={'codec': Null})
     Import: None = field(default=None, metadata={'codec': Null})

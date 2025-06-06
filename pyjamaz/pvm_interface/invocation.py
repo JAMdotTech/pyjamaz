@@ -336,9 +336,12 @@ def pvm_invoke_on_transfer(
 
         preimage_blob = service_account.preimages.get(service_account.code_hash)
         if preimage_blob is not None:
-            preimage = Preimage.extract(preimage_blob)
-            serialized_program = preimage.serialized_program
-            program_metadata = preimage.metadata
+            try:
+                preimage = Preimage.extract(preimage_blob)
+                serialized_program = preimage.serialized_program
+                program_metadata = preimage.metadata
+            except Exception:
+                pass
 
         if serialized_program:
 
