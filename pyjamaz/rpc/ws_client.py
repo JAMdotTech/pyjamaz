@@ -64,15 +64,6 @@ class WebsocketClient(RPCMethods):
                     #print("INVALID RESPONSE????????")
                     continue
 
-                # req_id, rpc_call, params, req_type, result = jsonapi_parse(data)
-                #
-                # if req_id and req_id in self.pending:
-                #     self.pending[req_id].set_result(result)
-                #     del self.pending[req_id]
-                #
-                # elif req_id in self.subs:
-                #     await self.subs[req_id].put(result)
-
             except RPCCallException as e:
                 print("INVALID RESPONSE MESSAGE")
                 if e.req_id and e.req_id in self.pending:
