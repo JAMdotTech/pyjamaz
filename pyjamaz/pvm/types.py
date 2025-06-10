@@ -296,12 +296,12 @@ class PVMMemory:
         self._stack = stack
         self._args = arguments
 
-        self.sections: List[MemorySection] = [m for m in (rom, heap, stack, arguments) if m]
-        self.section_offsets = [p.address for p in self.sections]
+        self.section_offsets = [p.address for p in (rom, heap, stack, arguments) if p] #self.sections]
 
         self._mem_addr = None
         self._section = None
         self._section_addr = None
+
 
     def find_section(self, addr: int) -> Optional[MemorySection]:
         if not self.section_offsets:
@@ -326,6 +326,7 @@ class PVMMemory:
         else:
             return None
 
+
     def write_int(self, addr: int, value: int, length: int):
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
@@ -345,6 +346,7 @@ class PVMMemory:
         # Set the mem page according to the found page for this range
         section.write_int(section_addr, value, length)
 
+
     def read_int(self, addr: int, length: int):
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
@@ -363,6 +365,7 @@ class PVMMemory:
 
         # Set the mem page according to the found page for this range
         return section.read_int(section_addr, length)
+
 
     def is_accessible(self, address: int, length: int, mode: PVMMemoryMode) -> bool:
         if length == 0:
@@ -390,6 +393,7 @@ class PVMMemory:
             return False
 
         return True
+
 
     def read_bytes(self, address: int, length: int, padding:int = None) -> bytes:
         """
@@ -419,6 +423,7 @@ class PVMMemory:
             mem_bytes.ljust(padding, b'\0')
 
         return mem_bytes
+
 
     def write_bytes(self, address: int, content: bytes) -> None:
         """
@@ -466,6 +471,33 @@ class PVMMemory:
 
         self._heap.paged_tail = new_heap_ptr
         return self._heap.paged_tail
+
+
+    def void(self, page_idx: int, nr_pages: int, mode: PVMMemoryMode):
+        mem_addr = page_idx * PVM_PAGE_SIZE
+        #TODO: for now assume memory for an inner pvm is built up sequentially, probably needs change! :S
+        if not self.section_offsets and mem_addr == PVM_INIT_ZONE_SIZE:
+            self._rom = MemorySection(
+                address=PVM_INIT_ZONE_SIZE,
+                length=nr_pages*PVM_PAGE_SIZE,
+                contents=bytes(nr_pages*PVM_PAGE_SIZE)
+            )
+        elif mem_addr == (2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(self._rom.contents)):
+            self._heap = MemorySection(
+                address = (2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(self._rom.contents)),
+                length = nr_pages * PVM_PAGE_SIZE,
+                contents = bytes(nr_pages*PVM_PAGE_SIZE)
+            )
+        elif self._stack is None:
+            self._stack = MemorySection(
+            address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - (nr_pages * PVM_PAGE_SIZE),
+            length=nr_pages * PVM_PAGE_SIZE,
+            contents=bytes(nr_pages * PVM_PAGE_SIZE),
+        )
+        else:
+            raise PVMMemoryError(f"Invalid void operation: MemorySection not found {mem_addr}")
+
+        self.section_offsets.append(mem_addr)
 
 
     @staticmethod
@@ -597,12 +629,20 @@ class PVMProgram(Serializable):
                 PVMMemory.zone_size(stack_mem_size) + PVM_INPUT_DATA_SIZE
             ) <= 2**32:
 
-                return cls(
+                instance = cls(
                     code=PVMCode.from_jam_bytes(JamBytes(pvm_code)),
                     registers=cls.init_registers(argument_contents),
                     memory=cls.init_memory(pvm_rom_contents, pvm_heap_contents, argument_contents, heap_mem_pages, stack_mem_size),
                     metadata=metadata
                 )
+
+                #TODO: TEMP HACK TO DEBUG INJECT CUSTOM PROGRAMS!!!!!!!
+                if DEBUG:
+                    instance._code = pvm_code
+                    instance._ram = pvm_heap_contents
+                    instance._rom = pvm_rom_contents
+
+                return instance
             else:
                 #TODO
                 raise Exception("HUH?")

@@ -33,6 +33,10 @@ def hc_lookup(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    Make a lookup into the service's preimage store.
+    hash: The hash of the preimage to look up.
+    Returns the preimage or None if the preimage was not available.
+
     Puts a Service Preimage blob into PVM memory
     """
     logger.hc_regs(f"LOOKUP", "accumulate")
