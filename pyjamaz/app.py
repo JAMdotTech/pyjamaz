@@ -297,7 +297,6 @@ class PyjamazApp:
         block_validation = BlockValidation(self.block_context)
 
         # Set components pre-state
-        # TODO move deepcopy() from STF to here
         pre_state_timeslot = self.state.timeslot
         pre_state_recent_history = self.state.recent_history
         pre_state_entropy = self.state.entropy
@@ -313,7 +312,7 @@ class PyjamazApp:
         pre_state_authorizer_pools = self.state.authorizer_pools
         pre_state_accumulation_history = self.state.accumulation_history
         pre_state_accumulation_queue = self.state.accumulation_queue
-        pre_state_services = self.state.services
+        pre_state_services = ServicesState(services={})
 
         # Set storage engine for services
         pre_state_services.set_storage_engine(self.state_db) # TODO remove

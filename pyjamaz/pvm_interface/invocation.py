@@ -4,7 +4,7 @@ from typing import List, Dict
 
 from pyjamaz.constants import PVM_MARSHALLING_OFFSET_ACCUMULATE, PVM_MARSHALLING_OFFSET_TRANSFER, \
     PVM_MARSHALLING_OFFSET_AUTH, PVM_MARSHALLING_OFFSET_REFINE
-from pyjamaz.exceptions import ProcessWorkpackageError
+from pyjamaz.exceptions import ProcessWorkpackageError, StateKeyNoResult
 from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
 from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage, WorkExecResult
 from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
@@ -235,11 +235,17 @@ def pvm_invoke_accumulate(
     )
 
     try:
-        code_hash = state_context.services.services[service_id].code_hash
-        preimage = Preimage.extract(state_context.services.services[service_id].preimages[code_hash])
+
+        service_account = state_context.services.retrieve_service_account(service_id)
+        preimage_blob = state_context.services.retrieve_preimage(
+            service_account_id=service_id,
+            preimage_hash=service_account.code_hash
+        )
+
+        preimage = Preimage.extract(preimage_blob)
         serialized_program = preimage.serialized_program
         program_metadata = preimage.metadata
-    except KeyError:
+    except StateKeyNoResult:
         # program not found
         return PvmAccumulateOutput(
             state_context=state_context,
@@ -336,9 +342,12 @@ def pvm_invoke_on_transfer(
 
         preimage_blob = service_account.preimages.get(service_account.code_hash)
         if preimage_blob is not None:
-            preimage = Preimage.extract(preimage_blob)
-            serialized_program = preimage.serialized_program
-            program_metadata = preimage.metadata
+            try:
+                preimage = Preimage.extract(preimage_blob)
+                serialized_program = preimage.serialized_program
+                program_metadata = preimage.metadata
+            except Exception:
+                pass
 
         if serialized_program:
 

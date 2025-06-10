@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import List, Set, Dict
 
 from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
     BeefyCommitmentMap, TimeslotState, EntropyState
@@ -269,16 +270,6 @@ def parallel_accumulation(
     # Process services
     for service_id in service_ids:
 
-        # Prepare service account in accumulation_state TODO why still necessary?
-        try:
-            service_account = accumulation_state.services.retrieve_service_account(service_id)
-            preimage = accumulation_state.services.retrieve_preimage(
-                service_account_id=service_id,
-                preimage_hash=service_account.code_hash
-            )
-        except StateKeyNoResult:
-            pass
-
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,
@@ -288,9 +279,20 @@ def parallel_accumulation(
             service_id=service_id
         )
 
+        # Update gas usage
         accumulation_gas_utilized[service_id] = output.gas_used
 
+        # Update transfers
         deferred_transfers += output.deferred_transfers
+
+        # Process provided pre-images
+        for s, i in output.preimages:
+            availability = output.state_context.services.retrieve_preimage_availability(s, blake2b_256_hash(i), len(i))
+            if availability == []:
+                output.state_context.services.store_preimage_availability(
+                    s, blake2b_256_hash(i), len(i), [post_state_timeslot.number]
+                )
+                output.state_context.services.store_preimage(s, i)
 
         # Update services state with output
         accumulation_state.services.services.update(output.state_context.services.services)
@@ -392,8 +394,7 @@ def single_step_accumulation(
         for r in w.results:
             if r.service_id == service_id:
                 g += r.accumulate_gas
-                # # TODO removeme
-                # r.result.ok = bytes(list(range(1, 32)))
+
                 i.append(
                     AccumulationOperand(
                         work_report_hash=w.package_spec.hash,

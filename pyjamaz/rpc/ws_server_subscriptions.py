@@ -213,7 +213,7 @@ class SubscriptionManager:
             sub = sub_cls(self.server.app, topic, params, ws)
             subs.add(sub)
             self._subscriptions[sub.id] = sub
-            logging.info(f'{sub.id} subscribed to {topic}')
+            logging.debug(f'{sub.id} subscribed to {topic}')
             return sub
 
     async def unsubscribe(self, subscription_id: str):
@@ -227,7 +227,7 @@ class SubscriptionManager:
                     subs.discard(sub)
                     if not subs:
                         del self._topics[sub.topic]
-                        logging.info(f'{sub.id} unsubscribed from {sub.topic}')
+                        logging.debug(f'{sub.id} unsubscribed from {sub.topic}')
 
             return removed_sub_id
 

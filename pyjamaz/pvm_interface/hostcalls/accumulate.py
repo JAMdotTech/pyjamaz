@@ -607,6 +607,7 @@ def hc_solicit(
         # TODO: mark dirty? maybe register changes
         # preimage is being requested that is not already present in storage
         service_account.update_footprint_add_preimage(preimage_length)
+        state.services.store_service_account(service_id, service_account)
 
     if preimage_hash is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -832,7 +833,7 @@ def hc_provide(
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
-        ctx_in.context.preimages.append((service_id, preimage_blob))
+        ctx_in.context.preimages.append((service_account_id, preimage_blob))
         logger.hc_log("PROVIDE OK", f"h={format_hash(blake2b_256_hash(preimage_blob))}")
 
 

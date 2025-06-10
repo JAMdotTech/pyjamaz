@@ -1,10 +1,14 @@
 import json
 import logging
 import uuid
+from dataclasses import dataclass, field
+from typing import List, Tuple
 
 from jamcodec.base import JamBytes
+from jamcodec.mixins import Serializable
 
 import pyjamaz.graypaper_constants as gp_const
+from jamcodec.types import U32, H256, Vec, Bytes, Tuple as JamTuple
 from pyjamaz.app import PyjamazApp
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.models.block import Preimage
@@ -31,6 +35,16 @@ class RPCCallException(Exception):
         self.req_id = req_id
         self.rpc_call = rpc_call
         self.data = data
+
+@dataclass
+class ServiceInfo(Serializable):
+    id: int = field(metadata={'codec': U32})
+    code_hash: bytes = field(metadata={'codec': H256})
+
+
+@dataclass
+class ServiceRegistry(Serializable):
+    services: List[Tuple[bytes, ServiceInfo]] = field(metadata={'codec': Vec(JamTuple(Bytes, ServiceInfo.to_codec_def()))})
 
 
 def generate_req_id():
@@ -199,13 +213,16 @@ def rpcServiceData(app, params):
         return None
 
 
-def rpcListServices(app, params):
+def rpcListServices(app: PyjamazApp, params):
+    services = [0]
     try:
-        #TODO:
-        #service = app.state.services.retrieve_service_accounts()
-        return [0]
+        # Check bootstrap service for service registry
+        services_registry = app.state.services.retrieve_storage_local_key(0, b'\x10service_registry')
+        services_registry = ServiceRegistry.from_jam_bytes(JamBytes(services_registry))
+        services += [info.id for meta, info in services_registry.services]
     except StateKeyNoResult:
-        return None
+        pass
+    return services
 
 
 def rpcServicePreimage(app, params):

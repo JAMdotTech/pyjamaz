@@ -178,17 +178,16 @@ async def initialize_app(
 async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode):
     """PyJAMaz: Python JAM Client"""
 
-    # Note: Add packages that need a different logging level here
-    log_package_overrides = {
-        "pyjamaz.transport": logging.DEBUG,
-        "quic": logging.WARNING,
-    }
-
-    # Setup logging
-    log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level, log_package_overrides)
-
     if ctx.invoked_subcommand is None:
+
+        # Setup logging
+        log_level = logging.DEBUG if verbose else logging.INFO
+        # Note: Add packages that need a different logging level here
+        log_package_overrides = {
+            "pyjamaz.transport": log_level,
+            "quic": logging.WARNING,
+        }
+        setup_logging(log_level, log_package_overrides)
 
         if seed is None:
             raise MissingParameter("--seed parameter is required")
