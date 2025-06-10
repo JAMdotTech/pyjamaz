@@ -1046,7 +1046,7 @@ class Assurances(StateComponent):
             except StateKeyNoResult:
                 raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
 
-            service = services_state.services[result.service_id]
+            service = services_state.retrieve_service_account(result.service_id)
 
             if result.code_hash != service.code_hash:
                 raise StateTransitionError(GuaranteeErrorCode.bad_code_hash)

@@ -534,6 +534,7 @@ def hc_solicit(
         # TODO: mark dirty? maybe register changes
         # preimage is being requested that is not already present in storage
         service_account.update_footprint_add_preimage(preimage_length)
+        state.services.store_service_account(service_id, service_account)
 
     if preimage_hash is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)

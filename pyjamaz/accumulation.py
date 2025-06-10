@@ -270,16 +270,6 @@ def parallel_accumulation(
     # Process services
     for service_id in service_ids:
 
-        # Prepare service account in accumulation_state TODO why still necessary?
-        try:
-            service_account = accumulation_state.services.retrieve_service_account(service_id)
-            preimage = accumulation_state.services.retrieve_preimage(
-                service_account_id=service_id,
-                preimage_hash=service_account.code_hash
-            )
-        except StateKeyNoResult:
-            pass
-
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,
