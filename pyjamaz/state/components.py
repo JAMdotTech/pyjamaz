@@ -1942,7 +1942,7 @@ class Services(StateComponent):
 
         deferred_transfer_statistics = {}
 
-        for service_id in intermediate_state_after_accumulation.services.keys():
+        for service_id in [t.receiver for t in deferred_transfers]:
             service_transfers = transfers_service_mapping(deferred_transfers, service_id)
 
             output = pvm_invoke_on_transfer(
