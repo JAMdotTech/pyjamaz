@@ -630,9 +630,6 @@ class PyjamazApp:
 
         await self.store_block(block)
 
-        # Add header to ancestors
-        self.block_context.ancestor_headers.append(block.header)
-
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.BEST_BLOCK, data=block))
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))  # TODO: placeholder for now, move when implemented
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
@@ -689,6 +686,7 @@ class PyjamazApp:
 
         if not self.config.keys:
             # Cannot produce without validator keys
+            # TODO keys should always exist and explicit make --validator option
             return False
 
         # Check if seal-key series is fallback

@@ -244,7 +244,7 @@ class PVMMemory:
     _mem_addr: int
     _section: MemorySection
     _section_addr: int
-    _acl: Optional[Dict[int, PVMMemoryMode]]
+    _acl: Optional[Dict[int, int]] # TODO convert to PVMMemoryMode??
 
     SIZE:int = 2**32
 
@@ -346,7 +346,7 @@ class PVMMemory:
 
         if self._acl is not None:
             page_nr = addr // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.readable.value:
+            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is not writable")
 
         section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
@@ -492,7 +492,11 @@ class PVMMemory:
             self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
             self._heap.size = len(self._heap.contents)
 
-        #TODO: update ACL
+            # Create ACL of new pages
+            next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
+            pages = growth // PVM_PAGE_SIZE + 1
+            for page_nr in range(pages):
+                self._acl[next_page_nr + page_nr] = PVMMemoryMode.writable.value
 
         self._heap.paged_tail = new_heap_ptr
         return self._heap.paged_tail
