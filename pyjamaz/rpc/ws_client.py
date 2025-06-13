@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import List, Optional, Tuple, Dict
 
 import websockets
@@ -90,7 +91,7 @@ class WebsocketClient(RPCMethods):
         qu = asyncio.Queue()
         self.subs[sub_id] = qu
 
-        print(f"SUBSCRIBED TO {op} with id {sub_id} and params {params}")
+        logging.debug(f"SUBSCRIBED TO {op} with id {sub_id} and params {params}")
 
         async def gen():
             try:
@@ -111,7 +112,7 @@ class WebsocketClient(RPCMethods):
         return await self._send_and_wait("parameters", None)
 
 
-    async def bestBlock(self) -> Optional[Tuple[bytes,int]]:
+    async def bestBlock(self) -> Optional[dict]:
         res = await self._send_and_wait("bestBlock", None)
         if not res:
             return None
@@ -145,10 +146,9 @@ class WebsocketClient(RPCMethods):
         return await self._send_and_wait("submitWorkPackage", [core_idx, workpackage_blob, extrinsics_blob])
 
 
-    async def submitPreimage(self, service_id:int , preimage_blob: bytes, block_hash: bytes) -> None:
+    async def submitPreimage(self, service_id: int , preimage_blob: bytes) -> None:
         preimage_blob = list(preimage_blob)
-        block_hash = list(block_hash)
-        return await self._send_and_wait("submitPreimage", [service_id, preimage_blob, block_hash])
+        return await self._send_and_wait("submitPreimage", [service_id, preimage_blob])
 
     async def serviceValue(self, block_hash: bytes , service_id: int, storage_key: bytes) -> Optional[bytes]:
         result = await self._send_and_wait("serviceValue", [list(block_hash), service_id, list(storage_key)])
@@ -179,6 +179,10 @@ class WebsocketClient(RPCMethods):
         return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key), False], result_parser)
 
 
-    async def subscribeServiceRequest(self, block_hash: bytes, service_id:int, preimage_hash: bytes, preimage_length: int):
-        return await self.subscribe("subscribeServiceRequest", [list(block_hash), service_id, list(preimage_hash), preimage_length], lambda x: x)
+    async def subscribeServiceRequest(self, service_id:int, preimage_hash: bytes, preimage_length: int):
+        def result_parser(result):
+            if result.get('value') is not None:
+                return result.get('value')
+            return None
+        return await self.subscribe("subscribeServiceRequest", [service_id, list(preimage_hash), preimage_length], result_parser)
 

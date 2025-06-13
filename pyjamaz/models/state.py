@@ -275,6 +275,12 @@ class RecentHistoryState(State, Serializable):
         #  GP-0.5.0-eq:D.2-C(3) states encoding is a Vec (i.e. has length definition)
         pass
 
+    def get_recent_block(self, block_hash) -> Optional[RecentBlock]:
+        for block in self.recent_history:
+            if block.header_hash == block_hash:
+                return block
+        return None
+
 class StorageItemMap(StorageMap):
     def __init__(self, service_account_id: int , storage_engine: StorageEngine):
 

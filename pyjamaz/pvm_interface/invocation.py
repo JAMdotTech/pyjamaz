@@ -328,7 +328,7 @@ def pvm_invoke_on_transfer(
     ServiceAccount
     """
 
-    service_account = services_state.services.get(service_id)
+    service_account = services_state.retrieve_service_account(service_id)
     gas_used = 0
 
     if len(deferred_transfers) > 0:

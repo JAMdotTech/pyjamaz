@@ -6,12 +6,13 @@ from typing import List, Tuple
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
+from jamcodec.types import H256, U32, Vec, Bytes, Tuple as JamTuple
 
 import pyjamaz.graypaper_constants as gp_const
-from jamcodec.types import U32, H256, Vec, Bytes, Tuple as JamTuple
 from pyjamaz.app import PyjamazApp
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.models.block import Preimage
+from pyjamaz.models.builder import ServiceRegistry
 from pyjamaz.models.common import WorkPackage
 
 
@@ -35,16 +36,6 @@ class RPCCallException(Exception):
         self.req_id = req_id
         self.rpc_call = rpc_call
         self.data = data
-
-@dataclass
-class ServiceInfo(Serializable):
-    id: int = field(metadata={'codec': U32})
-    code_hash: bytes = field(metadata={'codec': H256})
-
-
-@dataclass
-class ServiceRegistry(Serializable):
-    services: List[Tuple[bytes, ServiceInfo]] = field(metadata={'codec': Vec(JamTuple(Bytes, ServiceInfo.to_codec_def()))})
 
 
 def generate_req_id():
@@ -264,7 +255,6 @@ def rpcSubmitWorkPackage(app: PyjamazApp, params):
 
 def rpcSubmitPreimage(app: PyjamazApp, params):
     preimage_blob = bytes(params[1])
-    #block_hash = bytes(params[2])
     pr = Preimage(requester=params[0], blob=preimage_blob)
     app.extrinsic.add_preimage(pr)
 

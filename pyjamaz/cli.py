@@ -92,7 +92,6 @@ def wrap_cli_import_block(traces_dir):
             logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state = self.retrieve_jam_state()
-            raise e
 
     return cli_import_block
 
@@ -175,7 +174,9 @@ async def initialize_app(
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listen on')
 @click.option('--bootnode', 'bootnode', type=str, default="", show_default=True, help='Specific bootnode to connect to')
-async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode):
+@click.option('--rpc-listen-ip', 'rpc_listen_ip', type=str, default="0.0.0.0", show_default=True, help='IP address for RPC server to listen on')
+@click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
+async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port):
     """PyJAMaz: Python JAM Client"""
 
     if ctx.invoked_subcommand is None:
@@ -227,7 +228,7 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
 
-        rpc_server = WebSocketServer(app, 'localhost', 19800)
+        rpc_server = WebSocketServer(app, rpc_listen_ip, rpc_port)
 
         try:
             async with anyio.create_task_group() as tg:
@@ -286,9 +287,9 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 async def timeslot_ticker(app: PyjamazApp):
 
     while True:
+        timeslot = app.current_timeslot()
         # TODO centralize
         app.block_context.reset()
-        timeslot = app.current_timeslot()
 
         epoch = timeslot // EPOCH_TIMESLOTS
         phase = timeslot % EPOCH_TIMESLOTS
@@ -348,11 +349,11 @@ async def timeslot_ticker(app: PyjamazApp):
                 logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
+                logging.debug(traceback.format_exc())
                 # Rollback state from DB
                 app.state = app.retrieve_jam_state()
                 # TODO Make transactional
                 app.extrinsic.clear_tickets()
-                raise e
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')

@@ -916,7 +916,7 @@ class Assurances(StateComponent):
                 raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
 
             # GP-0.5.3-eq:11.35 | Anchor must be in recent history
-            recent_block = self.get_recent_block(context.anchor, intermediate_state_recent_history)
+            recent_block = intermediate_state_recent_history.get_recent_block(context.anchor)
 
             if not recent_block:
                 raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
@@ -1000,13 +1000,6 @@ class Assurances(StateComponent):
             return self.block_context.guarantor_assignments
         else:
             return self.block_context.prev_guarantor_assignments
-
-    @staticmethod
-    def get_recent_block(block_hash, recent_history_state: RecentHistoryState) -> Optional[RecentBlock]:
-        for block in recent_history_state.recent_history:
-            if block.header_hash == block_hash:
-                return block
-        return None
 
     @staticmethod
     def check_size_limit(work_report: WorkReport):
@@ -1942,7 +1935,7 @@ class Services(StateComponent):
 
         deferred_transfer_statistics = {}
 
-        for service_id in intermediate_state_after_accumulation.services.keys():
+        for service_id in [t.receiver for t in deferred_transfers]:
             service_transfers = transfers_service_mapping(deferred_transfers, service_id)
 
             output = pvm_invoke_on_transfer(

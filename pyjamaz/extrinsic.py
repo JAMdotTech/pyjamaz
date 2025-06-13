@@ -136,7 +136,7 @@ class ExtrinsicAccumulator:
 
     def add_preimage(self, preimage: Preimage):
         self.preimage_queue.append(preimage)
-        logging.info(f"Added preimage: {format_hash(blake2b_256_hash(preimage.blob))} for service: {preimage.requester}")
+        logging.info(f"🖼️ Added preimage: {format_hash(blake2b_256_hash(preimage.blob))} for service: {preimage.requester}")
 
     def collect_preimages(self, service_state: ServicesState) -> List[Preimage]:
         # Check which of present preimages are actually requested

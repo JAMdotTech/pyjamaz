@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List, Tuple
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, U64, Array, U8, U32, Null, Vec, Bytes, Option
+from jamcodec.types import H256, U64, Array, U8, Option, Bytes, U32, Vec, Null, Tuple as JamTuple
 
 
 @dataclass
@@ -106,3 +106,14 @@ class Instruction(Serializable):
     RandomStorageRefine: RandomStorageRefineInstruction = field(default=None, metadata={'codec': RandomStorageRefineInstruction.to_codec_def()})
 
     _codec_enum = True
+
+
+@dataclass
+class ServiceInfo(Serializable):
+    id: int = field(metadata={'codec': U32})
+    code_hash: bytes = field(metadata={'codec': H256})
+
+
+@dataclass
+class ServiceRegistry(Serializable):
+    services: List[Tuple[bytes, ServiceInfo]] = field(metadata={'codec': Vec(JamTuple(Bytes, ServiceInfo.to_codec_def()))})
