@@ -34,7 +34,7 @@ def hc_bless(
     - `always_acc`: The list of service IDs which accumulate at least once in every JAM block,
       together with the baseline gas they get for accumulation. This may be supplemented with
       additional gas should there be Work Items for the service.
-
+    --------------------------
     State transition function for privileged services.
     Updates gas limits for privileged services
     """
@@ -101,7 +101,7 @@ def hc_assign(
     core: The index of the core to assign the authorizers to.
     auth_queue: The authorizer-queue to assign to the core. These are a series of AuthorizerHash values, which determine what kinds of Work Packages are allowed to be executed on the core.
     Returns Ok on success or Err if the operation failed. Failure can only happen if the value of core is out of range.
-
+    --------------------------
     Update authorization queue (state transition function of Phi)
     """
     logger.hc_regs(f"ASSIGN", "accumulate")
@@ -146,7 +146,7 @@ def hc_designate(
     """
     Designate the new validator keys.
     keys: The new validator keys.
-
+    --------------------------
     Update the validator Queue (State transition function for the validator queue)
     """
     logger.hc_regs(f"DESIGNATE", "accumulate")
@@ -186,7 +186,7 @@ def hc_checkpoint(
     """
     Checkpoint the state of the accumulation at present.
     In the case that accumulation runs out of gas or otherwise terminates unexpectedly, all changes extrinsic to the machine state, such as storage writes and transfers, will be rolled back to the most recent call to checkpoint, or the beginning of the accumulation if no checkpoint has been made.
-
+    --------------------------
     Copy the invocation result context x to y
     """
     logger.hc_regs(f"CHECKPOINT", "accumulate")
@@ -281,7 +281,7 @@ def hc_upgrade(
       Item in the new service.
     - `min_memo_gas`: The minimum gas required to be set aside for any single transfer of funds and
       corresponding processing of a memo in the new service.
-
+    --------------------------
     Updates codehash and gas limits for a service account
     """
     logger.hc_regs(f"UPGRADE", "accumulate")
@@ -331,7 +331,7 @@ def hc_transfer(
       `destination` service. This must be at least the service's [ServiceInfo::min_memo_gas]. The
       effective gas cost of this call is increased by this amount.
     - `memo`: A piece of data to give the `destination` service.
-
+    --------------------------
     Returns `Ok` on success or `Err` if the operation failed.
 
     Create a new transfer and add to the deferred transfers
@@ -490,7 +490,7 @@ def hc_query(
     - `len`: The length of the preimage to be queried.
 
     Returns `Some` if `hash`/`len` has an active solicitation outstanding or `None` if not.
-
+    --------------------------
     Determines the availability of a preimage
     """
     logger.hc_regs(f"QUERY", "accumulate")
@@ -574,7 +574,7 @@ def hc_solicit(
 
     A preimage may only be solicited once for any service and soliciting a preimage raises the
     minimum balance required to be held by the service.
-
+    --------------------------
     Modifies the preimage availability lookup (requests a preimage to be made available)
     """
     logger.hc_regs(f"SOLICIT", "accumulate")
@@ -659,7 +659,7 @@ def hc_forget(
     len: The length of the preimage to be forgotten.
     Returns Ok on success or Err if the request failed.
     This function is used twice in the lifetime of a requested preimage; once to indicate that the preimage is no longer needed and again to "clean up" the preimage once the required duration has passed. Whether it does one or the other is determined by the current state of the preimage request.
-
+    --------------------------
     Deletes PreimageAvailability (status queue)
     """
     logger.hc_regs(f"FORGET", "accumulate")
@@ -741,7 +741,7 @@ def hc_yield(
     Set the default result hash of Accumulation.
     hash: The hash to be used as the Accumulation result.
     This value will be returned from Accumulation on success. It may be overridden by further calls to this function or by explicitly returning Some value from the crate::Service::accumulate function. The checkpoint function may be used after a call to this function to ensure that this value is returned in the case of an irregular termination.
-
+    --------------------------
     Sets the invocation output given what is put in pvm memory
     """
     logger.hc_regs(f"YIELD", "accumulate")
@@ -774,7 +774,7 @@ def hc_provide(
         logger: PVMLogger):
     """
     Provide a requested preimage to any service.
-
+    --------------------------
     Provides a preimage for specified service ID
     """
 

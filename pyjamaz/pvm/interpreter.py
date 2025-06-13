@@ -159,7 +159,7 @@ class PVMInterpreter:
             raise Exception(f"Not a valid memory write operation: {opcode}")
 
         bytes_to_write = MemOps[opcode]["bytes"]
-        self.mem.write_int(addr % self.mem.SIZE, value, bytes_to_write)
+        self.mem.write_int(addr, value, bytes_to_write)
 
 
     def mem_read(self, opcode, addr):
@@ -170,7 +170,7 @@ class PVMInterpreter:
             raise Exception(f"Not a valid memory read operation: {opcode}")
 
         bytes_to_read = MemOps[opcode]["bytes"]
-        return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
+        return self.mem.read_int(addr, bytes_to_read)
 
 
     # GP_A.15

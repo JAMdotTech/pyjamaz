@@ -31,7 +31,7 @@ def hc_historical_lookup(
     Make a lookup into the service's preimage store.
     hash: The hash of the preimage to look up.
     Returns the preimage or None if the preimage was not available.
-
+    --------------------------
     haal preimage op adv serviceaccount, timeslot en preimagehash en schrijf (deels?) deze weg in memory
     """
     logger.hc_regs(f"HISTORICAL_LOOKUP", "refine")
@@ -176,8 +176,11 @@ def hc_export(
     Export a segment of data into the JAM Data Lake.
     segment: The segment of data to export.
     Returns the export index or Err if the export was unsuccessful.
+    --------------------------
     Leest een stuk geheugen uit en plaatst voegt dit toe aan e (export segments)
     """
+    logger.hc_regs(f"EXPORT", "refine")
+
     p = registers[7]
     z = min(registers[8], EC_SEGMENT_SIZE)
     data_segment = None #GP: bold_x
@@ -206,9 +209,11 @@ def hc_machine(
     code: The code of the PVM.
     program_counter: The initial program counter value of the PVM.
     Returns the handle of the PVM or Err if the creation was unsuccessful.
-
+    --------------------------
     Initializeerd een nieuwe PVM instance
     """
+    logger.hc_regs(f"MACHINE", "refine")
+
     p_o = registers[7]
     p_z = registers[8]
     i = registers[9]
@@ -264,9 +269,11 @@ def hc_peek(
     inner_src: The address in the PVM's memory to start reading from.
     len: The number of bytes to read.
     Returns the data in the PVM vm_handle at memory inner_src or Err if the inspection failed.
-
+    --------------------------
     Leest een stuk geheugen uit een inner PVM instance
     """
+    logger.hc_regs(f"PEEK", "refine")
+
     n = registers[7]
     o = registers[8]
     s = registers[9]
@@ -298,9 +305,10 @@ def hc_poke(
     outer_src: The data to be copied.
     inner_dst: The address in memory of inner PVM vm_handle to copy the data to.
     Returns Ok on success or Err if the inspection failed.
-
+    --------------------------
     Plaatst een stuk geheugen in een inner PVM instance
     """
+    logger.hc_regs(f"POKE", "refine")
 
     n = registers[7]
     s = registers[8]
@@ -336,9 +344,11 @@ def hc_zero(
     Returns `Ok` on success or `Err` if the operation failed.
     Pages are initialized to be filled with zeroes. If the pages are not yet allocated, they will
     be allocated.
-
+    --------------------------
     Alloceert een stuk geheugfen van een inner PVM instance
     """
+    logger.hc_regs(f"ZERO", "refine")
+
     n = registers[7]
     p = registers[8]
     c = registers[9]
@@ -355,7 +365,7 @@ def hc_zero(
         invocation_output.registers[7] = HostCallResult.WHO.value
     else:
         invocation_output.registers[7] = HostCallResult.OK.value
-        mem.void(p, c, PVMMemoryMode.writable)
+        mem.zero(p, c, PVMMemoryMode.writable)
 
 
 def hc_void(
@@ -371,9 +381,10 @@ def hc_void(
     count: The number of pages to deallocate.
     Returns Ok on success or Err if the operation failed.
     NOTE: All pages from page to page + count - 1 inclusive must have been allocated for this call to succeed.
-
+    --------------------------
     Verwijderd(?) het geheugen van een inner PVM instance en maakt het inaccesible
     """
+    logger.hc_regs(f"VOID", "refine")
 
     n = registers[7]
     p = registers[8]
@@ -391,7 +402,7 @@ def hc_void(
         invocation_output.registers[7] = HostCallResult.WHO.value
     else:
         invocation_output.registers[7] = HostCallResult.OK.value
-        mem.reset(p, c, PVMMemoryMode.non_readable)
+        mem.void(p, c)
 
 
 def hc_invoke(
@@ -407,6 +418,8 @@ def hc_invoke(
     regs: The initial register values of the inner PVM.
     Returns the outcome of the invocation, together with any remaining gas, and the final register values.
     """
+    logger.hc_regs(f"INVOKE", "refine")
+
     n = registers[7]
     o = registers[8]
 
@@ -437,9 +450,9 @@ def hc_invoke(
         pvm_exit_condition = pvm.get_exit_condition()
 
     def update_inner_pvm(pc: int):
-        invocation_output.memory.write_bytes(o, pvm.gas)
+        invocation_output.memory.write_bytes(o, int(pvm.gas).to_bytes(8, byteorder='big'))
         for idx in range(13):
-            invocation_output.memory.write_bytes(o+8+idx*8, pvm.reg[idx])
+            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='big'))
 
         m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden!
         m_e.inner_pvm_lookup[n].program_counter = pc
@@ -488,9 +501,11 @@ def hc_expunge(
     Delete an inner PVM instance, freeing any associated resources.
     vm_handle: The handle of the PVM to delete.
     Returns the inner PVM's final instruction counter value on success or Err if the operation failed.
-
+    --------------------------
     Verwijderd een inner PVM
     """
+    logger.hc_regs(f"EXPUNGE", "refine")
+
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
     if not registers[7] in m_e.inner_pvm_lookup:
