@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import typing
 from abc import ABC, abstractmethod
 from typing import Any
 from websockets.legacy.server import WebSocketServerProtocol
@@ -9,7 +10,9 @@ from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Block
 from pyjamaz.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR
-from pyjamaz.rpc.ws_server import WebSocketServer
+
+if typing.TYPE_CHECKING:
+    from pyjamaz.rpc.ws_server import WebSocketServer
 
 
 class WSubscription(ABC):
@@ -190,7 +193,7 @@ class SubscriptionManager:
         "subscribeSyncStatus": SubscriptionSyncStatus,  #TODO: hook to networking events
     }
 
-    def __init__(self, server: WebSocketServer):
+    def __init__(self, server: "WebSocketServer"):
         self._topics: dict[str, set[WSubscription]] = {}
         self._subscriptions: dict[str, WSubscription] = {}
         self._lock = asyncio.Lock()
