@@ -303,7 +303,7 @@ class PVMMemory:
                 continue
             page_nr = p.address // PVM_PAGE_SIZE
             nr_pages = p.size // PVM_PAGE_SIZE
-            self._acl.update({(page_nr + n): p.acl for n in range(nr_pages)})
+            self._acl.update({(page_nr + n): p.acl.value for n in range(nr_pages)})
 
     def update_offsets(self) -> Optional[MemorySection]:
         self.section_offsets = [p.address for p in (self._rom, self._heap, self._stack, self._args) if p]
