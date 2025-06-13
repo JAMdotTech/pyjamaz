@@ -1,4 +1,3 @@
-import bisect
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -116,7 +115,7 @@ class MemorySection:
     paged_tail: int # Note: the address of the last written index for this section
     contents: npt.NDArray[np.uint8]
 
-    def __init__(self, address, length, contents, acl=PVMMemoryMode):
+    def __init__(self, address, length, contents, acl:PVMMemoryMode):
         if not contents:
             contents = []
 
@@ -303,7 +302,7 @@ class PVMMemory:
                 continue
             page_nr = p.address // PVM_PAGE_SIZE
             nr_pages = p.size // PVM_PAGE_SIZE
-            self._acl.update({(page_nr + n): p.acl for n in range(nr_pages)})
+            self._acl.update({(page_nr + n): p.acl.value for n in range(nr_pages)})
 
     def update_offsets(self) -> Optional[MemorySection]:
         self.section_offsets = [p.address for p in (self._rom, self._heap, self._stack, self._args) if p]
@@ -553,7 +552,7 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {mem_addr}")
 
         for page_nr in range(nr_pages):
-            self._acl[page_idx + page_nr] = PVMMemoryMode.inaccesible
+            self._acl[page_idx + page_nr] = PVMMemoryMode.inaccesible.value
         for x in range(nr_pages * PVM_PAGE_SIZE):
             section.contents[mem_addr + x] = 0
 
