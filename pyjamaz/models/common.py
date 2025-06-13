@@ -378,7 +378,7 @@ class WorkDigest(Serializable):
     refine_load: RefineLoad = field(metadata={'codec': RefineLoad.to_codec_def()})
 
     @classmethod
-    def from_work_item(cls, work_item: WorkItem, result: WorkExecResult, gas_used: int) -> "WorkResult":
+    def from_work_item(cls, work_item: WorkItem, result: WorkExecResult, gas_used: int) -> "WorkDigest":
         """
         GP-0.6.4-eq:14.8 (function_C) | the item-to-result function
         """
