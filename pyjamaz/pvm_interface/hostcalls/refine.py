@@ -365,7 +365,7 @@ def hc_zero(
         invocation_output.registers[7] = HostCallResult.WHO.value
     else:
         invocation_output.registers[7] = HostCallResult.OK.value
-        mem.zero(p, c, PVMMemoryMode.writable)
+        mem.zero(p, c)
 
 
 def hc_void(
@@ -396,10 +396,11 @@ def hc_void(
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
+    mem_addr = p * PVM_PAGE_SIZE
     if mem is None:
-        invocation_output.registers[7] = HostCallResult.HUH.value
-    elif p < 16 or p+c >= 2**32//PVM_PAGE_SIZE or mem.is_accessible(p, c, PVMMemoryMode.readable):
         invocation_output.registers[7] = HostCallResult.WHO.value
+    elif p < 16 or p+c >= 2 ** 32 // PVM_PAGE_SIZE or not mem.is_accessible(mem_addr, c * PVM_PAGE_SIZE, PVMMemoryMode.readable):
+        invocation_output.registers[7] = HostCallResult.HUH.value
     else:
         invocation_output.registers[7] = HostCallResult.OK.value
         mem.void(p, c)
@@ -422,6 +423,8 @@ def hc_invoke(
 
     n = registers[7]
     o = registers[8]
+
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
     gas = None
     reg = []
@@ -450,12 +453,13 @@ def hc_invoke(
         pvm_exit_condition = pvm.get_exit_condition()
 
     def update_inner_pvm(pc: int):
-        invocation_output.memory.write_bytes(o, int(pvm.gas).to_bytes(8, byteorder='big'))
+        invocation_output.memory.write_bytes(o, int(pvm.gas).to_bytes(8, byteorder='little'))
         for idx in range(13):
-            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='big'))
+            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='little'))
 
         m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden!
         m_e.inner_pvm_lookup[n].program_counter = pc
+
 
     if gas is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)

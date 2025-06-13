@@ -543,7 +543,7 @@ class PVMMemory:
 
         self.update_offsets()
         for page_nr in range(nr_pages):
-            self._acl[page_idx + page_nr] = PVMMemoryMode.writable
+            self._acl[page_idx + page_nr] = PVMMemoryMode.writable.value
             for idx in range(PVM_PAGE_SIZE):
                 mem[addr + page_nr * PVM_PAGE_SIZE + idx] = 0
 
@@ -558,7 +558,7 @@ class PVMMemory:
         for page_nr in range(nr_pages):
             self._acl[page_idx + page_nr] = PVMMemoryMode.inaccesible.value
         for x in range(nr_pages * PVM_PAGE_SIZE):
-            section.contents[mem_addr + x] = 0
+            section.contents[mem_addr-section.address + x] = 0
 
 
 
