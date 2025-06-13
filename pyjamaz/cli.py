@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import re
 import traceback
 from asyncio import CancelledError
 from datetime import datetime
@@ -20,18 +22,23 @@ from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
-from pyjamaz.models.trace import Trace, StateDump
-from pyjamaz.settings import GP_VERSION
+from pyjamaz.models.app import Trace, StateDump, ChainspecDump
+from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
+from pyjamaz.settings import GP_VERSION, SOLO_MODE
+from pyjamaz.state.base import state_key_constructor_service_account, state_key_constructor_preimage, \
+    state_key_constructor_preimage_availability
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block, Header, Extrinsic
-from pyjamaz.models.state import JamState
+from pyjamaz.models.state import JamState, ServiceAccount, ServiceActivityRecord
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
-from pyjamaz.transport.pubsub import PubSub
-from pyjamaz.utils import format_hash
+
+from pyjamaz.transport.pubsub import PubSub, PubSubSignal
+from pyjamaz.utils import format_hash, quic_peer_id
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
@@ -91,7 +98,6 @@ def wrap_cli_import_block(traces_dir):
 
 def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
     async def produced_block_jamnp(block: Block):
-        await app.import_block(block)
         await np_protocol.broadcast_block(block)
 
     return produced_block_jamnp
@@ -143,6 +149,8 @@ async def initialize_app(
     )
 
     app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
+    app.pubsub = PubSub()
+    app.app_context.pubsub = app.pubsub
 
     if read_state:
         await app.initialize()
@@ -165,19 +173,21 @@ async def initialize_app(
 @click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listen on')
-async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host):
+@click.option('--bootnode', 'bootnode', type=str, default="", show_default=True, help='Specific bootnode to connect to')
+@click.option('--rpc-listen-ip', 'rpc_listen_ip', type=str, default="0.0.0.0", show_default=True, help='IP address for RPC server to listen on')
+@click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
+async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port):
     """PyJAMaz: Python JAM Client"""
-
-    # Note: Add packages that need a different logging level here
-    log_package_overrides = {
-        #"pyjamaz.transport": logging.DEBUG
-        "quic": logging.WARNING,
-    }
 
     if ctx.invoked_subcommand is None:
 
         # Setup logging
         log_level = logging.DEBUG if verbose else logging.INFO
+        # Note: Add packages that need a different logging level here
+        log_package_overrides = {
+            "pyjamaz.transport": log_level,
+            "quic": logging.WARNING,
+        }
         setup_logging(log_level, log_package_overrides)
 
         if seed is None:
@@ -209,7 +219,7 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
         logging.info(f'🥋 PyJAMaz JAM client')
         logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
         logging.info(f'💾 Storage path: {db_path}')
-        logging.info(f'🌐 Listening on address {host}:{port}')
+        logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
         logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
         logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
         logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
@@ -218,30 +228,34 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
 
-        pubsub = PubSub()
+        rpc_server = WebSocketServer(app, rpc_listen_ip, rpc_port)
 
         try:
             async with anyio.create_task_group() as tg:
 
+                # TODO: we need to start this manually in all event loops, make an AppFactory that handles this in a generic way
                 # Create a subscriber to process incomming messages (fx from a protocol)
-                tg.start_soon(pubsub.process_messages)
+                tg.start_soon(app.pubsub.process_messages)
+
+                # Start WebSocket server
+                tg.start_soon(start_rpc_server, rpc_server)
 
                 if block_dir:
                     logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    fs_protocol = FSProtocol(block_dir, pubsub, app)
+                    fs_protocol = FSProtocol(block_dir, app)
                     app.protocol = fs_protocol
-                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
-                    pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_json)
-                    pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
+                    app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
+                    app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_json)
+                    app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
                     tg.start_soon(fs_protocol.listen)
                 else:
                     certificate_file = os.path.join(db_path, "cert.pem")
                     pk_file = os.path.join(db_path, "cert.key")
-                    nps_protocol = JAMNPS(host, port, certificate_file, pk_file, pubsub, app)
+                    nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
                     app.protocol = nps_protocol
-                    pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
-                    pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
-                    pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
+                    app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
+                    app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
+                    app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
                     tg.start_soon(nps_protocol.listen)
 
                     for validator in app.state.safrole.validators:
@@ -262,19 +276,20 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                         tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
                 await anyio.sleep(ts - time.time())
-                tg.start_soon(timeslot_ticker, app, pubsub)
+                tg.start_soon(timeslot_ticker, app)
         except (KeyboardInterrupt, CancelledError):
             logging.info("Stopping node...")
+            # stop_event.set()
         finally:
             logging.info(f'Node stopped.')
 
 
-async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
+async def timeslot_ticker(app: PyjamazApp):
 
     while True:
+        timeslot = app.current_timeslot()
         # TODO centralize
         app.block_context.reset()
-        timeslot = app.current_timeslot()
 
         epoch = timeslot // EPOCH_TIMESLOTS
         phase = timeslot % EPOCH_TIMESLOTS
@@ -325,17 +340,16 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
         if app.should_produce_block(timeslot, safrole_state):
 
             try:
+                await app.process_assurances()
 
                 block = await app.produce_block(timeslot, safrole_state, entropy_state)
 
-                pubsub.send_stream.send_nowait({
-                    "message_type": MESSAGE_TYPES.PRODUCED_BLOCK,
-                    "data": block
-                 })
+                await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
 
                 logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
+                logging.debug(traceback.format_exc())
                 # Rollback state from DB
                 app.state = app.retrieve_jam_state()
                 # TODO Make transactional
@@ -343,6 +357,15 @@ async def timeslot_ticker(app: PyjamazApp, pubsub: PubSub):
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
+
+        if app.get_core_assigment() is not None:
+
+            # TODO TBD when does refine etc start
+            work_report = await app.process_refine(timeslot)
+
+            if work_report:
+                logging.info(f'👨‍💻 Refine complete | slot={timeslot} | core={app.get_core_assigment()} | work_report={format_hash(work_report.package_spec.hash)}')
+
 
         await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
 
@@ -391,13 +414,8 @@ async def init_certificate(db_path, seed):
 
     pk_pem, cert_pem = generate_cert(
         keys,
-        ips="0.0.0.0",
-        domains="test.com",
-        country="US",
-        state="CA",
-        city="LA",
-        organization="Test Corp",
-        website="test.com",
+        ips="127.0.0.1",    #TODO: hardcoded for now
+        alternative_name="e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka",
     )
     pk_file = os.path.join(db_path, "cert.key")
     pem_file = os.path.join(db_path, "cert.pem")
@@ -405,15 +423,11 @@ async def init_certificate(db_path, seed):
 
 
 @main.command()
-@click.option('--initial-state', type=click.Path(exists=True))
-@click.option('--genesis', type=click.Path(exists=True))
+@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
+@click.option('--chainspec', 'chainspec', type=click.Choice(['dev', 'docker']), help="Chainspec to use as genesis", default='dev')
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
-@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
-@click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
 async def init(
-        initial_state,
-        genesis,
         custom_db_path,
         force_overwrite,
         seed,
@@ -440,51 +454,24 @@ async def init(
 
     app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
 
-    if chainspec:
-        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
-            genesis_state = StateDump.from_jam_bytes(JamBytes(fp.read()))
-            for k, v, name, metadata in genesis_state.keyvals:
-                app.state_db.put(bytes(k), bytes(v))
+    # Load chainspec
+    with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
+        chainspec_data = json.load(fp)
 
-        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
-            genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
+    # Store state data
+    for k, v in chainspec_data["genesis_state"].items():
+        app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
 
-    else:
-        if initial_state is not None:
-
-            if initial_state.endswith('.json'):
-                with open(initial_state, 'r') as fp:
-                    state_data = json.load(fp)
-                jam_state = JamState.from_json(state_data)
-
-            elif initial_state.endswith('.bin'):
-                with open(initial_state, 'rb') as fp:
-                    jam_state = JamState.from_jam_bytes(JamBytes(fp.read()))
-
-            else:
-                raise BadParameter('initial_state can only be .json or .bin')
-        else:
-            if genesis is None:
-                genesis = path.join(data_dir,  'genesis.json')
-            with open(genesis, 'r') as fp:
-                click.echo(f'Genesis file at {genesis}')
-                genesis_data = json.load(fp)
-                app.config.common_era = genesis_data['common_era']
-                jam_state = JamState.create_genesis_state(
-                    validators=[ValidatorData.from_json(v) for v in genesis_data['validators']],
-                )
-        # Store genesis state
-        await app.store_jam_state(jam_state)
-
-        # Create genesis block
-        genesis_block = Block(
-            header=Header.genesis(jam_state.safrole.validators),
-            extrinsic=Extrinsic.default()
-        )
+    # Create genesis block
+    genesis_block = Block(
+        header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
+        extrinsic=Extrinsic.default()
+    )
 
     # Store genesis block
     await app.store_block(genesis_block)
-    click.echo(f'📦 Genesis block succesfully saved (hash: {format_hash(genesis_block.header.hash)})')
+
+    click.echo(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
 
     # Initialize certificate
     await init_certificate(db_path, seed)
@@ -493,7 +480,7 @@ async def init(
     await app.update_state_trie()
 
     click.echo(f"✅ Initialization complete.")
-    click.echo(f'🌲 State trie root: 0x{format_hash(app.state_trie_root)}')
+    click.echo(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
 
 
 @main.command('replay_traces')
@@ -516,6 +503,10 @@ async def replay_traces(
         traces_dir, custom_db_path, force_overwrite, skip_block_validation,
         only_block_import, trace_format, seed, chainspec, verbose
 ):
+    # Safety checks
+    if SOLO_MODE is True:
+        raise BadParameter("settings.SOLO_MODE cannot be True when running traces")
+
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
@@ -552,14 +543,14 @@ async def replay_traces(
                 await app.update_state_trie()
 
                 assert app.state_trie_root == genesis_state.state_root
-                logging.info(f'🎬 Genesis succesfully saved (state root: {format_hash(app.state_trie_root)})')
+                logging.info(f'🎬 Genesis successfully saved (state root: {format_hash(app.state_trie_root)})')
 
             with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
                 genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
 
                 app.block_context.ancestor_headers.append(genesis_block.header)
 
-                logging.info(f'📦 Genesis block succesfully saved (hash: {format_hash(genesis_block.header.hash)})')
+                logging.info(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
 
     traces_files = await anyio.to_thread.run_sync(
         lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin')})
@@ -577,14 +568,17 @@ async def replay_traces(
 
         if not only_block_import:
 
+            # Update state from trace pre-state
             for k, v in trace.pre_state.keyvals:
                 app.state_db.put(bytes(k), bytes(v))
 
             app.state = app.retrieve_jam_state()
             await app.update_state_trie()
 
-            assert app.state_trie_root == trace.pre_state.state_root
-            logging.info(f'🎬 Pre-state succesfully saved (state root: {format_hash(app.state_trie_root)})')
+            if app.state_trie_root == trace.pre_state.state_root:
+                logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
+            else:
+                logging.error("State root of pre-state doesn't match")
 
             # Add stub parent as ancestor
             stub_parent = Header.default()
@@ -595,7 +589,10 @@ async def replay_traces(
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
 
         await app.import_block(trace.block, dry_run=skip_block_validation)
-        logging.info(f'✅ Block {trace.block.header.timeslot} succesfully imported.')
+        # Update Patricia Trie
+        await app.update_state_trie()
+
+        logging.info(f'✅ Block {trace.block.header.timeslot} successfully imported.')
 
         if not only_block_import:
 
@@ -625,6 +622,19 @@ async def replay_traces(
                 with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
                     json.dump(app.state.to_json(), file, indent=2)
                 logging.info(f"Current state written to disk: {state_dump_file}")
+
+                # Update state from trace post-state
+                for k, v in trace.post_state.keyvals:
+                    app.state_db.put(bytes(k), bytes(v))
+
+                app.state = app.retrieve_jam_state()
+                await app.update_state_trie()
+
+                state_dump_file = f'trace_post_{block_file.replace(".bin", "")}.json'
+
+                with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
+                    json.dump(app.state.to_json(), file, indent=2)
+                logging.info(f"Trace post-state written to disk: {state_dump_file}")
 
                 if nr < len(traces_files):
                     response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
@@ -683,6 +693,75 @@ async def dump_block(timeslot, output_format):
             click.echo(json.dumps(Block.from_jam_bytes(JamBytes(block)).to_json(), indent=2))
         elif output_format == 'bin':
             click.echo(block, file=click.get_binary_stream('stdout'), nl=False)
+
+
+@main.command('set_bootstrap')
+@click.argument('bootstrap_service', type=click.Path(exists=True))
+@click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
+async def set_bootstrap(
+        bootstrap_service, chainspec
+):
+    # log_level = logging.INFO
+    # setup_logging(log_level)
+
+    # with open(os.path.join(data_dir, 'chainspecs', f'testnet-tiny-db.bin'), 'rb') as fp:
+    #     genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
+    #
+    # del genesis_state.keyvals[1]
+    # del genesis_state.keyvals[2]
+    # del genesis_state.keyvals[17]
+    #
+    #
+    # with open(os.path.join(data_dir, 'chainspecs', f'skeleton-tiny-db.bin'), 'wb') as fp:
+    #     fp.write(genesis_state.to_jam_bytes().to_bytes())
+    #
+    # exit()
+
+    with open(os.path.join(data_dir, 'chainspecs', f'skeleton-tiny-db.bin'), 'rb') as fp:
+        genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
+
+    with open(bootstrap_service, 'rb') as fp:
+        bootstrap_blob = fp.read()
+
+    bootstrap_hash = blake2b_256_hash(bootstrap_blob)
+
+    service_account_id = 0
+
+    # Service account
+    state_key = state_key_constructor_service_account(service_account_id)
+    service_account = ServiceAccount(
+        code_hash=bootstrap_hash,
+        balance=10000000000,
+        gas_limit_accumulate=100,
+        gas_limit_on_transfer=100,
+        footprint_storage_items=0,
+        footprint_storage_bytes=0,
+        storage_items={},
+        preimages={},
+        preimage_availability={}
+    )
+
+    service_account.update_footprint_add_preimage(len(bootstrap_blob))
+
+    genesis_state.keyvals.append((state_key, service_account.to_serialized_bytes()))
+
+    # Preimage
+    genesis_state.keyvals.append(
+        (state_key_constructor_preimage(service_account_id, bootstrap_hash), bootstrap_blob)
+    )
+
+    # Preimage availability
+    genesis_state.keyvals.append(
+        (state_key_constructor_preimage_availability(service_account_id, bootstrap_hash, len(bootstrap_blob)),
+         bytes.fromhex('0100000000'))
+    )
+
+    genesis_state.keyvals = sorted(genesis_state.keyvals, key=lambda x: x[0])
+
+    output = genesis_state.to_json()
+
+    with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'wb') as fp:
+        fp.write(genesis_state.to_jam_bytes().to_bytes())
 
 
 if __name__ == '__main__':

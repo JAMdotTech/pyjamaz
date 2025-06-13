@@ -2,22 +2,28 @@ import logging
 from dataclasses import dataclass
 from typing import List, Dict
 
-import numpy as np
-import numpy.typing as npt
-
-from pyjamaz.models.common import AccumulationOperand
-from pyjamaz.models.state import AccumulationStateComponents, PvmAccumulateOutput, EntropyState, \
-    AccumulateInvocationContext, AccumulatePvmArguments, ServiceAccount, DeferredTransfer, OnTransferPvmArguments, \
-    OnTransferInvocationContext, PvmOnTransferOutput, ServicesState
+from pyjamaz.constants import PVM_MARSHALLING_OFFSET_ACCUMULATE, PVM_MARSHALLING_OFFSET_TRANSFER, \
+    PVM_MARSHALLING_OFFSET_AUTH, PVM_MARSHALLING_OFFSET_REFINE
+from pyjamaz.exceptions import ProcessWorkpackageError, StateKeyNoResult
+from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
+from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage, WorkExecResult
+from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
+    ServiceAccount, DeferredTransfer, ServicesState
+from pyjamaz.pvm_interface.models import PvmAccumulateOutput, PvmOnTransferOutput, PvmIsAuthorizedOutput, \
+    PvmRefineOutput, AccumulateInvocationContext, AccumulatePvmArguments, OnTransferInvocationContext, \
+    OnTransferPvmArguments, IsAuthorizedPvmArguments, RefinePvmArguments, RefineInvocationContext
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemory
 from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_checkpoint, hc_upgrade, \
     hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new, hc_provide
-from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug
+from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
+from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_fetch, hc_export, hc_machine, hc_peek, \
+    hc_poke, hc_zero, hc_void, hc_invoke, hc_expunge
+from pyjamaz.utils import format_hash
 
 
 @dataclass
@@ -127,6 +133,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             case HostCallAccumulate.provide.value:
                 hc_provide(registers, memory, invocation_context, services, service_id, invocation_output, _pvm.log)
             case _:
+                # TODO: implement B.16: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
                 raise NotImplementedError(f"Accumulate invoked host-call {host_call_instr_nr} not implemented")
 
         return invocation_output
@@ -187,6 +194,7 @@ class OnTransferInvocationMutator(InvocationMutator):
                 hc_info(registers, memory, service, service_id, services, ctx_out, _pvm.log)
 
             case _:
+                #TODO: implement B.16: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
                 raise NotImplementedError(f"On-Transfer invoked host-call {host_call_instr_nr} not implemented")
 
         return ctx_out
@@ -219,22 +227,32 @@ def pvm_invoke_accumulate(
 
     logging.debug(f'PVM invoke accumulate: s={service_id} operands={[o.to_json() for o in operands]}')
 
-    invocation_context = state_context.to_invocation_context(
+    invocation_context = AccumulateInvocationContext.create_from_accumulation_state(
+        accumulation_state=state_context,
         service_account_id=service_id,
         entropy=post_entropy.entropy[0],
         timeslot=timeslot
     )
+
     try:
-        code_hash = state_context.services.services[service_id].code_hash
-        serialized_program = state_context.services.services[service_id].preimages[code_hash]
-    except KeyError:
+
+        service_account = state_context.services.retrieve_service_account(service_id)
+        preimage_blob = state_context.services.retrieve_preimage(
+            service_account_id=service_id,
+            preimage_hash=service_account.code_hash
+        )
+
+        preimage = Preimage.extract(preimage_blob)
+        serialized_program = preimage.serialized_program
+        program_metadata = preimage.metadata
+    except StateKeyNoResult:
         # program not found
         return PvmAccumulateOutput(
             state_context=state_context,
             deferred_transfers=[],
             accumulation_output=None,
             gas_used=0,
-            #preimages=[]
+            preimages=[]
         )
 
     argument_data = AccumulatePvmArguments(
@@ -250,9 +268,10 @@ def pvm_invoke_accumulate(
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=serialized_program,
-        start_offset=5, #TODO: constant?
+        start_offset=PVM_MARSHALLING_OFFSET_ACCUMULATE,
         gas_limit=gas_limit,
-        argument_data=argument_data
+        argument_data=argument_data,
+        program_metadata=program_metadata
     )
 
     # GP-0.6.2-eq:B.12 (C)
@@ -263,27 +282,27 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.savepoint_context.deferred_transfers,
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
             gas_used=marshalling_output.gas_used,
-            # preimages=marshalling_output.context.savepoint_context.preimages TODO 0.6.6
+            preimages=marshalling_output.context.savepoint_context.preimages
         )
-        logging.debug(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
+        logging.info(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.exit_condition.value,
             gas_used=marshalling_output.gas_used,
-            # preimages=marshalling_output.context.context.preimages TODO 0.6.6
+            preimages=marshalling_output.context.context.preimages
         )
-        logging.debug(f'PVM accumulate succesful, output=0x{output.accumulation_output.hex()}')
+        logging.info(f'PVM accumulate successful, output=0x{output.accumulation_output.hex()}')
     else:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.context.context.invocation_output,
             gas_used=marshalling_output.gas_used,
-            # preimages=marshalling_output.context.context.preimages TODO 0.6.6
+            preimages=marshalling_output.context.context.preimages
         )
-        logging.debug(f'PVM accumulate succesful, no output')
+        logging.info(f'PVM accumulate successful, no output')
 
     return output
 
@@ -309,16 +328,26 @@ def pvm_invoke_on_transfer(
     ServiceAccount
     """
 
-    service_account = services_state.services.get(service_id)
+    service_account = services_state.retrieve_service_account(service_id)
     gas_used = 0
 
     if len(deferred_transfers) > 0:
-        logging.debug(f'PVM invoke on_transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
+        logging.info(f'💸 Processing transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
 
         # Update balance
         service_account.balance += sum([t.amount for t in deferred_transfers])
 
-        serialized_program = service_account.preimages.get(service_account.code_hash)
+        serialized_program = None
+        program_metadata = b''
+
+        preimage_blob = service_account.preimages.get(service_account.code_hash)
+        if preimage_blob is not None:
+            try:
+                preimage = Preimage.extract(preimage_blob)
+                serialized_program = preimage.serialized_program
+                program_metadata = preimage.metadata
+            except Exception:
+                pass
 
         if serialized_program:
 
@@ -341,15 +370,359 @@ def pvm_invoke_on_transfer(
 
             marshalling_output = pvm_invocation.pvm_invoke_marshalling(
                 serialized_program=serialized_program,
-                start_offset=10,    #TODO: constant?
+                start_offset=PVM_MARSHALLING_OFFSET_TRANSFER,
                 gas_limit=gas_limit,
-                argument_data=argument_data
+                argument_data=argument_data,
+                program_metadata=program_metadata
             )
 
             service_account = marshalling_output.context.service_account
-            gas_used = gas_limit - marshalling_output.gas_limit
+            gas_used = marshalling_output.gas_used
 
     return PvmOnTransferOutput(
         service_account=service_account,
         gas_used=gas_used
+    )
+
+
+# GP-0.6.4-section:B.5 | On-Transfer Invocations
+class IsAuthorizedInvocationMutator(InvocationMutator):
+    def execute(
+            self,
+            host_call_instr_nr: int,
+            gas_limit: int,
+            registers: List[int],
+            memory: PVMMemory,
+            invocation_context: None,
+            _pvm: PVMInterpreter
+    ) -> InvocationMutationOutput:
+
+        logging.debug(f'PVM Is-Authorized host-call #{host_call_instr_nr}')
+
+        ctx_out = InvocationMutationOutput(
+            exit_condition=ExitCondition(reason=ExitReason.panic),
+            gas_limit=gas_limit,
+            registers=_pvm.reg,
+            memory=_pvm.mem,
+            context=invocation_context
+        )
+
+        match host_call_instr_nr:
+
+            case HostCallDebug.log.value:
+                hc_log(registers, memory, -1, ctx_out, _pvm.log)
+
+            case HostCallGeneral.gas.value:
+                #GP-0.6.4-eq:B.12 | G
+                hc_gas(registers, memory, ctx_out, _pvm.log)
+
+            case _:
+                #TODO: implement B.2: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
+                raise NotImplementedError(f"On-Transfer invoked host-call {host_call_instr_nr} not implemented")
+
+        return ctx_out
+
+
+def pvm_invoke_is_authorized(
+        work_package: 'WorkPackage',
+        core_index: int
+) -> PvmIsAuthorizedOutput:
+    """
+    GP-0.6.4-eq:B.1 (Ψ_I) | the is-authorized invocation function
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    """
+
+    if work_package.authorization_code is None:
+        raise ProcessWorkpackageError('work_package.authorization_code is not set')
+
+    argument_data = IsAuthorizedPvmArguments(
+        auth_param=b'',
+        work_package=work_package,
+        core_index=core_index
+    ).to_jam_bytes().to_bytes()
+
+    pvm_invocation = PVMInvocation(
+        invocation_context=None,
+        invocation_mutator=IsAuthorizedInvocationMutator()
+    )
+
+    work_package_hash = work_package.hash()
+
+    logging.debug(f'PVM is-auth: wp={format_hash(work_package_hash)} c={core_index} a={argument_data.hex()}')
+
+    marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+        serialized_program=work_package.authorization_code,
+        start_offset=PVM_MARSHALLING_OFFSET_AUTH,
+        gas_limit=GAS_INVOKE,
+        argument_data=argument_data,
+        program_metadata=b"auth"
+    )
+
+    logging.debug(f'PVM is-auth result: exit={marshalling_output.exit_condition.reason} v={marshalling_output.exit_condition.value}')
+
+    return PvmIsAuthorizedOutput(
+        exit_condition=marshalling_output.exit_condition,
+        gas_used=marshalling_output.gas_used
+    )
+
+
+
+# GP-0.6.4-section:B.5 | Refine Invocations
+class RefineInvocationMutator(InvocationMutator):
+    def __init__(
+        self,
+        authorizer_output: bytes,
+        work_items_import_segments: List[List[bytes]],
+        export_segment_offset: int,
+        services: ServicesState,
+        service_account_id: int,
+        timeslot: int,
+        work_item_index: int,
+        work_package: WorkPackage,
+        extrinsics: dict[bytes, bytes]
+    ):
+        self.authorizer_output = authorizer_output
+        self.work_items_import_segments = work_items_import_segments
+        self.export_segment_offset = export_segment_offset
+        self.services = services
+        self.service_account_id = service_account_id
+        self.timeslot = timeslot
+        self.work_item_index = work_item_index
+        self.work_package = work_package
+        self.extrinsics = extrinsics
+
+    def execute(
+            self,
+            host_call_instr_nr: int,
+            gas_limit: int,
+            registers: List[int],
+            memory: PVMMemory,
+            invocation_context: RefineInvocationContext,
+            _pvm: PVMInterpreter
+    ) -> InvocationMutationOutput:
+
+        logging.debug(f'PVM Refine host-call #{host_call_instr_nr}')
+
+        ctx_out = InvocationMutationOutput(
+            exit_condition=ExitCondition(reason=ExitReason.panic),
+            gas_limit=gas_limit,
+            registers=_pvm.reg,
+            memory=_pvm.mem,
+            context=invocation_context
+        )
+
+        match host_call_instr_nr:
+
+            case HostCallDebug.log.value:
+                hc_log(registers, memory, self.service_account_id, ctx_out, _pvm.log)
+
+            case HostCallGeneral.gas.value:
+                #GP-0.6.4-eq:B.12 | G
+                hc_gas(registers, memory, ctx_out, _pvm.log)
+
+            case HostCallRefine.historical_lookup.value:
+                #GP-0.6.4-eq:B.12 | G
+                hc_historical_lookup(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    services=self.services,
+                    service_id=self.service_account_id,
+                    timeslot=self.timeslot,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.fetch.value:
+                hc_fetch(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    work_item_index=self.work_item_index,
+                    work_package=self.work_package,
+                    auth_output=self.authorizer_output,
+                    work_item_segs=self.work_items_import_segments,
+                    extrinsics=self.extrinsics,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.export.value:
+                hc_export(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    export_segment_offset=self.export_segment_offset,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.machine.value:
+                hc_machine(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.peek.value:
+                hc_peek(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.poke.value:
+                hc_poke(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.zero.value:
+                hc_zero(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.void.value:
+                hc_void(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.invoke.value:
+                hc_invoke(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case HostCallRefine.expunge.value:
+                hc_expunge(
+                    registers=registers,
+                    memory=memory,
+                    m_e=invocation_context,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
+
+            case _:
+                #TODO: implement B.2: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
+                raise NotImplementedError(f"Refine invoked host-call {host_call_instr_nr} not implemented")
+
+        return ctx_out
+
+
+# GP-0.6.4-eq:B.5: ΨR (refine invoke)
+def pvm_invoke_refine(
+    work_item_index: int,      # GP-0.6.4-eq:B.5: italic_i index of workitem
+    work_package: 'WorkPackage', # GP-0.6.4-eq:B.5: italic_p workpackage
+    authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_o is_authorized output
+    work_items_import_segments: List[List[bytes]],  # GP-0.6.4-eq:B.5: bold_i_flat list of import segments per workitem
+    export_segment_offset: int, # GP-0.6.4-eq:B.5: c_cedie export segment offset
+    services_state: ServicesState,
+    extrinsics: dict[bytes, bytes]
+) -> PvmRefineOutput:
+    """
+    GP-0.6.4-eq:B.4 (Ψ_R) | the refine service-account invocation function
+
+    # TODO integrate with app?
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    """
+    work_item = work_package.items[work_item_index]
+    service_account_id = work_item.service
+
+    # GP-0.6.4-eq:B.5 (extract preimage data)
+    preimage_data = services_state.historical_preimage_lookup(
+        service_account_id,
+        work_package.context.lookup_anchor_slot,
+        work_item.code_hash
+    )
+
+    if preimage_data is None:
+        return PvmRefineOutput(
+            work_exec_result=WorkExecResult(bad_code=True),
+            export_segments=[],
+            gas_used=0
+        )
+    elif len(preimage_data) > MAXIMUM_SIZE_SERVICE_CODE:
+        return PvmRefineOutput(
+            work_exec_result=WorkExecResult(code_oversize=True),
+            export_segments=[],
+            gas_used=0
+        )
+
+    preimage = Preimage.extract(preimage_data)
+    # preimage.serialized_program = preimage_data
+
+    work_package_hash = work_package.hash()
+
+    argument_data = RefinePvmArguments(
+        service_id=service_account_id,
+        payload_blob=work_item.payload,
+        work_package_hash=work_package_hash,
+        refinement_context=work_package.context,
+        authorization_code_hash=work_package.authorizer.code_hash
+    ).to_jam_bytes().to_bytes()
+
+    logging.debug(f'PVM refine start: wp={format_hash(work_package_hash)} a={argument_data.hex()}')
+
+    pvm_invocation = PVMInvocation(
+        invocation_context=RefineInvocationContext(
+            inner_pvm_lookup={},
+            export_segments=[]
+        ),
+        invocation_mutator=RefineInvocationMutator(
+            authorizer_output=authorizer_output,
+            work_items_import_segments=work_items_import_segments,
+            export_segment_offset=export_segment_offset,
+            services=services_state,
+            service_account_id=service_account_id,
+            timeslot=work_package.context.lookup_anchor_slot,
+            work_package=work_package,
+            work_item_index=work_item_index,
+            extrinsics=extrinsics
+        )
+    )
+
+    marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+        serialized_program=preimage.serialized_program,
+        start_offset=PVM_MARSHALLING_OFFSET_REFINE,
+        gas_limit=GAS_INVOKE,
+        argument_data=argument_data,
+        program_metadata=preimage.metadata
+    )
+
+    work_exec_result = WorkExecResult.from_exit_condition(marshalling_output.exit_condition)
+
+    logging.debug(f'PVM refine work result: {work_exec_result.to_json()}')
+
+    return PvmRefineOutput(
+        work_exec_result=work_exec_result,
+        export_segments=marshalling_output.context.export_segments,
+        gas_used=marshalling_output.gas_used
     )

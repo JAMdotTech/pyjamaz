@@ -18,7 +18,7 @@ def hc_gas(
         memory: PVMMemory,
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
-    logger.hc_regs(f"GAS", "accumulate")
+    logger.hc_regs(f"GAS", "general")
     invocation_output.gas_limit -= 10
     invocation_output.registers[7] = invocation_output.gas_limit
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -33,9 +33,13 @@ def hc_lookup(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    Make a lookup into the service's preimage store.
+    hash: The hash of the preimage to look up.
+    Returns the preimage or None if the preimage was not available.
+    --------------------------
     Puts a Service Preimage blob into PVM memory
     """
-    logger.hc_regs(f"LOOKUP", "accumulate")
+    logger.hc_regs(f"LOOKUP", "general")
     invocation_output.gas_limit -= 10
 
     service_account_id = registers[7]
@@ -92,7 +96,7 @@ def hc_read(
     """
     Puts a Service StorageItem blob into PVM memory
     """
-    logger.hc_regs(f"READ", "accumulate")
+    logger.hc_regs(f"READ", "general")
     invocation_output.gas_limit -= 10
 
     # gp: s*
@@ -161,7 +165,7 @@ def hc_write(
     """
     Writes/deletes a Service StorageItem blob
     """
-    logger.hc_regs(f"WRITE", "accumulate")
+    logger.hc_regs(f"WRITE", "general")
     invocation_output.gas_limit -= 10
 
     k_o = registers[7]  # offset to read storage_item_key from memory
@@ -256,7 +260,7 @@ def hc_info(
     """
     Writes ServiceAccount into PVM memory
     """
-    logger.hc_regs(f"INFO", "accumulate")
+    logger.hc_regs(f"INFO", "general")
     invocation_output.gas_limit -= 10
 
     #state = ctx_in.invocation_context.context.state_context

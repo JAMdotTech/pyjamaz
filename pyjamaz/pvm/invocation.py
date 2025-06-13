@@ -1,12 +1,14 @@
 import logging
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Type
 
 import numpy as np
 import numpy.typing as npt
 
+from pyjamaz.models.common import Preimage
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
+from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm.duna_logger import PVMDunaLog
 from pyjamaz.pvm.types import PVMProgram, PVMMemory
 
@@ -23,11 +25,11 @@ class InvocationMutationOutput:
     """
     GP-0.6.4-eq:A.35
     """
-    exit_condition: ExitCondition   #TODO: rename
+    exit_condition: ExitCondition
     gas_limit: int
     registers: npt.NDArray[np.uint64]
     memory: PVMMemory
-    context: InvocationContext
+    context: Optional[InvocationContext]
 
 
 class InvocationMutator:
@@ -77,13 +79,13 @@ class PVMInvocation:
     def __init__(
         self,
         invocation_mutator: InvocationMutator,  # f
-        invocation_context: InvocationContext  # x
+        invocation_context: Optional[InvocationContext]  # x
 
     ):
         self.pvm_program: Optional[PVMProgram] = None
         self.pvm: Optional[PVMInterpreter] = None
-        self.invocation_mutator: InvocationMutator = invocation_mutator
-        self.invocation_context:InvocationContext = invocation_context
+        self.invocation_mutator = invocation_mutator
+        self.invocation_context = invocation_context
 
     def pvm_invoke_host_call(
             self,
@@ -165,7 +167,8 @@ class PVMInvocation:
             serialized_program: bytes,              # p
             start_offset: int,                      # ı
             gas_limit: int,                         # ρ
-            argument_data: bytes                   # a
+            argument_data: bytes,                   # a
+            program_metadata: Optional[bytes],
     ) -> PvmMarshallingOutput:
         """
         GP-0.6.2-eq:A.42 (Ψ_M) | Marshalling invocation function
@@ -176,7 +179,8 @@ class PVMInvocation:
 
         self.pvm_program = PVMProgram.from_serialized_bytes(
             serialized_program=serialized_program,
-            argument_contents=argument_data
+            argument_contents=argument_data,
+            metadata=program_metadata
         )
 
         if self.pvm_program is None:
@@ -187,6 +191,7 @@ class PVMInvocation:
             )
 
         self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDunaLog)
+        #self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDebugLog)
 
         output = self.pvm_invoke_host_call(
             instruction_counter=start_offset,

@@ -140,8 +140,8 @@ class Ed25519Keypair(Serializable, Keypair):
         -------
         bytes
         """
-        if self.private_key == bytes(32):
-            raise ValueError("Cannot sign, private key is not set")
+        # if self.private_key == bytes(32):
+        #     raise ValueError("Cannot sign, private key is not set")
 
         return ed25519_zebra.ed_sign(self.private_key, data)
 

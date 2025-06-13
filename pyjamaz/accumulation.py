@@ -1,13 +1,18 @@
+import typing
 from dataclasses import dataclass
 from typing import List, Set, Dict
 
 from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
-    BeefyCommitmentMap, TimeslotState, PvmAccumulateOutput, EntropyState
+    BeefyCommitmentMap, TimeslotState, EntropyState
+
 from pyjamaz.pvm_interface.invocation import pvm_invoke_accumulate
 from pyjamaz.utils import substitute_if_nothing
 
+if typing.TYPE_CHECKING:
+    from pyjamaz.pvm_interface.models import PvmAccumulateOutput
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
     """
@@ -97,7 +102,7 @@ def transfers_service_mapping(
         service_id: int
 ) -> List[DeferredTransfer]:
     """
-    GP-0.6.4-eq:12.26 (R) | Maps a sequence of deferred transfers to a service
+    GP-0.6.5-eq:12.27 (R) | Maps a sequence of deferred transfers to a service
 
     Parameters
     ----------
@@ -265,16 +270,6 @@ def parallel_accumulation(
     # Process services
     for service_id in service_ids:
 
-        # Prepare service account in accumulation_state TODO why still necessary?
-        try:
-            service_account = accumulation_state.services.retrieve_service_account(service_id)
-            preimage = accumulation_state.services.retrieve_preimage(
-                service_account_id=service_id,
-                preimage_hash=service_account.code_hash
-            )
-        except StateKeyNoResult:
-            pass
-
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,
@@ -284,9 +279,20 @@ def parallel_accumulation(
             service_id=service_id
         )
 
+        # Update gas usage
         accumulation_gas_utilized[service_id] = output.gas_used
 
+        # Update transfers
         deferred_transfers += output.deferred_transfers
+
+        # Process provided pre-images
+        for s, i in output.preimages:
+            availability = output.state_context.services.retrieve_preimage_availability(s, blake2b_256_hash(i), len(i))
+            if availability == []:
+                output.state_context.services.store_preimage_availability(
+                    s, blake2b_256_hash(i), len(i), [post_state_timeslot.number]
+                )
+                output.state_context.services.store_preimage(s, i)
 
         # Update services state with output
         accumulation_state.services.services.update(output.state_context.services.services)
@@ -366,7 +372,7 @@ def single_step_accumulation(
         work_reports: List[WorkReport],
         auto_accumulate_services: Dict[int, int],
         service_id: int
-) -> PvmAccumulateOutput:
+) -> 'PvmAccumulateOutput':
     """
     GP-0.6.1-eq:12.19 ∆1 | single step accumulation function
 
@@ -388,6 +394,7 @@ def single_step_accumulation(
         for r in w.results:
             if r.service_id == service_id:
                 g += r.accumulate_gas
+
                 i.append(
                     AccumulationOperand(
                         work_report_hash=w.package_spec.hash,

@@ -11,10 +11,12 @@ import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue,
                                   transfers_service_mapping)
+from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.pvm_interface.invocation import pvm_invoke_on_transfer
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
+from pyjamaz.settings import SOLO_MODE
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine, Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
@@ -27,10 +29,11 @@ from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, Validator
     AccumulationHistoryOutput, AccumulationQueueOutput, ServicesAfterTransfersOutput
 
 from pyjamaz.state.base import StateComponent, state_key_constructor_service_account, state_key_constructor_preimage, \
-    state_key_constructor_preimage_availability, AppContext
+    state_key_constructor_preimage_availability
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
-    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, BlockContext, \
+    Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, \
     EpochMarkValidatorKeys, DeferredTransferStatistic
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
@@ -38,6 +41,7 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
     AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
     AccumulationQueueWorkPackage, DeferredTransfer, ServiceActivityRecord
+from pyjamaz.transport.pubsub import PubSubSignal
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
 
 
@@ -140,8 +144,10 @@ class Entropy(StateComponent):
         if len(header.entropy_source) == 32:
             return header.entropy_source
 
-        if header.author_bandersnatch_key is None or self.block_context.seal_vrf_output == bytes(32):
+        if header.author_bandersnatch_key is None or self.block_context.seal_vrf_output == bytes(96):
             return bytes(32)
+
+        logging.debug(f"Verifying entropy source signature: {bytes(header.author_bandersnatch_key).hex()} {self.block_context.seal_vrf_output.hex()}")
 
         return ietf_vrf_verify(
             bytes(header.author_bandersnatch_key),
@@ -414,6 +420,8 @@ class Safrole(StateComponent):
                     validator_idx = int.from_bytes(
                         blake_hash[:4], byteorder='little'
                     ) % len(post_state_validator_pool.validators)
+                    if SOLO_MODE:
+                        validator_idx = 0
                     validators.append(post_state_validator_pool.validators[validator_idx].bandersnatch)
 
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
@@ -908,7 +916,7 @@ class Assurances(StateComponent):
                 raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
 
             # GP-0.5.3-eq:11.35 | Anchor must be in recent history
-            recent_block = self.get_recent_block(context.anchor, intermediate_state_recent_history)
+            recent_block = intermediate_state_recent_history.get_recent_block(context.anchor)
 
             if not recent_block:
                 raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
@@ -994,12 +1002,6 @@ class Assurances(StateComponent):
             return self.block_context.prev_guarantor_assignments
 
     @staticmethod
-    def get_recent_block(block_hash, recent_history_state: RecentHistoryState) -> Optional[RecentBlock]:
-        for block in recent_history_state.recent_history:
-            if block.header_hash == block_hash:
-                return block
-
-    @staticmethod
     def check_size_limit(work_report: WorkReport):
         """
         GP-0.5.3-eq:11.8 | Work report respects size limit
@@ -1037,7 +1039,7 @@ class Assurances(StateComponent):
             except StateKeyNoResult:
                 raise StateTransitionError(GuaranteeErrorCode.bad_service_id)
 
-            service = services_state.services[result.service_id]
+            service = services_state.retrieve_service_account(result.service_id)
 
             if result.code_hash != service.code_hash:
                 raise StateTransitionError(GuaranteeErrorCode.bad_code_hash)
@@ -1744,7 +1746,7 @@ class Services(StateComponent):
 
             # GP-0.5.4-eq:12.31
             for preimage in extrinsic_preimages:
-                if not self.is_preimage_needed(preimage, pre_state_services):
+                if not pre_state_services.is_preimage_needed(preimage):
                     raise StateTransitionError(ServicesErrorCode.preimage_unneeded)
 
     @staticmethod
@@ -1933,7 +1935,7 @@ class Services(StateComponent):
 
         deferred_transfer_statistics = {}
 
-        for service_id in intermediate_state_after_accumulation.services.keys():
+        for service_id in [t.receiver for t in deferred_transfers]:
             service_transfers = transfers_service_mapping(deferred_transfers, service_id)
 
             output = pvm_invoke_on_transfer(
@@ -1959,40 +1961,12 @@ class Services(StateComponent):
             deferred_transfer_statistics=deferred_transfer_statistics
         )
 
-    def is_preimage_needed(self, preimage: Preimage, pre_state_services: ServicesState) -> bool:
-        """
-        GP-0.5.4-eq:12.30 | Is preimage needed
-
-        Parameters
-        ----------
-        preimage
-        pre_state_services
-
-        Returns
-        -------
-        bool
-        """
-        preimage_hash = blake2b_256_hash(preimage.blob)
-
-        # Check if preimage isn't already available
-        if pre_state_services.preimage_exists(preimage.requester, preimage_hash):
-            return False
-
-        # Check if preimage is requested
-        try:
-            preimage_availability = pre_state_services.retrieve_preimage_availability(
-                preimage.requester, preimage_hash, len(preimage.blob)
-            )
-            return preimage_availability == []
-        except StateKeyNoResult:
-            return False
-
 
     def retrieve_state(self) -> ServicesState:
         # State is retrieve per service
         return ServicesState(services={})
 
-    def store_state(self, state: ServicesState, transaction: Optional[Transaction] = None):
+    async def store_state(self, state: ServicesState, transaction: Optional[Transaction] = None):
         """
         State for services are stored per service account
 
@@ -2023,7 +1997,7 @@ class Services(StateComponent):
                 if preimage_blob is None:
                     state_mutations.append(("preimages_delete", service_id, preimage_hash))
                 else:
-                    state_mutations.append(("preimages_update", service_id, preimage_blob))
+                    state_mutations.append(("preimages_update", service_id, preimage_hash, preimage_blob))
 
             # Process preimage availability
             for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
@@ -2042,16 +2016,25 @@ class Services(StateComponent):
         # Process all mutations afterwards (in order) to prevent mutating the state while iterating over it
         for mut in state_mutations:
             if mut[0] == "storage_items_delete":
+                #TODO: self.app_context.pubsub.publish()
                 state.delete_storage_item(mut[1], mut[2], commit=True)
             elif mut[0] == "storage_items_update":
+                # TODO async blocking exception??
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
                 state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimages_delete":
+                # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage(mut[1], mut[2], commit=True)
             elif mut[0] == "preimages_update":
-                state.store_preimage(mut[1], mut[2], commit=True)
+                # TODO async blocking exception??
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
+                state.store_preimage(mut[1], mut[3], commit=True)
             elif mut[0] == "preimage_availability_delete":
+                # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimage_availability_update":
+                # TODO async blocking exception??
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
                 state.store_preimage_availability(
                     service_account_id=mut[1],
                     preimage_hash=mut[2],
@@ -2060,8 +2043,10 @@ class Services(StateComponent):
                     commit=True
                 )
             elif mut[0] == "service_account_delete":
+                # TODO: self.app_context.pubsub.publish()
                 state.delete_service_account(mut[1], commit=True)
             elif mut[0] == "service_account_update":
+                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
                 state.store_service_account(mut[1], mut[2], commit=True)
 
 

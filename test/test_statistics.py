@@ -7,10 +7,10 @@ from typing import Optional
 from parameterized import parameterized
 
 from pyjamaz.settings import TEST_SUITE
-from pyjamaz.state.base import AppContext
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Statistics
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Extrinsic, BlockContext
+from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.state import StatisticsState, TimeslotState, ValidatorPoolState
 
 

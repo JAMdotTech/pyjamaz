@@ -6,6 +6,7 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.models.block import Block
+from pyjamaz.transport.pubsub import PubSubSignal
 from pyjamaz.transport.types import ProtocolType
 
 
@@ -14,10 +15,10 @@ logger = logging.getLogger("pyjamaz.transport")
 
 class FSProtocol(ProtocolType):
 
-    def __init__(self, block_dir, pubsub, app):
+    def __init__(self, block_dir, app):
         self.block_dir = block_dir
         self.lock = anyio.Lock()
-        self.pubsub = pubsub
+        self.pubsub = app.pubsub
         self.app = app
 
     async def listen(self):
@@ -39,16 +40,10 @@ class FSProtocol(ProtocolType):
 
                             with open(filepath, 'r') as file:
                                 if filename.startswith("block-req-"):
-                                    self.pubsub.send_stream.send_nowait({
-                                        "message_type": MESSAGE_TYPES.REQUESTED_BLOCKS,
-                                        "data": json.load(file)
-                                    })
+                                    await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.REQUESTED_BLOCKS, data=json.load(file)))
 
                                 else:
-                                    self.pubsub.send_stream.send_nowait({
-                                        "message_type": MESSAGE_TYPES.RECEIVED_BLOCK,
-                                        "data": json.load(file)
-                                    })
+                                    await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.RECEIVED_BLOCK,data=json.load(file)))
 
                     except Exception as e:
                         logging.error(f"Failed to process {filepath}: {e}")

@@ -15,11 +15,11 @@ docker compose -p testnet -f docker-compose-init.yml up --build --remove-orphans
 ```
 ### Start in Console Mode
 ```bash
-docker compose -p testnet up --remove-orphans
+docker compose -p testnet up --build --remove-orphans
 ```
 ### Start in Detached Mode
 ```bash
-docker compose -p testnet up -d --remove-orphans
+docker compose -p testnet up -d --build --remove-orphans
 ```
 ### Stop
 ```bash
@@ -85,3 +85,6 @@ pip install ".[dev]"
 mkdocs serve
 ```
 
+# Resources
+* https://hackmd.io/@polkadot/jamsdk#JAM-Client-Tooling
+* https://github.com/polkadot-fellows/JIPs

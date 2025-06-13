@@ -1,6 +1,5 @@
 import typing
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import TypeVar, Optional
 
 import pyjamaz.graypaper_constants as gp_const
@@ -11,8 +10,8 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.storage import StorageEngine, Transaction
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.models.block import BlockContext
     from pyjamaz.models.state import State
+    from pyjamaz.models.context import AppContext, BlockContext
 
 T = TypeVar('T')
 
@@ -126,16 +125,11 @@ def state_key_constructor_preimage_availability(
     )
 
 
-@dataclass
-class AppContext:
-    transaction: Optional[Transaction] = None
-
-
 class StateComponent:
 
     component_id: int
 
-    def __init__(self, storage_engine: StorageEngine, block_context: 'BlockContext', app_context: AppContext, **kwargs):
+    def __init__(self, storage_engine: StorageEngine, block_context: 'BlockContext', app_context: 'AppContext', **kwargs):
 
         self.storage_engine = storage_engine
         self.block_context = block_context
@@ -165,7 +159,7 @@ class StateComponent:
         else:
             self.storage_engine.put(self._state_key_constructor_component(), data)
 
-    def store_state(self, state: 'State', transaction: Optional[Transaction] = None):
+    async def store_state(self, state: 'State', transaction: Optional[Transaction] = None):
         data = state.to_jam_bytes().to_bytes()
         self.store(data, transaction)
 

@@ -3,7 +3,8 @@ import time
 
 from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
 from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS
-from pyjamaz.models.block import Header, BlockContext, Extrinsic
+from pyjamaz.models.block import Header, Extrinsic
+from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
 
 
@@ -62,7 +63,7 @@ class BlockValidation:
 
         # Validate seal
         entropy = post_entropy.entropy[3]
-        author_key = header.author_bandersnatch_key
+        author_key = post_validator_pool.validators[header.author_index].bandersnatch
 
         if post_safrole.slot_sealer_series.tickets is not None:
             ticket = post_safrole.slot_sealer_series.tickets[header.timeslot % EPOCH_TIMESLOTS]

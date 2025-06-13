@@ -99,8 +99,7 @@ class PVMDebugLog(PVMLogger):
         regs = self._pvm.get_registers()
         reg_msg = f"reg={str(regs)}"
         logging.debug(
-            f"{msg}"
-            f"{reg_msg}"
+            f"{msg}\n{reg_msg}"
         )
 
     def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
@@ -206,3 +205,7 @@ class PVMDebugLog(PVMLogger):
     #     "log_opcode_calls": True,
     #     "log_opcode_calls_if_zero": False,
     # }
+
+
+    def hc_log(self, msg, data):
+        pass

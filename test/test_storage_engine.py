@@ -3,8 +3,7 @@ import unittest
 from os import path, makedirs
 
 from pyjamaz.models.state import TimeslotState
-from pyjamaz.models.block import BlockContext
-from pyjamaz.state.base import AppContext
+from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Timeslot
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage
 
@@ -18,13 +17,13 @@ class TestLevelDBStorage(unittest.TestCase):
         shutil.rmtree(db_path)  # Clear DB
         cls.storage = LevelDBStorage.create_from_file(db_path)
 
-    def test_state_storage(self):
+    async def test_state_storage(self):
 
         timeslot = Timeslot(storage_engine=self.storage, block_context=BlockContext(), app_context=AppContext())
 
         timeslot_state = TimeslotState(number=4)
 
-        timeslot.store_state(timeslot_state)
+        await timeslot.store_state(timeslot_state)
 
         retrieved_state = timeslot.retrieve_state()
 

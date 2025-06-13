@@ -8,9 +8,9 @@ from pyjamaz.pvm.types import PVMLogger, PVMMemory
 
 LEVELS = {
     0: (logging.ERROR, "ERROR", "⛔"),
-    1: (logging.WARNING, "WARNING", "⚠"),
-    2: (logging.CRITICAL, "CRITICAL", "ℹ️"),
-    3: (logging.INFO, "INFO", "💁"),
+    1: (logging.WARNING, "WARNING", "⚠️"),
+    2: (logging.INFO, "INFO", "ℹ️"),
+    3: (logging.DEBUG, "DEBUG", "💁"),
     4: (logging.DEBUG, "DEBUG", "🪡"),
 }
 

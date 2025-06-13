@@ -29,3 +29,7 @@ class BlockValidationErrorCode(Serializable, enum.Enum):
 
 class BlockValidationError(PyjamazAppError):
     pass
+
+
+class ProcessWorkpackageError(ValueError):
+    pass

@@ -1,4 +1,5 @@
 import itertools
+from base64 import b32encode
 from math import floor
 from typing import List, Optional
 
@@ -17,6 +18,14 @@ def list_has_duplicates(lst: list) -> bool:
 
 def flatten_list(nested_list: list) -> list:
     return list(itertools.chain(*nested_list))
+
+
+def transposition_operator(source_sequence: List[list]) -> List[list]:
+    """
+    GP-0.6.4-eq:H.5 | the transposition operator
+
+    TODO
+    """
 
 
 def numeric_sequence_from_entropy(entropy: bytes, lemgth: int) -> List[int]:
@@ -144,3 +153,32 @@ def vrf_input_fallback_seal(entropy: bytes) -> bytes:
 
 def format_hash(hash: bytes) -> str:
     return f'0x{hash[:4].hex()}...{hash[-4:].hex()}'
+
+
+def quic_peer_id(ed25519_public_key: bytes) -> str:
+    peer_id = 'e'
+
+    alphabet = 'abcdefghijklmnopqrstuvwxyz234567'
+    n = int.from_bytes(ed25519_public_key, "little")
+
+    for i in range(51, -1 , -1):
+        peer_id += alphabet[n % 32]
+        n //= 32
+
+    return peer_id
+
+
+def ed25519_pubkey_from_peer_id(peer_id: str) -> bytes:
+    if not peer_id.startswith('e') or len(peer_id) != 53:
+        raise ValueError("Invalid peer ID format")
+
+    alphabet = 'abcdefghijklmnopqrstuvwxyz234567'
+    char_to_value = {c: i for i, c in enumerate(alphabet)}
+
+    n = 0
+    for c in reversed(peer_id[1:]):  # Skip the 'e' prefix
+        if c not in char_to_value:
+            raise ValueError(f"Invalid character in peer ID: {c}")
+        n = n * 32 + char_to_value[c]
+
+    return n.to_bytes(32, 'little')
