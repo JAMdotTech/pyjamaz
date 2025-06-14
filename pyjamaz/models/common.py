@@ -7,7 +7,7 @@ import ipaddress
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64
+from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String
 from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
@@ -95,15 +95,40 @@ class RefinementContext(Serializable):
 
 
 @dataclass
-class Preimage(Serializable):
+class Preimage:
     metadata: bytes
+    metadata_version: int
+    program_name: str
+    program_version: str
+    program_license: str
+    program_authors: List[str]
     serialized_program: bytes
 
     @classmethod
     def extract(cls, data: bytes) -> "Preimage":
         jam_bytes = JamBytes(data)
+        metadata = Bytes.decode(jam_bytes)
+        try:
+            metadata_bytes = JamBytes(metadata)
+            metadata_version = U8.decode(metadata_bytes)
+            program_name = String.decode(metadata_bytes)
+            program_version = String.decode(metadata_bytes)
+            program_license = String.decode(metadata_bytes)
+            program_authors = Vec(String).decode(metadata_bytes)
+        except Exception:
+            metadata_version = None
+            program_name = metadata.decode("utf-8")
+            program_license = None
+            program_authors = None
+            program_version = None
+
         return Preimage(
-            metadata=Bytes.decode(jam_bytes),
+            metadata=metadata,
+            metadata_version=metadata_version,
+            program_name=program_name,
+            program_version=program_version,
+            program_license=program_license,
+            program_authors=program_authors,
             serialized_program=jam_bytes.get_remaining_bytes(),
         )
 
@@ -238,14 +263,14 @@ class WorkPackage(Serializable):
         return blake2b_256_hash(self.authorizer.code_hash + self.authorizer.params)
 
     @property
-    def authorization_metadata(self) -> bytes:
+    def authorization_metadata(self) -> str:
         """
         GP-0.6.4-eq:14.9 (blackboard_P_m) | Authorization metadata.
         """
         return getattr(self, '_authorization_metadata', None)
 
     @authorization_metadata.setter
-    def authorization_metadata(self, value: bytes) -> None:
+    def authorization_metadata(self, value: str) -> None:
         setattr(self, '_authorization_metadata', value)
 
     @property
@@ -265,7 +290,7 @@ class WorkPackage(Serializable):
             preimage = Preimage.extract(preimage_blob)
 
             setattr(self, '_authorization_code', preimage.serialized_program)
-            self.authorization_metadata = preimage.metadata
+            self.authorization_metadata = preimage.program_name
 
     def add_work_item(self, work_item: WorkItem) -> None:
         # Check contraints

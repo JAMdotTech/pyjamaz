@@ -244,7 +244,7 @@ def pvm_invoke_accumulate(
 
         preimage = Preimage.extract(preimage_blob)
         serialized_program = preimage.serialized_program
-        program_metadata = preimage.metadata
+        program_metadata = preimage.program_name
     except StateKeyNoResult:
         # program not found
         return PvmAccumulateOutput(
@@ -271,7 +271,7 @@ def pvm_invoke_accumulate(
         start_offset=PVM_MARSHALLING_OFFSET_ACCUMULATE,
         gas_limit=gas_limit,
         argument_data=argument_data,
-        program_metadata=program_metadata
+        program_name=program_metadata
     )
 
     # GP-0.6.2-eq:B.12 (C)
@@ -338,14 +338,14 @@ def pvm_invoke_on_transfer(
         service_account.balance += sum([t.amount for t in deferred_transfers])
 
         serialized_program = None
-        program_metadata = b''
+        program_name = None
 
         preimage_blob = service_account.preimages.get(service_account.code_hash)
         if preimage_blob is not None:
             try:
                 preimage = Preimage.extract(preimage_blob)
                 serialized_program = preimage.serialized_program
-                program_metadata = preimage.metadata
+                program_name = preimage.program_name
             except Exception:
                 pass
 
@@ -373,7 +373,7 @@ def pvm_invoke_on_transfer(
                 start_offset=PVM_MARSHALLING_OFFSET_TRANSFER,
                 gas_limit=gas_limit,
                 argument_data=argument_data,
-                program_metadata=program_metadata
+                program_name=program_name
             )
 
             service_account = marshalling_output.context.service_account
@@ -460,7 +460,7 @@ def pvm_invoke_is_authorized(
         start_offset=PVM_MARSHALLING_OFFSET_AUTH,
         gas_limit=GAS_INVOKE,
         argument_data=argument_data,
-        program_metadata=b"auth"
+        program_name=work_package.authorization_metadata
     )
 
     logging.debug(f'PVM is-auth result: exit={marshalling_output.exit_condition.reason} v={marshalling_output.exit_condition.value}')
@@ -714,7 +714,7 @@ def pvm_invoke_refine(
         start_offset=PVM_MARSHALLING_OFFSET_REFINE,
         gas_limit=GAS_INVOKE,
         argument_data=argument_data,
-        program_metadata=preimage.metadata
+        program_name=preimage.program_name
     )
 
     work_exec_result = WorkExecResult.from_exit_condition(marshalling_output.exit_condition)

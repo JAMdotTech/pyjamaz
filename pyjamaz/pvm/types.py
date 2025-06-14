@@ -590,7 +590,7 @@ class PVMProgram(Serializable):
     # µ
     memory: PVMMemory
 
-    metadata: bytes = b''
+    name: str = ''
 
     """
     GP-0.6.2-eq:A.40 | Initializing of memory pages
@@ -650,7 +650,7 @@ class PVMProgram(Serializable):
 
 
     @classmethod
-    def from_serialized_bytes(cls, serialized_program: bytes, argument_contents: bytes, metadata: Optional[bytes]) -> Optional['PVMProgram']:
+    def from_serialized_bytes(cls, serialized_program: bytes, argument_contents: bytes, name: Optional[str]) -> Optional['PVMProgram']:
         """
         GP-0.6.4-eq:A.35 (Y)
         """
@@ -662,10 +662,10 @@ class PVMProgram(Serializable):
 
             if DEBUG:
                 override_heap_mem_pages = None
-                if metadata in DEBUG_PROGRAM_OVERRIDE:
-                    with open(DEBUG_PROGRAM_OVERRIDE.get(metadata)['file'], 'rb') as fp:
+                if name in DEBUG_PROGRAM_OVERRIDE:
+                    with open(DEBUG_PROGRAM_OVERRIDE.get(name)['file'], 'rb') as fp:
                         jam_bytes = JamBytes(fp.read())
-                        override_heap_mem_pages = DEBUG_PROGRAM_OVERRIDE.get(metadata)['heap_mem_pages']
+                        override_heap_mem_pages = DEBUG_PROGRAM_OVERRIDE.get(name)['heap_mem_pages']
 
                         metadata = Bytes.decode(jam_bytes)
 
@@ -699,7 +699,7 @@ class PVMProgram(Serializable):
                     code=PVMCode.from_jam_bytes(JamBytes(pvm_code)),
                     registers=cls.init_registers(argument_contents),
                     memory=cls.init_memory(pvm_rom_contents, pvm_heap_contents, argument_contents, heap_mem_pages, stack_mem_size),
-                    metadata=metadata
+                    name=name
                 )
 
                 #TODO: TEMP HACK TO DEBUG INJECT CUSTOM PROGRAMS!!!!!!!

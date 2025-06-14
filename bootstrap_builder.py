@@ -119,7 +119,7 @@ async def main():
 
         work_package = await create_bootservice_workpackage(client, create_instruction, extrinsic)
 
-        print(f"Creating service '{preimage.metadata}'...")
+        print(f"Creating service '{preimage.program_name}'...")
         await client.submitWorkPackage(0, work_package, extrinsic)
 
         new_service = await client.subscribeServiceValue(bootstrap_service_id,  b'created')
