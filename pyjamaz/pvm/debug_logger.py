@@ -13,7 +13,7 @@ class PVMDebugLog(PVMLogger):
     def __init__(self, pvm, log_opcode_calls=True, log_opcode_calls_if_zero=False):
         np.seterr(over='ignore')
         self._pvm = pvm
-        self._pvm_id = self._pvm.metadata.decode("utf-8")
+        self._pvm_id = self._pvm.name
         self._initial_gas = pvm.gas  # TODO: sla op in logger!
         self._initial_pc = pvm.pc
         self.log_opcodes = {}

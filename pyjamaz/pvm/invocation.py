@@ -168,7 +168,7 @@ class PVMInvocation:
             start_offset: int,                      # ı
             gas_limit: int,                         # ρ
             argument_data: bytes,                   # a
-            program_metadata: Optional[bytes],
+            program_name: Optional[str],
     ) -> PvmMarshallingOutput:
         """
         GP-0.6.2-eq:A.42 (Ψ_M) | Marshalling invocation function
@@ -180,7 +180,7 @@ class PVMInvocation:
         self.pvm_program = PVMProgram.from_serialized_bytes(
             serialized_program=serialized_program,
             argument_contents=argument_data,
-            metadata=program_metadata
+            name=program_name
         )
 
         if self.pvm_program is None:

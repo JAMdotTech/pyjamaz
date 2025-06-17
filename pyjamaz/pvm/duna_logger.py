@@ -50,7 +50,7 @@ class PVMDunaLog(PVMDebugLog):
             target_str = f"@{target} "
 
         if log_lvl_name == 'INFO':
-            prefix_str = f"👀 {target_str}"
+            prefix_str = f"👀 {self._pvm_id}"
         else:
             prefix_str = f"{log_lvl_name}{target_str}"
 
