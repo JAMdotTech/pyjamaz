@@ -44,7 +44,11 @@ class WebsocketClient(RPCMethods):
 
                 if "id" in json_data:
                     if json_data["id"] in self.pending:
-                        self.pending[json_data["id"]].set_result(json_data["result"])
+                        if "error" in json_data:
+                            self.pending[json_data["id"]].set_result(RPCCallException(json_data["error"]))
+                        else:
+                            self.pending[json_data["id"]].set_result(json_data.get("result"))
+
                         del self.pending[json_data["id"]]
                         #print(f"RESOLVED PENDING REQUEST ({len(self.pending)} pending)")
                         continue
@@ -80,8 +84,13 @@ class WebsocketClient(RPCMethods):
         fut = asyncio.get_event_loop().create_future()
         self.pending[req_id] = fut
         req = jsonapi_request(req_id, op, params)
+
         await self.ws.send(req)
         response = await fut
+
+        if isinstance(response, Exception):
+            raise response
+
         return response
 
 
