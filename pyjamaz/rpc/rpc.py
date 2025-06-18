@@ -31,7 +31,7 @@ RPC_ERROR = {
 
 
 class RPCCallException(Exception):
-    def __init__(self, reason, req_id, rpc_call, data):
+    def __init__(self, reason, req_id=None, rpc_call=None, data=None):
         self.reason = reason
         self.req_id = req_id
         self.rpc_call = rpc_call
