@@ -1086,13 +1086,22 @@ class PyjamazApp:
         Process queued work packages and guarantee work reports.
         """
 
-        if len(self.work_packages) == 0:
-            return None
+        work_package = None
 
-        work_package = self.work_packages.pop(0)
+        # Clean up work packages
+        for idx in range(len(self.work_packages)):
+            work_package = self.work_packages[idx]
+            if not self.state.recent_history.get_recent_block(work_package.context.lookup_anchor):
+                del self.work_packages[idx]
+                logging.info(f"🗑️ Discarded dated work package {format_hash(work_package.hash())}")
 
-        if not self.state.recent_history.get_recent_block(work_package.context.lookup_anchor):
-            logging.info(f"🗑️ Discarded dated work package {format_hash(work_package.hash())}")
+        # Find first authorized work package
+        for idx in range(len(self.work_packages)):
+            if self.state.authorizer_pools.is_authorized(self.work_packages[idx], self.get_core_assigment()):
+                work_package = self.work_packages.pop(idx)
+                break
+
+        if work_package is None:
             return None
 
         try:

@@ -20,8 +20,8 @@ from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_d
     hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new, hc_provide
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
-from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
-from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_fetch, hc_export, hc_machine, hc_peek, \
+from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch
+from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_export, hc_machine, hc_peek, \
     hc_poke, hc_zero, hc_void, hc_invoke, hc_expunge
 from pyjamaz.utils import format_hash
 
@@ -40,6 +40,11 @@ class GenericAccumulationInput:
 
 # GP-0.6.4-section:B.4 | Accumulate Invocations
 class AccumulateInvocationMutator(InvocationMutator):
+
+    def __init__(self, post_entropy: EntropyState, accumulation_operands: List[AccumulationOperand]):
+        self.post_entropy = post_entropy
+        self.accumulation_operands = accumulation_operands
+
     def execute(
             self,
             host_call_instr_nr: int,
@@ -93,6 +98,23 @@ class AccumulateInvocationMutator(InvocationMutator):
                 # GP-0.6.4-eq:B.12 | G
                 service = services.retrieve_service_account(service_id)
                 hc_info(registers, memory, service, service_id, services, invocation_output, _pvm.log)
+
+            case HostCallGeneral.fetch.value:
+                # GP-0.6.4-eq:B.12 | G
+                hc_fetch(
+                    registers=registers,
+                    memory=memory,
+                    work_package=None,
+                    entropy=self.post_entropy.entropy[0],
+                    authorizer_output=None,
+                    work_item_index=None,
+                    work_item_segs=None,
+                    extrinsics=None,
+                    accumulation_operands=self.accumulation_operands,
+                    deferred_transfers=None,
+                    invocation_output=invocation_output,
+                    logger=_pvm.log
+                )
 
             case HostCallAccumulate.bless.value:
                 hc_bless(registers, memory, invocation_context, invocation_output, _pvm.log)
@@ -258,12 +280,15 @@ def pvm_invoke_accumulate(
     argument_data = AccumulatePvmArguments(
         timeslot=timeslot,
         service_id=service_id,
-        operands=operands,
+        operands_length=len(operands),
     ).to_jam_bytes().to_bytes()
 
     pvm_invocation = PVMInvocation(
         invocation_context=invocation_context,
-        invocation_mutator=AccumulateInvocationMutator()
+        invocation_mutator=AccumulateInvocationMutator(
+            post_entropy=post_entropy,
+            accumulation_operands=operands,
+        )
     )
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
@@ -293,7 +318,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             preimages=marshalling_output.context.context.preimages
         )
-        logging.info(f'PVM accumulate successful, output=0x{output.accumulation_output.hex()}')
+        logging.debug(f'PVM accumulate successful, output=0x{output.accumulation_output.hex()}')
     else:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
@@ -302,7 +327,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             preimages=marshalling_output.context.context.preimages
         )
-        logging.info(f'PVM accumulate successful, no output')
+        logging.debug(f'PVM accumulate successful, no output')
 
     return output
 
@@ -632,11 +657,11 @@ class RefineInvocationMutator(InvocationMutator):
         return ctx_out
 
 
-# GP-0.6.4-eq:B.5: ΨR (refine invoke)
+# GP-0.6.6-eq:B.5: ΨR (refine invoke)
 def pvm_invoke_refine(
     work_item_index: int,      # GP-0.6.4-eq:B.5: italic_i index of workitem
     work_package: 'WorkPackage', # GP-0.6.4-eq:B.5: italic_p workpackage
-    authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_o is_authorized output
+    authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_r is_authorized output
     work_items_import_segments: List[List[bytes]],  # GP-0.6.4-eq:B.5: bold_i_flat list of import segments per workitem
     export_segment_offset: int, # GP-0.6.4-eq:B.5: c_cedie export segment offset
     services_state: ServicesState,

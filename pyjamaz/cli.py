@@ -553,7 +553,7 @@ async def replay_traces(
                 logging.info(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
 
     traces_files = await anyio.to_thread.run_sync(
-        lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin')})
+        lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin') and f !='genesis.bin'}),
     )
 
     for nr, block_file in enumerate(traces_files, start=1):

@@ -115,7 +115,7 @@ class AccumulateInvocationContext(InvocationContext):
 class AccumulatePvmArguments(Serializable):
     timeslot: int = field(metadata={'codec': VarInt64})
     service_id: int = field(metadata={'codec': VarInt64})
-    operands: List[AccumulationOperand] = field(metadata={'codec': Vec(AccumulationOperand.to_codec_def())})
+    operands_length: int = field(metadata={'codec': VarInt64})
 
 
 @dataclass

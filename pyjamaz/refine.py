@@ -65,14 +65,7 @@ def work_result_computation(
     # TODO inefficient: refactor refine_outputs to work_results and all_export_segments ?
     all_export_segments = flatten_list([o[1] for o in refine_outputs])
 
-    # TODO finish implementation
-    package_spec = WorkPackageSpec(
-        hash=work_package.hash(),
-        length=work_package.to_jam_bytes().length,
-        erasure_root=bytes(32),
-        exports_root=WellBalancedMerkleTree(all_export_segments).root(), # TODO replace with ConstantDepthMerkleTree
-        exports_count=len(all_export_segments),
-    )
+    package_spec = WorkPackageSpec.create_from_work_package(work_package, [], [], [], all_export_segments)
 
     return WorkReport(
         package_spec=package_spec,

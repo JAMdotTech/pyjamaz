@@ -33,6 +33,7 @@ class HostCallGeneral(Enum):
     read              = 2  #ΩR
     write             = 3  #ΩW
     info              = 4  #ΩI
+    fetch             = 18 #ΩY
 
 
 #GP-0.6.4:B.7
