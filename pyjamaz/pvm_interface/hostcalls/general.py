@@ -355,10 +355,11 @@ def hc_fetch(
         # GP Constants
         const_bytes = (
             U64.encode(gp_const.MINIMUM_BALANCE_ITEM) + U64.encode(gp_const.MINIMUM_BALANCE_OCTET) + U64.encode(gp_const.MINIMUM_BALANCE_SERVICE) + U16.encode(gp_const.CORE_COUNT) + U32.encode(gp_const.PREIMAGE_EXPUNGE_TIMESLOTS) + U32.encode(gp_const.EPOCH_TIMESLOTS) + U64.encode(gp_const.GAS_ACCUMULATION) +
-            U64.encode(gp_const.GAS_INVOKE) + U64.encode(gp_const.GAS_REFINE) + U64.encode(gp_const.GAS_TOTAL) + U16.encode(gp_const.HISTORY) + U16.encode(gp_const.MAXIMUM_WORK_ITEMS) + U16.encode(gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT) + U32.encode(gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR) + U16.encode(gp_const.MAXIMIM_AUTHORIZATION_POOL_ITEMS) +
-            U16.encode(gp_const.SLOT_PERIOD) + U16.encode(gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS) + U16.encode(gp_const.ROTATION_PERIOD_CORE) + U16.encode(gp_const.MAXIMUM_ENTRIES_ACCUMULATION_QUEUE) + U16.encode(gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE) + U16.encode(gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD) + U16.encode(gp_const.VALIDATOR_COUNT) + U32.encode(gp_const.MAXIMUM_SIZE_IS_AUTH_CODE) +
-            U32.encode(gp_const.MAXIMUM_SIZE_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_SERVICE_CODE) + U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES) + U32.encode(gp_const.EC_SEGMENT_SIZE) + U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) +
-            U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) + U32.encode(gp_const.SIZE_TRANSFER_MEMO) + U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) + U32.encode(gp_const.TICKET_SUBMISSION_END_SLOT)
+            U64.encode(gp_const.GAS_INVOKE) + U64.encode(gp_const.GAS_REFINE) + U64.encode(gp_const.GAS_TOTAL) + U16.encode(gp_const.HISTORY) + U16.encode(gp_const.MAXIMUM_WORK_ITEMS) + U16.encode(gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT) + U16.encode(gp_const.MAXIMUM_EXTRINSIC_TICKETS) +
+            U32.encode(gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR) + U16.encode(gp_const.TICKET_ENTRIES) + U16.encode(gp_const.MAXIMIM_AUTHORIZATION_POOL_ITEMS) +
+            U16.encode(gp_const.SLOT_PERIOD) + U16.encode(gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS) + U16.encode(gp_const.ROTATION_PERIOD_CORE) + U16.encode(gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE) + U16.encode(gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD) +
+            U16.encode(gp_const.VALIDATOR_COUNT) + U32.encode(gp_const.MAXIMUM_SIZE_IS_AUTH_CODE) + U32.encode(gp_const.MAXIMUM_SIZE_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_SERVICE_CODE) + U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES)  + U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) +
+            U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) + U32.encode(gp_const.SIZE_TRANSFER_MEMO) + U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) + U32.encode(gp_const.TICKET_SUBMISSION_END_SLOT)
         )
         bold_v = const_bytes.to_bytes()
 
@@ -412,7 +413,7 @@ def hc_fetch(
         bold_v = work_package.items[w11].payload
 
     elif w10 == 14:
-        bold_v = Vec(AccumulationOperand.to_codec_def()).encode(accumulation_operands).to_bytes()
+        bold_v = Vec(AccumulationOperand.to_codec_def()).encode([a.to_jam_bytes() for a in accumulation_operands]).to_bytes()
 
     elif w10 == 15 and w11 < len(accumulation_operands):
         bold_v = accumulation_operands[w11].to_jam_bytes().to_bytes()

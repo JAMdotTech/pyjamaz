@@ -15,7 +15,7 @@ from jamcodec.types import Vec, BitArray, U32
 
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError
-from pyjamaz.extrinsic import ExtrinsicAccumulator
+from pyjamaz.extrinsic import BlockExtrinsicAccumulator, WorkpackageExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
 from pyjamaz.hashing import blake2b_256_hash
@@ -87,13 +87,11 @@ class PyjamazApp:
             app_context=self.app_context
         )
 
-        self.extrinsic = ExtrinsicAccumulator(self.config.ring_data)
+        self.block_extrinsic = BlockExtrinsicAccumulator(self.config.ring_data)
 
-        # refine
+        # Refine
         self.work_packages: List[WorkPackage] = []
-        self.work_package_extrinsics: Dict[bytes, bytes] = {}
-        # TODO temp
-        self.wp_counter = 0
+        self.work_package_extrinsics = WorkpackageExtrinsicAccumulator()
 
         self.state: Optional[JamState] = None
         self.state_trie_root = bytes(32)
@@ -693,7 +691,7 @@ class PyjamazApp:
         if safrole_state.slot_sealer_series.tickets is not None:
             # Retrieve current ticket
             ticket_id = safrole_state.slot_sealer_series.tickets[slot_phase_index].id
-            should_produce = ticket_id in self.extrinsic.own_tickets_current
+            should_produce = ticket_id in self.block_extrinsic.own_tickets_current
 
             if should_produce:
                 logging.debug(f'Owning ticket ID: {ticket_id.hex()}')
@@ -856,28 +854,28 @@ class PyjamazApp:
         if timeslot % EPOCH_TIMESLOTS > 0:
             entropy = entropy_state.entropy[2]
 
-            if not SOLO_MODE and self.extrinsic.can_add_own_ticket(timeslot):
+            if not SOLO_MODE and self.block_extrinsic.can_add_own_ticket(timeslot):
 
                 ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
 
-                self.extrinsic.add_own_ticket(
+                self.block_extrinsic.add_own_ticket(
                     ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
-                self.extrinsic.add_own_ticket(
+                self.block_extrinsic.add_own_ticket(
                     ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
-                self.extrinsic.add_own_ticket(
+                self.block_extrinsic.add_own_ticket(
                     ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
         extrinsic = Extrinsic(
-            tickets=self.extrinsic.collect_tickets(),
+            tickets=self.block_extrinsic.collect_tickets(),
             disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
-            preimages=self.extrinsic.collect_preimages(self.state.services),
-            assurances=self.extrinsic.collect_assurances(),
-            guarantees=self.extrinsic.collect_guarantees(),
+            preimages=self.block_extrinsic.collect_preimages(self.state.services),
+            assurances=self.block_extrinsic.collect_assurances(),
+            guarantees=self.block_extrinsic.collect_guarantees(),
         )
 
         header = Header(
@@ -976,13 +974,20 @@ class PyjamazApp:
 
     def add_work_package(self, work_package: WorkPackage, extrinsics: List[bytes]):
         self.work_packages.append(work_package)
-        for extrinsic in extrinsics:
-            self.work_package_extrinsics[blake2b_256_hash(extrinsic)] = extrinsic
+
+        self.work_package_extrinsics.add(work_package, extrinsics)
+
         logging.info(f"📥 Added work package to queue: {format_hash(work_package.hash())}")
 
     async def process_work_package(self, work_package: WorkPackage) -> WorkReport:
         if self.get_core_assigment() is None:
             raise ProcessWorkpackageError("Cannot process work package: no core assignment")
+
+        # Prepare extrinsic data (GP-0.6.6-eq:B6 bold_x_flat)
+        extrinsics = [
+            [self.work_package_extrinsics.get(work_package, x.hash, x.len) for x in w.extrinsic]
+            for w in work_package.items
+        ]
 
         # Set code
         work_package.set_authorization_code(self.state.services)
@@ -990,8 +995,10 @@ class PyjamazApp:
             work_package=work_package,
             core_index=self.get_core_assigment(),
             services_state=self.state.services,
-            extrinsics=self.work_package_extrinsics
+            extrinsics=extrinsics
         )
+        # Clean up work package extrinsics
+        self.work_package_extrinsics.clear(work_package)
         logging.debug(f"Processed work package: {format_hash(work_package.hash())}")
         return work_report
 
@@ -1012,7 +1019,7 @@ class PyjamazApp:
             if assignment.validator_ed25519 != self.config.keys.ed25519.public_key and assignment.core_index == self.get_core_assigment():
                 guarantee.signatures.append(await self.create_guarantee_signature_for_validator(work_report, v_idx))
 
-        self.extrinsic.add_guarantee(guarantee)
+        self.block_extrinsic.add_guarantee(guarantee)
 
     async def create_guarantee_signature(self, work_report: WorkReport) -> Credential:
         payload = b"jam_guarantee" + blake2b_256_hash(work_report.to_jam_bytes().to_bytes())
@@ -1123,13 +1130,13 @@ class PyjamazApp:
             if assignment is not None:
                 # create assurance extrinsic
                 assurance = self.create_assurance([core_index])
-                self.extrinsic.add_assurance(assurance)
+                self.block_extrinsic.add_assurance(assurance)
 
                 # TODO temp SOLO mode
                 if SOLO_MODE:
                     for val_idx in [i for i in range(6) if i != self.get_validator_index()]:
                         assurance = self.create_assurance_for_validator_index([core_index], val_idx)
-                        self.extrinsic.add_assurance(assurance)
+                        self.block_extrinsic.add_assurance(assurance)
 
     def get_best_header_hash(self):
         return self.state.recent_history.recent_history[-1].header_hash

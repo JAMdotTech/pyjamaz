@@ -149,7 +149,7 @@ class WebsocketClient(RPCMethods):
         return bytes(blob)
 
 
-    async def submitWorkPackage(self, core_idx:int, workpackage:WorkPackage, extrinsics:List[bytes]) -> None:
+    async def submitWorkPackage(self, core_idx: int, workpackage: WorkPackage, extrinsics: List[bytes]) -> None:
         workpackage_blob = list(workpackage.to_jam_bytes().to_bytes())
         extrinsics_blob = [list(extrinsics_item) for extrinsics_item in extrinsics]
         return await self._send_and_wait("submitWorkPackage", [core_idx, workpackage_blob, extrinsics_blob])

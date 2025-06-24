@@ -696,6 +696,7 @@ def hc_forget(
             state.services.delete_preimage(service_id, preimage_hash)
             # Update footprint
             service_account.update_footprint_remove_preimage(preimage_length)
+            state.services.store_service_account(service_id, service_account)
         elif preimage_cardinality == 1:
             # TODO: mark dirty? maybe register changes
             state.services.store_preimage_availability(
@@ -793,8 +794,6 @@ def hc_provide(
     # GP: i
     if memory.is_accessible(preimage_address, preimage_length, PVMMemoryMode.readable):
         preimage_blob = memory.read_bytes(preimage_address, preimage_length)
-        # TODO -6 offset met DUNA testdata????????
-        # preimage_blob = memory.read_bytes(preimage_address - 6, preimage_length)
     else:
         preimage_blob = None
 
@@ -818,22 +817,29 @@ def hc_provide(
     if preimage_blob is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("PROVIDE PANIC", f"")
+
     elif service_account is None:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.WHO.value
         logger.hc_log("PROVIDE WHO", f"")
+
     elif preimage_availability != []:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("PROVIDE HUH", f"")
+
     elif (service_account_id, preimage_blob) in ctx_in.context.preimages:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("PROVIDE HUH", f"")
+
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
+
+        # Add preimage to invocation context
         ctx_in.context.preimages.append((service_account_id, preimage_blob))
+
         logger.hc_log("PROVIDE OK", f"h={format_hash(blake2b_256_hash(preimage_blob))}")
 
 

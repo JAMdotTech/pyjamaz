@@ -100,7 +100,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 hc_info(registers, memory, service, service_id, services, invocation_output, _pvm.log)
 
             case HostCallGeneral.fetch.value:
-                # GP-0.6.4-eq:B.12 | G
+                # GP-0.6.6-eq:B.11 | Y
                 hc_fetch(
                     registers=registers,
                     memory=memory,
@@ -163,6 +163,11 @@ class AccumulateInvocationMutator(InvocationMutator):
 
 # GP-0.6.4-section:B.5 | On-Transfer Invocations
 class OnTransferInvocationMutator(InvocationMutator):
+
+    def __init__(self, deferred_transfers: List[DeferredTransfer], post_entropy: EntropyState):
+        self.deferred_transfers = deferred_transfers
+        self.post_entropy = post_entropy
+
     def execute(
             self,
             host_call_instr_nr: int,
@@ -214,6 +219,22 @@ class OnTransferInvocationMutator(InvocationMutator):
                 # GP-0.6.4-eq:B.12 | G
                 service = services.retrieve_service_account(service_id)
                 hc_info(registers, memory, service, service_id, services, ctx_out, _pvm.log)
+
+            case HostCallGeneral.fetch.value:
+                hc_fetch(
+                    registers=registers,
+                    memory=memory,
+                    work_package=None,
+                    entropy=self.post_entropy.entropy[0],
+                    authorizer_output=None,
+                    work_item_index=None,
+                    work_item_segs=None,
+                    extrinsics=None,
+                    accumulation_operands=None,
+                    deferred_transfers=self.deferred_transfers,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
 
             case _:
                 #TODO: implement B.16: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
@@ -379,7 +400,7 @@ def pvm_invoke_on_transfer(
             argument_data = OnTransferPvmArguments(
                 timeslot=timeslot,
                 service_id=service_id,
-                deferred_transfers=deferred_transfers,
+                deferred_transfer_count=len(deferred_transfers),
             ).to_jam_bytes().to_bytes()
 
             pvm_invocation = PVMInvocation(
@@ -388,7 +409,7 @@ def pvm_invoke_on_transfer(
                     service_account=service_account,
                     services_state=services_state
                 ),
-                invocation_mutator=OnTransferInvocationMutator()
+                invocation_mutator=OnTransferInvocationMutator(deferred_transfers=deferred_transfers)
             )
 
             gas_limit = sum([t.gas_limit for t in deferred_transfers])
@@ -412,6 +433,10 @@ def pvm_invoke_on_transfer(
 
 # GP-0.6.4-section:B.5 | On-Transfer Invocations
 class IsAuthorizedInvocationMutator(InvocationMutator):
+
+    def __init__(self, work_package: WorkPackage):
+        self.work_package = work_package
+
     def execute(
             self,
             host_call_instr_nr: int,
@@ -441,6 +466,22 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
                 #GP-0.6.4-eq:B.12 | G
                 hc_gas(registers, memory, ctx_out, _pvm.log)
 
+            case HostCallGeneral.fetch.value:
+                # GP-0.6.4-eq:B.12 | G
+                hc_fetch(
+                    registers=registers,
+                    memory=memory,
+                    work_package=self.work_package,
+                    entropy=None,
+                    authorizer_output=None,
+                    work_item_index=None,
+                    work_item_segs=None,
+                    extrinsics=None,
+                    accumulation_operands=None,
+                    deferred_transfers=None,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
             case _:
                 #TODO: implement B.2: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
                 raise NotImplementedError(f"On-Transfer invoked host-call {host_call_instr_nr} not implemented")
@@ -466,14 +507,12 @@ def pvm_invoke_is_authorized(
         raise ProcessWorkpackageError('work_package.authorization_code is not set')
 
     argument_data = IsAuthorizedPvmArguments(
-        auth_param=b'',
-        work_package=work_package,
         core_index=core_index
     ).to_jam_bytes().to_bytes()
 
     pvm_invocation = PVMInvocation(
         invocation_context=None,
-        invocation_mutator=IsAuthorizedInvocationMutator()
+        invocation_mutator=IsAuthorizedInvocationMutator(work_package=work_package)
     )
 
     work_package_hash = work_package.hash()
@@ -509,7 +548,7 @@ class RefineInvocationMutator(InvocationMutator):
         timeslot: int,
         work_item_index: int,
         work_package: WorkPackage,
-        extrinsics: dict[bytes, bytes]
+        extrinsics: List[List[bytes]]
     ):
         self.authorizer_output = authorizer_output
         self.work_items_import_segments = work_items_import_segments
@@ -563,16 +602,19 @@ class RefineInvocationMutator(InvocationMutator):
                     logger=_pvm.log
                 )
 
-            case HostCallRefine.fetch.value:
+            case HostCallGeneral.fetch.value:
+
                 hc_fetch(
                     registers=registers,
                     memory=memory,
-                    m_e=invocation_context,
-                    work_item_index=self.work_item_index,
                     work_package=self.work_package,
-                    auth_output=self.authorizer_output,
+                    entropy=bytes(32),
+                    authorizer_output=self.authorizer_output,
+                    work_item_index=self.work_item_index,
                     work_item_segs=self.work_items_import_segments,
                     extrinsics=self.extrinsics,
+                    accumulation_operands=None,
+                    deferred_transfers=None,
                     invocation_output=ctx_out,
                     logger=_pvm.log
                 )
@@ -665,10 +707,10 @@ def pvm_invoke_refine(
     work_items_import_segments: List[List[bytes]],  # GP-0.6.4-eq:B.5: bold_i_flat list of import segments per workitem
     export_segment_offset: int, # GP-0.6.4-eq:B.5: c_cedie export segment offset
     services_state: ServicesState,
-    extrinsics: dict[bytes, bytes]
+    extrinsics: List[List[bytes]] # GP-0.6.6-eq:B.6: x_flat list of extrinsics per workitem
 ) -> PvmRefineOutput:
     """
-    GP-0.6.4-eq:B.4 (Ψ_R) | the refine service-account invocation function
+    GP-0.6.6-eq:B.5 (Ψ_R) | the refine service-account invocation function
 
     # TODO integrate with app?
 
@@ -681,7 +723,7 @@ def pvm_invoke_refine(
     work_item = work_package.items[work_item_index]
     service_account_id = work_item.service
 
-    # GP-0.6.4-eq:B.5 (extract preimage data)
+    # GP-0.6.6-eq:B.5 (extract preimage data)
     preimage_data = services_state.historical_preimage_lookup(
         service_account_id,
         work_package.context.lookup_anchor_slot,
@@ -702,16 +744,14 @@ def pvm_invoke_refine(
         )
 
     preimage = Preimage.extract(preimage_data)
-    # preimage.serialized_program = preimage_data
 
     work_package_hash = work_package.hash()
 
     argument_data = RefinePvmArguments(
+        work_item_index=work_item_index,
         service_id=service_account_id,
         payload_blob=work_item.payload,
-        work_package_hash=work_package_hash,
-        refinement_context=work_package.context,
-        authorization_code_hash=work_package.authorizer.code_hash
+        work_package_hash=work_package_hash
     ).to_jam_bytes().to_bytes()
 
     logging.debug(f'PVM refine start: wp={format_hash(work_package_hash)} a={argument_data.hex()}')

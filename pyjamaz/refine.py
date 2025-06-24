@@ -1,3 +1,5 @@
+from typing import List
+
 from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE
 from pyjamaz.merkle import WellBalancedMerkleTree
@@ -11,7 +13,7 @@ def work_result_computation(
         work_package: WorkPackage,
         core_index: int,
         services_state: ServicesState,
-        extrinsics: dict[bytes, bytes]
+        extrinsics: List[List[bytes]]
 ) -> WorkReport:
     """
     GP-0.6.4-eq:14.11 (function Ξ) | the work result computation function.

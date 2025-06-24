@@ -56,7 +56,6 @@ class HostCallAccumulate(Enum):
 #GP-0.6.4:B.7
 class HostCallRefine(Enum):
     historical_lookup      = 17 #ΩH
-    fetch                  = 18 #ΩY
     export                 = 19 #ΩE
     machine                = 20 #ΩM
     peek                   = 21 #ΩP

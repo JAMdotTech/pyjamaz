@@ -256,7 +256,7 @@ def rpcSubmitWorkPackage(app: PyjamazApp, params):
 def rpcSubmitPreimage(app: PyjamazApp, params):
     preimage_blob = bytes(params[1])
     pr = Preimage(requester=params[0], blob=preimage_blob)
-    app.extrinsic.add_preimage(pr)
+    app.block_extrinsic.add_preimage(pr)
 
 
 def rpcServiceRequest(app: PyjamazApp, params):

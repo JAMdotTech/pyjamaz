@@ -328,8 +328,8 @@ async def timeslot_ticker(app: PyjamazApp):
             )
 
             # Process tickets
-            app.extrinsic.process_epoch_change()
-            logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
+            app.block_extrinsic.process_epoch_change()
+            logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
 
             safrole_state = safrole_output.post_state
             entropy_state = entropy_output.post_state
@@ -353,7 +353,7 @@ async def timeslot_ticker(app: PyjamazApp):
                 # Rollback state from DB
                 app.state = app.retrieve_jam_state()
                 # TODO Make transactional
-                app.extrinsic.clear_tickets()
+                app.block_extrinsic.clear_tickets()
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
