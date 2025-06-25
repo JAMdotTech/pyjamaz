@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List, Tuple
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, U64, Array, U8, U32, Null, Vec, Bytes, Option
+from jamcodec.types import H256, U64, Array, U8, Option, Bytes, U32, Vec, Null, Tuple as JamTuple
 
 
 @dataclass
@@ -75,6 +75,12 @@ class ExportInstruction(Serializable):
 
 
 @dataclass
+class SolicitInstruction(Serializable):
+    hash: int = field(metadata={'codec': H256})
+    len: int = field(metadata={'codec': U64})
+
+
+@dataclass
 class Instruction(Serializable):
 
     CreateService: CreateServiceInstruction = field(default=None, metadata={'codec': CreateServiceInstruction.to_codec_def()})
@@ -83,7 +89,7 @@ class Instruction(Serializable):
     Zombify: ZombifyInstruction = field(default=None, metadata={'codec': ZombifyInstruction.to_codec_def()})
     Eject: EjectInstruction = field(default=None, metadata={'codec': EjectInstruction.to_codec_def()})
     DeleteItems: None = field(default=None, metadata={'codec': Null})
-    Solicit: None = field(default=None, metadata={'codec': Null})
+    Solicit: SolicitInstruction = field(default=None, metadata={'codec': SolicitInstruction.to_codec_def()})
     Forget: None = field(default=None, metadata={'codec': Null})
     Lookup: None = field(default=None, metadata={'codec': Null})
     Import: None = field(default=None, metadata={'codec': Null})
@@ -100,3 +106,14 @@ class Instruction(Serializable):
     RandomStorageRefine: RandomStorageRefineInstruction = field(default=None, metadata={'codec': RandomStorageRefineInstruction.to_codec_def()})
 
     _codec_enum = True
+
+
+@dataclass
+class ServiceInfo(Serializable):
+    id: int = field(metadata={'codec': U32})
+    code_hash: bytes = field(metadata={'codec': H256})
+
+
+@dataclass
+class ServiceRegistry(Serializable):
+    services: List[Tuple[bytes, ServiceInfo]] = field(metadata={'codec': Vec(JamTuple(Bytes, ServiceInfo.to_codec_def()))})

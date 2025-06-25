@@ -1,5 +1,4 @@
 import logging
-import typing
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import ceil
@@ -16,11 +15,8 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
-from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, AccumulationOperand, \
-    RefinementContext, WorkPackage
-from pyjamaz.pvm.constants import ExitCondition
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
 from pyjamaz.pvm.invocation import InvocationContext
-from pyjamaz.pvm.types import PVMCode, PVMMemory
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
@@ -279,6 +275,12 @@ class RecentHistoryState(State, Serializable):
         #  GP-0.5.0-eq:D.2-C(3) states encoding is a Vec (i.e. has length definition)
         pass
 
+    def get_recent_block(self, block_hash) -> Optional[RecentBlock]:
+        for block in self.recent_history:
+            if block.header_hash == block_hash:
+                return block
+        return None
+
 class StorageItemMap(StorageMap):
     def __init__(self, service_account_id: int , storage_engine: StorageEngine):
 
@@ -512,8 +514,6 @@ class ServicesState(State, Serializable):
         if service_account is None:
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
 
-        self.services[service_account_id] = service_account
-
         return service_account
 
     def store_service_account(self, service_account_id: int, service_account: ServiceAccount, commit=False):
@@ -546,7 +546,7 @@ class ServicesState(State, Serializable):
 
             self.storage_transaction.put(state_key, data)
 
-        logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} storage_key={state_key.hex()} commit={commit}')
+        logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} f_i={service_account.footprint_storage_items} f_b={service_account.footprint_storage_bytes} commit={commit}')
 
 
     def delete_service_account(self, service_account_id: int, commit=False):
@@ -593,10 +593,7 @@ class ServicesState(State, Serializable):
         bytes
         """
 
-        if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id)
-
-        if preimage_hash in self.services[service_account_id].preimages:
+        if service_account_id in self.services and preimage_hash in self.services[service_account_id].preimages:
             preimage = self.services[service_account_id].preimages[preimage_hash]
         else:
             if self.storage_engine is None:
@@ -606,8 +603,6 @@ class ServicesState(State, Serializable):
             logging.debug(f'retrieve_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
 
             preimage = self.storage_engine.get(storage_key)
-            if preimage:
-                self.services[service_account_id].preimages[preimage_hash] = preimage
 
         if preimage is None:
             raise StateKeyNoResult(f'Preimage not found for hash {preimage_hash}')
@@ -700,15 +695,15 @@ class ServicesState(State, Serializable):
         None
         """
 
+        if service_account_id not in self.services:
+            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
+
         preimage_hash = blake2b_256_hash(preimage_blob)
         self.services[service_account_id].preimages[preimage_hash] = preimage_blob
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
 
         if commit:
-
-            if service_account_id not in self.services:
-                self.retrieve_service_account(service_account_id)
 
             if self.storage_transaction is None:
                 raise ValueError('storage_transaction must be set before storing preimage data')
@@ -730,12 +725,9 @@ class ServicesState(State, Serializable):
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int
     ) -> List[int]:
 
-        if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id)
-
         preimage_availability = None
 
-        if (preimage_hash, preimage_length) in self.services[service_account_id].preimage_availability:
+        if service_account_id in self.services and (preimage_hash, preimage_length) in self.services[service_account_id].preimage_availability:
             preimage_availability = self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
         else:
             if self.storage_engine is None:
@@ -747,7 +739,6 @@ class ServicesState(State, Serializable):
             if data:
                 availability = Vec(U32).new()
                 availability.decode(JamBytes(data))
-                self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = availability.value
                 preimage_availability = availability.value
 
         if preimage_availability is None:
@@ -767,7 +758,7 @@ class ServicesState(State, Serializable):
     ):
 
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id)
+            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
 
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
@@ -792,7 +783,7 @@ class ServicesState(State, Serializable):
     def delete_preimage(self, service_account_id: int, preimage_hash: bytes, commit=False):
 
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id)
+            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
 
@@ -816,7 +807,7 @@ class ServicesState(State, Serializable):
     ):
 
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id)
+            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
 
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
@@ -851,10 +842,8 @@ class ServicesState(State, Serializable):
         -------
         bytes
         """
-        if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id)
 
-        if storage_item_hash in self.services[service_account_id].storage_items:
+        if service_account_id in self.services and storage_item_hash in self.services[service_account_id].storage_items:
             data = self.services[service_account_id].storage_items[storage_item_hash]
         else:
             if self.storage_engine is None:
@@ -872,8 +861,6 @@ class ServicesState(State, Serializable):
             f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={data.hex()}'
             )
 
-        self.services[service_account_id].storage_items[storage_item_hash] = data
-
         return data
 
     def retrieve_storage_local_key(self, service_account_id: int, key: bytes) -> bytes:
@@ -888,7 +875,7 @@ class ServicesState(State, Serializable):
         Store a storage item in the storage engine
         """
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id)
+            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
 
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
 
@@ -907,7 +894,7 @@ class ServicesState(State, Serializable):
         Delete a storage item in the storage engine
         """
         if service_account_id not in self.services:
-            self.retrieve_service_account(service_account_id)
+            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
 
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
 
@@ -1494,7 +1481,7 @@ class AccumulationStateComponents(Serializable):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                # preimages=[] TODO 0.6.6
+                preimages=[]
             ),
             savepoint_context=AccumulateContextItem(
                 service_account_id=service_account_id,
@@ -1502,39 +1489,10 @@ class AccumulationStateComponents(Serializable):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                # preimages=[] TODO 0.6.6
+                preimages=[]
             ),
             timeslot=timeslot
         )
-
-# TODO move back to pvm_interface.models
-
-@dataclass
-class PvmAccumulateOutput:
-    state_context: AccumulationStateComponents
-    deferred_transfers: List[DeferredTransfer]
-    accumulation_output: Optional[bytes]
-    gas_used: int
-    # preimages: List[Tuple[int, bytes]] # TODO 0.6.6
-
-
-@dataclass
-class PvmOnTransferOutput:
-    service_account: ServiceAccount
-    gas_used: int
-
-
-@dataclass
-class PvmIsAuthorizedOutput:
-    exit_condition: ExitCondition
-    gas_limit: int
-
-
-@dataclass
-class PvmRefineOutput:
-    exit_condition: ExitCondition
-    data_segments: List[bytes]                   # GP-0.6.4-eq:B.6 [blackboard_G]
-    gas_used: int
 
 
 @dataclass
@@ -1549,7 +1507,7 @@ class AccumulateContextItem:
     new_service_account_id: int  # i
     deferred_transfers: List[DeferredTransfer]  # t
     invocation_output: Optional[bytes]  # y
-    # preimages: List[Tuple[int, bytes]] # p TODO 0.6.6
+    preimages: List[Tuple[int, bytes]] # p
 
 
 @dataclass

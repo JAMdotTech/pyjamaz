@@ -12,6 +12,7 @@ from pyjamaz.models.state import AccumulationStateComponents, DeferredTransfer, 
 
 from pyjamaz.pvm.constants import ExitCondition
 from pyjamaz.pvm.invocation import InvocationContext
+from pyjamaz.pvm.types import PVMCode, PVMMemory
 
 
 @dataclass
@@ -20,6 +21,7 @@ class PvmAccumulateOutput:
     deferred_transfers: List[DeferredTransfer]
     accumulation_output: Optional[bytes]
     gas_used: int
+    preimages: List[typing.Tuple[int, bytes]]
 
 
 @dataclass
@@ -53,6 +55,7 @@ class AccumulateContextItem:
     new_service_account_id: int  # i
     deferred_transfers: List[DeferredTransfer]  # t
     invocation_output: Optional[bytes]  # y
+    preimages: List[typing.Tuple[int, bytes]]  # p
 
 
 @dataclass
@@ -93,14 +96,16 @@ class AccumulateInvocationContext(InvocationContext):
                 state_context=deepcopy(accumulation_state),
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
-                invocation_output=None
+                invocation_output=None,
+                preimages=[]
             ),
             savepoint_context=AccumulateContextItem(
                 service_account_id=service_account_id,
                 state_context=deepcopy(accumulation_state),
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
-                invocation_output=None
+                invocation_output=None,
+                preimages = []
             ),
             timeslot=timeslot
         )
@@ -149,8 +154,8 @@ class IntegratedPVM:
     """
     GP-0.6.4-eq:B.4 bold_M
     """
-    code: bytes              # GP-0.6.4-eq:B.6 bold_p
-    memory: bytes            # GP-0.6.4-eq:B.6 bold_u
+    code: PVMCode              # GP-0.6.4-eq:B.6 bold_p
+    memory: PVMMemory            # GP-0.6.4-eq:B.6 bold_u
     program_counter: int     # GP-0.6.4-eq:B.6 italic_i
 
 

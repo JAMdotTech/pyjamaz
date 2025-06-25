@@ -2,7 +2,9 @@ import logging
 from dataclasses import dataclass
 from typing import List, Dict
 
-from pyjamaz.exceptions import ProcessWorkpackageError
+from pyjamaz.constants import PVM_MARSHALLING_OFFSET_ACCUMULATE, PVM_MARSHALLING_OFFSET_TRANSFER, \
+    PVM_MARSHALLING_OFFSET_AUTH, PVM_MARSHALLING_OFFSET_REFINE
+from pyjamaz.exceptions import ProcessWorkpackageError, StateKeyNoResult
 from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
 from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage, WorkExecResult
 from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
@@ -233,18 +235,24 @@ def pvm_invoke_accumulate(
     )
 
     try:
-        code_hash = state_context.services.services[service_id].code_hash
-        preimage = Preimage.extract(state_context.services.services[service_id].preimages[code_hash])
+
+        service_account = state_context.services.retrieve_service_account(service_id)
+        preimage_blob = state_context.services.retrieve_preimage(
+            service_account_id=service_id,
+            preimage_hash=service_account.code_hash
+        )
+
+        preimage = Preimage.extract(preimage_blob)
         serialized_program = preimage.serialized_program
-        program_metadata = preimage.metadata
-    except KeyError:
+        program_metadata = preimage.program_name
+    except StateKeyNoResult:
         # program not found
         return PvmAccumulateOutput(
             state_context=state_context,
             deferred_transfers=[],
             accumulation_output=None,
             gas_used=0,
-            #preimages=[]
+            preimages=[]
         )
 
     argument_data = AccumulatePvmArguments(
@@ -260,10 +268,10 @@ def pvm_invoke_accumulate(
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=serialized_program,
-        start_offset=5, #TODO: constant?
+        start_offset=PVM_MARSHALLING_OFFSET_ACCUMULATE,
         gas_limit=gas_limit,
         argument_data=argument_data,
-        program_metadata=program_metadata
+        program_name=program_metadata
     )
 
     # GP-0.6.2-eq:B.12 (C)
@@ -274,7 +282,7 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.savepoint_context.deferred_transfers,
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
             gas_used=marshalling_output.gas_used,
-            # preimages=marshalling_output.context.savepoint_context.preimages TODO 0.6.6
+            preimages=marshalling_output.context.savepoint_context.preimages
         )
         logging.info(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
@@ -283,7 +291,7 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.exit_condition.value,
             gas_used=marshalling_output.gas_used,
-            # preimages=marshalling_output.context.context.preimages TODO 0.6.6
+            preimages=marshalling_output.context.context.preimages
         )
         logging.info(f'PVM accumulate successful, output=0x{output.accumulation_output.hex()}')
     else:
@@ -292,7 +300,7 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.context.context.invocation_output,
             gas_used=marshalling_output.gas_used,
-            # preimages=marshalling_output.context.context.preimages TODO 0.6.6
+            preimages=marshalling_output.context.context.preimages
         )
         logging.info(f'PVM accumulate successful, no output')
 
@@ -320,7 +328,7 @@ def pvm_invoke_on_transfer(
     ServiceAccount
     """
 
-    service_account = services_state.services.get(service_id)
+    service_account = services_state.retrieve_service_account(service_id)
     gas_used = 0
 
     if len(deferred_transfers) > 0:
@@ -330,13 +338,16 @@ def pvm_invoke_on_transfer(
         service_account.balance += sum([t.amount for t in deferred_transfers])
 
         serialized_program = None
-        program_metadata = b''
+        program_name = None
 
         preimage_blob = service_account.preimages.get(service_account.code_hash)
         if preimage_blob is not None:
-            preimage = Preimage.extract(preimage_blob)
-            serialized_program = preimage.serialized_program
-            program_metadata = preimage.metadata
+            try:
+                preimage = Preimage.extract(preimage_blob)
+                serialized_program = preimage.serialized_program
+                program_name = preimage.program_name
+            except Exception:
+                pass
 
         if serialized_program:
 
@@ -359,10 +370,10 @@ def pvm_invoke_on_transfer(
 
             marshalling_output = pvm_invocation.pvm_invoke_marshalling(
                 serialized_program=serialized_program,
-                start_offset=10,    #TODO: constant?
+                start_offset=PVM_MARSHALLING_OFFSET_TRANSFER,
                 gas_limit=gas_limit,
                 argument_data=argument_data,
-                program_metadata=program_metadata
+                program_name=program_name
             )
 
             service_account = marshalling_output.context.service_account
@@ -446,10 +457,10 @@ def pvm_invoke_is_authorized(
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=work_package.authorization_code,
-        start_offset=0,
+        start_offset=PVM_MARSHALLING_OFFSET_AUTH,
         gas_limit=GAS_INVOKE,
         argument_data=argument_data,
-        program_metadata=b"auth"
+        program_name=work_package.authorization_metadata
     )
 
     logging.debug(f'PVM is-auth result: exit={marshalling_output.exit_condition.reason} v={marshalling_output.exit_condition.value}')
@@ -700,10 +711,10 @@ def pvm_invoke_refine(
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=preimage.serialized_program,
-        start_offset=0,
+        start_offset=PVM_MARSHALLING_OFFSET_REFINE,
         gas_limit=GAS_INVOKE,
         argument_data=argument_data,
-        program_metadata=preimage.metadata
+        program_name=preimage.program_name
     )
 
     work_exec_result = WorkExecResult.from_exit_condition(marshalling_output.exit_condition)

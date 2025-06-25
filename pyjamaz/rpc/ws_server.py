@@ -98,7 +98,7 @@ class WebSocketServer:
                     except Exception as e:
                         logging.error(f"Error processing message: {e}")
                         # Send error response if needed
-                        error_response = jsonapi_response("ERROR", str(e))
+                        error_response = jsonapi_error(req_id, {"code": -1, "msg": str(e)}, None)
                         await websocket.send(error_response)
 
                 except Exception as e:

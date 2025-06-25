@@ -11,7 +11,8 @@ from parameterized import parameterized
 
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, OpcodeNames
-from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection
+from pyjamaz.pvm.debug_logger import PVMDebugLog
+from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
 
 
 def load_test_vectors(directory):
@@ -52,7 +53,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
                 page = MemorySection(
                     address=page_map["address"],
                     length=page_map["length"],
-                    acl=2 if page_map["is-writable"] else 1,
+                    acl=PVMMemoryMode.writable if page_map["is-writable"] else PVMMemoryMode.readable,
                     contents=[0] * page_map["length"]
                 )
                 if page_map["address"] < 2*65536:
@@ -86,7 +87,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
                     mem[offset + idx] = np.uint8(byt)
 
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
-        pvm = PVMInterpreter(pvm_program)#, log_ctx=log_ctx) # Note: uncomment to enable debug logging
+        pvm = PVMInterpreter(pvm_program)
+        #pvm = PVMInterpreter(pvm_program, logger_cls=PVMDebugLog)#, log_ctx=log_ctx) # Note: uncomment to enable debug logging
         pvm.invoke(
             test_vector["initial-pc"],
             test_vector["initial-gas"]

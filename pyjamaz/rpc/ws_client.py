@@ -1,3 +1,5 @@
+import json
+import logging
 from typing import List, Optional, Tuple, Dict
 
 import websockets
@@ -37,45 +39,68 @@ class WebsocketClient(RPCMethods):
 
             # Note: we can always trust we're dealing with one message at a time: https://stackoverflow.com/a/21025321
             try:
-                req_id, rpc_call, params, req_type, result = jsonapi_parse(data)
+                # Subscriptions have a different message format, hack:
+                json_data = json.loads(data)
 
-                if req_id and req_id in self.pending:
-                    self.pending[req_id].set_result(result)
-                    del self.pending[req_id]
+                if "id" in json_data:
+                    if json_data["id"] in self.pending:
+                        if "error" in json_data:
+                            self.pending[json_data["id"]].set_result(RPCCallException(json_data["error"]))
+                        else:
+                            self.pending[json_data["id"]].set_result(json_data.get("result"))
 
-                elif req_id in self.subs:
-                    await self.subs[req_id].put(result)
+                        del self.pending[json_data["id"]]
+                        #print(f"RESOLVED PENDING REQUEST ({len(self.pending)} pending)")
+                        continue
+                    else:
+                        #print(f"REQUEST NOT PENDING????? ({len(self.pending)} pending)")
+                        continue
+
+                elif "params" in json_data and json_data["params"].get("subscription") is not None:
+                    if json_data["params"]["subscription"] in self.subs:
+                        #self.subs[json_data["params"]["subscription"]].set_result(json_data["result"])
+                        await self.subs[json_data["params"]["subscription"]].put(json_data["params"]["result"])
+                        #print(f"RESOLVED SUBSCRIPTION ({len(self.subs.keys())} pending)")
+                        continue
+                    else:
+                        #print(f"SUBSCRIPTION NOT PENDING????? ({len(self.subs.keys())} pending)")
+                        continue
+                else:
+                    #print("INVALID RESPONSE????????")
+                    continue
 
             except RPCCallException as e:
+                print("INVALID RESPONSE MESSAGE")
                 if e.req_id and e.req_id in self.pending:
                     self.pending[e.req_id].set_result(None)
                     del self.pending[e.req_id]
 
             except Exception as e:
-                print("UNKNOWN????????:::: ", e)
+                print("UNKNOWN ERROR????????:::: ", e)
 
 
     async def _send_and_wait(self, op, params):
         req_id = generate_req_id()
         fut = asyncio.get_event_loop().create_future()
         self.pending[req_id] = fut
-        await self.ws.send(jsonapi_request(req_id, op, params))
+        req = jsonapi_request(req_id, op, params)
+
+        await self.ws.send(req)
         response = await fut
+
+        if isinstance(response, Exception):
+            raise response
+
         return response
 
 
     async def subscribe(self, op, params, result_parser):
-        req_id = generate_req_id()
+        sub_id = await self._send_and_wait(op, params)
 
         qu = asyncio.Queue()
-        ack = asyncio.get_running_loop().create_future()
-
-        self.pending[req_id] = ack
-
-        await self.ws.send(jsonapi_request(req_id, op, params))
-        sub_id = await ack
         self.subs[sub_id] = qu
-        print(f"SUBSCRIBED TO {op} with id {sub_id}")
+
+        logging.debug(f"SUBSCRIBED TO {op} with id {sub_id} and params {params}")
 
         async def gen():
             try:
@@ -96,11 +121,11 @@ class WebsocketClient(RPCMethods):
         return await self._send_and_wait("parameters", None)
 
 
-    async def bestBlock(self) -> Optional[Tuple[bytes,int]]:
+    async def bestBlock(self) -> Optional[dict]:
         res = await self._send_and_wait("bestBlock", None)
         if not res:
             return None
-        res[0] = bytes(res[0])
+        res["header_hash"] = bytes(res["header_hash"])
         return res
 
     async def listServices(self) -> List[int]:
@@ -130,11 +155,15 @@ class WebsocketClient(RPCMethods):
         return await self._send_and_wait("submitWorkPackage", [core_idx, workpackage_blob, extrinsics_blob])
 
 
-    async def submitPreimage(self, service_id:int , preimage_blob: bytes, block_hash: bytes) -> None:
+    async def submitPreimage(self, service_id: int , preimage_blob: bytes) -> None:
         preimage_blob = list(preimage_blob)
-        block_hash = list(block_hash)
-        return await self._send_and_wait("submitPreimage", [service_id, preimage_blob, block_hash])
+        return await self._send_and_wait("submitPreimage", [service_id, preimage_blob])
 
+    async def serviceValue(self, block_hash: bytes , service_id: int, storage_key: bytes) -> Optional[bytes]:
+        result = await self._send_and_wait("serviceValue", [list(block_hash), service_id, list(storage_key)])
+        if result is not None:
+            result = bytes(result)
+        return result
 
     async def serviceData(self, block_hash: bytes, service_id:int) -> Optional[ServiceAccount]:
         blob = await self._send_and_wait("serviceData", [list(block_hash), service_id])
@@ -152,9 +181,17 @@ class WebsocketClient(RPCMethods):
 
 
     async def subscribeServiceValue(self, service_id, storage_item_key):
-        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key)], lambda x: bytes(x))
+        def result_parser(result):
+            if result.get('value') is not None:
+                return bytes(result.get('value'))
+            return None
+        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key), False], result_parser)
 
 
-    async def subscribeServiceRequest(self, block_hash: bytes, service_id:int, preimage_hash: bytes, preimage_length: int):
-        return await self.subscribe("subscribeServiceRequest", [list(block_hash), service_id, list(preimage_hash), preimage_length], lambda x: x)
+    async def subscribeServiceRequest(self, service_id:int, preimage_hash: bytes, preimage_length: int):
+        def result_parser(result):
+            if result.get('value') is not None:
+                return result.get('value')
+            return None
+        return await self.subscribe("subscribeServiceRequest", [service_id, list(preimage_hash), preimage_length], result_parser)
 

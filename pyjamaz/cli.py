@@ -87,15 +87,11 @@ def wrap_cli_import_block(traces_dir):
             logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
             logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
 
-            # TODO WouldBlock async issue
-            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
-
         except Exception as e:
             # Rollback state
             logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state = self.retrieve_jam_state()
-            raise e
 
     return cli_import_block
 
@@ -178,20 +174,21 @@ async def initialize_app(
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listen on')
 @click.option('--bootnode', 'bootnode', type=str, default="", show_default=True, help='Specific bootnode to connect to')
-async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode):
+@click.option('--rpc-listen-ip', 'rpc_listen_ip', type=str, default="0.0.0.0", show_default=True, help='IP address for RPC server to listen on')
+@click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
+async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port):
     """PyJAMaz: Python JAM Client"""
 
-    # Note: Add packages that need a different logging level here
-    log_package_overrides = {
-        "pyjamaz.transport": logging.DEBUG,
-        "quic": logging.WARNING,
-    }
-
-    # Setup logging
-    log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level, log_package_overrides)
-
     if ctx.invoked_subcommand is None:
+
+        # Setup logging
+        log_level = logging.DEBUG if verbose else logging.INFO
+        # Note: Add packages that need a different logging level here
+        log_package_overrides = {
+            "pyjamaz.transport": log_level,
+            "quic": logging.WARNING,
+        }
+        setup_logging(log_level, log_package_overrides)
 
         if seed is None:
             raise MissingParameter("--seed parameter is required")
@@ -231,7 +228,7 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
 
-        rpc_server = WebSocketServer(app, 'localhost', 19800)
+        rpc_server = WebSocketServer(app, rpc_listen_ip, rpc_port)
 
         try:
             async with anyio.create_task_group() as tg:
@@ -290,9 +287,9 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 async def timeslot_ticker(app: PyjamazApp):
 
     while True:
+        timeslot = app.current_timeslot()
         # TODO centralize
         app.block_context.reset()
-        timeslot = app.current_timeslot()
 
         epoch = timeslot // EPOCH_TIMESLOTS
         phase = timeslot % EPOCH_TIMESLOTS
@@ -352,11 +349,11 @@ async def timeslot_ticker(app: PyjamazApp):
                 logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
+                logging.debug(traceback.format_exc())
                 # Rollback state from DB
                 app.state = app.retrieve_jam_state()
                 # TODO Make transactional
                 app.extrinsic.clear_tickets()
-                raise e
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
@@ -415,7 +412,11 @@ def generate(seed, ip, port):
 async def init_certificate(db_path, seed):
     keys = Keys.from_seed(bytes.fromhex(seed[2:]))
 
-    pk_pem, cert_pem = generate_cert(keys, ips="127.0.0.1")
+    pk_pem, cert_pem = generate_cert(
+        keys,
+        ips="127.0.0.1",    #TODO: hardcoded for now
+        alternative_name="e3r2oc62zwfj3crnuifuvsxvbtlzetk4o5qyhetkhagsc2fgl2oka",
+    )
     pk_file = os.path.join(db_path, "cert.key")
     pem_file = os.path.join(db_path, "cert.pem")
     write_cert(pk_pem, pk_file, cert_pem, pem_file)

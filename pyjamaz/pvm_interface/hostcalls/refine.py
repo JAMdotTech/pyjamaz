@@ -9,11 +9,12 @@ from pyjamaz.models.common import WorkPackage
 from pyjamaz.models.state import ServicesState
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
+from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram, PVMCode
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult, InnerPVMResult
-from pyjamaz.pvm_interface.models import RefineInvocationContext
+from pyjamaz.pvm_interface.models import RefineInvocationContext, IntegratedPVM
 
 
 def hc_historical_lookup(
@@ -26,7 +27,13 @@ def hc_historical_lookup(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
 
-    # haal preimage op adv serviceaccount, timeslot en preimagehash en schrijf (deel?) deze weg in memory
+    """
+    Make a lookup into the service's preimage store.
+    hash: The hash of the preimage to look up.
+    Returns the preimage or None if the preimage was not available.
+    --------------------------
+    haal preimage op adv serviceaccount, timeslot en preimagehash en schrijf (deels?) deze weg in memory
+    """
     logger.hc_regs(f"HISTORICAL_LOOKUP", "refine")
     invocation_output.gas_limit -= 10
 
@@ -86,6 +93,12 @@ def hc_fetch(
         extrinsics: dict[bytes, bytes],
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+    """
+    Fetch the data defined by this Fetch into the given target buffer.
+    target: The buffer to write the fetched data into.
+    skip: The number of bytes to skip from the start of the data to be fetched.
+    Returns the full length of the data which is being fetched. If this is smaller than the target's length, then some of the buffer will not be written to. If the request does not identify any data to be fetched (e. g. because an index is out of range) then returns None.
+    """
 
     logger.hc_regs(f"FETCH", "refine")
     invocation_output.gas_limit -= 10
@@ -98,31 +111,42 @@ def hc_fetch(
     w12 = registers[12]
 
     bold_v = None
+
     if w10 == 0:
+        #WorkPackage
         bold_v = work_package.to_jam_bytes().to_bytes()
 
     elif w10 == 1:
+        #AuthCodeConfig
         bold_v = auth_output
+
     elif w10 == 2 and w11 < len(work_package.items):
+        #AuthToken
         bold_v = work_package.items[w11].payload
 
     elif w10 == 3 and w11 < len(work_package.items) and w12 < len(work_package.items[w11].extrinsic):
+        #AuthTrace
         extrinsic = extrinsics.get(work_package.items[w11].extrinsic[w12].hash)
         if extrinsic and len(extrinsic) == work_package.items[w11].extrinsic[w12].len:
             bold_v = extrinsic
 
-    elif w10 == 4 and w11 < len(work_package.items[work_item_index].extrinsic):
+    # elif w10 == 4 and w11 < len(work_package.items[work_item_index].extrinsic): TODO polkajam deviation
+    elif w10 == 6 and w11 < len(work_package.items[work_item_index].extrinsic):
+        #AnyPayload
         extrinsic = extrinsics.get(work_package.items[work_item_index].extrinsic[w11].hash)
         if extrinsic and len(extrinsic) == work_package.items[work_item_index].extrinsic[w11].len:
             bold_v = extrinsic
 
     elif w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
+        #AnyExtrinsic
         bold_v = work_item_segs[w11][w12]
 
     elif w10 == 6 and work_item_index < len(work_item_segs) and w11 < len(work_item_segs[work_item_index]):
+        # OurExtrinsic
         bold_v = work_item_segs[work_item_index][w11]
 
     elif w10 == 7:
+        #AnyImport
         bold_v = work_package.authorizer.params
 
     o = w7
@@ -148,7 +172,15 @@ def hc_export(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
 
-    # leest iets uit geheugen en append een blob toe aan e (export segments)
+    """
+    Export a segment of data into the JAM Data Lake.
+    segment: The segment of data to export.
+    Returns the export index or Err if the export was unsuccessful.
+    --------------------------
+    Leest een stuk geheugen uit en plaatst voegt dit toe aan e (export segments)
+    """
+    logger.hc_regs(f"EXPORT", "refine")
+
     p = registers[7]
     z = min(registers[8], EC_SEGMENT_SIZE)
     data_segment = None #GP: bold_x
@@ -172,6 +204,15 @@ def hc_machine(
         m_e: RefineInvocationContext,
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+    """
+    Create a new instance of a PVM.
+    code: The code of the PVM.
+    program_counter: The initial program counter value of the PVM.
+    Returns the handle of the PVM or Err if the creation was unsuccessful.
+    --------------------------
+    Initializeerd een nieuwe PVM instance
+    """
+    logger.hc_regs(f"MACHINE", "refine")
 
     p_o = registers[7]
     p_z = registers[8]
@@ -209,11 +250,9 @@ def hc_machine(
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = n
-        # TODO: hoeveel pages, dynamisch groeiend mem mogelijk maken??????????????
-        mem = PVMMemory.allocate(0, 0, 0, 0)
         m_e.inner_pvm_lookup[n] = IntegratedPVM(
             code=pvm_code,
-            memory=mem,
+            memory=PVMMemory(None, None, None, None),
             program_counter=i
         )
 
@@ -224,6 +263,16 @@ def hc_peek(
         m_e: RefineInvocationContext,
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+    """
+    Inspect the raw memory of an inner PVM.
+    vm_handle: The handle of the PVM whose memory to inspect.
+    inner_src: The address in the PVM's memory to start reading from.
+    len: The number of bytes to read.
+    Returns the data in the PVM vm_handle at memory inner_src or Err if the inspection failed.
+    --------------------------
+    Leest een stuk geheugen uit een inner PVM instance
+    """
+    logger.hc_regs(f"PEEK", "refine")
 
     n = registers[7]
     o = registers[8]
@@ -250,6 +299,16 @@ def hc_poke(
         m_e: RefineInvocationContext,
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+    """
+    Copy some data into the memory of an inner PVM.
+    vm_handle: The handle of the PVM whose memory to mutate.
+    outer_src: The data to be copied.
+    inner_dst: The address in memory of inner PVM vm_handle to copy the data to.
+    Returns Ok on success or Err if the inspection failed.
+    --------------------------
+    Plaatst een stuk geheugen in een inner PVM instance
+    """
+    logger.hc_regs(f"POKE", "refine")
 
     n = registers[7]
     s = registers[8]
@@ -277,6 +336,19 @@ def hc_zero(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
 
+    """
+    Initialize memory pages in an inner PVM with zeros, allocating if needed.
+    - `vm_handle`: The handle of the PVM whose memory to mutate.
+    - `page`: The index of the first page of inner PVM `vm_handle` to initialize.
+    - `count`: The number of pages to initialize.
+    Returns `Ok` on success or `Err` if the operation failed.
+    Pages are initialized to be filled with zeroes. If the pages are not yet allocated, they will
+    be allocated.
+    --------------------------
+    Alloceert een stuk geheugfen van een inner PVM instance
+    """
+    logger.hc_regs(f"ZERO", "refine")
+
     n = registers[7]
     p = registers[8]
     c = registers[9]
@@ -285,13 +357,15 @@ def hc_zero(
     if n in m_e.inner_pvm_lookup:
         mem = m_e.inner_pvm_lookup[n].memory
 
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+
     if p < 16 or p+c >= 2**32//PVM_PAGE_SIZE:
         invocation_output.registers[7] = HostCallResult.HUH.value
     elif mem is None:
         invocation_output.registers[7] = HostCallResult.WHO.value
     else:
         invocation_output.registers[7] = HostCallResult.OK.value
-        mem.reset(p, c, PVMMemoryMode.writable)
+        mem.zero(p, c)
 
 
 def hc_void(
@@ -300,6 +374,17 @@ def hc_void(
         m_e: RefineInvocationContext,
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+    """
+    Deallocate memory pages in an inner PVM.
+    vm_handle: The handle of the PVM whose memory to mutate.
+    page: The index of the first page of inner PVM vm_handle to deallocate.
+    count: The number of pages to deallocate.
+    Returns Ok on success or Err if the operation failed.
+    NOTE: All pages from page to page + count - 1 inclusive must have been allocated for this call to succeed.
+    --------------------------
+    Verwijderd(?) het geheugen van een inner PVM instance en maakt het inaccesible
+    """
+    logger.hc_regs(f"VOID", "refine")
 
     n = registers[7]
     p = registers[8]
@@ -309,13 +394,16 @@ def hc_void(
     if n in m_e.inner_pvm_lookup:
         mem = m_e.inner_pvm_lookup[n].memory
 
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+
+    mem_addr = p * PVM_PAGE_SIZE
     if mem is None:
-        invocation_output.registers[7] = HostCallResult.HUH.value
-    elif p < 16 or p+c >= 2**32//PVM_PAGE_SIZE or mem.is_accessible(p, c, PVMMemoryMode.readable):
         invocation_output.registers[7] = HostCallResult.WHO.value
+    elif p < 16 or p+c >= 2 ** 32 // PVM_PAGE_SIZE or not mem.is_accessible(mem_addr, c * PVM_PAGE_SIZE, PVMMemoryMode.readable):
+        invocation_output.registers[7] = HostCallResult.HUH.value
     else:
         invocation_output.registers[7] = HostCallResult.OK.value
-        mem.reset(p, c, PVMMemoryMode.non_readable)
+        mem.void(p, c)
 
 
 def hc_invoke(
@@ -324,28 +412,40 @@ def hc_invoke(
         m_e: RefineInvocationContext,
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+    """
+    Invoke an inner PVM.
+    vm_handle: The handle of the PVM to invoke.
+    gas: The maximum amount of gas which the inner PVM may use in this invocation.
+    regs: The initial register values of the inner PVM.
+    Returns the outcome of the invocation, together with any remaining gas, and the final register values.
+    """
+    logger.hc_regs(f"INVOKE", "refine")
 
     n = registers[7]
     o = registers[8]
+
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
     gas = None
     reg = []
     if memory.is_accessible(o, 112, PVMMemoryMode.writable):
         jam_bytes = JamBytes(memory.read_bytes(o, 112))
         gas = U64.decode(jam_bytes)
-        for idx in range(13):
-            reg[idx] = U64.decode(jam_bytes)
+        for _ in range(13):
+            reg.append(U64.decode(jam_bytes))
 
     pvm_program = None
     if n in m_e.inner_pvm_lookup:
         pvm_program = PVMProgram(
             code=m_e.inner_pvm_lookup[n].code,
             registers=reg,
-            memory=m_e.inner_pvm_lookup[n].memory #TODO: eigenlijk een clone van mem maken :S
+            memory=m_e.inner_pvm_lookup[n].memory
         )
-
-        # invoke general PVM function (Ψ)
-        pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=None)
+        """
+        Invokes general PVM function (Ψ) on an inner PVM
+        """
+        #pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=None)
+        pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=PVMDebugLog)
         pvm.invoke(
             m_e.inner_pvm_lookup[n].program_counter,
             gas
@@ -353,12 +453,13 @@ def hc_invoke(
         pvm_exit_condition = pvm.get_exit_condition()
 
     def update_inner_pvm(pc: int):
-        invocation_output.memory.write_bytes(o, pvm.gas)
+        invocation_output.memory.write_bytes(o, int(pvm.gas).to_bytes(8, byteorder='little'))
         for idx in range(13):
-            invocation_output.memory.write_bytes(o+8+idx*8, pvm.reg[idx])
+            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='little'))
 
         m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden!
         m_e.inner_pvm_lookup[n].program_counter = pc
+
 
     if gas is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -400,6 +501,16 @@ def hc_expunge(
         m_e: RefineInvocationContext,
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+    """
+    Delete an inner PVM instance, freeing any associated resources.
+    vm_handle: The handle of the PVM to delete.
+    Returns the inner PVM's final instruction counter value on success or Err if the operation failed.
+    --------------------------
+    Verwijderd een inner PVM
+    """
+    logger.hc_regs(f"EXPUNGE", "refine")
+
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
     if not registers[7] in m_e.inner_pvm_lookup:
         invocation_output.registers[7] = HostCallResult.WHO.value
