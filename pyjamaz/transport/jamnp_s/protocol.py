@@ -10,8 +10,8 @@ from aioquic.tls import SessionTicket
 
 from aioquic.asyncio.client import connect
 
-from pyjamaz.transport.jamnp_s.stream_client import ClientProtocol
-from pyjamaz.transport.jamnp_s.stream_server import ServerProtocol
+from pyjamaz.transport.jamnp_s.connection_initiator import ConnectionInitiator
+from pyjamaz.transport.jamnp_s.connection_acceptor import ConnectionAcceptor
 from pyjamaz.transport.types import ProtocolType
 
 
@@ -21,7 +21,7 @@ logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 def wrap_protocol(wrapper, protocol):
     def create_protocol(*args, **kwargs):
         instance = protocol(*args, **kwargs)
-        instance.wrapper = wrapper
+        instance.protocol = wrapper
         return instance
 
     return create_protocol
@@ -43,7 +43,8 @@ class JAMNPS(ProtocolType):
 
     PROTOCOL_NAME = "jamnp-s/0/{}"
 
-    def __init__(self, host, port, certificate, private_key, app, initial_slot_nr, initial_block_hash):
+    #TODO: add role enum: validator, guarantors, light_client, builder, ...
+    def __init__(self, host, port, certificate, private_key, app, initial_slot_nr, initial_block_hash, role):
         self.host = host
         self.port = port
         self.pubsub = app.pubsub
@@ -80,7 +81,7 @@ class JAMNPS(ProtocolType):
             self.host,
             self.port,
             configuration=self.configuration,
-            create_protocol=wrap_protocol(self, ServerProtocol),
+            create_protocol=wrap_protocol(self, ConnectionAcceptor),
             session_ticket_fetcher=self.session_ticket_store.pop,
             session_ticket_handler=self.session_ticket_store.add,
             retry=True,
@@ -103,11 +104,11 @@ class JAMNPS(ProtocolType):
                     port,
                     configuration=configuration,
                     # session_ticket_handler=save_session_ticket,
-                    create_protocol=wrap_protocol(self, ClientProtocol),
+                    create_protocol=wrap_protocol(self, ConnectionInitiator),
             ) as client:
-                client = cast(ClientProtocol, client)
+                client = cast(ConnectionInitiator, client)
                 self.conn_out[(host, port)] = client
-                #await client.open_stream_up_0()
+                #await client.open_stream_up()
                 await client.wait_closed()
                 del self.conn_out[(host, port)]
         except ConnectionError as exc:

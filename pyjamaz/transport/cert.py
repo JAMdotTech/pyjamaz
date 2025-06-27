@@ -93,7 +93,7 @@ def generate_cert(keys, ips: str):
     not_valid_before = datetime(1975, 1, 1, 0, 0)
     not_valid_after = datetime(4096, 1, 1, 0, 0)
     peer_id = quic_peer_id(keys.ed25519.public_key)
-    print(peer_id)
+    #print(peer_id)
     ext = x509.SubjectAlternativeName(x509.GeneralNames([x509.DNSName(peer_id)]))
 
     builder = (

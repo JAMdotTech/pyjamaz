@@ -1,10 +1,8 @@
 import logging
 from enum import Enum
 
-from aioquic.asyncio import QuicConnectionProtocol, serve
 
-
-logger = logging.getLogger("pyjamaz.transport.jamnp_s")
+logger = logging.getLogger("pyjamaz.transport.jamnp_s.streams")
 
 
 class InvalidStreamType(Exception):
@@ -12,23 +10,39 @@ class InvalidStreamType(Exception):
 
 
 class StreamType(Enum):
-    UP0_OPEN: int = 66
     UP0_BlockAnnouncement: int = 0
     CE128_BlockRequest: int = 128
+    # 129
+    # 131
+    # 132
+    # 133
+    # 134
+    # 135
+    # 136
+    # 137
+    # 138
+    # 139
+    # 140
+    # 141
+    # 142
+    # 143
+    # 144
+    # 145
 
 
-#TODO: StreamBase,Client & Server -> Connection* maken
-class StreamBase(QuicConnectionProtocol):
+class Stream:
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.wrapper = None    # Note: should be set in wrap_protocol
-        self.stream_up_0 = None
-        #TODO: this buffer should be made per stream_id (for now, we always assume stream_up_0)
+    #TODO: typings, and is it really necesary to pass these here?
+    def __init__(self, stream_id: int, connection):
+        self.stream_id = stream_id
+        self.stream_type = None # Note: override in subclass
+        self.conn = connection
+
         self._msg_buffer = b""
         self._msg_len = -1
         self._msg_type = -1
         self._msg_offset = -1
+
 
     def _reset_msg(self):
         self._msg_buffer = b""
@@ -36,25 +50,41 @@ class StreamBase(QuicConnectionProtocol):
         self._msg_type = -1
         self._msg_offset = -1
 
-    # #TODO: deprecated!!!!!
-    # def build_handshake_message(self):
-    #     #TODO: implement handshake response according to JAMSNP
-    #     """Both sides should begin by sending a handshake message containing all known leaves (descendants of the latest finalized block with no known children)."""
-    #     logger.debug(f"Building handshake message for UP-0 stream")
-    #
-    #     """
-    #     async def send_handshake(
-    #         self, finalized_hash: bytes, finalized_slot: int,
-    #         leaves: List[Tuple[bytes, int]],
-    #     ):
-    #         final = encode_final(finalized_hash, finalized_slot)
-    #         leaves_enc = [encode_leaf(h, s) for h, s in leaves]
-    #         await self.stream.write(UP0_KIND + encode_handshake(final, leaves_enc))
-    #     """
-    #
-    #     return (
-    #         int(JAMNPSMessage.UP0_OPEN.value).to_bytes(
-    #             length=1,
-    #             byteorder='little'
-    #         )
-    #     )
+
+    def parse_message(self, data: bytes):
+        raise Exception("Implement this method")
+
+
+    def receive_data(self, data: bytes):
+
+        # Note: Parse bytes until stream data is empty: https://github.com/microsoft/msquic/discussions/2037
+        while len(data) > 0:
+
+            if self._msg_len == -1:
+                # byte_data = bytes(event.data)
+                self._msg_len = int.from_bytes(data[0:4], byteorder='little')
+                data = data[4:]
+                print(f"NEW MESSAGE: {self.stream_id} msg length: {len(data)} data length: {self._msg_len}")
+                # TODO: check message length > 0???!!!!
+
+
+            parse_message = False
+            if len(self._msg_buffer) + len(data) >= self._msg_len:
+                # If we received a full message (or more than 1 message)
+                end_offset = self._msg_len - len(self._msg_buffer)
+                self._msg_buffer += data[:end_offset]
+                data = data[end_offset:]
+                parse_message = True
+                print("FULL MESSAGE RECEIVED")
+            else:
+                # Otherwise append only, we expect more data to finish this message
+                self._msg_buffer += data
+                data = []
+                print(f"APPENDING TO EXISTING MESSAGE: {self.stream_id} msg length: {len(data)} data length: {self._msg_len}")
+
+            # If we assembled a new message, parse it
+            if parse_message:
+                try:
+                    self.parse_message(self._msg_buffer)
+                finally:
+                    self._reset_msg()
