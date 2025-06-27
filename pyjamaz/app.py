@@ -113,9 +113,10 @@ class PyjamazApp:
         self.import_queue.append(block)
 
         # Note: when we receive a block announcement and we just started our node, we send out a blocks request to sync our state
+        #TODO: niet meer nodig??!!!!!!!!!!!
         if self.network_bootstrap:
             # TODO: app.protocol.conn_out is a temporary hack, should do this different, and also allow for sequential back requests until a certain state is reached
-            if self.protocol.conn_out:
+            if self.protocol.conn_initiated:
                 self.network_bootstrap = False
                 # TODO: determine peer to request blocks from using protocol grid
                 # TODO: moeten we hier niet alleen de header meegeven ipv een heel block te serializen?????

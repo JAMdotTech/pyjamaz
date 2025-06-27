@@ -1,12 +1,9 @@
-import asyncio
 import logging
-import struct
-from typing import List
 
 from aioquic.quic.events import QuicEvent, StreamDataReceived, ConnectionTerminated, HandshakeCompleted
 
 from pyjamaz.transport.jamnp_s.connection_base import ConnectionBase
-from pyjamaz.transport.jamnp_s.stream_0_up import StreamUP
+from pyjamaz.transport.jamnp_s.streams.stream_0 import StreamUP
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -24,9 +21,9 @@ class ConnectionInitiator(ConnectionBase):
             if self.stream_up_id is not None:
                 raise Exception("There can be only one UP connection active at a time")
 
-            self.stream_up_id = self._quic.get_next_available_stream_id()
-            self.streams[self.stream_up_id] = StreamUP(self.stream_up_id, self)
-            self.streams[self.stream_up_id].send_handshake()
+            stream_up = self.create_jam_stream(StreamUP)
+            self.stream_up_id = stream_up.stream_id
+            stream_up.initiator_handshake()
 
         elif isinstance(event, StreamDataReceived):
 
@@ -42,19 +39,3 @@ class ConnectionInitiator(ConnectionBase):
     #     elif isinstance(event, ConnectionTerminated):
     #         # Handle connection termination
 
-
-    async def send_blocks_request(self, direction, max_blocks, block_bytes):
-        #!!!!!!!!!!!!TODO: moet over een nieuwe stream -> creeer een nieuwe stream
-        # data = (
-        #     # int(direction).to_bytes(length=1, byteorder='little') +
-        #     # int(max_blocks).to_bytes(length=1, byteorder='little') +
-        #     block_bytes
-        # )
-        # self._quic.send_stream_data(
-        #     self.stream_up,
-        #     (int(StreamType.CE128_BlockRequest.value).to_bytes(length=1, byteorder='little') +
-        #      len(data).to_bytes(length=4, byteorder='little') +
-        #      data)
-        # )
-        # self.transmit()
-        logger.debug(f"ClientProtocol Block Requests sent to stream {self.stream_up_id} ({len(data)})")

@@ -66,13 +66,13 @@ class JAMNPS(ProtocolType):
             #quic_logger=quic_logger,
             #verify_mode=ssl.CERT_REQUIRED,
             verify_mode=ssl.CERT_NONE,
-            idle_timeout=300000
+            #idle_timeout=300000
         )
         self.cert = certificate
         self.pk = private_key
         self.configuration.load_cert_chain(certificate, private_key)
-        self.conn_in = {}   # All incomming connections
-        self.conn_out = {}  # All outgoing connections (who we connect to)
+        self.conn_accepted = {}   # All incomming connections
+        self.conn_initiated = {}  # All outgoing connections (who we connect to)
 
 
     async def listen(self):
@@ -107,26 +107,25 @@ class JAMNPS(ProtocolType):
                     create_protocol=wrap_protocol(self, ConnectionInitiator),
             ) as client:
                 client = cast(ConnectionInitiator, client)
-                self.conn_out[(host, port)] = client
-                #await client.open_stream_up()
+                self.conn_initiated[(host, port)] = client
                 await client.wait_closed()
-                del self.conn_out[(host, port)]
+                del self.conn_initiated[(host, port)]
         except ConnectionError as exc:
-            if (host, port) in self.conn_out:
-                del self.conn_out[(host, port)]
+            if (host, port) in self.conn_initiated:
+                del self.conn_initiated[(host, port)]
             logger.warning(f"💩 ClientProtocol Cannot connect to {host}:{port} {exc}")
 
 
     async def request_blocks(self, direction, max_blocks, block_bytes):
         #TODO: temp hack, should be provided with a specific peer?
-        conn_key = list(self.conn_out.keys())[0]
-        conn = self.conn_out[conn_key]
+        conn_key = list(self.conn_initiated.keys())[0]
+        conn = self.conn_initiated[conn_key]
         await conn.send_blocks_request(0, 100, block_bytes)
 
 
     async def broadcast_block(self, block):
         block_bytes = block.to_jam_bytes().to_bytes()
-        logger.debug(f'ServerProtocol broadcasting block announcement to {len(self.conn_in)} clients')
-        for client_id, client in self.conn_in.items():
+        logger.debug(f'ServerProtocol broadcasting block announcement to {len(self.conn_accepted)} clients')
+        for client_id, client in self.conn_accepted.items():
             logger.debug(f"ServerProtocol send block to client {client}")
             await client.send_block_announcement(block_bytes)

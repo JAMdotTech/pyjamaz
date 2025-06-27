@@ -2,17 +2,18 @@ from jamcodec.base import JamBytes
 from jamcodec.types import U32, VarInt64
 
 from pyjamaz.models.block import Header
-from pyjamaz.transport.jamnp_s.stream_base import Stream, StreamType
+from pyjamaz.transport.jamnp_s.stream import Stream, StreamType, StreamDirection
 
 
 class StreamUP(Stream):
 
-    def __init__(self, stream_id: int, connection):
-        super().__init__(stream_id, connection)
+    def __init__(self, stream_id: int, connection, direction: StreamDirection):
+        super().__init__(stream_id, connection, direction)
         self.stream_type = StreamType.UP0_BlockAnnouncement.value.to_bytes(length=1, byteorder='little')
         self.handshake_complete = False
 
-    def send_handshake(self):
+
+    def initiator_handshake(self):
         """
         TODO:
         Both sides should begin by sending a handshake message containing all known leaves (descendants of the latest finalized block with no known children).
@@ -23,13 +24,13 @@ class StreamUP(Stream):
         leaf_count = VarInt64.encode(len(leafs)).to_bytes()
         handshake = final + leaf_count + leafs
 
-        self.conn._quic.send_stream_data(
+        self.conn.send(
             self.stream_id,
             self.stream_type + (len(handshake)).to_bytes(length=4, byteorder='little') + handshake,
         )
 
 
-    def parse_message(self, data: bytes):
+    def initiator_message(self, data: bytes):
         print(f"RECEIVED UP0 MSG: {len(data)}")
 
         if not self.handshake_complete:
@@ -47,12 +48,20 @@ class StreamUP(Stream):
             print(f"HANDSHAKE: {header_hash} {slot} {leaf_count} remaining: {jam_bytes.get_remaining_length()}")
             self.handshake_complete = True
 
-            # TODO: temp adhoc 128 stream, send notification instead!!!!!
-            from pyjamaz.transport.jamnp_s.stream_128_block_request import StreamBlockRequest
-            stream_id = self.conn._quic.get_next_available_stream_id()
-            self.conn.streams[stream_id] = StreamBlockRequest(stream_id, self.conn)
-            self.conn.streams[stream_id].send_block_request(header_hash, 1, 1)
+            # TODO: temp adhoc 128 stream, send notification and handle using app logic instead!!!!!
+            from pyjamaz.transport.jamnp_s.streams.stream_128 import StreamBlockRequest
+            stream_req = self.conn.create_jam_stream(StreamBlockRequest)
+            stream_req.initiator_block_request(header_hash, 1, 1)
 
             return
 
-        #test = Header.from_jam_bytes(JamBytes(data))
+        # After handshake is completed, we receive Announcement messages
+        jam_bytes = JamBytes(data)
+        header = Header.from_jam_bytes(jam_bytes)
+        header_hash = jam_bytes.get_next_bytes(32).hex()
+        slot = U32.decode(jam_bytes)
+        print(f"UP0 Update: {header} {header_hash} {slot}")
+
+
+    def acceptor_message(self, data: bytes):
+        pass
