@@ -1,4 +1,4 @@
-from pyjamaz.transport.jamnp_s.stream import Stream, StreamType, StreamDirection
+from pyjamaz.transport.jamnp_s.stream_base import Stream, StreamType, StreamDirection
 
 
 class StreamSafroleTicketDistributionStep1(Stream):

@@ -175,7 +175,7 @@ async def initialize_app(
 @click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listen on')
 @click.option('--bootnode', 'bootnode', type=str, default="", show_default=True, help='Specific bootnode to connect to')
 @click.option('--rpc-listen-ip', 'rpc_listen_ip', type=str, default="0.0.0.0", show_default=True, help='IP address for RPC server to listen on')
-@click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
+@click.option('--rpc-port', 'rpc_port', type=int, default=19666, show_default=True, help='Port for RPC server to listen on')
 async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port):
     """PyJAMaz: Python JAM Client"""
 
@@ -253,11 +253,12 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                 pk_file = os.path.join(db_path, "cert.key")
                 #nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
                 #                   (host, port, certificate, private_key, app, initial_slot_nr, initial_block_hash):
-                initial_block_hash = app.retrieve_block_hash(0).hex()
-                nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app, 0, initial_block_hash, None)
+                #initial_block_hash = app.retrieve_block_hash(0).hex()
+                nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
                 app.protocol = nps_protocol
                 app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
                 app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
+                app.pubsub.subscribe(MESSAGE_TYPES.REQUEST_BLOCKS, nps_protocol.request_blocks)
                 app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
                 tg.start_soon(nps_protocol.listen)
 
@@ -278,7 +279,9 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                     logging.debug(f'Connecting to bootnode {conn["key"]} at {conn["addr"]}:{conn["port"]}')
                     #tg.start_soon(nps_protocol.connect, conn["addr"], conn["port"])
                     try:
-                        await nps_protocol.connect(conn["addr"], conn["port"])
+                        #await nps_protocol.connect(conn["addr"], conn["port"])
+                        #await nps_protocol.connect("54.39.18.64", 40000)
+                        await nps_protocol.connect("localhost", conn["port"])
                     except Exception as exc:
                         traceback.print_exc()
                 else:

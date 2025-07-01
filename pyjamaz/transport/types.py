@@ -9,7 +9,8 @@ class ProtocolType(Protocol):
     async def listen(self):
         """ Starts this protocol, start listening for messages """
 
-    async def request_blocks(self, direction: int, max_blocks: int, block_bytes:bytes):
+    #TODO: typings on data -> create dedicated Message dataclasses
+    async def request_blocks(self, data):
         """ Starts a Blocks Request, to fetch a range of blocks from a given peer """
 
     async def broadcast_block(self, block:Block):

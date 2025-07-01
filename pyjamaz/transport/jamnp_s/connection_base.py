@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aioquic.asyncio import QuicConnectionProtocol, serve
 
-from pyjamaz.transport.jamnp_s.stream import Stream, StreamDirection
+from pyjamaz.transport.jamnp_s.stream_base import Stream, StreamDirection
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -13,8 +13,10 @@ class ConnectionBase(QuicConnectionProtocol):
         super().__init__(*args, **kwargs)
 
         self.protocol = None    # Note: should be set in wrap_protocol
+        self.host = None
+        self.port = None
 
-        self.stream_up_id = None
+        self.stream_up = None
         self.streams = {}
         self._keepalive_task = asyncio.create_task(self._keepalive())
 
@@ -35,10 +37,12 @@ class ConnectionBase(QuicConnectionProtocol):
 
 
     async def _keepalive(self):
-        try:
-            while True:
-                await asyncio.sleep(4)
-                self._quic.send_ping(666)
-                self.transmit()
-        except asyncio.CancelledError:
-            pass
+        # try:
+        #     while True:
+        #         #TODO: what is a sane amount of time?
+        #         await asyncio.sleep(4)
+        #         self._quic.send_ping(id(self))
+        #         self.transmit()
+        # except asyncio.CancelledError:
+        #     pass
+        pass

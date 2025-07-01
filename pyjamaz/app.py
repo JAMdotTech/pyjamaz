@@ -113,15 +113,15 @@ class PyjamazApp:
         self.import_queue.append(block)
 
         # Note: when we receive a block announcement and we just started our node, we send out a blocks request to sync our state
-        #TODO: niet meer nodig??!!!!!!!!!!!
+        #TODO!!!!!!NETJES MAKEN!!!!!
         if self.network_bootstrap:
             # TODO: app.protocol.conn_out is a temporary hack, should do this different, and also allow for sequential back requests until a certain state is reached
             if self.protocol.conn_initiated:
                 self.network_bootstrap = False
-                # TODO: determine peer to request blocks from using protocol grid
-                # TODO: moeten we hier niet alleen de header meegeven ipv een heel block te serializen?????
-                await self.protocol.request_blocks(0, 100, block.to_jam_bytes().to_bytes())
-                # TODO: wel dit block al opslaan en alleen blocks die we vanaf dit Block
+                # # TODO: determine peer to request blocks from using protocol grid
+                # # TODO: moeten we hier niet alleen de header meegeven ipv een heel block te serializen?????
+                # await self.protocol.request_blocks(0, 100, block.to_jam_bytes().to_bytes())
+                # # TODO: wel dit block al opslaan en alleen blocks die we vanaf dit Block
         elif block.header.parent == bytes(32) or self.retrieve_block_by_hash(block.header.parent):
             # Note: If we are able to find the parent of this block, it means we are synced and we can process blocks
             await self.process_import_queue()

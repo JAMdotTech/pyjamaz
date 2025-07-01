@@ -18,10 +18,12 @@ from pyjamaz.transport.types import ProtocolType
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
-def wrap_protocol(wrapper, protocol):
+def wrap_protocol(wrapper, protocol, host, port):
     def create_protocol(*args, **kwargs):
         instance = protocol(*args, **kwargs)
         instance.protocol = wrapper
+        instance.host = host
+        instance.port = port
         return instance
 
     return create_protocol
@@ -43,20 +45,19 @@ class JAMNPS(ProtocolType):
 
     PROTOCOL_NAME = "jamnp-s/0/{}"
 
+    DIRECTION_ASC = int(0).to_bytes(length=1, byteorder='little')
+    DIRECTION_DESC = int(1).to_bytes(length=1, byteorder='little')
+
     #TODO: add role enum: validator, guarantors, light_client, builder, ...
-    def __init__(self, host, port, certificate, private_key, app, initial_slot_nr, initial_block_hash, role):
+    def __init__(self, host, port, certificate, private_key, app): #, initial_slot_nr, initial_block_hash, role):
         self.host = host
         self.port = port
         self.pubsub = app.pubsub
         self.app = app
 
-        #################TODO: haal deze info uit app ipv arg??
-        self.first_block_hash = initial_block_hash
-        self.first_slot = initial_slot_nr
-        bl_hash = initial_block_hash
+        bl_hash = app.retrieve_block_hash(0).hex()
         if bl_hash.startswith('0x'): bl_hash = bl_hash[2:]
         bl_hash = bl_hash[:8]
-        ##################
 
         self.protocol_name = JAMNPS.PROTOCOL_NAME.format(bl_hash)
         self.session_ticket_store = SessionTicketStore()
@@ -81,7 +82,7 @@ class JAMNPS(ProtocolType):
             self.host,
             self.port,
             configuration=self.configuration,
-            create_protocol=wrap_protocol(self, ConnectionAcceptor),
+            create_protocol=wrap_protocol(self, ConnectionAcceptor, self.host, self.port),
             session_ticket_fetcher=self.session_ticket_store.pop,
             session_ticket_handler=self.session_ticket_store.add,
             retry=True,
@@ -104,7 +105,7 @@ class JAMNPS(ProtocolType):
                     port,
                     configuration=configuration,
                     # session_ticket_handler=save_session_ticket,
-                    create_protocol=wrap_protocol(self, ConnectionInitiator),
+                    create_protocol=wrap_protocol(self, ConnectionInitiator, host, port),
             ) as client:
                 client = cast(ConnectionInitiator, client)
                 self.conn_initiated[(host, port)] = client
@@ -116,11 +117,20 @@ class JAMNPS(ProtocolType):
             logger.warning(f"💩 ClientProtocol Cannot connect to {host}:{port} {exc}")
 
 
-    async def request_blocks(self, direction, max_blocks, block_bytes):
-        #TODO: temp hack, should be provided with a specific peer?
-        conn_key = list(self.conn_initiated.keys())[0]
+    #TODO: typings for data
+    async def request_blocks(self, data):
+        #TODO: temp hack, should extract peer from data
+        #conn_key = list(self.conn_initiated.keys())[0]
+        conn_key = (data[0], data[1])
         conn = self.conn_initiated[conn_key]
-        await conn.send_blocks_request(0, 100, block_bytes)
+        block_hash = data[2]
+        direction = data[3]
+        max_blocks = data[4]
+
+        from pyjamaz.transport.jamnp_s.streams.stream_128 import StreamBlockRequest
+        stream_req = conn.create_jam_stream(StreamBlockRequest)
+        print(f"CALLING BLOCK REQUEST ON STREAMID: {stream_req.stream_id} header hash: {block_hash} direction: {direction}, max_block: {max_blocks}")
+        stream_req.initiator_block_request(block_hash, direction, max_blocks)
 
 
     async def broadcast_block(self, block):

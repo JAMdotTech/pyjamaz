@@ -66,7 +66,7 @@ class Stream:
                 # byte_data = bytes(event.data)
                 self._msg_len = int.from_bytes(data[0:4], byteorder='little')
                 data = data[4:]
-                print(f"NEW MESSAGE: {self.stream_id} msg length: {len(data)} data length: {self._msg_len}")
+                #print(f"NEW MESSAGE: {self.stream_id} msg length: {len(data)} data length: {self._msg_len}")
                 # TODO: check message length > 0???!!!!
 
             msg_complete = False
@@ -76,7 +76,7 @@ class Stream:
                 self._msg_buffer += data[:end_offset]
                 data = data[end_offset:]
                 msg_complete = True
-                print("FULL MESSAGE RECEIVED")
+                #print(f"FULL MESSAGE RECEIVED {self.stream_type} stream type = {int(self.stream_id)}")
             else:
                 # Otherwise append only, we expect more data to finish this message
                 self._msg_buffer += data
@@ -92,3 +92,11 @@ class Stream:
                         self.acceptor_message(self._msg_buffer)
                 finally:
                     self._reset_msg()
+
+
+    def initiator_reset(self, reset_code: int):
+        del self.conn.streams[self.stream_id]
+
+
+    def acceptor_reset(self, reset_code: int):
+        del self.conn.streams[self.stream_id]
