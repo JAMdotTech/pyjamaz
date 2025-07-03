@@ -9,7 +9,7 @@ class ProtocolType(Protocol):
     async def listen(self):
         """ Starts this protocol, start listening for messages """
 
-    #TODO: typings on data -> create dedicated Message dataclasses
+    #TODO: deprecated? -> sync Protocol with necesary features
     async def request_blocks(self, data):
         """ Starts a Blocks Request, to fetch a range of blocks from a given peer """
 

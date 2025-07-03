@@ -18,13 +18,18 @@ class ConnectionBase(QuicConnectionProtocol):
 
         self.stream_up = None
         self.streams = {}
-        self._keepalive_task = asyncio.create_task(self._keepalive())
+        #self._keepalive_task = asyncio.create_task(self._keepalive())
 
 
-    def create_jam_stream(self, StreamCls: Stream):
+    def open_jam_stream(self, StreamCls: Stream):
         stream_id = self._quic.get_next_available_stream_id()
         self.streams[stream_id] = StreamCls(stream_id, connection=self, direction=StreamDirection.initiator)
         return self.streams[stream_id]
+
+
+    def close_jam_stream(self, stream: Stream):
+        self._quic.reset_stream(stream.stream_id, error_code=0)
+        del self.streams[stream.stream_id]
 
 
     def send(self, stream_id: int, data, end_stream=False):
@@ -37,12 +42,11 @@ class ConnectionBase(QuicConnectionProtocol):
 
 
     async def _keepalive(self):
-        # try:
-        #     while True:
-        #         #TODO: what is a sane amount of time?
-        #         await asyncio.sleep(4)
-        #         self._quic.send_ping(id(self))
-        #         self.transmit()
-        # except asyncio.CancelledError:
-        #     pass
-        pass
+        try:
+            while True:
+                #TODO: what is a sane amount of time?
+                await asyncio.sleep(4)
+                self._quic.send_ping(id(self))
+                self.transmit()
+        except asyncio.CancelledError:
+            pass

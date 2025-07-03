@@ -26,7 +26,7 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.app import Trace, StateDump, ChainspecDump
-from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
+from pyjamaz.transport.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, SOLO_MODE
 from pyjamaz.state.base import state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_preimage_availability
@@ -34,7 +34,7 @@ from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBa
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.models.state import JamState, ServiceAccount, ServiceActivityRecord
 from pyjamaz.transport.cert import generate_cert, write_cert
-from pyjamaz.transport.protocol_fs import FSProtocol
+#from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.jamnp_s.protocol import JAMNPS
 
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
@@ -103,12 +103,12 @@ def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
     return produced_block_jamnp
 
 
-def wrap_produced_block_fs(app: PyjamazApp, traces_dir, fs_protocol: FSProtocol):
-    async def produced_block_fs(block: Block):
-        await app.import_block(block)
-        await fs_protocol.broadcast_block(block)
-
-    return produced_block_fs
+# def wrap_produced_block_fs(app: PyjamazApp, traces_dir, fs_protocol: FSProtocol):
+#     async def produced_block_fs(block: Block):
+#         await app.import_block(block)
+#         await fs_protocol.broadcast_block(block)
+#
+#     return produced_block_fs
 
 
 async def initialize_app(
@@ -197,9 +197,7 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         db_path = custom_db_path or default_db_path
 
-        network_bootstrap = ts is None
-        if network_bootstrap:
-            ts = 0
+        ts = ts or 0
 
         #TODO: currently it is not possible to provide a hard unix timestamp (only deltas)
         current_time = time.time()
@@ -213,8 +211,6 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
             )
         except StateKeyNoResult:
             raise BadParameter(f'DB is not yet initialized; run init first')
-
-        app.network_bootstrap = network_bootstrap
 
         logging.info(f'🥋 PyJAMaz JAM client')
         logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
@@ -245,7 +241,6 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                 #     fs_protocol = FSProtocol(block_dir, app)
                 #     app.protocol = fs_protocol
                 #     app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
-                #     app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_json)
                 #     app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
                 #     tg.start_soon(fs_protocol.listen)
                 # else:
@@ -257,9 +252,6 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                 nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
                 app.protocol = nps_protocol
                 app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
-                app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
-                app.pubsub.subscribe(MESSAGE_TYPES.REQUEST_BLOCKS, nps_protocol.request_blocks)
-                app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
                 tg.start_soon(nps_protocol.listen)
 
                 if bootnode:

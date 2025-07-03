@@ -9,10 +9,10 @@ from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Block
-from pyjamaz.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR
+from pyjamaz.transport.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.rpc.ws_server import WebSocketServer
+    from pyjamaz.transport.rpc.ws_server import WebSocketServer
 
 
 class WSubscription(ABC):

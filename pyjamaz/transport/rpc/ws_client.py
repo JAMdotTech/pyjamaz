@@ -7,8 +7,8 @@ import asyncio
 
 from pyjamaz.models.common import Authorizer, RefinementContext, WorkPackage, WorkItem
 from pyjamaz.models.state import ServiceAccount
-from pyjamaz.rpc.interface import RPCMethods
-from pyjamaz.rpc.rpc import generate_req_id, jsonapi_parse, RPCCallException, jsonapi_request
+from pyjamaz.transport.rpc.interface import RPCMethods
+from pyjamaz.transport.rpc.rpc import generate_req_id, jsonapi_parse, RPCCallException, jsonapi_request
 
 
 class WebsocketClient(RPCMethods):

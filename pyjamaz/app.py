@@ -71,14 +71,15 @@ class PyjamazApp:
         self.state_db: StorageEngine = config.storage_engine.namespace(b"state")
         self.block_db: StorageEngine = config.storage_engine.namespace(b"block")
         self.app_db: StorageEngine = config.storage_engine.namespace(b"app")
-        self.network_bootstrap: bool = False
-        self.import_queue: List[Block] = []
+
+        self._import_queue: List[Block] = []
+        self._import_queue_lock = asyncio.Lock()
+
         self.pubsub:PubSub = None
 
         self.block_context = BlockContext()
         self.app_context = AppContext()
 
-        self.import_lock = asyncio.Lock()
 
         self.components = StateComponents(
             storage_engine=self.state_db,
@@ -107,28 +108,6 @@ class PyjamazApp:
             self.import_block = self._import_block
 
 
-    async def import_block_from_bytes(self, data):
-        block = Block.from_jam_bytes(JamBytes(data))
-        logging.debug(f"📦 Importing block {block.header.timeslot} from bytes")
-        self.import_queue.append(block)
-
-        # Note: when we receive a block announcement and we just started our node, we send out a blocks request to sync our state
-        #TODO!!!!!!NETJES MAKEN!!!!!
-        if self.network_bootstrap:
-            # TODO: app.protocol.conn_out is a temporary hack, should do this different, and also allow for sequential back requests until a certain state is reached
-            if self.protocol.conn_initiated:
-                self.network_bootstrap = False
-                # # TODO: determine peer to request blocks from using protocol grid
-                # # TODO: moeten we hier niet alleen de header meegeven ipv een heel block te serializen?????
-                # await self.protocol.request_blocks(0, 100, block.to_jam_bytes().to_bytes())
-                # # TODO: wel dit block al opslaan en alleen blocks die we vanaf dit Block
-        elif block.header.parent == bytes(32) or self.retrieve_block_by_hash(block.header.parent):
-            # Note: If we are able to find the parent of this block, it means we are synced and we can process blocks
-            await self.process_import_queue()
-        else:
-            logging.info(f"Syncing in progress, current timeslot={self.state.timeslot.number}")
-
-
     async def import_block_from_json(self, data):
         logging.debug(f"📦 Importing block from json")
         block = Block.from_json(data)
@@ -137,32 +116,26 @@ class PyjamazApp:
 
     async def requested_blocks_from_json(self, data):
         block_list = [Block.from_json(block_data) for block_data in data]
-        for block in block_list:
-            self.import_queue.append(Block.from_codec_type(block))
-            logging.info(f"📦 Queue block requested #{block.header.timeslot}")
+        async with self._import_queue_lock:
+            for block in block_list:
+                self._import_queue.append(Block.from_codec_type(block))
+                logging.info(f"📦 Queue block requested #{block.header.timeslot}")
         await self.process_import_queue()
 
 
-    async def requested_blocks_from_bytes(self, data):
-        block_list = Vec(Block.to_codec_def()).new()
-        block_list.decode(JamBytes(data))
-        for block_bytes in block_list:
-            block = Block.from_codec_type(block_bytes)
-            self.import_queue.append(block)
-
-        await self.process_import_queue()
+    async def import_queue_add(self, block):
+        async with self._import_queue_lock:
+            self._import_queue.append(block)
 
 
     async def process_import_queue(self):
-        async with self.import_lock:
-            sorted_blocks = sorted(self.import_queue, key=lambda x: x.header.timeslot)
-            self.import_queue = []
+        async with self._import_queue_lock:
+            sorted_blocks = sorted(self._import_queue, key=lambda x: x.header.timeslot)
+            self._import_queue.clear()
 
         for block in sorted_blocks:
-            # TODO: protocol should only import blocks from this point on -> fix the block_request
             if self.state.timeslot.number >= block.header.timeslot:
-                logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
-                continue
+                raise Exception(f" Import queue timeslot mismatch: {self.state.timeslot.number} >= {block.header.timeslot}")
 
             await self.import_block(block)
             logging.debug(f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')

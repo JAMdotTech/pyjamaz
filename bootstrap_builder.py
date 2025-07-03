@@ -6,7 +6,7 @@ from jamcodec.base import JamBytes
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.builder import Instruction, ServiceRegistry
 from pyjamaz.models.common import Authorizer, RefinementContext, WorkPackage, WorkItem, WorkItemExtrinsic, Preimage
-from pyjamaz.rpc.ws_client import WebsocketClient
+from pyjamaz.transport.rpc.ws_client import WebsocketClient
 
 
 # Bootstrap service - Helper functions

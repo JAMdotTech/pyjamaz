@@ -5,7 +5,7 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.builder import Instruction
 from pyjamaz.models.common import Authorizer, RefinementContext, WorkPackage, WorkItem, WorkItemExtrinsic
 from pyjamaz.pvm.types import PVMProgram
-from pyjamaz.rpc.ws_client import WebsocketClient
+from pyjamaz.transport.rpc.ws_client import WebsocketClient
 
 
 async def create_bootservice_workpackage(client, instruction: Instruction, extrinsic: List[bytes]):

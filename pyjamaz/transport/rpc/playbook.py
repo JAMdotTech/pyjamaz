@@ -4,7 +4,7 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import Authorizer, RefinementContext, WorkPackage, WorkItem, WorkItemExtrinsic
 from pyjamaz.pvm.types import PVMProgram
 from pyjamaz.pvm.utils import count_leading_zeroes, count_trailing_zeroes, reverse_bits_32
-from pyjamaz.rpc.ws_client import WebsocketClient
+from pyjamaz.transport.rpc.ws_client import WebsocketClient
 
 
 async def create_workpackage(client):

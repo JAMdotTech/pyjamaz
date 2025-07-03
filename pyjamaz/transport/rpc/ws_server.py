@@ -7,9 +7,9 @@ from asyncio import CancelledError
 from typing import Set
 import websockets
 
-from pyjamaz.rpc.rpc import RPC_REQUESTS, RPC_TYPE_SUBSCRIBE, RPC_TYPE_UNSUBSCRIBE, jsonapi_response, jsonapi_parse, RPCCallException, jsonapi_ws_subscribed, \
+from pyjamaz.transport.rpc.rpc import RPC_REQUESTS, RPC_TYPE_SUBSCRIBE, RPC_TYPE_UNSUBSCRIBE, jsonapi_response, jsonapi_parse, RPCCallException, jsonapi_ws_subscribed, \
     jsonapi_ws_response, RPC_ERROR, jsonapi_error
-from pyjamaz.rpc.ws_server_subscriptions import SubscriptionManager
+from pyjamaz.transport.rpc.ws_server_subscriptions import SubscriptionManager
 
 
 if typing.TYPE_CHECKING:

@@ -25,9 +25,7 @@ class ConnectionInitiator(ConnectionBase):
             if self.stream_up is not None:
                 raise Exception("There can be only one UP connection active at a time")
 
-            stream_up = self.create_jam_stream(StreamUP)
-            self.stream_up = stream_up
-            stream_up.initiator_handshake()
+            self.protocol.up0_send_handshake(self)
 
         elif isinstance(event, StreamReset):
             stream_id = event.stream_id
@@ -39,10 +37,6 @@ class ConnectionInitiator(ConnectionBase):
                 raise Exception(f"Stream {stream_id} not available")
 
             self.streams[stream_id].initiator_reset(reset_code)
-
-            # if not self._quic.stream_is_closed(stream_id):
-            #     self._quic.reset_stream(stream_id, error_code=0)
-
 
         elif isinstance(event, StreamDataReceived):
 
