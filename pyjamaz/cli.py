@@ -21,6 +21,7 @@ from jamcodec.base import JamBytes
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.fuzzer import TargetServer, FuzzerSession
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
@@ -762,6 +763,92 @@ async def set_bootstrap(
 
     with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'wb') as fp:
         fp.write(genesis_state.to_jam_bytes().to_bytes())
+
+
+@main.command('fuzzer_target')
+@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
+@click.option('--socket_path', 'socket_path', type=str, default="/tmp/jam_target.sock")
+@click.option('--db-path', 'custom_db_path', type=click.Path())
+@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+async def fuzzer_target(
+        custom_db_path, force_overwrite, seed, socket_path, verbose
+):
+    # Safety checks
+    if SOLO_MODE is True:
+        raise BadParameter("settings.SOLO_MODE cannot be True with Fuzzer")
+
+    log_level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(log_level)
+
+    db_path = custom_db_path or default_db_path
+
+    if seed is None:
+        raise MissingParameter("--seed parameter is required")
+    elif not seed.startswith("0x") or len(seed) != 66:
+        raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
+
+    # Flush database and import genesis state
+    if os.path.isdir(db_path):
+        if not force_overwrite:
+            click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
+        shutil.rmtree(db_path)  # Delete the directory if it exists
+        logging.info(f"The database at '{db_path}' was deleted successfully.")
+
+    os.makedirs(db_path, exist_ok=True)
+    if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
+        await init_certificate(db_path, seed)
+
+    app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
+
+    logging.info(f'App initialized with DB: {db_path}')
+
+    try:
+        srv = TargetServer(socket_path, app)
+        await srv.start()
+    except (KeyboardInterrupt, CancelledError):
+        logging.info("Stopping fuzzer...")
+    finally:
+        logging.info(f'Fuzzer stopped.')
+
+
+@main.command('fuzzer_session')
+@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
+@click.option('--socket_path', 'socket_path', type=str, default="/tmp/jam_target.sock")
+@click.option('--db-path', 'custom_db_path', type=click.Path())
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+async def fuzzer_session(
+        custom_db_path, seed, socket_path, verbose
+):
+    log_level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(log_level)
+
+    try:
+        app = await initialize_app(
+            keys=Keys.from_seed(bytes.fromhex(seed[2:])),
+            custom_db_path=custom_db_path,
+            record_traces=None
+        )
+    except StateKeyNoResult:
+        raise BadParameter(f'DB is not yet initialized; run init first')
+
+    try:
+        sess = FuzzerSession(socket_path, app)
+        await sess.connect()
+
+        logging.info(f'Handshake complete; Fuzzer session started.')
+
+        # TODO Set State
+        # request = Message(
+        #     set_state=SetStateMessagelist(app.state_db),
+        # )
+        # response = await sess.send_request(request)
+        #
+        # logging.info(f'Set state: {format_hash(response.state_root)}')
+
+    except (RuntimeError, CancelledError) as e:
+        logging.error(e)
+
 
 
 if __name__ == '__main__':
