@@ -98,7 +98,7 @@ def wrap_cli_import_block(traces_dir):
 
 def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
     async def produced_block_jamnp(block: Block):
-        await np_protocol.broadcast_block(block)
+        await np_protocol.up0_broadcast_block(block)
 
     return produced_block_jamnp
 

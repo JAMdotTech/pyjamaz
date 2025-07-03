@@ -13,28 +13,30 @@ from aioquic.asyncio.client import connect
 from jamcodec.types import VarInt64
 
 from pyjamaz.models.block import Block
+from pyjamaz.transport.jamnp_s.stream_base import StreamDirection
 from pyjamaz.transport.jamnp_s.streams.stream_0 import StreamUP
 
 from pyjamaz.transport.types import ProtocolType
-from pyjamaz.transport.jamnp_s.message_types import MsgCE128BlockRequestDirection, MsgCE128BlockRequest, MsgUP0Handshake, MsgUP0Announcement
+from pyjamaz.transport.jamnp_s.message_types import MsgCE128BlockRequestDirection, MsgCE128BlockRequest, \
+    MsgUP0Handshake, MsgUP0Announcement, MsgCE128BlockRequestResponse
 from pyjamaz.transport.jamnp_s.streams.stream_128 import StreamBlockRequest
-from pyjamaz.transport.jamnp_s.connection_base import ConnectionBase
-from pyjamaz.transport.jamnp_s.connection_initiator import ConnectionInitiator
-from pyjamaz.transport.jamnp_s.connection_acceptor import ConnectionAcceptor
+from pyjamaz.transport.jamnp_s.connection import JAMConnection
 
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
-def wrap_protocol(wrapper, protocol, host, port):
-    def create_protocol(*args, **kwargs):
+#TODO: typings
+def wrap_protocol(wrapper, protocol, direction, host, port):
+    def create_connection(*args, **kwargs):
         instance = protocol(*args, **kwargs)
         instance.protocol = wrapper
+        instance.direction = direction
         instance.host = host
         instance.port = port
         return instance
 
-    return create_protocol
+    return create_connection
 
 
 class SessionTicketStore:
@@ -90,7 +92,7 @@ class JAMNPS(ProtocolType):
             self.host,
             self.port,
             configuration=self.configuration,
-            create_protocol=wrap_protocol(self, ConnectionAcceptor, self.host, self.port),
+            create_protocol=wrap_protocol(self, JAMConnection, StreamDirection.acceptor, self.host, self.port),
             session_ticket_fetcher=self.session_ticket_store.pop,
             session_ticket_handler=self.session_ticket_store.add,
             retry=True,
@@ -107,16 +109,16 @@ class JAMNPS(ProtocolType):
         )
         configuration.load_cert_chain(certfile=self.cert, keyfile=self.pk)
 
-        logger.debug(f"ClientProtocol Connecting to {host}:{port}")
+        logger.debug(f"Connecting to {host}:{port}")
         try:
             async with connect(
                     host,
                     port,
                     configuration=configuration,
                     # session_ticket_handler=save_session_ticket,
-                    create_protocol=wrap_protocol(self, ConnectionInitiator, host, port),
+                    create_protocol=wrap_protocol(self, JAMConnection, StreamDirection.initiator, host, port),
             ) as client:
-                client = cast(ConnectionInitiator, client)
+                client = cast(JAMConnection, client)
                 self.conn_initiated[(host, port)] = client
                 await client.wait_closed()
                 del self.conn_initiated[(host, port)]
@@ -126,8 +128,8 @@ class JAMNPS(ProtocolType):
             logger.warning(f"💩 ClientProtocol Cannot connect to {host}:{port} {exc}")
 
 
-    def up0_send_handshake(self, conn: ConnectionBase):
-        # Create a presistent UP0 stream for the connection
+    def up0_send_handshake(self, conn: JAMConnection):
+        # Create a presistent UP0 stream for this connection
         # stream_up = conn.open_jam_stream(StreamUP)
         # conn.stream_up = stream_up
         # slot = self.app.state.timeslot.number
@@ -161,7 +163,7 @@ class JAMNPS(ProtocolType):
         )
 
 
-    def up0_received_handshake(self, conn: ConnectionBase, msg: MsgUP0Handshake):
+    def up0_received_handshake(self, conn: JAMConnection, msg: MsgUP0Handshake):
         # Note: For now we employ a very simple strategy, where we sync blocks from the first node that announced a finalized block greater than we have
         if self.state_requesting_blocks:
             return
@@ -177,10 +179,18 @@ class JAMNPS(ProtocolType):
             self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(bl_hash, MsgCE128BlockRequestDirection.ASC.value, 1)) #TODO: max_blocks=1 for now, >1 results in error from node?
 
 
-    def up0_received_announcement(self, conn: ConnectionBase, msg: MsgUP0Announcement):
+    def up0_received_announcement(self, conn: JAMConnection, msg: MsgUP0Announcement):
         # Note: For now we employ a very simple strategy, where we sync blocks from the first node that announced a finalized block greater than we have
         if self.state_requesting_blocks:
             return
+
+        """
+        TODO: send to other nodes (other than this connection)
+        Except when:
+        A descendant of the block is announced instead.
+        The block is not a descendant of the latest finalized block.
+        The block, or a descendant of the block, has been announced by the other side of the stream.
+        """
 
         block = self.app.retrieve_block_by_hash(msg.header.hash) #TODO: missch een efficientere exists check toevoegen
         #TODO: ook nog iets doen met bijhorende finalized header_hash & slot?
@@ -190,7 +200,27 @@ class JAMNPS(ProtocolType):
             self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(msg.header.hash, MsgCE128BlockRequestDirection.ASC.value, 1)) #TODO: max_blocks=1 for now, >1 results in error from node?
 
 
-    def ce128_initiate_block_request(self, conn: ConnectionBase, req: MsgCE128BlockRequest):
+    async def up0_broadcast_block(self, block: Block):
+        logger.debug(f'JAMNP broadcasting block announcement to {len(self.conn_accepted)} clients')
+
+        msg = MsgUP0Announcement(
+            header=block.header,
+            header_hash=block.header.hash,
+            timeslot=block.header.timeslot
+        ).to_jam_bytes().to_bytes()
+
+        for client_id, client in self.conn_accepted.items():
+            logger.debug(f"JAMNP send block to client {client}")
+            client.conn.send(
+                client.stream_up.stream_id,
+                client.stream_up.create_message(msg),
+                end_stream=False
+            )
+
+        #TODO: ook naar de self initiated connections?
+
+
+    def ce128_initiate_block_request(self, conn: JAMConnection, req: MsgCE128BlockRequest):
         stream = conn.open_jam_stream(StreamBlockRequest)
         print(f"PROTOCOL INITIATING BLOCK REQUEST ON STREAMID: {stream.stream_id} header hash: {req.header_hash} direction: {req.direction}, max_block: {req.max_blocks}")
         conn.send(
@@ -200,9 +230,10 @@ class JAMNPS(ProtocolType):
         )
 
 
-    def ce128_received_block_request(self, conn: ConnectionBase, block: Block):
+    def ce128_received_block_request(self, conn: JAMConnection, block: Block):
         print(f"PROTOCOL RECEIVED BLOCK REQUEST")
         asyncio.create_task(self.app.import_queue_add(block))
+        #TODO: check?: if block.header.parent == bytes(32) or self.retrieve_block_by_hash(block.header.parent):
         self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(block.header.hash, MsgCE128BlockRequestDirection.ASC.value, 1))  # TODO: max_blocks=1 for now, >1 results in error from node?
 
 
@@ -212,9 +243,25 @@ class JAMNPS(ProtocolType):
         asyncio.create_task(self.app.process_import_queue())
 
 
-    async def broadcast_block(self, block):
-        block_bytes = block.to_jam_bytes().to_bytes()
-        logger.debug(f'JAMNP broadcasting block announcement to {len(self.conn_accepted)} clients')
-        for client_id, client in self.conn_accepted.items():
-            logger.debug(f"JAMNP send block to client {client}")
-            await client.send_block_announcement(block_bytes)
+    def ce128_send_block_request(self, stream: StreamBlockRequest, block_req: MsgCE128BlockRequest):
+        blocks = []
+        direction = block_req.direction * -1
+        block = self.app.retrieve_block_by_hash(block_req.header_hash)
+        if block:
+            blocks.append(block)
+
+            for x in range(block_req.max_blocks):
+                block = self.app.retrieve_block(block.header.timeslot+direction)
+                if block:
+                    blocks.append(block)
+                else:
+                    break
+
+            print(f"SENDING {len(blocks)} BLOCKSZZZZZZZZZ")
+            stream.conn.send(
+                stream.stream_id,
+                stream.create_message(MsgCE128BlockRequestResponse(blocks).to_jam_bytes().to_bytes()),
+                end_stream=True
+            )
+
+        stream.acceptor_reset(1)

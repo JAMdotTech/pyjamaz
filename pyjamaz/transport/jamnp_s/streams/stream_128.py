@@ -3,6 +3,7 @@ import logging
 from jamcodec.base import JamBytes
 
 from pyjamaz.models.block import Block
+from pyjamaz.transport.jamnp_s.message_types import MsgCE128BlockRequest
 from pyjamaz.transport.jamnp_s.stream_base import Stream, StreamType, StreamDirection
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
@@ -37,4 +38,5 @@ class StreamBlockRequest(Stream):
 
 
     def acceptor_message(self, data: bytes):
-        raise Exception("Not implemented YET!!!!!!")
+        print("RECEIVED ACCEPTOR BLOCK REQUEST!!!!!!!!!!!!!!!!!!!!!!!!")
+        self.protocol.ce128_send_block_request(self.conn, MsgCE128BlockRequest.from_jam_bytes(JamBytes(data)))

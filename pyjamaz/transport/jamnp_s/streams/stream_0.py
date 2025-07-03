@@ -1,11 +1,9 @@
 import enum
 import logging
-from typing import List, Optional
 
 from jamcodec.base import JamBytes
 from jamcodec.types import U32, VarInt64
 
-from pyjamaz.models.block import Header
 from pyjamaz.transport.jamnp_s.message_types import MsgUP0Handshake, MsgUP0Leaf, MsgUP0Announcement
 from pyjamaz.transport.jamnp_s.stream_base import Stream, StreamType, StreamDirection
 
@@ -60,12 +58,6 @@ class StreamUP(Stream):
 
             case UPState.CONNECTED:
                 # After handshake is completed, we receive Announcement messages
-                # jam_bytes = JamBytes(data)
-                # header = Header.from_jam_bytes(jam_bytes)
-                # header_hash = jam_bytes.get_next_bytes(32).hex()
-                # slot = U32.decode(jam_bytes)
-                # logger.debug(f"Received up0 announcement: header={header.hash} header_hash={header_hash} slot={slot}")
-                # self.protocol.up0_received_announcement(header, header_hash, slot)
                 msg  = MsgUP0Announcement.from_jam_bytes(JamBytes(data))
                 self.protocol.up0_received_announcement(self.conn, msg)
 
@@ -74,4 +66,5 @@ class StreamUP(Stream):
 
 
     def acceptor_message(self, data: bytes):
-        pass
+        # Note: in case of UP0, initiator and acceptor have symmetrical message flow
+        self.initiator_message(data)

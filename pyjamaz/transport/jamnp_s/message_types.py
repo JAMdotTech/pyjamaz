@@ -5,7 +5,7 @@ from typing import List, Optional, Dict
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, H256, U8, VarInt64, Vec, Option, Array, Map, H512
 
-from pyjamaz.models.block import Header, Guarantee
+from pyjamaz.models.block import Header, Guarantee, Block
 from pyjamaz.models.common import WorkPackage
 
 
@@ -19,7 +19,8 @@ class MsgUP0Leaf(Serializable):
 class MsgUP0Handshake(Serializable):
     header_hash: bytes = field(metadata={'codec': H256})
     timeslot: int = field(metadata={'codec': U32})
-    leafs: Optional[List[MsgUP0Leaf]] = field(metadata={'codec': Option(Vec(MsgUP0Leaf.to_codec_def()))})
+    #leafs: Optional[List[MsgUP0Leaf]] = field(metadata={'codec': Option(Vec(MsgUP0Leaf.to_codec_def()))})
+    leafs: List[MsgUP0Leaf] = field(metadata={'codec': Vec(MsgUP0Leaf.to_codec_def())})
 
 
 @dataclass
@@ -39,6 +40,11 @@ class MsgCE128BlockRequest(Serializable):
     header_hash: bytes = field(metadata={'codec': H256})
     direction: int = field(metadata={'codec': U8})
     max_blocks: int = field(metadata={'codec': U32})
+
+
+@dataclass
+class MsgCE128BlockRequestResponse(Serializable):
+    blocks: List[Block] = field(metadata={'codec': Vec(Block.to_codec_def())})
 
 
 @dataclass
