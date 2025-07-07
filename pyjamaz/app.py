@@ -16,6 +16,7 @@ from jamcodec.types import Vec, BitArray, U32
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError
 from pyjamaz.extrinsic import ExtrinsicAccumulator
+from pyjamaz.fuzzer import FuzzerSession, Message
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
 from pyjamaz.hashing import blake2b_256_hash
@@ -62,6 +63,7 @@ class AppConfig:
     common_era: int
     keys: Optional[Keys] = field(default=None)
     create_traces: bool = field(default=False)
+    fuzzer_session: FuzzerSession = field(default=None)
 
 
 class PyjamazApp:
@@ -633,6 +635,17 @@ class PyjamazApp:
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.BEST_BLOCK, data=block))
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))  # TODO: placeholder for now, move when implemented
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
+
+        if self.config.fuzzer_session:
+            response = await self.config.fuzzer_session.send_request(
+                Message(
+                    import_block=block
+                )
+            )
+            if response.state_root == self.state_trie_root:
+                logging.info(f'[Fuzzer] Block successfully imported: state-root={format_hash(self.state_trie_root)}')
+            else:
+                logging.error(f'[Fuzzer] Post state-root does not match: {format_hash(response.state_root)}')
 
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
 

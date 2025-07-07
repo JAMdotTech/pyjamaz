@@ -139,7 +139,7 @@ class WebSocketServer:
                 self.port
             )
 
-            logging.info(f"Server started on ws://{self.host}:{self.port}")
+            logging.info(f"🌐 RPC server started on ws://{self.host}:{self.port}")
 
             # Set up signal handlers for graceful shutdown
             for sig in (signal.SIGTERM, signal.SIGINT):

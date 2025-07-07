@@ -1,21 +1,25 @@
 import asyncio
 import logging
 import os
+import typing
 from dataclasses import dataclass, field
 from typing import Optional, List, Tuple
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from jamcodec.types import U8, String, U32, Vec, Array, Bytes, Tuple as JamTuple, H256
+from jamcodec.types import U8, String, Vec, Array, Bytes, Tuple as JamTuple, H256
 from jamcodec.exceptions import ScaleDecodeException
 
-from pyjamaz.app import PyjamazApp
 from pyjamaz.settings import GP_VERSION, APP_VERSION
 from pyjamaz.models.block import Block, Header
+from pyjamaz.utils import format_hash
+
+if typing.TYPE_CHECKING:
+    from pyjamaz.app import PyjamazApp
 
 HEADER_LEN = 4
 MAX_MESSAGE_SIZE = 16 * 1024 * 1024
-REQUEST_TIMEOUT = 5.0
+REQUEST_TIMEOUT = 60.0
 
 @dataclass
 class Version(Serializable):
@@ -80,7 +84,7 @@ class Message(Serializable):
 
 
 class TargetServer:
-    def __init__(self, path: str, app: PyjamazApp) -> None:
+    def __init__(self, path: str, app: 'PyjamazApp') -> None:
         self.path = path
         self.app = app
         # Wipe any stale socket first
@@ -93,7 +97,10 @@ class TargetServer:
     async def start(self) -> None:
         self.server = await asyncio.start_unix_server(self._handle_client, path=self.path)
         addr = self.server.sockets[0].getsockname()
-        logging.info(f"[target] Listening on {addr}")
+        logging.info(f'🥋 PyJAMaz JAM [Fuzzer]')
+        logging.info(f"🌐 Listening on {addr}")
+        logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
+
         async with self.server:
             await self.server.serve_forever()
 
@@ -173,6 +180,7 @@ class TargetServer:
                 state=list(self.app.state_db)
             )
         elif req.set_state is not None:
+
             # Update state from trace pre-state
             for k, v in req.set_state.state:
                 self.app.state_db.put(bytes(k), bytes(v))
@@ -180,13 +188,23 @@ class TargetServer:
             self.app.state = self.app.retrieve_jam_state()
             await self.app.update_state_trie()
 
+            # Add to ancestors
+            self.app.block_context.ancestor_headers.append(req.set_state.header)
+
+            logging.info(f"💾 State set to {format_hash(self.app.state_trie_root)}")
             return Message(state_root=self.app.state_trie_root)
+
+        elif req.import_block is not None:
+            await self.app.import_block(req.import_block)
+            logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.state_trie_root)}")
+            return Message(state_root=self.app.state_trie_root)
+
         else:
             raise RuntimeError(f"Unknown incoming message {req.to_json()}")
 
 
 class FuzzerSession:
-    def __init__(self, path: str, app: PyjamazApp) -> None:
+    def __init__(self, path: str, app: 'PyjamazApp') -> None:
         self.path = path
         self.app = app
         self.reader: asyncio.StreamReader
@@ -197,39 +215,36 @@ class FuzzerSession:
         await self._do_handshake()
 
     async def _do_handshake(self) -> None:
-        # Send our PeerInfo first, per spec.
-        jam_version = Version.from_str('0.6.5')
+        # Send our PeerInfo first
+        jam_version = Version.from_str(GP_VERSION)
 
-        ours = Message(
+        our_peerinfo = Message(
             peer_info=PeerInfoMessage(
                 name="PyJAMaz",
                 app_version=Version.from_str(APP_VERSION),
                 jam_version=jam_version
             )
         )
-        self.writer.write(ours.fuzzer_encode())
+        self.writer.write(our_peerinfo.fuzzer_encode())
         await self.writer.drain()
 
         # Await the target's PeerInfo.
         try:
-            them = await asyncio.wait_for(Message.fuzzer_decode(self.reader), timeout=REQUEST_TIMEOUT)
+            target_peerinfo = await asyncio.wait_for(Message.fuzzer_decode(self.reader), timeout=REQUEST_TIMEOUT)
         except asyncio.TimeoutError:
             raise RuntimeError("Target did not send PeerInfo in time")
 
-        if them.peer_info.jam_version != jam_version:
+        if target_peerinfo.peer_info.jam_version != jam_version:
             raise RuntimeError(
-                f"Protocol version mismatch: ours={GP_VERSION}, theirs={them.peer_info.jam_version}"
+                f"Protocol version mismatch: ours={GP_VERSION}, theirs={target_peerinfo.peer_info.jam_version}"
             )
-        logging.info(f"[fuzzer] Connected to {them.peer_info.name} (v{them.peer_info.app_version})")
+        logging.info(f"[fuzzer] Connected to {target_peerinfo.peer_info.name} (v{target_peerinfo.peer_info.app_version})")
 
-    # ------------------------------------------------------------------
-    # Public helpers the fuzzing harness can use
-    # ------------------------------------------------------------------
 
     async def send_request(self, req: Message) -> Message:
         """Send *req* and return the parsed response."""
-        # Enforce request‑first rule
-        logging.info(f"[fuzzer] Sending {req.to_json()}")
+
+        # logging.debug(f"[fuzzer] Sending {req.to_json()}")
         self.writer.write(req.fuzzer_encode())
         await self.writer.drain()
         try:
@@ -237,7 +252,7 @@ class FuzzerSession:
         except asyncio.TimeoutError:
             raise RuntimeError(f"Target timed out when responding to {req.to_json()}")
         # TODO message type sanity checks
-        logging.info(f"[fuzzer] Received {rsp.to_json()}")
+        # logging.debug(f"[fuzzer] Received {rsp.to_json()}")
         return rsp
 
     async def close(self) -> None:

@@ -17,11 +17,12 @@ import asyncclick as click
 from asyncclick import BadParameter, MissingParameter
 
 from jamcodec.base import JamBytes
+from pyjamaz import settings
 
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.fuzzer import TargetServer, FuzzerSession
+from pyjamaz.fuzzer import TargetServer, FuzzerSession, Message, SetStateMessage
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
@@ -118,7 +119,8 @@ async def initialize_app(
         keys=None,
         common_era=None,
         custom_db_path=None,
-        record_traces=None
+        record_traces=None,
+        fuzzer_socket_path=None
 ) -> PyjamazApp:
 
     # Load SRS
@@ -140,21 +142,48 @@ async def initialize_app(
     if not common_era:
         common_era = COMMON_ERA
 
+    if fuzzer_socket_path:
+        fuzzer_session = FuzzerSession(fuzzer_socket_path, app=None)
+        await fuzzer_session.connect()
+    else:
+        fuzzer_session = None
+
     # Initialize app
     config = AppConfig(
         ring_data=ring_data,
         storage_engine=storage_engine,
         keys=keys,
         common_era=common_era,
-        create_traces=record_traces
+        create_traces=record_traces,
+        fuzzer_session=fuzzer_session
     )
 
     app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
     app.pubsub = PubSub()
     app.app_context.pubsub = app.pubsub
 
+    if fuzzer_session:
+        fuzzer_session.app = app
+
     if read_state:
         await app.initialize()
+
+    if fuzzer_session is not None:
+
+        logging.info(f'Fuzzer session started.')
+
+        initial_block = app.retrieve_block(app.state.timeslot.number)
+
+        request = Message(
+            set_state=SetStateMessage(state=list(app.state_db), header=initial_block.header),
+        )
+        response = await fuzzer_session.send_request(request)
+
+        logging.info(f'Fuzzer: Set state: {format_hash(response.state_root)}')
+
+        if response.state_root != app.state_trie_root:
+            logging.error('Fuzzer state root mismatch')
+            exit(2)
 
     return app
 
@@ -177,7 +206,9 @@ async def initialize_app(
 @click.option('--bootnode', 'bootnode', type=str, default="", show_default=True, help='Specific bootnode to connect to')
 @click.option('--rpc-listen-ip', 'rpc_listen_ip', type=str, default="0.0.0.0", show_default=True, help='IP address for RPC server to listen on')
 @click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
-async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port):
+@click.option('--fuzzer', 'fuzzer', is_flag=True, help="Validate trace with fuzzer target")
+@click.option('--fuzzer-socket-path', 'fuzzer_socket_path', type=str, default="/tmp/jam_target.sock")
+async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path):
     """PyJAMaz: Python JAM Client"""
 
     if ctx.invoked_subcommand is None:
@@ -210,7 +241,8 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
             app = await initialize_app(
                 keys=Keys.from_seed(bytes.fromhex(seed[2:])),
                 custom_db_path=custom_db_path,
-                record_traces=record_traces
+                record_traces=record_traces,
+                fuzzer_socket_path=fuzzer_socket_path if fuzzer else None,
             )
         except StateKeyNoResult:
             raise BadParameter(f'DB is not yet initialized; run init first')
@@ -505,8 +537,7 @@ async def replay_traces(
         only_block_import, trace_format, seed, chainspec, verbose
 ):
     # Safety checks
-    if SOLO_MODE is True:
-        raise BadParameter("settings.SOLO_MODE cannot be True when running traces")
+    settings.SOLO_MODE = False
 
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
@@ -648,123 +679,6 @@ async def replay_traces(
                 app.state_db.delete(key)
 
 
-@main.command('dump_state')
-@click.option(
-    '--format', 'output_format',
-    type=click.Choice(['json', 'bin'], case_sensitive=False),
-    default='json',
-    show_default=True,
-    help='Choose the output format: JSON or JAM-bytes'
-)
-async def dump_state(output_format):
-    """
-    Dumps current state to stdout
-
-    """
-    app = await initialize_app()
-
-    if output_format == 'json':
-        click.echo(json.dumps(app.state.to_json(), indent=2))
-    elif output_format == 'bin':
-        click.echo(app.state.to_jam_bytes().to_bytes(), file=click.get_binary_stream('stdout'), nl=False)
-
-
-@main.command('dump_block')
-@click.argument('timeslot', type=int)
-@click.option(
-    '--format', 'output_format',
-    type=click.Choice(['json', 'bin'], case_sensitive=False),
-    default='json',
-    show_default=True,
-    help='Choose the output format: JSON or JAM-bytes'
-)
-async def dump_block(timeslot, output_format):
-    """
-    Dumps current state to stdout
-
-    """
-    app = await initialize_app()
-
-    block = app.block_db.get(b'block:' + timeslot.to_bytes(length=4, byteorder='little'))
-
-    if block is None:
-        click.echo('Block not found', err=True)
-    else:
-        if output_format == 'json':
-            click.echo(json.dumps(Block.from_jam_bytes(JamBytes(block)).to_json(), indent=2))
-        elif output_format == 'bin':
-            click.echo(block, file=click.get_binary_stream('stdout'), nl=False)
-
-
-@main.command('set_bootstrap')
-@click.argument('bootstrap_service', type=click.Path(exists=True))
-@click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
-async def set_bootstrap(
-        bootstrap_service, chainspec
-):
-    # log_level = logging.INFO
-    # setup_logging(log_level)
-
-    # with open(os.path.join(data_dir, 'chainspecs', f'testnet-tiny-db.bin'), 'rb') as fp:
-    #     genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
-    #
-    # del genesis_state.keyvals[1]
-    # del genesis_state.keyvals[2]
-    # del genesis_state.keyvals[17]
-    #
-    #
-    # with open(os.path.join(data_dir, 'chainspecs', f'skeleton-tiny-db.bin'), 'wb') as fp:
-    #     fp.write(genesis_state.to_jam_bytes().to_bytes())
-    #
-    # exit()
-
-    with open(os.path.join(data_dir, 'chainspecs', f'skeleton-tiny-db.bin'), 'rb') as fp:
-        genesis_state = ChainspecDump.from_jam_bytes(JamBytes(fp.read()))
-
-    with open(bootstrap_service, 'rb') as fp:
-        bootstrap_blob = fp.read()
-
-    bootstrap_hash = blake2b_256_hash(bootstrap_blob)
-
-    service_account_id = 0
-
-    # Service account
-    state_key = state_key_constructor_service_account(service_account_id)
-    service_account = ServiceAccount(
-        code_hash=bootstrap_hash,
-        balance=10000000000,
-        gas_limit_accumulate=100,
-        gas_limit_on_transfer=100,
-        footprint_storage_items=0,
-        footprint_storage_bytes=0,
-        storage_items={},
-        preimages={},
-        preimage_availability={}
-    )
-
-    service_account.update_footprint_add_preimage(len(bootstrap_blob))
-
-    genesis_state.keyvals.append((state_key, service_account.to_serialized_bytes()))
-
-    # Preimage
-    genesis_state.keyvals.append(
-        (state_key_constructor_preimage(service_account_id, bootstrap_hash), bootstrap_blob)
-    )
-
-    # Preimage availability
-    genesis_state.keyvals.append(
-        (state_key_constructor_preimage_availability(service_account_id, bootstrap_hash, len(bootstrap_blob)),
-         bytes.fromhex('0100000000'))
-    )
-
-    genesis_state.keyvals = sorted(genesis_state.keyvals, key=lambda x: x[0])
-
-    output = genesis_state.to_json()
-
-    with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'wb') as fp:
-        fp.write(genesis_state.to_jam_bytes().to_bytes())
-
-
 @main.command('fuzzer_target')
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
 @click.option('--socket_path', 'socket_path', type=str, default="/tmp/jam_target.sock")
@@ -775,8 +689,7 @@ async def fuzzer_target(
         custom_db_path, force_overwrite, seed, socket_path, verbose
 ):
     # Safety checks
-    if SOLO_MODE is True:
-        raise BadParameter("settings.SOLO_MODE cannot be True with Fuzzer")
+    settings.SOLO_MODE = False
 
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
@@ -810,45 +723,6 @@ async def fuzzer_target(
         logging.info("Stopping fuzzer...")
     finally:
         logging.info(f'Fuzzer stopped.')
-
-
-@main.command('fuzzer_session')
-@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
-@click.option('--socket_path', 'socket_path', type=str, default="/tmp/jam_target.sock")
-@click.option('--db-path', 'custom_db_path', type=click.Path())
-@click.option('--verbose', is_flag=True, help="Enable verbose output")
-async def fuzzer_session(
-        custom_db_path, seed, socket_path, verbose
-):
-    log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level)
-
-    try:
-        app = await initialize_app(
-            keys=Keys.from_seed(bytes.fromhex(seed[2:])),
-            custom_db_path=custom_db_path,
-            record_traces=None
-        )
-    except StateKeyNoResult:
-        raise BadParameter(f'DB is not yet initialized; run init first')
-
-    try:
-        sess = FuzzerSession(socket_path, app)
-        await sess.connect()
-
-        logging.info(f'Handshake complete; Fuzzer session started.')
-
-        # TODO Set State
-        # request = Message(
-        #     set_state=SetStateMessagelist(app.state_db),
-        # )
-        # response = await sess.send_request(request)
-        #
-        # logging.info(f'Set state: {format_hash(response.state_root)}')
-
-    except (RuntimeError, CancelledError) as e:
-        logging.error(e)
-
 
 
 if __name__ == '__main__':

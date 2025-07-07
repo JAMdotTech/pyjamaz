@@ -39,13 +39,7 @@ pyjamaz keys generate 0x00000000000000000000000000000000000000000000000000000000
 ### Initialize node 
 
 ```bash
-pyjamaz init --seed 0x0000000000000000000000000000000000000000000000000000000000000000
-```
-
-### Initialize node with custom [genesis.json](https://github.com/JAMdotTech/pyjamaz/blob/main/pyjamaz/data/genesis.json) 
-
-```bash
-pyjamaz init --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --genesis ./pyjamaz/data/genesis.json 
+pyjamaz init --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --chainspec dev
 ```
 
 ### Run node
@@ -57,7 +51,7 @@ pyjamaz --seed 0x000000000000000000000000000000000000000000000000000000000000000
 ### Run and record each block as a replayable file in given folder
 
 ```bash
-pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --block-dir ./data/blocks --record-trace ./data/trace
+pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --record-trace ./data/trace
 ```
 
 ### Replay and validate a recorded trace
@@ -66,16 +60,15 @@ pyjamaz --seed 0x000000000000000000000000000000000000000000000000000000000000000
 pyjamaz replay_traces ./test/fixtures/traces/pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000
 ```
 
-### Dump current state to stdout
+### Run as fuzzer target
 
 ```bash
-pyjamaz dump_state > state.json
+pyjamaz fuzzer_target --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --db-path /tmp/fuzzer --force-overwrite --socket_path /tmp/jam_target.sock
 ```
 
-### Dump block to stdout
-
+### Connect to a fuzzer target 
 ```bash
-pyjamaz dump_block 4849460
+pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000 --fuzzer --fuzzer-socket-path /tmp/jam_target.sock
 ```
 
 ## Run documentation
