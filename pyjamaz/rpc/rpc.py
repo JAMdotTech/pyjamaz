@@ -161,8 +161,12 @@ def rpcParameters(app, params):
             "max_exports": gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE,
             "max_refine_memory": 2**16,
             "max_is_authorized_memory": 2**16,
-            "slot_period_ns": gp_const.SLOT_PERIOD * 1000000000,
+            "slot_period_sec": gp_const.SLOT_PERIOD,
             "epoch_tail_start": gp_const.TICKET_SUBMISSION_END_SLOT,
+            "core_count": gp_const.CORE_COUNT,
+            "segment_piece_count": gp_const.SIZE_ERASURE_CODED_PIECES,
+            "max_report_elective_data": 0, # TODO
+            "transfer_memo_size": gp_const.TRANSFER_MEMO_SIZE,
         }
     }
 

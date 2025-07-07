@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import unittest
 from os import path
@@ -7,6 +8,7 @@ from typing import Optional
 from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
+from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import WorkReport
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
@@ -43,6 +45,9 @@ class TestAccumulate(unittest.TestCase):
         self.storage_engine = InMemoryStorage()
         self.block_context = BlockContext()
         self.app_context = AppContext()
+
+        log_level = logging.DEBUG
+        setup_logging(log_level)
 
     @staticmethod
     def load_test_vector_data(test_vector_file):

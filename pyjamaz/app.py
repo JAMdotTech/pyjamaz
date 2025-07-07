@@ -1097,10 +1097,10 @@ class PyjamazApp:
 
         # Clean up work packages
         for idx in range(len(self.work_packages)):
-            work_package = self.work_packages[idx]
-            if not self.state.recent_history.get_recent_block(work_package.context.lookup_anchor):
+            w = self.work_packages[idx]
+            if not self.state.recent_history.get_recent_block(w.context.lookup_anchor):
                 del self.work_packages[idx]
-                logging.info(f"🗑️ Discarded dated work package {format_hash(work_package.hash())}")
+                logging.info(f"🗑️ Discarded outdated work package {format_hash(w.hash())}")
 
         # Find first authorized work package
         for idx in range(len(self.work_packages)):
