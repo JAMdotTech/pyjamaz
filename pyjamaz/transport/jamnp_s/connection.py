@@ -79,6 +79,10 @@ class JAMConnection(QuicConnectionProtocol):
                 stream_up = self.open_jam_stream(StreamUP, direction=self.direction)
                 self.stream_up = stream_up
                 self.protocol.up0_send_handshake(self)
+            else:
+                # Note: it seems only now we have
+                self.host = self._quic._network_paths[0][0]
+                self.port = self._quic._network_paths[0][1]
 
         elif isinstance(event, StreamReset):
             stream_id = event.stream_id
@@ -119,7 +123,7 @@ class JAMConnection(QuicConnectionProtocol):
                 self.streams[stream_id].receive_data(data)
             except Exception as e:
                 #TODO: reset stream? return error?
-                logger.warning(f"Received invalid message for stream {stream_id} ({self.streams[stream_id]}): {e}")
+                logger.error(f"Received invalid message for stream {stream_id} ({self.streams[stream_id]}): {e}")
 
         elif isinstance(event, ConnectionTerminated):
             logger.info(f"Connection terminated with code {event.error_code}")

@@ -146,7 +146,7 @@ class JAMNPS(ProtocolType):
             timeslot=slot,
             leafs=leafs
         )
-        logger.debug(f"Sending Handshake on stream {conn.stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
+        logger.info(f"Sending Handshake on stream {conn.stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
 
         add_stream_type = conn.direction == StreamDirection.initiator
 
