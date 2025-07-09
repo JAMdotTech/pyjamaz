@@ -52,7 +52,7 @@ class SetStateMessage(Serializable):
 
 
 @dataclass
-class Message(Serializable):
+class FuzzerMessage(Serializable):
     peer_info: PeerInfoMessage = field(default=None, metadata={'codec': PeerInfoMessage.to_codec_def()})
     import_block: Block = field(default=None, metadata={'codec': Block.to_codec_def()})
     set_state: SetStateMessage = field(default=None, metadata={'codec': SetStateMessage.to_codec_def()})
@@ -70,7 +70,7 @@ class Message(Serializable):
         return len(blob).to_bytes(HEADER_LEN, "little") + blob
 
     @classmethod
-    async def fuzzer_decode(cls, reader: asyncio.StreamReader) -> "Message":
+    async def fuzzer_decode(cls, reader: asyncio.StreamReader) -> "FuzzerMessage":
         """Read one framed JSON message and return it as a dict."""
         header = await reader.readexactly(HEADER_LEN)
         length = int.from_bytes(header, "little")
@@ -78,7 +78,7 @@ class Message(Serializable):
             raise ValueError("Incoming message too large: %d bytes" % length)
         payload = await reader.readexactly(length)
         try:
-            return Message.from_jam_bytes(JamBytes(payload))
+            return FuzzerMessage.from_jam_bytes(JamBytes(payload))
         except ScaleDecodeException as e:
             raise ValueError(f"Malformed message: {e}") from e
 
@@ -110,12 +110,12 @@ class TargetServer:
 
     async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")
-        logging.info(f"[target] Accepted connection from {peer}")
+        logging.info(f"[fuzzer] Accepted connection from {peer}")
         try:
             # Handshake: wait for their PeerInfo first.
-            them = await Message.fuzzer_decode(reader)
+            them = await FuzzerMessage.fuzzer_decode(reader)
 
-            ours = Message(
+            ours = FuzzerMessage(
                 peer_info=PeerInfoMessage(
                     name="PyJAMaz",
                     app_version=Version.from_str(APP_VERSION),
@@ -125,24 +125,24 @@ class TargetServer:
             writer.write(ours.fuzzer_encode())
             await writer.drain()
             logging.info(
-                f"[target] Handshake complete with {them.peer_info.name} (v{them.peer_info.app_version})"
+                f"[fuzzer] Handshake complete with {them.peer_info.name} (v{them.peer_info.app_version})"
             )
 
             # Main request‑response loop
             while True:
                 try:
-                    req = await Message.fuzzer_decode(reader)
+                    req = await FuzzerMessage.fuzzer_decode(reader)
                 except asyncio.IncompleteReadError:
                     # EOF – fuzzer closed the connection cleanly
                     break
                 except Exception as e:
-                    logging.error(f"[target] Decode error: {e}; closing session")
+                    logging.error(f"[fuzzer] Decode error: {e}; closing session")
                     break
 
                 try:
                     rsp = await self._dispatch(req)
                 except Exception as e:
-                    logging.error(f"[target] Handler error for {req}: {e}")
+                    logging.error(f"[fuzzer] Handler error for {req}: {e}")
                     break  # blunt termination on malformed/unexpected messages
 
                 writer.write(rsp.fuzzer_encode())
@@ -150,24 +150,23 @@ class TargetServer:
         finally:
             writer.close()
             await writer.wait_closed()
-            logging.info("[target] Session finished")
+            logging.info("[fuzzer] Session finished")
 
 
-    async def _dispatch(self, req: Message) -> Message:
+    async def _dispatch(self, req: FuzzerMessage) -> FuzzerMessage:
         """
         Request - response pattern for fuzzer
 
         Parameters
         ----------
-        req: Message
+        req: FuzzerMessage
 
         Returns
         -------
-        Message
+        FuzzerMessage
         """
-        # TODO finish implementation
         if req.peer_info is not None:
-            return Message(
+            return FuzzerMessage(
                 peer_info=PeerInfoMessage(
                     name="PyJAMaz",
                     app_version=Version.from_str(APP_VERSION),
@@ -176,12 +175,12 @@ class TargetServer:
             )
         elif req.get_state is not None:
 
-            return Message(
+            return FuzzerMessage(
                 state=list(self.app.state_db)
             )
         elif req.set_state is not None:
 
-            # Update state from trace pre-state
+            # Update state from received set_state message
             for k, v in req.set_state.state:
                 self.app.state_db.put(bytes(k), bytes(v))
 
@@ -192,12 +191,12 @@ class TargetServer:
             self.app.block_context.ancestor_headers.append(req.set_state.header)
 
             logging.info(f"💾 State set to {format_hash(self.app.state_trie_root)}")
-            return Message(state_root=self.app.state_trie_root)
+            return FuzzerMessage(state_root=self.app.state_trie_root)
 
         elif req.import_block is not None:
             await self.app.import_block(req.import_block)
             logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.state_trie_root)}")
-            return Message(state_root=self.app.state_trie_root)
+            return FuzzerMessage(state_root=self.app.state_trie_root)
 
         else:
             raise RuntimeError(f"Unknown incoming message {req.to_json()}")
@@ -218,7 +217,7 @@ class FuzzerSession:
         # Send our PeerInfo first
         jam_version = Version.from_str(GP_VERSION)
 
-        our_peerinfo = Message(
+        our_peerinfo = FuzzerMessage(
             peer_info=PeerInfoMessage(
                 name="PyJAMaz",
                 app_version=Version.from_str(APP_VERSION),
@@ -230,7 +229,7 @@ class FuzzerSession:
 
         # Await the target's PeerInfo.
         try:
-            target_peerinfo = await asyncio.wait_for(Message.fuzzer_decode(self.reader), timeout=REQUEST_TIMEOUT)
+            target_peerinfo = await asyncio.wait_for(FuzzerMessage.fuzzer_decode(self.reader), timeout=REQUEST_TIMEOUT)
         except asyncio.TimeoutError:
             raise RuntimeError("Target did not send PeerInfo in time")
 
@@ -241,14 +240,14 @@ class FuzzerSession:
         logging.info(f"[fuzzer] Connected to {target_peerinfo.peer_info.name} (v{target_peerinfo.peer_info.app_version})")
 
 
-    async def send_request(self, req: Message) -> Message:
+    async def send_request(self, req: FuzzerMessage) -> FuzzerMessage:
         """Send *req* and return the parsed response."""
 
         # logging.debug(f"[fuzzer] Sending {req.to_json()}")
         self.writer.write(req.fuzzer_encode())
         await self.writer.drain()
         try:
-            rsp = await asyncio.wait_for(Message.fuzzer_decode(self.reader), timeout=REQUEST_TIMEOUT)
+            rsp = await asyncio.wait_for(FuzzerMessage.fuzzer_decode(self.reader), timeout=REQUEST_TIMEOUT)
         except asyncio.TimeoutError:
             raise RuntimeError(f"Target timed out when responding to {req.to_json()}")
         # TODO message type sanity checks

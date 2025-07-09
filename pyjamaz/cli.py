@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 import os
 import shutil
+from typing import List, Tuple
 
 import anyio
 import ipaddress
@@ -22,19 +23,14 @@ from pyjamaz import settings
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.fuzzer import TargetServer, FuzzerSession, Message, SetStateMessage
+from pyjamaz.fuzzer import TargetServer, FuzzerSession, FuzzerMessage, SetStateMessage
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
-from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.app import Trace, StateDump, ChainspecDump
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
-from pyjamaz.settings import GP_VERSION, SOLO_MODE
-from pyjamaz.state.base import state_key_constructor_service_account, state_key_constructor_preimage, \
-    state_key_constructor_preimage_availability
+from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block, Header, Extrinsic
-from pyjamaz.models.state import JamState, ServiceAccount, ServiceActivityRecord
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
@@ -142,48 +138,21 @@ async def initialize_app(
     if not common_era:
         common_era = COMMON_ERA
 
-    if fuzzer_socket_path:
-        fuzzer_session = FuzzerSession(fuzzer_socket_path, app=None)
-        await fuzzer_session.connect()
-    else:
-        fuzzer_session = None
-
     # Initialize app
     config = AppConfig(
         ring_data=ring_data,
         storage_engine=storage_engine,
         keys=keys,
         common_era=common_era,
-        create_traces=record_traces,
-        fuzzer_session=fuzzer_session
+        create_traces=record_traces
     )
 
     app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
     app.pubsub = PubSub()
     app.app_context.pubsub = app.pubsub
 
-    if fuzzer_session:
-        fuzzer_session.app = app
-
     if read_state:
         await app.initialize()
-
-    if fuzzer_session is not None:
-
-        logging.info(f'Fuzzer session started.')
-
-        initial_block = app.retrieve_block(app.state.timeslot.number)
-
-        request = Message(
-            set_state=SetStateMessage(state=list(app.state_db), header=initial_block.header),
-        )
-        response = await fuzzer_session.send_request(request)
-
-        logging.info(f'Fuzzer: Set state: {format_hash(response.state_root)}')
-
-        if response.state_root != app.state_trie_root:
-            logging.error('Fuzzer state root mismatch')
-            exit(2)
 
     return app
 
@@ -222,6 +191,10 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
         }
         setup_logging(log_level, log_package_overrides)
 
+        # Safety checks
+        if settings.SOLO_MODE:
+            logging.warning('settings.SOLO_MODE is enabled')
+
         if seed is None:
             raise MissingParameter("--seed parameter is required")
         elif not seed.startswith("0x") or len(seed) != 66:
@@ -249,7 +222,7 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         app.network_bootstrap = network_bootstrap
 
-        logging.info(f'🥋 PyJAMaz JAM client')
+        logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
         logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
         logging.info(f'💾 Storage path: {db_path}')
         logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
@@ -261,13 +234,18 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
 
         logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
 
+        # Start RPC start
         rpc_server = WebSocketServer(app, rpc_listen_ip, rpc_port)
+
+        if fuzzer:
+            # Set-up fuzzer
+            await setup_fuzzer_session(app, fuzzer_socket_path)
 
         try:
             async with anyio.create_task_group() as tg:
 
                 # TODO: we need to start this manually in all event loops, make an AppFactory that handles this in a generic way
-                # Create a subscriber to process incomming messages (fx from a protocol)
+                # Create a subscriber to process incoming messages (fx from a protocol)
                 tg.start_soon(app.pubsub.process_messages)
 
                 # Start WebSocket server
@@ -521,7 +499,6 @@ async def init(
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--skip-block-validation', is_flag=True, help="Skip block validation before import")
-@click.option('--only-block-import', is_flag=True, help="Only import block data and no import of pre-state")
 @click.option(
     '--format', 'trace_format',
     type=click.Choice(['pyjamaz', 'duna'], case_sensitive=False),
@@ -533,8 +510,7 @@ async def init(
 @click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def replay_traces(
-        traces_dir, custom_db_path, force_overwrite, skip_block_validation,
-        only_block_import, trace_format, seed, chainspec, verbose
+        traces_dir, custom_db_path, force_overwrite, skip_block_validation,trace_format, seed, chainspec, verbose
 ):
     # Safety checks
     settings.SOLO_MODE = False
@@ -549,40 +525,37 @@ async def replay_traces(
     elif not seed.startswith("0x") or len(seed) != 66:
         raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
 
-    if only_block_import:
-        app = await initialize_app(read_state=True, custom_db_path=custom_db_path)
-    else:
-        # Flush database and import genesis state
-        if os.path.isdir(db_path):
-            if not force_overwrite:
-                click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
-            shutil.rmtree(db_path)  # Delete the directory if it exists
-            logging.info(f"The database at '{db_path}' was deleted successfully.")
+    # Flush database and import genesis state
+    if os.path.isdir(db_path):
+        if not force_overwrite:
+            click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
+        shutil.rmtree(db_path)  # Delete the directory if it exists
+        logging.info(f"The database at '{db_path}' was deleted successfully.")
 
-        os.makedirs(db_path, exist_ok=True)
-        if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
-            await init_certificate(db_path, seed)
+    os.makedirs(db_path, exist_ok=True)
+    if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
+        await init_certificate(db_path, seed)
 
-        app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
+    app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
 
-        if chainspec:
-            with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
-                genesis_state = StateDump.from_jam_bytes(JamBytes(fp.read()))
-                for k, v, name, metadata in genesis_state.keyvals:
-                    app.state_db.put(bytes(k), bytes(v))
+    if chainspec:
+        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
+            genesis_state = StateDump.from_jam_bytes(JamBytes(fp.read()))
+            for k, v, name, metadata in genesis_state.keyvals:
+                app.state_db.put(bytes(k), bytes(v))
 
-                app.state = app.retrieve_jam_state()
-                await app.update_state_trie()
+            app.state = app.retrieve_jam_state()
+            await app.update_state_trie()
 
-                assert app.state_trie_root == genesis_state.state_root
-                logging.info(f'🎬 Genesis successfully saved (state root: {format_hash(app.state_trie_root)})')
+            assert app.state_trie_root == genesis_state.state_root
+            logging.info(f'🎬 Genesis successfully saved (state root: {format_hash(app.state_trie_root)})')
 
-            with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
-                genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
+        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
+            genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
 
-                app.block_context.ancestor_headers.append(genesis_block.header)
+            app.block_context.ancestor_headers.append(genesis_block.header)
 
-                logging.info(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
+            logging.info(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
 
     traces_files = await anyio.to_thread.run_sync(
         lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin')})
@@ -598,25 +571,23 @@ async def replay_traces(
             # Skip genesis creation
             continue
 
-        if not only_block_import:
+        # Update state from trace pre-state
+        for k, v in trace.pre_state.keyvals:
+            app.state_db.put(bytes(k), bytes(v))
 
-            # Update state from trace pre-state
-            for k, v in trace.pre_state.keyvals:
-                app.state_db.put(bytes(k), bytes(v))
+        app.state = app.retrieve_jam_state()
+        await app.update_state_trie()
 
-            app.state = app.retrieve_jam_state()
-            await app.update_state_trie()
+        if app.state_trie_root == trace.pre_state.state_root:
+            logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
+        else:
+            logging.error("State root of pre-state doesn't match")
 
-            if app.state_trie_root == trace.pre_state.state_root:
-                logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
-            else:
-                logging.error("State root of pre-state doesn't match")
-
-            # Add stub parent as ancestor
-            stub_parent = Header.default()
-            stub_parent.hash = trace.block.header.parent
-            stub_parent.timeslot = trace.block.header.timeslot - 1
-            app.block_context.ancestor_headers.append(stub_parent)
+        # Add stub parent as ancestor
+        stub_parent = Header.default()
+        stub_parent.hash = trace.block.header.parent
+        stub_parent.timeslot = trace.block.header.timeslot - 1
+        app.block_context.ancestor_headers.append(stub_parent)
 
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
 
@@ -626,57 +597,42 @@ async def replay_traces(
 
         logging.info(f'✅ Block {trace.block.header.timeslot} successfully imported.')
 
-        if not only_block_import:
+        if app.state_trie_root == trace.post_state.state_root:
+            logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
+        else:
+            logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
 
-            if app.state_trie_root == trace.post_state.state_root:
-                logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
-            else:
-                logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
+            # Diffing DBs
+            process_state_diff(list(app.state_db), trace.post_state.keyvals)
 
-                # Diffing DBs
-                db_dump = {k.hex(): v.hex() for k, v in list(app.state_db)}
-                trace_db = [(k.hex(),v.hex()) for k, v in trace.post_state.keyvals]
+            state_dump_file = f'state_{block_file.replace(".bin", "")}.json'
 
-                for k, v in trace_db:
-                    if k not in db_dump:
-                        logging.warning(f'key {k} is missing')
-                    elif v != db_dump[k]:
-                        logging.warning(f'key {k} is different: {db_dump[k]} != {v}')
+            with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
+                json.dump(app.state.to_json(), file, indent=2)
+            logging.info(f"Current state written to disk: {state_dump_file}")
 
-                tracedb_keys = {k for k, v in trace_db}
+            # Update state from trace post-state
+            for k, v in trace.post_state.keyvals:
+                app.state_db.put(bytes(k), bytes(v))
 
-                for k, v in db_dump.items():
-                    if k not in tracedb_keys:
-                        logging.warning(f'key {k} is not present in trace: {v}')
+            app.state = app.retrieve_jam_state()
+            await app.update_state_trie()
 
-                state_dump_file = f'state_{block_file.replace(".bin", "")}.json'
+            state_dump_file = f'trace_post_{block_file.replace(".bin", "")}.json'
 
-                with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
-                    json.dump(app.state.to_json(), file, indent=2)
-                logging.info(f"Current state written to disk: {state_dump_file}")
+            with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
+                json.dump(app.state.to_json(), file, indent=2)
+            logging.info(f"Trace post-state written to disk: {state_dump_file}")
 
-                # Update state from trace post-state
-                for k, v in trace.post_state.keyvals:
-                    app.state_db.put(bytes(k), bytes(v))
+            if nr < len(traces_files):
+                response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                if response.lower() == 'q':
+                    logging.info('✋ User aborted.')
+                    break
 
-                app.state = app.retrieve_jam_state()
-                await app.update_state_trie()
-
-                state_dump_file = f'trace_post_{block_file.replace(".bin", "")}.json'
-
-                with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
-                    json.dump(app.state.to_json(), file, indent=2)
-                logging.info(f"Trace post-state written to disk: {state_dump_file}")
-
-                if nr < len(traces_files):
-                    response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
-                    if response.lower() == 'q':
-                        logging.info('✋ User aborted.')
-                        break
-
-            # Flush DB
-            for key, _ in app.state_db:
-                app.state_db.delete(key)
+        # Flush DB
+        for key, _ in app.state_db:
+            app.state_db.delete(key)
 
 
 @main.command('fuzzer_target')
@@ -688,11 +644,12 @@ async def replay_traces(
 async def fuzzer_target(
         custom_db_path, force_overwrite, seed, socket_path, verbose
 ):
-    # Safety checks
-    settings.SOLO_MODE = False
-
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
+
+    # Safety checks
+    if settings.SOLO_MODE:
+        logging.warning('settings.SOLO_MODE is enabled')
 
     db_path = custom_db_path or default_db_path
 
@@ -724,6 +681,65 @@ async def fuzzer_target(
     finally:
         logging.info(f'Fuzzer stopped.')
 
+
+# Helper functions
+
+async def setup_fuzzer_session(app: PyjamazApp, fuzzer_socket_path: str):
+    fuzzer_session = FuzzerSession(fuzzer_socket_path, app=app)
+    await fuzzer_session.connect()
+
+    logging.info(f'Fuzzer session started.')
+
+    initial_block = app.retrieve_block(app.state.timeslot.number)
+
+    request = FuzzerMessage(
+        set_state=SetStateMessage(state=list(app.state_db), header=initial_block.header),
+    )
+    response = await fuzzer_session.send_request(request)
+
+    logging.info(f'Fuzzer: Set state: {format_hash(response.state_root)}')
+
+    if response.state_root != app.state_trie_root:
+        logging.error('Fuzzer state root mismatch')
+        exit(2)
+
+    async def process_block(block: Block):
+        # Replace
+        response = await fuzzer_session.send_request(
+            FuzzerMessage(
+                import_block=block
+            )
+        )
+        if response.state_root == app.state_trie_root:
+            logging.info(f'[Fuzzer] Block successfully imported: state_root={format_hash(app.state_trie_root)}')
+        else:
+            logging.error(f'[Fuzzer] Post state-root does not match: {format_hash(response.state_root)}')
+            # Retrieve state from target
+            response = await fuzzer_session.send_request(
+                FuzzerMessage(
+                    get_state=block.header.hash
+                )
+            )
+            process_state_diff(list(app.state_db), response.state)
+
+    # Subscribe to BEST_BLOCK to import them in fuzzer target
+    app.pubsub.subscribe(MESSAGE_TYPES.BEST_BLOCK, process_block)
+
+def process_state_diff(my_state: List[Tuple[bytes, bytes]], other_state: List[Tuple[bytes, bytes]]):
+    my_state = {k.hex(): v.hex() for k, v in my_state}
+    other_state = [(k.hex(), v.hex()) for k, v in other_state]
+
+    for k, v in other_state:
+        if k not in my_state:
+            logging.warning(f'key {k} is missing')
+        elif v != my_state[k]:
+            logging.warning(f'key {k} is different: {my_state[k]} != {v}')
+
+    tracedb_keys = {k for k, v in other_state}
+
+    for k, v in my_state.items():
+        if k not in tracedb_keys:
+            logging.warning(f'key {k} is not present in trace: {v}')
 
 if __name__ == '__main__':
     main(_anyio_backend="asyncio")
