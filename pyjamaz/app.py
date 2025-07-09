@@ -14,14 +14,14 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import Vec, BitArray, U32
 
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError
+from pyjamaz.exceptions import PyjamazAppError, ProcessWorkpackageError
 from pyjamaz.extrinsic import ExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.app import StateDump, Trace
-from pyjamaz.models.common import WorkPackage, WorkReport, Authorizer, RefinementContext, WorkItem, WorkItemExtrinsic
+from pyjamaz.models.common import WorkPackage, WorkReport
 from pyjamaz.refine import work_result_computation
 from pyjamaz.settings import SOLO_MODE
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
