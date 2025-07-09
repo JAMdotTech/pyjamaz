@@ -13,7 +13,8 @@ class StreamBlockRequest(Stream):
 
     def __init__(self, stream_id: int, connection, direction: StreamDirection):
         super().__init__(stream_id, connection, direction)
-        self.stream_type = StreamType.CE128_BlockRequest.value.to_bytes(length=1, byteorder='little')
+        self.stream_type = StreamType.CE128_BlockRequest.value
+        self.stream_type_byte = self.stream_type.to_bytes(length=1, byteorder='little')
 
 
     def initiator_reset(self, reset_code: int):

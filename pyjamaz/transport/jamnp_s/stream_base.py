@@ -36,7 +36,8 @@ class Stream:
     #TODO: typings on connection
     def __init__(self, stream_id: int, connection, direction: StreamDirection):
         self.stream_id = stream_id
-        self.stream_type = None # Note: override in subclass
+        self.stream_type = None  # Note: override in subclass
+        self.stream_type_byte = None # Note: override in subclass
         self.conn = connection
         self.protocol = connection.protocol
         self.direction = direction
@@ -58,10 +59,10 @@ class Stream:
         raise Exception("Override this method in Stream subclass")
 
 
-    def create_message(self, payload: bytes, stream_type: Optional[bytes]):
-        if stream_type:
+    def create_message(self, payload: bytes, add_stream_type: Optional[bool]):
+        if add_stream_type:
             # Initial messages over a new stream should de prefixed with a stream type byte
-            return self.stream_type + (len(payload)).to_bytes(length=4, byteorder='little') + payload
+            return self.stream_type_byte + (len(payload)).to_bytes(length=4, byteorder='little') + payload
         else:
             return (len(payload)).to_bytes(length=4, byteorder='little') + payload
 

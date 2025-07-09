@@ -148,13 +148,11 @@ class JAMNPS(ProtocolType):
         )
         logger.debug(f"Sending Handshake on stream {conn.stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
 
-        stream_type = None
-        if conn.direction == StreamDirection.initiator:
-            stream_type = StreamUP.stream_type
+        add_stream_type = conn.direction == StreamDirection.initiator
 
         conn.send(
             conn.stream_up.stream_id,
-            conn.stream_up.create_message(handshake.to_jam_bytes().to_bytes(), stream_type=stream_type),
+            conn.stream_up.create_message(handshake.to_jam_bytes().to_bytes(), add_stream_type=add_stream_type),
         )
 
 
@@ -220,7 +218,7 @@ class JAMNPS(ProtocolType):
         print(f"PROTOCOL INITIATING BLOCK REQUEST ON STREAMID: {stream.stream_id} header hash: {req.header_hash} direction: {req.direction}, max_block: {req.max_blocks}")
         conn.send(
             stream.stream_id,
-            stream.create_message(req.to_jam_bytes().to_bytes(), stream_type=StreamBlockRequest.stream_type),
+            stream.create_message(req.to_jam_bytes().to_bytes(), add_stream_type=True),
             end_stream=True
         )
 

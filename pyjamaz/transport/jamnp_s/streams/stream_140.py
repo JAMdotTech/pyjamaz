@@ -5,7 +5,8 @@ class StreamSegmentShardRequestJustification(Stream):
 
     def __init__(self, stream_id: int, connection, direction: StreamDirection):
         super().__init__(stream_id, connection, direction)
-        self.stream_type = StreamType.CE140_SegmentShardRequestJustification.value.to_bytes(length=1, byteorder='little')
+        self.stream_type = StreamType.CE140_SegmentShardRequestJustification.value
+        self.stream_type_byte = self.stream_type.to_bytes(length=1, byteorder='little')
 
 
     def initiate_state_request(self, header_hash, direction, max_blocks):

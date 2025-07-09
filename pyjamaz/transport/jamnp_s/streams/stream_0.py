@@ -20,7 +20,8 @@ class StreamUP(Stream):
 
     def __init__(self, stream_id: int, connection, direction: StreamDirection):
         super().__init__(stream_id, connection, direction)
-        self.stream_type = StreamType.UP0_BlockAnnouncement.value.to_bytes(length=1, byteorder='little')
+        self.stream_type = StreamType.UP0_BlockAnnouncement.value
+        self.stream_type_byte = self.stream_type.to_bytes(length=1, byteorder='little')
         self.state = UPState.IN_PROGRESS
 
 
