@@ -88,13 +88,21 @@ class JAMNPS(ProtocolType):
 
     async def listen(self):
         logger.debug(f'Listening on {self.host}:{self.port}')
+
+        server_conf = QuicConfiguration(
+            alpn_protocols=[self.protocol_name],
+            is_client=False,
+            #verify_mode=ssl.CERT_NONE,
+        )
+        server_conf.load_cert_chain(self.cert, self.pk)
+
         await serve(
             self.host,
             self.port,
-            configuration=self.configuration,
+            configuration=server_conf,
             create_protocol=wrap_protocol(self, JAMConnection, StreamDirection.acceptor, self.host, self.port),
-            session_ticket_fetcher=self.session_ticket_store.pop,
-            session_ticket_handler=self.session_ticket_store.add,
+            #session_ticket_fetcher=self.session_ticket_store.pop,
+            #session_ticket_handler=self.session_ticket_store.add,
             retry=True,
         )
 
@@ -105,7 +113,7 @@ class JAMNPS(ProtocolType):
             is_client=True,
             #verify_mode=ssl.CERT_REQUIRED,
             verify_mode=ssl.CERT_NONE,
-            idle_timeout=300000
+            #idle_timeout=300000
         )
         configuration.load_cert_chain(certfile=self.cert, keyfile=self.pk)
 
@@ -130,36 +138,23 @@ class JAMNPS(ProtocolType):
 
     def up0_send_handshake(self, conn: JAMConnection):
         # Create a presistent UP0 stream for this connection
-        # stream_up = conn.open_jam_stream(StreamUP)
-        # conn.stream_up = stream_up
-        # slot = self.app.state.timeslot.number
-        # header_hash = self.app.retrieve_block_hash(slot)
-        # leafs = [] #TODO
-        # handshake = MsgUP0Handshake(
-        #     header_hash=header_hash,
-        #     timeslot=slot,
-        #     leafs=leafs
-        # )
-        # logger.debug(f"Sending Handshake on stream {stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
-        # conn.send(
-        #     stream_up.stream_id,
-        #     stream_up.create_message(handshake.to_jam_bytes().to_bytes()),
-        # )
-
-        #TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! fix zie hierboven!!!!
-        stream_up = conn.open_jam_stream(StreamUP)
-        conn.stream_up = stream_up
         slot = self.app.state.timeslot.number
-        bl_ts = slot.to_bytes(length=4, byteorder='little') #self.conn.protocol.app.state.timeslot.number
-        bl_hash = self.app.retrieve_block_hash(slot)
-        final = bl_hash + bl_ts
-        leafs = bytes()  # [bytes.fromhex(h) + s.to_bytes(length=4, byteorder='little') for h, s in []]
-        leaf_count = VarInt64.encode(len(leafs)).to_bytes()
-        handshake = final + leaf_count + leafs
-        logger.debug(f'Sending handshake {handshake} to {conn.host}:{conn.port}')
+        header_hash = self.app.retrieve_block_hash(slot)
+        leafs = [] #TODO
+        handshake = MsgUP0Handshake(
+            header_hash=header_hash,
+            timeslot=slot,
+            leafs=leafs
+        )
+        logger.debug(f"Sending Handshake on stream {conn.stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
+
+        stream_type = None
+        if conn.direction == StreamDirection.initiator:
+            stream_type = StreamUP.stream_type
+
         conn.send(
-            stream_up.stream_id,
-            stream_up.stream_type + (len(handshake)).to_bytes(length=4, byteorder='little') + handshake,
+            conn.stream_up.stream_id,
+            conn.stream_up.create_message(handshake.to_jam_bytes().to_bytes(), stream_type=stream_type),
         )
 
 
@@ -221,11 +216,11 @@ class JAMNPS(ProtocolType):
 
 
     def ce128_initiate_block_request(self, conn: JAMConnection, req: MsgCE128BlockRequest):
-        stream = conn.open_jam_stream(StreamBlockRequest)
+        stream = conn.open_jam_stream(StreamBlockRequest, direction=StreamDirection.initiator)
         print(f"PROTOCOL INITIATING BLOCK REQUEST ON STREAMID: {stream.stream_id} header hash: {req.header_hash} direction: {req.direction}, max_block: {req.max_blocks}")
         conn.send(
             stream.stream_id,
-            stream.create_message(req.to_jam_bytes().to_bytes()),
+            stream.create_message(req.to_jam_bytes().to_bytes(), stream_type=StreamBlockRequest.stream_type),
             end_stream=True
         )
 

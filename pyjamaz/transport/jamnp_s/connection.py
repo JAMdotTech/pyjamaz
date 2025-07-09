@@ -2,9 +2,11 @@ import asyncio
 import logging
 
 from aioquic.asyncio import QuicConnectionProtocol, serve
-from aioquic.quic.events import QuicEvent, HandshakeCompleted, StreamReset, StreamDataReceived
+from aioquic.quic.events import QuicEvent, HandshakeCompleted, StreamReset, StreamDataReceived, ConnectionTerminated
 
 from pyjamaz.transport.jamnp_s.stream_base import Stream, StreamDirection
+from pyjamaz.transport.jamnp_s.stream_map import StreamLookup
+from pyjamaz.transport.jamnp_s.streams.stream_0 import StreamUP
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -15,7 +17,7 @@ class JAMConnection(QuicConnectionProtocol):
         super().__init__(*args, **kwargs)
 
         # Note: should be set in wrap_protocol
-        self.direction:StreamDirection = None
+        self.direction:StreamDirection = None #TODO: JAMConnectionDirection!
         self.protocol = None
         self.host = None
         self.port = None
@@ -25,9 +27,10 @@ class JAMConnection(QuicConnectionProtocol):
         #self._keepalive_task = asyncio.create_task(self._keepalive())
 
 
-    def open_jam_stream(self, StreamCls: Stream):
-        stream_id = self._quic.get_next_available_stream_id()
-        self.streams[stream_id] = StreamCls(stream_id, connection=self, direction=self.direction)
+    def open_jam_stream(self, StreamCls: Stream, direction:StreamDirection, stream_id: int=None):
+        if stream_id is None:
+            stream_id = self._quic.get_next_available_stream_id()
+        self.streams[stream_id] = StreamCls(stream_id, connection=self, direction=direction)
         return self.streams[stream_id]
 
 
@@ -36,7 +39,7 @@ class JAMConnection(QuicConnectionProtocol):
         del self.streams[stream.stream_id]
 
 
-    def send(self, stream_id: int, data, end_stream=False):
+    def send(self, stream_id: int, data: bytes, end_stream=False):
         self._quic.send_stream_data(
             stream_id,
             data,
@@ -45,15 +48,15 @@ class JAMConnection(QuicConnectionProtocol):
         self.transmit()
 
 
-    async def _keepalive(self):
-        try:
-            while True:
-                #TODO: what is a sane amount of time?
-                await asyncio.sleep(4)
-                self._quic.send_ping(id(self))
-                self.transmit()
-        except asyncio.CancelledError:
-            pass
+    # async def _keepalive(self):
+    #     try:
+    #         while True:
+    #             #TODO: what is a sane amount of time?
+    #             await asyncio.sleep(4)
+    #             self._quic.send_ping(id(self))
+    #             self.transmit()
+    #     except asyncio.CancelledError:
+    #         pass
 
 
     def quic_event_received(self, event: QuicEvent) -> None:
@@ -71,7 +74,11 @@ class JAMConnection(QuicConnectionProtocol):
             if self.stream_up is not None:
                 raise Exception("There can be only one UP connection active at a time")
 
-            self.protocol.up0_send_handshake(self)
+            if self.direction == StreamDirection.initiator:
+                # Initiating side will send a JAM handshake message and set the stream id
+                stream_up = self.open_jam_stream(StreamUP, direction=self.direction)
+                self.stream_up = stream_up
+                self.protocol.up0_send_handshake(self)
 
         elif isinstance(event, StreamReset):
             stream_id = event.stream_id
@@ -82,24 +89,38 @@ class JAMConnection(QuicConnectionProtocol):
             if stream_id not in self.streams:
                 raise Exception(f"Stream {stream_id} not available")
 
-            if self.direction == StreamDirection.initiator:
-                self.streams[stream_id].initiator_reset(reset_code)
-            elif self.direction == StreamDirection.acceptor:
-                self.streams[stream_id].acceptor_reset(reset_code)
+            self.streams[stream_id].reset(reset_code)
 
         elif isinstance(event, StreamDataReceived):
 
             stream_id = event.stream_id
+            data = bytes(event.data)
 
             if stream_id not in self.streams:
-                #logging.warning(f"Stream {stream_id} not available")
-                #return
-                raise Exception(f"Stream {stream_id} not available")
+                if self.direction == StreamDirection.acceptor:
+                    stream_type = int(data[0])
+                    stream_cls = StreamLookup.get(stream_type)
+                    if stream_cls is None:
+                        raise Exception(f"Stream {stream_id} is not mapped")
 
-            self.streams[stream_id].receive_data(bytes(event.data))
+                    self.open_jam_stream(stream_cls, direction=self.direction)
 
+                    if stream_cls == StreamUP:
+                        # If we're on the acceptor side of this stream, send a handshake message back
+                        self.protocol.up0_send_handshake(self)
 
-    # TODO: handle gracefully
-    #     elif isinstance(event, ConnectionTerminated):
-    #         # Handle connection termination
+                    # Only the first time an acceptor receives a message, we expect a stream id byte
+                    data = data[1:]
+                else:
+                    #TODO: of idem? kan een accepting connection bv ook een block request terug sturen?
+                    raise Exception(f"Received data from unknown stream id: {stream_id}")
+
+            try:
+                self.streams[stream_id].receive_data(data)
+            except Exception as e:
+                #TODO: reset stream? return error?
+                logger.warning(f"Received invalid message for stream {stream_id} ({self.streams[stream_id]}): {e}")
+
+        elif isinstance(event, ConnectionTerminated):
+            logger.info(f"Connection terminated with code {event.error_code}")
 

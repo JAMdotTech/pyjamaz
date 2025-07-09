@@ -31,29 +31,7 @@ class StreamUP(Stream):
             case UPState.IN_PROGRESS:
                 self.state = UPState.CONNECTED
 
-                #msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
-                ############################
-                #TODO:FIX!!!!!! zie hierboven
-                header_hash = data[:32] #.hex()
-                slot = int.from_bytes(data[32:36], byteorder='little')
-
-                jam_bytes = JamBytes(data[36:])
-                leaf_count = VarInt64.decode(jam_bytes)
-
-                logger.debug(f"Received handshake response: header_hash={header_hash} slot={slot} leaf_count={leaf_count}")
-
-                leafs = []
-                for leaf_nr in range(leaf_count):
-                    leaf_hash = jam_bytes.get_next_bytes(32) #.hex()
-                    leaf_slot = U32.decode(jam_bytes)
-                    leafs.append(MsgUP0Leaf(leaf_hash, leaf_slot))
-                msg = MsgUP0Handshake(
-                    header_hash=header_hash,
-                    timeslot=slot,
-                    leafs=leafs
-                )
-                ############################################
-
+                msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
                 self.protocol.up0_received_handshake(self.conn, msg)
 
             case UPState.CONNECTED:

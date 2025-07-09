@@ -1,6 +1,6 @@
 import logging
 from enum import Enum
-
+from typing import Optional
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -58,8 +58,12 @@ class Stream:
         raise Exception("Override this method in Stream subclass")
 
 
-    def create_message(self, payload: bytes):
-        return self.stream_type + (len(payload)).to_bytes(length=4, byteorder='little') + payload
+    def create_message(self, payload: bytes, stream_type: Optional[bytes]):
+        if stream_type:
+            # Initial messages over a new stream should de prefixed with a stream type byte
+            return self.stream_type + (len(payload)).to_bytes(length=4, byteorder='little') + payload
+        else:
+            return (len(payload)).to_bytes(length=4, byteorder='little') + payload
 
 
     def receive_data(self, data: bytes):
@@ -97,6 +101,13 @@ class Stream:
                         self.acceptor_message(self._msg_buffer)
                 finally:
                     self._reset_msg()
+
+
+    def reset(self, reset_code: int):
+        if self.direction == StreamDirection.initiator:
+            self.initiator_reset(reset_code)
+        else:
+            self.acceptor_reset(reset_code)
 
 
     def initiator_reset(self, reset_code: int):

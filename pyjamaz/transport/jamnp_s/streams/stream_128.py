@@ -36,7 +36,6 @@ class StreamBlockRequest(Stream):
 
         self.protocol.ce128_received_block_request(self.conn, block)
 
-
     def acceptor_message(self, data: bytes):
         print("RECEIVED ACCEPTOR BLOCK REQUEST!!!!!!!!!!!!!!!!!!!!!!!!")
         self.protocol.ce128_send_block_request(self.conn, MsgCE128BlockRequest.from_jam_bytes(JamBytes(data)))

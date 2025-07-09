@@ -19,7 +19,6 @@ class MsgUP0Leaf(Serializable):
 class MsgUP0Handshake(Serializable):
     header_hash: bytes = field(metadata={'codec': H256})
     timeslot: int = field(metadata={'codec': U32})
-    #leafs: Optional[List[MsgUP0Leaf]] = field(metadata={'codec': Option(Vec(MsgUP0Leaf.to_codec_def()))})
     leafs: List[MsgUP0Leaf] = field(metadata={'codec': Vec(MsgUP0Leaf.to_codec_def())})
 
 
