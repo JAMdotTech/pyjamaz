@@ -26,24 +26,24 @@ logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
 #TODO: typings
-def wrap_protocol(wrapper, protocol, direction, host, port):
+def wrap_protocol(protocol, quic_connection, direction, host, port):
     def create_connection(*args, **kwargs):
-        instance = protocol(*args, **kwargs)
-        instance.protocol = wrapper
-        instance.direction = direction
+        conn = quic_connection(*args, **kwargs)
+        conn.protocol = protocol
+        conn.direction = direction
 
-        instance.jam_conn_id = ULID()
-        protocol.connections[instance.jam_conn_id] = instance
+        conn.jam_connection_ulid = ULID()
+        protocol.connections[conn.jam_connection_ulid] = conn
 
         # Note: for accepting connections addr & port are known after the QUIC handshake, see JAMConnection::HandshakeComplete
         if direction == StreamDirection.initiator:
-            instance.host = host
-            instance.port = port
-            protocol.conn_initiated.add(instance.jam_conn_id)
+            conn.host = host
+            conn.port = port
+            protocol.conn_initiated.add(conn.jam_connection_ulid)
         else:
-            protocol.conn_accepted.add(instance.jam_conn_id)
+            protocol.conn_accepted.add(conn.jam_connection_ulid)
 
-        return instance
+        return conn
 
     return create_connection
 
