@@ -10,11 +10,10 @@ from aioquic.quic.configuration import QuicConfiguration
 from aioquic.tls import SessionTicket
 
 from aioquic.asyncio.client import connect
-from jamcodec.types import VarInt64
+from ulid import ULID
 
 from pyjamaz.models.block import Block
 from pyjamaz.transport.jamnp_s.stream_base import StreamDirection
-from pyjamaz.transport.jamnp_s.streams.stream_0 import StreamUP
 
 from pyjamaz.transport.types import ProtocolType
 from pyjamaz.transport.jamnp_s.message_types import MsgCE128BlockRequestDirection, MsgCE128BlockRequest, \
@@ -32,8 +31,18 @@ def wrap_protocol(wrapper, protocol, direction, host, port):
         instance = protocol(*args, **kwargs)
         instance.protocol = wrapper
         instance.direction = direction
-        instance.host = host
-        instance.port = port
+
+        instance.jam_conn_id = ULID()
+        protocol.connections[instance.jam_conn_id] = instance
+
+        # Note: for accepting connections addr & port are known after the QUIC handshake, see JAMConnection::HandshakeComplete
+        if direction == StreamDirection.initiator:
+            instance.host = host
+            instance.port = port
+            protocol.conn_initiated.add(instance.jam_conn_id)
+        else:
+            protocol.conn_accepted.add(instance.jam_conn_id)
+
         return instance
 
     return create_connection
@@ -82,8 +91,10 @@ class JAMNPS(ProtocolType):
         self.cert = certificate
         self.pk = private_key
         self.configuration.load_cert_chain(certificate, private_key)
-        self.conn_accepted = {}   # All incomming connections
-        self.conn_initiated = {}  # All outgoing connections (who we connect to)
+
+        self.connections = {}   # All connections
+        self.conn_accepted = set()   # All incomming connections
+        self.conn_initiated = set()  # All outgoing connections (who we connect to)
 
 
     async def listen(self):
@@ -127,13 +138,19 @@ class JAMNPS(ProtocolType):
                     create_protocol=wrap_protocol(self, JAMConnection, StreamDirection.initiator, host, port),
             ) as client:
                 client = cast(JAMConnection, client)
-                self.conn_initiated[(host, port)] = client
                 await client.wait_closed()
-                del self.conn_initiated[(host, port)]
+                self.disconnect(client)
         except ConnectionError as exc:
-            if (host, port) in self.conn_initiated:
-                del self.conn_initiated[(host, port)]
             logger.warning(f"💩 ClientProtocol Cannot connect to {host}:{port} {exc}")
+
+
+    def disconnect(self, connection: JAMConnection):
+        if connection.direction == StreamDirection.initiator:
+            self.conn_initiated.remove(connection.jam_connection_ulid)
+        else:
+            self.conn_accepted.remove(connection.jam_connection_ulid)
+
+        del self.connections[connection.jam_connection_ulid]
 
 
     def up0_send_handshake(self, conn: JAMConnection):
@@ -194,7 +211,7 @@ class JAMNPS(ProtocolType):
 
 
     async def up0_broadcast_block(self, block: Block):
-        logger.debug(f'JAMNP broadcasting block announcement to {len(self.conn_accepted)} clients')
+        logger.debug(f'JAMNP broadcasting block announcement to {len(self.connections)} connections')
 
         msg = MsgUP0Announcement(
             header=block.header,
@@ -202,7 +219,7 @@ class JAMNPS(ProtocolType):
             timeslot=block.header.timeslot
         ).to_jam_bytes().to_bytes()
 
-        for client_id, client in self.conn_accepted.items():
+        for client_id, client in self.connections.items():
             logger.debug(f"JAMNP send block to client {client}")
             client.conn.send(
                 client.stream_up.stream_id,

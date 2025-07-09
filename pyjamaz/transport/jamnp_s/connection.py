@@ -19,12 +19,13 @@ class JAMConnection(QuicConnectionProtocol):
         # Note: should be set in wrap_protocol
         self.direction:StreamDirection = None #TODO: JAMConnectionDirection!
         self.protocol = None
+        self.jam_connection_ulid = None
         self.host = None
         self.port = None
 
         self.stream_up = None
         self.streams = {}
-        #self._keepalive_task = asyncio.create_task(self._keepalive())
+        self._keepalive_task = asyncio.create_task(self._keepalive())
 
 
     def open_jam_stream(self, StreamCls: Stream, direction:StreamDirection, stream_id: int=None):
@@ -48,15 +49,21 @@ class JAMConnection(QuicConnectionProtocol):
         self.transmit()
 
 
-    # async def _keepalive(self):
-    #     try:
-    #         while True:
-    #             #TODO: what is a sane amount of time?
-    #             await asyncio.sleep(4)
-    #             self._quic.send_ping(id(self))
-    #             self.transmit()
-    #     except asyncio.CancelledError:
-    #         pass
+    def connection_lost(self, exc):
+        logger.info("UDP transport closed:", exc)
+        self.protocol.disconnect(self)
+        super().connection_lost(exc)             # keeps aioquic tidy
+
+
+    async def _keepalive(self):
+        try:
+            while True:
+                #TODO: what is a sane amount of time? Usefull for detecting disconnect (early)?
+                await asyncio.sleep(3)
+                self._quic.send_ping(id(self))
+                self.transmit()
+        except asyncio.CancelledError:
+            pass
 
 
     def quic_event_received(self, event: QuicEvent) -> None:
@@ -127,4 +134,4 @@ class JAMConnection(QuicConnectionProtocol):
 
         elif isinstance(event, ConnectionTerminated):
             logger.info(f"Connection terminated with code {event.error_code}")
-
+            self.protocol.disconnect(self)

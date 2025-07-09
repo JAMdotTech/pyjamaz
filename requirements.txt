@@ -17,3 +17,4 @@ jamcodec~=0.1.1
 numpy~=2.1
 
 aioquic==1.2.0
+python-ulid==3.0.0
