@@ -21,7 +21,7 @@ from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.app import StateDump, Trace
-from pyjamaz.models.common import WorkPackage, WorkReport, Authorizer, RefinementContext, WorkItem, WorkItemExtrinsic
+from pyjamaz.models.common import WorkPackage, WorkReport
 from pyjamaz.refine import work_result_computation
 from pyjamaz.settings import SOLO_MODE
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
