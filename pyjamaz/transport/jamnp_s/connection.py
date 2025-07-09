@@ -103,7 +103,7 @@ class JAMConnection(QuicConnectionProtocol):
                     if stream_cls is None:
                         raise Exception(f"Stream {stream_id} is not mapped")
 
-                    self.open_jam_stream(stream_cls, direction=self.direction)
+                    self.stream_up = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
 
                     if stream_cls == StreamUP:
                         # If we're on the acceptor side of this stream, send a handshake message back
