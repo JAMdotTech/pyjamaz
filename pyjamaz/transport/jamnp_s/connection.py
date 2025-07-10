@@ -40,7 +40,7 @@ class JAMConnection(QuicConnectionProtocol):
 
 
     def close_jam_stream(self, stream: Stream, reason:int=0):
-        logger.info(f"Closing JAM stream {stream} {stream.stream_id} for {stream.direction}")
+        logger.info(f"Closing JAM stream {stream.stream_type} {stream.stream_id} for {stream.direction}")
         self._quic.reset_stream(stream.stream_id, error_code=reason)
         del self.streams[stream.stream_id]
 

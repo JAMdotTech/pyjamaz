@@ -76,7 +76,7 @@ class Stream:
                 # byte_data = bytes(event.data)
                 self._msg_len = int.from_bytes(data[0:4], byteorder='little')
                 data = data[4:]
-                logger.debug(f"Received new message for stream {self.stream_id} with a msg length: {self._msg_len} ({len(data)} received now)")
+                logger.debug(f"Received new message for stream {self.stream_id} with a msg length: {self._msg_len} ({len(data)} received)")
                 # TODO: check message length > 0???!!!!
 
             msg_complete = False
@@ -84,14 +84,13 @@ class Stream:
                 # If we received a full message (or more than 1 message)
                 end_offset = self._msg_len - len(self._msg_buffer)
                 self._msg_buffer += data[:end_offset]
-                data = data[end_offset:]
+                data = data[end_offset:] # Note: this packet could contain start of a new message
                 msg_complete = True
-                #print(f"FULL MESSAGE RECEIVED {self.stream_type} stream type = {int(self.stream_id)}")
             else:
                 # Otherwise append only, we expect more data to finish this message
                 self._msg_buffer += data
-                data = []
-                logger.debug(f"Appending to message for stream {self.stream_id} ({len(data)} bytes of {self._msg_len})")
+                logger.debug(f"Appending to message for stream {self.stream_id} ({self._msg_buffer} bytes of {self._msg_len})")
+                data = [] # Note: no new packet can be present in this data
 
             # If we assembled a new message, parse it
             if msg_complete:
