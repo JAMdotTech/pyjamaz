@@ -163,7 +163,7 @@ class JAMNPS(ProtocolType):
             timeslot=slot,
             leafs=leafs
         )
-        logger.info(f"Sending Handshake on stream {conn.stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
+        logger.debug(f"Sending Handshake on stream {conn.stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
 
         add_stream_type = conn.direction == StreamDirection.initiator
 
@@ -176,6 +176,7 @@ class JAMNPS(ProtocolType):
     def up0_received_handshake(self, conn: JAMConnection, msg: MsgUP0Handshake):
         # Note: For now we employ a very simple strategy, where we sync blocks from the first node that announced a finalized block greater than we have
         if self.state_requesting_blocks:
+            logger.debug(f"Skipping handshake block header check, already importing blocks")
             return
 
         block = self.app.retrieve_block_by_hash(msg.header_hash) #TODO: missch een efficientere exists check toevoegen
@@ -192,6 +193,7 @@ class JAMNPS(ProtocolType):
     def up0_received_announcement(self, conn: JAMConnection, msg: MsgUP0Announcement):
         # Note: For now we employ a very simple strategy, where we sync blocks from the first node that announced a finalized block greater than we have
         if self.state_requesting_blocks:
+            logger.debug(f"Skipping block header announcement check, already importing blocks")
             return
 
         """
@@ -220,19 +222,17 @@ class JAMNPS(ProtocolType):
         ).to_jam_bytes().to_bytes()
 
         for client_id, client in self.connections.items():
-            logger.debug(f"JAMNP send block to client {client}")
-            client.conn.send(
+            logger.debug(f"JAMNP send block to client {client.host}:{client.port} with hash {block.header.hash}")
+            client.send(
                 client.stream_up.stream_id,
                 client.stream_up.create_message(msg),
                 end_stream=False
             )
 
-        #TODO: ook naar de self initiated connections?
-
 
     def ce128_initiate_block_request(self, conn: JAMConnection, req: MsgCE128BlockRequest):
         stream = conn.open_jam_stream(StreamBlockRequest, direction=StreamDirection.initiator)
-        print(f"PROTOCOL INITIATING BLOCK REQUEST ON STREAMID: {stream.stream_id} header hash: {req.header_hash} direction: {req.direction}, max_block: {req.max_blocks}")
+        logger.debug(f"CE128 initiating block request on streamid: {stream.stream_id} header hash: {req.header_hash} direction: {req.direction}, max_block: {req.max_blocks}")
         conn.send(
             stream.stream_id,
             stream.create_message(req.to_jam_bytes().to_bytes(), add_stream_type=True),
@@ -241,7 +241,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce128_received_block_request(self, conn: JAMConnection, block: Block):
-        print(f"PROTOCOL RECEIVED BLOCK REQUEST")
+        logger.debug(f"CE128 received block request block")
         asyncio.create_task(self.app.import_queue_add(block))
         #TODO: check?: if block.header.parent == bytes(32) or self.retrieve_block_by_hash(block.header.parent):
         self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(block.header.hash, MsgCE128BlockRequestDirection.ASC.value, 1))  # TODO: max_blocks=1 for now, >1 results in error from node?
@@ -249,7 +249,7 @@ class JAMNPS(ProtocolType):
 
     def ce128_finished_block_request(self):
         self.state_requesting_blocks = False
-        logger.debug("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Finished block request")
+        logger.debug("Finished block request, start parsing import queue")
         asyncio.create_task(self.app.process_import_queue())
 
 
@@ -267,10 +267,10 @@ class JAMNPS(ProtocolType):
                 else:
                     break
 
-            print(f"SENDING {len(blocks)} BLOCKSZZZZZZZZZ")
+            logger.debug(f"CE128 sending {len(blocks)} blocks")
             stream.conn.send(
                 stream.stream_id,
-                stream.create_message(MsgCE128BlockRequestResponse(blocks).to_jam_bytes().to_bytes()),
+                stream.create_message(MsgCE128BlockRequestResponse(blocks).to_jam_bytes().to_bytes(), add_stream_type=True),
                 end_stream=True
             )
 

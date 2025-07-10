@@ -31,22 +31,30 @@ class JAMConnection(QuicConnectionProtocol):
     def open_jam_stream(self, StreamCls: Stream, direction:StreamDirection, stream_id: int=None):
         if stream_id is None:
             stream_id = self._quic.get_next_available_stream_id()
+            logger.info(f"Opening NEW JAM stream {stream_id} for {direction}")
+        else:
+            logger.info(f"Opening EXISTING JAM stream {stream_id} for {direction}")
         self.streams[stream_id] = StreamCls(stream_id, connection=self, direction=direction)
         return self.streams[stream_id]
 
 
     def close_jam_stream(self, stream: Stream, reason:int=0):
+        logger.info(f"Closing JAM stream {stream} {stream.stream_id} for {stream.direction}")
         self._quic.reset_stream(stream.stream_id, error_code=reason)
         del self.streams[stream.stream_id]
 
 
     def send(self, stream_id: int, data: bytes, end_stream=False):
-        self._quic.send_stream_data(
-            stream_id,
-            data,
-            end_stream=end_stream
-        )
-        self.transmit()
+        try:
+            self._quic.send_stream_data(
+                stream_id,
+                data,
+                end_stream=end_stream
+            )
+            self.transmit()
+        except Exception as e:
+            #TODO!!!!!!!!!!!!!!!!!!
+            logger.error(e)
 
 
     def connection_lost(self, exc):
@@ -87,9 +95,8 @@ class JAMConnection(QuicConnectionProtocol):
                 self.stream_up = stream_up
                 self.protocol.up0_send_handshake(self)
             else:
-                # Note: it seems only now we have
-                self.host = self._quic._network_paths[0][0]
-                self.port = self._quic._network_paths[0][1]
+                # Note: it seems only now we have this info available from the accepting side
+                self.host, self.port = self._quic._network_paths[0].addr
 
         elif isinstance(event, StreamReset):
             stream_id = event.stream_id
@@ -114,11 +121,13 @@ class JAMConnection(QuicConnectionProtocol):
                     if stream_cls is None:
                         raise Exception(f"Stream {stream_id} is not mapped")
 
-                    self.stream_up = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
+                    stream_obj = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
 
                     if stream_cls == StreamUP:
                         # If we're on the acceptor side of this stream, send a handshake message back
-                        self.protocol.up0_send_handshake(self)
+                        if self.stream_up is None or self.stream_up.stream_id < stream_id:
+                            self.stream_up = stream_obj
+                            self.protocol.up0_send_handshake(self)
 
                     # Only the first time an acceptor receives a message, we expect a stream id byte
                     data = data[1:]

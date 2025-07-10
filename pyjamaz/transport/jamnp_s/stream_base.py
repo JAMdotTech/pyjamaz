@@ -59,7 +59,7 @@ class Stream:
         raise Exception("Override this method in Stream subclass")
 
 
-    def create_message(self, payload: bytes, add_stream_type: Optional[bool]):
+    def create_message(self, payload: bytes, add_stream_type:bool=False):
         if add_stream_type:
             # Initial messages over a new stream should de prefixed with a stream type byte
             return self.stream_type_byte + (len(payload)).to_bytes(length=4, byteorder='little') + payload
