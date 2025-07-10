@@ -31,9 +31,10 @@ class JAMConnection(QuicConnectionProtocol):
     def open_jam_stream(self, StreamCls: Stream, direction:StreamDirection, stream_id: int=None):
         if stream_id is None:
             stream_id = self._quic.get_next_available_stream_id()
-            logger.info(f"Opening NEW JAM stream {stream_id} for {direction}")
+            logger.debug(f"Initiating stream {stream_id} for {direction}")
         else:
-            logger.info(f"Opening EXISTING JAM stream {stream_id} for {direction}")
+            logger.debug(f"Accepting stream {stream_id} for {direction}")
+
         self.streams[stream_id] = StreamCls(stream_id, connection=self, direction=direction)
         return self.streams[stream_id]
 

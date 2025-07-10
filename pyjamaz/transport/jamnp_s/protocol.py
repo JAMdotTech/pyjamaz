@@ -182,7 +182,7 @@ class JAMNPS(ProtocolType):
         block = self.app.retrieve_block_by_hash(msg.header_hash) #TODO: missch een efficientere exists check toevoegen
         #TODO: ook nog iets doen met slot en leafs ook mee requesten?
         if not block:
-            logger.debug(f"Received newer block from handshake: {msg.header_hash} request blocks")
+            logger.debug(f"Received newer block from handshake: {msg.header_hash} -> initiate CE128RequestBlocks")
             self.state_requesting_blocks = True
             #self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(msg.header_hash, MsgCE128BlockRequestDirection.DESC.value, 1)) #TODO: max_blocks=1 for now, >1 results in error from node?
             slot = self.app.state.timeslot.number

@@ -76,7 +76,7 @@ class Stream:
                 # byte_data = bytes(event.data)
                 self._msg_len = int.from_bytes(data[0:4], byteorder='little')
                 data = data[4:]
-                #print(f"NEW MESSAGE: {self.stream_id} msg length: {len(data)} data length: {self._msg_len}")
+                logger.debug(f"Received new message for stream {self.stream_id} with a msg length: {self._msg_len} ({len(data)} received now)")
                 # TODO: check message length > 0???!!!!
 
             msg_complete = False
@@ -91,10 +91,11 @@ class Stream:
                 # Otherwise append only, we expect more data to finish this message
                 self._msg_buffer += data
                 data = []
-                print(f"APPENDING TO EXISTING MESSAGE: {self.stream_id} msg length: {len(data)} data length: {self._msg_len}")
+                logger.debug(f"Appending to message for stream {self.stream_id} ({len(data)} bytes of {self._msg_len})")
 
             # If we assembled a new message, parse it
             if msg_complete:
+                logger.debug(f"Message complete for stream {self.stream_id}")
                 try:
                     if self.direction == StreamDirection.initiator:
                         self.initiator_message(self._msg_buffer)
