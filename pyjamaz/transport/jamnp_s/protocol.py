@@ -213,7 +213,7 @@ class JAMNPS(ProtocolType):
 
 
     async def up0_broadcast_block(self, block: Block):
-        logger.debug(f'JAMNP broadcasting block announcement to {len(self.connections)} connections')
+        logger.debug(f'UP0 broadcasting block announcement to {len(self.connections)} connections')
 
         msg = MsgUP0Announcement(
             header=block.header,
@@ -222,7 +222,7 @@ class JAMNPS(ProtocolType):
         ).to_jam_bytes().to_bytes()
 
         for client_id, client in self.connections.items():
-            logger.debug(f"JAMNP send block to client {client.host}:{client.port} with hash {block.header.hash}")
+            logger.debug(f"UP0 send block header to client {client.host}:{client.port} with hash {block.header.hash}")
             client.send(
                 client.stream_up.stream_id,
                 client.stream_up.create_message(msg),

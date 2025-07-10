@@ -31,16 +31,16 @@ class JAMConnection(QuicConnectionProtocol):
     def open_jam_stream(self, StreamCls: Stream, direction:StreamDirection, stream_id: int=None):
         if stream_id is None:
             stream_id = self._quic.get_next_available_stream_id()
-            logger.debug(f"Initiating stream {stream_id} for {direction}")
+            logger.debug(f"QUIC initiating stream {stream_id} for {direction}")
         else:
-            logger.debug(f"Accepting stream {stream_id} for {direction}")
+            logger.debug(f"QUIC accepting stream {stream_id} for {direction}")
 
         self.streams[stream_id] = StreamCls(stream_id, connection=self, direction=direction)
         return self.streams[stream_id]
 
 
     def close_jam_stream(self, stream: Stream, reason:int=0):
-        logger.info(f"Closing JAM stream {stream.stream_type} {stream.stream_id} for {stream.direction}")
+        logger.info(f"QUIC closing JAM stream {stream.stream_type} {stream.stream_id} for {stream.direction}")
         self._quic.reset_stream(stream.stream_id, error_code=reason)
         del self.streams[stream.stream_id]
 
@@ -59,7 +59,7 @@ class JAMConnection(QuicConnectionProtocol):
 
 
     def connection_lost(self, exc):
-        logger.info("UDP transport closed:", exc)
+        logger.info("QUIC UDP transport closed:", exc)
         self.protocol.disconnect(self)
         super().connection_lost(exc)             # keeps aioquic tidy
 
@@ -79,9 +79,9 @@ class JAMConnection(QuicConnectionProtocol):
 
         if event and hasattr(event, "stream_id"):
             if event.stream_id != 0:
-                logger.debug(f'Stream {event.stream_id} received data {event}')
+                logger.debug(f'QUIC stream {event.stream_id} received data {event}')
         else:
-            logger.debug(f'Received non stream data {event}')
+            logger.debug(f'QUIC received non stream data {event}')
 
         if isinstance(event, HandshakeCompleted):
             #TODO:
@@ -103,10 +103,10 @@ class JAMConnection(QuicConnectionProtocol):
             stream_id = event.stream_id
             reset_code = event.error_code
 
-            logger.info(f'StreamReset {stream_id} {self.direction} code {reset_code}')
+            logger.info(f'QUIC StreamReset {stream_id} {self.direction} code {reset_code}')
 
             if stream_id not in self.streams:
-                raise Exception(f"Stream {stream_id} not available")
+                raise Exception(f"QUIC stream {stream_id} not available")
 
             self.streams[stream_id].reset(reset_code)
 
@@ -120,7 +120,7 @@ class JAMConnection(QuicConnectionProtocol):
                     stream_type = int(data[0])
                     stream_cls = StreamLookup.get(stream_type)
                     if stream_cls is None:
-                        raise Exception(f"Stream {stream_id} is not mapped")
+                        raise Exception(f"QUIC stream {stream_id} is not mapped")
 
                     stream_obj = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
 
@@ -140,8 +140,8 @@ class JAMConnection(QuicConnectionProtocol):
                 self.streams[stream_id].receive_data(data)
             except Exception as e:
                 #TODO: reset stream? return error?
-                logger.error(f"Received invalid message for stream {stream_id} ({self.streams[stream_id]}): {e}")
+                logger.error(f"JAMStream received invalid message for stream {stream_id} ({self.streams[stream_id]}): {e}")
 
         elif isinstance(event, ConnectionTerminated):
-            logger.info(f"Connection terminated with code {event.error_code}")
+            logger.info(f"QUIC connection terminated with code {event.error_code}")
             self.protocol.disconnect(self)
