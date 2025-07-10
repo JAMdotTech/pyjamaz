@@ -652,11 +652,9 @@ class PVMProgram(Serializable):
     @classmethod
     def from_serialized_bytes(cls, serialized_program: bytes, argument_contents: bytes, name: Optional[str]) -> Optional['PVMProgram']:
         """
-        GP-0.6.4-eq:A.35 (Y)
+        GP-0.6.6-eq:A.35 (Y)
         """
         try:
-            # with open(metadata.decode() + ".pvm", "wb") as f:
-            #     f.write(serialized_program)
 
             jam_bytes = JamBytes(serialized_program)
 

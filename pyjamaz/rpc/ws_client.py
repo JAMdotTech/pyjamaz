@@ -125,7 +125,7 @@ class WebsocketClient(RPCMethods):
         res = await self._send_and_wait("bestBlock", None)
         if not res:
             return None
-        res["header_hash"] = bytes(res["header_hash"])
+        res[0] = bytes(res[0])
         return res
 
     async def listServices(self) -> List[int]:

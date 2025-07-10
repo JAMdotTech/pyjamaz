@@ -303,28 +303,33 @@ class WorkPackage(Serializable):
 @dataclass
 class WorkExecResult(Serializable):
     """
-    GP-0.6.5-eq:11.7 (blackboard_J) | Work result output or error of the execution of the code in the refine stage. Either a byte
+    GP-0.6.6-eq:11.7 (blackboard_J) | Work result output or error of the execution of the code in the refine stage. Either a byte
     sequence in case it was successful or one of the possible errors
 
     Attributes
     ----------
     ok: Bytes
-        GP-0.5.0-eq:11.6 (blackboard_Y) | The index of a service whose state is to be altered and thus whose refine
+        GP-0.6.6-eq:11.6 (blackboard_Y) | The index of a service whose state is to be altered and thus whose refine
         code was already executed.
     out_of_gas: None
-        GP-0.5.0-eq:11.7 (sign_INFINITY) | Out of gas error.
+        GP-0.6.6-eq:11.7 (sign_INFINITY) | Out of gas error.
     panic: None
-        GP-0.5.0-eq:11.7 (sign_LIGHTNING) | Panic error.
+        GP-0.6.6-eq:11.7 (sign_LIGHTNING) | Panic error.
+    bad_exports: None
+        GP-0.6.6-eq:11.7 (sign_CIRCLED_CIRCLE) | Bad exports error.
+    digest_oversize: None
+        GP-0.6.6-eq:11.7 (sign_CIRCLED_DASH) | Digest oversize error.
     bad_code: None
-        GP-0.5.0-eq:11.7 (BAD) | Bad code error.
+        GP-0.6.6-eq:11.7 (BAD) | Bad code error.
     code_oversize: None
-        GP-0.5.0-eq:11.7 (BIG) | Code oversize error.
+        GP-0.6.6-eq:11.7 (BIG) | Code oversize error.
     """
     # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-oversize) don't match
     ok: bytes = field(default=None, metadata={'codec': Bytes})
     out_of_gas: bool = field(default=None, metadata={'codec': Null})
     panic: bool = field(default=None, metadata={'codec': Null})
     bad_exports: bool = field(default=None, metadata={'codec': Null})
+    digest_oversize: bool = field(default=None, metadata={'codec': Null})
     bad_code: bool = field(default=None, metadata={'codec': Null})
     code_oversize: bool = field(default=None, metadata={'codec': Null})
 

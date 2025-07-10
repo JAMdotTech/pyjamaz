@@ -4,8 +4,8 @@ from typing import List, Dict
 
 from pyjamaz.constants import PVM_MARSHALLING_OFFSET_ACCUMULATE, PVM_MARSHALLING_OFFSET_TRANSFER, \
     PVM_MARSHALLING_OFFSET_AUTH, PVM_MARSHALLING_OFFSET_REFINE
-from pyjamaz.exceptions import ProcessWorkpackageError, StateKeyNoResult
-from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
+from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE, MAXIMUM_SIZE_IS_AUTH_CODE
 from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage, WorkExecResult
 from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
     ServiceAccount, DeferredTransfer, ServicesState
@@ -289,7 +289,10 @@ def pvm_invoke_accumulate(
         serialized_program = preimage.serialized_program
         program_metadata = preimage.program_name
     except StateKeyNoResult:
-        # program not found
+        # Program not found
+        preimage_blob = None
+
+    if preimage_blob is None or len(preimage_blob) > MAXIMUM_SIZE_SERVICE_CODE:
         return PvmAccumulateOutput(
             state_context=state_context,
             deferred_transfers=[],
@@ -375,55 +378,53 @@ def pvm_invoke_on_transfer(
     """
 
     service_account = services_state.retrieve_service_account(service_id)
+    preimage_blob = service_account.preimages.get(service_account.code_hash)
     gas_used = 0
 
-    if len(deferred_transfers) > 0:
+    serialized_program = None
+    program_name = None
+
+    if preimage_blob is not None:
+        try:
+            preimage = Preimage.extract(preimage_blob)
+            serialized_program = preimage.serialized_program
+            program_name = preimage.program_name
+        except Exception:
+            pass
+
+    if serialized_program is not None and len(serialized_program) <= MAXIMUM_SIZE_SERVICE_CODE and len(deferred_transfers) > 0:
         logging.info(f'💸 Processing transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
 
         # Update balance
         service_account.balance += sum([t.amount for t in deferred_transfers])
 
-        serialized_program = None
-        program_name = None
+        argument_data = OnTransferPvmArguments(
+            timeslot=timeslot,
+            service_id=service_id,
+            deferred_transfer_count=len(deferred_transfers),
+        ).to_jam_bytes().to_bytes()
 
-        preimage_blob = service_account.preimages.get(service_account.code_hash)
-        if preimage_blob is not None:
-            try:
-                preimage = Preimage.extract(preimage_blob)
-                serialized_program = preimage.serialized_program
-                program_name = preimage.program_name
-            except Exception:
-                pass
-
-        if serialized_program:
-
-            argument_data = OnTransferPvmArguments(
-                timeslot=timeslot,
+        pvm_invocation = PVMInvocation(
+            invocation_context=OnTransferInvocationContext(
                 service_id=service_id,
-                deferred_transfer_count=len(deferred_transfers),
-            ).to_jam_bytes().to_bytes()
+                service_account=service_account,
+                services_state=services_state
+            ),
+            invocation_mutator=OnTransferInvocationMutator(deferred_transfers=deferred_transfers)
+        )
 
-            pvm_invocation = PVMInvocation(
-                invocation_context=OnTransferInvocationContext(
-                    service_id=service_id,
-                    service_account=service_account,
-                    services_state=services_state
-                ),
-                invocation_mutator=OnTransferInvocationMutator(deferred_transfers=deferred_transfers)
-            )
+        gas_limit = sum([t.gas_limit for t in deferred_transfers])
 
-            gas_limit = sum([t.gas_limit for t in deferred_transfers])
+        marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+            serialized_program=serialized_program,
+            start_offset=PVM_MARSHALLING_OFFSET_TRANSFER,
+            gas_limit=gas_limit,
+            argument_data=argument_data,
+            program_name=program_name
+        )
 
-            marshalling_output = pvm_invocation.pvm_invoke_marshalling(
-                serialized_program=serialized_program,
-                start_offset=PVM_MARSHALLING_OFFSET_TRANSFER,
-                gas_limit=gas_limit,
-                argument_data=argument_data,
-                program_name=program_name
-            )
-
-            service_account = marshalling_output.context.service_account
-            gas_used = marshalling_output.gas_used
+        service_account = marshalling_output.context.service_account
+        gas_used = marshalling_output.gas_used
 
     return PvmOnTransferOutput(
         service_account=service_account,
@@ -504,7 +505,16 @@ def pvm_invoke_is_authorized(
     """
 
     if work_package.authorization_code is None:
-        raise ProcessWorkpackageError('work_package.authorization_code is not set')
+        return PvmIsAuthorizedOutput(
+            work_exec_result=WorkExecResult(bad_code=True),
+            gas_used=0
+        )
+
+    elif len(work_package.authorization_code) > MAXIMUM_SIZE_IS_AUTH_CODE:
+        return PvmIsAuthorizedOutput(
+            work_exec_result=WorkExecResult(code_oversize=True),
+            gas_used=0
+        )
 
     argument_data = IsAuthorizedPvmArguments(
         core_index=core_index
@@ -530,7 +540,7 @@ def pvm_invoke_is_authorized(
     logging.debug(f'PVM is-auth result: exit={marshalling_output.exit_condition.reason} v={marshalling_output.exit_condition.value}')
 
     return PvmIsAuthorizedOutput(
-        exit_condition=marshalling_output.exit_condition,
+        work_exec_result=WorkExecResult.from_exit_condition(marshalling_output.exit_condition),
         gas_used=marshalling_output.gas_used
     )
 

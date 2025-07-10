@@ -32,15 +32,15 @@ class PvmOnTransferOutput:
 
 @dataclass
 class PvmIsAuthorizedOutput:
-    exit_condition: ExitCondition
+    work_exec_result: WorkExecResult
     gas_used: int
 
 
 @dataclass
 class PvmRefineOutput:
-    work_exec_result: WorkExecResult
-    export_segments: List[bytes]                   # GP-0.6.4-eq:B.6 [blackboard_G]
-    gas_used: int
+    work_exec_result: WorkExecResult # r
+    export_segments: List[bytes]     # bold_e GP-0.6.6-eq:B.6 [blackboard_G]
+    gas_used: int                    # u
 
 
 @dataclass
