@@ -270,7 +270,7 @@ class JAMNPS(ProtocolType):
             logger.debug(f"CE128 sending {len(blocks)} blocks")
             stream.conn.send(
                 stream.stream_id,
-                stream.create_message(MsgCE128BlockRequestResponse(blocks).to_jam_bytes().to_bytes(), add_stream_type=True),
+                stream.create_message(MsgCE128BlockRequestResponse(blocks=blocks).to_jam_bytes().to_bytes(), add_stream_type=True),
                 end_stream=True
             )
 
