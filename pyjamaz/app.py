@@ -123,22 +123,34 @@ class PyjamazApp:
         await self.process_import_queue()
 
 
-    async def import_queue_add(self, block):
+    async def import_queue_add_blocks(self, blocks: List[Block], process: bool=False, on_success: MESSAGE_TYPES=None, on_failure: MESSAGE_TYPES=None):
         async with self._import_queue_lock:
-            self._import_queue.append(block)
+            for block in blocks:
+                self._import_queue.append(block)
+
+        if process:
+            await self.process_import_queue(on_success=on_success, on_failure=on_failure)
 
 
-    async def process_import_queue(self):
+    async def process_import_queue(self, on_success:MESSAGE_TYPES=None, on_failure:MESSAGE_TYPES=None):
         async with self._import_queue_lock:
             sorted_blocks = sorted(self._import_queue, key=lambda x: x.header.timeslot)
             self._import_queue.clear()
 
-        for block in sorted_blocks:
-            if self.state.timeslot.number >= block.header.timeslot:
-                raise Exception(f" Import queue timeslot mismatch: {self.state.timeslot.number} >= {block.header.timeslot}")
+        try:
+            for block in sorted_blocks:
+                if self.state.timeslot.number >= block.header.timeslot:
+                    raise Exception(f" Import queue timeslot mismatch: {self.state.timeslot.number} >= {block.header.timeslot}")
 
-            await self.import_block(block)
-            logging.debug(f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')
+                await self.import_block(block)
+                logging.debug(f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')
+
+            if on_success:
+                await self.pubsub.publish(PubSubSignal(topic=on_success, data=None))
+
+        except Exception as e:
+            await self.pubsub.publish(PubSubSignal(topic=on_failure, data=None))
+            logging.error(f"Error processing import queue: {e}")
 
 
     async def initialize(self):
@@ -620,6 +632,7 @@ class PyjamazApp:
 
     async def store_block(self, block: Block):
         # Store block in DB
+        # TODO: should include hash in case of forks
         self.block_db.put(
             b'block:' + block.header.timeslot.to_bytes(length=4, byteorder='little'), block.to_jam_bytes().to_bytes()
         )
@@ -634,6 +647,10 @@ class PyjamazApp:
         self.block_db.put(
             b'block_number:' + block.header.hash, block.header.timeslot.to_bytes(length=4, byteorder='little')
         )
+        self.block_db.put(
+            b'block_child:' + block.header.parent, block.header.hash
+        )
+
 
     def retrieve_block(self, timeslot: int) -> Optional[Block]:
         block_data = self.block_db.get(b'block:' + timeslot.to_bytes(length=4, byteorder='little'))
@@ -654,6 +671,9 @@ class PyjamazApp:
 
     def retrieve_block_hash(self, timeslot: int) -> Optional[bytes]:
         return self.block_db.get(b'block_hash:' + timeslot.to_bytes(length=4, byteorder='little'))
+
+    def retrieve_block_child_hash(self, block_hash: bytes) -> Optional[bytes]:
+        return self.block_db.get(b'block_child:' + block_hash)
 
     def should_produce_block(self, timeslot: int, safrole_state: SafroleState) -> bool:
         slot_phase_index = timeslot % EPOCH_TIMESLOTS

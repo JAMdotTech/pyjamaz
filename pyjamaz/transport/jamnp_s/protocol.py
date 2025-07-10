@@ -2,7 +2,7 @@ import asyncio
 import logging
 import ssl
 
-from typing import Dict
+from typing import Dict, List
 from typing import Optional, cast
 
 from aioquic.asyncio import serve
@@ -12,7 +12,8 @@ from aioquic.tls import SessionTicket
 from aioquic.asyncio.client import connect
 from ulid import ULID
 
-from pyjamaz.models.block import Block
+from pyjamaz.constants import MESSAGE_TYPES
+from pyjamaz.models.block import Block, Header
 from pyjamaz.transport.jamnp_s.stream_base import StreamDirection
 
 from pyjamaz.transport.types import ProtocolType
@@ -77,6 +78,9 @@ class JAMNPS(ProtocolType):
         bl_hash = app.retrieve_block_hash(0).hex()
         if bl_hash.startswith('0x'): bl_hash = bl_hash[2:]
         bl_hash = bl_hash[:8]
+
+        self.pubsub.subscribe(MESSAGE_TYPES.CE128_SUCCESS, self.ce128_processed_block_request)
+        self.pubsub.subscribe(MESSAGE_TYPES.CE128_FAILURE, self.ce128_processed_block_request)
 
         self.protocol_name = JAMNPS.PROTOCOL_NAME.format(bl_hash)
         self.session_ticket_store = SessionTicketStore()
@@ -185,9 +189,17 @@ class JAMNPS(ProtocolType):
             logger.debug(f"Received newer block from handshake: {msg.header_hash} -> initiate CE128RequestBlocks")
             self.state_requesting_blocks = True
             #self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(msg.header_hash, MsgCE128BlockRequestDirection.DESC.value, 1)) #TODO: max_blocks=1 for now, >1 results in error from node?
-            slot = self.app.state.timeslot.number
-            bl_hash = self.app.retrieve_block_hash(slot)
-            self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(bl_hash, MsgCE128BlockRequestDirection.ASC.value, 1)) #TODO: max_blocks=1 for now, >1 results in error from node?
+            #slot = self.app.state.timeslot.number
+            #bl_hash = self.app.retrieve_block_hash(slot)
+            # TODO: max_blocks could be derived using current block timeslot and received blockhash timeslot?
+            self.ce128_initiate_block_request(
+                conn,
+                MsgCE128BlockRequest(
+                    msg.header_hash,
+                    MsgCE128BlockRequestDirection.DESC.value,
+                    10
+                )
+            )
 
 
     def up0_received_announcement(self, conn: JAMConnection, msg: MsgUP0Announcement):
@@ -209,7 +221,15 @@ class JAMNPS(ProtocolType):
         if not block:
             logger.debug(f"Received new block announcement from up0: {msg.header.hash}")
             self.state_requesting_blocks = True
-            self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(msg.header.hash, MsgCE128BlockRequestDirection.ASC.value, 1)) #TODO: max_blocks=1 for now, >1 results in error from node?
+            # TODO: max_blocks could be derived using current block timeslot and received blockhash timeslot?
+            self.ce128_initiate_block_request(
+                conn,
+                MsgCE128BlockRequest(
+                    msg.header.hash,
+                    MsgCE128BlockRequestDirection.DESC.value,
+                    10
+                )
+            )
 
 
     async def up0_broadcast_block(self, block: Block):
@@ -231,48 +251,88 @@ class JAMNPS(ProtocolType):
 
 
     def ce128_initiate_block_request(self, conn: JAMConnection, req: MsgCE128BlockRequest):
+        #TODO: missch een batch param meegeven, zodat we een grotere reeks kunnen binnenhalen maar batchen...
         stream = conn.open_jam_stream(StreamBlockRequest, direction=StreamDirection.initiator)
-        logger.debug(f"CE128 initiating block request on streamid: {stream.stream_id} header hash: {req.header_hash} direction: {req.direction}, max_block: {req.max_blocks}")
+        logger.debug(f"CE128 initiating block request on stream id: {stream.stream_id} direction: {req.direction}, max_block: {req.max_blocks} header hash: {req.header_hash}")
         conn.send(
             stream.stream_id,
             stream.create_message(req.to_jam_bytes().to_bytes(), add_stream_type=True),
-            #end_stream=True
+            end_stream=True
         )
 
 
-    def ce128_received_block_request(self, conn: JAMConnection, block: Block):
-        logger.debug(f"CE128 received block request block")
-        asyncio.create_task(self.app.import_queue_add(block))
-        #TODO: check?: if block.header.parent == bytes(32) or self.retrieve_block_by_hash(block.header.parent):
-        self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(block.header.hash, MsgCE128BlockRequestDirection.ASC.value, 1))  # TODO: max_blocks=1 for now, >1 results in error from node?
-
-
-    def ce128_finished_block_request(self):
-        self.state_requesting_blocks = False
-        logger.debug("Finished block request, start parsing import queue")
-        asyncio.create_task(self.app.process_import_queue())
+    def ce128_received_block_request(self, stream: StreamBlockRequest, req: MsgCE128BlockRequestResponse):
+        blocks = req.blocks
+        logger.debug(f"CE128 received block request (parsing {len(blocks)} blocks)")
+        asyncio.create_task(
+            self.app.import_queue_add_blocks(
+                blocks,
+                process=True,
+                on_success=MESSAGE_TYPES.CE128_SUCCESS,
+                on_failure=MESSAGE_TYPES.CE128_FAILURE
+            )
+        )
 
 
     def ce128_send_block_request(self, stream: StreamBlockRequest, block_req: MsgCE128BlockRequest):
-        blocks = []
-        direction = block_req.direction * -1
-        block = self.app.retrieve_block_by_hash(block_req.header_hash)
-        if block:
-            blocks.append(block)
+        block:Block = None
+        blocks:List[Block] = []
+        first_block_hash = bytes(32)
+        last_block_hash = self.app.retrieve_block_hash(self.app.state.timeslot.number)
+        #TODO: check <=0 -> bad request
+        block_header:Header = self.app.retrieve_block_header(block_req.header_hash)
+        next_hash = block_req.header_hash
+
+        if block_header and block_req.max_blocks > 0:
+            #direction = 1 + block_req.direction * -2
 
             for x in range(block_req.max_blocks):
-                block = self.app.retrieve_block(block.header.timeslot+direction)
-                if block:
+
+                if block_req.direction == MsgCE128BlockRequestDirection.ASC.value:
+                    # Note: exclusive request block hash
+                    block_child_hash: bytes = self.app.retrieve_block_child_hash(next_hash)
+                    block = self.app.retrieve_block_by_hash(block_child_hash)
+                    if block: next_hash = block.header.hash
+                elif block_req.direction == MsgCE128BlockRequestDirection.DESC.value:
+                    # Note: inclusive request block hash
+                    block = self.app.retrieve_block_by_hash(next_hash)
+                    if block: next_hash = block.header.parent
+                else:
+                    # TODO: error
+                    raise Exception("HMmmmmmz?????")
+
+                if block and block.header.timeslot > 0:
                     blocks.append(block)
                 else:
                     break
 
-            logger.debug(f"CE128 sending {len(blocks)} blocks")
+        logger.debug(f"CE128 sending {len(blocks)} blocks (direction={block_req.direction} max blocks={block_req.max_blocks})")
+
+        if blocks:
             stream.conn.send(
                 stream.stream_id,
-                #stream.create_message(MsgCE128BlockRequestResponse(blocks=blocks).to_jam_bytes().to_bytes(), add_stream_type=True),
                 stream.create_message(MsgCE128BlockRequestResponse(blocks=blocks).to_jam_bytes().to_bytes()),
                 end_stream=True
             )
 
-        stream.acceptor_reset(1)
+        #TODO: check ook direction!!!
+        if not block or block_req.header_hash == last_block_hash or block.header.timeslot == 0:
+            #TODO: PolkaJAM lijkt in dit geval een reset te sturen????
+            #TODO: ook op max_blocks checken -> bijhouden op de stream?
+            logger.debug(f"CE128 block request finished")
+            stream.acceptor_reset(1) #TODO: REVERSE ENGINEER DEZE CODES
+
+
+    def ce128_abort_block_request(self):
+        logger.debug(f"Finished block request, start parsing import queue {len(self.app._import_queue)}")
+        # Note: could happen during a block_request "session"
+        asyncio.create_task(
+            self.app.process_import_queue(
+                on_success=MESSAGE_TYPES.CE128_SUCCESS,
+                on_failure=MESSAGE_TYPES.CE128_FAILURE
+            )
+        )
+
+
+    async def ce128_processed_block_request(self, *args, **kwargs):
+        self.state_requesting_blocks = False

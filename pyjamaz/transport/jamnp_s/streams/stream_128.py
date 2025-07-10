@@ -2,8 +2,7 @@ import logging
 
 from jamcodec.base import JamBytes
 
-from pyjamaz.models.block import Block
-from pyjamaz.transport.jamnp_s.message_types import MsgCE128BlockRequest
+from pyjamaz.transport.jamnp_s.message_types import MsgCE128BlockRequest, MsgCE128BlockRequestResponse
 from pyjamaz.transport.jamnp_s.stream_base import Stream, StreamType, StreamDirection
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
@@ -19,7 +18,7 @@ class StreamBlockRequest(Stream):
 
     def initiator_reset(self, reset_code: int):
         logger.debug(f"CE128 received reset code: {reset_code}")
-        self.protocol.ce128_finished_block_request()
+        self.protocol.ce128_abort_block_request()
         super().initiator_reset(reset_code)
 
 
@@ -30,10 +29,10 @@ class StreamBlockRequest(Stream):
             self.initiator_reset(reset_code=0)
             return
 
-        block = Block.from_jam_bytes(JamBytes(data))
-        block_hash = block.header.hash
-        logger.debug(f"CE128 initiated stream {self.stream_id} parsed block: {block_hash.hex()} parent:{block.header.parent.hex()}")
-        self.protocol.ce128_received_block_request(self.conn, block)
+        logger.debug(f"CE128 initiated stream {self.stream_id} received block request response: {len(data)} bytes")
+        req = MsgCE128BlockRequestResponse.from_jam_bytes(JamBytes(data))
+        self.protocol.ce128_received_block_request(self, req)
+
 
     def acceptor_message(self, data: bytes):
         logger.debug(f"CE128 acceptor stream {self.stream_id} received block request")

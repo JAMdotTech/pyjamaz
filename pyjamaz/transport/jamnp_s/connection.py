@@ -106,7 +106,9 @@ class JAMConnection(QuicConnectionProtocol):
             logger.info(f'QUIC StreamReset {stream_id} {self.direction} code {reset_code}')
 
             if stream_id not in self.streams:
-                raise Exception(f"QUIC stream {stream_id} not available")
+                #raise Exception(f"QUIC stream {stream_id} not available")
+                logger.debug(f"QUIC stream {stream_id} already closed")
+                return
 
             self.streams[stream_id].reset(reset_code)
 
@@ -136,11 +138,12 @@ class JAMConnection(QuicConnectionProtocol):
                     #TODO: of idem? kan een accepting connection bv ook een block request terug sturen?
                     raise Exception(f"Received data from unknown stream id: {stream_id}")
 
-            try:
-                self.streams[stream_id].receive_data(data)
-            except Exception as e:
-                #TODO: reset stream? return error?
-                logger.error(f"JAMStream received invalid message for stream {stream_id} ({self.streams[stream_id]}): {e}")
+            self.streams[stream_id].receive_data(data)
+            # try:
+            #     self.streams[stream_id].receive_data(data)
+            # except Exception as e:
+            #     #TODO: reset stream? return error?
+            #     logger.error(f"JAMStream received invalid message for stream {stream_id} ({self.streams[stream_id]}): {e}")
 
         elif isinstance(event, ConnectionTerminated):
             logger.info(f"QUIC connection terminated with code {event.error_code}")
