@@ -2,15 +2,20 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install project requirements
 COPY requirements.txt .
-
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Copy the rest of your application code
+# Copy source code
 COPY ./pyjamaz ./pyjamaz
 
+# Compile app and remove source code
+RUN python -m compileall -b ./pyjamaz && \
+    find ./pyjamaz -name "*.py" -type f -delete
+
+ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/app"
 
-ENTRYPOINT ["python", "pyjamaz/cli.py"]
+ENTRYPOINT ["python", "pyjamaz/cli.pyc"]

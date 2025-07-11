@@ -26,6 +26,11 @@ docker compose -p testnet up -d --build --remove-orphans
 docker compose -p testnet down --remove-orphans
 ```
 
+### Start fuzzer target from Docker image
+```bash
+docker build . -t jamdottech/pyjamaz
+docker run -it jamdottech/pyjamaz fuzzer_target --seed 0x0000000000000000000000000000000000000000000000000000000000000000  --socket_path /tmp/jam_target.sock --force-overwrite
+```
 
 ## Using the CLI
 
