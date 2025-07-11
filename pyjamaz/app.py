@@ -149,7 +149,8 @@ class PyjamazApp:
                 await self.pubsub.publish(PubSubSignal(topic=on_success, data=None))
 
         except Exception as e:
-            await self.pubsub.publish(PubSubSignal(topic=on_failure, data=None))
+            if on_failure:
+                await self.pubsub.publish(PubSubSignal(topic=on_failure, data=None))
             logging.error(f"Error processing import queue: {e}")
 
 

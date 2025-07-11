@@ -273,8 +273,8 @@ async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db
                     try:
                         #await nps_protocol.connect(conn["addr"], conn["port"])
                         #await nps_protocol.connect("54.39.18.64", 40000)
-                        #await nps_protocol.connect("localhost", conn["port"])
-                        await nps_protocol.connect("127.0.0.1", 40000) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        await nps_protocol.connect("localhost", conn["port"])
+                        #await nps_protocol.connect("127.0.0.1", 40000) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     except Exception as exc:
                         traceback.print_exc()
                 else:

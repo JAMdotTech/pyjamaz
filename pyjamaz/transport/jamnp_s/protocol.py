@@ -27,7 +27,7 @@ logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
 #TODO: typings
-def wrap_protocol(protocol, quic_connection, direction, host, port):
+def create_jam_connection(protocol, quic_connection, direction, host, port):
     def create_connection(*args, **kwargs):
         conn = quic_connection(*args, **kwargs)
         conn.protocol = protocol
@@ -79,6 +79,11 @@ class JAMNPS(ProtocolType):
         if bl_hash.startswith('0x'): bl_hash = bl_hash[2:]
         bl_hash = bl_hash[:8]
 
+        #TODO:
+        # callbacks like ce128_processed_block_request could be created using closure functions
+        # (def create_ce128_processed_block_request returning the callback),
+        # to create a local state which holds context like which connection/node initiated this event, so we can mark
+        # malicious nodes etc...
         self.pubsub.subscribe(MESSAGE_TYPES.CE128_SUCCESS, self.ce128_processed_block_request)
         self.pubsub.subscribe(MESSAGE_TYPES.CE128_FAILURE, self.ce128_processed_block_request)
 
@@ -115,7 +120,7 @@ class JAMNPS(ProtocolType):
             self.host,
             self.port,
             configuration=server_conf,
-            create_protocol=wrap_protocol(self, JAMConnection, StreamDirection.acceptor, self.host, self.port),
+            create_protocol=create_jam_connection(self, JAMConnection, StreamDirection.acceptor, self.host, self.port),
             #session_ticket_fetcher=self.session_ticket_store.pop,
             #session_ticket_handler=self.session_ticket_store.add,
             retry=True,
@@ -139,7 +144,7 @@ class JAMNPS(ProtocolType):
                     port,
                     configuration=configuration,
                     # session_ticket_handler=save_session_ticket,
-                    create_protocol=wrap_protocol(self, JAMConnection, StreamDirection.initiator, host, port),
+                    create_protocol=create_jam_connection(self, JAMConnection, StreamDirection.initiator, host, port),
             ) as client:
                 client = cast(JAMConnection, client)
                 await client.wait_closed()
@@ -188,15 +193,13 @@ class JAMNPS(ProtocolType):
         if not block:
             logger.debug(f"Received newer block from handshake: {msg.header_hash} -> initiate CE128RequestBlocks")
             self.state_requesting_blocks = True
-            #self.ce128_initiate_block_request(conn, MsgCE128BlockRequest(msg.header_hash, MsgCE128BlockRequestDirection.DESC.value, 1)) #TODO: max_blocks=1 for now, >1 results in error from node?
-            #slot = self.app.state.timeslot.number
-            #bl_hash = self.app.retrieve_block_hash(slot)
+            curr_hash = self.app.retrieve_block_hash(self.app.state.timeslot.number)
             # TODO: max_blocks could be derived using current block timeslot and received blockhash timeslot?
             self.ce128_initiate_block_request(
                 conn,
                 MsgCE128BlockRequest(
-                    msg.header_hash,
-                    MsgCE128BlockRequestDirection.DESC.value,
+                    curr_hash, #msg.header_hash,
+                    MsgCE128BlockRequestDirection.ASC.value, #MsgCE128BlockRequestDirection.DESC.value,
                     10
                 )
             )
@@ -221,12 +224,13 @@ class JAMNPS(ProtocolType):
         if not block:
             logger.debug(f"Received new block announcement from up0: {msg.header.hash}")
             self.state_requesting_blocks = True
+            curr_hash = self.app.retrieve_block_hash(self.app.state.timeslot.number)
             # TODO: max_blocks could be derived using current block timeslot and received blockhash timeslot?
             self.ce128_initiate_block_request(
                 conn,
                 MsgCE128BlockRequest(
-                    msg.header.hash,
-                    MsgCE128BlockRequestDirection.DESC.value,
+                    curr_hash, #msg.header.hash,
+                    MsgCE128BlockRequestDirection.ASC.value, #MsgCE128BlockRequestDirection.DESC.value,
                     10
                 )
             )
@@ -291,20 +295,23 @@ class JAMNPS(ProtocolType):
                 if block_req.direction == MsgCE128BlockRequestDirection.ASC.value:
                     # Note: exclusive request block hash
                     block_child_hash: bytes = self.app.retrieve_block_child_hash(next_hash)
-                    block = self.app.retrieve_block_by_hash(block_child_hash)
-                    if block: next_hash = block.header.hash
+                    if block_child_hash:
+                        block = self.app.retrieve_block_by_hash(block_child_hash)
+                        next_hash = block.header.hash
+                    else:
+                        break
                 elif block_req.direction == MsgCE128BlockRequestDirection.DESC.value:
                     # Note: inclusive request block hash
                     block = self.app.retrieve_block_by_hash(next_hash)
-                    if block: next_hash = block.header.parent
+                    if not block or block.header.timeslot == 0 or block.header.hash == bytes(32):
+                        break
+
+                    next_hash = block.header.parent
                 else:
                     # TODO: error
                     raise Exception("HMmmmmmz?????")
 
-                if block and block.header.timeslot > 0:
-                    blocks.append(block)
-                else:
-                    break
+                blocks.append(block)
 
         logger.debug(f"CE128 sending {len(blocks)} blocks (direction={block_req.direction} max blocks={block_req.max_blocks})")
 

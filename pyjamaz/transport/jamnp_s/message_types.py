@@ -2,11 +2,43 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional, Dict
 
+from jamcodec.base import JamCodecTypeDef, JamBytes, JamCodecType
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, H256, U8, VarInt64, Vec, Option, Array, Map, H512
+from jamcodec.types import U32, H256, U8, VarInt64, Vec, Option, Array, Map, H512, VecType
 
 from pyjamaz.models.block import Header, Guarantee, Block
 from pyjamaz.models.common import WorkPackage
+
+
+
+class ImplicitVec(Vec):
+
+    def encode(self, value: list) -> JamBytes:
+        # Encode length of Vec
+        data = JamBytes(bytes())
+
+        for idx, item in enumerate(value):
+            if type(item) is JamBytes:
+                data += item
+            else:
+                data += self.type_def.encode(item)
+                if item and issubclass(item.__class__, JamCodecType):
+                    value[idx] = item.serialize()
+
+        return data
+
+    def decode(self, data: JamBytes) -> list:
+        value = []
+
+        while True:
+            obj = self.type_def.new()
+            obj.decode(data)
+            value.append(obj)
+
+            if data.get_remaining_length() == 0:
+                break
+
+        return value
 
 
 @dataclass
@@ -43,7 +75,7 @@ class MsgCE128BlockRequest(Serializable):
 
 @dataclass
 class MsgCE128BlockRequestResponse(Serializable):
-    blocks: List[Block] = field(metadata={'codec': Vec(Block.to_codec_def())})
+    blocks: List[Block] = field(metadata={'codec': ImplicitVec(Block.to_codec_def())})
 
 
 @dataclass
@@ -118,7 +150,7 @@ class MsgCE135GuaranteedWorkReport(Guarantee):
 #
 # @dataclass
 # class Preimage(Serializable):
-#     bytes_: bytes = field(metadata={'codec': Vec(U8)})
+#     bytes_: bytes = field(metadata={'codec': ImplicitVec(U8)})
 #
 # # ───────────────────────── CE-137 / 138 / 139 / 140 ───────────
 # @dataclass
@@ -131,12 +163,12 @@ class MsgCE135GuaranteedWorkReport(Guarantee):
 #     erasure_root: bytes = field(metadata={'codec': H256})
 #     shard_index:  int   = field(metadata={'codec': U32})
 #     segment_indices: List[int] = field(
-#         metadata={'codec': Vec(U16)}                          # u16 each
+#         metadata={'codec': ImplicitVec(U16)}                          # u16 each
 #     )
 #
 # @dataclass
 # class JustificationNode(Serializable):        # 0,1,2 tagged union – bytestream
-#     raw: bytes = field(metadata={'codec': Vec(U8)})
+#     raw: bytes = field(metadata={'codec': ImplicitVec(U8)})
 #
 # # reply payloads for 137-140 are raw blobs; dataclasses optional
 #
@@ -144,7 +176,7 @@ class MsgCE135GuaranteedWorkReport(Guarantee):
 # @dataclass
 # class Assurance(Serializable):
 #     header_hash: bytes = field(metadata={'codec': H256})   # anchor
-#     bitfield:    bytes = field(metadata={'codec': Vec(U8)})  # len = ceil(C/8)
+#     bitfield:    bytes = field(metadata={'codec': ImplicitVec(U8)})  # len = ceil(C/8)
 #     signature:   bytes = field(metadata={'codec': Array(U8, 64)})
 #
 # # ───────────────────────── CE-142 ──────────────────────────────
@@ -163,7 +195,7 @@ class MsgCE135GuaranteedWorkReport(Guarantee):
 # @dataclass
 # class NoShow(Serializable):
 #     validator_index: int      = field(metadata={'codec': U32})
-#     announcement:    bytes    = field(metadata={'codec': Vec(U8)})  # raw bytes
+#     announcement:    bytes    = field(metadata={'codec': ImplicitVec(U8)})  # raw bytes
 #
 # @dataclass
 # class TrancheEvidenceFirst(Serializable):
@@ -172,15 +204,15 @@ class MsgCE135GuaranteedWorkReport(Guarantee):
 # @dataclass
 # class TrancheEvidenceSubsequent(Serializable):
 #     signature: bytes            = field(metadata={'codec': Array(U8, 96)})
-#     no_shows:  List[NoShow]     = field(metadata={'codec': Vec(NoShow.to_codec_def())})
+#     no_shows:  List[NoShow]     = field(metadata={'codec': ImplicitVec(NoShow.to_codec_def())})
 #
 # @dataclass
 # class AuditAnnouncement(Serializable):
 #     header_hash: bytes                 = field(metadata={'codec': H256})
 #     tranche:     int                   = field(metadata={'codec': U8})
-#     announcement: List[CoreWRPair]     = field(metadata={'codec': Vec(CoreWRPair.to_codec_def())})
+#     announcement: List[CoreWRPair]     = field(metadata={'codec': ImplicitVec(CoreWRPair.to_codec_def())})
 #     evidence: bytes = field(           # discriminated union; raw bytes easiest
-#         metadata={'codec': Vec(U8)}
+#         metadata={'codec': ImplicitVec(U8)}
 #     )
 #
 # # ───────────────────────── CE-145 ──────────────────────────────
