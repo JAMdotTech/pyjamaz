@@ -32,7 +32,7 @@ def work_result_computation(
 
     refine_outputs = []
 
-    total_digest_size = 0
+    total_digest_size = len(auth_output.work_exec_result.ok)
 
     for j in range(len(work_package.items)):
 

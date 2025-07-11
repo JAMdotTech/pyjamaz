@@ -430,6 +430,7 @@ def hc_expunge(
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
+    # TODO not idiomatic -> convert to if registers[7] not in m_e.inner_pvm_lookup
     if not registers[7] in m_e.inner_pvm_lookup:
         invocation_output.registers[7] = HostCallResult.WHO.value
     else:
