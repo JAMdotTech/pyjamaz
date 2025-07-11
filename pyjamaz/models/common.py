@@ -10,6 +10,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String
 from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.merkle import WellBalancedMerkleTree
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 
 if typing.TYPE_CHECKING:
@@ -176,14 +177,14 @@ class ImportSegment(Serializable):
 @dataclass
 class WorkItem(Serializable):
     """
-    GP-0.6.4-eq:14.3 (blackboard_I) | Work item.
+    GP-0.6.6-eq:14.3 (blackboard_I) | Work item.
 
     Attributes
     ----------
     service: U32
         GP-0.6.4-eq:14.3 (s) | The index of a service to which it relates.
     code_hash: H256
-        GP-0.6.4-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
+        GP-0.6.4-eq:14.3 (h) | The hash of the code  of the service at the time of being reported.
     payload: Bytes
         GP-0.6.4-eq:14.3 (bold_y) | A payload blob.
     refine_gas_limit: U64
@@ -302,28 +303,33 @@ class WorkPackage(Serializable):
 @dataclass
 class WorkExecResult(Serializable):
     """
-    GP-0.6.5-eq:11.7 (blackboard_J) | Work result output or error of the execution of the code in the refine stage. Either a byte
+    GP-0.6.6-eq:11.7 (blackboard_J) | Work result output or error of the execution of the code in the refine stage. Either a byte
     sequence in case it was successful or one of the possible errors
 
     Attributes
     ----------
     ok: Bytes
-        GP-0.5.0-eq:11.6 (blackboard_Y) | The index of a service whose state is to be altered and thus whose refine
+        GP-0.6.6-eq:11.6 (blackboard_Y) | The index of a service whose state is to be altered and thus whose refine
         code was already executed.
     out_of_gas: None
-        GP-0.5.0-eq:11.7 (sign_INFINITY) | Out of gas error.
+        GP-0.6.6-eq:11.7 (sign_INFINITY) | Out of gas error.
     panic: None
-        GP-0.5.0-eq:11.7 (sign_LIGHTNING) | Panic error.
+        GP-0.6.6-eq:11.7 (sign_LIGHTNING) | Panic error.
+    bad_exports: None
+        GP-0.6.6-eq:11.7 (sign_CIRCLED_CIRCLE) | Bad exports error.
+    digest_oversize: None
+        GP-0.6.6-eq:11.7 (sign_CIRCLED_DASH) | Digest oversize error.
     bad_code: None
-        GP-0.5.0-eq:11.7 (BAD) | Bad code error.
+        GP-0.6.6-eq:11.7 (BAD) | Bad code error.
     code_oversize: None
-        GP-0.5.0-eq:11.7 (BIG) | Code oversize error.
+        GP-0.6.6-eq:11.7 (BIG) | Code oversize error.
     """
     # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-oversize) don't match
     ok: bytes = field(default=None, metadata={'codec': Bytes})
     out_of_gas: bool = field(default=None, metadata={'codec': Null})
     panic: bool = field(default=None, metadata={'codec': Null})
     bad_exports: bool = field(default=None, metadata={'codec': Null})
+    digest_oversize: bool = field(default=None, metadata={'codec': Null})
     bad_code: bool = field(default=None, metadata={'codec': Null})
     code_oversize: bool = field(default=None, metadata={'codec': Null})
 
@@ -427,7 +433,7 @@ class WorkDigest(Serializable):
 @dataclass
 class WorkPackageSpec(Serializable):
     """
-    GP-0.5.0-eq:11.5 (blackboard_S) | Availability specification are used to ensure correct reconstruction and auditing
+    GP-0.6.6-eq:11.5 (blackboard_S) | Availability specifications are used to ensure correct reconstruction and auditing
     the purported ramifications of any reported work-package.
 
     Attributes
@@ -448,6 +454,26 @@ class WorkPackageSpec(Serializable):
     erasure_root: bytes = field(metadata={'codec': H256})
     exports_root: bytes = field(metadata={'codec': H256})
     exports_count: int = field(metadata={'codec': U16})
+
+    @classmethod
+    def create_from_work_package(cls,
+                                 work_package: WorkPackage, extrinsic_data: List[bytes], imported_segments: List[bytes],
+                                 justification_data: List[bytes], exported_segments: List[bytes],
+                                 ) -> "WorkPackageSpec":
+        """
+        GP-0.6.6-eq:14.16 function_A | creates an availability specifier from a workpackage
+        # TODO finish implementation
+        """
+        # serialized_auditable_work_package = work_package.serialize_to_auditable()
+
+        return WorkPackageSpec(
+            hash=work_package.hash(),
+            length=work_package.to_jam_bytes().length,
+            erasure_root=bytes(32),
+            exports_root=WellBalancedMerkleTree(exported_segments).root(), # TODO replace with ConstantDepthMerkleTree
+            exports_count=len(exported_segments),
+        )
+
 
 
 @dataclass
@@ -521,7 +547,7 @@ class TicketBody(Serializable):
 @dataclass
 class AccumulationOperand(Serializable):
     """
-    GP-0.6.5-eq:12.19 (blackboard_O) | Operand to the PVM accumulation function
+    GP-0.6.6-eq:12.19 (blackboard_O) | Operand to the PVM accumulation function
     """
     # h
     work_report_hash: bytes = field(metadata={'codec': H256})
@@ -529,31 +555,12 @@ class AccumulationOperand(Serializable):
     work_report_exports_root: bytes = field(metadata={'codec': H256})
     # a
     work_report_authorizer_hash: bytes = field(metadata={'codec': H256})
-    # o
-    work_report_auth_output: bytes = field(metadata={'codec': Bytes})
     # y
     work_result_payload_hash: bytes = field(metadata={'codec': H256})
     # g
     work_result_gas_limit: int = field(metadata={'codec': VarInt64})
     # d
     work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
+    # o
+    work_report_auth_output: bytes = field(metadata={'codec': Bytes})
 
-# @dataclass
-# class AccumulationOperand(Serializable):
-#     """
-#     GP-0.6.6-eq:12.19 (blackboard_O) | Operand to the PVM accumulation function
-#     """
-#     # h
-#     work_report_hash: bytes = field(metadata={'codec': H256})
-#     # e
-#     work_report_exports_root: bytes = field(metadata={'codec': H256})
-#     # a
-#     work_report_authorizer_hash: bytes = field(metadata={'codec': H256})
-#     # y
-#     work_result_payload_hash: bytes = field(metadata={'codec': H256})
-#     # g
-#     work_result_gas_limit: int = field(metadata={'codec': VarInt64})
-#     # d
-#     work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
-#     # o
-#     work_report_auth_output: bytes = field(metadata={'codec': Bytes})

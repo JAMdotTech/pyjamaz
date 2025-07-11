@@ -339,8 +339,8 @@ async def timeslot_ticker(app: PyjamazApp):
             )
 
             # Process tickets
-            app.extrinsic.process_epoch_change()
-            logging.debug(f"Current tickets {[i.hex() for i in app.extrinsic.own_tickets_current]}")
+            app.block_extrinsic.process_epoch_change()
+            logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
 
             safrole_state = safrole_output.post_state
             entropy_state = entropy_output.post_state
@@ -364,7 +364,7 @@ async def timeslot_ticker(app: PyjamazApp):
                 # Rollback state from DB
                 app.state = app.retrieve_jam_state()
                 # TODO Make transactional
-                app.extrinsic.clear_tickets()
+                app.block_extrinsic.clear_tickets()
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
@@ -499,24 +499,19 @@ async def init(
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--skip-block-validation', is_flag=True, help="Skip block validation before import")
-@click.option(
-    '--format', 'trace_format',
-    type=click.Choice(['pyjamaz', 'duna'], case_sensitive=False),
-    default='pyjamaz',
-    show_default=True,
-    help='Choose the source format of the trace data'
-)
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
 @click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def replay_traces(
-        traces_dir, custom_db_path, force_overwrite, skip_block_validation,trace_format, seed, chainspec, verbose
+        traces_dir, custom_db_path, force_overwrite, skip_block_validation, seed, chainspec, verbose
 ):
-    # Safety checks
-    settings.SOLO_MODE = False
 
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
+
+    # Safety checks
+    if settings.SOLO_MODE:
+        raise BadParameter("settings.SOLO_MODE should be False when running traces")
 
     db_path = custom_db_path or default_db_path
 
@@ -558,7 +553,7 @@ async def replay_traces(
             logging.info(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
 
     traces_files = await anyio.to_thread.run_sync(
-        lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin')})
+        lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin') and f !='genesis.bin'}),
     )
 
     for nr, block_file in enumerate(traces_files, start=1):

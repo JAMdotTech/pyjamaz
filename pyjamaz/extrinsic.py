@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify, vrf_output
 
@@ -7,14 +7,14 @@ from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKET
     EPOCH_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage
-from pyjamaz.models.common import TicketBody
+from pyjamaz.models.common import TicketBody, WorkPackage
 from pyjamaz.models.state import ServicesState
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
 from pyjamaz.utils import vrf_input_ticket_seal, format_hash
 
 
-class ExtrinsicAccumulator:
+class BlockExtrinsicAccumulator:
 
     def __init__(self, ring_data: bytes):
         self.tickets_queue: Dict[bytes, TicketEnvelope] = {}
@@ -153,3 +153,22 @@ class ExtrinsicAccumulator:
 
         return preimages
 
+
+class WorkpackageExtrinsicAccumulator:
+
+    def __init__(self):
+        self.extrinsic_data: Dict[bytes, Dict[bytes, bytes]] = {}
+
+    def add(self, work_package: WorkPackage, extrinsics: List[bytes]):
+        self.extrinsic_data[work_package.hash()] = {blake2b_256_hash(e): e for e in extrinsics}
+
+    def get(self, work_package: WorkPackage, extrinsic_hash: bytes, extrinsic_length: int) -> Optional[bytes]:
+        extrinsic = self.extrinsic_data.get(work_package.hash(), {}).get(extrinsic_hash, None)
+
+        if extrinsic is not None and extrinsic_length == len(extrinsic):
+            return extrinsic
+        else:
+            return None
+
+    def clear(self, work_package: WorkPackage):
+        del self.extrinsic_data[work_package.hash()]

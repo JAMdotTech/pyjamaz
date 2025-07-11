@@ -171,8 +171,8 @@ class ServerProtocol(JAMNPSProtocol):
                                 blocks.append(block)
 
                             block_list = Vec(Block.to_codec_def()).new()
-                            #TODO: optimize!! :S
-                            serialized_blocks = block_list.encode([b.to_json() for b in blocks])
+
+                            serialized_blocks = block_list.encode([b.to_jam_bytes() for b in blocks])
 
                             logger.debug(
                                 f"ServerProtocol Block Requests sending {len(blocks)} blocks")
