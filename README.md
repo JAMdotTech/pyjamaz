@@ -26,9 +26,15 @@ docker compose -p testnet up -d --build --remove-orphans
 docker compose -p testnet down --remove-orphans
 ```
 
+### Build and publish multi-arch Docker image
+```bash
+docker buildx create --name multiarch-builder --use
+docker buildx inspect --bootstrap
+docker buildx build --platform linux/amd64,linux/arm64 -t jamdottech/pyjamaz -t jamdottech/pyjamaz:vX.Y.Z-gpX.Y.Z --push .
+```
+
 ### Start fuzzer target from Docker image
 ```bash
-docker build . -t jamdottech/pyjamaz
 docker run -it jamdottech/pyjamaz fuzzer_target --seed 0x0000000000000000000000000000000000000000000000000000000000000000  --socket_path /tmp/jam_target.sock --force-overwrite
 ```
 
