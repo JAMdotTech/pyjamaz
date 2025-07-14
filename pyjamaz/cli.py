@@ -174,7 +174,7 @@ async def main():
 @click.option('--culprit', is_flag=True, help="Culprit mode: node will intentionally act malicious")
 @click.option('--block-dir', type=click.Path(exists=True))
 @click.option('--record-traces', type=click.Path(exists=True))
-@click.option('--db-path', 'custom_db_path', type=click.Path(exists=True), default=default_db_path, show_default=True)
+@click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listen on')
 @click.option('--bootnode', 'bootnode', type=str, default="", show_default=True, help='Specific bootnode to connect to')
