@@ -29,5 +29,5 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         push: true
-        tags: jamdottech/pyjamaz:${{ env.TAG }}, latest
+        tags: jamdottech/pyjamaz:${{ env.TAG }}, jamdottech/pyjamaz:latest
         platforms: linux/amd64,linux/arm64
