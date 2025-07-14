@@ -158,10 +158,15 @@ async def initialize_app(
 
 
 # CLI commands
+@click.group()
+@click.version_option(version=APP_VERSION)
+async def main():
+    pass
 
-@click.group(invoke_without_command=True)
-@click.pass_context
-@click.version_option(package_name='pyjamaz')
+# @click.group(invoke_without_command=True)
+# @click.pass_context
+
+@main.command(name='run', help='Run a Pyjamaz JAM node')
 @click.option('--seed', type=str,
               help='Seed to generate validator keys')
 @click.option('--port', type=int, default=9000, show_default=True, help='UDP port on which the validator should run')
@@ -169,130 +174,128 @@ async def initialize_app(
 @click.option('--culprit', is_flag=True, help="Culprit mode: node will intentionally act malicious")
 @click.option('--block-dir', type=click.Path(exists=True))
 @click.option('--record-traces', type=click.Path(exists=True))
-@click.option('--db-path', 'custom_db_path', type=click.Path(exists=True))
+@click.option('--db-path', 'custom_db_path', type=click.Path(exists=True), default=default_db_path, show_default=True)
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--host', 'host', type=str, default="127.0.0.1", show_default=True, help='Host address to listen on')
 @click.option('--bootnode', 'bootnode', type=str, default="", show_default=True, help='Specific bootnode to connect to')
 @click.option('--rpc-listen-ip', 'rpc_listen_ip', type=str, default="0.0.0.0", show_default=True, help='IP address for RPC server to listen on')
 @click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
 @click.option('--fuzzer', 'fuzzer', is_flag=True, help="Validate trace with fuzzer target")
-@click.option('--fuzzer-socket-path', 'fuzzer_socket_path', type=str, default="/tmp/jam_target.sock")
-async def main(ctx, seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path):
+@click.option('--fuzzer-socket-path', 'fuzzer_socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
+async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path):
     """PyJAMaz: Python JAM Client"""
 
-    if ctx.invoked_subcommand is None:
+    # Setup logging
+    log_level = logging.DEBUG if verbose else logging.INFO
+    # Note: Add packages that need a different logging level here
+    log_package_overrides = {
+        "pyjamaz.transport": log_level,
+        "quic": logging.WARNING,
+    }
+    setup_logging(log_level, log_package_overrides)
 
-        # Setup logging
-        log_level = logging.DEBUG if verbose else logging.INFO
-        # Note: Add packages that need a different logging level here
-        log_package_overrides = {
-            "pyjamaz.transport": log_level,
-            "quic": logging.WARNING,
-        }
-        setup_logging(log_level, log_package_overrides)
+    # Safety checks
+    if settings.SOLO_MODE:
+        logging.warning('settings.SOLO_MODE is enabled')
 
-        # Safety checks
-        if settings.SOLO_MODE:
-            logging.warning('settings.SOLO_MODE is enabled')
+    if seed is None:
+        raise MissingParameter(message="--seed parameter is required to run a node", param_type='option', param_hint='--seed')
+    elif not seed.startswith("0x") or len(seed) != 66:
+        raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
 
-        if seed is None:
-            raise MissingParameter("--seed parameter is required")
-        elif not seed.startswith("0x") or len(seed) != 66:
-            raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
+    db_path = custom_db_path or default_db_path
 
-        db_path = custom_db_path or default_db_path
+    network_bootstrap = ts is None
+    if network_bootstrap:
+        ts = 0
 
-        network_bootstrap = ts is None
-        if network_bootstrap:
-            ts = 0
+    #TODO: currently it is not possible to provide a hard unix timestamp (only deltas)
+    current_time = time.time()
+    ts = (current_time // 6) * 6 + ts
 
-        #TODO: currently it is not possible to provide a hard unix timestamp (only deltas)
-        current_time = time.time()
-        ts = (current_time // 6) * 6 + ts
+    try:
+        app = await initialize_app(
+            keys=Keys.from_seed(bytes.fromhex(seed[2:])),
+            custom_db_path=custom_db_path,
+            record_traces=record_traces,
+            fuzzer_socket_path=fuzzer_socket_path if fuzzer else None,
+        )
+    except StateKeyNoResult:
+        raise BadParameter(f'DB is not yet initialized; run init first')
 
-        try:
-            app = await initialize_app(
-                keys=Keys.from_seed(bytes.fromhex(seed[2:])),
-                custom_db_path=custom_db_path,
-                record_traces=record_traces,
-                fuzzer_socket_path=fuzzer_socket_path if fuzzer else None,
-            )
-        except StateKeyNoResult:
-            raise BadParameter(f'DB is not yet initialized; run init first')
+    app.network_bootstrap = network_bootstrap
 
-        app.network_bootstrap = network_bootstrap
+    logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
+    logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
+    logging.info(f'💾 Storage path: {db_path}')
+    logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
+    logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
+    logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
+    logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
+    logging.info(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
+    logging.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
-        logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
-        logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
-        logging.info(f'💾 Storage path: {db_path}')
-        logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
-        logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
-        logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
-        logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
-        logging.info(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
-        logging.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
+    logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
 
-        logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
+    # Start RPC start
+    rpc_server = WebSocketServer(app, rpc_listen_ip, rpc_port)
 
-        # Start RPC start
-        rpc_server = WebSocketServer(app, rpc_listen_ip, rpc_port)
+    if fuzzer:
+        # Set-up fuzzer
+        await setup_fuzzer_session(app, fuzzer_socket_path)
 
-        if fuzzer:
-            # Set-up fuzzer
-            await setup_fuzzer_session(app, fuzzer_socket_path)
+    try:
+        async with anyio.create_task_group() as tg:
 
-        try:
-            async with anyio.create_task_group() as tg:
+            # TODO: we need to start this manually in all event loops, make an AppFactory that handles this in a generic way
+            # Create a subscriber to process incoming messages (fx from a protocol)
+            tg.start_soon(app.pubsub.process_messages)
 
-                # TODO: we need to start this manually in all event loops, make an AppFactory that handles this in a generic way
-                # Create a subscriber to process incoming messages (fx from a protocol)
-                tg.start_soon(app.pubsub.process_messages)
+            # Start WebSocket server
+            tg.start_soon(start_rpc_server, rpc_server)
 
-                # Start WebSocket server
-                tg.start_soon(start_rpc_server, rpc_server)
+            if block_dir:
+                logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
+                fs_protocol = FSProtocol(block_dir, app)
+                app.protocol = fs_protocol
+                app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
+                app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_json)
+                app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
+                tg.start_soon(fs_protocol.listen)
+            else:
+                certificate_file = os.path.join(db_path, "cert.pem")
+                pk_file = os.path.join(db_path, "cert.key")
+                nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
+                app.protocol = nps_protocol
+                app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
+                app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
+                app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
+                tg.start_soon(nps_protocol.listen)
 
-                if block_dir:
-                    logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
-                    fs_protocol = FSProtocol(block_dir, app)
-                    app.protocol = fs_protocol
-                    app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
-                    app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_json)
-                    app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
-                    tg.start_soon(fs_protocol.listen)
-                else:
-                    certificate_file = os.path.join(db_path, "cert.pem")
-                    pk_file = os.path.join(db_path, "cert.key")
-                    nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
-                    app.protocol = nps_protocol
-                    app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
-                    app.pubsub.subscribe(MESSAGE_TYPES.RECEIVED_BLOCK, app.import_block_from_bytes)
-                    app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_bytes)
-                    tg.start_soon(nps_protocol.listen)
+                for validator in app.state.safrole.validators:
+                    # The validators' IP-layer endpoints are given as IPv6/port combinations,
+                    # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
+                    # the latter 2 being a little endian representation of the port.
 
-                    for validator in app.state.safrole.validators:
-                        # The validators' IP-layer endpoints are given as IPv6/port combinations,
-                        # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
-                        # the latter 2 being a little endian representation of the port.
+                    validator_port = validator.get_metadata_port()
+                    validator_address = validator.get_metadata_ipaddress()
 
-                        validator_port = validator.get_metadata_port()
-                        validator_address = validator.get_metadata_ipaddress()
+                    if validator.ed25519 == app.config.keys.ed25519.public_key:
+                        logging.debug(
+                            f'Skipping own node ({validator_address}:{validator_port})'
+                        )
+                        continue
 
-                        if validator.ed25519 == app.config.keys.ed25519.public_key:
-                            logging.debug(
-                                f'Skipping own node ({validator_address}:{validator_port})'
-                            )
-                            continue
+                    logging.debug(f'Connecting to node {validator_address}:{validator_port}')
+                    tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
-                        logging.debug(f'Connecting to node {validator_address}:{validator_port}')
-                        tg.start_soon(nps_protocol.connect, validator_address, validator_port)
-
-                await anyio.sleep(ts - time.time())
-                tg.start_soon(timeslot_ticker, app)
-        except (KeyboardInterrupt, CancelledError):
-            logging.info("Stopping node...")
-            # stop_event.set()
-        finally:
-            logging.info(f'Node stopped.')
+            await anyio.sleep(ts - time.time())
+            tg.start_soon(timeslot_ticker, app)
+    except (KeyboardInterrupt, CancelledError):
+        logging.info("Stopping node...")
+        # stop_event.set()
+    finally:
+        logging.info(f'Node stopped.')
 
 
 async def timeslot_ticker(app: PyjamazApp):
@@ -435,8 +438,8 @@ async def init_certificate(db_path, seed):
 
 @main.command()
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
-@click.option('--chainspec', 'chainspec', type=click.Choice(['dev', 'docker']), help="Chainspec to use as genesis", default='dev')
-@click.option('--db-path', 'custom_db_path', type=click.Path())
+@click.option('--chainspec', 'chainspec', type=click.Choice(['dev', 'docker']), help="Chainspec to use as genesis", default='dev', show_default=True)
+@click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 async def init(
         custom_db_path,
@@ -493,13 +496,16 @@ async def init(
     click.echo(f"✅ Initialization complete.")
     click.echo(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
 
+@main.group('fuzzer', help="Start a fuzzer target for provided mode [local, traces]")
+async def fuzzer():
+    pass
 
-@main.command('replay_traces')
+@fuzzer.command('traces', help='Run trace files in given folder')
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--skip-block-validation', is_flag=True, help="Skip block validation before import")
-@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
+@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys", default='0x0000000000000000000000000000000000000000000000000000000000000000', show_default=True)
 @click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def replay_traces(
@@ -630,10 +636,10 @@ async def replay_traces(
             app.state_db.delete(key)
 
 
-@main.command('fuzzer_target')
-@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
-@click.option('--socket_path', 'socket_path', type=str, default="/tmp/jam_target.sock")
-@click.option('--db-path', 'custom_db_path', type=click.Path())
+@fuzzer.command('local', help='Start Fuzzer target over UNIX socket.')
+@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys", default='0x0000000000000000000000000000000000000000000000000000000000000000', show_default=True)
+@click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
+@click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def fuzzer_target(
