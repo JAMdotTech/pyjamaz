@@ -4,8 +4,9 @@ from typing import List, Optional, Dict
 
 from jamcodec.base import JamCodecTypeDef, JamBytes, JamCodecType
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, H256, U8, VarInt64, Vec, Option, Array, Map, H512, VecType
+from jamcodec.types import U32, H256, U8, VarInt64, Vec, Option, Array, Map, H512, VecType, U16
 
+from pyjamaz.graypaper_constants import VALIDATOR_COUNT
 from pyjamaz.models.block import Header, Guarantee, Block
 from pyjamaz.models.common import WorkPackage
 
@@ -39,6 +40,10 @@ class ImplicitVec(Vec):
                 break
 
         return value
+
+
+def calculate_r():
+    return (VALIDATOR_COUNT // 3) + 1  # Per spec
 
 
 @dataclass
@@ -157,6 +162,64 @@ class MsgCE136WorkReport(Serializable):
 
 
 @dataclass
+class MsgCE137ShardRequest(Serializable):
+    erasure_root: bytes = field(metadata={'codec': H256})
+    shard_index: int = field(metadata={'codec': U16})
+
+@dataclass
+class MsgCE137BundleShard(Serializable):
+    bytes_: bytes = field(metadata={'codec': Vec(U8)})
+
+@dataclass
+class MsgCE137SegmentShard(Serializable):
+    bytes_: bytes = field(metadata={'codec': Array(U8, 4104 // calculate_r())})
+
+@dataclass
+class MsgCE137Justification(Serializable):
+    nodes: List[bytes] = field(metadata={'codec': Vec(Vec(U8))})  # Co-path
+
+
+@dataclass
+class MsgCE138ShardRequest(Serializable):
+    erasure_root: bytes = field(metadata={'codec': H256})
+    shard_index: int = field(metadata={'codec': U16})
+
+@dataclass
+class MsgCE138BundleShard(Serializable):
+    bytes_: bytes = field(metadata={'codec': Vec(U8)})
+
+@dataclass
+class MsgCE138Justification(Serializable):
+    nodes: List[bytes] = field(metadata={'codec': Vec(Vec(U8))})
+
+
+@dataclass
+class MsgCE139SegmentRequest(Serializable):
+    erasure_root: bytes = field(metadata={'codec': H256})
+    shard_index: int = field(metadata={'codec': U16})
+    segment_indices: List[int] = field(metadata={'codec': Vec(U16)})
+
+@dataclass
+class MsgCE139SegmentShard(Serializable):
+    bytes_: bytes = field(metadata={'codec': Array(U8, 4104 // calculate_r())})
+
+
+@dataclass
+class MsgCE140SegmentRequest(Serializable):
+    erasure_root: bytes = field(metadata={'codec': H256})
+    shard_index: int = field(metadata={'codec': U16})
+    segment_indices: List[int] = field(metadata={'codec': Vec(U16)})
+
+@dataclass
+class MsgCE140SegmentShard(Serializable):
+    bytes_: bytes = field(metadata={'codec': Array(U8, 4104 // calculate_r())})
+
+@dataclass
+class MsgCE140Justification(Serializable):
+    nodes: List[bytes] = field(metadata={'codec': Vec(Vec(U8))})
+
+
+@dataclass
 class MsgCE141Assurance(Serializable):
     header_hash: bytes = field(metadata={'codec': H256})   # anchor
     bitfield:    bytes = field(metadata={'codec': Vec(U8)})  # len = ceil(C/8)
@@ -174,7 +237,50 @@ class MsgCE142PreimageAnnouncement(Serializable):
 class MsgCE143HashRequest(Serializable):
     hash: bytes = field(metadata={'codec': H256})
 
-
 @dataclass
 class MsgCE143Preimage(Serializable):
     bytes_: bytes = field(metadata={'codec': Vec(U8)})
+
+
+@dataclass
+class MsgCE144CoreWRPair(Serializable):
+    core_index: int = field(metadata={'codec': U32})
+    wr_hash: bytes = field(metadata={'codec': H256})
+
+@dataclass
+class MsgCE144Announcement(Serializable):
+    header_hash: bytes = field(metadata={'codec': H256})
+    tranche: int = field(metadata={'codec': U8})
+    announcement: List[MsgCE144CoreWRPair] = field(metadata={'codec': Vec(MsgCE144CoreWRPair.to_codec_def())})
+    signature: bytes = field(metadata={'codec': H512})
+
+@dataclass
+class MsgCE144NoShow(Serializable):
+    validator_index: int = field(metadata={'codec': U32})
+    announcement: bytes = field(metadata={'codec': Vec(U8)})
+
+@dataclass
+class MsgCE144TrancheEvidenceFirst(Serializable):
+    signature: bytes = field(metadata={'codec': Array(U8, 96)})
+
+@dataclass
+class MsgCE144TrancheEvidenceSubsequent(Serializable):
+    signature: bytes = field(metadata={'codec': Array(U8, 96)})
+    no_shows: List[MsgCE144NoShow] = field(metadata={'codec': Vec(MsgCE144NoShow.to_codec_def())})
+
+@dataclass
+class MsgCE144Evidence(Serializable):
+    data: bytes = field(metadata={'codec': Vec(U8)})
+
+
+class JudgmentValidity(Enum):
+    INVALID = 0
+    VALID = 1
+
+@dataclass
+class MsgCE145JudgmentPublication(Serializable):
+    epoch_index: int = field(metadata={'codec': U32})
+    validator_index: int = field(metadata={'codec': U32})
+    validity: int = field(metadata={'codec': U8})
+    wr_hash: bytes = field(metadata={'codec': H256})
+    signature: bytes = field(metadata={'codec': H512})

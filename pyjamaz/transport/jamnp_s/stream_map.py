@@ -10,22 +10,31 @@ from pyjamaz.transport.jamnp_s.streams.stream_143 import StreamPreimageRequest
 from pyjamaz.transport.jamnp_s.streams.stream_133 import StreamWorkPackageSubmission
 from pyjamaz.transport.jamnp_s.streams.stream_135 import StreamWorkReportDistribution
 from pyjamaz.transport.jamnp_s.streams.stream_136 import StreamWorkReportRequest
+from pyjamaz.transport.jamnp_s.streams.stream_137 import StreamShardDistribution
+from pyjamaz.transport.jamnp_s.streams.stream_138 import StreamAuditShardRequest
+from pyjamaz.transport.jamnp_s.streams.stream_139 import StreamSegmentShardRequest
+from pyjamaz.transport.jamnp_s.streams.stream_140 import StreamSegmentShardRequestJustification
+from pyjamaz.transport.jamnp_s.streams.stream_144 import StreamAuditAnnouncement
+from pyjamaz.transport.jamnp_s.streams.stream_145 import StreamJudgmentPublication
+
 
 StreamLookup = {
     StreamType.UP0_BlockAnnouncement.value: StreamUP,
     StreamType.CE128_BlockRequest.value: StreamBlockRequest,
+    #TODO: StreamType.CE129_:,
     StreamType.CE131_SafroleTicketDistributionStep1.value: StreamSafroleTicketDistributionStep1,
     StreamType.CE132_SafroleTicketDistributionStep2.value: StreamSafroleTicketDistributionStep2,
     StreamType.CE134_WorkPackageSharing.value: StreamWorkPackageSharing,
-    StreamType.CE141_AssuranceDistribution.value: StreamAssuranceDistribution,
-    StreamType.CE142_PreimageAnnouncement.value: StreamPreimageAnnouncement,
-    StreamType.CE143_PreimageRequest.value: StreamPreimageRequest,
     StreamType.CE133_WorkPackageSubmission.value: StreamWorkPackageSubmission,
     StreamType.CE135_WorkReportDistribution.value: StreamWorkReportDistribution,
     StreamType.CE136_WorkReportRequest.value: StreamWorkReportRequest,
-    # StreamType.CE137_ShardDistribution.value: ,
-    # StreamType.CE138_AuditShardRequest.value: ,
-    # StreamType.CE139_SegmentShardRequest.value: ,
-    # StreamType.CE140_SegmentShardRequestJustification.value: ,
-    # StreamType.CE141_AssuranceDistribution.value: ,
+    StreamType.CE137_ShardDistribution.value: StreamShardDistribution,
+    StreamType.CE138_AuditShardRequest.value: StreamAuditShardRequest,
+    StreamType.CE139_SegmentShardRequest.value: StreamSegmentShardRequest,
+    StreamType.CE140_SegmentShardRequestJustification.value: StreamSegmentShardRequestJustification,
+    StreamType.CE141_AssuranceDistribution.value: StreamAssuranceDistribution,
+    StreamType.CE142_PreimageAnnouncement.value: StreamPreimageAnnouncement,
+    StreamType.CE143_PreimageRequest.value: StreamPreimageRequest,
+    StreamType.CE144_AuditAnnouncement.value: StreamAuditAnnouncement,
+    StreamType.CE145_JudgmentPublication.value: StreamJudgmentPublication,
 }

@@ -15,6 +15,8 @@ from ulid import ULID
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.models.block import Block, Header
 from pyjamaz.transport.jamnp_s.stream_base import StreamDirection
+from pyjamaz.transport.jamnp_s.streams.stream_138 import StreamAuditShardRequest
+from pyjamaz.transport.jamnp_s.streams.stream_139 import StreamSegmentShardRequest
 
 from pyjamaz.transport.types import ProtocolType
 from pyjamaz.transport.jamnp_s.message_types import MsgCE128BlockRequestDirection, MsgCE128BlockRequest, \
@@ -23,7 +25,13 @@ from pyjamaz.transport.jamnp_s.message_types import MsgCE128BlockRequestDirectio
     MsgCE134WorkPackageSharing, MsgCE134WorkPackageBundle, MsgCE134RefineResponse, \
     MsgCE141Assurance, MsgCE142PreimageAnnouncement, MsgCE143HashRequest, MsgCE143Preimage, \
     MsgCE133WorkPackageSubmission, MsgCE133Extrinsic, MsgCE135GuaranteedWorkReport, \
-    MsgCE136HashRequest, MsgCE136WorkReport
+    MsgCE136HashRequest, MsgCE136WorkReport, \
+    MsgCE137ShardRequest, MsgCE137BundleShard, MsgCE137SegmentShard, MsgCE137Justification, \
+    MsgCE138ShardRequest, MsgCE138BundleShard, MsgCE138Justification, \
+    MsgCE139SegmentRequest, MsgCE139SegmentShard, \
+    MsgCE140SegmentRequest, MsgCE140SegmentShard, MsgCE140Justification, \
+    MsgCE144Evidence, \
+    MsgCE145JudgmentPublication
 from pyjamaz.transport.jamnp_s.streams.stream_128 import StreamBlockRequest
 from pyjamaz.transport.jamnp_s.streams.stream_131 import StreamSafroleTicketDistributionStep1
 from pyjamaz.transport.jamnp_s.streams.stream_132 import StreamSafroleTicketDistributionStep2
@@ -34,6 +42,10 @@ from pyjamaz.transport.jamnp_s.streams.stream_143 import StreamPreimageRequest
 from pyjamaz.transport.jamnp_s.streams.stream_133 import StreamWorkPackageSubmission
 from pyjamaz.transport.jamnp_s.streams.stream_135 import StreamWorkReportDistribution
 from pyjamaz.transport.jamnp_s.streams.stream_136 import StreamWorkReportRequest
+from pyjamaz.transport.jamnp_s.streams.stream_137 import StreamShardDistribution
+from pyjamaz.transport.jamnp_s.streams.stream_140 import StreamSegmentShardRequestJustification
+from pyjamaz.transport.jamnp_s.streams.stream_144 import StreamAuditAnnouncement
+from pyjamaz.transport.jamnp_s.streams.stream_145 import StreamJudgmentPublication
 
 from pyjamaz.transport.jamnp_s.connection import JAMConnection
 
@@ -612,10 +624,159 @@ class JAMNPS(ProtocolType):
         logger.error(f"CE136 request failed with code {reset_code}")
 
 
-    # Add placeholder verify methods (implement as needed)
-    def verify_ticket_proof(self, msg):
-        return True  # TODO: actual verification
+    def ce137_initiate_request(self, conn: JAMConnection, req: MsgCE137ShardRequest):
+        stream = conn.open_jam_stream(StreamShardDistribution, direction=StreamDirection.initiator)
+        conn.send(stream.stream_id, stream.create_message(req.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
 
+
+    def ce137_received_request(self, stream: StreamShardDistribution, msg: MsgCE137ShardRequest):
+        # TODO: fetch and send bundle shard, segment shards, justification
+        bundle = MsgCE137BundleShard(bytes_ = b'')
+        segments = [MsgCE137SegmentShard(bytes_ = b'') for _ in range(10)]
+        just = MsgCE137Justification(bytes_ = b'')
+        stream.conn.send(stream.stream_id, stream.create_message(bundle.to_jam_bytes().to_bytes()), end_stream=False)
+        for s in segments:
+            stream.conn.send(stream.stream_id, stream.create_message(s.to_jam_bytes().to_bytes()), end_stream=False)
+        stream.conn.send(stream.stream_id, stream.create_message(just.to_jam_bytes().to_bytes()), end_stream=True)
+
+
+    def ce137_received_shard(self, stream: StreamShardDistribution, bundle, segments, just):
+        # TODO: process
+        stream.conn.send(stream.stream_id, b'', end_stream=True)
+
+
+    def ce137_distribution_success(self, code: int):
+        logger.debug(f"CE137 success {code}")
+
+
+    def ce137_distribution_failure(self, code: int):
+        logger.error(f"CE137 failure {code}")
+
+
+    # Similar for CE138, CE139, CE140
+    def ce138_initiate_request(self, conn: JAMConnection, req: MsgCE138ShardRequest):
+        stream = conn.open_jam_stream(StreamAuditShardRequest, direction=StreamDirection.initiator)
+        conn.send(stream.stream_id, stream.create_message(req.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
+
+
+    def ce138_received_request(self, stream: StreamAuditShardRequest, msg: MsgCE138ShardRequest):
+        # TODO: send bundle shard and justification
+        bundle = MsgCE138BundleShard(bytes_ = b'')
+        just = MsgCE138Justification(bytes_ = b'')
+        stream.conn.send(stream.stream_id, stream.create_message(bundle.to_jam_bytes().to_bytes()), end_stream=False)
+        stream.conn.send(stream.stream_id, stream.create_message(just.to_jam_bytes().to_bytes()), end_stream=True)
+
+
+    def ce138_received_shard(self, stream: StreamAuditShardRequest, bundle, just):
+        # TODO: process
+        stream.conn.send(stream.stream_id, b'', end_stream=True)
+
+
+    def ce138_request_success(self, code: int):
+        logger.debug(f"CE138 success {code}")
+
+
+    def ce138_request_failure(self, code: int):
+        logger.error(f"CE138 failure {code}")
+
+
+    def ce139_initiate_request(self, conn: JAMConnection, req: MsgCE139SegmentRequest):
+        stream = conn.open_jam_stream(StreamSegmentShardRequest, direction=StreamDirection.initiator)
+        conn.send(stream.stream_id, stream.create_message(req.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
+
+
+    def ce139_received_request(self, stream: StreamSegmentShardRequest, msg: MsgCE139SegmentRequest):
+        # TODO: send segment shards
+        shards = [MsgCE139SegmentShard(bytes_ = b'') for _ in msg.segment_indices]
+        for s in shards:
+            stream.conn.send(stream.stream_id, stream.create_message(s.to_jam_bytes().to_bytes()), end_stream=(s == shards[-1]))
+
+
+    def ce139_received_shards(self, stream: StreamSegmentShardRequest, shards):
+        # TODO: process
+        stream.conn.send(stream.stream_id, b'', end_stream=True)
+
+
+    def ce139_request_success(self, code: int):
+        logger.debug(f"CE139 success {code}")
+
+
+    def ce139_request_failure(self, code: int):
+        logger.error(f"CE139 failure {code}")
+
+
+    def ce140_initiate_request(self, conn: JAMConnection, req: MsgCE140SegmentRequest):
+        stream = conn.open_jam_stream(StreamSegmentShardRequestJustification, direction=StreamDirection.initiator)
+        conn.send(stream.stream_id, stream.create_message(req.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
+
+
+    def ce140_received_request(self, stream: StreamSegmentShardRequestJustification, msg: MsgCE140SegmentRequest):
+        # TODO: send shards and justifications
+        for idx in msg.segment_indices:
+            shard = MsgCE140SegmentShard(bytes_ = b'')
+            just = MsgCE140Justification(bytes_ = b'')
+            stream.conn.send(stream.stream_id, stream.create_message(shard.to_jam_bytes().to_bytes()), end_stream=False)
+            stream.conn.send(stream.stream_id, stream.create_message(just.to_jam_bytes().to_bytes()), end_stream=(idx == msg.segment_indices[-1]))
+
+
+    def ce140_received_shards_justified(self, stream: StreamSegmentShardRequestJustification, data):
+        # TODO: parse and process
+        stream.conn.send(stream.stream_id, b'', end_stream=True)
+
+
+    def ce140_request_success(self, code: int):
+        logger.debug(f"CE140 success {code}")
+
+
+    def ce140_request_failure(self, code: int):
+        logger.error(f"CE140 failure {code}")
+
+
+    def ce144_initiate_announcement(self, conn: JAMConnection, ann: MsgCE144AuditAnnouncement, evidence: MsgCE144Evidence):
+        stream = conn.open_jam_stream(StreamAuditAnnouncement, direction=StreamDirection.initiator)
+        conn.send(stream.stream_id, stream.create_message(ann.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=False)
+        conn.send(stream.stream_id, stream.create_message(evidence.to_jam_bytes().to_bytes()), end_stream=True)
+
+
+    def ce144_received_announcement(self, stream: StreamAuditAnnouncement, msg: MsgCE144AuditAnnouncement):
+        # TODO: process announcement
+        pass
+
+
+    def ce144_received_evidence(self, stream: StreamAuditAnnouncement, msg: MsgCE144Evidence):
+        # TODO: process evidence
+        stream.conn.send(stream.stream_id, b'', end_stream=True)
+
+
+    def ce144_announcement_success(self, code: int):
+        logger.debug(f"CE144 success {code}")
+
+
+    def ce144_announcement_failure(self, code: int):
+        logger.error(f"CE144 failure {code}")
+
+
+    def ce145_initiate_publication(self, conn: JAMConnection, msg: MsgCE145JudgmentPublication):
+        stream = conn.open_jam_stream(StreamJudgmentPublication, direction=StreamDirection.initiator)
+        conn.send(stream.stream_id, stream.create_message(msg.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
+
+
+    def ce145_received_judgment(self, stream: StreamJudgmentPublication, msg: MsgCE145JudgmentPublication):
+        # TODO: process judgment
+        stream.conn.send(stream.stream_id, b'', end_stream=True)
+
+
+    def ce145_publication_success(self, code: int):
+        logger.debug(f"CE145 success {code}")
+
+
+    def ce145_publication_failure(self, code: int):
+        logger.error(f"CE145 failure {code}")
+
+
+    # Temp placeholders
+    def verify_ticket_proof(self, msg):
+        return True
 
     def verify_bundle(self, msg):
-        return True  # TODO: actual verification
+        return True

@@ -22,8 +22,8 @@ class StreamType(Enum):
     CE141_AssuranceDistribution: int = 141
     CE142_PreimageAnnouncement: int = 142
     CE143_PreimageRequest: int = 143
-    CE144_PreimageAnnouncement: int = 144
-    # 145
+    CE144_AuditAnnouncement: int = 144
+    CE145_JudgmentPublication: int = 145
 
 
 class StreamDirection(Enum):
