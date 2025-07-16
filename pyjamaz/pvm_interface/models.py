@@ -32,15 +32,15 @@ class PvmOnTransferOutput:
 
 @dataclass
 class PvmIsAuthorizedOutput:
-    exit_condition: ExitCondition
+    work_exec_result: WorkExecResult
     gas_used: int
 
 
 @dataclass
 class PvmRefineOutput:
-    work_exec_result: WorkExecResult
-    export_segments: List[bytes]                   # GP-0.6.4-eq:B.6 [blackboard_G]
-    gas_used: int
+    work_exec_result: WorkExecResult # r
+    export_segments: List[bytes]     # bold_e GP-0.6.6-eq:B.6 [blackboard_G]
+    gas_used: int                    # u
 
 
 @dataclass
@@ -115,7 +115,7 @@ class AccumulateInvocationContext(InvocationContext):
 class AccumulatePvmArguments(Serializable):
     timeslot: int = field(metadata={'codec': VarInt64})
     service_id: int = field(metadata={'codec': VarInt64})
-    operands: List[AccumulationOperand] = field(metadata={'codec': Vec(AccumulationOperand.to_codec_def())})
+    operands_length: int = field(metadata={'codec': VarInt64})
 
 
 @dataclass
@@ -127,26 +127,22 @@ class OnTransferInvocationContext(InvocationContext):
 
 @dataclass
 class OnTransferPvmArguments(Serializable):
-    timeslot: int = field(metadata={'codec': U32})
-    service_id: int = field(metadata={'codec': U32})
-    deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
+    timeslot: int = field(metadata={'codec': VarInt64})
+    service_id: int = field(metadata={'codec': VarInt64})
+    deferred_transfer_count: int = field(metadata={'codec': VarInt64})
 
 
 @dataclass
 class IsAuthorizedPvmArguments(Serializable):
-    # TODO polkajam deviates from GP 0.6.5 (no auth_param and VarInt core_index)
-    auth_param: bytes = field(metadata={'codec': Bytes})
-    work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
     core_index: int = field(metadata={'codec': U16})
 
 
 @dataclass
 class RefinePvmArguments(Serializable):
-    service_id: int = field(metadata={'codec': VarInt64})  # GP-0.6.4-eq:B.5 w_s
+    work_item_index: int = field(metadata={'codec': VarInt64})  # GP-0.6.6-eq:B.5 i
+    service_id: int = field(metadata={'codec': VarInt64})  # GP-0.6.6-eq:B.5 w_s
     payload_blob: bytes = field(metadata={'codec': Bytes}) # GP-0.6.4-eq:B.5 w_y
     work_package_hash: bytes = field(metadata={'codec': H256}) # GP-0.6.4-eq:B.5 H(p)
-    refinement_context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()}) # GP-0.6.4-eq:B.5 p_x
-    authorization_code_hash: bytes = field(metadata={'codec': H256}) # GP-0.6.4-eq:B.5 p_u
 
 
 @dataclass

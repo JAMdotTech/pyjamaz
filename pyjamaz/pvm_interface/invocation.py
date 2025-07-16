@@ -4,8 +4,8 @@ from typing import List, Dict
 
 from pyjamaz.constants import PVM_MARSHALLING_OFFSET_ACCUMULATE, PVM_MARSHALLING_OFFSET_TRANSFER, \
     PVM_MARSHALLING_OFFSET_AUTH, PVM_MARSHALLING_OFFSET_REFINE
-from pyjamaz.exceptions import ProcessWorkpackageError, StateKeyNoResult
-from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE
+from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.graypaper_constants import GAS_INVOKE, MAXIMUM_SIZE_SERVICE_CODE, MAXIMUM_SIZE_IS_AUTH_CODE
 from pyjamaz.models.common import AccumulationOperand, Preimage, WorkPackage, WorkExecResult
 from pyjamaz.models.state import AccumulationStateComponents, EntropyState, \
     ServiceAccount, DeferredTransfer, ServicesState
@@ -20,8 +20,8 @@ from pyjamaz.pvm_interface.hostcalls.accumulate import hc_bless, hc_assign, hc_d
     hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new, hc_provide
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
-from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info
-from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_fetch, hc_export, hc_machine, hc_peek, \
+from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch
+from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_export, hc_machine, hc_peek, \
     hc_poke, hc_zero, hc_void, hc_invoke, hc_expunge
 from pyjamaz.utils import format_hash
 
@@ -40,6 +40,11 @@ class GenericAccumulationInput:
 
 # GP-0.6.4-section:B.4 | Accumulate Invocations
 class AccumulateInvocationMutator(InvocationMutator):
+
+    def __init__(self, post_entropy: EntropyState, accumulation_operands: List[AccumulationOperand]):
+        self.post_entropy = post_entropy
+        self.accumulation_operands = accumulation_operands
+
     def execute(
             self,
             host_call_instr_nr: int,
@@ -94,6 +99,23 @@ class AccumulateInvocationMutator(InvocationMutator):
                 service = services.retrieve_service_account(service_id)
                 hc_info(registers, memory, service, service_id, services, invocation_output, _pvm.log)
 
+            case HostCallGeneral.fetch.value:
+                # GP-0.6.6-eq:B.11 | Y
+                hc_fetch(
+                    registers=registers,
+                    memory=memory,
+                    work_package=None,
+                    entropy=self.post_entropy.entropy[0],
+                    authorizer_output=None,
+                    work_item_index=None,
+                    work_item_segs=None,
+                    extrinsics=None,
+                    accumulation_operands=self.accumulation_operands,
+                    deferred_transfers=None,
+                    invocation_output=invocation_output,
+                    logger=_pvm.log
+                )
+
             case HostCallAccumulate.bless.value:
                 hc_bless(registers, memory, invocation_context, invocation_output, _pvm.log)
 
@@ -141,6 +163,11 @@ class AccumulateInvocationMutator(InvocationMutator):
 
 # GP-0.6.4-section:B.5 | On-Transfer Invocations
 class OnTransferInvocationMutator(InvocationMutator):
+
+    def __init__(self, deferred_transfers: List[DeferredTransfer], post_entropy: EntropyState):
+        self.deferred_transfers = deferred_transfers
+        self.post_entropy = post_entropy
+
     def execute(
             self,
             host_call_instr_nr: int,
@@ -192,6 +219,22 @@ class OnTransferInvocationMutator(InvocationMutator):
                 # GP-0.6.4-eq:B.12 | G
                 service = services.retrieve_service_account(service_id)
                 hc_info(registers, memory, service, service_id, services, ctx_out, _pvm.log)
+
+            case HostCallGeneral.fetch.value:
+                hc_fetch(
+                    registers=registers,
+                    memory=memory,
+                    work_package=None,
+                    entropy=self.post_entropy.entropy[0],
+                    authorizer_output=None,
+                    work_item_index=None,
+                    work_item_segs=None,
+                    extrinsics=None,
+                    accumulation_operands=None,
+                    deferred_transfers=self.deferred_transfers,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
 
             case _:
                 #TODO: implement B.16: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
@@ -246,7 +289,10 @@ def pvm_invoke_accumulate(
         serialized_program = preimage.serialized_program
         program_metadata = preimage.program_name
     except StateKeyNoResult:
-        # program not found
+        # Program not found
+        preimage_blob = None
+
+    if preimage_blob is None or len(preimage_blob) > MAXIMUM_SIZE_SERVICE_CODE:
         return PvmAccumulateOutput(
             state_context=state_context,
             deferred_transfers=[],
@@ -258,12 +304,15 @@ def pvm_invoke_accumulate(
     argument_data = AccumulatePvmArguments(
         timeslot=timeslot,
         service_id=service_id,
-        operands=operands,
+        operands_length=len(operands),
     ).to_jam_bytes().to_bytes()
 
     pvm_invocation = PVMInvocation(
         invocation_context=invocation_context,
-        invocation_mutator=AccumulateInvocationMutator()
+        invocation_mutator=AccumulateInvocationMutator(
+            post_entropy=post_entropy,
+            accumulation_operands=operands,
+        )
     )
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
@@ -293,7 +342,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             preimages=marshalling_output.context.context.preimages
         )
-        logging.info(f'PVM accumulate successful, output=0x{output.accumulation_output.hex()}')
+        logging.debug(f'PVM accumulate successful, output=0x{output.accumulation_output.hex()}')
     else:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
@@ -302,7 +351,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             preimages=marshalling_output.context.context.preimages
         )
-        logging.info(f'PVM accumulate successful, no output')
+        logging.debug(f'PVM accumulate successful, no output')
 
     return output
 
@@ -329,55 +378,53 @@ def pvm_invoke_on_transfer(
     """
 
     service_account = services_state.retrieve_service_account(service_id)
+    preimage_blob = service_account.preimages.get(service_account.code_hash)
     gas_used = 0
 
-    if len(deferred_transfers) > 0:
+    serialized_program = None
+    program_name = None
+
+    if preimage_blob is not None:
+        try:
+            preimage = Preimage.extract(preimage_blob)
+            serialized_program = preimage.serialized_program
+            program_name = preimage.program_name
+        except Exception:
+            pass
+
+    if serialized_program is not None and len(serialized_program) <= MAXIMUM_SIZE_SERVICE_CODE and len(deferred_transfers) > 0:
         logging.info(f'💸 Processing transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
 
         # Update balance
         service_account.balance += sum([t.amount for t in deferred_transfers])
 
-        serialized_program = None
-        program_name = None
+        argument_data = OnTransferPvmArguments(
+            timeslot=timeslot,
+            service_id=service_id,
+            deferred_transfer_count=len(deferred_transfers),
+        ).to_jam_bytes().to_bytes()
 
-        preimage_blob = service_account.preimages.get(service_account.code_hash)
-        if preimage_blob is not None:
-            try:
-                preimage = Preimage.extract(preimage_blob)
-                serialized_program = preimage.serialized_program
-                program_name = preimage.program_name
-            except Exception:
-                pass
-
-        if serialized_program:
-
-            argument_data = OnTransferPvmArguments(
-                timeslot=timeslot,
+        pvm_invocation = PVMInvocation(
+            invocation_context=OnTransferInvocationContext(
                 service_id=service_id,
-                deferred_transfers=deferred_transfers,
-            ).to_jam_bytes().to_bytes()
+                service_account=service_account,
+                services_state=services_state
+            ),
+            invocation_mutator=OnTransferInvocationMutator(deferred_transfers=deferred_transfers)
+        )
 
-            pvm_invocation = PVMInvocation(
-                invocation_context=OnTransferInvocationContext(
-                    service_id=service_id,
-                    service_account=service_account,
-                    services_state=services_state
-                ),
-                invocation_mutator=OnTransferInvocationMutator()
-            )
+        gas_limit = sum([t.gas_limit for t in deferred_transfers])
 
-            gas_limit = sum([t.gas_limit for t in deferred_transfers])
+        marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+            serialized_program=serialized_program,
+            start_offset=PVM_MARSHALLING_OFFSET_TRANSFER,
+            gas_limit=gas_limit,
+            argument_data=argument_data,
+            program_name=program_name
+        )
 
-            marshalling_output = pvm_invocation.pvm_invoke_marshalling(
-                serialized_program=serialized_program,
-                start_offset=PVM_MARSHALLING_OFFSET_TRANSFER,
-                gas_limit=gas_limit,
-                argument_data=argument_data,
-                program_name=program_name
-            )
-
-            service_account = marshalling_output.context.service_account
-            gas_used = marshalling_output.gas_used
+        service_account = marshalling_output.context.service_account
+        gas_used = marshalling_output.gas_used
 
     return PvmOnTransferOutput(
         service_account=service_account,
@@ -387,6 +434,10 @@ def pvm_invoke_on_transfer(
 
 # GP-0.6.4-section:B.5 | On-Transfer Invocations
 class IsAuthorizedInvocationMutator(InvocationMutator):
+
+    def __init__(self, work_package: WorkPackage):
+        self.work_package = work_package
+
     def execute(
             self,
             host_call_instr_nr: int,
@@ -416,6 +467,22 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
                 #GP-0.6.4-eq:B.12 | G
                 hc_gas(registers, memory, ctx_out, _pvm.log)
 
+            case HostCallGeneral.fetch.value:
+                # GP-0.6.4-eq:B.12 | G
+                hc_fetch(
+                    registers=registers,
+                    memory=memory,
+                    work_package=self.work_package,
+                    entropy=None,
+                    authorizer_output=None,
+                    work_item_index=None,
+                    work_item_segs=None,
+                    extrinsics=None,
+                    accumulation_operands=None,
+                    deferred_transfers=None,
+                    invocation_output=ctx_out,
+                    logger=_pvm.log
+                )
             case _:
                 #TODO: implement B.2: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
                 raise NotImplementedError(f"On-Transfer invoked host-call {host_call_instr_nr} not implemented")
@@ -438,17 +505,24 @@ def pvm_invoke_is_authorized(
     """
 
     if work_package.authorization_code is None:
-        raise ProcessWorkpackageError('work_package.authorization_code is not set')
+        return PvmIsAuthorizedOutput(
+            work_exec_result=WorkExecResult(bad_code=True),
+            gas_used=0
+        )
+
+    elif len(work_package.authorization_code) > MAXIMUM_SIZE_IS_AUTH_CODE:
+        return PvmIsAuthorizedOutput(
+            work_exec_result=WorkExecResult(code_oversize=True),
+            gas_used=0
+        )
 
     argument_data = IsAuthorizedPvmArguments(
-        auth_param=b'',
-        work_package=work_package,
         core_index=core_index
     ).to_jam_bytes().to_bytes()
 
     pvm_invocation = PVMInvocation(
         invocation_context=None,
-        invocation_mutator=IsAuthorizedInvocationMutator()
+        invocation_mutator=IsAuthorizedInvocationMutator(work_package=work_package)
     )
 
     work_package_hash = work_package.hash()
@@ -466,7 +540,7 @@ def pvm_invoke_is_authorized(
     logging.debug(f'PVM is-auth result: exit={marshalling_output.exit_condition.reason} v={marshalling_output.exit_condition.value}')
 
     return PvmIsAuthorizedOutput(
-        exit_condition=marshalling_output.exit_condition,
+        work_exec_result=WorkExecResult.from_exit_condition(marshalling_output.exit_condition),
         gas_used=marshalling_output.gas_used
     )
 
@@ -484,7 +558,7 @@ class RefineInvocationMutator(InvocationMutator):
         timeslot: int,
         work_item_index: int,
         work_package: WorkPackage,
-        extrinsics: dict[bytes, bytes]
+        extrinsics: List[List[bytes]]
     ):
         self.authorizer_output = authorizer_output
         self.work_items_import_segments = work_items_import_segments
@@ -538,16 +612,19 @@ class RefineInvocationMutator(InvocationMutator):
                     logger=_pvm.log
                 )
 
-            case HostCallRefine.fetch.value:
+            case HostCallGeneral.fetch.value:
+
                 hc_fetch(
                     registers=registers,
                     memory=memory,
-                    m_e=invocation_context,
-                    work_item_index=self.work_item_index,
                     work_package=self.work_package,
-                    auth_output=self.authorizer_output,
+                    entropy=bytes(32),
+                    authorizer_output=self.authorizer_output,
+                    work_item_index=self.work_item_index,
                     work_item_segs=self.work_items_import_segments,
                     extrinsics=self.extrinsics,
+                    accumulation_operands=None,
+                    deferred_transfers=None,
                     invocation_output=ctx_out,
                     logger=_pvm.log
                 )
@@ -632,18 +709,18 @@ class RefineInvocationMutator(InvocationMutator):
         return ctx_out
 
 
-# GP-0.6.4-eq:B.5: ΨR (refine invoke)
+# GP-0.6.6-eq:B.5: ΨR (refine invoke)
 def pvm_invoke_refine(
     work_item_index: int,      # GP-0.6.4-eq:B.5: italic_i index of workitem
     work_package: 'WorkPackage', # GP-0.6.4-eq:B.5: italic_p workpackage
-    authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_o is_authorized output
+    authorizer_output: bytes,  # GP-0.6.4-eq:B.5: bold_r is_authorized output
     work_items_import_segments: List[List[bytes]],  # GP-0.6.4-eq:B.5: bold_i_flat list of import segments per workitem
     export_segment_offset: int, # GP-0.6.4-eq:B.5: c_cedie export segment offset
     services_state: ServicesState,
-    extrinsics: dict[bytes, bytes]
+    extrinsics: List[List[bytes]] # GP-0.6.6-eq:B.6: x_flat list of extrinsics per workitem
 ) -> PvmRefineOutput:
     """
-    GP-0.6.4-eq:B.4 (Ψ_R) | the refine service-account invocation function
+    GP-0.6.6-eq:B.5 (Ψ_R) | the refine service-account invocation function
 
     # TODO integrate with app?
 
@@ -656,7 +733,7 @@ def pvm_invoke_refine(
     work_item = work_package.items[work_item_index]
     service_account_id = work_item.service
 
-    # GP-0.6.4-eq:B.5 (extract preimage data)
+    # GP-0.6.6-eq:B.5 (extract preimage data)
     preimage_data = services_state.historical_preimage_lookup(
         service_account_id,
         work_package.context.lookup_anchor_slot,
@@ -677,16 +754,14 @@ def pvm_invoke_refine(
         )
 
     preimage = Preimage.extract(preimage_data)
-    # preimage.serialized_program = preimage_data
 
     work_package_hash = work_package.hash()
 
     argument_data = RefinePvmArguments(
+        work_item_index=work_item_index,
         service_id=service_account_id,
         payload_blob=work_item.payload,
-        work_package_hash=work_package_hash,
-        refinement_context=work_package.context,
-        authorization_code_hash=work_package.authorizer.code_hash
+        work_package_hash=work_package_hash
     ).to_jam_bytes().to_bytes()
 
     logging.debug(f'PVM refine start: wp={format_hash(work_package_hash)} a={argument_data.hex()}')

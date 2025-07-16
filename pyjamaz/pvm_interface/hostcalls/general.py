@@ -1,15 +1,17 @@
 from copy import deepcopy
-from typing import List
+from typing import List, Optional
 
-from jamcodec.types import U64, U32, VarInt64
-
+from jamcodec.types import U64, U32, VarInt64, U8, U16, Vec
+from pyjamaz import graypaper_constants as gp_const
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.state import ServiceAccount, ServicesState
+from pyjamaz.models.common import WorkPackage, AccumulationOperand, WorkItem
+from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
+from pyjamaz.pvm_interface.invocation import RefineInvocationContext
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult
 
 
@@ -304,3 +306,134 @@ def hc_info(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
         logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
+
+
+def hc_fetch(
+        registers: List[int],
+        memory: PVMMemory,
+        work_package: Optional[WorkPackage],    #GP: p
+        entropy: Optional[bytes], # GP: n
+        authorizer_output: Optional[bytes], # GP: bold_r
+        work_item_index: Optional[int],    #GP: i
+        work_item_segs: Optional[List[List[bytes]]], #GP: i_flat
+        extrinsics: Optional[List[List[bytes]]], # GP: x_flat
+        accumulation_operands: Optional[List[AccumulationOperand]], #GP: bold_o
+        deferred_transfers: Optional[List[DeferredTransfer]], # GP: bold_t
+        invocation_output: InvocationMutationOutput,
+        logger: PVMLogger):
+    """
+    Fetch the data defined by this Fetch into the given target buffer.
+    target: The buffer to write the fetched data into.
+    skip: The number of bytes to skip from the start of the data to be fetched.
+    Returns the full length of the data which is being fetched. If this is smaller than the target's length, then some of the buffer will not be written to. If the request does not identify any data to be fetched (e. g. because an index is out of range) then returns None.
+    """
+
+    logger.hc_regs(f"FETCH", "general")
+    invocation_output.gas_limit -= 10
+
+    w7 = registers[7]
+    w8 = registers[8]
+    w9 = registers[9]
+    w10 = registers[10]
+    w11 = registers[11]
+    w12 = registers[12]
+
+    def serialize_work_item(work_item: WorkItem) -> bytes:
+        return (
+            work_item.service.to_bytes(length=4, byteorder='little') + work_item.code_hash +
+            work_item.refine_gas_limit.to_bytes(length=8, byteorder='little') +
+            work_item.accumulate_gas_limit.to_bytes(length=8, byteorder='little') +
+            work_item.export_count.to_bytes(length=2, byteorder='little') +
+            len(work_item.import_segments).to_bytes(length=2, byteorder='little') +
+            len(work_item.extrinsic).to_bytes(length=2, byteorder='little') +
+            len(work_item.payload).to_bytes(length=4, byteorder='little')
+        )
+
+    bold_v = None
+
+    if w10 == 0:
+        # GP Constants
+        const_bytes = (
+            U64.encode(gp_const.MINIMUM_BALANCE_ITEM) + U64.encode(gp_const.MINIMUM_BALANCE_OCTET) + U64.encode(gp_const.MINIMUM_BALANCE_SERVICE) + U16.encode(gp_const.CORE_COUNT) + U32.encode(gp_const.PREIMAGE_EXPUNGE_TIMESLOTS) + U32.encode(gp_const.EPOCH_TIMESLOTS) + U64.encode(gp_const.GAS_ACCUMULATION) +
+            U64.encode(gp_const.GAS_INVOKE) + U64.encode(gp_const.GAS_REFINE) + U64.encode(gp_const.GAS_TOTAL) + U16.encode(gp_const.HISTORY) + U16.encode(gp_const.MAXIMUM_WORK_ITEMS) + U16.encode(gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT) + U16.encode(gp_const.MAXIMUM_EXTRINSIC_TICKETS) +
+            U32.encode(gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR) + U16.encode(gp_const.TICKET_ENTRIES) + U16.encode(gp_const.MAXIMIM_AUTHORIZATION_POOL_ITEMS) +
+            U16.encode(gp_const.SLOT_PERIOD) + U16.encode(gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS) + U16.encode(gp_const.ROTATION_PERIOD_CORE) + U16.encode(gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE) + U16.encode(gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD) +
+            U16.encode(gp_const.VALIDATOR_COUNT) + U32.encode(gp_const.MAXIMUM_SIZE_IS_AUTH_CODE) + U32.encode(gp_const.MAXIMUM_SIZE_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_SERVICE_CODE) + U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES)  + U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) +
+            U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) + U32.encode(gp_const.SIZE_TRANSFER_MEMO) + U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) + U32.encode(gp_const.TICKET_SUBMISSION_END_SLOT)
+        )
+        bold_v = const_bytes.to_bytes()
+
+    elif w10 == 1:
+        # Entropy
+        if entropy is not None:
+            bold_v = entropy
+
+    elif w10 == 2:
+        # authorizer_output
+        if authorizer_output is not None:
+            bold_v = authorizer_output
+
+    elif w10 == 3 and w11 < len(extrinsics) and w12 < len(extrinsics[w11]):
+        # AnyExtrinsic
+        bold_v = extrinsics[w11][w12]
+
+    elif w10 == 4 and w11 < len(extrinsics[work_item_index]):
+    # elif w10 == 6 and w11 < len(work_package.items[work_item_index].extrinsic): #TODO polkajam deviation
+        # OurExtrinsic
+        bold_v = extrinsics[work_item_index][w12]
+
+    elif w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
+
+        bold_v = work_item_segs[w11][w12]
+
+    elif w10 == 6 and work_item_index < len(work_item_segs) and w11 < len(work_item_segs[work_item_index]):
+
+        bold_v = work_item_segs[work_item_index][w11]
+
+    elif w10 == 7:
+        bold_v = work_package.to_jam_bytes().to_bytes()
+
+    elif w10 == 8:
+        bold_v = work_package.authorizer.to_jam_bytes().to_bytes()
+
+    elif w10 == 9:
+        bold_v = work_package.authorization
+
+    elif w10 == 10:
+        bold_v = work_package.context.to_jam_bytes().to_bytes() # TODO check again with GP
+
+    elif w10 == 11:
+        serialized_work_items = [serialize_work_item(w) for w in work_package.items]
+        bold_v = VarInt64.encode(len(serialized_work_items)).to_bytes() + b''.join(serialized_work_items)
+
+    elif w10 == 12 and work_package and w11 < len(work_package.items):
+        bold_v = serialize_work_item(work_package.items[w11])
+
+    elif w10 == 13 and work_package and w11 < len(work_package.items):
+        bold_v = work_package.items[w11].payload
+
+    elif w10 == 14:
+        bold_v = Vec(AccumulationOperand.to_codec_def()).encode([a.to_jam_bytes() for a in accumulation_operands]).to_bytes()
+
+    elif w10 == 15 and w11 < len(accumulation_operands):
+        bold_v = accumulation_operands[w11].to_jam_bytes().to_bytes()
+
+    elif w10 == 16:
+        bold_v = Vec(DeferredTransfer.to_codec_def()).encode(deferred_transfers).to_bytes()
+
+    elif w10 == 17 and w11 < len(deferred_transfers):
+        bold_v = deferred_transfers[w11].to_jam_bytes().to_bytes()
+
+    o = w7
+    f = min(w8, len(bold_v or []))
+    l = min(w9, len(bold_v or []) - f)
+
+    if not memory.is_accessible(o, l, PVMMemoryMode.writable):
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+    elif bold_v is None:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.NONE.value
+    else:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = len(bold_v)
+        invocation_output.memory.write_bytes(o, bold_v[f:f+l])

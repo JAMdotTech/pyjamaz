@@ -15,7 +15,7 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
     MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
     MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
-from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, WorkPackage
 from pyjamaz.pvm.invocation import InvocationContext
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
@@ -186,6 +186,11 @@ class AuthorizerPoolsState(State, Serializable):
         # Todo: 'vec' within array attribute is allowed to have up to constant_O (MAXIMUM_AUTHORIZATION_POOL_ITEMS=8)
         # items.
         pass
+
+    def is_authorized(self, work_package: WorkPackage, core_index: int) -> bool:
+        if core_index > len(self.authorizer_pools):
+            return False
+        return work_package.authorizer_hash() in self.authorizer_pools[core_index]
 
 
 @dataclass

@@ -1,5 +1,6 @@
 TEST_SUITE = 'tiny' # tiny or full
-GP_VERSION = '0.6.5'
+GP_VERSION = '0.6.6'
+APP_VERSION = '0.1.3'
 
 DEBUG = False
 SOLO_MODE = False
