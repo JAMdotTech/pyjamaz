@@ -309,6 +309,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
                 #
                 #     logging.debug(f'Connecting to node {validator_address}:{validator_port}')
                 #     tg.start_soon(nps_protocol.connect, validator_address, validator_port)
+                tg.start_soon(nps_protocol.connect, "127.0.0.1", 40000)
                 pass
 
             await anyio.sleep(ts - time.time())

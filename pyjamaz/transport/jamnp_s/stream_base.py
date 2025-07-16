@@ -20,8 +20,8 @@ class StreamType(Enum):
     CE139_SegmentShardRequest: int = 139
     CE140_SegmentShardRequestJustification: int = 140
     CE141_AssuranceDistribution: int = 141
-    # 142
-    # 143
+    CE142_PreimageAnnouncement: int = 142
+    CE143_PreimageRequest: int = 143
     # 144
     # 145
 
@@ -67,7 +67,7 @@ class Stream:
             return (len(payload)).to_bytes(length=4, byteorder='little') + payload
 
 
-    def receive_data(self, data: bytes):
+    def receive_data(self, data: bytes, end_stream: bool = False):
 
         # Note: Parse bytes until stream data is empty: https://github.com/microsoft/msquic/discussions/2037
         while len(data) > 0:
@@ -78,6 +78,11 @@ class Stream:
                 data = data[4:]
                 logger.debug(f"Received new message for stream {self.stream_id} with a msg length: {self._msg_len} ({len(data)} received)")
                 # TODO: check message length > 0???!!!!
+                # Add max size check
+                if self._msg_len > 10000000:  # Example max 10MB
+                    logger.error(f"Message too large for stream {self.stream_id}")
+                    self.reset(2)
+                    return
 
             msg_complete = False
             if len(self._msg_buffer) + len(data) >= self._msg_len:
@@ -100,8 +105,26 @@ class Stream:
                         self.initiator_message(self._msg_buffer)
                     else:
                         self.acceptor_message(self._msg_buffer)
+                except Exception as e:
+                    logger.error(f"Error processing message on stream {self.stream_id}: {e}")
+                    self.handle_error(str(e), 1)
                 finally:
                     self._reset_msg()
+
+        if end_stream:
+            logger.debug(f"Received FIN on stream {self.stream_id}")
+            self.peer_fin_received()
+
+    def handle_error(self, error_msg: str, reset_code: int = 1):
+        logger.error(f"Stream {self.stream_id} error: {error_msg}")
+        self.reset(reset_code)
+
+    def peer_fin_received(self):
+        """Handle peer's FIN. Override in subclass if needed."""
+        # Default: send FIN back if not already closed
+        self.conn.send(self.stream_id, b'', end_stream=True)
+        # Call protocol success if applicable (override in streams)
+        pass
 
 
     def reset(self, reset_code: int):

@@ -122,7 +122,7 @@ class JAMConnection(QuicConnectionProtocol):
                     stream_type = int(data[0])
                     stream_cls = StreamLookup.get(stream_type)
                     if stream_cls is None:
-                        raise Exception(f"QUIC stream {stream_id} is not mapped")
+                        raise Exception(f"QUIC stream {stream_id} is not mapped (type {stream_type})")
 
                     stream_obj = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
 
@@ -138,7 +138,7 @@ class JAMConnection(QuicConnectionProtocol):
                     #TODO: of idem? kan een accepting connection bv ook een block request terug sturen?
                     raise Exception(f"Received data from unknown stream id: {stream_id}")
 
-            self.streams[stream_id].receive_data(data)
+            self.streams[stream_id].receive_data(data, event.end_stream)
             # try:
             #     self.streams[stream_id].receive_data(data)
             # except Exception as e:

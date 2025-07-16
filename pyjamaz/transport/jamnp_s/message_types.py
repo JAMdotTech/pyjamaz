@@ -234,3 +234,51 @@ class MsgCE135GuaranteedWorkReport(Guarantee):
 # class ValidatorSig(Serializable):
 #     validator_index: int   = field(metadata={'codec': U32})
 #     signature:       bytes = field(metadata={'codec': Array(U8, 64)})
+
+
+# ───────────────────────── CE-143 ──────────────────────────────
+@dataclass
+class MsgCE143HashRequest(Serializable):
+    hash: bytes = field(metadata={'codec': H256})
+
+@dataclass
+class MsgCE143Preimage(Serializable):
+    bytes_: bytes = field(metadata={'codec': Vec(U8)})
+
+# ───────────────────────── CE-141 ──────────────────────────────
+@dataclass
+class MsgCE141Assurance(Serializable):
+    header_hash: bytes = field(metadata={'codec': H256})   # anchor
+    bitfield:    bytes = field(metadata={'codec': Vec(U8)})  # len = ceil(C/8)
+    signature:   bytes = field(metadata={'codec': H512})
+
+# ───────────────────────── CE-142 ──────────────────────────────
+@dataclass
+class MsgCE142PreimageAnnouncement(Serializable):
+    service_id:      int   = field(metadata={'codec': U32})
+    hash:            bytes = field(metadata={'codec': H256})
+    preimage_length: int   = field(metadata={'codec': U32})
+
+# ───────────────────────── CE-133 ──────────────────────────────
+@dataclass
+class MsgCE133WorkPackageSubmission(Serializable):
+    core_index: int = field(metadata={'codec': U32})
+    work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
+
+@dataclass
+class MsgCE133Extrinsic(Serializable):
+    bytes_: bytes = field(metadata={'codec': Vec(U8)})
+
+# ───────────────────────── CE-135 ──────────────────────────────
+@dataclass
+class MsgCE135GuaranteedWorkReport(Guarantee):
+    pass
+
+# ───────────────────────── CE-136 ──────────────────────────────
+@dataclass
+class MsgCE136HashRequest(Serializable):
+    hash: bytes = field(metadata={'codec': H256})
+
+@dataclass
+class MsgCE136WorkReport(Serializable):
+    report: bytes = field(metadata={'codec': Vec(U8)})
