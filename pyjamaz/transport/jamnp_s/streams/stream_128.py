@@ -23,19 +23,13 @@ class StreamBlockRequest(Stream):
 
 
     def initiator_message(self, data: bytes):
-        if len(data) == 0: #int.from_bytes(b'\x00\x00\x00\x00')
-            #TODO: send FIN? Let protocol know were finished?
-            print(f'!!!!!!!!!ConnectionInitiator StreamBlockRequest.initiator_message received empty data')
-            # self.initiator_reset(reset_code=0) # Only reset on error
-            self.handle_error("Empty response", 3)
-            return
-
         logger.debug(f"CE128 initiated stream {self.stream_id} received block request response: {len(data)} bytes")
         req = MsgCE128BlockRequestResponse.from_jam_bytes(JamBytes(data))
         self.protocol.ce128_received_block_request(self, req)
 
-    def peer_fin_received(self):
-        super().peer_fin_received()
+
+    def handle_fin(self):
+        super().handle_fin()
         self.protocol.ce128_abort_block_request()  # Or success callback
 
 

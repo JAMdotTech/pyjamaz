@@ -57,6 +57,6 @@ class StreamUP(Stream):
         # Note: in case of UP0, initiator and acceptor have symmetrical message flow
         self.initiator_message(data)
 
-    def peer_fin_received(self):
-        logger.warning(f"Unexpected FIN on persistent UP0 stream {self.stream_id}")  # UP streams shouldn't FIN
-        # Optionally reset or ignore
+    def handle_fin(self):
+        logger.warning(f"Unexpected FIN on persistent UP0 stream {self.stream_id}")
+        # TODO: reset or ignore?

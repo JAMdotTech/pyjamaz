@@ -39,10 +39,14 @@ class JAMConnection(QuicConnectionProtocol):
         return self.streams[stream_id]
 
 
-    def close_jam_stream(self, stream: Stream, reason:int=0):
-        logger.info(f"QUIC closing JAM stream {stream.stream_type} {stream.stream_id} for {stream.direction}")
-        self._quic.reset_stream(stream.stream_id, error_code=reason)
-        del self.streams[stream.stream_id]
+    def close_jam_stream(self, stream: Stream, reason:int=0, clean_close: bool = False):
+        logger.info(f"QUIC closing JAM stream {stream.stream_type} {stream.stream_id} for {stream.direction} (clean: {clean_close})")
+        if clean_close:
+            self.send(stream.stream_id, b'', end_stream=True)
+        else:
+            self._quic.reset_stream(stream.stream_id, error_code=reason)
+        if stream.stream_id in self.streams:
+            del self.streams[stream.stream_id]
 
 
     def send(self, stream_id: int, data: bytes, end_stream=False):

@@ -23,10 +23,6 @@ class StreamSafroleTicketDistributionStep2(Stream):
 
 
     def initiator_message(self, data: bytes):
-        if len(data) == 0:
-            logger.debug(f"CE132 initiator received empty data")
-            return
-
         logger.warning(f"Unexpected data in CE132 initiator: {len(data)} bytes")
         self.handle_error("Unexpected data", 1)
 
@@ -36,6 +32,7 @@ class StreamSafroleTicketDistributionStep2(Stream):
         msg = MsgCE132SafroleTicketDistribution.from_jam_bytes(JamBytes(data))
         self.protocol.ce132_received_ticket(self, msg)
 
-    def peer_fin_received(self):
-        super().peer_fin_received()
+
+    def handle_fin(self):
+        super().handle_fin()
         self.protocol.ce132_ticket_distribution_success(0)
