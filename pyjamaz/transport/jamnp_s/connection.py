@@ -147,11 +147,10 @@ class JAMConnection(QuicConnectionProtocol):
 
                     stream_obj = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
 
-                    # if stream_cls == StreamUP:
-                    #     # If we're on the acceptor side of this stream, send a handshake message back
-                    #     if self.stream_up is None or self.stream_up.stream_id < stream_id:
-                    #         self.stream_up = stream_obj
-                    #         self.protocol.up0_send_handshake(self)
+                    if stream_cls == StreamUP:
+                        # Register UP0 stream reference for both acceptor and initiator directions
+                        if self.stream_up is None or self.stream_up.stream_id != stream_id:
+                            self.stream_up = stream_obj
 
                     # Only the first time an acceptor receives a message, we expect a stream id byte
                     data = data[1:]
