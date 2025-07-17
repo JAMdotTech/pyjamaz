@@ -30,10 +30,14 @@ class StreamUP(Stream):
         match self.state:
 
             case UPState.IN_PROGRESS:
-                self.state = UPState.CONNECTED
+                try:
+                    self.state = UPState.CONNECTED
 
-                msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
-                self.protocol.up0_received_handshake(self.conn, msg)
+                    msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
+                    self.protocol.up0_received_handshake(self.conn, msg)
+                except Exception as e:
+                    logger.error(f"Error processing handshake in initiator: {e}", exc_info=True)
+                    raise
 
             case UPState.CONNECTED:
                 # After handshake is completed, we receive Announcement messages
@@ -60,11 +64,15 @@ class StreamUP(Stream):
         
         match self.state:
             case UPState.IN_PROGRESS:
-                self.state = UPState.CONNECTED
-                
-                msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
-                self.protocol.up0_received_handshake(self.conn, msg)
-                self.protocol.up0_send_handshake(self.conn)
+                try:
+                    self.state = UPState.CONNECTED
+                    
+                    msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
+                    self.protocol.up0_received_handshake(self.conn, msg)
+                    self.protocol.up0_send_handshake(self.conn)
+                except Exception as e:
+                    logger.error(f"Error processing handshake in acceptor: {e}", exc_info=True)
+                    raise
                     
             case UPState.CONNECTED:
                 # After handshake is completed, we receive Announcement messages

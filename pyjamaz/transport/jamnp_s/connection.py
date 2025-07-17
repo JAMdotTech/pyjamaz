@@ -36,6 +36,7 @@ class JAMConnection(QuicConnectionProtocol):
             logger.debug(f"QUIC accepting stream {stream_id} for {direction}")
 
         self.streams[stream_id] = StreamCls(stream_id, connection=self, direction=direction)
+        logger.debug(f"Added stream {stream_id} to streams dict, total streams: {len(self.streams)}")
         return self.streams[stream_id]
 
 
@@ -99,7 +100,8 @@ class JAMConnection(QuicConnectionProtocol):
             #   Both nodes are validators, and are neighbours in the grid structure.
             #   At least one of the nodes is not a validator.
             if self.stream_up is not None:
-                raise Exception("There can be only one UP connection active at a time")
+                logger.debug("UP0 stream already exists, skipping creation")
+                return
 
             if self.direction == StreamDirection.initiator:
                 # Initiating side will send a JAM handshake message and set the stream id
@@ -129,6 +131,7 @@ class JAMConnection(QuicConnectionProtocol):
             data = bytes(event.data)
             
             logger.debug(f"StreamDataReceived: stream_id={stream_id}, data_len={len(data)}, end_stream={event.end_stream}")
+            logger.debug(f"Current streams in dict: {list(self.streams.keys())}")
 
             try:
                 if stream_id not in self.streams:
@@ -149,8 +152,8 @@ class JAMConnection(QuicConnectionProtocol):
                         # Only the first time an acceptor receives a message, we expect a stream id byte
                         data = data[1:]
                     else:
-                        #TODO: of idem? kan een accepting connection bv ook een block request terug sturen?
-                        raise Exception(f"Received data from unknown stream id: {stream_id}")
+                        # Initiator receiving data on unknown stream - this is an error
+                        raise Exception(f"Initiator received data from unknown stream id: {stream_id}")
 
                 self.streams[stream_id].receive_data(data, event.end_stream)
             except Exception as e:
