@@ -244,6 +244,11 @@ class JAMNPS(ProtocolType):
         ).to_jam_bytes().to_bytes()
 
         for client_id, client in self.connections.items():
+            # Check if UP0 stream is established
+            if not client.is_connected():
+                logger.debug(f"Skipping broadcast to {client.host}:{client.port} - connection is not fully established yet")
+                continue
+                
             logger.debug(f"up0_broadcast_block send block header to client {client.host}:{client.port} with hash {block.header.hash}")
             client.send(
                 client.stream_up.stream_id,
