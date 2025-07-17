@@ -25,7 +25,7 @@ class JAMConnection(QuicConnectionProtocol):
 
         self.stream_up = None
         self.streams = {}
-        #self._keepalive_task = asyncio.create_task(self._keepalive())
+        self._keepalive_task = asyncio.create_task(self._keepalive())
 
 
     def open_jam_stream(self, StreamCls: Stream, direction:StreamDirection, stream_id: int=None):
@@ -109,6 +109,10 @@ class JAMConnection(QuicConnectionProtocol):
                 self.stream_up = stream_up
                 self.protocol.up0_send_handshake(self)
             else:
+                if self.host and self.port:
+                    logger.debug(f"Connection already exists for direction {self.direction}")
+                    return
+
                 # Note: it seems only now we have this info available from the accepting side
                 self.host, self.port = self._quic._network_paths[0].addr
 
@@ -135,25 +139,25 @@ class JAMConnection(QuicConnectionProtocol):
 
             try:
                 if stream_id not in self.streams:
-                    if self.direction == StreamDirection.acceptor:
-                        stream_type = int(data[0])
-                        stream_cls = StreamLookup.get(stream_type)
-                        if stream_cls is None:
-                            raise Exception(f"QUIC stream {stream_id} is not mapped (type {stream_type})")
+                    #if self.direction == StreamDirection.acceptor:
+                    stream_type = int(data[0])
+                    stream_cls = StreamLookup.get(stream_type)
+                    if stream_cls is None:
+                        raise Exception(f"QUIC stream {stream_id} is not mapped (type {stream_type})")
 
-                        stream_obj = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
+                    stream_obj = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
 
-                        if stream_cls == StreamUP:
-                            # If we're on the acceptor side of this stream, send a handshake message back
-                            if self.stream_up is None or self.stream_up.stream_id < stream_id:
-                                self.stream_up = stream_obj
-                                #self.protocol.up0_send_handshake(self)
+                    # if stream_cls == StreamUP:
+                    #     # If we're on the acceptor side of this stream, send a handshake message back
+                    #     if self.stream_up is None or self.stream_up.stream_id < stream_id:
+                    #         self.stream_up = stream_obj
+                    #         self.protocol.up0_send_handshake(self)
 
-                        # Only the first time an acceptor receives a message, we expect a stream id byte
-                        data = data[1:]
-                    else:
-                        # Initiator receiving data on unknown stream - this is an error
-                        raise Exception(f"Initiator received data from unknown stream id: {stream_id}")
+                    # Only the first time an acceptor receives a message, we expect a stream id byte
+                    data = data[1:]
+                    # else:
+                    #     # Initiator receiving data on unknown stream - this is an error
+                    #     raise Exception(f"Initiator received data from unknown stream id: {stream_id}")
 
                 self.streams[stream_id].receive_data(data, event.end_stream)
             except Exception as e:

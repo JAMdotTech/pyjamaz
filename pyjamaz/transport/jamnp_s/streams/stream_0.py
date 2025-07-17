@@ -35,6 +35,8 @@ class StreamUP(Stream):
 
                     msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
                     self.protocol.up0_received_handshake(self.conn, msg)
+                    if self.direction == StreamDirection.acceptor:
+                        self.protocol.up0_send_handshake(self.conn)
                 except Exception as e:
                     logger.error(f"Error processing handshake in initiator: {e}", exc_info=True)
                     raise
@@ -49,38 +51,17 @@ class StreamUP(Stream):
 
 
     def initiator_reset(self, reset_code: int):
-        logger.debug(f"UP0 received reset code: {reset_code}")
-        self.protocol.up0_failure(reset_code)
-        super().initiator_reset(reset_code)
+        self.protocol.up0_failure(reset_code, self.direction)
 
 
     def acceptor_reset(self, reset_code: int):
-        self.protocol.up0_failure(reset_code)
-        super().reset(reset_code)
+        self.protocol.up0_failure(reset_code, self.direction)
 
 
     def acceptor_message(self, data: bytes):
         # Note: in case of UP0, initiator and acceptor have symmetrical message flow
-        
-        match self.state:
-            case UPState.IN_PROGRESS:
-                try:
-                    self.state = UPState.CONNECTED
-                    
-                    msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
-                    self.protocol.up0_received_handshake(self.conn, msg)
-                    self.protocol.up0_send_handshake(self.conn)
-                except Exception as e:
-                    logger.error(f"Error processing handshake in acceptor: {e}", exc_info=True)
-                    raise
-                    
-            case UPState.CONNECTED:
-                # After handshake is completed, we receive Announcement messages
-                msg = MsgUP0Announcement.from_jam_bytes(JamBytes(data))
-                self.protocol.up0_received_announcement(self.conn, msg)
-                
-            case _:
-                raise RuntimeError(f"Unexpected state {self.state}")
+        # (except for sending a handshake response, which is checked using the connection direction)
+        self.initiator_message(data)
 
 
     def handle_fin(self):

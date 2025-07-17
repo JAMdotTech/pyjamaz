@@ -259,6 +259,7 @@ class JAMNPS(ProtocolType):
 
     def ce128_initiate_block_request(self, conn: JAMConnection, req: MsgCE128BlockRequest):
         #TODO: missch een batch param meegeven, zodat we een grotere reeks kunnen binnenhalen maar batchen...
+        return
         stream = conn.open_jam_stream(StreamBlockRequest, direction=StreamDirection.initiator)
         logger.debug(f"ce128_initiate_block_request on stream id: {stream.stream_id} direction: {req.direction}, max_block: {req.max_blocks} header hash: {req.header_hash}")
         conn.send(
@@ -282,6 +283,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce128_send_block_request(self, stream: StreamBlockRequest, block_req: MsgCE128BlockRequest):
+        return
         block:Block = None
         blocks:List[Block] = []
         first_block_hash = bytes(32)
@@ -324,13 +326,9 @@ class JAMNPS(ProtocolType):
                 stream.create_message(MsgCE128BlockRequestResponse(blocks=blocks).to_jam_bytes().to_bytes()),
                 end_stream=True
             )
-
-        #TODO: check ook direction!!!
-        if not block or block_req.header_hash == last_block_hash or block.header.timeslot == 0:
-            #TODO: PolkaJAM lijkt in dit geval een reset te sturen????
+        else:
             #TODO: ook op max_blocks checken -> bijhouden op de stream?
             logger.debug(f"ce128_send_block_request finished")
-            # stream.acceptor_reset(1) # Replaced with FIN
             stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
@@ -351,8 +349,8 @@ class JAMNPS(ProtocolType):
         self.state_requesting_blocks = False
 
 
-    def up0_failure(self, reset_code: int):
-        logger.error(f"up0_failure with code {reset_code}")
+    def up0_failure(self, reset_code: int, direction:StreamDirection):
+        logger.error(f"up0_failure with code {reset_code} ({direction}")
         # TODO: handle UP0 reset, e.g., reconnect
 
 
@@ -362,6 +360,7 @@ class JAMNPS(ProtocolType):
 
 
     async def ce131_initiate_distribute_own_ticket(self, data):
+        return
         #TODO: wrap in a dataclass and pass that in the signal
         epoch_index: int = data[0]
         attempt: int = data[1]
