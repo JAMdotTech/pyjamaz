@@ -852,17 +852,21 @@ class PyjamazApp:
             if not SOLO_MODE and self.block_extrinsic.can_add_own_ticket(timeslot):
 
                 ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
+                epoch_index = timeslot // EPOCH_TIMESLOTS
 
-                self.block_extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                await self.block_extrinsic.add_own_ticket(
+                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index(),
+                    epoch_index=epoch_index, pubsub=self.pubsub
                 )
 
-                self.block_extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                await self.block_extrinsic.add_own_ticket(
+                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index(),
+                    epoch_index=epoch_index, pubsub=self.pubsub
                 )
 
-                self.block_extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                await self.block_extrinsic.add_own_ticket(
+                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index(),
+                    epoch_index=epoch_index, pubsub=self.pubsub
                 )
 
         extrinsic = Extrinsic(

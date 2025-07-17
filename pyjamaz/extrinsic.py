@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 
 from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify, vrf_output
 
+from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
     EPOCH_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
@@ -11,6 +12,7 @@ from pyjamaz.models.common import TicketBody, WorkPackage
 from pyjamaz.models.state import ServicesState
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
+from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import vrf_input_ticket_seal, format_hash
 
 
@@ -50,8 +52,9 @@ class BlockExtrinsicAccumulator:
     def can_add_own_ticket(self, timeslot: int) -> bool:
         return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT
 
-    def add_own_ticket(
-            self, ring_public_keys: List[bytes], entropy: bytes, keypair: BandersnatchKeypair, author_index: int
+    async def add_own_ticket(
+            self, ring_public_keys: List[bytes], entropy: bytes, keypair: BandersnatchKeypair, author_index: int,
+            epoch_index: int = None, pubsub: PubSub = None
     ):
 
         if len(self.tickets_queue) > TICKET_ENTRIES:
@@ -80,6 +83,10 @@ class BlockExtrinsicAccumulator:
 
         self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)
+        
+        # Distribute ticket to peers if requested
+        if pubsub and epoch_index is not None:
+            await pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.TICKET_ADD, data=[epoch_index, attempt, signature]))
 
     def collect_tickets(self) -> List[TicketEnvelope]:
         """

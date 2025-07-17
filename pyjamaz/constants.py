@@ -44,6 +44,7 @@ class MESSAGE_TYPES(Enum):
     PREIMAGE_AVAILABILITY = "preimage_availability"
     BEST_BLOCK = "best_block"
     FINALIZED_BLOCK = "finalized_block"
+    TICKET_ADD = "ticket_add"
 
     CE128_SUCCESS = "CE128_SUCCESS"
     CE128_FAILURE = "CE128_FAILURE"

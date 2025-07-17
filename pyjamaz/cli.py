@@ -266,7 +266,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             #initial_block_hash = app.retrieve_block_hash(0).hex()
             nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
             app.protocol = nps_protocol
-            app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol))
+            app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol)) #TODO: is this function wrapping still necesary?
+            app.pubsub.subscribe(MESSAGE_TYPES.TICKET_ADD, nps_protocol.ce131_initiate_distribute_own_ticket)
             tg.start_soon(nps_protocol.listen)
 
             if bootnode:
