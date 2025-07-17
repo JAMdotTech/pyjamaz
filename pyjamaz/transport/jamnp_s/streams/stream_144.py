@@ -2,7 +2,7 @@ import logging
 
 from jamcodec.base import JamBytes
 
-from pyjamaz.transport.jamnp_s.message_types import MsgCE144AuditAnnouncement, MsgCE144Evidence
+from pyjamaz.transport.jamnp_s.message_types import MsgCE144Announcement, MsgCE144Evidence
 from pyjamaz.transport.jamnp_s.stream_base import Stream, StreamType, StreamDirection
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
@@ -31,7 +31,7 @@ class StreamAuditAnnouncement(Stream):
     def acceptor_message(self, data: bytes):
         if not self.received_announcement:
             logger.debug(f"CE144 acceptor received announcement")
-            msg = MsgCE144AuditAnnouncement.from_jam_bytes(JamBytes(data))
+            msg = MsgCE144Announcement.from_jam_bytes(JamBytes(data))
             self.protocol.ce144_received_announcement(self, msg)
             self.received_announcement = True
         else:

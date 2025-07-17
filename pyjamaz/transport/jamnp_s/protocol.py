@@ -31,7 +31,7 @@ from pyjamaz.transport.jamnp_s.message_types import MsgCE128BlockRequestDirectio
     MsgCE138ShardRequest, MsgCE138BundleShard, MsgCE138Justification, \
     MsgCE139SegmentRequest, MsgCE139SegmentShard, \
     MsgCE140SegmentRequest, MsgCE140SegmentShard, MsgCE140Justification, \
-    MsgCE144Evidence, \
+    MsgCE144Announcement, MsgCE144Evidence, \
     MsgCE145JudgmentPublication, MsgCE131SafroleTicket, MsgCE132SafroleTicket
 from pyjamaz.transport.jamnp_s.streams.stream_128 import StreamBlockRequest
 from pyjamaz.transport.jamnp_s.streams.stream_131 import StreamSafroleTicketDistributionStep1
@@ -825,13 +825,13 @@ class JAMNPS(ProtocolType):
         logger.error(f"CE140 failure {code}")
 
 
-    def ce144_initiate_announcement(self, conn: JAMConnection, ann: MsgCE144AuditAnnouncement, evidence: MsgCE144Evidence):
+    def ce144_initiate_announcement(self, conn: JAMConnection, ann: MsgCE144Announcement, evidence: MsgCE144Evidence):
         stream = conn.open_jam_stream(StreamAuditAnnouncement, direction=StreamDirection.initiator)
         conn.send(stream.stream_id, stream.create_message(ann.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=False)
         conn.send(stream.stream_id, stream.create_message(evidence.to_jam_bytes().to_bytes()), end_stream=True)
 
 
-    def ce144_received_announcement(self, stream: StreamAuditAnnouncement, msg: MsgCE144AuditAnnouncement):
+    def ce144_received_announcement(self, stream: StreamAuditAnnouncement, msg: MsgCE144Announcement):
         # TODO: process announcement
         pass
 
