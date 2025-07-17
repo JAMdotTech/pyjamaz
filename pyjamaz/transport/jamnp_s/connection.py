@@ -139,24 +139,19 @@ class JAMConnection(QuicConnectionProtocol):
 
             try:
                 if stream_id not in self.streams:
-                    #if self.direction == StreamDirection.acceptor:
+                    # Remote side initiated a new stream – first byte is stream type
                     stream_type = int(data[0])
                     stream_cls = StreamLookup.get(stream_type)
                     if stream_cls is None:
                         raise Exception(f"QUIC stream {stream_id} is not mapped (type {stream_type})")
 
-                    stream_obj = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
+                    stream_obj = self.open_jam_stream(stream_cls, direction=StreamDirection.acceptor, stream_id=stream_id)
 
-                    if stream_cls == StreamUP:
-                        # Register UP0 stream reference for both acceptor and initiator directions
-                        if self.stream_up is None or self.stream_up.stream_id != stream_id:
-                            self.stream_up = stream_obj
+                    if stream_cls == StreamUP and (self.stream_up is None or self.stream_up.stream_id != stream_id):
+                        self.stream_up = stream_obj
 
-                    # Only the first time an acceptor receives a message, we expect a stream id byte
+                    # Strip stream type byte for further processing
                     data = data[1:]
-                    # else:
-                    #     # Initiator receiving data on unknown stream - this is an error
-                    #     raise Exception(f"Initiator received data from unknown stream id: {stream_id}")
 
                 self.streams[stream_id].receive_data(data, event.end_stream)
             except Exception as e:
