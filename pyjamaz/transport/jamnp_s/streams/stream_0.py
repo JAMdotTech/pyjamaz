@@ -49,13 +49,31 @@ class StreamUP(Stream):
         self.protocol.up0_failure(reset_code)
         super().initiator_reset(reset_code)
 
+
     def acceptor_reset(self, reset_code: int):
         self.protocol.up0_failure(reset_code)
         super().reset(reset_code)
 
+
     def acceptor_message(self, data: bytes):
         # Note: in case of UP0, initiator and acceptor have symmetrical message flow
-        self.initiator_message(data)
+        
+        match self.state:
+            case UPState.IN_PROGRESS:
+                self.state = UPState.CONNECTED
+                
+                msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
+                self.protocol.up0_received_handshake(self.conn, msg)
+                self.protocol.up0_send_handshake(self.conn)
+                    
+            case UPState.CONNECTED:
+                # After handshake is completed, we receive Announcement messages
+                msg = MsgUP0Announcement.from_jam_bytes(JamBytes(data))
+                self.protocol.up0_received_announcement(self.conn, msg)
+                
+            case _:
+                raise RuntimeError(f"Unexpected state {self.state}")
+
 
     def handle_fin(self):
         logger.warning(f"Unexpected FIN on persistent UP0 stream {self.stream_id}")

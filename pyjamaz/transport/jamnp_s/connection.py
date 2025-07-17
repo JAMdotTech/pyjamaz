@@ -139,7 +139,7 @@ class JAMConnection(QuicConnectionProtocol):
                         # If we're on the acceptor side of this stream, send a handshake message back
                         if self.stream_up is None or self.stream_up.stream_id < stream_id:
                             self.stream_up = stream_obj
-                            self.protocol.up0_send_handshake(self)
+                            # Note: handshake will be sent after processing the incoming message
 
                     # Only the first time an acceptor receives a message, we expect a stream id byte
                     data = data[1:]
