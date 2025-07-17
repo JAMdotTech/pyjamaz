@@ -353,7 +353,7 @@ class JAMNPS(ProtocolType):
         self.state_requesting_blocks = False  # Reset state on failure
 
 
-    def ce131_initiate_distribute_own_ticket(self, data):
+    async def ce131_initiate_distribute_own_ticket(self, data):
         #TODO: wrap in a dataclass and pass that in the signal
         epoch_index: int = data[0]
         attempt: int = data[1]

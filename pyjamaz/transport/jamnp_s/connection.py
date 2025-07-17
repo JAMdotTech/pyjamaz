@@ -49,6 +49,11 @@ class JAMConnection(QuicConnectionProtocol):
             del self.streams[stream.stream_id]
 
 
+    def is_connected(self) -> bool:
+        """Check if the connection is active and ready"""
+        return self._quic is not None and not self._quic._close_pending
+
+
     def send(self, stream_id: int, data: bytes, end_stream=False):
         try:
             self._quic.send_stream_data(
