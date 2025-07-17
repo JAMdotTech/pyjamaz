@@ -68,9 +68,9 @@ class JAMConnection(QuicConnectionProtocol):
 
 
     def connection_lost(self, exc):
-        logger.info("QUIC UDP transport closed:", exc)
+        logger.info("QUIC UDP transport closed")
         self.protocol.disconnect(self)
-        super().connection_lost(exc)             # keeps aioquic tidy
+        super().connection_lost(exc)
 
 
     async def _keepalive(self):
@@ -103,7 +103,7 @@ class JAMConnection(QuicConnectionProtocol):
                 # Initiating side will send a JAM handshake message and set the stream id
                 stream_up = self.open_jam_stream(StreamUP, direction=self.direction)
                 self.stream_up = stream_up
-                self.protocol.up0_send_handshake(self)
+                #self.protocol.up0_send_handshake(self)
             else:
                 # Note: it seems only now we have this info available from the accepting side
                 self.host, self.port = self._quic._network_paths[0].addr
@@ -139,7 +139,7 @@ class JAMConnection(QuicConnectionProtocol):
                         # If we're on the acceptor side of this stream, send a handshake message back
                         if self.stream_up is None or self.stream_up.stream_id < stream_id:
                             self.stream_up = stream_obj
-                            # Note: handshake will be sent after processing the incoming message
+                            #self.protocol.up0_send_handshake(self)
 
                     # Only the first time an acceptor receives a message, we expect a stream id byte
                     data = data[1:]

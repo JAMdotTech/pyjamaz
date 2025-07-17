@@ -150,11 +150,14 @@ class JAMNPS(ProtocolType):
 
     def disconnect(self, connection: JAMConnection):
         if connection.direction == StreamDirection.initiator:
-            self.conn_initiated.remove(connection.jam_connection_ulid)
+            if connection.jam_connection_ulid in self.conn_initiated:
+                self.conn_initiated.remove(connection.jam_connection_ulid)
         else:
-            self.conn_accepted.remove(connection.jam_connection_ulid)
+            if connection.jam_connection_ulid in self.conn_accepted:
+                self.conn_accepted.remove(connection.jam_connection_ulid)
 
-        del self.connections[connection.jam_connection_ulid]
+        if connection.jam_connection_ulid in self.connections:
+            del self.connections[connection.jam_connection_ulid]
 
 
     def up0_send_handshake(self, conn: JAMConnection):

@@ -166,8 +166,7 @@ async def main():
 # @click.pass_context
 
 @main.command(name='run', help='Run a Pyjamaz JAM node')
-@click.option('--seed', type=str,
-              help='Seed to generate validator keys')
+@click.option('--seed', type=str, help='Seed to generate validator keys')
 @click.option('--port', type=int, default=9000, show_default=True, help='UDP port on which the validator should run')
 @click.option('--ts', type=int, help='Unix timestamp for when the validator starts.')
 @click.option('--culprit', is_flag=True, help="Culprit mode: node will intentionally act malicious")
@@ -280,7 +279,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
                     #await nps_protocol.connect(conn["addr"], conn["port"])
                     #await nps_protocol.connect("54.39.18.64", 40000)
                     await nps_protocol.connect("localhost", conn["port"])
-                    #await nps_protocol.connect("127.0.0.1", 40000) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    #await nps_protocol.connect("127.0.0.1", 40001) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 except Exception as exc:
                     traceback.print_exc()
             else:
@@ -300,7 +299,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
                 #
                 #     logging.debug(f'Connecting to node {validator_address}:{validator_port}')
                 #     tg.start_soon(nps_protocol.connect, validator_address, validator_port)
-                tg.start_soon(nps_protocol.connect, "127.0.0.1", 40000)
+                tg.start_soon(nps_protocol.connect, "127.0.0.1", 40001)
                 pass
 
             await anyio.sleep(ts - time.time())
