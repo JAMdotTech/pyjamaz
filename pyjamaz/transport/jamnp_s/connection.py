@@ -103,7 +103,7 @@ class JAMConnection(QuicConnectionProtocol):
                 # Initiating side will send a JAM handshake message and set the stream id
                 stream_up = self.open_jam_stream(StreamUP, direction=self.direction)
                 self.stream_up = stream_up
-                #self.protocol.up0_send_handshake(self)
+                self.protocol.up0_send_handshake(self)
             else:
                 # Note: it seems only now we have this info available from the accepting side
                 self.host, self.port = self._quic._network_paths[0].addr
@@ -125,34 +125,37 @@ class JAMConnection(QuicConnectionProtocol):
 
             stream_id = event.stream_id
             data = bytes(event.data)
+            
+            logger.debug(f"StreamDataReceived: stream_id={stream_id}, data_len={len(data)}, end_stream={event.end_stream}")
 
-            if stream_id not in self.streams:
-                if self.direction == StreamDirection.acceptor:
-                    stream_type = int(data[0])
-                    stream_cls = StreamLookup.get(stream_type)
-                    if stream_cls is None:
-                        raise Exception(f"QUIC stream {stream_id} is not mapped (type {stream_type})")
+            try:
+                if stream_id not in self.streams:
+                    if self.direction == StreamDirection.acceptor:
+                        stream_type = int(data[0])
+                        stream_cls = StreamLookup.get(stream_type)
+                        if stream_cls is None:
+                            raise Exception(f"QUIC stream {stream_id} is not mapped (type {stream_type})")
 
-                    stream_obj = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
+                        stream_obj = self.open_jam_stream(stream_cls, direction=self.direction, stream_id=stream_id)
 
-                    if stream_cls == StreamUP:
-                        # If we're on the acceptor side of this stream, send a handshake message back
-                        if self.stream_up is None or self.stream_up.stream_id < stream_id:
-                            self.stream_up = stream_obj
-                            #self.protocol.up0_send_handshake(self)
+                        if stream_cls == StreamUP:
+                            # If we're on the acceptor side of this stream, send a handshake message back
+                            if self.stream_up is None or self.stream_up.stream_id < stream_id:
+                                self.stream_up = stream_obj
+                                #self.protocol.up0_send_handshake(self)
 
-                    # Only the first time an acceptor receives a message, we expect a stream id byte
-                    data = data[1:]
-                else:
-                    #TODO: of idem? kan een accepting connection bv ook een block request terug sturen?
-                    raise Exception(f"Received data from unknown stream id: {stream_id}")
+                        # Only the first time an acceptor receives a message, we expect a stream id byte
+                        data = data[1:]
+                    else:
+                        #TODO: of idem? kan een accepting connection bv ook een block request terug sturen?
+                        raise Exception(f"Received data from unknown stream id: {stream_id}")
 
-            self.streams[stream_id].receive_data(data, event.end_stream)
-            # try:
-            #     self.streams[stream_id].receive_data(data)
-            # except Exception as e:
-            #     #TODO: reset stream? return error?
-            #     logger.error(f"JAMStream received invalid message for stream {stream_id} ({self.streams[stream_id]}): {e}")
+                self.streams[stream_id].receive_data(data, event.end_stream)
+            except Exception as e:
+                logger.error(f"Error handling stream data: {e}", exc_info=True)
+                # Reset the stream with an error code
+                self._quic.reset_stream(stream_id, error_code=2)
+                raise
 
         elif isinstance(event, ConnectionTerminated):
             logger.info(f"QUIC connection terminated with code {event.error_code}")
