@@ -29,8 +29,6 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, StateDump, ChainspecDump
 from pyjamaz.transport.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION
-from pyjamaz.state.base import state_key_constructor_service_account, state_key_constructor_preimage, \
-    state_key_constructor_preimage_availability
 from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.transport.cert import generate_cert, write_cert
@@ -251,14 +249,6 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             # Start WebSocket server
             tg.start_soon(start_rpc_server, rpc_server)
 
-            # if block_dir:
-            #     logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
-            #     fs_protocol = FSProtocol(block_dir, app)
-            #     app.protocol = fs_protocol
-            #     app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_fs(app, record_traces, fs_protocol))
-            #     app.pubsub.subscribe(MESSAGE_TYPES.REQUESTED_BLOCKS, app.requested_blocks_from_json)
-            #     tg.start_soon(fs_protocol.listen)
-            # else:
             certificate_file = os.path.join(db_path, "cert.pem")
             pk_file = os.path.join(db_path, "cert.key")
             #nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)

@@ -84,7 +84,7 @@ class BlockExtrinsicAccumulator:
         self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)
         
-        # Distribute ticket to peers if requested
+        # Notify new ticket is added
         if pubsub and epoch_index is not None:
             await pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.TICKET_ADD, data=[epoch_index, attempt, signature]))
 
