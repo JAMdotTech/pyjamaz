@@ -43,7 +43,7 @@ class StreamWorkPackageSharing(Stream):
         if not self.received_mappings:
             logger.debug(f"CE134 acceptor received mappings")
             msg = MsgCE134WorkPackageSharing.from_jam_bytes(JamBytes(data))
-            self.protocol.ce134_received_sharing(self, msg)
+            self.protocol.ce134_received_workpackage_sharing(self, msg)
             self.received_mappings = True
         else:
             logger.debug(f"CE134 acceptor received bundle")

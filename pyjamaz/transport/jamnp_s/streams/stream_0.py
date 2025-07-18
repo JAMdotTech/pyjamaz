@@ -35,8 +35,11 @@ class StreamUP(Stream):
 
                     msg = MsgUP0Handshake.from_jam_bytes(JamBytes(data))
                     self.protocol.up0_received_handshake(self.conn, msg)
+
+                    # Note: exception when received as an acceptor stream
                     if self.direction == StreamDirection.acceptor:
                         self.protocol.up0_send_handshake(self.conn)
+
                 except Exception as e:
                     logger.error(f"Error processing handshake in initiator: {e}", exc_info=True)
                     raise

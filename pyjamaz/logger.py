@@ -15,6 +15,10 @@ class LogFormatter(logging.Formatter):
         logging.CRITICAL: "🚨"
     }
 
+    def __init__(self, width=30, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.width = width
+
     def format(self, record):
         # Prepend the appropriate icon based on log level
         icon = self.icons.get(record.levelno, "")
@@ -25,12 +29,27 @@ class LogFormatter(logging.Formatter):
 
         if record.levelno > logging.INFO:
             record.msg = click.style(f'{record.msg}', fg='red')
+
+        combo = f"{record.filename}:{record.funcName}"
+        record.funcName = (combo[: self.width]).ljust(self.width)
+
         return super().format(record)
 
 
 def setup_logging(log_level=logging.INFO, package_loggers=None):
-    log_format = click.style("%(asctime)s.%(msecs)03d", fg=(80, 80, 80)) + " %(message)s"
-    formatter = LogFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S")
+    #log_format = click.style("%(asctime)s.%(msecs)03d", fg=(80, 80, 80)) + " %(message)s"
+    #formatter = LogFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S")
+
+    time_style = click.style("%(asctime)s.%(msecs)03d", fg=(80, 80, 80))
+
+    log_format = (
+        f"{time_style} "
+        "%(funcName)s "
+        "%(message)s"
+    )
+
+    # only want HH:MM:SS, so change datefmt
+    formatter = LogFormatter(width=50, fmt=log_format, datefmt="%H:%M:%S")
 
     # Configure logging
     handler = logging.StreamHandler()

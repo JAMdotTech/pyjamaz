@@ -95,7 +95,7 @@ def wrap_cli_import_block(traces_dir):
 
 def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
     async def produced_block_jamnp(block: Block):
-        await np_protocol.up0_broadcast_block(block)
+        await np_protocol.pubsub_up0_broadcast_block(block)
 
     return produced_block_jamnp
 
@@ -189,7 +189,6 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     log_level = logging.ERROR
     log_package_overrides = {
         "pyjamaz.transport.jamnp_s": logging.DEBUG,
-        "pyjamaz.transport": log_level,
         "quic": logging.WARNING,
     }
     setup_logging(log_level, log_package_overrides)
@@ -258,7 +257,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
             app.protocol = nps_protocol
             app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol)) #TODO: is this function wrapping still necesary?
-            app.pubsub.subscribe(MESSAGE_TYPES.TICKET_ADD, nps_protocol.ce131_initiate_distribute_own_ticket)
+            app.pubsub.subscribe(MESSAGE_TYPES.TICKET_ADD, nps_protocol.pubsub_ce131_initiate_distribute_own_ticket)
             tg.start_soon(nps_protocol.listen)
 
             if bootnode:

@@ -141,7 +141,8 @@ class Stream:
 
 
     def handle_fin(self):
-        self.conn.close_jam_stream(self, clean_close=True)
+        #self.conn.close_jam_stream(self, clean_close=True)
+        pass
 
 
     def reset(self, reset_code: int):
@@ -149,12 +150,11 @@ class Stream:
             self.initiator_reset(reset_code)
         else:
             self.acceptor_reset(reset_code)
-        self.conn.close_jam_stream(self, reason=reset_code, clean_close=False)
 
 
     def initiator_reset(self, reset_code: int):
-        self.conn.close_jam_stream(self)
+        self.conn.close_jam_stream(self, reset_code, False)
 
 
     def acceptor_reset(self, reset_code: int):
-        self.conn.close_jam_stream(self)
+        self.conn.close_jam_stream(self, reset_code, False)

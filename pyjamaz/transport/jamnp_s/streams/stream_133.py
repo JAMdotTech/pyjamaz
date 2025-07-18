@@ -37,12 +37,12 @@ class StreamWorkPackageSubmission(Stream):
         if not self.received_wp:
             logger.debug(f"CE133 acceptor received work package")
             msg = MsgCE133WorkPackageSubmission.from_jam_bytes(JamBytes(data))
-            self.protocol.ce133_received_submission(self, msg)
+            self.protocol.ce133_received_workpackage_submission(self, msg)
             self.received_wp = True
         else:
             logger.debug(f"CE133 acceptor received extrinsic data")
             msg = MsgCE133Extrinsic.from_jam_bytes(JamBytes(data))
-            self.protocol.ce133_received_extrinsic(self, msg)
+            self.protocol.ce133_received_extrinsic_submission(self, msg)
 
 
     def handle_fin(self):
