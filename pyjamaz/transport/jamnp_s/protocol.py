@@ -50,6 +50,7 @@ from pyjamaz.transport.jamnp_s.streams.stream_145 import StreamJudgmentPublicati
 
 from pyjamaz.transport.jamnp_s.connection import JAMConnection
 
+from pyjamaz.pyjamaz.models.common import WorkPackage
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -537,23 +538,36 @@ class JAMNPS(ProtocolType):
 
 
     def ce134_received_workpackage_sharing(self, stream: StreamWorkPackageSharing, msg: MsgCE134WorkPackageSharing):
-        logger.debug(f"Received workpage for core {msg.core_index}")
-        # TODO: process!!!
+        logger.debug(f"ce134_received_workpackage_sharing for core {msg.core_index}")
+        # Store sharing msg in stream state for later use with bundle
+        stream.sharing_msg = msg
 
 
     def ce134_received_bundle(self, stream: StreamWorkPackageSharing, msg: MsgCE134WorkPackageBundle):
-        logger.debug(f"Received bundle")
-        # TODO: verify, refine
-        if not self.verify_bundle(msg):
-            raise ValueError("Invalid bundle")
-        response = MsgCE134RefineResponse(report_hash=bytes(32), signature=bytes(64))
+        logger.debug(f"ce134_received_bundle")
+
+        work_package = WorkPackage(
+            authorization=msg.authorization,
+            auth_code_host=msg.auth_code_host,
+            authorizer=msg.authorizer,
+            context=msg.context,
+            items=msg.items
+        )
+
+        work_report = self.app.process_work_package(work_package)
+
+        report_hash = work_report.hash()
+        signature = self.app.config.keys.ed25519.sign(report_hash)
+        
+        response = MsgCE134RefineResponse(report_hash=report_hash, signature=signature)
         stream.conn.send(stream.stream_id, stream.create_message(response.to_jam_bytes().to_bytes()), end_stream=True)
 
 
     def ce134_received_refine_response(self, stream: StreamWorkPackageSharing, msg: MsgCE134RefineResponse):
-        logger.debug(f"Received refine response")
-        # TODO: process....
-        # stream.initiator_reset(0)
+        logger.debug(f"ce134_received_refine_response")
+        work_report = None #TODO!!! msg...
+        # Guarantee the work report
+        self.app.guarantee_work_report(work_report, self.app.current_timeslot())
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 

@@ -21,8 +21,8 @@ async def get_service_registry(client) -> ServiceRegistry:
 
 async def create_empty_workpackage(client: WebsocketClient) -> WorkPackage:
     best_block = await client.bestBlock()
-    block_hash = best_block[0]
-    block_timeslot = best_block[1]
+    block_hash = best_block["header_hash"]
+    block_timeslot = best_block["slot"]
 
     state_root = await client.stateRoot(block_hash)
     beefy_root = await client.beefyRoot(block_hash)
@@ -72,7 +72,7 @@ async def create_bootservice_workpackage(client: WebsocketClient, instruction: I
 
 async def main():
 
-    async with WebsocketClient("ws://127.0.0.1:19800") as client:
+    async with WebsocketClient("ws://127.0.0.1:19801") as client:
         # Init vars
         bootstrap_service_id = 0
         registration = "test123"
