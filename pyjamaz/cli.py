@@ -186,7 +186,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     # Setup logging
     log_level = logging.DEBUG if verbose else logging.INFO
     # Note: Add packages that need a different logging level here
-    log_level = logging.ERROR
+    #log_level = logging.ERROR
+    log_level = logging.INFO
     log_package_overrides = {
         "pyjamaz.transport.jamnp_s": logging.DEBUG,
         "quic": logging.WARNING,

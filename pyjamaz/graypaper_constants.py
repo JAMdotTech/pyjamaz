@@ -44,7 +44,10 @@ PVM_PAGE_SIZE = 2**12 #ZP
 PVM_SEGMENT_SIZE = 2**16 #ZQ
 PVM_INIT_ZONE_SIZE = 2**16 #ZZ
 
-COMMON_ERA = 1704110400
+#TODO
+import datetime
+dt = datetime.datetime(2025,1,1,12,0,0, tzinfo=datetime.timezone.utc)
+COMMON_ERA = int(dt.timestamp())
 
 from pyjamaz.settings import TEST_SUITE
 if TEST_SUITE == 'tiny':
