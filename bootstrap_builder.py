@@ -21,8 +21,8 @@ async def get_service_registry(client) -> ServiceRegistry:
 
 async def create_empty_workpackage(client: WebsocketClient) -> WorkPackage:
     best_block = await client.bestBlock()
-    block_hash = best_block["header_hash"]
-    block_timeslot = best_block["slot"]
+    block_hash = best_block[0]
+    block_timeslot = best_block[1]
 
     state_root = await client.stateRoot(block_hash)
     beefy_root = await client.beefyRoot(block_hash)
