@@ -19,7 +19,6 @@ class StreamWorkReportRequest(Stream):
     def initiator_reset(self, reset_code: int):
         logger.debug(f"CE136 received reset code: {reset_code}")
         self.protocol.ce136_request_failure(reset_code)
-        super().initiator_reset(reset_code)
 
 
     def initiator_message(self, data: bytes):
@@ -32,6 +31,11 @@ class StreamWorkReportRequest(Stream):
         logger.debug(f"CE136 acceptor received request")
         msg = MsgCE136HashRequest.from_jam_bytes(JamBytes(data))
         self.protocol.ce136_received_request(self, msg)
+
+
+    def acceptor_reset(self, reset_code: int):
+        logger.debug(f"CE136 received reset code: {reset_code}")
+        self.protocol.ce136_request_failure(reset_code)
 
 
     def handle_fin(self):

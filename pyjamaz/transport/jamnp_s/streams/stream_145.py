@@ -19,7 +19,6 @@ class StreamJudgmentPublication(Stream):
     def initiator_reset(self, reset_code: int):
         logger.debug(f"CE145 received reset code: {reset_code}")
         self.protocol.ce145_publication_failure(reset_code)
-        super().initiator_reset(reset_code)
 
 
     def initiator_message(self, data: bytes):
@@ -31,6 +30,11 @@ class StreamJudgmentPublication(Stream):
         logger.debug(f"CE145 acceptor received judgment")
         msg = MsgCE145JudgmentPublication.from_jam_bytes(JamBytes(data))
         self.protocol.ce145_received_judgment(self, msg)
+
+
+    def acceptor_reset(self, reset_code: int):
+        logger.debug(f"CE145 received reset code: {reset_code}")
+        self.protocol.ce145_publication_failure(reset_code)
 
 
     def handle_fin(self):

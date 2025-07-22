@@ -19,7 +19,6 @@ class StreamSafroleTicketDistributionStep2(Stream):
     def initiator_reset(self, reset_code: int):
         logger.debug(f"CE132 received reset code: {reset_code}")
         self.protocol.ce132_ticket_distribution_failure(reset_code)
-        super().initiator_reset(reset_code)
 
 
     def initiator_message(self, data: bytes):
@@ -31,6 +30,11 @@ class StreamSafroleTicketDistributionStep2(Stream):
         logger.debug(f"CE132 acceptor stream {self.stream_id} received ticket")
         msg = MsgCE132SafroleTicketDistribution.from_jam_bytes(JamBytes(data))
         self.protocol.ce132_received_ticket(self, msg)
+
+
+    def acceptor_reset(self, reset_code: int):
+        logger.debug(f"CE132 received reset code: {reset_code}")
+        self.protocol.ce132_ticket_distribution_failure(reset_code)
 
 
     def handle_fin(self):

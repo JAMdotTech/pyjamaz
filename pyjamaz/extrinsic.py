@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, List, Optional
 
@@ -7,7 +8,7 @@ from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
     EPOCH_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage
+from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage, Block
 from pyjamaz.models.common import TicketBody, WorkPackage
 from pyjamaz.models.state import ServicesState
 from pyjamaz.models.stf_output import SafroleErrorCode
@@ -27,6 +28,9 @@ class BlockExtrinsicAccumulator:
         self.preimage_queue: List[Preimage] = []
         self.ring_data = ring_data
 
+        self._ticket_queue_lock = asyncio.Lock()
+
+
     def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes) -> TicketBody:
         if ticket_data.attempt >= TICKET_ENTRIES:
             raise ValueError(SafroleErrorCode.bad_ticket_attempt)
@@ -45,9 +49,10 @@ class BlockExtrinsicAccumulator:
 
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
-    def add_ticket(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes):
+    async def add_ticket(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes):
         ticket_body = self.create_ticket_body(ticket_data, ring_public_keys, entropy)
-        self.tickets_queue[ticket_body.id] = ticket_data
+        async with self._ticket_queue_lock:
+            self.tickets_queue[ticket_body.id] = ticket_data
 
     def can_add_own_ticket(self, timeslot: int) -> bool:
         return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT
@@ -57,10 +62,10 @@ class BlockExtrinsicAccumulator:
             epoch_index: int = None, pubsub: PubSub = None
     ):
 
-        if len(self.tickets_queue) > TICKET_ENTRIES:
-            raise ValueError("Too many tickets")
-
         attempt = len(self.own_tickets_next)
+
+        if attempt >= TICKET_ENTRIES:
+            raise ValueError("Too many tickets")
 
         # GP-0.3.8-eq:75
         vrf_input_data = vrf_input_ticket_seal(entropy, attempt)
@@ -81,14 +86,15 @@ class BlockExtrinsicAccumulator:
         logging.info(f'🎫 Generated ticket: {format_hash(ticket_id)}')
         logging.debug(f'Generated ticket: id = {format_hash(ticket_id)} with entropy {format_hash(entropy)}')
 
-        self.tickets_queue[ticket_id] = ticket
+        async with self._ticket_queue_lock:
+            self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)
         
         # Notify new ticket is added
         if pubsub and epoch_index is not None:
             await pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.TICKET_ADD, data=[epoch_index, attempt, signature]))
 
-    def collect_tickets(self) -> List[TicketEnvelope]:
+    async def collect_tickets(self) -> List[TicketEnvelope]:
         """
         Collect tickets to include in a block
 
@@ -97,11 +103,12 @@ class BlockExtrinsicAccumulator:
         List[TicketEnvelope]
         """
 
-        collected_tickets = sorted(self.tickets_queue.items())[:MAXIMUM_EXTRINSIC_TICKETS]
+        async with self._ticket_queue_lock:
+            collected_tickets = sorted(self.tickets_queue.items())[:MAXIMUM_EXTRINSIC_TICKETS]
 
-        # Remove from queue
-        for key in [key for key, _ in collected_tickets]:
-            self.tickets_queue.pop(key)
+            # Remove from queue
+            for key in [key for key, _ in collected_tickets]:
+                self.tickets_queue.pop(key)
 
         return [ticket for _, ticket in collected_tickets]
 
@@ -111,24 +118,21 @@ class BlockExtrinsicAccumulator:
     def own_ticket_count(self) -> int:
         return len(self.own_tickets_next)
 
-    def clear_own_tickets(self):
-        for ticket_id in self.own_tickets_next:
-            del self.tickets_queue[ticket_id]
+    async def clear_tickets(self):
+        async with self._ticket_queue_lock:
+            self.tickets_queue = {}
         self.own_tickets_next = []
 
-    def clear_tickets(self):
-        self.tickets_queue = {}
-        self.own_tickets_next = []
-
-    def process_epoch_change(self):
+    async def process_epoch_change(self):
         self.own_tickets_current = self.own_tickets_next
         self.own_tickets_next = []
-        self.tickets_queue = {}
+        async with self._ticket_queue_lock:
+            self.tickets_queue = {}
 
     def add_guarantee(self, guarantee: Guarantee):
         self.guarentees_queue.append(guarantee)
 
-    def collect_guarantees(self) -> List[Guarantee]:
+    async def collect_guarantees(self) -> List[Guarantee]:
         guarentees = self.guarentees_queue
         self.guarentees_queue = []
         return guarentees
@@ -159,6 +163,30 @@ class BlockExtrinsicAccumulator:
         self.preimage_queue = new_queue
 
         return preimages
+
+    async def process_block(self, block: Block):
+        """
+        Inspects and cleans up the ExtrinsicQueue for data that is already present in the block
+
+        Parameters
+        ----------
+        block: A succesfully imported Block
+
+        Returns
+        -------
+
+        """
+        delete_queue = []
+        for ticket_data in block.extrinsic.tickets:
+            # TODO: make a reverse lookup
+            for queued_ticket_id, queued_ticket_data in self.tickets_queue.items():
+                if queued_ticket_data == ticket_data:
+                    #del self.tickets_queue[queued_ticket_id]
+                    delete_queue.append(queued_ticket_id)
+
+        async with self._ticket_queue_lock:
+            for queued_ticket_id in delete_queue:
+                del self.tickets_queue[queued_ticket_id]
 
 
 class WorkpackageExtrinsicAccumulator:

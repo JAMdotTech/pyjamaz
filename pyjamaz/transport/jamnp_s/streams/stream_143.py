@@ -19,7 +19,6 @@ class StreamPreimageRequest(Stream):
     def initiator_reset(self, reset_code: int):
         logger.debug(f"CE143 received reset code: {reset_code}")
         self.protocol.ce143_request_failure(reset_code)
-        super().initiator_reset(reset_code)
 
 
     def initiator_message(self, data: bytes):
@@ -32,6 +31,11 @@ class StreamPreimageRequest(Stream):
         logger.debug(f"CE143 acceptor received preimage request")
         msg = MsgCE143HashRequest.from_jam_bytes(JamBytes(data))
         self.protocol.ce143_received_request(self, msg)
+
+
+    def acceptor_reset(self, reset_code: int):
+        logger.debug(f"CE143 received reset code: {reset_code}")
+        self.protocol.ce143_request_failure(reset_code)
 
 
     def handle_fin(self):

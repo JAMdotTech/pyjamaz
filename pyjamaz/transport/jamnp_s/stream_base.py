@@ -87,12 +87,13 @@ class Stream:
                     # TODO: check message length > 0???!!!!
                     if self._msg_len <= 0:
                         logger.error(f"Message size <= 0 for stream {self.stream_id} {self._msg_len}")
-                        self.reset(self.ERROR_INVALID_SIZE)
+                        self.send_reset(self.ERROR_INVALID_SIZE)
+                        return
 
                     # Add max size check
                     if self._msg_len > self.protocol.MAX_MESSAGE_SIZE:
                         logger.error(f"Message too large for stream {self.stream_id}")
-                        self.reset(self.ERROR_TOO_LARGE)
+                        self.send_reset(self.ERROR_TOO_LARGE)
                         return
 
                 msg_complete = False
@@ -137,7 +138,7 @@ class Stream:
         else:
             code = self.ERROR_GENERAL
         logger.error(f"Stream {self.stream_id} error: {exc}")
-        self.reset(code)
+        self.send_reset(code)
 
 
     def handle_fin(self):
@@ -145,16 +146,25 @@ class Stream:
         pass
 
 
-    def reset(self, reset_code: int):
+    def send_reset(self, reset_code: int):
+        self.conn.close_jam_stream(self, reset_code, False)
+
+
+    def receive_reset(self, reset_code: int):
+        #TODO: Do we really need to handle initiator and acceptor seperately here or can we merge initiator_reset and acceptor_reset?
         if self.direction == StreamDirection.initiator:
             self.initiator_reset(reset_code)
         else:
             self.acceptor_reset(reset_code)
 
+        del self.conn.streams[self.stream_id]
 
+
+    # TODO: do we really need difference between a initiator and acceptor???
     def initiator_reset(self, reset_code: int):
-        self.conn.close_jam_stream(self, reset_code, False)
+        raise Exception("Implement in subclass")
 
 
+    # TODO: do we really need difference between a initiator and acceptor???
     def acceptor_reset(self, reset_code: int):
-        self.conn.close_jam_stream(self, reset_code, False)
+        raise Exception("Implement in subclass")

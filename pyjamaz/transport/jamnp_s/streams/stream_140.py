@@ -19,7 +19,6 @@ class StreamSegmentShardRequestJustification(Stream):
     def initiator_reset(self, reset_code: int):
         logger.debug(f"CE140 received reset code: {reset_code}")
         self.protocol.ce140_request_failure(reset_code)
-        super().initiator_reset(reset_code)
 
 
     def initiator_message(self, data: bytes):
@@ -32,6 +31,11 @@ class StreamSegmentShardRequestJustification(Stream):
         logger.debug(f"CE140 acceptor received request")
         msg = MsgCE140SegmentRequest.from_jam_bytes(JamBytes(data))
         self.protocol.ce140_received_request(self, msg)
+
+
+    def acceptor_reset(self, reset_code: int):
+        logger.debug(f"CE140 received reset code: {reset_code}")
+        self.protocol.ce140_request_failure(reset_code)
 
 
     def handle_fin(self):

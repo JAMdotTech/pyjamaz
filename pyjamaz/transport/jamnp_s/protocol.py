@@ -50,7 +50,7 @@ from pyjamaz.transport.jamnp_s.streams.stream_145 import StreamJudgmentPublicati
 
 from pyjamaz.transport.jamnp_s.connection import JAMConnection
 
-from pyjamaz.pyjamaz.models.common import WorkPackage
+from pyjamaz.models.common import WorkPackage
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -70,6 +70,7 @@ class JAMNPS(ProtocolType):
         self.app = app
 
         self.state_requesting_blocks = False
+        self.state_warp_sync = True #TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         bl_hash = app.retrieve_block_hash(0).hex()
         if bl_hash.startswith('0x'): bl_hash = bl_hash[2:]
@@ -104,7 +105,7 @@ class JAMNPS(ProtocolType):
 
 
     async def listen(self):
-        logger.debug(f'Listening on {self.host}:{self.port}')
+        logger.info(f'Listening on {self.host}:{self.port}')
 
         server_conf = QuicConfiguration(
             alpn_protocols=[self.protocol_name],
@@ -153,7 +154,7 @@ class JAMNPS(ProtocolType):
             logger.warning(f"Ignoring duplicate connection to {addr}")
             return
 
-        logger.debug(f"Connecting to {host}:{port}")
+        logger.info(f"Connecting to {host}:{port}")
         try:
             async with connect(
                     host,
@@ -194,7 +195,7 @@ class JAMNPS(ProtocolType):
             timeslot=slot,
             leafs=leafs
         )
-        logger.debug(f"Send handshake on stream {conn.stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
+        logger.info(f"Send handshake on stream {conn.stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
 
         add_stream_type = conn.direction == StreamDirection.initiator
 
@@ -213,7 +214,7 @@ class JAMNPS(ProtocolType):
         block = self.app.retrieve_block_by_hash(msg.header_hash) #TODO: missch een efficientere exists check toevoegen
         #TODO: ook nog iets doen met slot en leafs ook mee requesten?
         if not block:
-            logger.debug(f"Received newer block from handshake: {msg.header_hash} -> initiate CE128RequestBlocks")
+            logger.info(f"Received newer block from handshake: {msg.header_hash} -> initiate CE128RequestBlocks")
             self.state_requesting_blocks = True
             curr_hash = self.app.retrieve_block_hash(self.app.state.timeslot.number)
             # TODO: max_blocks could be derived using current block timeslot and received blockhash timeslot?
@@ -244,7 +245,7 @@ class JAMNPS(ProtocolType):
         block = self.app.retrieve_block_by_hash(msg.header.hash) #TODO: missch een efficientere exists check toevoegen
         #TODO: ook nog iets doen met bijhorende finalized header_hash & slot?
         if not block:
-            logger.debug(f"Received new block announcement from up0: {msg.header.hash}")
+            logger.info(f"Received new block announcement from up0: {msg.header.hash}")
             self.state_requesting_blocks = True
             curr_hash = self.app.retrieve_block_hash(self.app.state.timeslot.number)
             # TODO: max_blocks could be derived using current block timeslot and received blockhash timeslot?
@@ -261,7 +262,7 @@ class JAMNPS(ProtocolType):
     def ce128_initiate_block_request(self, conn: JAMConnection, req: MsgCE128BlockRequest):
         #TODO: missch een batch param meegeven, zodat we een grotere reeks kunnen binnenhalen maar batchen...
         stream = conn.open_jam_stream(StreamBlockRequest, direction=StreamDirection.initiator)
-        logger.debug(f"Initiate block request on stream id: {stream.stream_id} direction: {req.direction}, max_block: {req.max_blocks} header hash: {req.header_hash}")
+        logger.info(f"Initiate block request on stream id: {stream.stream_id} direction: {req.direction}, max_block: {req.max_blocks} header hash: {req.header_hash}")
         conn.send(
             stream.stream_id,
             stream.create_message(req.to_jam_bytes().to_bytes(), add_stream_type=True),
@@ -271,11 +272,11 @@ class JAMNPS(ProtocolType):
 
     def ce128_received_block_request(self, stream: StreamBlockRequest, req: MsgCE128BlockRequestResponse):
         blocks = req.blocks
-        logger.debug(f"Parsed {len(blocks)} blocks")
+        logger.info(f"Parsed {len(blocks)} blocks")
         asyncio.create_task(
             self.app.import_queue_add_blocks(
                 blocks,
-                process=True,
+                #process=True,
                 on_success=MESSAGE_TYPES.CE128_SUCCESS,
                 on_failure=MESSAGE_TYPES.CE128_FAILURE
             )
@@ -318,7 +319,7 @@ class JAMNPS(ProtocolType):
                 blocks.append(block)
 
         if blocks:
-            logger.debug(f"Send {len(blocks)} blocks (direction={block_req.direction} max blocks={block_req.max_blocks})")
+            logger.info(f"Send {len(blocks)} blocks (direction={block_req.direction} max blocks={block_req.max_blocks})")
             stream.conn.send(
                 stream.stream_id,
                 stream.create_message(MsgCE128BlockRequestResponse(blocks=blocks).to_jam_bytes().to_bytes()),
@@ -326,12 +327,12 @@ class JAMNPS(ProtocolType):
             )
         else:
             #TODO: ook op max_blocks checken -> bijhouden op de stream?
-            logger.debug(f"No blocks to send requested: {block_req.header_hash.hex()} current: {last_block_hash.hex()}")
+            logger.info(f"No blocks to send requested: {block_req.header_hash.hex()} current: {last_block_hash.hex()}")
             stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
     def ce128_abort_block_request(self):
-        logger.debug(f"Finished, start parsing import queue {len(self.app._import_queue)}")
+        logger.info(f"Finished, start parsing import queue {len(self.app._import_queue)}")
         # Note: could happen during a block_request "session"
         #TODO: or do we want to clear the queue?
         asyncio.create_task(
@@ -358,12 +359,12 @@ class JAMNPS(ProtocolType):
 
 
     def ce131_received_ticket(self, stream: StreamSafroleTicketDistributionStep1, msg: MsgCE131SafroleTicketDistribution):
-        logger.debug(f"Received ticket for epoch {msg.epoch_index}")
+        logger.info(f"Received ticket for epoch {msg.epoch_index}")
         
         current_epoch = self.app.state.timeslot.number // EPOCH_TIMESLOTS
-        if msg.epoch_index != current_epoch and msg.epoch_index != current_epoch + 1:
+        if msg.epoch_index < current_epoch:
             logger.warning(f"Invalid epoch index {msg.epoch_index}, current epoch is {current_epoch}")
-            stream.reset(1)
+            stream.send_reset(1)
             return
             
         #TODO: create helper function from this (in app? verify_ticket)
@@ -384,18 +385,20 @@ class JAMNPS(ProtocolType):
             
             # Check if we already have this ticket
             if ticket_body in self.app.state.safrole.ticket_accumulator:
-                logger.debug(f"Ticket already in accumulator")
-                stream.reset(2)
+                logger.info(f"Ticket already in accumulator")
+                stream.send_reset(2)
                 return
                 
             # Add ticket to our accumulator
             #TODO: ticketbody can be reused from above
-            self.app.block_extrinsic.add_ticket(
-                TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof),
-                ring_public_keys,
-                entropy
+            asyncio.create_task(
+                self.app.block_extrinsic.add_ticket(
+                    TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof),
+                    ring_public_keys,
+                    entropy
+                )
             )
-            
+
             logger.info(f"Ticket added for epoch {msg.epoch_index}")
             
             #TODO: check if we should forward to (proxy) nodes via CE132
@@ -417,14 +420,14 @@ class JAMNPS(ProtocolType):
         except ValueError as e:
             #TODO: register this, detect bad nodes
             logger.error(f"Invalid ticket: {e}")
-            stream.reset(3)
+            stream.send_reset(3)
             return
 
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
     def ce131_ticket_distribution_success(self, reset_code: int):
-        logger.debug(f"Finished with code {reset_code}")
+        logger.info(f"Finished with code {reset_code}")
         # TODO: handle success, perhaps update state
 
 
@@ -435,7 +438,7 @@ class JAMNPS(ProtocolType):
 
     def ce132_initiate_ticket_distribution(self, conn: JAMConnection, msg: MsgCE132SafroleTicketDistribution):
         stream = conn.open_jam_stream(StreamSafroleTicketDistributionStep2, direction=StreamDirection.initiator)
-        logger.debug(f"Distribute ticket on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
+        logger.info(f"Distribute ticket on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
         conn.send(
             stream.stream_id,
             stream.create_message(msg.to_jam_bytes().to_bytes(), add_stream_type=True),
@@ -444,13 +447,13 @@ class JAMNPS(ProtocolType):
 
 
     def ce132_received_ticket(self, stream: StreamSafroleTicketDistributionStep2, msg: MsgCE132SafroleTicketDistribution):
-        logger.debug(f"Received ticket for epoch {msg.epoch_index}")
+        logger.info(f"Received ticket for epoch {msg.epoch_index}")
         
         # Verify epoch index
         current_epoch = self.app.state.timeslot.number // EPOCH_TIMESLOTS
-        if msg.epoch_index != current_epoch and msg.epoch_index != current_epoch + 1:
+        if msg.epoch_index < current_epoch:
             logger.warning(f"Invalid epoch index {msg.epoch_index}, current epoch is {current_epoch}")
-            stream.reset(1)
+            stream.send_reset(1)
             return
             
         # Verify ticket proof
@@ -471,23 +474,25 @@ class JAMNPS(ProtocolType):
             
             # Check if we already have this ticket
             if ticket_body in self.app.state.safrole.ticket_accumulator:
-                logger.debug(f"Ticket already in accumulator (via CE132), ignoring")
+                logger.info(f"Ticket already in accumulator (via CE132), ignoring")
                 # Don't reset, just close normally as this is expected in CE132
                 stream.conn.send(stream.stream_id, b'', end_stream=True)
                 return
                 
             # Add ticket to our accumulator
-            self.app.block_extrinsic.add_ticket(
-                TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof),
-                ring_public_keys,
-                entropy
+            asyncio.create_task(
+                self.app.block_extrinsic.add_ticket(
+                    TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof),
+                    ring_public_keys,
+                    entropy
+                )
             )
-            
+
             logger.info(f"Valid ticket received via CE132 (forwarded) for epoch {msg.epoch_index}")
             
         except ValueError as e:
             logger.error(f"Invalid ticket: {e}")
-            stream.reset(3)
+            stream.send_reset(3)
             return
 
         stream.conn.send(stream.stream_id, b'', end_stream=True)
@@ -505,46 +510,48 @@ class JAMNPS(ProtocolType):
 
     def ce133_initiate_workpackage_submission(self, conn: JAMConnection, wp: MsgCE133WorkPackageSubmission, extrinsic: MsgCE133Extrinsic):
         stream = conn.open_jam_stream(StreamWorkPackageSubmission, direction=StreamDirection.initiator)
-        logger.debug(f"Initiating workpackage submission on stream id: {stream.stream_id}")
+        logger.info(f"Initiating workpackage submission on stream id: {stream.stream_id}")
         conn.send(stream.stream_id, stream.create_message(wp.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=False)
         conn.send(stream.stream_id, stream.create_message(extrinsic.to_jam_bytes().to_bytes()), end_stream=True)
 
 
-    def ce133_received_workpackage_submission(self, stream: StreamWorkPackageSubmission, msg: MsgCE133WorkPackageSubmission):
-        logger.debug(f"Received workpackage submission for core {msg.core_index}")
-        # TODO: process work package
+    # def ce133_received_workpackage_submission(self, stream: StreamWorkPackageSubmission, msg: MsgCE133WorkPackageSubmission):
+    #     logger.debug(f"Received workpackage submission for core {msg.core_index}")
+    #     # TODO: process work package
 
 
-    def ce133_received_extrinsic_submission(self, stream: StreamWorkPackageSubmission, msg: MsgCE133Extrinsic):
-        logger.debug(f"CE133 received extrinsic data of length {len(msg.bytes_)}")
+    def ce133_received_extrinsic_submission(self, stream: StreamWorkPackageSubmission, wp: WorkPackage, extrinsics: List[bytes]):
+        #logger.debug(f"CE133 received extrinsic data of length {len(msg.bytes_)}")
         # TODO: process extrinsic, close stream if successful
         # stream.acceptor_reset(0)
+
         stream.conn.send(stream.stream_id, b'', end_stream=True)
+        self.app.add_work_package(wp, extrinsics)
 
 
-    def ce133_submission_success(self, reset_code: int):
-        logger.debug(f"CE133 submission successful with code {reset_code}")
-
-
-    def ce133_submission_failure(self, reset_code: int):
-        logger.error(f"CE133 submission failed with code {reset_code}")
+    # def ce133_submission_success(self, reset_code: int):
+    #     logger.debug(f"CE133 submission successful with code {reset_code}")
+    #
+    #
+    # def ce133_submission_failure(self, reset_code: int):
+    #     logger.error(f"CE133 submission failed with code {reset_code}")
 
 
     def ce134_initiate_workpackage_sharing(self, conn: JAMConnection, sharing: MsgCE134WorkPackageSharing, bundle: MsgCE134WorkPackageBundle):
         stream = conn.open_jam_stream(StreamWorkPackageSharing, direction=StreamDirection.initiator)
-        logger.debug(f"Initiate sharing workpage on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
+        logger.info(f"Initiate sharing workpage on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
         conn.send(stream.stream_id, stream.create_message(sharing.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=False)
         conn.send(stream.stream_id, stream.create_message(bundle.to_jam_bytes().to_bytes()), end_stream=True)
 
 
     def ce134_received_workpackage_sharing(self, stream: StreamWorkPackageSharing, msg: MsgCE134WorkPackageSharing):
-        logger.debug(f"ce134_received_workpackage_sharing for core {msg.core_index}")
+        logger.info(f"ce134_received_workpackage_sharing for core {msg.core_index}")
         # Store sharing msg in stream state for later use with bundle
         stream.sharing_msg = msg
 
 
     def ce134_received_bundle(self, stream: StreamWorkPackageSharing, msg: MsgCE134WorkPackageBundle):
-        logger.debug(f"ce134_received_bundle")
+        logger.info(f"ce134_received_bundle")
 
         work_package = WorkPackage(
             authorization=msg.authorization,
@@ -564,7 +571,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce134_received_refine_response(self, stream: StreamWorkPackageSharing, msg: MsgCE134RefineResponse):
-        logger.debug(f"ce134_received_refine_response")
+        logger.info(f"ce134_received_refine_response")
         work_report = None #TODO!!! msg...
         # Guarantee the work report
         self.app.guarantee_work_report(work_report, self.app.current_timeslot())
@@ -572,7 +579,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce134_sharing_success(self, reset_code: int):
-        logger.debug(f"Success with code {reset_code}")
+        logger.info(f"Success with code {reset_code}")
 
 
     def ce134_sharing_failure(self, reset_code: int):
@@ -581,19 +588,19 @@ class JAMNPS(ProtocolType):
 
     def ce135_initiate_distribution(self, conn: JAMConnection, msg: MsgCE135GuaranteedWorkReport):
         stream = conn.open_jam_stream(StreamWorkReportDistribution, direction=StreamDirection.initiator)
-        logger.debug(f"CE135 initiating distribution on stream id: {stream.stream_id}")
+        logger.info(f"CE135 initiating distribution on stream id: {stream.stream_id}")
         conn.send(stream.stream_id, stream.create_message(msg.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
 
 
     def ce135_received_report(self, stream: StreamWorkReportDistribution, msg: MsgCE135GuaranteedWorkReport):
-        logger.debug(f"CE135 received work report")
+        logger.info(f"CE135 received work report")
         # TODO: process report
         # stream.acceptor_reset(0)
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
     def ce135_distribution_success(self, reset_code: int):
-        logger.debug(f"CE135 distribution successful with code {reset_code}")
+        logger.info(f"CE135 distribution successful with code {reset_code}")
 
 
     def ce135_distribution_failure(self, reset_code: int):
@@ -602,21 +609,20 @@ class JAMNPS(ProtocolType):
 
     def ce136_initiate_request(self, conn: JAMConnection, msg: MsgCE136HashRequest):
         stream = conn.open_jam_stream(StreamWorkReportRequest, direction=StreamDirection.initiator)
-        logger.debug(f"CE136 initiating request on stream id: {stream.stream_id}")
+        logger.info(f"CE136 initiating request on stream id: {stream.stream_id}")
         conn.send(stream.stream_id, stream.create_message(msg.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
 
 
     def ce136_received_request(self, stream: StreamWorkReportRequest, msg: MsgCE136HashRequest):
-        logger.debug(f"CE136 received request for hash {msg.hash.hex()}")
+        logger.info(f"CE136 received request for hash {msg.hash.hex()}")
         # TODO: lookup work report, send if available
         report = MsgCE136WorkReport(report=b'')  # placeholder
         stream.conn.send(stream.stream_id, stream.create_message(report.to_jam_bytes().to_bytes()), end_stream=True)
 
 
     def ce136_received_report(self, stream: StreamWorkReportRequest, msg: MsgCE136WorkReport):
-        logger.debug(f"CE136 received work report of length {len(msg.report)}")
+        logger.info(f"CE136 received work report of length {len(msg.report)}")
         # TODO: process report
-        # stream.initiator_reset(0)
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
@@ -650,7 +656,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce137_distribution_success(self, code: int):
-        logger.debug(f"CE137 success {code}")
+        logger.info(f"CE137 success {code}")
 
 
     def ce137_distribution_failure(self, code: int):
@@ -677,7 +683,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce138_request_success(self, code: int):
-        logger.debug(f"CE138 success {code}")
+        logger.info(f"CE138 success {code}")
 
 
     def ce138_request_failure(self, code: int):
@@ -702,7 +708,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce139_request_success(self, code: int):
-        logger.debug(f"CE139 success {code}")
+        logger.info(f"CE139 success {code}")
 
 
     def ce139_request_failure(self, code: int):
@@ -729,7 +735,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce140_request_success(self, code: int):
-        logger.debug(f"CE140 success {code}")
+        logger.info(f"CE140 success {code}")
 
 
     def ce140_request_failure(self, code: int):
@@ -738,19 +744,19 @@ class JAMNPS(ProtocolType):
 
     def ce141_initiate_distribution(self, conn: JAMConnection, msg: MsgCE141Assurance):
         stream = conn.open_jam_stream(StreamAssuranceDistribution, direction=StreamDirection.initiator)
-        logger.debug(f"Initiating assurance distribution on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
+        logger.info(f"Initiating assurance distribution on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
         conn.send(stream.stream_id, stream.create_message(msg.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
 
 
     def ce141_received_assurance(self, stream: StreamAssuranceDistribution, msg: MsgCE141Assurance):
-        logger.debug(f"Received assurance")
+        logger.info(f"Received assurance")
         # TODO: process!...
         # stream.acceptor_reset(0)
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
     def ce141_distribution_success(self, reset_code: int):
-        logger.debug(f"Success with code {reset_code}")
+        logger.info(f"Success with code {reset_code}")
 
 
     def ce141_distribution_failure(self, reset_code: int):
@@ -759,19 +765,19 @@ class JAMNPS(ProtocolType):
 
     def ce142_initiate_announcement(self, conn: JAMConnection, msg: MsgCE142PreimageAnnouncement):
         stream = conn.open_jam_stream(StreamPreimageAnnouncement, direction=StreamDirection.initiator)
-        logger.debug(f"Initiating preimage announcement on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
+        logger.info(f"Initiating preimage announcement on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
         conn.send(stream.stream_id, stream.create_message(msg.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
 
 
     def ce142_received_announcement(self, stream: StreamPreimageAnnouncement, msg: MsgCE142PreimageAnnouncement):
-        logger.debug(f"Received preimage announcement for hash {msg.hash.hex()}")
+        logger.info(f"Received preimage announcement for hash {msg.hash.hex()}")
         # TODO: check if needed, request via CE143 if so
         # stream.acceptor_reset(0)
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
     def ce142_announcement_success(self, reset_code: int):
-        logger.debug(f"Success with code {reset_code}")
+        logger.info(f"Success with code {reset_code}")
 
 
     def ce142_announcement_failure(self, reset_code: int):
@@ -780,26 +786,25 @@ class JAMNPS(ProtocolType):
 
     def ce143_initiate_request(self, conn: JAMConnection, msg: MsgCE143HashRequest):
         stream = conn.open_jam_stream(StreamPreimageRequest, direction=StreamDirection.initiator)
-        logger.debug(f"CE143 initiating request on stream id: {stream.stream_id}")
+        logger.info(f"CE143 initiating request on stream id: {stream.stream_id}")
         conn.send(stream.stream_id, stream.create_message(msg.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
 
 
     def ce143_received_request(self, stream: StreamPreimageRequest, msg: MsgCE143HashRequest):
-        logger.debug(f"CE143 received request for hash {msg.hash.hex()}")
+        logger.info(f"CE143 received request for hash {msg.hash.hex()}")
         # TODO: lookup preimage, send if available
         preimage = MsgCE143Preimage(bytes_=b'')  # placeholder
         stream.conn.send(stream.stream_id, stream.create_message(preimage.to_jam_bytes().to_bytes()), end_stream=True)
 
 
     def ce143_received_preimage(self, stream: StreamPreimageRequest, msg: MsgCE143Preimage):
-        logger.debug(f"CE143 received preimage of length {len(msg.bytes_)}")
+        logger.info(f"CE143 received preimage of length {len(msg.bytes_)}")
         # TODO: process preimage
-        # stream.initiator_reset(0)
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
     def ce143_request_success(self, reset_code: int):
-        logger.debug(f"CE143 request successful with code {reset_code}")
+        logger.info(f"CE143 request successful with code {reset_code}")
 
 
     def ce143_request_failure(self, reset_code: int):
@@ -823,7 +828,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce144_announcement_success(self, code: int):
-        logger.debug(f"CE144 success {code}")
+        logger.info(f"CE144 success {code}")
 
 
     def ce144_announcement_failure(self, code: int):
@@ -841,7 +846,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce145_publication_success(self, code: int):
-        logger.debug(f"CE145 success {code}")
+        logger.info(f"CE145 success {code}")
 
 
     def ce145_publication_failure(self, code: int):
@@ -850,7 +855,7 @@ class JAMNPS(ProtocolType):
 
     # Note: pubsub_ prefixed methods are driven by application level events
     async def pubsub_up0_broadcast_block(self, block: Block):
-        logger.debug(f'Broadcast {block.header.hash.hex()} to {len(self.connections)} connections')
+        logger.info(f'Broadcast {block.header.hash.hex()} to {len(self.connections)} connections')
 
         msg = MsgUP0Announcement(
             header=block.header,
@@ -892,7 +897,7 @@ class JAMNPS(ProtocolType):
             if conn.is_connected():
                 try:
                     stream = conn.open_jam_stream(StreamSafroleTicketDistributionStep1, direction=StreamDirection.initiator)
-                    logger.debug(f"Send ticker announcement on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
+                    logger.info(f"Send ticker announcement on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
                     conn.send(
                         stream.stream_id,
                         stream.create_message(msg.to_jam_bytes().to_bytes(), add_stream_type=True),

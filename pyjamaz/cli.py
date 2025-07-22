@@ -188,8 +188,9 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     # Note: Add packages that need a different logging level here
     #log_level = logging.ERROR
     log_level = logging.INFO
+    log_level = logging.DEBUG
     log_package_overrides = {
-        "pyjamaz.transport.jamnp_s": logging.DEBUG,
+        "pyjamaz.transport.jamnp_s": logging.INFO,
         "quic": logging.WARNING,
     }
     setup_logging(log_level, log_package_overrides)
@@ -315,6 +316,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
 
 async def timeslot_ticker(app: PyjamazApp):
 
+    prev_timeslot = app.state.timeslot.number
+
     while True:
         timeslot = app.current_timeslot()
         # TODO centralize
@@ -325,43 +328,48 @@ async def timeslot_ticker(app: PyjamazApp):
 
         logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
 
-        if app.state.timeslot.number >= timeslot:
-            logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
-            await anyio.sleep(0.1)
+        if timeslot <= prev_timeslot:
+            logging.debug(f'⚠️ Timeslot did not advance; yield for 0.1 seconds {app.state.timeslot.number} >= {timeslot}')
+            await anyio.sleep(0.01)
             continue
 
-        if app.is_epoch_change(timeslot):
+        if prev_timeslot // EPOCH_TIMESLOTS != timeslot // EPOCH_TIMESLOTS:
             logging.info("🗓️ Process Epoch change")
 
-            # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
-            #  triggering state changes in STFs caused be epoch change.
+            if timeslot != app.state.timeslot.number:
 
-            header = Header.default()
-            header.timeslot = timeslot
+                # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
+                #  triggering state changes in STFs caused be epoch change.
 
-            entropy_output = app.components.entropy.state_transition(
-                header=header,
-                pre_state_timeslot=app.state.timeslot,
-                pre_state_entropy=app.state.entropy
-            )
+                header = Header.default()
+                header.timeslot = timeslot
 
-            safrole_output = app.components.safrole.state_transition(
-                header=header,
-                pre_state_timeslot=app.state.timeslot,
-                pre_state_safrole=app.state.safrole,
-                pre_state_validator_queue=app.state.validator_queue,
-                post_state_entropy=entropy_output.post_state,
-                post_state_disputes=app.state.disputes,
-                post_state_validator_pool=app.state.validator_pool,
-                extrinsic_tickets=[]
-            )
+                entropy_output = app.components.entropy.state_transition(
+                    header=header,
+                    pre_state_timeslot=app.state.timeslot,
+                    pre_state_entropy=app.state.entropy
+                )
+
+                safrole_output = app.components.safrole.state_transition(
+                    header=header,
+                    pre_state_timeslot=app.state.timeslot,
+                    pre_state_safrole=app.state.safrole,
+                    pre_state_validator_queue=app.state.validator_queue,
+                    post_state_entropy=entropy_output.post_state,
+                    post_state_disputes=app.state.disputes,
+                    post_state_validator_pool=app.state.validator_pool,
+                    extrinsic_tickets=[]
+                )
+
+                safrole_state = safrole_output.post_state
+                entropy_state = entropy_output.post_state
+            else:
+                safrole_state = app.state.safrole
+                entropy_state = app.state.entropy
 
             # Process tickets
-            app.block_extrinsic.process_epoch_change()
+            await app.block_extrinsic.process_epoch_change()
             logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
-
-            safrole_state = safrole_output.post_state
-            entropy_state = entropy_output.post_state
         else:
             safrole_state = app.state.safrole
             entropy_state = app.state.entropy
@@ -382,7 +390,7 @@ async def timeslot_ticker(app: PyjamazApp):
                 # Rollback state from DB
                 app.state = app.retrieve_jam_state()
                 # TODO Make transactional
-                app.block_extrinsic.clear_tickets()
+                #await app.block_extrinsic.clear_tickets()
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
@@ -395,7 +403,7 @@ async def timeslot_ticker(app: PyjamazApp):
             if work_report:
                 logging.info(f'👨‍💻 Refine complete | slot={timeslot} | core={app.get_core_assigment()} | work_report={format_hash(work_report.package_spec.hash)}')
 
-
+        prev_timeslot = timeslot
         await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
 
 

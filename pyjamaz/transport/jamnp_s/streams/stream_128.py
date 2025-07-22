@@ -19,7 +19,6 @@ class StreamBlockRequest(Stream):
     def initiator_reset(self, reset_code: int):
         logger.debug(f"CE128 received reset code: {reset_code}")
         self.protocol.ce128_block_request_failure(reset_code)
-        super().initiator_reset(reset_code)
 
 
     def initiator_message(self, data: bytes):
@@ -34,8 +33,8 @@ class StreamBlockRequest(Stream):
 
 
     def acceptor_reset(self, reset_code: int):
+        logger.debug(f"CE128 received reset code: {reset_code}")
         self.protocol.ce128_block_request_failure(reset_code)
-        super().reset(reset_code)
 
 
     def acceptor_message(self, data: bytes):

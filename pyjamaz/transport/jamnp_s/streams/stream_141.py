@@ -19,7 +19,6 @@ class StreamAssuranceDistribution(Stream):
     def initiator_reset(self, reset_code: int):
         logger.debug(f"CE141 received reset code: {reset_code}")
         self.protocol.ce141_distribution_failure(reset_code)
-        super().initiator_reset(reset_code)
 
 
     def initiator_message(self, data: bytes):
@@ -27,15 +26,15 @@ class StreamAssuranceDistribution(Stream):
         self.handle_error("Unexpected data", 1)
 
 
-    def acceptor_reset(self, reset_code: int):
-        self.protocol.ce141_distribution_failure(reset_code)
-        super().reset(reset_code)
-
-
     def acceptor_message(self, data: bytes):
         logger.debug(f"CE141 acceptor received assurance")
         msg = MsgCE141Assurance.from_jam_bytes(JamBytes(data))
         self.protocol.ce141_received_assurance(self, msg)
+
+
+    def acceptor_reset(self, reset_code: int):
+        logger.debug(f"CE141 received reset code: {reset_code}")
+        self.protocol.ce141_distribution_failure(reset_code)
 
 
     def handle_fin(self):

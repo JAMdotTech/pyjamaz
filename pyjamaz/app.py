@@ -17,7 +17,7 @@ from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError
 from pyjamaz.extrinsic import BlockExtrinsicAccumulator, WorkpackageExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
-    SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
+    SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR, TICKET_SUBMISSION_END_SLOT
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.app import StateDump, Trace
@@ -232,22 +232,6 @@ class PyjamazApp:
         """
         state_trie = PatriciaMerkleTrie(list(self.state_db))
         self.state_trie_root = state_trie.root()
-
-    def is_epoch_change(self, slotnumber: int = None) -> bool:
-        """
-        GP-0.5.0-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
-
-        Returns
-        -------
-        bool
-            `True` when epoch has changed, `False` otherwise.
-
-        TODO duplicate code, move to dedicated package?
-        """
-        if slotnumber is None:
-            slotnumber = self.current_timeslot()
-
-        return self.state.timeslot.number // EPOCH_TIMESLOTS != slotnumber // EPOCH_TIMESLOTS
 
     async def state_transition(self, block: 'Block', transaction: Transaction, produce=False) -> 'STFOutput':
         """
@@ -615,6 +599,8 @@ class PyjamazApp:
 
         await self.store_block(block)
 
+        await self.block_extrinsic.process_block(block)
+
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.BEST_BLOCK, data=block))
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))  # TODO: placeholder for now, move when implemented
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
@@ -869,12 +855,18 @@ class PyjamazApp:
                     epoch_index=epoch_index, pubsub=self.pubsub
                 )
 
+        ticketz = []
+        if timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT:
+            ticketz = await self.block_extrinsic.collect_tickets()
+
+        guaranteez = await self.block_extrinsic.collect_guarantees()
+
         extrinsic = Extrinsic(
-            tickets=self.block_extrinsic.collect_tickets(),
+            tickets=ticketz,
             disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
             preimages=self.block_extrinsic.collect_preimages(self.state.services),
             assurances=self.block_extrinsic.collect_assurances(),
-            guarantees=self.block_extrinsic.collect_guarantees(),
+            guarantees=guaranteez,
         )
 
         header = Header(

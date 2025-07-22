@@ -80,7 +80,7 @@ class JAMConnection(QuicConnectionProtocol):
 
 
     def connection_lost(self, exc):
-        logger.info(f"Connection {self.jam_connection_ulid} QUIC UDP transport closed")
+        logger.debug(f"Connection {self.jam_connection_ulid} QUIC UDP transport closed")
         self.protocol.disconnect(self)
         super().connection_lost(exc)
 
@@ -148,7 +148,7 @@ class JAMConnection(QuicConnectionProtocol):
                 logger.debug(f"Connection {self.jam_connection_ulid} QUIC stream {stream_id} already closed")
                 return
 
-            self.streams[stream_id].reset(reset_code)
+            self.streams[stream_id].received_reset(reset_code)
 
         elif isinstance(event, StreamDataReceived):
 
@@ -181,5 +181,5 @@ class JAMConnection(QuicConnectionProtocol):
                 raise
 
         elif isinstance(event, ConnectionTerminated):
-            logger.info(f"Connection {self.jam_connection_ulid} QUIC connection terminated with code {event.error_code}")
+            logger.debug(f"Connection {self.jam_connection_ulid} QUIC connection terminated with code {event.error_code}")
             self.protocol.disconnect(self)

@@ -4,12 +4,11 @@ from typing import List, Optional, Dict
 
 from jamcodec.base import JamCodecTypeDef, JamBytes, JamCodecType
 from jamcodec.mixins import Serializable
-from jamcodec.types import U32, H256, U8, VarInt64, Vec, Option, Array, Map, H512, VecType, U16
+from jamcodec.types import U32, H256, U8, VarInt64, Vec, Option, Array, Map, H512, VecType, U16, Bytes
 
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT
 from pyjamaz.models.block import Header, Guarantee, Block
-from pyjamaz.models.common import WorkPackage
-
+from pyjamaz.models.common import WorkPackage, Authorizer, RefinementContext, WorkItem
 
 
 class ImplicitVec(Vec):
@@ -111,12 +110,12 @@ class MsgCE132SafroleTicketDistribution(MsgCE131SafroleTicketDistribution):
 
 @dataclass
 class MsgCE133WorkPackageSubmission(Serializable):
-    core_index: int = field(metadata={'codec': U32})
+    core_index: int = field(metadata={'codec': U16})
     work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
 
 @dataclass
 class MsgCE133WorkPackageSubmission(Serializable):
-    core_index: int = field(metadata={'codec': U32})
+    core_index: int = field(metadata={'codec': U16})
     work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
 
 @dataclass
@@ -126,7 +125,7 @@ class MsgCE133Extrinsic(Serializable):
 
 @dataclass
 class MsgCE134WorkPackageSharing(Serializable):
-    core_index: int = field(metadata={'codec': U32})
+    core_index: int = field(metadata={'codec': U16})
     segment_root_map: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
 
 
@@ -244,7 +243,7 @@ class MsgCE143Preimage(Serializable):
 
 @dataclass
 class MsgCE144CoreWRPair(Serializable):
-    core_index: int = field(metadata={'codec': U32})
+    core_index: int = field(metadata={'codec': U16})
     wr_hash: bytes = field(metadata={'codec': H256})
 
 @dataclass
