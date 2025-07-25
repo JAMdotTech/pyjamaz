@@ -22,7 +22,7 @@ from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCa
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch
 from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_export, hc_machine, hc_peek, \
-    hc_poke, hc_zero, hc_void, hc_invoke, hc_expunge
+    hc_poke, hc_invoke, hc_expunge, hc_pages
 from pyjamaz.utils import format_hash
 
 
@@ -666,17 +666,8 @@ class RefineInvocationMutator(InvocationMutator):
                     logger=_pvm.log
                 )
 
-            case HostCallRefine.zero.value:
-                hc_zero(
-                    registers=registers,
-                    memory=memory,
-                    m_e=invocation_context,
-                    invocation_output=ctx_out,
-                    logger=_pvm.log
-                )
-
-            case HostCallRefine.void.value:
-                hc_void(
+            case HostCallRefine.pages.value:
+                hc_pages(
                     registers=registers,
                     memory=memory,
                     m_e=invocation_context,

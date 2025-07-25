@@ -302,9 +302,9 @@ def parallel_accumulation(
 
     # TODO Emiel: When to skip, >0 ?
     # Process privilege services (x')
-    if accumulation_state.privileged_services.empower_service > 0:
+    if accumulation_state.privileged_services.manager > 0:
         # TODO make DRY
-        service_id = accumulation_state.privileged_services.empower_service
+        service_id = accumulation_state.privileged_services.manager
 
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
@@ -312,7 +312,7 @@ def parallel_accumulation(
             post_state_entropy=post_state_entropy,
             work_reports=work_reports,
             auto_accumulate_services=auto_accumulate_services,
-            service_id=accumulation_state.privileged_services.empower_service
+            service_id=accumulation_state.privileged_services.manager
         )
         accumulation_state.privileged_services = output.state_context.privileged_services
 
@@ -321,9 +321,9 @@ def parallel_accumulation(
             beefy_commitment_map.update({service_id: output.accumulation_output})
 
     # Process validator queue (i')
-    if accumulation_state.privileged_services.designate_service > 0:
+    if accumulation_state.privileged_services.delegator > 0:
         # TODO make DRY
-        service_id = accumulation_state.privileged_services.designate_service
+        service_id = accumulation_state.privileged_services.delegator
 
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
@@ -340,9 +340,9 @@ def parallel_accumulation(
             beefy_commitment_map.update({service_id: output.accumulation_output})
 
     # Process authorizer queue (q')
-    if accumulation_state.privileged_services.assign_service > 0:
+    if accumulation_state.privileged_services.assigners > 0:
         # TODO make DRY
-        service_id = accumulation_state.privileged_services.assign_service
+        service_id = accumulation_state.privileged_services.assigners
 
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
@@ -350,7 +350,7 @@ def parallel_accumulation(
             post_state_entropy=post_state_entropy,
             work_reports=work_reports,
             auto_accumulate_services=auto_accumulate_services,
-            service_id=accumulation_state.privileged_services.assign_service
+            service_id=accumulation_state.privileged_services.assigners
         )
         accumulation_state.authorizer_queues = output.state_context.authorizer_queues
         accumulation_gas_utilized[service_id] = output.gas_limit

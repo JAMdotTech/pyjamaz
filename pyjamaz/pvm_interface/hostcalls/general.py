@@ -279,19 +279,27 @@ def hc_info(
 
     o = registers[8]
 
-    service_account_bytes = None  # GP: bold_m
+    service_account_bytes = None  # GP: bold_v
     mem_write_error = False
     if service_account is not None:
-        # GP: bold_m
+        # GP: bold_v
         service_account_bytes = service_account.code_hash
-        service_account_bytes += VarInt64.encode(service_account.balance).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.threshold_balance).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.gas_limit_accumulate).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.gas_limit_on_transfer).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.footprint_storage_bytes).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.footprint_storage_items).to_bytes()
+        service_account_bytes += U64.encode(service_account.balance).to_bytes()
+        service_account_bytes += U64.encode(service_account.threshold_balance).to_bytes()
+        service_account_bytes += U64.encode(service_account.gas_limit_accumulate).to_bytes()
+        service_account_bytes += U64.encode(service_account.gas_limit_on_transfer).to_bytes()
+        service_account_bytes += U64.encode(service_account.footprint_storage_bytes).to_bytes()
+        service_account_bytes += U32.encode(service_account.footprint_storage_items).to_bytes()
+        service_account_bytes += U64.encode(service_account.deposit_offset).to_bytes()
+        service_account_bytes += U32.encode(service_account.creation_slot).to_bytes()
+        service_account_bytes += U32.encode(service_account.last_accumulation_slot).to_bytes()
+        service_account_bytes += U32.encode(service_account.parent_service).to_bytes()
+
+        f = min(registers[11], len(service_account_bytes))
+        l = min(registers[12], len(service_account_bytes) - f)
+
         try:
-            invocation_output.memory.write_bytes(o, service_account_bytes)
+            invocation_output.memory.write_bytes(o, service_account_bytes[f:f+l])
         except PVMMemoryError:
             mem_write_error = True
 
@@ -304,7 +312,7 @@ def hc_info(
         logger.hc_log("INFO NONE", f"s={service_id} bytes=none")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = HostCallResult.OK.value
+        invocation_output.registers[7] = len(service_account_bytes)
         logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
 
 

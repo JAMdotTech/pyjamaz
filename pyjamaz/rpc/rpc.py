@@ -224,7 +224,7 @@ def rpcServicePreimage(app, params):
 def rpcStateRoot(app: PyjamazApp, params):
 
     header_hash = bytes(params[0])
-    for n, block in enumerate(reversed(app.state.recent_history.recent_history)):
+    for n, block in enumerate(reversed(app.state.recent_history.recent_blocks)):
         if block.header_hash == header_hash:
             if n == 0:
                 return list(app.state_trie_root)

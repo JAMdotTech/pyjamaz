@@ -163,8 +163,6 @@ async def initialize_app(
 async def main():
     pass
 
-# @click.group(invoke_without_command=True)
-# @click.pass_context
 
 @main.command(name='run', help='Run a Pyjamaz JAM node')
 @click.option('--seed', type=str,

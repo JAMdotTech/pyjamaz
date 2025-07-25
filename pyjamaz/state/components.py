@@ -587,8 +587,8 @@ class RecentHistory(StateComponent):
         """
         intermediate_state_recent_history = deepcopy(pre_state_recent_history)
 
-        if len(pre_state_recent_history.recent_history) > 0:
-            intermediate_state_recent_history.recent_history[-1].state_root = header.parent_state_root
+        if len(pre_state_recent_history.recent_blocks) > 0:
+            intermediate_state_recent_history.recent_blocks[-1].state_root = header.parent_state_root
 
         # return intermediate_state_recent_history
         return RecentHistoryIntermediateOutput(
@@ -635,8 +635,8 @@ class RecentHistory(StateComponent):
         if len(reported_work_packages) > gp_const.CORE_COUNT:
             raise StateTransitionError(f"Work reports must be less than number of cores ({gp_const.CORE_COUNT})")
 
-        if len(intermediate_state_recent_history.recent_history) > 0:
-            mmr_peaks = copy(post_state_recent_history.recent_history[-1].mmr.peaks)
+        if len(intermediate_state_recent_history.recent_blocks) > 0:
+            mmr_peaks = intermediate_state_recent_history.accumulation_output_log
         else:
             mmr_peaks = []
 
@@ -646,26 +646,26 @@ class RecentHistory(StateComponent):
         else:
             accumulate_root = beefy_commitment_map.get_accumulate_root()
 
+        logging.debug(f'accumulate_root={accumulate_root.hex()}')
+
         mmr = MerkleMountainRange(mmr_peaks)
         mmr.insert(accumulate_root)
 
-        logging.debug(f'accumulate_root={accumulate_root.hex()}')
+        post_state_recent_history.accumulation_output_log = mmr.peaks
 
         recent_block = RecentBlock(
             header_hash=header.hash,
-            mmr=Mmr(
-                peaks=mmr.peaks
-            ),
+            accumulation_result=mmr.super_peak(),
             state_root=bytes(32),
             reported=reported_work_packages
         )
-        logging.debug(f"mmr={recent_block.mmr.to_json()['peaks']}")
+        logging.debug(f"accumulation_result={recent_block.accumulation_result}")
 
-        post_state_recent_history.recent_history.append(recent_block)
+        post_state_recent_history.recent_blocks.append(recent_block)
 
-        if len(post_state_recent_history.recent_history) > gp_const.HISTORY:
+        if len(post_state_recent_history.recent_blocks) > gp_const.HISTORY:
             # Limit reached, delete first (oldest) item in block history
-            post_state_recent_history.recent_history.pop(0)
+            post_state_recent_history.recent_blocks.pop(0)
 
         return RecentHistoryOutput(
             post_state=post_state_recent_history
@@ -864,7 +864,7 @@ class Assurances(StateComponent):
         }
 
         # Extend segment-root lookup with recent history (GP-0.5.3-eq:11.41)
-        for b in intermediate_state_recent_history.recent_history:
+        for b in intermediate_state_recent_history.recent_blocks:
             segment_root_lookup.update({r.hash: r.exports_root for r in b.reported})
 
         for w in work_reports:
@@ -894,7 +894,7 @@ class Assurances(StateComponent):
         extrinsic_work_package_hashes = {w.package_spec.hash for w in work_reports}
 
         recent_history_work_package_hashes = [
-            h.hash for b in intermediate_state_recent_history.recent_history for h in b.reported
+            h.hash for b in intermediate_state_recent_history.recent_blocks for h in b.reported
         ]
 
         # GP-0.5.3-eq:11.32 | Check for duplicate
@@ -1078,7 +1078,7 @@ class Assurances(StateComponent):
         if any(w in accumulation_history.accumulation_history for w in work_package_hashes):
             return True
 
-        for recent_block in recent_history_state.recent_history:
+        for recent_block in recent_history_state.recent_blocks:
             for item in recent_block.reported:
                 if item.hash in work_package_hashes:
                     return True
@@ -1875,7 +1875,7 @@ class Services(StateComponent):
         # GP-0.6.0-eq:12.20
         gas_limit = min(
             gp_const.GAS_TOTAL, gp_const.GAS_ACCUMULATION * gp_const.CORE_COUNT + sum(
-                pre_state_privileged_services.auto_accumulate_services.values()
+                pre_state_privileged_services.always_accumulators.values()
             )
         )
 
@@ -1886,7 +1886,7 @@ class Services(StateComponent):
             gas_limit=gas_limit,
             work_reports=accumulatable_work_reports,
             accumulation_state=accumulation_state,
-            auto_accumulate_services=pre_state_privileged_services.auto_accumulate_services,
+            auto_accumulate_services=pre_state_privileged_services.always_accumulators,
             post_state_timeslot=post_state_timeslot,
             post_state_entropy=post_state_entropy
         )

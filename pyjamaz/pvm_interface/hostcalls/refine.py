@@ -5,7 +5,6 @@ from jamcodec.types import U64
 
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
-from pyjamaz.models.common import WorkPackage
 from pyjamaz.models.state import ServicesState
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
@@ -247,7 +246,7 @@ def hc_poke(
         m_e.inner_pvm_lookup[n].memory.write_bytes(o, memory.read_bytes(s, z))
 
 
-def hc_zero(
+def hc_pages(
         registers: List[int],
         memory: PVMMemory,
         m_e: RefineInvocationContext,
@@ -265,11 +264,12 @@ def hc_zero(
     --------------------------
     Alloceert een stuk geheugfen van een inner PVM instance
     """
-    logger.hc_regs(f"ZERO", "refine")
+    logger.hc_regs(f"PAGES", "refine")
 
     n = registers[7]
     p = registers[8]
     c = registers[9]
+    r = registers[10]
 
     mem: PVMMemory = None
     if n in m_e.inner_pvm_lookup:
@@ -277,51 +277,28 @@ def hc_zero(
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
-    if p < 16 or p+c >= 2**32//PVM_PAGE_SIZE:
-        invocation_output.registers[7] = HostCallResult.HUH.value
-    elif mem is None:
-        invocation_output.registers[7] = HostCallResult.WHO.value
-    else:
-        invocation_output.registers[7] = HostCallResult.OK.value
-        mem.zero(p, c)
-
-
-def hc_void(
-        registers: List[int],
-        memory: PVMMemory,
-        m_e: RefineInvocationContext,
-        invocation_output: InvocationMutationOutput,
-        logger: PVMLogger):
-    """
-    Deallocate memory pages in an inner PVM.
-    vm_handle: The handle of the PVM whose memory to mutate.
-    page: The index of the first page of inner PVM vm_handle to deallocate.
-    count: The number of pages to deallocate.
-    Returns Ok on success or Err if the operation failed.
-    NOTE: All pages from page to page + count - 1 inclusive must have been allocated for this call to succeed.
-    --------------------------
-    Verwijderd(?) het geheugen van een inner PVM instance en maakt het inaccesible
-    """
-    logger.hc_regs(f"VOID", "refine")
-
-    n = registers[7]
-    p = registers[8]
-    c = registers[9]
-
-    mem = None
-    if n in m_e.inner_pvm_lookup:
-        mem = m_e.inner_pvm_lookup[n].memory
-
-    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-
-    mem_addr = p * PVM_PAGE_SIZE
     if mem is None:
         invocation_output.registers[7] = HostCallResult.WHO.value
-    elif p < 16 or p+c >= 2 ** 32 // PVM_PAGE_SIZE or not mem.is_accessible(mem_addr, c * PVM_PAGE_SIZE, PVMMemoryMode.readable):
+    elif r > 4 or p < 16 or p+c >= 2**32 // PVM_PAGE_SIZE:
+        invocation_output.registers[7] = HostCallResult.HUH.value
+    elif r > 2 and mem.has_inaccessible_acl(p, c):
         invocation_output.registers[7] = HostCallResult.HUH.value
     else:
         invocation_output.registers[7] = HostCallResult.OK.value
-        mem.void(p, c)
+
+        if r == 0:
+            acl = PVMMemoryMode.inaccesible
+        elif r == 1 or r == 3:
+            acl = PVMMemoryMode.readable
+        elif r == 2 or r == 4:
+            acl = PVMMemoryMode.writable
+        else:
+            raise ValueError('invalid r')
+
+        if r < 3:
+            mem.zero(p, c, acl)
+        else:
+            mem.void(p, c, acl)
 
 
 def hc_invoke(

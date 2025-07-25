@@ -947,12 +947,12 @@ class PyjamazApp:
 
     def get_beefy_root(self, header_hash: bytes = None) -> Optional[bytes]:
 
-        if len(self.state.recent_history.recent_history) == 0:
+        if len(self.state.recent_history.recent_blocks) == 0:
             return bytes(32)
 
-        for block in reversed(self.state.recent_history.recent_history):
+        for block in reversed(self.state.recent_history.recent_blocks):
             if header_hash is None or block.header_hash == header_hash:
-                return block.mmr.super_peak()
+                return block.accumulation_result
 
         return None
 
@@ -1139,7 +1139,7 @@ class PyjamazApp:
                         self.block_extrinsic.add_assurance(assurance)
 
     def get_best_header_hash(self):
-        return self.state.recent_history.recent_history[-1].header_hash
+        return self.state.recent_history.recent_blocks[-1].header_hash
 
 
 class StateComponents:

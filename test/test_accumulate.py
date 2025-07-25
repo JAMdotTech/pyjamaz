@@ -93,10 +93,14 @@ class TestAccumulate(unittest.TestCase):
                 "gas_limit_on_transfer": s["data"]["service"]["min_memo_gas"],
                 "footprint_storage_items": s["data"]["service"]["items"],
                 "footprint_storage_bytes": s["data"]["service"]["bytes"],
-                "threshold_balance": 0,
+                "deposit_offset": s["data"]["service"]["deposit-offset"],
+                "creation_slot": s["data"]["service"]["creation-slot"],
+                "last_accumulation_slot": s["data"]["service"]["last-accumulation-slot"],
+                "parent_service": s["data"]["service"]["parent-service"],
                 "storage_items": {},
                 "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
-                "preimage_availability": {}
+                "preimage_availability": {},
+                "threshold_balance": 0
 
             } for s in test_vector["pre_state"]["accounts"]}}
         )
@@ -104,10 +108,10 @@ class TestAccumulate(unittest.TestCase):
         pre_services.set_storage_engine(self.storage_engine)
 
         pre_privileged_services = PrivilegedServicesState(
-            empower_service=test_vector["pre_state"]["privileges"]["bless"],
-            assign_service=test_vector["pre_state"]["privileges"]["assign"],
-            designate_service=test_vector["pre_state"]["privileges"]["designate"],
-            auto_accumulate_services={} #test_vector["pre_state"]["privileges"]["always_acc"]
+            manager=test_vector["pre_state"]["privileges"]["bless"],
+            assigners=test_vector["pre_state"]["privileges"]["assign"],
+            delegator=test_vector["pre_state"]["privileges"]["designate"],
+            always_accumulators={} #test_vector["pre_state"]["privileges"]["always_acc"]
         )
 
         # Set up post-state
@@ -140,7 +144,11 @@ class TestAccumulate(unittest.TestCase):
                         "threshold_balance": 0,
                         "storage_items": {},
                         "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
-                        "preimage_availability": {}
+                        "preimage_availability": {},
+                        "deposit_offset": s["data"]["service"]["deposit-offset"],
+                        "creation_slot": s["data"]["service"]["creation-slot"],
+                        "last_accumulation_slot": s["data"]["service"]["last-accumulation-slot"],
+                        "parent_service": s["data"]["service"]["parent-service"],
                     } for s in test_vector["post_state"]["accounts"]
                 }
             }

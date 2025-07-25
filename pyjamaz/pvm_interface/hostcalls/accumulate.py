@@ -26,7 +26,7 @@ def hc_bless(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    Reset the privileged services.
+    Set the privileged services.
 
     - `manager`: The ID of the service which may effectually call [bless] in the future.
     - `assigner`: The ID of the service which may effectually call [assign] in the future.
@@ -44,11 +44,21 @@ def hc_bless(
 
     # Privileged services:
     m = registers[7] # m: index of manager service (manager of chi(X))
-    a = registers[8] # a: index of assign service (authorization queue)
+    a = registers[8] # a: address to read values of the assign services (authorization queue)
     v = registers[9] # v: index of designate service (validator queue)
 
     o = registers[10] # offset to read service indices and accompanying gas limits from
     n = registers[11] # number of entries in the auto_accumulate_services dictionary to read
+
+    assigners = None # GP: bold_a
+    if memory.is_accessible(a, 4 * CORE_COUNT, PVMMemoryMode.readable):
+        try:
+            assigners = []
+            for idx in range(CORE_COUNT):
+                offset = a + idx * 4
+                assigners.append(U32.decode(JamBytes(memory.read_bytes(offset, 4))))
+        except PVMMemoryError:
+            assigners = None   # bold_a = ∇
 
     auto_accumulate_services = None #GP: bold_g
     if memory.is_accessible(o, 12 * n, PVMMemoryMode.readable):
@@ -67,11 +77,14 @@ def hc_bless(
     except (StateKeyNoResult, OverflowError):
         service_exists = False
 
-    if auto_accumulate_services is None:
+    if auto_accumulate_services is None or assigners is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
-    #TODO: volgens GP hoeven we alleen ints te checken?
-    #elif any(idx >= 2**32 for idx in [m, a, v]):
+
+    elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.HUH.value
+        logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
     elif not service_exists:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.WHO.value
@@ -82,10 +95,10 @@ def hc_bless(
 
         # TODO: mark dirty? maybe register changes
         ps = x.context.state_context.privileged_services
-        ps.empower_service = m
-        ps.assign_service = a
-        ps.designate_service = v
-        ps.auto_accumulate_services = auto_accumulate_services
+        ps.manager = m
+        ps.assigners = assigners
+        ps.delegator = v
+        ps.always_accumulators = auto_accumulate_services
 
         logger.hc_log("BLESS OK", f"m={m} a={a} v={v}")
 
@@ -125,10 +138,17 @@ def hc_assign(
     if authorization_queue is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("ASSIGN PANIC", f"c={core_index}")
+
     elif core_index >= CORE_COUNT:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.CORE.value
         logger.hc_log("ASSIGN CORE", f"c={core_index}")
+
+    elif x.context.service_account_id != x.context.state_context.privileged_services.assigners[core_index]:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.HUH.value
+        logger.hc_log("BLESS HUH", f"X_s={x.context.service_account_id}")
+
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
@@ -169,6 +189,12 @@ def hc_designate(
     if validator_queue is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("DESIGNATE PANIC", f"o={o}")
+
+    elif x.context.service_account_id != x.context.state_context.privileged_services.delegator:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.HUH.value
+        logger.hc_log("DESIGNATE HUH", f"Xs={x.context.service_account_id}")
+
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
@@ -213,6 +239,7 @@ def hc_new(
     l = registers[8]  # size (byte length) of the code blob
     g = registers[9]  # gas_limit_accumulate
     m = registers[10] # gas_limit_on_transfer
+    f = registers[11] # deposit_offset
 
     code_hash = None
     if 0 < l < 2**32 and memory.is_accessible(o, 32, PVMMemoryMode.readable):
@@ -226,6 +253,7 @@ def hc_new(
     new_service_id = None
     deducted_balance = None
     new_service_account = None  # GP: bold_s
+
     if not code_hash is None:
         new_service_account = ServiceAccount(
             code_hash=code_hash,
@@ -236,8 +264,13 @@ def hc_new(
             footprint_storage_bytes=0,
             storage_items={},  # bold_s
             preimages={},  # bold_p
-            preimage_availability={}  # {(code_hash, l): []} #bold_l
+            preimage_availability={},  # {(code_hash, l): []} #bold_l
+            deposit_offset=f,
+            creation_slot=x.timeslot,
+            last_accumulation_slot=0,
+            parent_service=x.context.service_account_id,
         )
+
         new_service_id = x.context.new_service_account_id
         new_service_account.update_footprint_add_preimage(l)
         new_service_account.balance = new_service_account.threshold_balance
@@ -247,10 +280,12 @@ def hc_new(
     if code_hash is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("NEW PANIC", f"old_service={service_id}")
+
     elif deducted_balance < service_account.threshold_balance:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.CASH.value
         logger.hc_log("NEW CASH", f"old_service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
+
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = new_service_id

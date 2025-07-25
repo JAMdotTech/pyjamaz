@@ -248,7 +248,7 @@ class RecentBlock(Serializable):
         to the number of cores (constant_c=341)
     """
     header_hash: bytes = field(metadata={'codec': H256})
-    mmr: Mmr = field(metadata={'codec': Mmr.to_codec_def()})
+    accumulation_result: bytes = field(metadata={'codec': H256})
     state_root: bytes = field(metadata={'codec': H256})
     # TODO: GP-0.5.0-eq:7.1 states bold_p needs to be a dictionary, GP-0.5.0-eq:D.2 states bold_p needs to have a
     # length prefix encoding.
@@ -266,11 +266,13 @@ class RecentHistoryState(State, Serializable):
 
     Attributes
     ----------
-    recent_history: Vec(RecentBlock)
+    recent_blocks: Vec(RecentBlock)
         GP-0.5.0-eq:7.1 (β) | A collection of items in the RecentHistory partition of the overall state of
         up to constant_H (8) items.
     """
-    recent_history: List[RecentBlock] = field(metadata={'codec': Vec(RecentBlock.to_codec_def())})
+    recent_blocks: List[RecentBlock] = field(metadata={'codec': Vec(RecentBlock.to_codec_def())})
+    accumulation_output_log: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
+
 
     def __post_init__(self):
         # Todo: RecentHistory is allowed to have up to constant_H (HISTORY) items
@@ -281,7 +283,7 @@ class RecentHistoryState(State, Serializable):
         pass
 
     def get_recent_block(self, block_hash) -> Optional[RecentBlock]:
-        for block in self.recent_history:
+        for block in self.recent_blocks:
             if block.header_hash == block_hash:
                 return block
         return None
@@ -342,6 +344,14 @@ class ServiceAccount(Serializable):
     threshold_balance: U64
         GP-0.6.2-eq:9.8 (t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
         footprint.
+    deposit_offset: U64
+        GP-0.6.7-eq:9.3 (f) | Gratis deposit offset.
+    creation_slot: U64
+        GP-0.6.7-eq:9.3 (r) | Timeslot when created
+    last_accumulation_slot: U64
+        GP-0.6.7-eq:9.3 (a) | Timeslot when last accumulated
+    parent_service: U64
+        GP-0.6.7-eq:9.3 (p) | Parent service.
     storage_items: Dict(H256,Bytes)
         GP-0.6.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
     preimages: Dict(H256,Bytes)
@@ -355,18 +365,22 @@ class ServiceAccount(Serializable):
     gas_limit_accumulate: int = field(metadata={'codec': U64})
     gas_limit_on_transfer: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U64})
+    deposit_offset: int = field(metadata={'codec': U64})
     footprint_storage_items: int = field(metadata={'codec': U32})
     storage_items: Union[Dict[bytes, Optional[bytes]], StorageItemMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimages: Union[Dict[bytes, bytes], PreimageMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimage_availability: Union[Dict[Tuple[bytes, int], List[int]], PreimageAvailabilityMap] = field(metadata={
         'codec': Map(JamTuple(H256, U32), Vec(U32))}
     )
+    creation_slot: int = field(metadata={'codec': U32})
+    last_accumulation_slot: int = field(metadata={'codec': U32})
+    parent_service: int = field(metadata={'codec': U32})
 
     @property
     def threshold_balance(self):
         return (
             MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * self.footprint_storage_items +
-            MINIMUM_BALANCE_OCTET * self.footprint_storage_bytes
+            MINIMUM_BALANCE_OCTET * self.footprint_storage_bytes - self.deposit_offset
         )
 
     @classmethod
@@ -377,7 +391,8 @@ class ServiceAccount(Serializable):
             gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
             gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[48:56])),
             footprint_storage_bytes=U64.decode(JamBytes(serialized_bytes[56:64])),
-            footprint_storage_items=U32.decode(JamBytes(serialized_bytes[64:68])),
+            deposit_offset=U64.decode(JamBytes(serialized_bytes[64:72])),
+            footprint_storage_items=U32.decode(JamBytes(serialized_bytes[72:76])),
             storage_items={},
             preimages={},
             preimage_availability={},
@@ -953,26 +968,26 @@ class AuthorizerQueuesState(State, Serializable):
 @dataclass
 class PrivilegedServicesState(State, Serializable):
     """
-    GP-0.5.0-eq:9.9 (χ) | The PrivilegedServices partition of the overall state.
+    GP-0.6.7-eq:9.9 (χ) | The PrivilegedServices partition of the overall state.
 
     Attributes
     ----------
-    empower_service: U32
+    manager: U32
         GP-0.5.0-eq:9.9 (χ_m) | The service index of the empower service. I.e. the service that allows state transitions
         of PrivilegedServices (χ).
-    assign_service: U32
+    assigners: U32
         GP-0.5.0-eq:9.9 (χ_a) | The service index of the assign service. I.e. the service that allows state transitions
         of AuthorizerQueue (φ).
-    designate_service: U32
+    delegator: U32
         GP-0.5.0-eq:9.9 (χ_v) | The service index of the designate service. I.e. the service that allows state
         transitions of ValidatorQueue (ι).
-    auto_accumulate_services: Dict(U32,U64)
+    always_accumulators: Dict(U32,U64)
         GP-0.5.0-eq:9.9 (χ_g) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
-    empower_service: int = field(metadata={'codec': U32})
-    assign_service: int = field(metadata={'codec': U32})
-    designate_service: int = field(metadata={'codec': U32})
-    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
+    manager: int = field(metadata={'codec': U32})
+    assigners: List[int] = field(metadata={'codec': Array(U32, CORE_COUNT)})
+    delegator: int = field(metadata={'codec': U32})
+    always_accumulators: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
 
 
 @dataclass
@@ -1354,7 +1369,8 @@ class JamState(State, Serializable):
                 ]
             ),
             recent_history=RecentHistoryState(
-                recent_history=[]
+                recent_blocks=[],
+                accumulation_output_log=[]
             ),
             services=ServicesState(services={}),
             assurances=AssurancesState(
@@ -1366,10 +1382,10 @@ class JamState(State, Serializable):
                 ]
             ),
             privileged_services=PrivilegedServicesState(
-                empower_service=0,
-                assign_service=0,
-                designate_service=0,
-                auto_accumulate_services={}
+                manager=0,
+                assigners=[0 for _ in range(CORE_COUNT)],
+                delegator=0,
+                always_accumulators={}
             ),
             disputes=DisputesState(
                 good_set=[],
@@ -1436,7 +1452,7 @@ class DeferredTransfers(Serializable):
 @dataclass
 class AccumulationStateComponents(Serializable):
     """
-    GP-0.5.2-eq:12.13 (blackboard_U) | State components which are needed and mutable by the accumulation process.
+    GP-0.6.7-eq:12.13 (blackboard_U) | State components which are needed and mutable by the accumulation process.
 
     Attributes
     ----------

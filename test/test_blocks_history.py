@@ -111,12 +111,12 @@ class TestBlockHistory(unittest.TestCase):
         )
 
         self.assertEqual(
-            len(output.post_state.recent_history),
+            len(output.post_state.recent_blocks),
             len(test_vector['post_state']['beta']),
             'Length of history does not match'
         )
 
-        for idx, block_info in enumerate(output.post_state.recent_history):
+        for idx, block_info in enumerate(output.post_state.recent_blocks):
             self.assertDictEqual(
                 block_info.to_json(), test_vector['post_state']['beta'][idx], f'block {idx} does not match'
             )
