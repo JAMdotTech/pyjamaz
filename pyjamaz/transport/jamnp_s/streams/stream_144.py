@@ -18,8 +18,7 @@ class StreamAuditAnnouncement(Stream):
 
 
     def initiator_reset(self, reset_code: int):
-        logger.debug(f"CE144 received reset code: {reset_code}")
-        self.protocol.ce144_announcement_failure(reset_code)
+        pass
 
 
     def initiator_message(self, data: bytes):
@@ -40,10 +39,9 @@ class StreamAuditAnnouncement(Stream):
 
 
     def acceptor_reset(self, reset_code: int):
-        logger.debug(f"CE144 received reset code: {reset_code}")
-        self.protocol.ce144_announcement_failure(reset_code)
+        pass
 
 
     def handle_fin(self):
         super().handle_fin()
-        self.protocol.ce144_announcement_success(0) 
+        logger.info(f"CE144 success with FIN")

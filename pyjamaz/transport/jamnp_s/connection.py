@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from enum import Enum
 
 from aioquic.asyncio import QuicConnectionProtocol, serve
 from aioquic.quic.events import QuicEvent, HandshakeCompleted, StreamReset, StreamDataReceived, ConnectionTerminated
@@ -11,13 +12,18 @@ from pyjamaz.transport.jamnp_s.streams.stream_0 import StreamUP
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
+class JAMConnectionDirection(Enum):
+    initiator: int = 0
+    acceptor: int = 1
+
+
 class JAMConnection(QuicConnectionProtocol):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Note: should be set in wrap_protocol
-        self.direction:StreamDirection = None #TODO: JAMConnectionDirection!
+        self.direction:JAMConnectionDirection = None
         self.protocol = None
         self.jam_connection_ulid = None
         self.host = None
@@ -42,10 +48,12 @@ class JAMConnection(QuicConnectionProtocol):
 
     def close_jam_stream(self, stream: Stream, reason:int=0, clean_close: bool = False):
         logger.debug(f"Connection {self.jam_connection_ulid} QUIC closing JAM stream {stream.stream_type} {stream.stream_id} for {stream.direction} (clean: {clean_close})")
+
         if clean_close:
             self.send(stream.stream_id, b'', end_stream=True)
         else:
             self._quic.reset_stream(stream.stream_id, error_code=reason)
+
         if stream.stream_id in self.streams:
             del self.streams[stream.stream_id]
 
@@ -96,7 +104,7 @@ class JAMConnection(QuicConnectionProtocol):
             pass
 
 
-    def add_connection(self, addr, direction) -> bool:
+    def add_connection(self, addr: str, direction: JAMConnectionDirection) -> bool:
         if addr in self.protocol.conn_addr:
             logger.warning(f"Connection {self.jam_connection_ulid} direction: {direction} is a duplicate {addr}")
             self.close(error_code=2, reason_phrase="duplicate")
@@ -117,17 +125,17 @@ class JAMConnection(QuicConnectionProtocol):
             logger.debug(f'Connection {self.jam_connection_ulid} QUIC received non stream data {event}')
 
         if isinstance(event, HandshakeCompleted):
-            #TODO:
+            #TODO: enforce:
             #   Both nodes are validators, and are neighbours in the grid structure.
             #   At least one of the nodes is not a validator.
 
-            if self.direction == StreamDirection.initiator:
+            if self.direction == JAMConnectionDirection.initiator:
                 addr = f"{self.host}:{self.port}"
                 if not self.add_connection(addr, self.direction):
                     return
 
                 # Initiating side will send a JAM handshake message and set the stream id
-                stream_up = self.open_jam_stream(StreamUP, direction=self.direction)
+                stream_up = self.open_jam_stream(StreamUP, direction=StreamDirection.initiator)
                 self.stream_up = stream_up
                 self.protocol.up0_send_handshake(self)
             else:
@@ -141,14 +149,14 @@ class JAMConnection(QuicConnectionProtocol):
             stream_id = event.stream_id
             reset_code = event.error_code
 
-            logger.info(f'Connection {self.jam_connection_ulid} QUIC StreamReset {stream_id} {self.direction} code {reset_code}')
-
             if stream_id not in self.streams:
                 #raise Exception(f"QUIC stream {stream_id} not available")
                 logger.debug(f"Connection {self.jam_connection_ulid} QUIC stream {stream_id} already closed")
                 return
 
-            self.streams[stream_id].received_reset(reset_code)
+            logger.info(f'Connection {self.jam_connection_ulid} QUIC StreamReset {type(self.streams[stream_id])} ({stream_id}) direction={self.direction} code {reset_code}')
+
+            self.streams[stream_id].receive_reset(reset_code)
 
         elif isinstance(event, StreamDataReceived):
 
@@ -176,8 +184,8 @@ class JAMConnection(QuicConnectionProtocol):
                 self.streams[stream_id].receive_data(data, event.end_stream)
             except Exception as e:
                 logger.error(f"Connection {self.jam_connection_ulid} Error handling stream data: {e}", exc_info=True)
-                # Reset the stream with an error code
-                self._quic.reset_stream(stream_id, error_code=2)
+                if stream_id and self.streams[stream_id]:
+                    self.streams[stream_id].handle_error()
                 raise
 
         elif isinstance(event, ConnectionTerminated):

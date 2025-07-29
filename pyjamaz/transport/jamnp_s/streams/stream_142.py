@@ -17,8 +17,7 @@ class StreamPreimageAnnouncement(Stream):
 
 
     def initiator_reset(self, reset_code: int):
-        logger.debug(f"CE142 received reset code: {reset_code}")
-        self.protocol.ce142_announcement_failure(reset_code)
+        pass
 
 
     def initiator_message(self, data: bytes):
@@ -29,8 +28,7 @@ class StreamPreimageAnnouncement(Stream):
 
 
     def acceptor_reset(self, reset_code: int):
-        logger.debug(f"CE142 received reset code: {reset_code}")
-        self.protocol.ce142_announcement_failure(reset_code)
+        pass
 
 
     def acceptor_message(self, data: bytes):
@@ -41,4 +39,4 @@ class StreamPreimageAnnouncement(Stream):
 
     def handle_fin(self):
         super().handle_fin()
-        self.protocol.ce142_announcement_success(0) 
+        logger.info(f"Success with code with FIN")

@@ -17,8 +17,7 @@ class StreamShardDistribution(Stream):
 
 
     def initiator_reset(self, reset_code: int):
-        logger.debug(f"CE137 received reset code: {reset_code}")
-        self.protocol.ce137_distribution_failure(reset_code)
+        pass
 
 
     def _chunks(self, data: bytes, chunk_size: int):
@@ -43,10 +42,9 @@ class StreamShardDistribution(Stream):
 
 
     def acceptor_reset(self, reset_code: int):
-        logger.debug(f"CE137 received reset code: {reset_code}")
-        self.protocol.ce137_distribution_failure(reset_code)
+        pass
 
 
     def handle_fin(self):
         super().handle_fin()
-        self.protocol.ce137_distribution_success(0)
+        logger.info(f"CE137 success with FIN")

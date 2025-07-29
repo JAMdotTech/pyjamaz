@@ -17,8 +17,7 @@ class StreamAssuranceDistribution(Stream):
 
 
     def initiator_reset(self, reset_code: int):
-        logger.debug(f"CE141 received reset code: {reset_code}")
-        self.protocol.ce141_distribution_failure(reset_code)
+        pass
 
 
     def initiator_message(self, data: bytes):
@@ -33,10 +32,9 @@ class StreamAssuranceDistribution(Stream):
 
 
     def acceptor_reset(self, reset_code: int):
-        logger.debug(f"CE141 received reset code: {reset_code}")
-        self.protocol.ce141_distribution_failure(reset_code)
+        pass
 
 
     def handle_fin(self):
         super().handle_fin()
-        self.protocol.ce141_distribution_success(0)
+        logger.info(f"Success with code with FIN")

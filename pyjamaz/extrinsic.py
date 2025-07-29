@@ -49,13 +49,21 @@ class BlockExtrinsicAccumulator:
 
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
+
     async def add_ticket(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes):
         ticket_body = self.create_ticket_body(ticket_data, ring_public_keys, entropy)
         async with self._ticket_queue_lock:
             self.tickets_queue[ticket_body.id] = ticket_data
 
+
+    async def add_ticket_body(self, ticket_data: TicketEnvelope, ticket_body: TicketBody):
+        async with self._ticket_queue_lock:
+            self.tickets_queue[ticket_body.id] = ticket_data
+
+
     def can_add_own_ticket(self, timeslot: int) -> bool:
         return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT
+
 
     async def add_own_ticket(
             self, ring_public_keys: List[bytes], entropy: bytes, keypair: BandersnatchKeypair, author_index: int,
@@ -94,6 +102,7 @@ class BlockExtrinsicAccumulator:
         if pubsub and epoch_index is not None:
             await pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.TICKET_ADD, data=[epoch_index, attempt, signature]))
 
+
     async def collect_tickets(self) -> List[TicketEnvelope]:
         """
         Collect tickets to include in a block
@@ -112,16 +121,20 @@ class BlockExtrinsicAccumulator:
 
         return [ticket for _, ticket in collected_tickets]
 
+
     def is_own_ticket(self, ticket_id: bytes) -> bool:
         pass
 
+
     def own_ticket_count(self) -> int:
         return len(self.own_tickets_next)
+
 
     async def clear_tickets(self):
         async with self._ticket_queue_lock:
             self.tickets_queue = {}
         self.own_tickets_next = []
+
 
     async def process_epoch_change(self):
         self.own_tickets_current = self.own_tickets_next
@@ -129,25 +142,31 @@ class BlockExtrinsicAccumulator:
         async with self._ticket_queue_lock:
             self.tickets_queue = {}
 
+
     def add_guarantee(self, guarantee: Guarantee):
         self.guarentees_queue.append(guarantee)
+
 
     async def collect_guarantees(self) -> List[Guarantee]:
         guarentees = self.guarentees_queue
         self.guarentees_queue = []
         return guarentees
 
+
     def add_assurance(self, assurance: Assurance):
         self.assurances_queue.append(assurance)
+
 
     def collect_assurances(self) -> List[Assurance]:
         assurances = self.assurances_queue
         self.assurances_queue = []
         return assurances
 
+
     def add_preimage(self, preimage: Preimage):
         self.preimage_queue.append(preimage)
         logging.info(f"🖼️ Added preimage: {format_hash(blake2b_256_hash(preimage.blob))} for service: {preimage.requester}")
+
 
     def collect_preimages(self, service_state: ServicesState) -> List[Preimage]:
         # Check which of present preimages are actually requested
@@ -163,6 +182,7 @@ class BlockExtrinsicAccumulator:
         self.preimage_queue = new_queue
 
         return preimages
+
 
     async def process_block(self, block: Block):
         """

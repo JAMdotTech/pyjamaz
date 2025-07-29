@@ -54,11 +54,15 @@ class StreamUP(Stream):
 
 
     def initiator_reset(self, reset_code: int):
-        self.protocol.up0_failure(reset_code, self.direction)
+        # TODO: handle UP0 reset, e.g., reconnect
+        #self.protocol.up0_failure(reset_code, self.direction)
+        pass
 
 
     def acceptor_reset(self, reset_code: int):
-        self.protocol.up0_failure(reset_code, self.direction)
+        # TODO: handle UP0 reset, e.g., reconnect
+        #self.protocol.up0_failure(reset_code, self.direction)
+        pass
 
 
     def acceptor_message(self, data: bytes):

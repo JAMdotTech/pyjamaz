@@ -1,12 +1,15 @@
 import asyncio
 import logging
+import math
 import ssl
+import time
 
 from typing import Dict, List
 from typing import Optional, cast
 
 from aioquic.asyncio import serve
 from aioquic.quic.configuration import QuicConfiguration
+from aioquic.quic.connection import QuicConnectionState
 from aioquic.tls import SessionTicket
 
 from aioquic.asyncio.client import connect
@@ -48,12 +51,22 @@ from pyjamaz.transport.jamnp_s.streams.stream_140 import StreamSegmentShardReque
 from pyjamaz.transport.jamnp_s.streams.stream_144 import StreamAuditAnnouncement
 from pyjamaz.transport.jamnp_s.streams.stream_145 import StreamJudgmentPublication
 
-from pyjamaz.transport.jamnp_s.connection import JAMConnection
+from pyjamaz.transport.jamnp_s.connection import JAMConnection, JAMConnectionDirection
 
-from pyjamaz.models.common import WorkPackage
+from pyjamaz.models.common import WorkPackage, ValidatorData
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
+
+
+class ValidatorConnection:
+    validator: ValidatorData
+    ip: str
+    port: int
+    connection:JAMConnection
+    last_try:time
+    initiator:bool
+    in_grid:bool
 
 
 class JAMNPS(ProtocolType):
@@ -76,13 +89,25 @@ class JAMNPS(ProtocolType):
         if bl_hash.startswith('0x'): bl_hash = bl_hash[2:]
         bl_hash = bl_hash[:8]
 
+        self.validator = None
+        self.validator_dns = None
+        self.validator_port = None
+        self.validator_address = None
+
+        for validator in app.state.safrole.validators:
+            if validator.ed25519 == self.app.config.keys.ed25519.public_key:
+                self.validator = validator
+                self.validator_dns = validator.get_connection_dns()
+                self.validator_port = validator.get_metadata_port()
+                self.validator_address = validator.get_metadata_ipaddress()
+
         #TODO:
-        # callbacks like ce128_processed_block_request could be created using closure functions
-        # (def create_ce128_processed_block_request returning the callback),
+        # callbacks like ce128_finish_block_request could be created using closure functions
+        # (def create_ce128_finish_block_request returning the callback),
         # to create a local state which holds context like which connection/node initiated this event, so we can mark
         # malicious nodes etc...
-        self.pubsub.subscribe(MESSAGE_TYPES.CE128_SUCCESS, self.ce128_processed_block_request)
-        self.pubsub.subscribe(MESSAGE_TYPES.CE128_FAILURE, self.ce128_processed_block_request)
+        self.pubsub.subscribe(MESSAGE_TYPES.CE128_SUCCESS, self.ce128_finish_block_request)
+        self.pubsub.subscribe(MESSAGE_TYPES.CE128_FAILURE, self.ce128_finish_block_request)
 
         self.protocol_name = JAMNPS.PROTOCOL_NAME.format(bl_hash)
         self.session_ticket_store = SessionTicketStore()
@@ -102,6 +127,9 @@ class JAMNPS(ProtocolType):
         self.conn_accepted = set()   # All incomming connections
         self.conn_initiated = set()  # All outgoing connections (who we connect to)
         self.conn_addr = set()  # Reference with host:port pairs
+        self.validator_connections: Dict[bytes:, ValidatorConnection] = {}
+        #TODO: add a reconnect task
+        # self._reconnect_task = asyncio.create_task(self.reconnect_validators())
 
 
     async def listen(self):
@@ -118,34 +146,147 @@ class JAMNPS(ProtocolType):
             self.host,
             self.port,
             configuration=server_conf,
-            create_protocol=create_jam_connection(self, JAMConnection, StreamDirection.acceptor, self.host, self.port),
+            create_protocol=create_jam_connection(self, JAMConnection, JAMConnectionDirection.acceptor, self.host, self.port),
             #session_ticket_fetcher=self.session_ticket_store.pop,
             #session_ticket_handler=self.session_ticket_store.add,
             retry=True,
         )
 
 
-    def is_preferred_initiator(a: bytes, b: bytes) -> bool:
+    def should_initiate_connection(self, validator_a: bytes, validator_b: bytes) -> bool:
+        connect_a = 1 if validator_a[31] > 127 else 0
+        connect_b = 1 if validator_b[31] > 127 else 0
+        a_less = 1 if validator_a < validator_b else 0
+        return (connect_a ^ connect_b ^ a_less) == 1
+
+
+    def add_grid_connections(
+            self,
+            validator_idx: int,
+            validator_queue: List[int, ValidatorData],
+            same_epoch: bool,
+            initiate_conns:List[ValidatorData],
+            expect_conns:List[ValidatorData]
+    ):
+
+        W = math.floor(math.sqrt(len(validator_queue)))
+
+        for (v_idx, v) in validator_queue:
+            if self.validator.ed25519 == v.ed25519:
+                continue
+
+            should_connect = False
+
+            if same_epoch:
+                if v_idx == validator_idx // W or validator_idx % W == v_idx % W:
+                    should_connect = True
+            else:
+                if v_idx == validator_idx:
+                    should_connect = True
+
+            if should_connect:
+                if self.should_initiate_connection(self.validator.ed25519, v.ed25519):
+                    initiate_conns.append(v)
+                else:
+                    expect_conns.append(v)
+
+
+    async def update_validator_connections(self):
         """
-        TODO: see https://docs.jamcha.in/knowledge/advanced/simple-networking/spec#required-connectivity
+        TODO:
+            listen to epoch transitions and :
+            The first block in the epoch has been finalized.
+            At least max(⌊E/30⌋,1) slots have elapsed since the beginning of the epoch (where E is the number of slots in an epoch).
         """
-        if len(a) != 32 or len(b) != 32:
-            raise ValueError("pubkey must be 32 bytes")
 
-        a_flag = a[31] > 127
-        b_flag = b[31] > 127
-        lex_lt = a < b
+        if not self.validator:
+            raise Exception("This node is not a validator")
 
-        return a_flag ^ b_flag ^ lex_lt
+        prev_validators:List[int, ValidatorData] = [(i,v) for i,v in enumerate(self.app.state.validator_archive.validators)]
+        next_validators:List[int, ValidatorData] = [(i,v) for i,v in enumerate(self.app.state.validator_queue.validators)]
+        active_validators:List[int, ValidatorData] = [(i,v) for i,v in enumerate(self.app.state.safrole.validators)]
+
+        # Determine our index in the active validator queue
+        validator_idx = None
+        for v_idx, v in enumerate(active_validators):
+            if v.ed25519 == self.validator.ed25519:
+                validator_idx = v_idx
+
+        if validator_idx is None:
+            logger.debug(f'Current validator {v.ed25519.hex()} is not present in the validator queue')
+            return
+
+        #Note: Primarily for the purpose of block and preimage announcements
+        initiate_grid_connections:List[ValidatorData] = []
+        expected_grid_connections:List[ValidatorData] = []
+        self.add_grid_connections(validator_idx=validator_idx, validator_queue=prev_validators, same_epoch=False, initiate_conns=initiate_grid_connections, expect_conns=expected_grid_connections)
+        self.add_grid_connections(validator_idx=validator_idx, validator_queue=active_validators, same_epoch=True, initiate_conns=initiate_grid_connections, expect_conns=expected_grid_connections)
+        self.add_grid_connections(validator_idx=validator_idx, validator_queue=next_validators, same_epoch=False, initiate_conns=initiate_grid_connections, expect_conns=expected_grid_connections)
+        initiate_grid_connections = set(initiate_grid_connections)
+        expected_grid_connections = set(expected_grid_connections)
+
+        # Note: All validators in the previous, current, and next epochs should ensure they are connected to all other such validators.
+        initiate_connections:List[ValidatorData] = []
+        expected_connections:List[ValidatorData] = []
+        for v in active_validators:
+            if v.ed25519 == self.validator.ed25519:
+                continue
+
+            if self.should_initiate_connection(self.validator.ed25519, v.ed25519):
+                initiate_connections.append(v)
+            else:
+                expected_connections.append(v)
+
+        print("CONNECT TO VALIDATORS: ", initiate_connections)
+        print("EXPECTING CONNECTIONS: ", expected_connections)
+
+        initiate_connections = set(initiate_connections)
+        expected_connections = set(expected_connections)
+
+        new_connections = initiate_connections | expected_connections | initiate_grid_connections | expected_grid_connections
+        current_connections = set(self.validator_connections.keys())
+
+        # Check if our set changed and need to disconnect irrelevant connections
+        disconnect_validators = current_connections - new_connections
+        for ed25519 in disconnect_validators:
+            if ed25519 in self.validator_connections:
+                self.disconnect(self.validator_connections[ed25519].connection)
+
+        for v in list(new_connections):
+            is_initiator:bool = v.ed25519 in initiate_connections or v.ed25519 in initiate_grid_connections
+            in_grid:bool = v.ed25519 in initiate_grid_connections or v.ed25519 in expected_grid_connections
+
+            if v.ed25519 not in self.validator_connections:
+                ip, port = (v.get_metadata_ipaddress(), v.get_metadata_port())
+                self.validator_connections[v.ed25519] = ValidatorConnection(
+                    validator=v,
+                    ip=ip,
+                    port=port,
+                    connection=None,
+                    last_try=None,
+                    initiator=is_initiator,
+                    in_grid=in_grid
+                )
+                # Note:
+                #await self.connect(ip, port)
+
+            # Note: Some properties might have changed for existing connections
+            vc:ValidatorConnection = self.validator_connections[v.ed25519]
+            vc.initiator = is_initiator
+            vc.in_grid = in_grid
+
+            # Start an active connection
+            if vc.in_grid and vc.initiator:
+                if vc.connection is None or vc.connection._quic._state > QuicConnectionState.CONNECTED:
+                    await self.connect(ip, port, v.ed25519)
 
 
-    async def connect(self, host, port):
+    async def connect(self, host: str, port: int, validator_key: Optional[bytes]):
         configuration = QuicConfiguration(
             alpn_protocols=[self.protocol_name],
             is_client=True,
             #verify_mode=ssl.CERT_REQUIRED,
             verify_mode=ssl.CERT_NONE,
-            #idle_timeout=300000
         )
         configuration.load_cert_chain(certfile=self.cert, keyfile=self.pk)
 
@@ -161,7 +302,7 @@ class JAMNPS(ProtocolType):
                     port,
                     configuration=configuration,
                     # session_ticket_handler=save_session_ticket,
-                    create_protocol=create_jam_connection(self, JAMConnection, StreamDirection.initiator, host, port),
+                    create_protocol=create_jam_connection(self, JAMConnection, JAMConnectionDirection.initiator, host, port, validator_key),
             ) as client:
                 client = cast(JAMConnection, client)
                 await client.wait_closed()
@@ -170,8 +311,8 @@ class JAMNPS(ProtocolType):
             logger.warning(f"💩 Cannot connect to {host}:{port} {exc}")
 
 
-    def disconnect(self, connection: JAMConnection):
-        if connection.direction == StreamDirection.initiator:
+    def disconnect(self, connection: JAMConnection, validator_key: Optional[bytes]):
+        if connection.direction == JAMConnectionDirection.initiator:
             if connection.jam_connection_ulid in self.conn_initiated:
                 self.conn_initiated.remove(connection.jam_connection_ulid)
         else:
@@ -183,6 +324,9 @@ class JAMNPS(ProtocolType):
 
         if connection.addr and connection.addr in self.conn_addr:
             self.conn_addr.remove(connection.addr)
+
+        if validator_key in self.validator_connections:
+            self.validator_connections[validator_key].connection = None
 
 
     def up0_send_handshake(self, conn: JAMConnection):
@@ -197,7 +341,7 @@ class JAMNPS(ProtocolType):
         )
         logger.info(f"Send handshake on stream {conn.stream_up.stream_id} to {conn.host}:{conn.port} with hash {header_hash}")
 
-        add_stream_type = conn.direction == StreamDirection.initiator
+        add_stream_type = conn.direction == JAMConnectionDirection.initiator
 
         conn.send(
             conn.stream_up.stream_id,
@@ -293,7 +437,6 @@ class JAMNPS(ProtocolType):
         next_hash = block_req.header_hash
 
         if block_header and block_req.max_blocks > 0:
-            #direction = 1 + block_req.direction * -2
 
             for x in range(block_req.max_blocks):
 
@@ -343,19 +486,9 @@ class JAMNPS(ProtocolType):
         )
 
 
-    async def ce128_processed_block_request(self, *args, **kwargs):
+    async def ce128_finish_block_request(self, *args, **kwargs):
         #TODO: add reason, origin/connection etc
         self.state_requesting_blocks = False
-
-
-    def up0_failure(self, reset_code: int, direction:StreamDirection):
-        logger.error(f"Failed with code {reset_code} ({direction}")
-        # TODO: handle UP0 reset, e.g., reconnect
-
-
-    def ce128_block_request_failure(self, reset_code: int):
-        logger.error(f"Failed with code {reset_code}")
-        self.state_requesting_blocks = False  # Reset state on failure
 
 
     def ce131_received_ticket(self, stream: StreamSafroleTicketDistributionStep1, msg: MsgCE131SafroleTicketDistribution):
@@ -367,35 +500,31 @@ class JAMNPS(ProtocolType):
             stream.send_reset(1)
             return
             
-        #TODO: create helper function from this (in app? verify_ticket)
         try:
             # Get ring public keys from current validators
             ring_public_keys = [v.bandersnatch for v in self.app.state.safrole.validators]
-            
             # Get entropy for the epoch
             entropy = self.app.state.entropy.entropy[2]
-            
             # Validate the ticket using the block extrinsic accumulator
             #TODO: duplicate with Safrole.create_ticket_body???
+            ticket_envelope = TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof)
             ticket_body = self.app.block_extrinsic.create_ticket_body(
-                TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof),
+                ticket_envelope,
                 ring_public_keys,
                 entropy
             )
-            
+
             # Check if we already have this ticket
             if ticket_body in self.app.state.safrole.ticket_accumulator:
                 logger.info(f"Ticket already in accumulator")
                 stream.send_reset(2)
                 return
-                
+
             # Add ticket to our accumulator
-            #TODO: ticketbody can be reused from above
             asyncio.create_task(
-                self.app.block_extrinsic.add_ticket(
-                    TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof),
-                    ring_public_keys,
-                    entropy
+                self.app.block_extrinsic.add_ticket_body(
+                    ticket_envelope,
+                    ticket_body
                 )
             )
 
@@ -426,16 +555,6 @@ class JAMNPS(ProtocolType):
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
-    def ce131_ticket_distribution_success(self, reset_code: int):
-        logger.info(f"Finished with code {reset_code}")
-        # TODO: handle success, perhaps update state
-
-
-    def ce131_ticket_distribution_failure(self, reset_code: int):
-        logger.error(f"Failed with code {reset_code}")
-        # TODO: handle failure, e.g., retry or log
-
-
     def ce132_initiate_ticket_distribution(self, conn: JAMConnection, msg: MsgCE132SafroleTicketDistribution):
         stream = conn.open_jam_stream(StreamSafroleTicketDistributionStep2, direction=StreamDirection.initiator)
         logger.info(f"Distribute ticket on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
@@ -456,35 +575,30 @@ class JAMNPS(ProtocolType):
             stream.send_reset(1)
             return
             
-        # Verify ticket proof
-        #TODO: duplicate code from CE131 for now, make helper function
         try:
             # Get ring public keys from current validators
             ring_public_keys = [v.bandersnatch for v in self.app.state.safrole.validators]
-            
             # Get entropy for the epoch
             entropy = self.app.state.entropy.entropy[2]
-            
-            # Validate the ticket
+            # TODO: duplicate with Safrole.create_ticket_body???
+            ticket_envelope = TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof)
             ticket_body = self.app.block_extrinsic.create_ticket_body(
-                TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof),
+                ticket_envelope,
                 ring_public_keys,
                 entropy
             )
-            
+
             # Check if we already have this ticket
             if ticket_body in self.app.state.safrole.ticket_accumulator:
                 logger.info(f"Ticket already in accumulator (via CE132), ignoring")
-                # Don't reset, just close normally as this is expected in CE132
                 stream.conn.send(stream.stream_id, b'', end_stream=True)
                 return
-                
+
             # Add ticket to our accumulator
             asyncio.create_task(
-                self.app.block_extrinsic.add_ticket(
-                    TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof),
-                    ring_public_keys,
-                    entropy
+                self.app.block_extrinsic.add_ticket_body(
+                    ticket_envelope,
+                    ticket_body
                 )
             )
 
@@ -578,14 +692,6 @@ class JAMNPS(ProtocolType):
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
-    def ce134_sharing_success(self, reset_code: int):
-        logger.info(f"Success with code {reset_code}")
-
-
-    def ce134_sharing_failure(self, reset_code: int):
-        logger.error(f"Failed with code {reset_code}")
-
-
     def ce135_initiate_distribution(self, conn: JAMConnection, msg: MsgCE135GuaranteedWorkReport):
         stream = conn.open_jam_stream(StreamWorkReportDistribution, direction=StreamDirection.initiator)
         logger.info(f"CE135 initiating distribution on stream id: {stream.stream_id}")
@@ -597,14 +703,6 @@ class JAMNPS(ProtocolType):
         # TODO: process report
         # stream.acceptor_reset(0)
         stream.conn.send(stream.stream_id, b'', end_stream=True)
-
-
-    def ce135_distribution_success(self, reset_code: int):
-        logger.info(f"CE135 distribution successful with code {reset_code}")
-
-
-    def ce135_distribution_failure(self, reset_code: int):
-        logger.error(f"CE135 distribution failed with code {reset_code}")
 
 
     def ce136_initiate_request(self, conn: JAMConnection, msg: MsgCE136HashRequest):
@@ -624,14 +722,6 @@ class JAMNPS(ProtocolType):
         logger.info(f"CE136 received work report of length {len(msg.report)}")
         # TODO: process report
         stream.conn.send(stream.stream_id, b'', end_stream=True)
-
-
-    def ce136_request_success(self, reset_code: int):
-        logger.debug(f"CE136 request successful with code {reset_code}")
-
-
-    def ce136_request_failure(self, reset_code: int):
-        logger.error(f"CE136 request failed with code {reset_code}")
 
 
     def ce137_initiate_request(self, conn: JAMConnection, req: MsgCE137ShardRequest):
@@ -655,14 +745,6 @@ class JAMNPS(ProtocolType):
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
-    def ce137_distribution_success(self, code: int):
-        logger.info(f"CE137 success {code}")
-
-
-    def ce137_distribution_failure(self, code: int):
-        logger.error(f"CE137 failure {code}")
-
-
     # Similar for CE138, CE139, CE140
     def ce138_initiate_request(self, conn: JAMConnection, req: MsgCE138ShardRequest):
         stream = conn.open_jam_stream(StreamAuditShardRequest, direction=StreamDirection.initiator)
@@ -682,14 +764,6 @@ class JAMNPS(ProtocolType):
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
-    def ce138_request_success(self, code: int):
-        logger.info(f"CE138 success {code}")
-
-
-    def ce138_request_failure(self, code: int):
-        logger.error(f"CE138 failure {code}")
-
-
     def ce139_initiate_request(self, conn: JAMConnection, req: MsgCE139SegmentRequest):
         stream = conn.open_jam_stream(StreamSegmentShardRequest, direction=StreamDirection.initiator)
         conn.send(stream.stream_id, stream.create_message(req.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
@@ -705,14 +779,6 @@ class JAMNPS(ProtocolType):
     def ce139_received_shards(self, stream: StreamSegmentShardRequest, shards):
         # TODO: process
         stream.conn.send(stream.stream_id, b'', end_stream=True)
-
-
-    def ce139_request_success(self, code: int):
-        logger.info(f"CE139 success {code}")
-
-
-    def ce139_request_failure(self, code: int):
-        logger.error(f"CE139 failure {code}")
 
 
     def ce140_initiate_request(self, conn: JAMConnection, req: MsgCE140SegmentRequest):
@@ -734,14 +800,6 @@ class JAMNPS(ProtocolType):
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
-    def ce140_request_success(self, code: int):
-        logger.info(f"CE140 success {code}")
-
-
-    def ce140_request_failure(self, code: int):
-        logger.error(f"CE140 failure {code}")
-
-
     def ce141_initiate_distribution(self, conn: JAMConnection, msg: MsgCE141Assurance):
         stream = conn.open_jam_stream(StreamAssuranceDistribution, direction=StreamDirection.initiator)
         logger.info(f"Initiating assurance distribution on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
@@ -755,14 +813,6 @@ class JAMNPS(ProtocolType):
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
-    def ce141_distribution_success(self, reset_code: int):
-        logger.info(f"Success with code {reset_code}")
-
-
-    def ce141_distribution_failure(self, reset_code: int):
-        logger.error(f"Failed with code {reset_code}")
-
-
     def ce142_initiate_announcement(self, conn: JAMConnection, msg: MsgCE142PreimageAnnouncement):
         stream = conn.open_jam_stream(StreamPreimageAnnouncement, direction=StreamDirection.initiator)
         logger.info(f"Initiating preimage announcement on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
@@ -774,14 +824,6 @@ class JAMNPS(ProtocolType):
         # TODO: check if needed, request via CE143 if so
         # stream.acceptor_reset(0)
         stream.conn.send(stream.stream_id, b'', end_stream=True)
-
-
-    def ce142_announcement_success(self, reset_code: int):
-        logger.info(f"Success with code {reset_code}")
-
-
-    def ce142_announcement_failure(self, reset_code: int):
-        logger.error(f"Failed with code {reset_code}")
 
 
     def ce143_initiate_request(self, conn: JAMConnection, msg: MsgCE143HashRequest):
@@ -827,14 +869,6 @@ class JAMNPS(ProtocolType):
         stream.conn.send(stream.stream_id, b'', end_stream=True)
 
 
-    def ce144_announcement_success(self, code: int):
-        logger.info(f"CE144 success {code}")
-
-
-    def ce144_announcement_failure(self, code: int):
-        logger.error(f"CE144 failure {code}")
-
-
     def ce145_initiate_publication(self, conn: JAMConnection, msg: MsgCE145JudgmentPublication):
         stream = conn.open_jam_stream(StreamJudgmentPublication, direction=StreamDirection.initiator)
         conn.send(stream.stream_id, stream.create_message(msg.to_jam_bytes().to_bytes(), add_stream_type=True), end_stream=True)
@@ -843,14 +877,6 @@ class JAMNPS(ProtocolType):
     def ce145_received_judgment(self, stream: StreamJudgmentPublication, msg: MsgCE145JudgmentPublication):
         # TODO: process judgment
         stream.conn.send(stream.stream_id, b'', end_stream=True)
-
-
-    def ce145_publication_success(self, code: int):
-        logger.info(f"CE145 success {code}")
-
-
-    def ce145_publication_failure(self, code: int):
-        logger.error(f"CE145 failure {code}")
 
 
     # Note: pubsub_ prefixed methods are driven by application level events
@@ -921,8 +947,21 @@ class JAMNPS(ProtocolType):
         return True
 
 
-def create_jam_connection(protocol: JAMNPS, quic_connection: JAMConnection, direction: StreamDirection, host: str, port: int):
+def create_jam_connection(
+        protocol: JAMNPS,
+        quic_connection: JAMConnection,
+        direction: JAMConnectionDirection,
+        host: str,
+        port: int,
+        validator_key: Optional[bytes]
+):
     def create_connection(*args, **kwargs):
+        """
+        TODO: check ALPN
+        The (ASCII-encoded) protocol identifier should be either jamnp-s/V/H or jamnp-s/V/H/builder. Here V is the protocol version, 0, and H is the first 8 nibbles of the hash of the chain's genesis header, in lower-case hexadecimal.
+        The /builder suffix should always be permitted by the side accepting the connection, but only used by the side initiating the connection if it is connecting as a work-package builder. Note that guarantors should accept work-package submission streams (CE 133) on all connections, regardless of how they were opened. The purpose of identifying as a builder at connection time is merely to request use of a slot reserved for builders, increasing the likelihood of a successful connection.
+        Validators should accept connections from other nodes too, with a reasonable number of slots (e.g. 20) reserved for work-package builders. Builders may reasonably be required to prove their credentials through submission of a valid work-package in order to retain their connection.
+        """
         conn = quic_connection(*args, **kwargs)
         conn.protocol = protocol
         conn.direction = direction
@@ -931,12 +970,23 @@ def create_jam_connection(protocol: JAMNPS, quic_connection: JAMConnection, dire
         protocol.connections[conn.jam_connection_ulid] = conn
 
         # Note: for accepting connections addr & port are known after the QUIC handshake, see JAMConnection::HandshakeComplete
-        if direction == StreamDirection.initiator:
+        if direction == JAMConnectionDirection.initiator:
             conn.host = host
             conn.port = port
             protocol.conn_initiated.add(conn.jam_connection_ulid)
         else:
             protocol.conn_accepted.add(conn.jam_connection_ulid)
+            """
+            TODO: if incomming connection is not a validator:
+            Validators should accept connections from other nodes too, with a reasonable number of slots (e.g. 20) reserved for work-package builders. Builders may reasonably be required to prove their credentials through submission of a valid work-package in order to retain their connection.
+            """
+
+        if validator_key:
+            if protocol.validator_connections[validator_key]["connection"]:
+                protocol.disconnect(protocol.validator_connections[validator_key]["connection"], validator_key)
+
+            protocol.validator_connections[validator_key]["connection"] = conn
+            protocol.validator_connections[validator_key]["last_try"] = time.time()
 
         return conn
 

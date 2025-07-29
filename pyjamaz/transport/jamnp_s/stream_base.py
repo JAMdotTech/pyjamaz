@@ -137,7 +137,9 @@ class Stream:
             code = self.ERROR_TOO_LARGE
         else:
             code = self.ERROR_GENERAL
+
         logger.error(f"Stream {self.stream_id} error: {exc}")
+
         self.send_reset(code)
 
 

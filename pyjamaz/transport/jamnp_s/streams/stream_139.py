@@ -17,8 +17,7 @@ class StreamSegmentShardRequest(Stream):
 
 
     def initiator_reset(self, reset_code: int):
-        logger.debug(f"CE139 received reset code: {reset_code}")
-        self.protocol.ce139_request_failure(reset_code)
+        pass
 
 
     def initiator_message(self, data: bytes):
@@ -34,10 +33,9 @@ class StreamSegmentShardRequest(Stream):
 
 
     def acceptor_reset(self, reset_code: int):
-        logger.debug(f"CE139 received reset code: {reset_code}")
-        self.protocol.ce139_request_failure(reset_code)
+        pass
 
 
     def handle_fin(self):
         super().handle_fin()
-        self.protocol.ce139_request_success(0)
+        logger.info(f"CE139 success with FIN")

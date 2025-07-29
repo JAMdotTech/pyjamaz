@@ -12,7 +12,7 @@ from pyjamaz.transport.rpc.ws_client import WebsocketClient
 # Bootstrap service - Helper functions
 
 async def get_service_registry(client) -> ServiceRegistry:
-    best_block = await client.bestBlock()
+    best_block = await client.finalizedBlock()
     block_hash = best_block["header_hash"]
     services_registry = await client.serviceValue(block_hash, 0, b'\x10service_registry')
 
@@ -20,9 +20,9 @@ async def get_service_registry(client) -> ServiceRegistry:
 
 
 async def create_empty_workpackage(client: WebsocketClient) -> WorkPackage:
-    best_block = await client.bestBlock()
-    block_hash = best_block[0]
-    block_timeslot = best_block[1]
+    best_block = await client.finalizedBlock()
+    block_hash = best_block["header_hash"]
+    block_timeslot = best_block["slot"]
 
     state_root = await client.stateRoot(block_hash)
     beefy_root = await client.beefyRoot(block_hash)
@@ -72,7 +72,7 @@ async def create_bootservice_workpackage(client: WebsocketClient, instruction: I
 
 async def main():
 
-    async with WebsocketClient("ws://127.0.0.1:19801") as client:
+    async with WebsocketClient("ws://127.0.0.1:19800") as client:
         # Init vars
         bootstrap_service_id = 0
         registration = "test123"
@@ -116,7 +116,7 @@ async def main():
             {'Eject': {'target': 0, 'code_hash': '0x6c63e601e26279872a93b9b443aa52ad1c26e795647f63c0b7e0abff0d3680da'}}
             )
 
-        extrinsic = [bytes(100), bytes(200), bytes(300)]
+        extrinsic = [bytes(100), bytes(200), bytes(400)]
 
         work_package = await create_bootservice_workpackage(client, create_instruction, extrinsic)
 

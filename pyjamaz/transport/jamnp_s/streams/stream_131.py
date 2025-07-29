@@ -17,13 +17,12 @@ class StreamSafroleTicketDistributionStep1(Stream):
 
 
     def initiator_reset(self, reset_code: int):
-        logger.debug(f"CE131 received reset code: {reset_code}")
-        self.protocol.ce131_ticket_distribution_failure(reset_code)
+        pass
 
 
     def initiator_message(self, data: bytes):
         logger.warning(f"Unexpected data in CE131 initiator: {len(data)} bytes")
-        self.handle_error("Unexpected data", 1)
+        self.handle_error(None)
 
 
     def acceptor_message(self, data: bytes):
@@ -33,10 +32,9 @@ class StreamSafroleTicketDistributionStep1(Stream):
 
 
     def acceptor_reset(self, reset_code: int):
-        logger.debug(f"CE131 received reset code: {reset_code}")
-        self.protocol.ce131_ticket_distribution_failure(reset_code)
+        pass
 
 
     def handle_fin(self):
         super().handle_fin()
-        self.protocol.ce131_ticket_distribution_success(0)
+        logger.info(f"Finished with FIN")

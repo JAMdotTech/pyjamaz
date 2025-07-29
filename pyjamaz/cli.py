@@ -188,9 +188,9 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     # Note: Add packages that need a different logging level here
     #log_level = logging.ERROR
     log_level = logging.INFO
-    log_level = logging.DEBUG
+    #log_level = logging.DEBUG
     log_package_overrides = {
-        "pyjamaz.transport.jamnp_s": logging.INFO,
+        "pyjamaz.transport.jamnp_s": logging.DEBUG,
         "quic": logging.WARNING,
     }
     setup_logging(log_level, log_package_overrides)
@@ -285,25 +285,24 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
                     #await nps_protocol.connect("127.0.0.1", 40001) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 except Exception as exc:
                     traceback.print_exc()
-            else:
-                # for validator in app.state.safrole.validators:
-                #     # The validators' IP-layer endpoints are given as IPv6/port combinations,
-                #     # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
-                #     # the latter 2 being a little endian representation of the port.
-                #
-                #     validator_port = validator.get_metadata_port()
-                #     validator_address = validator.get_metadata_ipaddress()
-                #
-                #     if validator.ed25519 == app.config.keys.ed25519.public_key:
-                #         logging.debug(
-                #             f'Skipping own node ({validator_address}:{validator_port})'
-                #         )
-                #         continue
-                #
-                #     logging.debug(f'Connecting to node {validator_address}:{validator_port}')
-                #     tg.start_soon(nps_protocol.connect, validator_address, validator_port)
-                tg.start_soon(nps_protocol.connect, "127.0.0.1", 40001)
-                pass
+            # else:
+            #     # for validator in app.state.safrole.validators:
+            #     #     # The validators' IP-layer endpoints are given as IPv6/port combinations,
+            #     #     # to be found in the first 18 bytes of validator metadata, with the first 16 bytes being the IPv6 address and
+            #     #     # the latter 2 being a little endian representation of the port.
+            #     #
+            #     #     validator_port = validator.get_metadata_port()
+            #     #     validator_address = validator.get_metadata_ipaddress()
+            #     #
+            #     #     if validator.ed25519 == app.config.keys.ed25519.public_key:
+            #     #         logging.debug(
+            #     #             f'Skipping own node ({validator_address}:{validator_port})'
+            #     #         )
+            #     #         continue
+            #     #
+            #     #     logging.debug(f'Connecting to node {validator_address}:{validator_port}')
+            #     #     tg.start_soon(nps_protocol.connect, validator_address, validator_port)
+            #     #tg.start_soon(nps_protocol.connect, "127.0.0.1", 40001)
 
             await anyio.sleep(ts - time.time())
             tg.start_soon(timeslot_ticker, app)

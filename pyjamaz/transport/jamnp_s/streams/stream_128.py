@@ -17,8 +17,11 @@ class StreamBlockRequest(Stream):
 
 
     def initiator_reset(self, reset_code: int):
-        logger.debug(f"CE128 received reset code: {reset_code}")
-        self.protocol.ce128_block_request_failure(reset_code)
+        self.protocol.ce128_finish_block_request(reset_code)
+
+
+    def acceptor_reset(self, reset_code: int):
+        self.protocol.ce128_finish_block_request(reset_code)
 
 
     def initiator_message(self, data: bytes):
@@ -30,11 +33,6 @@ class StreamBlockRequest(Stream):
     def handle_fin(self):
         super().handle_fin()
         self.protocol.ce128_abort_block_request()  # Or success callback
-
-
-    def acceptor_reset(self, reset_code: int):
-        logger.debug(f"CE128 received reset code: {reset_code}")
-        self.protocol.ce128_block_request_failure(reset_code)
 
 
     def acceptor_message(self, data: bytes):
