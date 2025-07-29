@@ -91,10 +91,12 @@ class TestBlockHistory(unittest.TestCase):
             ) for work_package in test_vector["input"]["work_packages"]
         ]
 
-        # TODO How to determine this from extrinsic? Merkle root of WorkPackageSpec.roots?
         accumulate_root = bytes.fromhex(test_vector["input"]["accumulate_root"][2:])
 
-        pre_state = RecentHistoryState.from_json({'recent_history': test_vector["pre_state"]["beta"]})
+        pre_state = RecentHistoryState.from_json({
+            'recent_blocks': test_vector["pre_state"]["beta"]['history'],
+            'accumulation_output_log': test_vector["pre_state"]["beta"]['mmr']['peaks']
+        })
 
         blocks_history = RecentHistory(self.storage_engine, self.block_context, self.app_context)
 
@@ -112,13 +114,19 @@ class TestBlockHistory(unittest.TestCase):
 
         self.assertEqual(
             len(output.post_state.recent_blocks),
-            len(test_vector['post_state']['beta']),
+            len(test_vector['post_state']['beta']['history']),
             'Length of history does not match'
+        )
+
+        self.assertEqual(
+            output.post_state.to_json()['accumulation_output_log'], test_vector['post_state']['beta']['mmr']['peaks'],
+            'MMR peaks do not match'
         )
 
         for idx, block_info in enumerate(output.post_state.recent_blocks):
             self.assertDictEqual(
-                block_info.to_json(), test_vector['post_state']['beta'][idx], f'block {idx} does not match'
+                block_info.to_json(), test_vector['post_state']['beta']['history'][idx],
+                f'block {idx} does not match'
             )
 
 

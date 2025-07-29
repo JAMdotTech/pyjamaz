@@ -613,7 +613,7 @@ class RecentHistory(StateComponent):
             GP-0.6.4-eq:4.7 (bold_E_G)
         intermediate_state_recent_history: RecentHistoryState
             GP-0.6.4-eq:4.7 (β†)
-        beefy_commitment_map: BeefyCommitmentMap
+        beefy_commitment_map: Union[BeefyCommitmentMap, bytes]
             GP-0.6.4-eq:4.7 (bold_C)
 
         Returns
@@ -655,11 +655,11 @@ class RecentHistory(StateComponent):
 
         recent_block = RecentBlock(
             header_hash=header.hash,
-            accumulation_result=mmr.super_peak(),
+            beefy_root=mmr.super_peak(),
             state_root=bytes(32),
             reported=reported_work_packages
         )
-        logging.debug(f"accumulation_result={recent_block.accumulation_result}")
+        logging.debug(f"beefy_root={recent_block.beefy_root}")
 
         post_state_recent_history.recent_blocks.append(recent_block)
 
@@ -924,7 +924,7 @@ class Assurances(StateComponent):
             if recent_block.state_root != context.state_root:
                 raise StateTransitionError(GuaranteeErrorCode.bad_state_root)
 
-            if recent_block.mmr.super_peak() != context.beefy_root:
+            if recent_block.beefy_root != context.beefy_root:
                 raise StateTransitionError(GuaranteeErrorCode.bad_beefy_mmr_root)
 
 

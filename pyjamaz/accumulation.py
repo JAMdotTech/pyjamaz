@@ -2,6 +2,8 @@ import typing
 from dataclasses import dataclass
 from typing import List, Set, Dict
 
+from pyjamaz.graypaper_constants import CORE_COUNT
+
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkReport, AccumulationOperand
@@ -300,62 +302,95 @@ def parallel_accumulation(
         if output.accumulation_output is not None:
             beefy_commitment_map.update({service_id: output.accumulation_output})
 
-    # TODO Emiel: When to skip, >0 ?
-    # Process privilege services (x')
-    if accumulation_state.privileged_services.manager > 0:
-        # TODO make DRY
-        service_id = accumulation_state.privileged_services.manager
+    # Process privilege services (m', a*, v*, z')
+    output = single_step_accumulation(
+        accumulation_state=accumulation_state,
+        post_state_timeslot=post_state_timeslot,
+        post_state_entropy=post_state_entropy,
+        work_reports=work_reports,
+        auto_accumulate_services=auto_accumulate_services,
+        service_id=accumulation_state.privileged_services.manager
+    )
 
+    accumulation_state.privileged_services.manager = output.state_context.privileged_services.manager # m'
+    intermediate_assigners = output.state_context.privileged_services.assigners # a*
+    intermediate_delegator = output.state_context.privileged_services.delegator # v*
+    accumulation_state.privileged_services.always_accumulators = output.state_context.privileged_services.always_accumulators # z'
+
+    accumulation_gas_utilized[accumulation_state.privileged_services.manager] = output.gas_used
+    if output.accumulation_output is not None:
+        beefy_commitment_map.update(
+            {accumulation_state.privileged_services.manager: output.accumulation_output}
+        )
+
+    # Process assigners (a')
+    for c in range(CORE_COUNT):
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,
             post_state_entropy=post_state_entropy,
             work_reports=work_reports,
             auto_accumulate_services=auto_accumulate_services,
-            service_id=accumulation_state.privileged_services.manager
+            service_id=intermediate_assigners[c]
         )
-        accumulation_state.privileged_services = output.state_context.privileged_services
-
-        accumulation_gas_utilized[service_id] = output.gas_limit
+        accumulation_state.privileged_services.assigners[c] = output.state_context.privileged_services.assigners[c]
+        accumulation_gas_utilized[intermediate_assigners[c]] = output.gas_used
         if output.accumulation_output is not None:
-            beefy_commitment_map.update({service_id: output.accumulation_output})
+            beefy_commitment_map.update(
+                {intermediate_assigners[c]: output.accumulation_output}
+            )
+
+    # Process delegator (v')
+    output = single_step_accumulation(
+        accumulation_state=accumulation_state,
+        post_state_timeslot=post_state_timeslot,
+        post_state_entropy=post_state_entropy,
+        work_reports=work_reports,
+        auto_accumulate_services=auto_accumulate_services,
+        service_id=intermediate_delegator
+    )
+    accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator  # v'
+
+    accumulation_gas_utilized[intermediate_delegator] = output.gas_used
+    if output.accumulation_output is not None:
+        beefy_commitment_map.update(
+            {intermediate_delegator: output.accumulation_output}
+        )
+
 
     # Process validator queue (i')
-    if accumulation_state.privileged_services.delegator > 0:
-        # TODO make DRY
-        service_id = accumulation_state.privileged_services.delegator
+    output = single_step_accumulation(
+        accumulation_state=accumulation_state,
+        post_state_timeslot=post_state_timeslot,
+        post_state_entropy=post_state_entropy,
+        work_reports=work_reports,
+        auto_accumulate_services=auto_accumulate_services,
+        service_id=accumulation_state.privileged_services.delegator
+    )
+    accumulation_state.validator_queue = output.state_context.validator_queue
 
-        output = single_step_accumulation(
-            accumulation_state=accumulation_state,
-            post_state_timeslot=post_state_timeslot,
-            post_state_entropy=post_state_entropy,
-            work_reports=work_reports,
-            auto_accumulate_services=auto_accumulate_services,
-            service_id=service_id
+    accumulation_gas_utilized[accumulation_state.privileged_services.delegator] = output.gas_used
+    if output.accumulation_output is not None:
+        beefy_commitment_map.update(
+            {accumulation_state.privileged_services.delegator: output.accumulation_output}
         )
-        accumulation_state.validator_queue = output.state_context.validator_queue
-
-        accumulation_gas_utilized[service_id] = output.gas_limit
-        if output.accumulation_output is not None:
-            beefy_commitment_map.update({service_id: output.accumulation_output})
 
     # Process authorizer queue (q')
-    if accumulation_state.privileged_services.assigners > 0:
-        # TODO make DRY
-        service_id = accumulation_state.privileged_services.assigners
-
+    for c in range(CORE_COUNT):
         output = single_step_accumulation(
             accumulation_state=accumulation_state,
             post_state_timeslot=post_state_timeslot,
             post_state_entropy=post_state_entropy,
             work_reports=work_reports,
             auto_accumulate_services=auto_accumulate_services,
-            service_id=accumulation_state.privileged_services.assigners
+            service_id=accumulation_state.privileged_services.assigners[c]
         )
         accumulation_state.authorizer_queues = output.state_context.authorizer_queues
-        accumulation_gas_utilized[service_id] = output.gas_limit
+        accumulation_gas_utilized[accumulation_state.privileged_services.assigners[c]] = output.gas_used
         if output.accumulation_output is not None:
-            beefy_commitment_map.update({service_id: output.accumulation_output})
+            beefy_commitment_map.update(
+                {accumulation_state.privileged_services.assigners[c]: output.accumulation_output}
+            )
 
     return ParallelAccumulationOutput(
         accumulation_state=accumulation_state,

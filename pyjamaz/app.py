@@ -952,7 +952,7 @@ class PyjamazApp:
 
         for block in reversed(self.state.recent_history.recent_blocks):
             if header_hash is None or block.header_hash == header_hash:
-                return block.accumulation_result
+                return block.beefy_root
 
         return None
 

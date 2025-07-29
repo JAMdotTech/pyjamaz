@@ -248,7 +248,7 @@ class RecentBlock(Serializable):
         to the number of cores (constant_c=341)
     """
     header_hash: bytes = field(metadata={'codec': H256})
-    accumulation_result: bytes = field(metadata={'codec': H256})
+    beefy_root: bytes = field(metadata={'codec': H256})
     state_root: bytes = field(metadata={'codec': H256})
     # TODO: GP-0.5.0-eq:7.1 states bold_p needs to be a dictionary, GP-0.5.0-eq:D.2 states bold_p needs to have a
     # length prefix encoding.

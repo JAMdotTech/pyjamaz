@@ -110,7 +110,10 @@ class TestReports(unittest.TestCase):
         pre_services.set_storage_engine(self.storage_engine)
 
         intermediate_state_recent_history = RecentHistoryState.from_json(
-            {"recent_blocks": test_vector["pre_state"]["recent_blocks"]}
+            {
+                'recent_blocks': test_vector["pre_state"]["recent_blocks"]['history'],
+                'accumulation_output_log': test_vector["pre_state"]["recent_blocks"]['mmr']['peaks']
+            }
         )
 
         pre_authorizer_pools = AuthorizerPoolsState.from_json(
