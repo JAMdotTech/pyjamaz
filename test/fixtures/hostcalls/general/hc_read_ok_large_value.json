@@ -1,10 +1,9 @@
 {
-  "name": "hc_read non-existent service account",
   "hostcall": "hc_read",
-  "description": "Tests reading from unknown service account (999). Expects hostcall to return NONE in reg7 without panicking.",
+  "description": "Tests storage read from current service (2^64-1). Reads a 43-byte storage value using a 32-byte key. Verifies full storage value is written to memory reg 7.",
   "initial-registers": [
     0, 0, 0, 0, 0, 0, 0,
-    999,
+    18446744073709551615,
     131072,
     32,
     131200,
@@ -33,12 +32,27 @@
     "balance": 1000000,
     "threshold_balance": 100
   },
-  "storage_items": [],
+  "storage_items": [
+    {
+      "service_id": 42,
+      "hash": "de29bee7c1bf43640d591129e3b3ed5ab172bd7f701f49f50e601e45c8cf36d4",
+      "value": "48656c6c6f2c20576f726c64212054686973206973206120746573742073746f726167652076616c75652e"
+    }
+  ],
   "expected-regs": [
     0, 0, 0, 0, 0, 0, 0,
-    18446744073709551615,
+    43,
     131072, 32, 131200, 0, 100
   ],
-  "expected-memory": [],
+  "expected-memory": [
+    {
+      "address": 131200,
+      "contents": [
+        72, 101, 108, 108, 111, 44, 32, 87, 111, 114, 108, 100, 33, 32, 84, 104,
+        105, 115, 32, 105, 115, 32, 97, 32, 116, 101, 115, 116, 32, 115, 116, 111,
+        114, 97, 103, 101, 32, 118, 97, 108, 117, 101, 46
+      ]
+    }
+  ],
   "expected-exit-reason": "resume"
 } 

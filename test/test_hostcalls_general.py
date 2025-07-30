@@ -10,8 +10,6 @@ import numpy as np
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
-from pyjamaz.pvm_interface.invocation import RefineInvocationContext
-
 # After the above line the module graph is complete, so pulling the
 # host-call helpers no longer re-enters a half-built module.
 from pyjamaz.pvm_interface.hostcalls.general import (
@@ -28,10 +26,8 @@ from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-#from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult
 from pyjamaz.models.state import ServiceAccount, ServicesState
 from pyjamaz.exceptions import StateKeyNoResult
-#from pyjamaz.pvm.exceptions import PVMMemoryError
 
 
 def load_test_vectors(directory):
@@ -204,7 +200,6 @@ class TestHCGeneral(unittest.TestCase):
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
         pvm = PVMInterpreter(pvm_program)
 
-
         invocation_output = InvocationMutationOutput(
             exit_condition=ExitCondition(reason=ExitReason.resume),
             gas_limit=1000000,  # Start with plenty of gas
@@ -279,7 +274,14 @@ class TestHCGeneral(unittest.TestCase):
                 invocation_output,
                 logger)
 
-        self.assertEqual(test_vector["expected-regs"], invocation_output.registers.tolist(), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {invocation_output.registers.tolist()}")
+        else:
+            raise ValueError(f"Unknown GENERAL hostcall: {hostcall}")
+
+        self.assertEqual(
+            test_vector["expected-regs"],
+            invocation_output.registers.tolist(),
+            f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {invocation_output.registers.tolist()}"
+        )
 
         for expected_mem in test_vector.get("expected-memory", []):
             page = invocation_output.memory.find_section(expected_mem["address"])

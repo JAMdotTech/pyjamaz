@@ -383,9 +383,6 @@ class PVMMemory:
 
 
     def is_accessible(self, address: int, length: int, mode: PVMMemoryMode) -> bool:
-        if length == 0:
-            return True #TODO: move after section lookup
-
         # TODO: hmmm...can access span multiple sections???
         try:
             section = self.find_section(address)
@@ -394,6 +391,9 @@ class PVMMemory:
 
         if not section:
             return False
+
+        if length == 0:
+            return True
 
         if mode not in (PVMMemoryMode.readable, PVMMemoryMode.writable):
             raise PVMMemoryError(f"Invalid mode: {mode}")

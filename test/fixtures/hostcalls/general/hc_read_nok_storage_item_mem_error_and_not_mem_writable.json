@@ -1,7 +1,6 @@
 {
-  "name": "hc_read storage_item_mem_error",
   "hostcall": "hc_read",
-  "description": "Tests error reading storage key > page bounds, should panic",
+  "description": "Tests the panic when both storage_item_mem_error and mem_writable are false",
   "initial-registers": [
     0,
     0,
@@ -11,9 +10,9 @@
     0,
     0,
     18446744073709551615,
-    196590,
+    262144,
     32,
-    131072,
+    196608,
     0,
     100
   ],
@@ -22,16 +21,14 @@
       "address": 131072,
       "length": 65536,
       "is-writable": true
-    }
-  ],
-  "initial-memory": [
+    },
     {
-      "address": 196590,
-      "contents": [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-      ]
+      "address": 196608,
+      "length": 65536,
+      "is-writable": false
     }
   ],
+  "initial-memory": [],
   "service_id": 42,
   "service_account": {
     "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
@@ -48,9 +45,9 @@
     0,
     0,
     18446744073709551615,
-    196590,
+    262144,
     32,
-    131072,
+    196608,
     0,
     100
   ],

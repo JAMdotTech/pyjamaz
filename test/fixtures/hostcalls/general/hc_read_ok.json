@@ -1,7 +1,6 @@
 {
-  "name": "example test",
   "hostcall": "hc_read",
-  "description": "basic hc_read test that reads small storage value from the current service by reading 6 bytes from a storage item. Expects successful read with the storage value 'Oepsie' written to memory.",
+  "description": "Tests when storage item exists and written to memory. Storage value 'Oepsie' is read and written to memory. Expects reg 7 to contain the length of the storage item.",
   "initial-registers": [
     0,
     0,
@@ -20,7 +19,7 @@
   "initial-page-map": [
     {
       "address": 131072,
-      "length": 4096,
+      "length": 65536,
       "is-writable": true
     }
   ],
@@ -28,13 +27,16 @@
     {
       "address": 131072,
       "contents": [
-        129, 130, 131, 132
+        129,
+        130,
+        131,
+        132
       ]
     }
   ],
   "service_id": 42,
   "service_account": {
-    "code_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
     "balance": 1000000,
     "threshold_balance": 100
   },
@@ -64,7 +66,12 @@
     {
       "address": 131076,
       "contents": [
-        79, 101, 112, 115, 105, 101
+        79,
+        101,
+        112,
+        115,
+        105,
+        101
       ]
     }
   ],

@@ -1,15 +1,14 @@
 {
-  "name": "hc_read successful read from current service",
   "hostcall": "hc_read",
-  "description": "Tests successful storage read from current service (2^64-1). Reads a 43-byte storage value using a 32-byte key. Verifies full storage value is written to memory reg 7.",
+  "description": "Tests partial read using offset and length. Reads 10 bytes starting from offset 5 of a 43-byte storage value. Verifies correct slicing of data and that the full storage length is returned in reg 7.",
   "initial-registers": [
     0, 0, 0, 0, 0, 0, 0,
     18446744073709551615,
     131072,
     32,
     131200,
-    0,
-    100
+    5,
+    10
   ],
   "initial-page-map": [
     {
@@ -43,15 +42,13 @@
   "expected-regs": [
     0, 0, 0, 0, 0, 0, 0,
     43,
-    131072, 32, 131200, 0, 100
+    131072, 32, 131200, 5, 10
   ],
   "expected-memory": [
     {
       "address": 131200,
       "contents": [
-        72, 101, 108, 108, 111, 44, 32, 87, 111, 114, 108, 100, 33, 32, 84, 104,
-        105, 115, 32, 105, 115, 32, 97, 32, 116, 101, 115, 116, 32, 115, 116, 111,
-        114, 97, 103, 101, 32, 118, 97, 108, 117, 101, 46
+        44, 32, 87, 111, 114, 108, 100, 33, 32, 84
       ]
     }
   ],
