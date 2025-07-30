@@ -1,0 +1,52 @@
+{
+  "name": "hc_read memory error reading storage key fixed",
+  "hostcall": "hc_read",
+  "description": "Tests memory access violation when reading storage key from beyond allocated memory. Key address is beyond the last allocated page. Expects panic when trying to read the key.",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    262144,
+    32,
+    131072,
+    0,
+    100
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "storage_items": [],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    262144,
+    32,
+    131072,
+    0,
+    100
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+}

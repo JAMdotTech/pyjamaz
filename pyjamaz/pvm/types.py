@@ -386,7 +386,7 @@ class PVMMemory:
         if length == 0:
             return True #TODO: move after section lookup
 
-        # TODO: allow for acl per page
+        # TODO: hmmm...can access span multiple sections???
         try:
             section = self.find_section(address)
         except (PanicError, PVMMemoryError):
@@ -399,9 +399,14 @@ class PVMMemory:
             raise PVMMemoryError(f"Invalid mode: {mode}")
 
         if self._acl is not None:
-            page_nr = address // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] < mode.value:
-                raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is inaccessible for mode {mode.value}")
+            # Check ACL for all pages that this operation spans
+            start_page = address // PVM_PAGE_SIZE
+            end_address = address + length - 1
+            end_page = end_address // PVM_PAGE_SIZE
+            
+            for page_nr in range(start_page, end_page + 1):
+                if not page_nr in self._acl or self._acl[page_nr] < mode.value:
+                    return False
 
         local_addr = address - section.address
         bytes_required = local_addr + length

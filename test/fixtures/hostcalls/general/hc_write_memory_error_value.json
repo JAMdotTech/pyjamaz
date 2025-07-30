@@ -3,7 +3,13 @@
   "description": "Tests memory access violation when reading storage value beyond memory boundary. Value starts near end of page 2 (address 196590) and reading 50 bytes would go beyond page boundary at 196608. Expects panic.",
   "hostcall": "hc_write",
   "initial-registers": [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     131072,
     16,
     196590,
@@ -20,13 +26,45 @@
     {
       "address": 131072,
       "contents": [
-        10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
       ]
     },
     {
       "address": 196590,
       "contents": [
-        78, 101, 119, 32, 115, 116, 111, 114, 97, 103, 101, 32, 118, 97, 108, 117, 101, 33
+        78,
+        101,
+        119,
+        32,
+        115,
+        116,
+        111,
+        114,
+        97,
+        103,
+        101,
+        32,
+        118,
+        97,
+        108,
+        117,
+        101,
+        33
       ]
     }
   ],
@@ -38,10 +76,18 @@
   },
   "storage_items": [],
   "expected-regs": [
-    0, 0, 0, 0, 0, 0, 0,
     0,
-    16, 196590, 50
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    16,
+    196590,
+    50
   ],
   "expected-memory": [],
   "expected-exit-reason": "panic"
-} 
+}

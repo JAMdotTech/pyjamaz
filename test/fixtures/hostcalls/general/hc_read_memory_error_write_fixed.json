@@ -1,7 +1,7 @@
 {
-  "name": "hc_read memory error writing output",
+  "name": "hc_read memory error writing output fixed",
   "hostcall": "hc_read",
-  "description": "Tests memory access violation when writing storage value across page boundary. Storage item exists and output starts at address 196600 (end of page 2). Writing 20 bytes will cross into page 3 (non-writable). Expects panic.",
+  "description": "Tests memory access violation when writing storage value. Storage item exists but output memory is in a non-writable page. Uses page 2 (writable) for key and page 3 (non-writable) for output. Expects panic.",
   "initial-registers": [
     0,
     0,
@@ -13,9 +13,9 @@
     18446744073709551615,
     131072,
     32,
-    196600,
+    196608,
     0,
-    20
+    100
   ],
   "initial-page-map": [
     {
@@ -92,9 +92,9 @@
     18446744073709551615,
     131072,
     32,
-    196600,
+    196608,
     0,
-    20
+    100
   ],
   "expected-memory": [],
   "expected-exit-reason": "panic"

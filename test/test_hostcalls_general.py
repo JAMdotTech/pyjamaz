@@ -26,7 +26,7 @@ from pyjamaz.pvm_interface.hostcalls.general import (
 from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
-from pyjamaz.pvm.constants import ExitCondition, ExitReason
+from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 #from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult
 from pyjamaz.models.state import ServiceAccount, ServicesState
@@ -126,8 +126,7 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
 
 class TestHCGeneral(unittest.TestCase):
 
-    #@parameterized.expand(load_test_vectors('fixtures/hostcalls/general'))
-    @parameterized.expand(load_test_vectors('fixtures/hostcalls/general/hc_read_storage_item_mem_error.json'))
+    @parameterized.expand(load_test_vectors('fixtures/hostcalls/general'))
     def test_instruction(self, name, test_vector):
         # Skip tests with overlapping memory regions (invalid according to Graypaper)
         skip_tests = [
@@ -187,8 +186,8 @@ class TestHCGeneral(unittest.TestCase):
         if len(heap_pages) > 1:
             for page in heap_pages:
                 # Copy the original page's ACL settings
-                start_page = page.address // 65536
-                end_page = (page.address + page.size - 1) // 65536
+                start_page = page.address // PVM_PAGE_SIZE
+                end_page = (page.address + page.size - 1) // PVM_PAGE_SIZE
                 for pg in range(start_page, end_page + 1):
                     pvm_memory._acl[pg] = page.acl.value
 
