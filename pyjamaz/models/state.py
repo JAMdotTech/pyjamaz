@@ -105,25 +105,22 @@ class SlotSealerSeries(Serializable):
 @dataclass
 class SafroleState(State, Serializable):
     """
-    GP-0.5.0-eq:6.3 (γ) | Safrole partition of the overall state.
+    GP-0.7.0-eq:6.3 (γ) | Safrole partition of the overall state.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.5.0-eq:6.7 (γ_k) | A fixed size set of keys and metadata for validators of the next epoch.
+        GP-0.5.0-eq:6.7 (γ_P) | A fixed size set of keys and metadata for validators of the next epoch.
     ring_commitment: Array(U8,144)
-        GP-0.5.0-eq:6.4 (γ_z) | Bandersnatch ring commitment.
+        GP-0.5.0-eq:6.4 (γ_Z) | Bandersnatch ring commitment.
     slot_sealer_series: SlotSealerSeries
-        GP-0.5.0-eq:6.5 (γ_s) | Sealing-key series of the current epoch.
+        GP-0.5.0-eq:6.5 (γ_S) | Sealing-key series of the current epoch.
     ticket_accumulator: TicketBody
-        GP-0.5.0-eq:6.5 (γ_a) | Sealing-key contest ticket accumulator.
+        GP-0.5.0-eq:6.5 (γ_A) | Sealing-key contest ticket accumulator.
     """
-    # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
     ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})
-    # Todo: review and annotate: SlotSealerSeries
     slot_sealer_series: SlotSealerSeries = field(metadata={'codec': SlotSealerSeries.to_codec_def()})
-    # Todo: review and annotate: TicketBody
     ticket_accumulator: List[TicketBody] = field(metadata={'codec': Vec(TicketBody.to_codec_def())})
 
 
@@ -1043,8 +1040,8 @@ class ActivityRecord(Serializable):
 @dataclass
 class CoreActivityRecord(Serializable):
     """
-    GP-0.6.4-eq:13.6 | Core activity statistics
-
+    GP-0.7.0-eq:13.6 | Core activity statistics
+    TODO e replaced with x ??
     Attributes
     ----------
     da_load: U32
@@ -1413,7 +1410,7 @@ class JamState(State, Serializable):
 @dataclass
 class DeferredTransfer(Serializable):
     """
-    GP-0.5.2-eq:12.14 (blackboard_T) | A single deferred transfer.
+    GP-0.7.0-eq:12.14 (blackboard_X) | A single deferred transfer.
 
     Attributes
     ----------
@@ -1452,7 +1449,7 @@ class DeferredTransfers(Serializable):
 @dataclass
 class AccumulationStateComponents(Serializable):
     """
-    GP-0.6.7-eq:12.13 (blackboard_U) | State components which are needed and mutable by the accumulation process.
+    GP-0.7.0-eq:12.13 (blackboard_S) | State components which are needed and mutable by the accumulation process.
 
     Attributes
     ----------
