@@ -1,0 +1,59 @@
+{
+  "name": "hc_read storage_item_mem_error",
+  "hostcall": "hc_read",
+  "description": "Tests error reading storage key > page bounds, should panic",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    196590,
+    32,
+    131072,
+    0,
+    100
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 196590,
+      "contents": [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+      ]
+    }
+  ],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "storage_items": [],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    196590,
+    32,
+    131072,
+    0,
+    100
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+} 

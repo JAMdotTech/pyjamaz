@@ -1,0 +1,44 @@
+{
+  "name": "hc_read storage item not found",
+  "hostcall": "hc_read",
+  "description": "Tests reading a non existign storage item from an existing service. The service account exists but the requested storage key has no associated value. Expects NONE (2^64-1) in register 7 without panicking.",
+  "initial-registers": [
+    0, 0, 0, 0, 0, 0, 0,
+    18446744073709551615,
+    131072,
+    32,
+    131200,
+    0,
+    100
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+        99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99
+      ]
+    }
+  ],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "storage_items": [],
+  "expected-regs": [
+    0, 0, 0, 0, 0, 0, 0,
+    18446744073709551615,
+    131072, 32, 131200, 0, 100
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+} 

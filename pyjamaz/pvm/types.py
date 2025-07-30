@@ -430,7 +430,7 @@ class PVMMemory:
         #     raise PVMMemoryError(f"MemorySection {section.address} - ({section.size} bytes) is inaccessible")
 
         section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
-        section_bytes = section.size #(section.size - section_addr)
+        section_bytes = (section.size - section_addr)
 
         if section_bytes < length:
             raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
@@ -468,7 +468,7 @@ class PVMMemory:
                 raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is not writable")
 
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
-        section_bytes = section.size #(section.size - section_addr)
+        section_bytes = (section.size - section_addr)
 
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")

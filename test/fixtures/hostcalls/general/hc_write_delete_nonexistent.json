@@ -1,0 +1,43 @@
+{
+  "name": "hc_write delete non-existent storage item",
+  "description": "Tests attempting to delete a non-existent storage item. Tries to delete with v_z=0 but the key doesn't exist. Expects NONE (2^64-1) in register 7 indicating the key was already absent.",
+  "hostcall": "hc_write",
+  "initial-registers": [
+    0, 0, 0, 0, 0, 0, 0,
+    131072,
+    16,
+    131100,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84
+      ]
+    }
+  ],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100,
+    "footprint_storage_bytes": 0,
+    "footprint_storage_items": 0
+  },
+  "storage_items": [],
+  "expected-regs": [
+    0, 0, 0, 0, 0, 0, 0,
+    18446744073709551615,
+    16, 131100, 0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+} 

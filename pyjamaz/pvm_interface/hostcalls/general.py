@@ -11,7 +11,6 @@ from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
-from pyjamaz.pvm_interface.invocation import RefineInvocationContext
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult
 
 
@@ -155,7 +154,6 @@ def hc_read(
                            f"s={new_service_id} k={storage_key.hex()} (len(storage_item)) write_bytes({o}, {o + l})")
 
 
-#TODO: should work without services (bold_d??)
 def hc_write(
         registers: List[int],
         memory: PVMMemory,

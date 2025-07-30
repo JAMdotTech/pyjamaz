@@ -1,0 +1,47 @@
+{
+  "name": "hc_write memory error reading storage key",
+  "description": "Tests memory access violation when reading storage key beyond memory boundary. Key starts near end of page 2 (address 196590) and reading 32 bytes would go beyond page boundary at 196608. Expects panic.",
+  "hostcall": "hc_write",
+  "initial-registers": [
+    0, 0, 0, 0, 0, 0, 0,
+    196590,
+    32,
+    131072,
+    20
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 196590,
+      "contents": [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+      ]
+    },
+    {
+      "address": 131072,
+      "contents": [
+        78, 101, 119, 32, 115, 116, 111, 114, 97, 103, 101, 32, 118, 97, 108, 117, 101, 33, 33, 33
+      ]
+    }
+  ],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "storage_items": [],
+  "expected-regs": [
+    0, 0, 0, 0, 0, 0, 0,
+    0,
+    32, 131072, 20
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+} 

@@ -1,0 +1,63 @@
+{
+  "name": "hc_read successful read from another service",
+  "hostcall": "hc_read",
+  "description": "Tests reading from service 99 while executing as service 42. Uses offset 10 and length 20 to read portion of storage value. Expects 20 bytes starting from offset 10 to be written to memory.",
+  "initial-registers": [
+    0, 0, 0, 0, 0, 0, 0,
+    99,
+    131072,
+    16,
+    131200,
+    10,
+    20
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        255, 254, 253, 252, 251, 250, 249, 248, 247, 246, 245, 244, 243, 242, 241, 240
+      ]
+    }
+  ],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "other_services": {
+    "99": {
+      "code_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "balance": 500000,
+      "threshold_balance": 50
+    }
+  },
+  "storage_items": [
+    {
+      "service_id": 99,
+      "hash": "472cdacb9ef53b1d872f81e2eb6df7dc8b7804ce38f342b23dff8b8fbeaa769c",
+      "value": "446174612066726f6d20736572766963652039392e2054686973206973206120746573742e"
+    }
+  ],
+  "expected-regs": [
+    0, 0, 0, 0, 0, 0, 0,
+    37,
+    131072, 16, 131200, 10, 20
+  ],
+  "expected-memory": [
+    {
+      "address": 131200,
+      "contents": [
+        115, 101, 114, 118, 105, 99, 101, 32, 57, 57, 46, 32, 84, 104, 105, 115, 32, 105, 115, 32
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+} 
