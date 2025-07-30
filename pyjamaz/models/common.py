@@ -69,23 +69,23 @@ class ValidatorData(Serializable):
 @dataclass
 class RefinementContext(Serializable):
     """
-    GP-0.5.0-eq:11.4 (blackboard_X) | A refinement context describes the context of the chain at the point that the
+    GP-0.7.0-eq:11.4 (blackboard_C) | A refinement context describes the context of the chain at the point that the
     report's corresponding work-package was evaluated.
 
     Attributes
     ----------
     anchor: H256
-        GP-0.5.0-eq:11.4 (a) | The anchor header_hash.
+        GP-0.7.0-eq:11.4 (a) | The anchor header_hash.
     state_root: H256
-        GP-0.5.0-eq:11.4 (s) | The anchor header's block associated posterior state-root.
+        GP-0.7.0-eq:11.4 (s) | The anchor header's block associated posterior state-root.
     beefy_root: H256
-        GP-0.5.0-eq:11.4 (b) | The anchor header's block associated posterior beefy-root.
+        GP-0.7.0-eq:11.4 (b) | The anchor header's block associated posterior beefy-root.
     lookup_anchor: H256
-        GP-0.5.0-eq:11.4 (l) | The lookup-anchor header_hash.
+        GP-0.7.0-eq:11.4 (l) | The lookup-anchor header_hash.
     lookup_anchor_slot: U32
-        GP-0.5.0-eq:11.4 (t) | The lookup-anchor header's associated timeslot.
+        GP-0.7.0-eq:11.4 (t) | The lookup-anchor header's associated timeslot.
     prerequisites: Vec(H256)
-        GP-0.5.0-eq:11.4 (bold_p) | An optional prerequisite work-package.
+        GP-0.7.0-eq:11.4 (bold_p) | An optional prerequisite work-package.
     """
     anchor: bytes = field(metadata={'codec': H256})
     state_root: bytes = field(metadata={'codec': H256})
@@ -303,7 +303,7 @@ class WorkPackage(Serializable):
 @dataclass
 class WorkExecResult(Serializable):
     """
-    GP-0.6.6-eq:11.7 (blackboard_J) | Work result output or error of the execution of the code in the refine stage. Either a byte
+    GP-0.6.6-eq:11.7 (blackboard_E) | Work result output or error of the execution of the code in the refine stage. Either a byte
     sequence in case it was successful or one of the possible errors
 
     Attributes
@@ -382,24 +382,24 @@ class RefineLoad(Serializable):
 @dataclass
 class WorkDigest(Serializable):
     """
-    GP-0.6.4-eq:11.6 (blackboard_L) | A work digest is the data conduit by which services' states may be altered through
+    GP-0.7.0-eq:11.6 (blackboard_D) | A work digest is the data conduit by which services' states may be altered through
     the computation done within a work-package.
 
     Attributes
     ----------
     service_id: U32
-        GP-0.6.4-eq:11.6 (s) | The index of a service whose state is to be altered and thus whose refine code was
+        GP-0.7.0-eq:11.6 (s) | The index of a service whose state is to be altered and thus whose refine code was
         already executed.
     code_hash: H256
-        GP-0.6.4-eq:11.6 (h) | The hash of the code of the service at the time of being reported.
+        GP-0.7.0-eq:11.6 (c) | The hash of the code of the service at the time of being reported.
     payload_hash: H256
-        GP-0.6.4-eq:11.6 (y) | The hash of the payload within the work item which was executed in the refine stage to
+        GP-0.7.0-eq:11.6 (y) | The hash of the payload within the work item which was executed in the refine stage to
         give this result.
     accumulate_gas: U64
-        GP-0.6.4-eq:11.6 (g) | The gas prioritization ration used when determining how much gas should be allocated to
+        GP-0.7.0-eq:11.6 (g) | The gas prioritization ration used when determining how much gas should be allocated to
         execute of this item's accumulate.
     result: WorkExecResult
-        GP-0.6.4-eq:11.6 (d) | Output or error of the execution of the code.
+        GP-0.7.0-eq:11.6 (bold_l) | Output or error of the execution of the code.
     """
     service_id: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
@@ -433,21 +433,21 @@ class WorkDigest(Serializable):
 @dataclass
 class WorkPackageSpec(Serializable):
     """
-    GP-0.6.6-eq:11.5 (blackboard_S) | Availability specifications are used to ensure correct reconstruction and auditing
+    GP-0.7.0-eq:11.5 (blackboard_Y) | Availability specifications are used to ensure correct reconstruction and auditing
     the purported ramifications of any reported work-package.
 
     Attributes
     ----------
     hash: H256
-        GP-0.5.0-eq:11.5 (h) | The work-package hash.
+        GP-0.7.0-eq:11.5 (p) | The work-package hash.
     length: U32
-        GP-0.5.0-eq:11.5 (l) | The work bundle length.
+        GP-0.7.0-eq:11.5 (l) | The work bundle length.
     erasure_root: H256
-        GP-0.5.0-eq:11.5 (u) | The erasure-root.
+        GP-0.7.0-eq:11.5 (u) | The erasure-root.
     exports_root: H256
-        GP-0.5.0-eq:11.5 (e) | The segment-root.
+        GP-0.7.0-eq:11.5 (e) | The segment-root.
     exports_count: U16
-        GP-0.5.0-eq:11.5 (n) | The segment-count.
+        GP-0.7.0-eq:11.5 (n) | The segment-count.
     """
     hash: bytes = field(metadata={'codec': H256})
     length: int = field(metadata={'codec': U32})
@@ -479,24 +479,24 @@ class WorkPackageSpec(Serializable):
 @dataclass
 class WorkReport(Serializable):
     """
-    GP-0.6.4-eq:11.2 (blackboard_W) | A work report comprises several work outputs.
+    GP-0.7.0-eq:11.2 (blackboard_R) | A work report comprises several work outputs.
 
     Attributes
     ----------
     package_spec: WorkPackageSpec
-        GP-0.5.0-eq:11.2 (s) | The work package specification.
+        GP-0.7.0-eq:11.2 (s) | The work package specification.
     context: RefinementContext
-        GP-0.5.0-eq:11.2 (x) | The refinement context.
+        GP-0.7.0-eq:11.2 (bold_c) | The refinement context.
     core_index: U16
-        GP-0.5.0-eq:11.2 (c) | The core-index.
+        GP-0.7.0-eq:11.2 (c) | The core-index.
     authorizer_hash: H256
-        GP-0.5.0-eq:11.2 (a) | The authorizer hash.
+        GP-0.7.0-eq:11.2 (a) | The authorizer hash.
     auth_output: Bytes
-        GP-0.5.0-eq:11.2 (bold_o) | The output.
+        GP-0.7.0-eq:11.2 (bold_t) | The output.
     segment_root_lookup: Vec(SegmentRootLookupItem)
-        GP-0.5.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
+        GP-0.7.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
     results: Vec(WorkResult)
-        GP-0.5.0-eq:11.2 (bold_r) | The results of the evaluation of each of the items in the work package.
+        GP-0.7.0-eq:11.2 (bold_d) | The results of the evaluation of each of the items in the work package.
     auth_gas_used: VarInt64
         GP-0.6.4-eq:11.2 (g)
     """
@@ -524,12 +524,12 @@ class WorkReport(Serializable):
 @dataclass
 class Assurance(Serializable):
     """
-    GP-0.3.8-eq:116 (ρ[c]) | An assurance for a single core.
+    GP-0.7.0-eq:116 (ρ[c]) | An assurance for a single core.
 
     Attributes
     ----------
     report: WorkReport
-        GP-0.5.0-eq:11.1 (w) | A work report.
+        GP-0.7.0-eq:11.1 (r) | A work report.
     timeout: U32
         GP-0.5.0-eq:11.1 (t) | A timeslot.
     """
@@ -538,9 +538,10 @@ class Assurance(Serializable):
 
 
 @dataclass
-# Todo: (Re)move, annotate, reference-GP
 class TicketBody(Serializable):
+    # y
     id: bytes = field(metadata={'codec': H256})
+    # e
     attempt: int = field(metadata={'codec': U8})
 
 

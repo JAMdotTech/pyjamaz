@@ -37,13 +37,13 @@ class EpochMark(Serializable):
 @dataclass
 class TicketEnvelope(Serializable):
     """
-    GP-0.5.0-eq:6.29 (bold_E_T) | Single item in the tickets extrinsic. Manages selection of validators for
+    GP-0.7.0-eq:6.29 (bold_E_T) | Single item in the tickets extrinsic. Manages selection of validators for
     permissioning of block authoring
 
     Attributes
     ----------
     attempt: U16
-        GP-0.5.0-eq:6.29 (r) | An entry index
+        GP-0.5.0-eq:6.29 (e) | An entry index
     signature: Array(U8,784)
         GP-0.5.0-eq:6.29 (p) | Proof of a ticket's validity
     """

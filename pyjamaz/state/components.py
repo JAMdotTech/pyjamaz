@@ -410,6 +410,7 @@ class Safrole(StateComponent):
             # Update Sealing-key series of the current epoch.
             if self.enact_fallback_method(pre_state_timeslot.number, header.timeslot):
                 # Determine fallback keys according to # GP-0.5.0-eq:6.26
+                # TODO refactor to separate function F(r, k)
                 validators = []
                 for n in range(gp_const.EPOCH_TIMESLOTS):
                     blake_hash = blake2b_256_hash(
