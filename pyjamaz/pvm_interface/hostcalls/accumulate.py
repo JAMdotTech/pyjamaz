@@ -63,7 +63,8 @@ def hc_bless(
             auto_accumulate_services = None   # bold_g = ∇
 
     try:
-        service_exists = any(x.context.state_context.services.retrieve_service_account(idx) for idx in [m, a, v])
+        #TODO: check against 0.6.7!
+        service_exists = all(x.context.state_context.services.retrieve_service_account(idx) for idx in [m, a, v])
     except (StateKeyNoResult, OverflowError):
         service_exists = False
 

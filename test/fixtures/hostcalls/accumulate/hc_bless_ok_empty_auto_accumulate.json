@@ -1,0 +1,64 @@
+{
+  "hostcall": "hc_bless",
+  "description": "Tests successful blessing with valid privileged services but empty auto-accumulate list (n=0)",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    100,
+    101,
+    102,
+    131072,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [],
+  "context": {
+    "services": {
+      "100": {
+        "code_hash": "aa11223344556677889900112233445566778899001122334455667788990011",
+        "balance": 1000000
+      },
+      "101": {
+        "code_hash": "bb22334455667788990011223344556677889900112233445566778899001122",
+        "balance": 2000000
+      },
+      "102": {
+        "code_hash": "cc33445566778899001122334455667788990011223344556677889900112233",
+        "balance": 3000000
+      }
+    }
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    101,
+    102,
+    131072,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume",
+  "expected-privileged-services": {
+    "empower_service": 100,
+    "assign_service": 101,
+    "designate_service": 102,
+    "auto_accumulate_services": {}
+  }
+}
