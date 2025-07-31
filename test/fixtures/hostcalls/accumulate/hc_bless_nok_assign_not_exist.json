@@ -1,0 +1,66 @@
+{
+  "hostcall": "hc_bless",
+  "description": "Tests blessing failure when assign service doesnt exist, returns WHO",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    10,
+    888,
+    30,
+    131072,
+    1
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        50, 0, 0, 0,
+        0, 90, 98, 2, 0, 0, 0, 0
+      ]
+    }
+  ],
+  "context": {
+    "services": {
+      "10": {
+        "code_hash": "1122334455667788990011223344556677889900112233445566778899001122",
+        "balance": 1000000
+      },
+      "30": {
+        "code_hash": "3344556677889900112233445566778899001122334455667788990011223344",
+        "balance": 3000000
+      },
+      "50": {
+        "code_hash": "6677889900112233445566778899001122334455667788990011223344556677",
+        "balance": 6000000
+      }
+    }
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551612,
+    888,
+    30,
+    131072,
+    1
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}
