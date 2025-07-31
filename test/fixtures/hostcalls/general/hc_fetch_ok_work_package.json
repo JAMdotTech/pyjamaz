@@ -1,0 +1,76 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching entire work package (w10=7), writes encoded work package to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    100,
+    7,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "work_package": {
+    "authorizer": "1122334455667788990011223344556677889900112233445566778899001122",
+    "authorization": "aabbccdd",
+    "context": "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100",
+    "encoded": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff11223344",
+    "items": [
+      {
+        "service": 10,
+        "code_hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+        "refine_gas_limit": 500000,
+        "accumulate_gas_limit": 1000000,
+        "export_count": 2,
+        "import_segments": [0, 1],
+        "extrinsic": [],
+        "payload": "deadbeef"
+      }
+    ]
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    100,
+    7,
+    0,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+        0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
+        17, 34, 51, 68
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

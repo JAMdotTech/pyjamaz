@@ -15,8 +15,8 @@ from pyjamaz.pvm_interface.hostcalls.general import (
     hc_read,
     hc_write,
     hc_info,
-    # hc_lookup,
-    # hc_fetch,
+    hc_lookup,
+    hc_fetch,
 )
 
 from pyjamaz.pvm.debug_logger import PVMDebugLog
@@ -24,7 +24,8 @@ from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.models.state import ServiceAccount, ServicesState
+from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer
+from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand
 from pyjamaz.exceptions import StateKeyNoResult
 
 
@@ -70,37 +71,37 @@ def create_mock_service_account(
     service_account.update_footprint_add_storage_item = Mock()
     service_account.update_footprint_remove_storage_item = Mock()
     service_account.update_footprint_update_storage_item = Mock()
-    
+
     return service_account
 
 
 def create_mock_services_state(service_accounts=None, storage_items=None, preimages=None):
     services = Mock(spec=ServicesState)
     services.services = service_accounts or {}
-    
+
     def retrieve_service_account(service_id):
         if service_id in services.services:
             return services.services[service_id]
         raise StateKeyNoResult(f"Service account {service_id} not found")
-    
+
     services.retrieve_service_account = Mock(side_effect=retrieve_service_account)
-    
+
     storage_items_dict = storage_items or {}
     def retrieve_storage_item(service_account_id, storage_item_hash):
         key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
         if key in storage_items_dict:
             return storage_items_dict[key]
         raise StateKeyNoResult(f"Storage item not found")
-    
+
     def store_storage_item(service_account_id, storage_item_hash, value):
         key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
         storage_items_dict[key] = value
-    
+
     def delete_storage_item(service_account_id, storage_item_hash):
         key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
         if key in storage_items_dict:
             del storage_items_dict[key]
-    
+
     services.retrieve_storage_item = Mock(side_effect=retrieve_storage_item)
     services.store_storage_item = Mock(side_effect=store_storage_item)
     services.delete_storage_item = Mock(side_effect=delete_storage_item)
@@ -112,9 +113,9 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
         if key in preimages_dict:
             return preimages_dict[key]
         raise StateKeyNoResult(f"Preimage not found")
-    
+
     services.retrieve_preimage = Mock(side_effect=retrieve_preimage)
-    
+
     return services
 
 
@@ -203,10 +204,9 @@ class TestHCGeneral(unittest.TestCase):
             memory=deepcopy(pvm_memory),
             context=None
         )
-        
+
         service_id = test_vector.get("service_id", 0)
-        
-        # Create mock service account based on test vector
+
         service_config = test_vector.get("service_account", {})
         service = create_mock_service_account(
             code_hash=bytes.fromhex(service_config.get("code_hash", "00" * 32)),
@@ -217,8 +217,7 @@ class TestHCGeneral(unittest.TestCase):
             footprint_storage_bytes=service_config.get("footprint_storage_bytes", 0),
             footprint_storage_items=service_config.get("footprint_storage_items", 0)
         )
-        
-        # Create mock services state
+
         other_services = {}
         for other_id, other_config in test_vector.get("other_services", {}).items():
             other_services[int(other_id)] = create_mock_service_account(
@@ -238,13 +237,12 @@ class TestHCGeneral(unittest.TestCase):
         for item in test_vector.get("storage_items", []):
             key = (item["service_id"], item["hash"])
             storage_items[key] = bytes.fromhex(item["value"])
-        
-        # Create preimages from test vector
+
         preimages = {}
         for item in test_vector.get("preimages", []):
             key = (item["service_id"], item["hash"])
             preimages[key] = bytes.fromhex(item["value"])
-        
+
         services = create_mock_services_state(
             service_accounts=all_services,
             storage_items=storage_items,
@@ -276,6 +274,86 @@ class TestHCGeneral(unittest.TestCase):
 
         elif hostcall == "hc_info":
             hc_info(
+                pvm_regs,
+                pvm_memory,
+                service,
+                service_id,
+                services,
+                invocation_output,
+                logger)
+
+        elif hostcall == "hc_fetch":
+            work_package_data = test_vector.get("work_package")
+            work_package = None
+            if work_package_data:
+
+                work_package = Mock(spec=WorkPackage)
+                work_package.authorizer = Mock()
+                work_package.authorizer.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(work_package_data.get("authorizer", "00" * 32))))
+                work_package.authorization = bytes.fromhex(work_package_data.get("authorization", ""))
+                work_package.context = Mock()
+                work_package.context.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(work_package_data.get("context", "00" * 32))))
+                work_package.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(work_package_data.get("encoded", "00" * 100))))
+
+                work_package.items = []
+                for item_data in work_package_data.get("items", []):
+                    item = Mock(spec=WorkItem)
+                    item.service = item_data.get("service", 0)
+                    item.code_hash = bytes.fromhex(item_data.get("code_hash", "00" * 32))
+                    item.refine_gas_limit = item_data.get("refine_gas_limit", 1000000)
+                    item.accumulate_gas_limit = item_data.get("accumulate_gas_limit", 1000000)
+                    item.export_count = item_data.get("export_count", 0)
+                    item.import_segments = item_data.get("import_segments", [])
+                    item.extrinsic = item_data.get("extrinsic", [])
+                    item.payload = bytes.fromhex(item_data.get("payload", ""))
+                    work_package.items.append(item)
+
+            entropy = test_vector.get("entropy")
+            if entropy:
+                entropy = bytes.fromhex(entropy)
+
+            authorizer_output = test_vector.get("authorizer_output")
+            if authorizer_output:
+                authorizer_output = bytes.fromhex(authorizer_output)
+
+            work_item_index = test_vector.get("work_item_index")
+
+            work_item_segs = []
+            for seg_list in test_vector.get("work_item_segs", []):
+                work_item_segs.append([bytes.fromhex(seg) for seg in seg_list])
+
+            extrinsics = []
+            for ext_list in test_vector.get("extrinsics", []):
+                extrinsics.append([bytes.fromhex(ext) for ext in ext_list])
+
+            accumulation_operands = []
+            for op_data in test_vector.get("accumulation_operands", []):
+                op = Mock(spec=AccumulationOperand)
+                op.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(op_data.get("encoded", "00" * 20))))
+                accumulation_operands.append(op)
+
+            deferred_transfers = []
+            for dt_data in test_vector.get("deferred_transfers", []):
+                dt = Mock(spec=DeferredTransfer)
+                dt.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(dt_data.get("encoded", "00" * 40))))
+                deferred_transfers.append(dt)
+
+            hc_fetch(
+                pvm_regs,
+                pvm_memory,
+                work_package,
+                entropy,
+                authorizer_output,
+                work_item_index,
+                work_item_segs,
+                extrinsics,
+                accumulation_operands,
+                deferred_transfers,
+                invocation_output,
+                logger)
+
+        elif hostcall == "hc_lookup":
+            hc_lookup(
                 pvm_regs,
                 pvm_memory,
                 service,

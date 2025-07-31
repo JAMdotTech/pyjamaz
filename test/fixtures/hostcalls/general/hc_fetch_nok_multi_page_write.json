@@ -1,0 +1,50 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching constants where output spans from writable page into non writable page, should panic",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    135150,
+    0,
+    134,
+    0,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    },
+    {
+      "address": 135168,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    135150,
+    0,
+    134,
+    0,
+    0,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+}

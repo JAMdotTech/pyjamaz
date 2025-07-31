@@ -1,0 +1,68 @@
+{
+  "hostcall": "hc_lookup",
+  "description": "Tests successful preimage lookup for current service (w7=2^64-1), writes preimage to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    131104,
+    0,
+    64
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        170, 187, 204, 221, 238, 255, 0, 17, 34, 51, 68, 85, 102, 119, 136, 153,
+        170, 187, 204, 221, 238, 255, 0, 17, 34, 51, 68, 85, 102, 119, 136, 153
+      ]
+    }
+  ],
+  "service_id": 42,
+  "preimages": [
+    {
+      "service_id": 42,
+      "hash": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+      "value": "deadbeefcafebabe1234567890abcdefdeadbeefcafebabe1234567890abcdefdeadbeefcafebabe1234567890abcdefdeadbeefcafebabe1234567890abcdef"
+    }
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    64,
+    131072,
+    131104,
+    0,
+    64
+  ],
+  "expected-memory": [
+    {
+      "address": 131104,
+      "contents": [
+        222, 173, 190, 239, 202, 254, 186, 190, 18, 52, 86, 120, 144, 171, 205, 239,
+        222, 173, 190, 239, 202, 254, 186, 190, 18, 52, 86, 120, 144, 171, 205, 239,
+        222, 173, 190, 239, 202, 254, 186, 190, 18, 52, 86, 120, 144, 171, 205, 239,
+        222, 173, 190, 239, 202, 254, 186, 190, 18, 52, 86, 120, 144, 171, 205, 239
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

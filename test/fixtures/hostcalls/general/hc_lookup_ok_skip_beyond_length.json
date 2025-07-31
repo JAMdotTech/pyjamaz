@@ -1,0 +1,58 @@
+{
+  "hostcall": "hc_lookup",
+  "description": "Tests lookup with skip beyond preimage length. Should succeed but write no data since f >= len(preimage)",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    131104,
+    100,
+    32
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        170, 187, 204, 221, 238, 255, 0, 17, 34, 51, 68, 85, 102, 119, 136, 153,
+        170, 187, 204, 221, 238, 255, 0, 17, 34, 51, 68, 85, 102, 119, 136, 153
+      ]
+    }
+  ],
+  "service_id": 42,
+  "preimages": [
+    {
+      "service_id": 42,
+      "hash": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+      "value": "deadbeefcafebabe1234567890abcdefdeadbeefcafebabe1234567890abcdef"
+    }
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    32,
+    131072,
+    131104,
+    100,
+    32
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}

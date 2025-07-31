@@ -388,19 +388,19 @@ def hc_fetch(
 
         bold_v = work_item_segs[work_item_index][w11]
 
-    elif w10 == 7:
+    elif w10 == 7 and work_package is not None:
         bold_v = work_package.to_jam_bytes().to_bytes()
 
-    elif w10 == 8:
+    elif w10 == 8 and work_package is not None:
         bold_v = work_package.authorizer.to_jam_bytes().to_bytes()
 
-    elif w10 == 9:
+    elif w10 == 9 and work_package is not None:
         bold_v = work_package.authorization
 
-    elif w10 == 10:
+    elif w10 == 10 and work_package is not None:
         bold_v = work_package.context.to_jam_bytes().to_bytes() # TODO check again with GP
 
-    elif w10 == 11:
+    elif w10 == 11 and work_package is not None:
         serialized_work_items = [serialize_work_item(w) for w in work_package.items]
         bold_v = VarInt64.encode(len(serialized_work_items)).to_bytes() + b''.join(serialized_work_items)
 

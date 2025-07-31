@@ -1,0 +1,85 @@
+{
+  "hostcall": "hc_read",
+  "description": "Tests successful storage read where output write spans multiple writable pages. Storage value is written starting near page boundary and continues into next writable page.",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    4,
+    135150,
+    0,
+    100
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    },
+    {
+      "address": 135168,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        129,
+        130,
+        131,
+        132
+      ]
+    }
+  ],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "storage_items": [
+    {
+      "service_id": 42,
+      "hash": "aa201ad7b4cfff619002377dbc39f91bad55dd772c0fb5b2f177bf9ccc3d8ee3",
+      "value": "48656c6c6f20576f726c64212054686973206973206120746573742076616c756520746861742073686f756c64207370616e206d756c7469706c652070616765732e204c6574277320616464206d6f7265206461746120746f206d616b652073757265207765206372"
+    }
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    105,
+    131072,
+    4,
+    135150,
+    0,
+    100
+  ],
+  "expected-memory": [
+    {
+      "address": 135150,
+      "contents": [
+        72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33, 32, 84, 104, 105,
+        115, 32, 105, 115, 32, 97, 32, 116, 101, 115, 116, 32, 118, 97, 108, 117,
+        101, 32, 116, 104, 97, 116, 32, 115, 104, 111, 117, 108, 100, 32, 115, 112,
+        97, 110, 32, 109, 117, 108, 116, 105, 112, 108, 101, 32, 112, 97, 103, 101,
+        115, 46, 32, 76, 101, 116, 39, 115, 32, 97, 100, 100, 32, 109, 111, 114,
+        101, 32, 100, 97, 116, 97, 32, 116, 111, 32, 109, 97, 107, 101, 32, 115,
+        117, 114, 101, 32
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}
