@@ -1,0 +1,68 @@
+{
+  "hostcall": "hc_info",
+  "description": "Tests successful service account info retrieval for current service (using 2^64-1). Service account bytes are written to memory",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    0,
+    0,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "balance": 1000000,
+    "threshold_balance": 5000,
+    "gas_limit_accumulate": 2000000,
+    "gas_limit_on_transfer": 3000000,
+    "footprint_storage_bytes": 1024,
+    "footprint_storage_items": 10
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    0,
+    0,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        18, 52, 86, 120, 144, 171, 205, 239, 18, 52, 86, 120, 144, 171, 205, 239,
+        18, 52, 86, 120, 144, 171, 205, 239, 18, 52, 86, 120, 144, 171, 205, 239,
+        207, 64, 66,
+        147, 136,
+        222, 128, 132,
+        224, 192, 198, 45,
+        132, 0,
+        10
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

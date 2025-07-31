@@ -10,14 +10,12 @@ import numpy as np
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
-# After the above line the module graph is complete, so pulling the
-# host-call helpers no longer re-enters a half-built module.
 from pyjamaz.pvm_interface.hostcalls.general import (
+    # hc_gas,
     hc_read,
     hc_write,
-    # hc_gas,
+    hc_info,
     # hc_lookup,
-    # hc_info,
     # hc_fetch,
 )
 
@@ -228,7 +226,11 @@ class TestHCGeneral(unittest.TestCase):
             other_services[int(other_id)] = create_mock_service_account(
                 code_hash=bytes.fromhex(other_config.get("code_hash", "00" * 32)),
                 balance=other_config.get("balance", 1000000),
-                threshold_balance=other_config.get("threshold_balance", 100)
+                threshold_balance=other_config.get("threshold_balance", 100),
+                gas_limit_accumulate=other_config.get("gas_limit_accumulate", 1000000),
+                gas_limit_on_transfer=other_config.get("gas_limit_on_transfer", 1000000),
+                footprint_storage_bytes=other_config.get("footprint_storage_bytes", 0),
+                footprint_storage_items=other_config.get("footprint_storage_items", 0)
             )
 
         all_services = {service_id: service}
@@ -266,6 +268,16 @@ class TestHCGeneral(unittest.TestCase):
 
         elif hostcall == "hc_write":
             hc_write(
+                pvm_regs,
+                pvm_memory,
+                service,
+                service_id,
+                services,
+                invocation_output,
+                logger)
+
+        elif hostcall == "hc_info":
+            hc_info(
                 pvm_regs,
                 pvm_memory,
                 service,

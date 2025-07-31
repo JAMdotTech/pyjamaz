@@ -1,0 +1,68 @@
+{
+  "hostcall": "hc_info",
+  "description": "Tests edge case with large values for all numeric fields to test VarInt64 encoding",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    0,
+    0,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "balance": 9223372036854775807,
+    "threshold_balance": 9223372036854775807,
+    "gas_limit_accumulate": 9223372036854775807,
+    "gas_limit_on_transfer": 9223372036854775807,
+    "footprint_storage_bytes": 9223372036854775807,
+    "footprint_storage_items": 9223372036854775807
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    0,
+    0,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255, 127,
+        255, 255, 255, 255, 255, 255, 255, 255, 127,
+        255, 255, 255, 255, 255, 255, 255, 255, 127,
+        255, 255, 255, 255, 255, 255, 255, 255, 127,
+        255, 255, 255, 255, 255, 255, 255, 255, 127,
+        255, 255, 255, 255, 255, 255, 255, 255, 127
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

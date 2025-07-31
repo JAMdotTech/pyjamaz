@@ -1,0 +1,54 @@
+{
+  "hostcall": "hc_info",
+  "description": "Tests when memory write fails due to writing to nonwritable memory region. Service account exists but mem is readonly",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    65536,
+    0,
+    0,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 65536,
+      "length": 65536,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "balance": 1000000,
+    "threshold_balance": 5000,
+    "gas_limit_accumulate": 2000000,
+    "gas_limit_on_transfer": 3000000,
+    "footprint_storage_bytes": 1024,
+    "footprint_storage_items": 10
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    65536,
+    0,
+    0,
+    0,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+}
