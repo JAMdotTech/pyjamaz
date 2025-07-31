@@ -1,9 +1,14 @@
 {
-  "name": "hc_read successful read from another service",
   "hostcall": "hc_read",
   "description": "Tests reading from service 99 while executing as service 42. Uses offset 10 and length 20 to read portion of storage value. Expects 20 bytes starting from offset 10 to be written to memory.",
   "initial-registers": [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     99,
     131072,
     16,
@@ -47,9 +52,19 @@
     }
   ],
   "expected-regs": [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     37,
-    131072, 16, 131200, 10, 20
+    131072,
+    16,
+    131200,
+    10,
+    20
   ],
   "expected-memory": [
     {

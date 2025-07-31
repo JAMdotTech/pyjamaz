@@ -1,7 +1,6 @@
 {
-  "name": "hc_write memory error reading storage value",
-  "description": "Tests memory access violation when reading storage value beyond memory boundary. Value starts near end of page 2 (address 196590) and reading 50 bytes would go beyond page boundary at 196608. Expects panic.",
   "hostcall": "hc_write",
+  "description": "Tests the FULL condition when service_account.threshold_balance > service_account.balance. Service account has insufficient balance (50) compared to threshold (100). Tests the service_account.threshold_balance > service_account.balance condition. Expects FULL (2^64-5) in register 7.",
   "initial-registers": [
     0,
     0,
@@ -11,9 +10,9 @@
     0,
     0,
     131072,
-    16,
-    196590,
-    50
+    32,
+    131104,
+    20
   ],
   "initial-page-map": [
     {
@@ -26,6 +25,15 @@
     {
       "address": 131072,
       "contents": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
         10,
         11,
         12,
@@ -41,11 +49,18 @@
         22,
         23,
         24,
-        25
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32
       ]
     },
     {
-      "address": 196590,
+      "address": 131104,
       "contents": [
         78,
         101,
@@ -64,6 +79,8 @@
         108,
         117,
         101,
+        33,
+        33,
         33
       ]
     }
@@ -71,7 +88,7 @@
   "service_id": 42,
   "service_account": {
     "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
-    "balance": 1000000,
+    "balance": 50,
     "threshold_balance": 100
   },
   "storage_items": [],
@@ -83,11 +100,11 @@
     0,
     0,
     0,
-    131072,
-    16,
-    196590,
-    50
+    18446744073709551611,
+    32,
+    131104,
+    20
   ],
   "expected-memory": [],
-  "expected-exit-reason": "panic"
-}
+  "expected-exit-reason": "resume"
+} 

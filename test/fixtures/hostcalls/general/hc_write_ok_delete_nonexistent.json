@@ -1,18 +1,23 @@
 {
-  "name": "hc_write create new storage item",
-  "description": "Tests creating a new storage item. Writes 20 bytes to a previously non-existent storage key. Expects NONE (2^64-1) in register 7 indicating the key didn't exist before, and the service's storage footprint should be updated.",
   "hostcall": "hc_write",
+  "description": "Tests the success case for deleting a non existent storage item. Storage item doesnt exist (l = NONE) and service_storage_item is None (v_z = 0). Tests if service_storage_item is None condition with no existing item. Expects NONE (2^64-1) in reg7",
   "initial-registers": [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     131072,
     16,
     131100,
-    20
+    0
   ],
   "initial-page-map": [
     {
       "address": 131072,
-      "length": 4096,
+      "length": 65536,
       "is-writable": true
     }
   ],
@@ -20,13 +25,22 @@
     {
       "address": 131072,
       "contents": [
-        10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
-      ]
-    },
-    {
-      "address": 131100,
-      "contents": [
-        78, 101, 119, 32, 115, 116, 111, 114, 97, 103, 101, 32, 118, 97, 108, 117, 101, 33, 33, 33
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45
       ]
     }
   ],
@@ -40,9 +54,17 @@
   },
   "storage_items": [],
   "expected-regs": [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     18446744073709551615,
-    16, 131100, 20
+    16,
+    131100,
+    0
   ],
   "expected-memory": [],
   "expected-exit-reason": "resume"

@@ -383,7 +383,6 @@ class PVMMemory:
 
 
     def is_accessible(self, address: int, length: int, mode: PVMMemoryMode) -> bool:
-        # TODO: hmmm...can access span multiple sections???
         try:
             section = self.find_section(address)
         except (PanicError, PVMMemoryError):

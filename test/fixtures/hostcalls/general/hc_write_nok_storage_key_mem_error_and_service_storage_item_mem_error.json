@@ -1,6 +1,6 @@
 {
-  "hostcall": "hc_read",
-  "description": "Tests the panci when both storage_item_mem_error and mem_writable are false",
+  "hostcall": "hc_write",
+  "description": "Tests the panic condition when both storage_key_mem_error (key reading fails) AND service_storage_item_mem_error (value reading fails). Both key and value addresses are beyond allocated memory",
   "initial-registers": [
     0,
     0,
@@ -9,11 +9,9 @@
     0,
     0,
     0,
-    18446744073709551615,
     262144,
     32,
-    196608,
-    0,
+    327680,
     100
   ],
   "initial-page-map": [
@@ -21,11 +19,6 @@
       "address": 131072,
       "length": 65536,
       "is-writable": true
-    },
-    {
-      "address": 196608,
-      "length": 65536,
-      "is-writable": false
     }
   ],
   "initial-memory": [],
@@ -44,11 +37,9 @@
     0,
     0,
     0,
-    18446744073709551615,
     262144,
     32,
-    196608,
-    0,
+    327680,
     100
   ],
   "expected-memory": [],

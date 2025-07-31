@@ -1,6 +1,6 @@
 {
   "hostcall": "hc_read",
-  "description": "Tests when storage item exists and written to memory. Storage value 'Oepsie' is read and written to memory. Expects reg 7 to contain the length of the storage item.",
+  "description": "Tests when storage item exists and written to memory. Storage value 'Oepsie' is read and written to memory. Expects registr 7 to contain the length of the storage item",
   "initial-registers": [
     0,
     0,

@@ -1,6 +1,6 @@
 {
   "hostcall": "hc_read",
-  "description": "Tests panic when storage_item_mem_error, because accessing beyond allocated memory",
+  "description": "Tests panic for storage_item_mem_error, because accessing beyond allocated memory",
   "initial-registers": [
     0,
     0,

@@ -2,7 +2,13 @@
   "hostcall": "hc_read",
   "description": "Tests partial read using offset and length. Reads 10 bytes starting from offset 5 of a 43-byte storage value. Verifies correct slicing of data and that the full storage length is returned in reg 7.",
   "initial-registers": [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     18446744073709551615,
     131072,
     32,
@@ -40,9 +46,19 @@
     }
   ],
   "expected-regs": [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     43,
-    131072, 32, 131200, 5, 10
+    131072,
+    32,
+    131200,
+    5,
+    10
   ],
   "expected-memory": [
     {

@@ -2,7 +2,13 @@
   "hostcall": "hc_read",
   "description": "Tests storage read from current service (2^64-1). Reads a 43-byte storage value using a 32-byte key. Verifies full storage value is written to memory reg 7.",
   "initial-registers": [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     18446744073709551615,
     131072,
     32,
@@ -40,9 +46,19 @@
     }
   ],
   "expected-regs": [
-    0, 0, 0, 0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     43,
-    131072, 32, 131200, 0, 100
+    131072,
+    32,
+    131200,
+    0,
+    100
   ],
   "expected-memory": [
     {
