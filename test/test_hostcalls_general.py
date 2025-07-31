@@ -122,9 +122,7 @@ class TestHCGeneral(unittest.TestCase):
 
     @parameterized.expand(load_test_vectors('fixtures/hostcalls/general'))
     def test_instruction(self, name, test_vector):
-        # Skip tests with overlapping memory regions (invalid according to Graypaper)
         skip_tests = [
-            # All tests now have non-overlapping sections
         ]
         if any(skip_test in name for skip_test in skip_tests):
             self.skipTest(f"Skipping {name} - overlapping memory regions not supported")

@@ -1,6 +1,6 @@
 {
   "hostcall": "hc_info",
-  "description": "Tests when memory write would partially succeed but spans into a non writable page. Service account data spans across writable/non writable boundary",
+  "description": "Tests successful service account write that spans multiple writable pages. Service account data starts near page boundary and continues into next writable page.",
   "initial-registers": [
     0,
     0,
@@ -10,7 +10,7 @@
     0,
     0,
     18446744073709551615,
-    196608,
+    135150,
     0,
     0,
     0,
@@ -19,13 +19,13 @@
   "initial-page-map": [
     {
       "address": 131072,
-      "length": 65536,
+      "length": 4096,
       "is-writable": true
     },
     {
-      "address": 196608,
-      "length": 65536,
-      "is-writable": false
+      "address": 135168,
+      "length": 4096,
+      "is-writable": true
     }
   ],
   "initial-memory": [],
@@ -47,13 +47,27 @@
     0,
     0,
     0,
-    18446744073709551615,
-    196608,
+    0,
+    135150,
     0,
     0,
     0,
     0
   ],
-  "expected-memory": [],
-  "expected-exit-reason": "panic"
+  "expected-memory": [
+    {
+      "address": 135150,
+      "contents": [
+        18, 52, 86, 120, 144, 171, 205, 239, 18, 52, 86, 120, 144, 171, 205, 239,
+        18, 52, 86, 120, 144, 171, 205, 239, 18, 52, 86, 120, 144, 171, 205, 239,
+        207, 64, 66,
+        147, 136,
+        222, 128, 132,
+        224, 192, 198, 45,
+        132, 0,
+        10
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
 }

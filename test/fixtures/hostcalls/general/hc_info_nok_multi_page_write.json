@@ -1,6 +1,6 @@
 {
   "hostcall": "hc_info",
-  "description": "Tests when memory write would partially succeed but spans into a non writable page. Service account data spans across writable/non writable boundary",
+  "description": "Tests when service account write starts in writable page but would continue past first page into non writable memory, totests multi-page ACL",
   "initial-registers": [
     0,
     0,
@@ -10,7 +10,7 @@
     0,
     0,
     18446744073709551615,
-    196608,
+    135150,
     0,
     0,
     0,
@@ -19,12 +19,12 @@
   "initial-page-map": [
     {
       "address": 131072,
-      "length": 65536,
+      "length": 4096,
       "is-writable": true
     },
     {
-      "address": 196608,
-      "length": 65536,
+      "address": 135168,
+      "length": 4096,
       "is-writable": false
     }
   ],
@@ -48,7 +48,7 @@
     0,
     0,
     18446744073709551615,
-    196608,
+    135150,
     0,
     0,
     0,

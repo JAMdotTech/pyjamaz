@@ -429,10 +429,6 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
-        # if self._acl is not None and self._acl.get(address//PVM_PAGE_SIZE) == PVMMemoryMode.inaccesible.value:
-        #     #TODO: check per page if operations spans multiple pages
-        #     raise PVMMemoryError(f"MemorySection {section.address} - ({section.size} bytes) is inaccessible")
-
         section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
         section_bytes = (section.size - section_addr)
 
@@ -440,9 +436,13 @@ class PVMMemory:
             raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
 
         if self._acl is not None:
-            page_nr = address // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
-                raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is nor readable")
+            start_page = address // PVM_PAGE_SIZE
+            end_address = address + length - 1
+            end_page = end_address // PVM_PAGE_SIZE
+            
+            for page_nr in range(start_page, end_page + 1):
+                if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
+                    raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not readable")
 
         mem_bytes = bytes(section.contents[section_addr:section_addr+length])
         if padding and len(mem_bytes) < padding:
@@ -467,9 +467,13 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         if self._acl is not None:
-            page_nr = address // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
-                raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is not writable")
+            start_page = address // PVM_PAGE_SIZE
+            end_address = address + len(content) - 1
+            end_page = end_address // PVM_PAGE_SIZE
+            
+            for page_nr in range(start_page, end_page + 1):
+                if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
+                    raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not writable")
 
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
         section_bytes = (section.size - section_addr)
