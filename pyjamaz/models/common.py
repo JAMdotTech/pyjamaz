@@ -20,19 +20,19 @@ if typing.TYPE_CHECKING:
 @dataclass
 class ValidatorData(Serializable):
     """
-    GP-0.5.0-eq:6.7,6.8 (blackboard_K, blackboard_Y_336) | Collection of validator keys and metadata.
+    GP-0.7.0-eq:6.7,6.8 (blackboard_K, blackboard_B_336) | Collection of validator keys and metadata.
 
     Attributes
     ----------
 
     bandersnatch: H256
-        GP-0.5.0-eq:6.9 (k_b | blackboard_H_B) | A validator's Bandersnatch key.
+        GP-0.7.0-eq:6.9 (k_b | blackboard_H_~) | A validator's Bandersnatch key.
     ed25519: H256
-        GP-0.5.0-eq:6.10 (k_e | blackboard_H_E) | A validator's Edwards 25519 key.
+        GP-0.7.0-eq:6.10 (k_e | blackboard_H_-) | A validator's Edwards 25519 key.
     bls: H256
-        GP-0.5.0-eq:6.11 (k_BLS | blackboard_Y_BLS) | A validator's BLS key.
+        GP-0.7.0-eq:6.11 (k_l | blackboard_B_BLS) | A validator's BLS key.
     metadata: H256
-        GP-0.5.0-eq:6.12 (k_m | blackboard_Y_128) | Metadata for arbitrary data storage.
+        GP-0.7.0-eq:6.12 (k_m | blackboard_B_128) | Metadata for arbitrary data storage.
     """
     bandersnatch: bytes = field(metadata={'codec': H256})
     ed25519: bytes = field(metadata={'codec': H256})
@@ -138,14 +138,14 @@ class Preimage:
 @dataclass
 class WorkItemExtrinsic(Serializable):
     """
-    GP-0.6.4-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
+    GP-0.7.0-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
 
     Attributes
     ----------
     hash: H256
-        GP-0.6.4-eq:14.3 (blackboard_H) | Blob hashes.
+        GP-0.7.0-eq:14.3 (blackboard_H) | Blob hashes.
     len: U32
-        GP-0.6.4-eq:14.3 (blackboard_N type derived from encoding appendix) | A validator index.
+        GP-0.7.0-eq:14.3 (blackboard_N type derived from encoding appendix) | A validator index.
     """
     hash: bytes = field(metadata={'codec': H256})
     len: int = field(metadata={'codec': U32})
@@ -161,14 +161,14 @@ class WorkItemExtrinsic(Serializable):
 @dataclass
 class ImportSegment(Serializable):
     """
-    GP-0.6.4-eq:14.3 (bold_i) | Imported data segments consisting of the root of the segment tree and the index into it.
+    GP-0.7.0-eq:14.3 (bold_i) | Imported data segments consisting of the root of the segment tree and the index into it.
 
     Attributes
     ----------
     tree_root: H256
-        GP-0.6.4-eq:14.3 (blackboard_H) | Root of the segment tree. # TODO what about H^[+] ?
+        GP-0.7.0-eq:14.3 (blackboard_H) | Root of the segment tree. # TODO what about H^[+] ?
     index: U16
-        GP-0.6.4-eq:14.3 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
+        GP-0.7.0-eq:14.3 (blackboard_N type derived from encoding appendix) | Index into the segment tree.
     """
     tree_root: bytes = field(metadata={'codec': H256})
     index: int = field(metadata={'codec': U16})
@@ -177,27 +177,28 @@ class ImportSegment(Serializable):
 @dataclass
 class WorkItem(Serializable):
     """
-    GP-0.6.6-eq:14.3 (blackboard_I) | Work item.
+    GP-0.7.0-eq:14.3 (blackboard_W) | Work item.
 
     Attributes
     ----------
     service: U32
-        GP-0.6.4-eq:14.3 (s) | The index of a service to which it relates.
+        GP-0.7.0-eq:14.3 (s) | The index of a service to which it relates.
     code_hash: H256
-        GP-0.6.4-eq:14.3 (h) | The hash of the code  of the service at the time of being reported.
+        GP-0.7.0-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
     payload: Bytes
-        GP-0.6.4-eq:14.3 (bold_y) | A payload blob.
+        GP-0.7.0-eq:14.3 (bold_y) | A payload blob.
     refine_gas_limit: U64
-        GP-0.6.4-eq:14.3 (g) | The gas limit.
+        GP-0.7.0-eq:14.3 (g) | The gas limit.
     accumulate_gas_limit: U64
-        GP-0.6.4-eq:14.3 (a) | The gas limit.
+        GP-0.7.0-eq:14.3 (a) | The gas limit.
     import_segments: Vec(ImportSegment)
-        GP-0.6.4-eq:14.3 (bold_i) | Imported data segments.
+        GP-0.7.0-eq:14.3 (bold_i) | Imported data segments.
     extrinsic: Vec(WorkItemExtrinsic)
-        GP-0.6.4-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
+        GP-0.7.0-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
     export_count: U16
-        GP-0.6.4-eq:14.3 (e) | The number of data segments exported by this work item.
+        GP-0.7.0-eq:14.3 (e) | The number of data segments exported by this work item.
     """
+    # Todo: check order i & e
     service: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
     payload: bytes = field(metadata={'codec': Bytes})
@@ -214,14 +215,14 @@ class WorkItem(Serializable):
 @dataclass
 class Authorizer(Serializable):
     """
-    GP-0.6.4-eq:14.2 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob.
+    GP-0.7.0-eq:14.2 (u & bold_f) | A tuple of the authorization code hash and the parameterization blob.
 
     Attributes
     ----------
     code_hash: H256
-        GP-0.6.4-eq:14.2 (u) | The authorization code hash.
+        GP-0.7.0-eq:14.2 (u) | The authorization code hash.
     params: Bytes
-        GP-0.6.4-eq:14.2 (bold_p) | A parameterization blob.
+        GP-0.7.0-eq:14.2 (bold_f) | A parameterization blob.
     """
     code_hash: bytes = field(metadata={'codec': H256})
     params: bytes = field(metadata={'codec': Bytes})
@@ -230,20 +231,20 @@ class Authorizer(Serializable):
 @dataclass
 class WorkPackage(Serializable):
     """
-    GP-0.6.4-eq:14.2 (blackboard_P) | Work package.
+    GP-0.7.0-eq:14.2 (blackboard_P) | Work package.
 
     Attributes
     ----------
     authorization: Bytes
-        GP-0.6.4-eq:14.2 (bold_j) | Authorization token blob.
+        GP-0.7.0-eq:14.2 (bold_j) | Authorization token blob.
     auth_code_host: U32
-        GP-0.6.4-eq:14.2 (h) | Index of the service which hosts the authorization code.
+        GP-0.7.0-eq:14.2 (h) | Index of the service which hosts the authorization code.
     authorizer: Authorizer
-        GP-0.5.0-eq:14.2 (u & bold_p) | A tuple of the authorization code hash and the parameterization blob.
+        GP-0.7.0-eq:14.2 (u & bold_f) | A tuple of the authorization code hash and the parameterization blob.
     context: pyjamaz.models.common.RefinementContext
-        GP-0.5.0-eq:14.2 (bold_x) | The refinement context.
+        GP-0.7.0-eq:14.2 (bold_c) | The refinement context.
     items: Vec(WorkItem)
-        GP-0.5.0-eq:14.2 (bold_w) | A sequence of work items.
+        GP-0.7.0-eq:14.2 (bold_w) | A sequence of work items.
     """
     authorization: bytes = field(metadata={'codec': Bytes})
     auth_code_host: int = field(metadata={'codec': U32})
@@ -259,14 +260,14 @@ class WorkPackage(Serializable):
 
     def authorizer_hash(self) -> bytes:
         """
-        GP-0.6.4-eq:14.9 (blackboard_P_a) | Authorizer hash.
+        GP-0.7.0-eq:14.10 (bold_p_a) | Authorizer hash.
         """
         return blake2b_256_hash(self.authorizer.code_hash + self.authorizer.params)
 
     @property
     def authorization_metadata(self) -> str:
         """
-        GP-0.6.4-eq:14.9 (blackboard_P_m) | Authorization metadata.
+        GP-0.7.0-eq:14.10 (bold_p_m) | Authorization metadata.
         """
         return getattr(self, '_authorization_metadata', None)
 
@@ -277,7 +278,7 @@ class WorkPackage(Serializable):
     @property
     def authorization_code(self) -> bytes:
         """
-        GP-0.6.4-eq:14.9 (blackboard_P_c) | Authorization code.
+        GP-0.7.0-eq:14.1 (bold_p_c) | Authorization code.
         """
         return getattr(self, '_authorization_code', None)
 
@@ -303,26 +304,26 @@ class WorkPackage(Serializable):
 @dataclass
 class WorkExecResult(Serializable):
     """
-    GP-0.6.6-eq:11.7 (blackboard_E) | Work result output or error of the execution of the code in the refine stage. Either a byte
+    GP-0.7.0-eq:11.7 (blackboard_E) | Work result output or error of the execution of the code in the refine stage. Either a byte
     sequence in case it was successful or one of the possible errors
 
     Attributes
     ----------
     ok: Bytes
-        GP-0.6.6-eq:11.6 (blackboard_Y) | The index of a service whose state is to be altered and thus whose refine
+        GP-0.7.0-eq:11.6 (blackboard_B) | The index of a service whose state is to be altered and thus whose refine
         code was already executed.
     out_of_gas: None
-        GP-0.6.6-eq:11.7 (sign_INFINITY) | Out of gas error.
+        GP-0.7.0-eq:11.7 (sign_INFINITY) | Out of gas error.
     panic: None
-        GP-0.6.6-eq:11.7 (sign_LIGHTNING) | Panic error.
+        GP-0.7.0-eq:11.7 (sign_LIGHTNING) | Panic error.
     bad_exports: None
-        GP-0.6.6-eq:11.7 (sign_CIRCLED_CIRCLE) | Bad exports error.
+        GP-0.7.0-eq:11.7 (sign_CIRCLED_CIRCLE) | Bad exports error.
     digest_oversize: None
-        GP-0.6.6-eq:11.7 (sign_CIRCLED_DASH) | Digest oversize error.
+        GP-0.7.0-eq:11.7 (sign_CIRCLED_DASH) | Digest oversize error.
     bad_code: None
-        GP-0.6.6-eq:11.7 (BAD) | Bad code error.
+        GP-0.7.0-eq:11.7 (BAD) | Bad code error.
     code_oversize: None
-        GP-0.6.6-eq:11.7 (BIG) | Code oversize error.
+        GP-0.7.0-eq:11.7 (BIG) | Code oversize error.
     """
     # TODO: JSON labels for out_of_gas (out-of-gas), bad_code (bad-code) and code_oversize (code-oversize) don't match
     ok: bytes = field(default=None, metadata={'codec': Bytes})
@@ -357,7 +358,7 @@ class WorkExecResult(Serializable):
 @dataclass
 class RefineLoad(Serializable):
     """
-    GP-0.6.4-eq:11.6 (blackboard_L) | Part of a work result (todo: integrate with WorkResult?)
+    GP-0.7.0-eq:11.6 (blackboard_D) | Part of a work result (todo: integrate with WorkResult?)
 
     Attributes
     ----------
@@ -411,7 +412,7 @@ class WorkDigest(Serializable):
     @classmethod
     def from_work_item(cls, work_item: WorkItem, result: WorkExecResult, gas_used: int) -> "WorkDigest":
         """
-        GP-0.6.4-eq:14.8 (function_C) | the item-to-result function
+        GP-0.7.0-eq:14.9 (function_C) | the item-to-result function
         """
         # Rename to WorkDigest
         return cls(
@@ -498,7 +499,7 @@ class WorkReport(Serializable):
     results: Vec(WorkResult)
         GP-0.7.0-eq:11.2 (bold_d) | The results of the evaluation of each of the items in the work package.
     auth_gas_used: VarInt64
-        GP-0.6.4-eq:11.2 (g)
+        GP-0.7.0-eq:11.2 (g)
     """
     package_spec: WorkPackageSpec = field(metadata={'codec': WorkPackageSpec.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
@@ -531,7 +532,7 @@ class Assurance(Serializable):
     report: WorkReport
         GP-0.7.0-eq:11.1 (r) | A work report.
     timeout: U32
-        GP-0.5.0-eq:11.1 (t) | A timeslot.
+        GP-0.7.0-eq:11.1 (t) | A timeslot.
     """
     report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
     timeout: int = field(metadata={'codec': U32})

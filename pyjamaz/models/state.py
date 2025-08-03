@@ -34,19 +34,19 @@ class State(Serializable):
 @dataclass
 class TimeslotState(State, Serializable):
     """
-    GP-0.5.0-eq:6.1 (τ) | The most recent block's slot index, combined with helper functions.
+    GP-0.7.0-eq:6.1 (τ) | The most recent block's slot index, combined with helper functions.
 
     Attributes
     ----------
     number: U32
-        GP-0.5.0-eq:6.1 (τ) | The most recent block's slot index.
+        GP-0.7.0-eq:6.1 (τ) | The most recent block's slot index.
     """
     # Todo: consider renaming number to timeslot
     number: int = field(metadata={'codec': U32})
 
     def epoch_number(self) -> int:
         """
-        GP-0.5.0-eq:6.2 (e) | Function that returns the epoch index.
+        GP-0.7.0-eq:6.2 (e) | Function that returns the epoch index.
 
         Returns
         -------
@@ -58,7 +58,7 @@ class TimeslotState(State, Serializable):
 
     def slot_phase_index(self) -> int:
         """
-        GP-0.5.0-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot.
+        GP-0.7.0-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot.
 
         Returns
         -------
@@ -72,12 +72,12 @@ class TimeslotState(State, Serializable):
 @dataclass
 class EntropyState(State, Serializable):
     """
-    GP-0.5.0-eq:6.21 (η) | Entropy partition of the overall state.
+    GP-0.7.0-eq:6.21 (η) | Entropy partition of the overall state.
 
     Attributes
     ----------
     entropy: Array(H256,4)
-        GP-0.5.0-eq:6.21 (η) | η[0] serves as an entropy accumulator during the current epoch. η[1], η[2], η[3] retain
+        GP-0.7.0-eq:6.21 (η) | η[0] serves as an entropy accumulator during the current epoch. η[1], η[2], η[3] retain
         three historical values of the accumulator at the point of each of the three most recently ended epochs
         respectively.
     """
@@ -110,13 +110,13 @@ class SafroleState(State, Serializable):
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.5.0-eq:6.7 (γ_P) | A fixed size set of keys and metadata for validators of the next epoch.
+        GP-0.7.0-eq:6.7 (γ_P) | A fixed size set of keys and metadata for validators of the next epoch.
     ring_commitment: Array(U8,144)
-        GP-0.5.0-eq:6.4 (γ_Z) | Bandersnatch ring commitment.
+        GP-0.7.0-eq:6.4 (γ_Z) | Bandersnatch ring commitment.
     slot_sealer_series: SlotSealerSeries
-        GP-0.5.0-eq:6.5 (γ_S) | Sealing-key series of the current epoch.
+        GP-0.7.0-eq:6.5 (γ_S) | Sealing-key series of the current epoch.
     ticket_accumulator: TicketBody
-        GP-0.5.0-eq:6.5 (γ_A) | Sealing-key contest ticket accumulator.
+        GP-0.7.0-eq:6.5 (γ_A) | Sealing-key contest ticket accumulator.
     """
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
     ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})
@@ -127,12 +127,12 @@ class SafroleState(State, Serializable):
 @dataclass
 class ValidatorQueueState(State, Serializable):
     """
-    GP-0.5.0-eq:6.7 (ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
+    GP-0.7.0-eq:6.7 (ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.5.0-eq:6.7 (ι) | A fixed size set of validator keys and metadata to be drawn from next by the Safrole
+        GP-0.7.0-eq:6.7 (ι) | A fixed size set of validator keys and metadata to be drawn from next by the Safrole
         protocol.
     """
     # Todo: review and annotate: ValidatorData
@@ -142,12 +142,12 @@ class ValidatorQueueState(State, Serializable):
 @dataclass
 class ValidatorPoolState(State, Serializable):
     """
-    GP-0.5.0-eq:6.7 (κ) | Keys and metadata for validators of the current epoch.
+    GP-0.7.0-eq:6.7 (κ) | Keys and metadata for validators of the current epoch.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.5.0-eq:6.7 (κ) | A fixed size set of keys and metadata for validators of the current epoch.
+        GP-0.7.0-eq:6.7 (κ) | A fixed size set of keys and metadata for validators of the current epoch.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -156,12 +156,12 @@ class ValidatorPoolState(State, Serializable):
 @dataclass
 class ValidatorArchiveState(State, Serializable):
     """
-    GP-0.5.0-eq:6.7 (λ) | Keys and metadata for validators of the previous epoch.
+    GP-0.7.0-eq:6.7 (λ) | Keys and metadata for validators of the previous epoch.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.5.0-eq:6.7 (λ) | A fixed size set of keys and metadata for validators of the previous epoch.
+        GP-0.7.0-eq:6.7 (λ) | A fixed size set of keys and metadata for validators of the previous epoch.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -170,12 +170,12 @@ class ValidatorArchiveState(State, Serializable):
 @dataclass
 class AuthorizerPoolsState(State, Serializable):
     """
-    GP-0.5.0-eq:8.1 (α) | A collections of pools of authorizations for all cores.
+    GP-0.7.0-eq:8.1 (α) | A collections of pools of authorizations for all cores.
 
     Attributes
     ----------
     authorizer_pools: Array(Vec(H256),constant_C)
-        GP-0.5.0-eq:8.1 (α) | A collections of pools of authorizations for all cores.
+        GP-0.7.0-eq:8.1 (α) | A collections of pools of authorizations for all cores.
     """
     authorizer_pools: List[List[bytes]] = field(metadata={'codec': Array(Vec(H256), CORE_COUNT)})
 
@@ -212,15 +212,15 @@ class Mmr(Serializable):
 @dataclass
 class ReportedWorkPackage(Serializable):
     """
-    GP-0.5.0-eq:7.1 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
+    GP-0.7.0-eq:7.2 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
     of cores (constant_c=341)
 
     Attributes
     ----------
     hash: H256
-        GP-0.5.0-eq:7.1 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+        GP-0.7.0-eq:7.2 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
     exports_root: H256
-        GP-0.5.0-eq:7.1 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+        GP-0.7.0-eq:7.2 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
     """
     hash: bytes = field(metadata={'codec': H256})
     exports_root: bytes = field(metadata={'codec': H256})
@@ -322,39 +322,39 @@ class PreimageAvailabilityMap(StorageMap):
 @dataclass
 class ServiceAccount(Serializable):
     """
-    GP-0.6.2-eq:9.3 (blackboard_A) | A service account.
+    GP-0.7.0-eq:9.3 (blackboard_A) | A service account.
 
     Attributes
     ----------
     code_hash: H256
-        GP-0.6.2-eq:9.3 (c) | Hash of the service account's code
+        GP-0.7.0-eq:9.3 (c) | Hash of the service account's code
     balance: U64
-        GP-0.6.2-eq:9.3 (b) | Balance of a service account
+        GP-0.7.0-eq:9.3 (b) | Balance of a service account
     gas_limit_accumulate: U64
-        GP-0.6.2-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
+        GP-0.7.0-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
     gas_limit_on_transfer: U64
-        GP-0.6.2-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
+        GP-0.7.0-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
     footprint_storage_bytes: U64
-        GP-0.6.2-eq:9.8 (o) | Storage footprint of the service account. The total number of bytes used in storage.
+        GP-0.7.0-eq:9.8 (o) | Storage footprint of the service account. The total number of bytes used in storage.
     footprint_storage_items: U32
-        GP-0.6.2-eq:9.8 (i) | Storage footprint of the service account. The number of items in storage.
+        GP-0.7.0-eq:9.8 (i) | Storage footprint of the service account. The number of items in storage.
     threshold_balance: U64
-        GP-0.6.2-eq:9.8 (t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
+        GP-0.7.0-eq:9.8 (t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
         footprint.
     deposit_offset: U32
-        GP-0.6.7-eq:9.3 (f) | Gratis deposit offset.
+        GP-0.7.0-eq:9.3 (f) | Gratis deposit offset.
     creation_slot: U32
-        GP-0.6.7-eq:9.3 (r) | Timeslot when created
+        GP-0.7.0-eq:9.3 (r) | Timeslot when created
     last_accumulation_slot: U64
-        GP-0.6.7-eq:9.3 (a) | Timeslot when last accumulated
+        GP-0.7.0-eq:9.3 (a) | Timeslot when last accumulated
     parent_service: U64
-        GP-0.6.7-eq:9.3 (p) | Parent service.
+        GP-0.7.0-eq:9.3 (p) | Parent service.
     storage_items: Dict(H256,Bytes)
-        GP-0.6.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
+        GP-0.7.0-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
     preimages: Dict(H256,Bytes)
-        GP-0.6.2-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
+        GP-0.7.0-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
     preimage_availability: Dict(Tuple(H256,U32), Vec<U32>)
-        GP-0.6.2-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
+        GP-0.7.0-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
     """
     # Remark: Only the following field need to be serialized/deserialized
     code_hash: bytes = field(metadata={'codec': H256})
@@ -476,12 +476,12 @@ class ServiceAccountMap(StorageMap):
 @dataclass
 class ServicesState(State, Serializable):
     """
-    GP-0.5.2-eq:9.2 (δ) | Services partition of the overall state.
+    GP-0.7.0-eq:9.2 (δ) | Services partition of the overall state.
 
     Attributes
     ----------
     services: Dict(U32,ServiceAccount)
-        GP-0.5.2-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
+        GP-0.7.0-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
         service account index.
     """
     services: Union[Dict[int, ServiceAccount], ServiceAccountMap] = field(
@@ -1205,14 +1205,14 @@ class StatisticsState(State, Serializable):
 @dataclass
 class AccumulationQueueWorkPackage(Serializable):
     """
-    GP-0.5.0-eq:13.1 (ϑ) | A not yet accumulated work package.
+    GP-0.7.0-eq:13.1 (ω) | A not yet accumulated work package.
 
     Attributes
     ----------
     report: WorkReport
-        GP-0.5.4-eq:12.3 (blackboard_W) | Work Report.
+        GP-0.7.0-eq:12.3 (blackboard_R) | Work Report.
     dependencies: Vec(H256)
-        GP-0.5.4-eq:12.3 ({blackboard_H}) | Set of Work Package hashes.
+        GP-0.7.0-eq:12.3 ({blackboard_H}) | Set of Work Package hashes.
     """
     report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
     dependencies: List[bytes] = field(metadata={'codec': Vec(H256)})
@@ -1221,13 +1221,13 @@ class AccumulationQueueWorkPackage(Serializable):
 @dataclass
 class AccumulationQueueState(State, Serializable):
     """
-    GP-0.5.0-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
+    GP-0.7.0-eq:12.3 (ω) | A collection of unaccumulated work packages.
 
     Attributes
     ----------
 
     accumulation_queue: Array(Vec(AccumulationQueueWorkPackage),constant_E)
-        GP-0.5.4-eq:12.3 (ϑ) | A collection of unaccumulated work packages.
+        GP-0.7.0-eq:12.3 (ω) | A collection of unaccumulated work packages.
     """
     accumulation_queue: List[List[AccumulationQueueWorkPackage]] = field(
         metadata={'codec': Array(Vec(AccumulationQueueWorkPackage.to_codec_def()), EPOCH_TIMESLOTS)}
@@ -1237,13 +1237,13 @@ class AccumulationQueueState(State, Serializable):
 @dataclass
 class AccumulationHistoryState(State, Serializable):
     """
-    GP-0.5.0-eq:12.1 (ξ) | A history of what has been accumulated.
+    GP-0.7.0-eq:12.1 (ξ) | A history of what has been accumulated.
 
     Attributes
     ----------
 
     accumulation_history: Array(Vec(H256),constant_E)
-        GP-0.5.0-eq:12.1 (ξ) | A history of what has been accumulated.
+        GP-0.7.0-eq:12.1 (ξ) | A history of what has been accumulated.
     """
     accumulation_history: List[List[bytes]] = field(
         metadata={'codec': Array(Vec(H256), EPOCH_TIMESLOTS)}
@@ -1279,47 +1279,48 @@ class BeefyCommitmentMap(Serializable):
 @dataclass
 class JamState(State, Serializable):
     """
-    GP-0.6.4-eq:4.4 (σ) | Logically partitioned state into several largely independent segments which can help both
+    GP-0.7.0-eq:4.4 (σ) | Logically partitioned state into several largely independent segments which can help both
     visual clutter within the protocol description and provide formality over elements of computation which may be
     simultaneously calculated (i.e. parallelized).
 
     Attributes
     ----------
     authorizer_pools: AuthorizerPoolsState
-        GP-0.6.4-eq:4.4 (α) | AuthorizerPool partition of the overall state
+        GP-0.7.0-eq:4.4 (α) | AuthorizerPool partition of the overall state
     recent_history: RecentHistoryState
-        GP-0.6.4-eq:4.4 (β) | RecentHistory partition of the overall state
+        GP-0.7.0-eq:4.4 (β) | RecentHistory partition of the overall state
     safrole: SafroleState
-        GP-0.6.4-eq:4.4 (γ) | Safrole partition of the overall state
+        GP-0.7.0-eq:4.4 (γ) | Safrole partition of the overall state
     services: ServicesState
-        GP-0.6.4-eq:4.4 (δ) | Services partition of the overall state
+        GP-0.7.0-eq:4.4 (δ) | Services partition of the overall state
     entropy: EntropyState
-        GP-0.6.4-eq:4.4 (η) | Entropy partition of the overall state
+        GP-0.7.0-eq:4.4 (η) | Entropy partition of the overall state
     validator_queue: ValidatorQueueState
-        GP-0.6.4-eq:4.4 (ι) | ValidatorQueue partition of the overall state
+        GP-0.7.0-eq:4.4 (ι) | ValidatorQueue partition of the overall state
     validator_pool: ValidatorPoolState
-        GP-0.6.4-eq:4.4 (κ) | ValidatorPool partition of the overall state
+        GP-0.7.0-eq:4.4 (κ) | ValidatorPool partition of the overall state
     validator_archive: ValidatorArchiveState
-        GP-0.6.4-eq:4.4 (λ) | ValidatorArchive partition of the overall state
+        GP-0.7.0-eq:4.4 (λ) | ValidatorArchive partition of the overall state
     assurances: AssurancesState
-        GP-0.6.4-eq:4.4 (ρ) | Assurances partition of the overall state
+        GP-0.7.0-eq:4.4 (ρ) | Assurances partition of the overall state
     timeslot: TimeslotState
-        GP-0.6.4-eq:4.4 (τ) | Timeslot partition of the overall state
+        GP-0.7.0-eq:4.4 (τ) | Timeslot partition of the overall state
     authorizer_queues: AuthorizerQueuesState
-        GP-0.6.4-eq:4.4 (φ) | AuthorizerQueue partition of the overall state
+        GP-0.7.0-eq:4.4 (φ) | AuthorizerQueue partition of the overall state
     privileged_services: PrivilegedServicesState
-        GP-0.6.4-eq:4.4 (χ) | PrivilegedServices partition of the overall state
+        GP-0.7.0-eq:4.4 (χ) | PrivilegedServices partition of the overall state
     disputes: DisputesState
-        GP-0.6.4-eq:4.4 (ψ) | Disputes partition of the overall state
+        GP-0.7.0-eq:4.4 (ψ) | Disputes partition of the overall state
     statistics: StatisticsState
-        GP-0.6.4-eq:4.4 (π) | Statistics partition of the overall state
+        GP-0.7.0-eq:4.4 (π) | Statistics partition of the overall state
     accumulation_queue: AccumulationQueueState
-        GP-0.6.4-eq:4.4 (ϑ) | AccumulationQueue partition of the overall state
+        GP-0.7.0-eq:4.4 (ω) | AccumulationQueue partition of the overall state
     accumulation_history: AccumulationHistoryState
-        GP-0.6.4-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
+        GP-0.7.0-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
+    # TODO: add θ to state check eq:4.4
     safrole: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     entropy: EntropyState = field(metadata={'codec': EntropyState.to_codec_def()})
@@ -1444,13 +1445,13 @@ class DeferredTransfer(Serializable):
 @dataclass
 class DeferredTransfers(Serializable):
     """
-    GP-0.5.2-eq:12.23 (Vec(blackboard_T)) | A collection of deferred transfers.
+    GP-0.7.0-eq:12.23 (Vec(blackboard_X)) | A collection of deferred transfers.
 
     Attributes
     ----------
 
     deferred_transfers: Vec(DeferredTransfer)
-        GP-0.5.2-eq:12.23 (Vec(blackboard_T)) | A collection of deferred transfers.
+        GP-0.7.0-eq:12.23 (Vec(blackboard_X)) | A collection of deferred transfers.
     """
     deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
 
@@ -1458,19 +1459,20 @@ class DeferredTransfers(Serializable):
 @dataclass
 class AccumulationStateComponents(Serializable):
     """
-    GP-0.7.0-eq:12.13 (blackboard_S) | State components which are needed and mutable by the accumulation process.
+    GP-0.7.0-eq:12.16 (blackboard_S) | State components which are needed and mutable by the accumulation process.
 
     Attributes
     ----------
     services: ServicesState
-        GP-0.5.2-eq:12.13 (bold_d) | Dictionary with services state.
+        GP-0.7.0-eq:12.16 (bold_d) | Dictionary with services state.
     validator_queue: ValidatorQueueState
-        GP-0.5.2-eq:12.13 (bold_i) | Validator Queue state.
+        GP-0.7.0-eq:12.16 (bold_i) | Validator Queue state.
     authorizer_queues: AuthorizerQueuesState
-        GP-0.5.2-eq:12.13 (bold_q) | Authorizer Queues state.
+        GP-0.7.0-eq:12.16 (bold_q) | Authorizer Queues state.
     privileged_services: PrivilegedServicesState
         GP-0.5.2-eq:12.13 (bold_x) | Privileged Services state.
     """
+    # TODO: structure change in 0.7.0
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
@@ -1525,23 +1527,23 @@ class AccumulationStateComponents(Serializable):
 @dataclass
 class AccumulateContextItem:
     """
-    GP-0.6.2-eq:B.6 (blackboard_X) | Invocation Result Context
+    GP-0.7.0-eq:B.7 (blackboard_L) | Invocation Result Context
 
     TODO check service_account_id in state_context.services
     """
     service_account_id: int  # s
-    state_context: AccumulationStateComponents  # u
+    state_context: AccumulationStateComponents  # bold_e
     new_service_account_id: int  # i
-    deferred_transfers: List[DeferredTransfer]  # t
+    deferred_transfers: List[DeferredTransfer]  # bold_t
     invocation_output: Optional[bytes]  # y
-    preimages: List[Tuple[int, bytes]] # p
+    preimages: List[Tuple[int, bytes]] # bold_p
 
 
 @dataclass
 class AccumulateInvocationContext(InvocationContext):
     """
-    GP-0.6.4-eq:B.7 (X) | Invocation Result Context
+    GP-0.7.0-eq:B.8 (blackboard_L) | Invocation Result Context
     """
-    context: AccumulateContextItem           # GP-0.6.4-eq:B.11 X_x
-    savepoint_context: AccumulateContextItem # GP-0.6.4-eq:B.11 X_y
+    context: AccumulateContextItem           # GP-0.7.0-eq:B.11 X_x
+    savepoint_context: AccumulateContextItem # GP-0.7.0-eq:B.11 X_y
     timeslot: int # TODO how to make available?

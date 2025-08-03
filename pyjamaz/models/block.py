@@ -43,9 +43,9 @@ class TicketEnvelope(Serializable):
     Attributes
     ----------
     attempt: U16
-        GP-0.5.0-eq:6.29 (e) | An entry index
+        GP-0.7.0-eq:6.29 (e) | An entry index
     signature: Array(U8,784)
-        GP-0.5.0-eq:6.29 (p) | Proof of a ticket's validity
+        GP-0.7.0-eq:6.29 (p) | Proof of a ticket's validity
     """
     attempt: int = field(metadata={'codec': U8})
     signature: bytes = field(metadata={'codec': Array(U8, 784)})
@@ -78,16 +78,16 @@ class TicketEnvelope(Serializable):
 @dataclass
 class Judgement(Serializable):
     """
-    GP-0.5.0-eq:10.2 (third element of the tuple in bold_v) | An individual judgements coming from a validator
+    GP-0.7.0-eq:10.2 (third element of the tuple in bold_E_V) | An individual judgements coming from a validator
 
     Attributes
     ----------
     vote: Bool
-        GP-0.5.0-eq:10.2 ({T/F}) | A vote
+        GP-0.7.0-eq:10.2 ({T/F}) | A vote
     index: U16
-        GP-0.5.0-eq:10.2 (blackboard_N_V) | A validator index
+        GP-0.7.0-eq:10.2 (blackboard_N_V) | A validator index
     signature: H512
-        GP-0.5.0-eq:10.2 (blackboard_E) | A Ed25519 signature corresponding to the validator index
+        GP-0.7.0-eq:10.2 (blackboard_V_-) | A valid Ed25519 signature corresponding to the validator index
     """
     vote: bool = field(metadata={'codec': Bool()})
     index: int = field(metadata={'codec': U16})
@@ -107,19 +107,19 @@ class Judgement(Serializable):
 @dataclass
 class Verdict(Serializable):
     """
-    GP-0.5.0-eq:10.2 (bold_v) | A compilation of judgements coming from exactly two-thirds plus one of either the active
-    validator set or the previous epoch's validator set
+    GP-0.7.0-eq:10.2 (bold_E_V) | A compilation of judgements coming from exactly two-thirds plus one of either the
+    active validator set or the previous epoch's validator set
 
     Attributes
     ----------
     target: H256
-        GP-0.5.0-eq:10.2 (blackboard_H in bold_v) | A work-report hash
+        GP-0.7.0-eq:10.2 (blackboard_H in bold_E_V) | A work-report hash
     age: U32
-        GP-0.5.0-eq:10.2 (second element of the tuple in bold_v) | Determines whether the current or the previous
+        GP-0.7.0-eq:10.2 (second element of the tuple in bold_E_V) | Determines whether the current or the previous
         validator set applies to this verdict
     votes: Vec(fault)
-        GP-0.5.0-eq:10.2 (third element of the tuple in bold_v) | A set of judgements by two-thirds plus one of either
-        the current or the previous validator set
+        GP-0.7.0-eq:10.2 (third element of the tuple in bold_E_V) | A set of judgements by two-thirds plus one of
+        either the current or the previous validator set
     """
     target: bytes = field(metadata={'codec': H256})
     age: int = field(metadata={'codec': U32})
@@ -153,17 +153,18 @@ class Verdict(Serializable):
 @dataclass
 class Culprit(Serializable):
     """
-    GP-0.5.0-eq:10.2 (bold_c) | Proof of misbehaviour of one or more validators by guaranteeing a work-report found to
-    be invalid. This is considered an offence.
+    GP-0.7.0-eq:10.2 (bold_E_C) | Proof of misbehaviour of one or more validators by guaranteeing a work-report found
+    to be invalid. This is considered an offence.
 
     Attributes
     ----------
     target: H256
-        GP-0.5.0-eq:10.2 (blackboard_H) | A work-report hash
+        GP-0.7.0-eq:10.2 (blackboard_H) | A work-report hash
     key: H256
-        GP-0.5.0-eq:10.2 (blackboard_H_E) | A validator Ed25519 public key
+        GP-0.7.0-eq:10.2 (blackboard_H_-) | A validator Ed25519 public key
     signature: H512
-        GP-0.5.0-eq:10.2 (blackboard_E) | A Ed25519 signature corresponding to the validator's Ed25519 public key
+        GP-0.7.0-eq:10.2 (blackboard_V_-) | A valid Ed25519 signature corresponding to the validator's Ed25519 public
+        key
     """
     target: bytes = field(metadata={'codec': H256})
     key: bytes = field(metadata={'codec': H256})
@@ -177,20 +178,20 @@ class Culprit(Serializable):
 @dataclass
 class Fault(Serializable):
     """
-    GP-0.5.0-eq:10.2 (bold_f) | Proof of misbehaviour of one or more validators by signing a judgement found to be
+    GP-0.7.0-eq:10.2 (bold_E_F) | Proof of misbehaviour of one or more validators by signing a judgement found to be
     contradiction to a work-report's validity. This is considered an offence.
 
     Attributes
     ----------
     target: H256
-        GP-0.5.0-eq:10.2 (blackboard_H) | A work-report hash
+        GP-0.7.0-eq:10.2 (blackboard_H) | A work-report hash
     vote: Bool
-        GP-0.5.0-eq:10.2 ({T/F}) | A vote
+        GP-0.7.0-eq:10.2 ({T/F}) | A vote
     key: H256
-        GP-0.5.0-eq:10.2 (blackboard_H_E) | A validator Ed25519 public key
+        GP-0.7.0-eq:10.2 (blackboard_H_-) | A validator Ed25519 public key
     signature: H512
-        GP-0.5.0-eq:10.2 (blackboard_E) | A Ed25519 signature corresponding to the validator's Ed25519 public key
-
+        GP-0.7.0-eq:10.2 (blackboard_V_-) | A valid Ed25519 signature corresponding to the validator's Ed25519 public
+        key
     """
     target: bytes = field(metadata={'codec': H256})
     vote: bool = field(metadata={'codec': Bool()})
@@ -205,19 +206,19 @@ class Fault(Serializable):
 @dataclass
 class ExtrinsicDisputes(Serializable):
     """
-    GP-0.5.0-eq:10.2 (bold_E_D) | judgements by validators on disputes.
+    GP-0.7.0-eq:10.2 (bold_E_D) | judgements by validators on disputes.
 
     Attributes
     ----------
     verdicts: Vec(verdict)
-        GP-0.5.0-eq:10.2 (bold_v) | Compilations of judgements coming from exactly two-thirds plus one of either the
+        GP-0.7.0-eq:10.2 (bold_E_V) | Compilations of judgements coming from exactly two-thirds plus one of either the
         active validator set or the previous epoch's validator set.
     culprits: Vec(culprit)
-        GP-0.5.0-eq:10.2 (bold_c) | Proofs of misbehaviour of one or more validators by guaranteeing a work-report
+        GP-0.7.0-eq:10.2 (bold_E_C) | Proofs of misbehaviour of one or more validators by guaranteeing a work-report
         found to be invalid. This is considered an offence.
     faults: Vec(fault)
-        GP-0.5.0-eq:10.2 (bold_f) | Proofs of misbehaviour of one or more validators by signing a judgement found to be
-        contradiction to a work-report's validity. This is considered an offence.
+        GP-0.7.0-eq:10.2 (bold_E_F) | Proofs of misbehaviour of one or more validators by signing a judgement found to
+        be contradiction to a work-report's validity. This is considered an offence.
     """
     verdicts: List[Verdict] = field(metadata={'codec': Vec(Verdict.to_codec_def())})
     culprits: List[Culprit] = field(metadata={'codec': Vec(Culprit.to_codec_def())})
@@ -227,15 +228,15 @@ class ExtrinsicDisputes(Serializable):
 @dataclass
 class Preimage(Serializable):
     """
-    GP-0.5.0-eq:12.28 (bold_E_P) | Single item in the preimages extrinsic. A preimage is a pair of service indices and
+    GP-0.7.0-eq:12.33 (bold_E_P) | Single item in the preimages extrinsic. A preimage is a pair of service indices and
     data.
 
     Attributes
     ----------
     requester: U32
-        GP-0.5.0-eq:12.28 (blackboard_N_S) | A service index.
+        GP-0.7.0-eq:12.33 (blackboard_N_S) | A service index.
     blob: Bytes
-        GP-0.5.0-eq:12.28 (blackboard_Y) | Arbitrary length data.
+        GP-0.7.0-eq:12.33 (blackboard_B) | Arbitrary length data.
     """
     requester: int = field(metadata={'codec': U32})
     blob: bytes = field(metadata={'codec': Bytes})
@@ -250,19 +251,19 @@ class Preimage(Serializable):
 @dataclass
 class Assurance(Serializable):
     """
-    GP-0.5.0-eq:11.8 (bold_E_A) | Single item in the assurances extrinsic. Assurance by individual validator concerning
+    GP-0.7.0-eq:11.10 (bold_E_A) | Single item in the assurances extrinsic. Assurance by individual validator concerning
     which of the input data of workloads they have correctly received and are storing locally.
 
     Attributes
     ----------
     anchor: H256
-        GP-0.5.0-eq:11.8 (a) | Anchor to the parent_hash of the block.
+        GP-0.7.0-eq:11.10 (a) | Anchor to the parent_hash of the block.
     bitfield: BitArray(constant_C)
-        GP-0.5.0-eq:11.8 (f) | A sequence of binary values (bitstring) one per core.
+        GP-0.7.0-eq:11.10 (f) | A sequence of binary values (bitstring) one per core.
     validator_index: U16
-        GP-0.5.0-eq:11.8 (v) | A validator index.
+        GP-0.7.0-eq:11.10 (v) | A validator index.
     signature: H512
-        GP-0.5.0-eq:11.8 (s) | A Ed25519 signature corresponding to the validator index.
+        GP-0.7.0-eq:11.10 (s) | A Ed25519 signature corresponding to the validator index.
     """
     anchor: bytes = field(metadata={'codec': H256})
     bitfield: List[bool] = field(metadata={'codec': BitArray(CORE_COUNT)})
@@ -281,15 +282,15 @@ class Assurance(Serializable):
 @dataclass
 class Credential(Serializable):
     """
-    GP-0.5.0-eq:11.22 (a) | Single item in the signatures attribute of a guarantee comprising a validator index and its
+    GP-0.7.0-eq:11.22 (a) | Single item in the signatures attribute of a guarantee comprising a validator index and its
     Ed25519 signature.
 
     Attributes
     ----------
     validator_index: U16
-        GP-0.5.0-eq:11.22 (blackboard_N_V) | A validator index.
+        GP-0.7.0-eq:11.22 (blackboard_N_V) | A validator index.
     signature: H512
-        GP-0.5.0-eq:11.22 (blackboard_E) | A Ed25519 signature corresponding to the validator index.
+        GP-0.7.0-eq:11.22 (blackboard_V_-) | A valid Ed25519 signature corresponding to the validator index.
     """
     validator_index: int = field(metadata={'codec': U16})
     signature: bytes = field(metadata={'codec': H512})
@@ -298,17 +299,17 @@ class Credential(Serializable):
 @dataclass
 class Guarantee(Serializable):
     """
-    GP-0.5.0-eq:11.22 (bold_E_G) | Single item in the guarantees extrinsic. Report of newly completed workload whose
+    GP-0.7.0-eq:11.23 (bold_E_G) | Single item in the guarantees extrinsic. Report of newly completed workload whose
     accuracy is guaranteed by specific validators.
 
     Attributes
     ----------
     report: pyjamaz.models.common.WorkReport
-        GP-0.5.0-eq:11.22 (w) | A work report.
+        GP-0.7.0-eq:11.23 (bold_r) | A work report.
     slot: U32
-        GP-0.5.0-eq:11.22 (t) | A timeslot.
+        GP-0.7.0-eq:11.23 (t) | A timeslot.
     signatures: Vec(Credential)
-        GP-0.5.0-eq:11.22 (a) | A set of credentials.
+        GP-0.7.0-eq:11.23 (a) | A set of credentials.
     """
     report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
     slot: int = field(metadata={'codec': U32})
@@ -319,42 +320,42 @@ class Guarantee(Serializable):
 @dataclass
 class Header(Serializable):
     """
-    GP-0.5.0-eq:5.1 (bold_H) | The header is a collection of metadata primarily concerned with cryptographic references
+    GP-0.7.0-eq:5.1 (bold_H) | The header is a collection of metadata primarily concerned with cryptographic references
     to the blockchain ancestors and the operands and results of the present transition.
 
-    Serialization: GP-0.6.4-eq:C.19
+    Serialization: GP-0.7.0-eq:C.22,23
 
     Attributes
     ----------
     parent: H256
-        GP-0.5.0-eq:5.2 (bold_H_p) |
+        GP-0.7.0-eq:5.2 (bold_H_P) |
         Hash of the header of the block's parent
     parent_state_root: H256
-        GP-0.5.0-eq:5.8 (bold_H_r) |
+        GP-0.7.0-eq:5.8 (bold_H_R) |
         Merkle root of the block's parent posterior state
     extrinsic_hash: H256
-        GP-0.5.0-eq:5.4 (bold_H_x) |
+        GP-0.7.0-eq:5.4 (bold_H_X) |
         Hash of the block's extrinsic data
     timeslot: U32
-        GP-0.5.0-eq:5.7,6.1 (bold_H_t,blackboard_N=U32) |
+        GP-0.7.0-eq:5.7,6.1 (bold_H_T,blackboard_N=U32) |
         Block's timeslot
     epoch_marker: EpochMark
-        GP-0.5.0-eq:5.10 (bold_H_e) |
+        GP-0.7.0-eq:5.10 (bold_H_E) |
         Optional block's epoch marker; fallback keys and entropy for next epoch
     tickets_marker: Option(Array(TicketBody,EPOCH_TIMESLOTS))
-        GP-0.5.0-eq:5.10 (bold_H_w) |
+        GP-0.7.0-eq:5.10 (bold_H_W) |
         Optional block's winning tickets marker; provides a series of 600 slot sealing tickets for the next epoch
     offenders_marker: Vec(H256)
-        GP-0.5.0-eq:5.10 (bold_H_o) |
+        GP-0.7.0-eq:5.10 (bold_H_O) |
         List of Ed25519 keys for offenders
     author_index: U16
-        GP-0.5.0-eq:5.9 (bold_H_i) |
+        GP-0.7.0-eq:5.9 (bold_H_I) |
         Index to identify the block author into the posterior state of the current validator set (kappa)
     entropy_source: Array(U8, 96)
-        GP-0.5.0-eq:6.17 (bold_H_v) |
+        GP-0.7.0-eq:6.17 (bold_H_V) |
         Entropy-yielding VRF signature
     seal: Array(U8, 96)
-        GP-0.5.0-eq:6.15,6.16 (bold_H_s) |
+        GP-0.7.0-eq:6.15,6.16 (bold_H_S) |
         Seal signature
     """
     parent: bytes = field(metadata={'codec': H256})

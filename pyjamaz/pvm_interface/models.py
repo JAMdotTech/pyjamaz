@@ -46,7 +46,7 @@ class PvmRefineOutput:
 @dataclass
 class AccumulateContextItem:
     """
-    GP-0.6.2-eq:B.6 (blackboard_X) | Invocation Result Context
+    GP-0.6.2-eq:B.6 (X) | Invocation Result Context
 
     TODO check service_account_id in state_context.services
     """
