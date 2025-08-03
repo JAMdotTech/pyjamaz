@@ -158,7 +158,7 @@ def hc_designate(
     if memory.is_accessible(o, 336 * VALIDATOR_COUNT, PVMMemoryMode.readable):
         validator_queue = [] #GP: bold_v
         try:
-            for idx in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS):
+            for idx in range(VALIDATOR_COUNT):
                 offset = o + idx * 336
                 validator_data = ValidatorData.from_jam_bytes(JamBytes(memory.read_bytes(offset, 336)))
                 validator_queue.append(validator_data)

@@ -1,0 +1,45 @@
+{
+  "hostcall": "hc_designate",
+  "description": "Tests successful designation by providing enough memory for 80 validators",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    0,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 32768,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [],
+  "context": {
+    "services": {}
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}

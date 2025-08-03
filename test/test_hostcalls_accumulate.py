@@ -12,7 +12,9 @@ from parameterized import parameterized
 
 from pyjamaz.pvm_interface.hostcalls.accumulate import (
     hc_bless,
-    hc_assign
+    hc_assign,
+    hc_designate,
+    hc_new
 )
 
 from pyjamaz.pvm.debug_logger import PVMDebugLog
@@ -20,7 +22,7 @@ from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState
+from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState, ValidatorQueueState
 from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.pvm_interface.models import AccumulateInvocationContext, AccumulateContextItem
@@ -69,6 +71,7 @@ def create_mock_service_account(
     service_account.update_footprint_add_storage_item = Mock()
     service_account.update_footprint_remove_storage_item = Mock()
     service_account.update_footprint_update_storage_item = Mock()
+    service_account.update_footprint_add_preimage = Mock()
     
     return service_account
 
@@ -113,6 +116,7 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
         raise StateKeyNoResult(f"Preimage not found")
     
     services.retrieve_preimage = Mock(side_effect=retrieve_preimage)
+    services.store_preimage_availability = Mock()
     
     return services
 
@@ -227,15 +231,24 @@ class TestHCAccumulate(unittest.TestCase):
         authorizer_queues = Mock(spec=AuthorizerQueuesState)
         authorizer_queues.authorizer_queues = {}
         
+        # Create validator queue
+        validator_queue = Mock(spec=ValidatorQueueState)
+        validator_queue.validators = []
+        
         # Create accumulation state components
         state_components = Mock(spec=AccumulationStateComponents)
         state_components.services = services
         state_components.privileged_services = privileged_services
         state_components.authorizer_queues = authorizer_queues
+        state_components.validator_queue = validator_queue
+        state_components.check_service_id = Mock(side_effect=lambda x: x)
         
         # Create accumulate context item
         context_item = Mock(spec=AccumulateContextItem)
         context_item.state_context = state_components
+        context_item.service_account_id = test_vector.get("context", {}).get("service_account_id", 1)
+        context_item.new_service_account_id = test_vector.get("context", {}).get("new_service_account_id", 256)
+        context_item.deferred_transfers = []
         
         # Create accumulate invocation context
         accumulate_context = Mock(spec=AccumulateInvocationContext)
@@ -251,6 +264,22 @@ class TestHCAccumulate(unittest.TestCase):
             )
         elif hostcall == "hc_assign":
             hc_assign(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                invocation_output,
+                logger
+            )
+        elif hostcall == "hc_designate":
+            hc_designate(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                invocation_output,
+                logger
+            )
+        elif hostcall == "hc_new":
+            hc_new(
                 pvm_regs,
                 pvm_memory,
                 accumulate_context,
