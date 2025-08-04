@@ -1,0 +1,53 @@
+{
+  "hostcall": "hc_provide",
+  "description": "Tests provide failure when memory is not readable for preimage",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    200000,
+    100,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [],
+  "context": {
+    "service_account_id": 42,
+    "services": {
+      "42": {
+        "code_hash": "1122334455667788990011223344556677889900112233445566778899001122",
+        "balance": 2000000,
+        "threshold_balance": 100
+      }
+    },
+    "preimages": []
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    200000,
+    100,
+    0,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+}

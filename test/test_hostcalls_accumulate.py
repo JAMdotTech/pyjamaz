@@ -19,7 +19,9 @@ from pyjamaz.pvm_interface.hostcalls.accumulate import (
     hc_transfer,
     hc_eject,
     hc_query,
-    hc_solicit
+    hc_solicit,
+    hc_forget,
+    hc_provide
 )
 
 from pyjamaz.pvm.debug_logger import PVMDebugLog
@@ -141,6 +143,13 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
         preimage_availability_dict[key] = value
     
     services.store_preimage_availability = Mock(side_effect=store_preimage_availability)
+    
+    def delete_preimage_availability(service_id, preimage_hash, length):
+        key = f"{service_id}:{preimage_hash.hex() if isinstance(preimage_hash, bytes) else preimage_hash}:{length}"
+        if key in preimage_availability_dict:
+            del preimage_availability_dict[key]
+    
+    services.delete_preimage_availability = Mock(side_effect=delete_preimage_availability)
     
     return services, preimage_availability_dict
 
@@ -281,6 +290,17 @@ class TestHCAccumulate(unittest.TestCase):
         context_item.new_service_account_id = test_vector.get("context", {}).get("new_service_account_id", 256)
         context_item.deferred_transfers = []
         
+        # Handle preimages
+        preimages_data = test_vector.get("context", {}).get("preimages", [])
+        preimages_hex = test_vector.get("context", {}).get("preimages_hex", False)
+        context_item.preimages = []
+        for preimage in preimages_data:
+            if preimages_hex:
+                # Convert hex string to bytes
+                context_item.preimages.append((preimage[0], bytes.fromhex(preimage[1])))
+            else:
+                context_item.preimages.append(tuple(preimage))
+        
         # Create accumulate invocation context
         accumulate_context = Mock(spec=AccumulateInvocationContext)
         accumulate_context.context = context_item
@@ -355,6 +375,24 @@ class TestHCAccumulate(unittest.TestCase):
                 pvm_regs,
                 pvm_memory,
                 accumulate_context,
+                invocation_output,
+                logger
+            )
+        elif hostcall == "hc_forget":
+            hc_forget(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                invocation_output,
+                logger
+            )
+        elif hostcall == "hc_provide":
+            hc_provide(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                services,
+                context_item.service_account_id,
                 invocation_output,
                 logger
             )

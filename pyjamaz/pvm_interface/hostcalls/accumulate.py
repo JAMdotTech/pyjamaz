@@ -691,7 +691,7 @@ def hc_forget(
         )
 
         preimage_cardinality = len(preimage_availability)
-        if preimage_cardinality in (0, 2) and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
+        if preimage_cardinality == 2 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
             # TODO: mark dirty? maybe register changes
             state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
             state.services.delete_preimage(service_id, preimage_hash)
@@ -722,7 +722,7 @@ def hc_forget(
 
     if preimage_hash is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("FORGET PANIC", f"preimage_hash={preimage_hash.hex()}")
+        logger.hc_log("FORGET PANIC", f"")
     elif preimage_updated is False:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.HUH.value
@@ -824,7 +824,7 @@ def hc_provide(
         output.registers[7] = HostCallResult.WHO.value
         logger.hc_log("PROVIDE WHO", f"")
 
-    elif preimage_availability != []:
+    elif preimage_availability is not None and preimage_availability != []:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("PROVIDE HUH", f"")
