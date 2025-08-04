@@ -16,7 +16,10 @@ from pyjamaz.pvm_interface.hostcalls.accumulate import (
     hc_designate,
     hc_new,
     hc_upgrade,
-    hc_transfer
+    hc_transfer,
+    hc_eject,
+    hc_query,
+    hc_solicit
 )
 
 from pyjamaz.pvm.debug_logger import PVMDebugLog
@@ -119,8 +122,27 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
     
     services.retrieve_preimage = Mock(side_effect=retrieve_preimage)
     services.store_preimage_availability = Mock()
+    services.delete_preimage = Mock()
+    services.delete_preimage_availability = Mock()
+    services.delete_service_account = Mock()
     
-    return services
+    # Add preimage availability support
+    preimage_availability_dict = {}
+    def retrieve_preimage_availability(service_id, preimage_hash, length):
+        key = f"{service_id}:{preimage_hash.hex() if isinstance(preimage_hash, bytes) else preimage_hash}:{length}"
+        if key in preimage_availability_dict:
+            return preimage_availability_dict[key]
+        raise StateKeyNoResult(f"Preimage availability not found")
+    
+    services.retrieve_preimage_availability = Mock(side_effect=retrieve_preimage_availability)
+    
+    def store_preimage_availability(service_id, preimage_hash, length, value):
+        key = f"{service_id}:{preimage_hash.hex() if isinstance(preimage_hash, bytes) else preimage_hash}:{length}"
+        preimage_availability_dict[key] = value
+    
+    services.store_preimage_availability = Mock(side_effect=store_preimage_availability)
+    
+    return services, preimage_availability_dict
 
 
 class TestHCAccumulate(unittest.TestCase):
@@ -220,7 +242,14 @@ class TestHCAccumulate(unittest.TestCase):
                 footprint_storage_items=service_config.get("footprint_storage_items", 0)
             )
         
-        services = create_mock_services_state(service_accounts=service_accounts)
+        # Load preimage availability from test vector
+        preimage_availability_data = test_vector.get("context", {}).get("preimage_availability", {})
+        
+        services, preimage_availability_dict = create_mock_services_state(service_accounts=service_accounts)
+        
+        # Populate preimage availability
+        for key, value in preimage_availability_data.items():
+            preimage_availability_dict[key] = value
         
         # Create privileged services
         privileged_services = Mock(spec=PrivilegedServicesState)
@@ -255,6 +284,7 @@ class TestHCAccumulate(unittest.TestCase):
         # Create accumulate invocation context
         accumulate_context = Mock(spec=AccumulateInvocationContext)
         accumulate_context.context = context_item
+        accumulate_context.timeslot = test_vector.get("context", {}).get("timeslot", 0)
 
         if hostcall == "hc_bless":
             hc_bless(
@@ -298,6 +328,30 @@ class TestHCAccumulate(unittest.TestCase):
             )
         elif hostcall == "hc_transfer":
             hc_transfer(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                invocation_output,
+                logger
+            )
+        elif hostcall == "hc_eject":
+            hc_eject(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                invocation_output,
+                logger
+            )
+        elif hostcall == "hc_query":
+            hc_query(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                invocation_output,
+                logger
+            )
+        elif hostcall == "hc_solicit":
+            hc_solicit(
                 pvm_regs,
                 pvm_memory,
                 accumulate_context,

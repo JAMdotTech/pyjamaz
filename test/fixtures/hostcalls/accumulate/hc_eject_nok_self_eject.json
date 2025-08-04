@@ -1,0 +1,59 @@
+{
+  "hostcall": "hc_eject",
+  "description": "Tests eject failure when trying to eject self, returns WHO",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    42,
+    131072,
+    0,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171,
+        171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171
+      ]
+    }
+  ],
+  "context": {
+    "service_account_id": 42,
+    "services": {
+      "42": {
+        "code_hash": "1122334455667788990011223344556677889900112233445566778899001122",
+        "balance": 1000000
+      }
+    }
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551612,
+    131072,
+    0,
+    0,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}
