@@ -14,7 +14,9 @@ from pyjamaz.pvm_interface.hostcalls.accumulate import (
     hc_bless,
     hc_assign,
     hc_designate,
-    hc_new
+    hc_new,
+    hc_upgrade,
+    hc_transfer
 )
 
 from pyjamaz.pvm.debug_logger import PVMDebugLog
@@ -280,6 +282,22 @@ class TestHCAccumulate(unittest.TestCase):
             )
         elif hostcall == "hc_new":
             hc_new(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                invocation_output,
+                logger
+            )
+        elif hostcall == "hc_upgrade":
+            hc_upgrade(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                invocation_output,
+                logger
+            )
+        elif hostcall == "hc_transfer":
+            hc_transfer(
                 pvm_regs,
                 pvm_memory,
                 accumulate_context,
