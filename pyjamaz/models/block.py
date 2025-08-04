@@ -61,7 +61,7 @@ class TicketEnvelope(Serializable):
 
     def generate_vrf_input(self, entropy: bytes) -> bytes:
         """
-        GP-0.5.0-eq:6.31
+        GP-0.7.0-eq:6.31
 
         Parameters
         ----------
@@ -95,7 +95,7 @@ class Judgement(Serializable):
 
     def get_signing_context(self) -> bytes:
         """
-        GP-0.5.0-eq:10.4
+        GP-0.7.0-eq:10.4
 
         Returns
         -------
@@ -377,7 +377,7 @@ class Header(Serializable):
     @property
     def hash(self) -> bytes:
         """
-        Generates a hash of the header. GP-0.5.0-eq:5.2 E_U(H)
+        Generates a hash of the header. GP-0.7.0-eq:5.2 E_U(H)
 
         Returns
         -------
@@ -390,9 +390,9 @@ class Header(Serializable):
 
     def get_unsigned_payload(self) -> bytes:
         """
-        Payload to create seal signature GP-0.5.0-eq:6.15,6.16 E_U(H)
+        Payload to create seal signature GP-0.7.0-eq:6.15,6.16 E_U(H)
 
-        Serialization: GP-0.6.4-eq:C.20
+        Serialization: GP-0.7.0-eq:C.23
 
         Returns
         -------
@@ -422,7 +422,7 @@ class Header(Serializable):
 
     def generate_ticket_seal(self, bandersnatch_priv_key: bytes, entropy: bytes, ticket_attempt: int) -> bytes:
         """
-        GP-0.5.4-eq:6.15 (bold_H_s) | Generate block seal using tickets
+        GP-0.7.0-eq:6.15 (bold_H_S) | Generate block seal using tickets
 
         Parameters
         ----------
@@ -442,7 +442,7 @@ class Header(Serializable):
 
     def generate_fallback_seal(self, bandersnatch_priv_key: bytes, entropy: bytes) -> bytes:
         """
-        GP-0.5.4-eq:6.16 (bold_H_s) | Generate block seal using fallback method
+        GP-0.7.0-eq:6.16 (bold_H_S) | Generate block seal using fallback method
 
         Parameters
         ----------
@@ -462,7 +462,7 @@ class Header(Serializable):
     @classmethod
     def default(cls) -> 'Header':
         """
-        GP-0.6.4-section:5 | We already presume consensus over this genesis header H^0 and the state it represents
+        GP-0.7.0-section:5 | We already presume consensus over this genesis header H^0 and the state it represents
         defined as σ^0. TODO make configurable
         """
         return Header(
@@ -516,7 +516,7 @@ class Header(Serializable):
     @property
     def author_bandersnatch_key(self) -> Optional[bytes]:
         """
-        GP-0.6.1-eq:5.9 (bold_H_a) Derived author bandersnatch key from author index
+        GP-0.7.0-eq:5.9 (bold_H_A) Derived author bandersnatch key from author index
         Returns
         -------
         Optional[bytes]
@@ -525,7 +525,7 @@ class Header(Serializable):
 
     def set_author_bandersnatch_key(self, post_state_validator_pool: 'ValidatorPoolState'):
         """
-        GP-0.6.1-eq:5.9 (bold_H_a) | Derive author bandersnatch key from validator pool (κ')
+        GP-0.7.0-eq:5.9 (bold_H_A) | Derive author bandersnatch key from validator pool (κ')
 
         Parameters
         ----------
@@ -544,28 +544,28 @@ class Header(Serializable):
 @dataclass
 class Extrinsic(Serializable):
     """
-    GP-0.6.4-eq:4.3 (bold_E) | Extrinsic data is input data external to the system.
+    GP-0.7.0-eq:4.3 (bold_E) | Extrinsic data is input data external to the system.
     Extrinsic data is split into several discrete portions.
 
-    Serialization: GP-0.6.4-eq:C.13
+    Serialization: GP-0.7.0-eq:C.16
 
     Attributes
     ----------
     tickets: Vec(TicketEnvelope)
-        GP-0.6.4-eq:6.29 (bold_E_T) |
+        GP-0.7.0-eq:6.29 (bold_E_T) |
         Manages selection of validators for permissioning of block authoring
     preimages: Vec(Preimage)
-        GP-0.6.4-eq:12.28 (bold_E_P) |
+        GP-0.7.0-eq:12.28 (bold_E_P) |
         Static data presently being requested to be available for workloads to be able to fetch on demand
     guarantees: Vec(Guarantee)
-        GP-0.6.4-eq:11.22 (bold_E_G) |
+        GP-0.7.0-eq:11.22 (bold_E_G) |
         Reports of newly completed workloads whose accuracy is guaranteed by specific validators
     assurances: Vec(Assurance)
-        GP-0.6.4-eq:11.8 (bold_E_A) |
+        GP-0.7.0-eq:11.8 (bold_E_A) |
         Assurances by each validator concerning which of the input data of workloads they have correctly received and
         are storing locally
     disputes: ExtrinsicDisputes
-        GP-0.6.4-eq:10.2 (bold_E_D) |
+        GP-0.7.0-eq:10.2 (bold_E_D) |
         Votes by validators on disputes
     """
     tickets: List[TicketEnvelope] = field(metadata={'codec': Vec(TicketEnvelope.to_codec_def())})
@@ -626,16 +626,16 @@ class Extrinsic(Serializable):
 @dataclass
 class Block(Serializable):
     """
-    GP-0.6.4-eq:4.2 (bold_B) | The header is a collection of metadata primarily concerned with cryptographic references
+    GP-0.7.0-eq:4.2 (bold_B) | The header is a collection of metadata primarily concerned with cryptographic references
     to the blockchain ancestors and the operands and results of the present transition.
 
     Attributes
     ----------
     header: Header
-        GP-0.6.4-eq:4.3 (bold_H) | Collection of metadata primarily concerned with cryptographic references to the
+        GP-0.7.0-eq:5.1 (bold_H) | Collection of metadata primarily concerned with cryptographic references to the
         blockchain ancestors and the operands and results of the present transition
     extrinsic: Extrinsic
-        GP-0.6.4-eq:4.3 (bold_E) |
+        GP-0.7.0-eq:4.3 (bold_E) |
         Extrinsic data is input data external to the system
     """
     header: Header = field(metadata={'codec': Header.to_codec_def()})

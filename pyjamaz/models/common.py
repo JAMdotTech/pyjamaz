@@ -525,12 +525,12 @@ class WorkReport(Serializable):
 @dataclass
 class Assurance(Serializable):
     """
-    GP-0.7.0-eq:116 (ρ[c]) | An assurance for a single core.
+    GP-0.7.0-eq:11.1 (ρ[C]) | An assurance for a single core.
 
     Attributes
     ----------
     report: WorkReport
-        GP-0.7.0-eq:11.1 (r) | A work report.
+        GP-0.7.0-eq:11.1 (bold_r) | A work report.
     timeout: U32
         GP-0.7.0-eq:11.1 (t) | A timeslot.
     """
@@ -549,20 +549,31 @@ class TicketBody(Serializable):
 @dataclass
 class AccumulationOperand(Serializable):
     """
-    GP-0.6.6-eq:12.19 (blackboard_O) | Operand to the PVM accumulation function
+    GP-0.7.0-eq:12.13 (blackboard_U) | Operand to the PVM accumulation function.
+
+    Attributes
+    ----------
+    work_report_hash: H256
+        GP-0.7.0-eq:12.13 (p) | [description].
+    work_report_exports_root: H256
+        GP-0.7.0-eq:12.13 (e) | [description].
+    work_report_authorizer_hash: H256
+        GP-0.7.0-eq:12.13 (a) | [description].
+    work_result_payload_hash: H256
+        GP-0.7.0-eq:12.13 (y) | [description].
+    work_result_gas_limit: VarInt64
+        GP-0.7.0-eq:12.13 (g) | [description].
+    work_exec_result: WorkExecResult
+        GP-0.7.0-eq:12.13 (bold_l) | [description].
+    work_report_auth_output: Bytes
+        GP-0.7.0-eq:12.13 (bold_t) | [description].
     """
-    # h
+    # TODO: check order of work_exec_result & work_report_auth_output (swapped in 0.7.0)
     work_report_hash: bytes = field(metadata={'codec': H256})
-    # e
     work_report_exports_root: bytes = field(metadata={'codec': H256})
-    # a
     work_report_authorizer_hash: bytes = field(metadata={'codec': H256})
-    # y
     work_result_payload_hash: bytes = field(metadata={'codec': H256})
-    # g
     work_result_gas_limit: int = field(metadata={'codec': VarInt64})
-    # d
     work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
-    # o
     work_report_auth_output: bytes = field(metadata={'codec': Bytes})
 
