@@ -320,7 +320,7 @@ class ServicesAfterAccumulationOutput(Serializable):
     post_state_validator_queue: ValidatorQueueState
         GP-0.6.1-eq:12.22 (ι') | Posterior state of validator queue
     post_state_authorizer_queues: AuthorizerQueuesState
-        GP-0.6.1-eq:12.22 (φ') | Posterior state of authorizer queues
+        GP-0.6.1-eq:12.22 (𝜙') | Posterior state of authorizer queues
     beefy_commitment_map: BeefyCommitmentMap
         GP-0.6.1-eq:12.21 (C) | Secondary output of Services STF, BeefyCommitmentMap.
     nr_work_results_accumulated: int

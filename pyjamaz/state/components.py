@@ -53,12 +53,12 @@ class Timeslot(StateComponent):
             header: Header
     ) -> TimeslotOutput:
         """
-        GP-0.5.0-eq:6.1 (τ') | State transition function for the state's timeslot.
+        GP-0.7.0-eq:6.1 (τ') | State transition function for the state's timeslot.
 
         Parameters
         ----------
         header: Header
-            GP-0.6.4-eq:4.5 (bold_H)
+            GP-0.7.0-eq:4.5 (bold_H)
 
         Returns
         -------
@@ -89,16 +89,16 @@ class Entropy(StateComponent):
             pre_state_entropy: EntropyState
     ) -> EntropyOutput:
         """
-        GP-0.5.0-eq:6.22,6.23 (η') | State transition function for the state's entropy.
+        GP-0.7.0-eq:6.22,6.23 (η') | State transition function for the state's entropy.
 
         Parameters
         ----------
         header: Header
-            GP-0.6.4-eq:4.9 (bold_H)
+            GP-0.7.0-eq:4.8 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.6.4-eq:4.9 (τ)
+            GP-0.7.0-eq:4.8 (τ)
         pre_state_entropy: EntropyState
-            GP-0.6.4-eq:4.9 (η)
+            GP-0.7.0-eq:4.8 (η)
 
         Returns
         -------
@@ -108,13 +108,13 @@ class Entropy(StateComponent):
 
         post_state_entropy = deepcopy(pre_state_entropy)
 
-        # GP-0.5.0-eq:6.22 (η'[0]) | State transition for first index of the entropy.
+        # GP-0.7.0-eq:6.22 (η'[0]) | State transition for first index of the entropy.
         eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(header))
 
-        # GP-0.5.0-eq:6.23 (η'[1-3]) | State transition for last three indices of the entropy.
+        # GP-0.7.0-eq:6.23 (η'[1-3]) | State transition for last three indices of the entropy.
         # State transition happen on epoch change.
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
-            # GP-0.5.0-eq:6.23 (`e > e'`) | When epoch changes
+            # GP-0.7.0-eq:6.23 (`e > e'`) | When epoch changes
             post_state_entropy.entropy = [eta_0] + pre_state_entropy.entropy[:3]
         else:
             post_state_entropy.entropy = [eta_0] + pre_state_entropy.entropy[1:]
@@ -129,7 +129,7 @@ class Entropy(StateComponent):
 
     def entropy_output(self, header: Header) -> bytes:
         """
-        GP-0.5.0-eq:G.5
+        GP-0.7.0-eq:G.5
         TODO check if output is indeed the first 32 bytes or a hash of the first 32 bytes
         TODO refactor to vrf_output of entropy signature
         Parameters
@@ -179,18 +179,18 @@ class ValidatorPool(StateComponent):
             pre_state_safrole: SafroleState
     ) -> ValidatorPoolOutput:
         """
-        GP-0.5.0-eq:6.13 (κ') | State transition function for the state's current validator set. Occurs on epoch change.
+        GP-0.7.0-eq:6.13 (κ') | State transition function for the state's current validator set. Occurs on epoch change.
 
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.10 (bold_H)
+            GP-0.7.0-eq:4.9 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.5.0-eq:4.10 (τ)
+            GP-0.7.0-eq:4.9 (τ)
         pre_state_validator_pool: ValidatorPoolState
-            GP-0.5.0-eq:4.10 (κ)
+            GP-0.7.0-eq:4.9 (κ)
         pre_state_safrole: SafroleState
-            GP-0.5.0-eq:4.10 (η)
+            GP-0.7.0-eq:4.9 (γ)
 
         Returns
         -------
@@ -222,19 +222,19 @@ class ValidatorArchive(StateComponent):
             pre_state_validator_pool: ValidatorPoolState
     ) -> ValidatorArchiveOutput:
         """
-        GP-0.5.0-eq:6.13 (λ') | State transition function for the state's archived validator set. Occurs on epoch
+        GP-0.7.0-eq:6.13 (λ') | State transition function for the state's archived validator set. Occurs on epoch
         change.
 
         Parameters
         ----------
         header: Header
-            GP-0.5.0-eq:4.11 (bold_H)
+            GP-0.7.0-eq:4.10 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.5.0-eq:4.11 (τ)
+            GP-0.7.0-eq:4.10 (τ)
         pre_state_validator_archive: ValidatorArchiveState
-            GP-0.5.0-eq:4.11 (λ)
+            GP-0.7.0-eq:4.10 (λ)
         pre_state_validator_pool: ValidatorPoolState
-            GP-0.5.0-eq:4.11 (κ)
+            GP-0.7.0-eq:4.10 (κ)
 
         Returns
         -------
@@ -300,26 +300,26 @@ class Safrole(StateComponent):
             post_state_disputes: DisputesState
     ) -> SafroleOutput:
         """
-        GP-0.5.0-eq:6.13,6.24,6.34 (γ') | State transition function for the state's Safrole data.
+        GP-0.7.0-eq:6.13,6.15,6.16,6.24,6.34 (γ') | State transition function for the state's Safrole data.
 
         Parameters
         ----------
         header: Header
-            GP-0.6.4-eq:4.8 (bold_H)
+            GP-0.7.0-eq:4.7 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.6.4-eq:4.8 (τ)
+            GP-0.7.0-eq:4.7 (τ)
         extrinsic_tickets: List[TicketEnvelope]
-            GP-0.6.4-eq:4.8 (bold_E_T)
+            GP-0.7.0-eq:4.7 (bold_E_T)
         pre_state_safrole: SafroleState
-            GP-0.6.4-eq:4.8 (γ)
+            GP-0.7.0-eq:4.7 (γ)
         pre_state_validator_queue: ValidatorQueueState
-            GP-0.6.4-eq:4.8 (ι)
+            GP-0.7.0-eq:4.7 (ι)
         post_state_entropy: EntropyState
-            GP-0.6.4-eq:4.8 (η')
+            GP-0.7.0-eq:4.7 (η')
         post_state_validator_pool: ValidatorPoolState
-            GP-0.6.4-eq:4.8 (κ')
+            GP-0.7.0-eq:4.7 (κ')
         post_state_disputes: DisputesState
-            GP-0.6.4-eq:4.8 (ψ')
+            GP-0.7.0-eq:4.7 (ψ')
         Returns
         -------
         SafroleOutput
@@ -331,7 +331,7 @@ class Safrole(StateComponent):
 
         self.post_state_safrole = deepcopy(pre_state_safrole)
 
-        # GP-0.5.0-eq:6.30
+        # GP-0.7.0-eq:6.30
         if self.slot_phase_index(header.timeslot) < gp_const.TICKET_SUBMISSION_END_SLOT:
             # Min 0, max 16 tickets
             if len(extrinsic_tickets) > gp_const.MAXIMUM_EXTRINSIC_TICKETS:  # constant_K=16
@@ -345,7 +345,7 @@ class Safrole(StateComponent):
 
         if len(extrinsic_tickets) > 0:
 
-            # Check for duplicate ticket_data; GP-0.5.0-eq:6.32
+            # Check for duplicate ticket_data; GP-0.7.0-eq:6.32
             if list_has_duplicates(extrinsic_tickets):
                 raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
 
@@ -358,12 +358,12 @@ class Safrole(StateComponent):
 
                 # Check if ticket already exists
                 if ticket in self.post_state_safrole.ticket_accumulator:
-                    # GP-0.5.0-eq:6.33
+                    # GP-0.7.0-eq:6.33
                     raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                 else:
                     input_tickets.append(ticket)
 
-            # Check if tickets are in order: GP-0.5.0-eq:6.32
+            # Check if tickets are in order: GP-0.7.0-eq:6.32
             if not self.tickets_in_order(input_tickets):
                 raise StateTransitionError(SafroleErrorCode.bad_ticket_order)
 
@@ -374,9 +374,9 @@ class Safrole(StateComponent):
 
         if (not self.is_epoch_change(pre_state_timeslot.number, header.timeslot) and
                 self.slot_phase_index(header.timeslot) >= gp_const.TICKET_SUBMISSION_END_SLOT):
-            # Ticket mark only when accumulator is saturated # GP-0.5.0-eq:6.28
+            # Ticket mark only when accumulator is saturated # GP-0.7.0-eq:6.28
             if len(self.post_state_safrole.ticket_accumulator) == gp_const.EPOCH_TIMESLOTS:
-                # GP-0.5.0-eq:6.25
+                # GP-0.7.0-eq:6.25
                 tickets_mark = reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 logging.debug(f"Tickets Mark generated")
 
@@ -384,8 +384,8 @@ class Safrole(StateComponent):
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # Epoch change
 
-            # Update Validator keys for the following epoch. # GP-0.5.0-eq:6.13
-            # Apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.5.0-eq:6.14
+            # Update Validator keys for the following epoch. # GP-0.7.0-eq:6.13
+            # Apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.7.0-eq:6.14
             self.post_state_safrole.validators = self.check_offenders(
                 validators=deepcopy(pre_state_validator_queue.validators),
                 offenders=post_state_disputes.offenders
@@ -409,7 +409,7 @@ class Safrole(StateComponent):
 
             # Update Sealing-key series of the current epoch.
             if self.enact_fallback_method(pre_state_timeslot.number, header.timeslot):
-                # Determine fallback keys according to # GP-0.5.0-eq:6.26
+                # Determine fallback keys according to # GP-0.7.0-eq:6.26
                 # TODO refactor to separate function F(r, k)
                 validators = []
                 for n in range(gp_const.EPOCH_TIMESLOTS):
@@ -431,18 +431,18 @@ class Safrole(StateComponent):
                 logging.debug(f"Used entropy: {post_state_entropy.entropy[2].hex()}")
                 logging.debug(f"New Series: {self.post_state_safrole.slot_sealer_series.to_json()}")
             else:
-                # When ticket accumulator is saturated and ticket mark is generated # GP-0.5.0-eq:6.24
+                # When ticket accumulator is saturated and ticket mark is generated # GP-0.7.0-eq:6.24
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(
                     tickets=reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 )
                 logging.debug(f"New Slot Sealer Series with tickets")
 
-            # Update ring commitment using O(); GP-0.5.0-eq:6.13
+            # Update ring commitment using O(); GP-0.7.0-eq:6.13
             self.post_state_safrole.ring_commitment = ring_commitment(
                 self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators]
             )
 
-        # Add tickets to ticket accumulator, sort and limit: GP-0.5.0-eq:6.34,6.35
+        # Add tickets to ticket accumulator, sort and limit: GP-0.7.0-eq:6.34,6.35
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # Not checked by W3F test vectors
             self.post_state_safrole.ticket_accumulator = input_tickets
@@ -480,7 +480,7 @@ class Safrole(StateComponent):
 
     def check_offenders(self, validators: List[ValidatorData], offenders: List[bytes]):
         """
-        GP-0.5.0-eq:6.14
+        GP-0.7.0-eq:6.14
         """
         checked_validators = []
         for v in validators:
@@ -515,18 +515,18 @@ class AuthorizerPools(StateComponent):
             pre_state_authorizer_pools: AuthorizerPoolsState
     ) -> AuthorizerPoolsOutput:
         """
-        GP-0.5.4-eq:8.2,8.3 (α') | State transition function for the state's authorizer pools.
+        GP-0.7.0-eq:8.2,8.3 (α') | State transition function for the state's authorizer pools.
 
         Parameters
         ----------
         header: Header
-            GP-0.5.4-eq:4.19 (bold_H)
+            GP-0.7.0-eq:4.19 (bold_H)
         extrinsic_guarantees: List[Guarantee]
-            GP-0.5.4-eq:4.19 (bold_E_G)
+            GP-0.7.0-eq:4.19 (bold_E_G)
         post_state_authorizer_queues: AuthorizerQueuesState
-            GP-0.5.4-eq:4.19 (φ')
+            GP-0.7.0-eq:4.19 (𝜙')
         pre_state_authorizer_pools: AuthorizerPoolsState
-            GP-0.5.4-eq:4.19 (α)
+            GP-0.7.0-eq:4.19 (α)
 
         Returns
         -------
@@ -535,7 +535,7 @@ class AuthorizerPools(StateComponent):
         """
         post_state_authorizer_pools = deepcopy(pre_state_authorizer_pools)
 
-        # GP-0.5.4-eq:8.3 | Remove used authorizations
+        # GP-0.7.0-eq:8.3 | Remove used authorizations
         for guarantee in extrinsic_guarantees:
             try:
                 post_state_authorizer_pools.authorizer_pools[guarantee.report.core_index].remove(
@@ -544,7 +544,7 @@ class AuthorizerPools(StateComponent):
             except ValueError:
                 raise StateTransitionError(GuaranteeErrorCode.core_unauthorized)
 
-        # GP-0.5.4-eq:8.2 | Update authorizations from queue
+        # GP-0.7.0-eq:8.2 | Update authorizations from queue
         for core_index in range(gp_const.CORE_COUNT):
             offset = header.timeslot % gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS
 
@@ -572,14 +572,14 @@ class RecentHistory(StateComponent):
             pre_state_recent_history: RecentHistoryState
     ) -> RecentHistoryIntermediateOutput:
         """
-        GP-0.5.0-eq:7.2 (β†) | Intermediate state transition function for the state's recent history.
+        GP-0.7.0-eq:7.5 (β†_H) | Intermediate state transition function for the state's recent history.
 
         Parameters
         ----------
         header: Header
-            GP-0.6.4-eq:4.7 (bold_H)
+            GP-0.7.0-eq:4.6 (bold_H)
         pre_state_recent_history: RecentHistoryState
-            GP-0.6.4-eq:4.6 (β)
+            GP-0.7.0-eq:4.6 (β_H)
 
         Returns
         -------
@@ -604,24 +604,25 @@ class RecentHistory(StateComponent):
             beefy_commitment_map: Union[BeefyCommitmentMap, bytes]
     ) -> RecentHistoryOutput:
         """
-        GP-0.5.0-eq:7.4 (β') | State transition function for the state's recent history.
+        GP-0.7.0-eq:7.6,7.7,7.8 (β'B, β'H) | State transition function for the state's recent history.
 
         Parameters
         ----------
         header: Header
-            GP-0.6.4-eq:4.7 (bold_H)
+            GP-0.7.0-eq:4.17 (bold_H)
         extrinsic_guarantees: List[Guarantee]
-            GP-0.6.4-eq:4.7 (bold_E_G)
+            GP-0.7.0-eq:4.17 (bold_E_G)
         intermediate_state_recent_history: RecentHistoryState
-            GP-0.6.4-eq:4.7 (β†)
+            GP-0.7.0-eq:4.17 (β†_H)
         beefy_commitment_map: Union[BeefyCommitmentMap, bytes]
-            GP-0.6.4-eq:4.7 (bold_C)
+            GP-0.7.0-eq:4.17 (bold_C)
 
         Returns
         -------
         RecentHistoryOutput
             Output containing: Posterior state of RecentHistoryState (β')
         """
+        # TODO: Does bold_C need to be replaced by θ? Unclear
         post_state_recent_history = deepcopy(intermediate_state_recent_history)
 
         reported_work_packages = sorted([
@@ -631,8 +632,8 @@ class RecentHistory(StateComponent):
             ) for g in extrinsic_guarantees
         ], key=lambda g: g.hash)
 
-        # No more work reports than number of cores GP-0.5.0-eq:7.1
-        # TODO: implicit limit to work-reports. GP-0.5.0 has a model change making bold_p a dictionary.
+        # No more work reports than number of cores GP-0.7.0-eq:7.2
+        # TODO: implicit limit to work-reports. GP-0.7.0 has a model change making bold_p a dictionary.
         if len(reported_work_packages) > gp_const.CORE_COUNT:
             raise StateTransitionError(f"Work reports must be less than number of cores ({gp_const.CORE_COUNT})")
 
@@ -686,15 +687,15 @@ class Assurances(StateComponent):
             pre_state_assurances: AssurancesState
     ) -> AssurancesAfterDisputesOutput:
         """
-        GP-0.5.0-eq:10.15 (ρ†) | Intermediate state transition function for the state's assurances that processes
+        GP-0.7.0-eq:10.15 (ρ†) | Intermediate state transition function for the state's assurances that processes
         disputes extrinsic.
 
         Parameters
         ----------
         extrinsic_disputes: ExtrinsicDisputes
-            GP-0.5.0-eq:4.13 (bold_E_D)
+            GP-0.7.0-eq:4.12 (bold_E_D)
         pre_state_assurances: AssurancesState
-            GP-0.5.0-eq:4.13 (ρ)
+            GP-0.7.0-eq:4.12 (ρ)
 
         Returns
         -------
@@ -753,15 +754,15 @@ class Assurances(StateComponent):
             intermediate_state_assurances_after_disputes: AssurancesState
     ) -> AssurancesAfterAssurancesOutput:
         """
-        GP-0.5.0-eq:11.28 (ρ‡) | Intermediate state transition function for the state's assurances that processes
+        GP-0.7.0-eq:11.29 (ρ‡) | Intermediate state transition function for the state's assurances that processes
         assurances extrinsic.
 
         Parameters
         ----------
         extrinsic_assurances: List[Assurance]
-            GP-0.5.0-eq:4.14 (bold_E_A)
+            GP-0.7.0-eq:4.13 (bold_E_A)
         intermediate_state_assurances_after_disputes: AssurancesState
-            GP-0.5.0-eq:4.14 (ρ†)
+            GP-0.7.0-eq:4.13 (ρ†)
 
         Returns
         -------
@@ -787,10 +788,10 @@ class Assurances(StateComponent):
         for idx, assurance in enumerate(intermediate_state_assurances_after_disputes.assurances):
             if assurance:
                 if total_assurances_per_core[assurance.report.core_index] > 2 / 3 * gp_const.VALIDATOR_COUNT:
-                    # GP-0.5.2-eq:11.17 | Work report becomes available
+                    # GP-0.7.0-eq:11.16 | Work report becomes available
                     reported.append(intermediate_state_assurances_after_disputes.assurances[idx].report)
 
-                    # GP-0.5.2-eq:11.18 | Remove from assurances
+                    # GP-0.7.0-eq:11.17 | Remove from assurances
                     intermediate_state_assurances_after_assurances.assurances[idx] = None
 
         return AssurancesAfterAssurancesOutput(
@@ -801,7 +802,7 @@ class Assurances(StateComponent):
     @staticmethod
     def have_valid_validators(assurances: List[Assurance], post_state_validator_pool: ValidatorPoolState) -> bool:
         """
-        GP-0.5.2-eq:11.10 | Validator index is element of current ValidatorPool
+        GP-0.7.0-eq:11.10 | Validator index is element of current ValidatorPool
 
         Parameters
         ----------
@@ -817,7 +818,7 @@ class Assurances(StateComponent):
     @staticmethod
     def are_assurances_sorted(assurances: List[Assurance]) -> bool:
         """
-        GP-0.5.2-eq:11.12 | Are assurances correctly sorted by validator index
+        GP-0.7.0-eq:11.12 | Are assurances correctly sorted by validator index
 
         Parameters
         ----------
@@ -856,27 +857,28 @@ class Assurances(StateComponent):
             post_state_validator_archive: ValidatorArchiveState
     ):
 
-        # GP-0.5.3-eq:11.28 (w)
+        # GP-0.7.0-eq:11.29 (r or I)
         work_reports = [g.report for g in extrinsic_guarantees]
 
-        # GP-0.5.3-eq:11.40 | Segment-root lookup
+        # GP-0.7.0-eq:11.41 | Segment-root lookup
         segment_root_lookup = {
             g.report.package_spec.hash: g.report.package_spec.exports_root for g in extrinsic_guarantees
         }
 
-        # Extend segment-root lookup with recent history (GP-0.5.3-eq:11.41)
+        # Extend segment-root lookup with recent history (GP-0.7.0-eq:11.42)
         for b in intermediate_state_recent_history.recent_blocks:
             segment_root_lookup.update({r.hash: r.exports_root for r in b.reported})
 
+        # TODO: rename variable w to r or I (maybe)
         for w in work_reports:
-            # GP-0.5.3-eq:11.8 | Work report respects gas requirements
+            # GP-0.7.0-eq:11.8 | Work report respects gas requirements
             self.check_size_limit(w)
-            # GP-0.5.3-eq:11.30 | Work report respects gas requirements
+            # GP-0.7.0-eq:11.30 | Work report respects gas requirements
             self.check_gas_requirements(w, pre_services_state)
-            # GP-0.5.3-eq:11.3 | Work report respects dependency limit
+            # GP-0.7.0-eq:11.3 | Work report respects dependency limit
             if w.dependency_count() > gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT:
                 raise StateTransitionError(GuaranteeErrorCode.too_many_dependencies)
-            # GP-0.5.3-eq:11.41 | Verify if segment roots mentioned in work-package are correct
+            # GP-0.7.0-eq:11.40,11.41 | Verify if segment roots mentioned in work-package are correct
             if not all([
                 segment_root_lookup.get(work_package_hash, None) == segment_tree_root
                 for work_package_hash, segment_tree_root  in w.segment_root_lookup.items()
@@ -889,20 +891,20 @@ class Assurances(StateComponent):
         if self.has_duplicated_guarentees(extrinsic_guarantees):
             raise StateTransitionError(GuaranteeErrorCode.out_of_order_guarantee)
 
-        # GP-0.5.3-eq:11.31 (x)
+        # GP-0.7.0-eq:11.31 (x)
         context_items = [w.context for w in work_reports]
-        # GP-0.5.3-eq:11.31 (p)
+        # GP-0.7.0-eq:11.31 (p)
         extrinsic_work_package_hashes = {w.package_spec.hash for w in work_reports}
 
         recent_history_work_package_hashes = [
             h.hash for b in intermediate_state_recent_history.recent_blocks for h in b.reported
         ]
 
-        # GP-0.5.3-eq:11.32 | Check for duplicate
+        # GP-0.7.0-eq:11.32 | Check for duplicate
         if len(extrinsic_work_package_hashes) != len(work_reports):
             raise StateTransitionError(GuaranteeErrorCode.duplicate_package)
 
-        # GP-0.5.3-eq:11.38 | Check if work-package appear in pipeline
+        # GP-0.7.0-eq:11.38 | Check if work-package appear in pipeline
         if self.work_packages_exists_in_pipeline(
                 extrinsic_work_package_hashes,
                 intermediate_state_recent_history,
@@ -912,11 +914,11 @@ class Assurances(StateComponent):
 
 
         for context in context_items:
-            # GP-0.5.3-eq:11.35 | Check for expired lookup anchors
+            # GP-0.7.0-eq:11.34 | Check for expired lookup anchors
             if context.lookup_anchor_slot < header.timeslot - gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR:
                 raise StateTransitionError(GuaranteeErrorCode.anchor_not_recent)
 
-            # GP-0.5.3-eq:11.35 | Anchor must be in recent history
+            # GP-0.7.0-eq:11.35 | Anchor must be in recent history
             recent_block = intermediate_state_recent_history.get_recent_block(context.anchor)
 
             if not recent_block:
@@ -931,7 +933,7 @@ class Assurances(StateComponent):
 
         for guarantee in extrinsic_guarantees:
 
-            # GP-0.5.3-eq:11.26 | Check validity time slot
+            # GP-0.7.0-eq:11.26 | Check validity time slot
             if guarantee.slot > post_state_timeslot.number:
                 raise StateTransitionError(GuaranteeErrorCode.future_report_slot)
 
@@ -946,7 +948,7 @@ class Assurances(StateComponent):
             if not self.are_guarentee_signatures_sorted(guarantee.signatures):
                 raise StateTransitionError(GuaranteeErrorCode.not_sorted_or_unique_guarantors)
 
-            # GP-0.5.3-eq:11.23
+            # GP-0.7.0-eq:11.23
             if len(guarantee.signatures) < 2 or len(guarantee.signatures) > 3:
                 raise StateTransitionError(GuaranteeErrorCode.insufficient_guarantees)
 
@@ -955,7 +957,7 @@ class Assurances(StateComponent):
                 if credential.validator_index >= gp_const.VALIDATOR_COUNT:
                     raise StateTransitionError(GuaranteeErrorCode.bad_validator_index)
 
-                # GP-0.5.3-eq:11.26 | Check for valid assignment
+                # GP-0.7.0-eq:11.26 | Check for valid assignment
                 guarantor_assignment = guarantor_assignments[credential.validator_index]
 
                 if guarantor_assignment.core_index != guarantee.report.core_index:
@@ -964,15 +966,15 @@ class Assurances(StateComponent):
                 if not self.valid_guarantee_signature(credential, guarantee, guarantor_assignment.validator_ed25519):
                     raise StateTransitionError(GuaranteeErrorCode.bad_signature)
 
-            # GP-0.5.3-eq:11.29 | Check if core is available
+            # GP-0.7.0-eq:11.29 | Check if core is available
             if intermediate_state_assurances_after_assurances.assurances[guarantee.report.core_index] is not None:
                 raise StateTransitionError(GuaranteeErrorCode.core_engaged)
 
-            # GP-0.5.3-eq:11.29 | Check if authorizer hash is present in authorizer pool of core
+            # GP-0.7.0-eq:11.29 | Check if authorizer hash is present in authorizer pool of core
             if guarantee.report.authorizer_hash not in pre_authorizer_pools.authorizer_pools[guarantee.report.core_index]:
                 raise StateTransitionError(GuaranteeErrorCode.core_unauthorized)
 
-            # GP-0.5.3-eq:11.39 | Check work-package prerequisites
+            # GP-0.7.0-eq:11.39 | Check work-package prerequisites
             for prerequisite in guarantee.report.context.prerequisites:
                 if (
                     prerequisite not in recent_history_work_package_hashes and
@@ -985,7 +987,7 @@ class Assurances(StateComponent):
             self, guarantee: Guarantee, post_state_timeslot: TimeslotState
     ) -> List[GuarantorAssignment]:
         """
-        GP-0.5.3-eq:11.26 | Get applicable mapping (G or G*) of Validator ED25519 and assigned core index
+        GP-0.7.0-eq:11.26 | Get applicable mapping (M or M*) of Validator ED25519 and assigned core index
 
         Parameters
         ----------
@@ -1005,7 +1007,7 @@ class Assurances(StateComponent):
     @staticmethod
     def check_size_limit(work_report: WorkReport):
         """
-        GP-0.5.3-eq:11.8 | Work report respects size limit
+        GP-0.7.0-eq:11.8 | Work report respects size limit
 
         Parameters
         ----------
@@ -1021,7 +1023,7 @@ class Assurances(StateComponent):
 
     def check_gas_requirements(self, work_report: WorkReport, services_state: ServicesState):
         """
-        GP-0.5.3-eq:11.30 | Work report respects gas requirements
+        GP-0.7.0-eq:11.30 | Work report respects gas requirements
 
         Parameters
         ----------
@@ -1045,7 +1047,7 @@ class Assurances(StateComponent):
             if result.code_hash != service.code_hash:
                 raise StateTransitionError(GuaranteeErrorCode.bad_code_hash)
 
-            # GP-0.5.3-eq:11.30 | Work report respects gas requirements
+            # GP-0.7.0-eq:11.30 | Work report respects gas requirements
 
             if result.accumulate_gas < service.gas_limit_accumulate:
                 raise StateTransitionError(GuaranteeErrorCode.service_item_gas_too_low)
@@ -1063,8 +1065,8 @@ class Assurances(StateComponent):
             accumulation_history: AccumulationHistoryState
     ) -> bool:
         """
-        GP-0.5.3-eq:11.38 | Check if work-packages appear in pipeline
-        TODO finish additional checks 11.36 and 11.37
+        GP-0.7.0-eq:11.36,11.37,11.38 | Check if work-packages appear in pipeline
+
         Parameters
         ----------
         work_package_hashes
@@ -1075,7 +1077,7 @@ class Assurances(StateComponent):
         -------
         bool
         """
-
+        # TODO finish additional checks 11.36 and 11.37
         if any(w in accumulation_history.accumulation_history for w in work_package_hashes):
             return True
 
@@ -1097,19 +1099,19 @@ class Assurances(StateComponent):
             post_state_timeslot: TimeslotState
     ) -> AssurancesAfterGuaranteesOutput:
         """
-        GP-0.5.0-eq:11.42 (ρ') | State transition function for the state's assurances that processes guarantees
+        GP-0.7.0-eq:11.43 (ρ') | State transition function for the state's assurances that processes guarantees
         extrinsic.
 
         Parameters
         ----------
         extrinsic_guarantees: List[Guarantee]
-            GP-0.5.0-eq:4.15 (bold_E_G)
+            GP-0.7.0-eq:4.14 (bold_E_G)
         intermediate_state_assurances_after_assurances: AssurancesState
-            GP-0.5.0-eq:4.15 (ρ‡)
+            GP-0.7.0-eq:4.14 (ρ‡)
         pre_state_validator_pool: ValidatorPoolState
-            GP-0.5.0-eq:4.15 (κ)
+            GP-0.7.0-eq:4.14 (κ)
         post_state_timeslot: TimeslotState
-            GP-0.5.0-eq:4.15 (τ')
+            GP-0.7.0-eq:4.14 (τ')
 
         Returns
         -------
@@ -1125,7 +1127,7 @@ class Assurances(StateComponent):
 
         for guarantee in extrinsic_guarantees:
 
-            # GP-0.5.3-eq:11.43 | Assign work report to core
+            # GP-0.7.0-eq:11.43 | Assign work report to core
             post_state_assurances.assurances[guarantee.report.core_index] = AssuranceStateItem(
                 report=guarantee.report,
                 timeout=post_state_timeslot.number
@@ -1159,7 +1161,7 @@ class Assurances(StateComponent):
     @staticmethod
     def process_stale_reports(post_state_assurances: AssurancesState, post_state_timeslot: TimeslotState):
         """
-        GP-0.5.2-eq:11.30 | Check for stale reports
+        GP-0.7.0-eq:11.29 | Check for stale reports
 
         Parameters
         ----------
@@ -1177,7 +1179,7 @@ class Assurances(StateComponent):
     @staticmethod
     def valid_guarantee_signature(credential: Credential, guarantee: Guarantee, validator_ed25519: bytes) -> bool:
         """
-        GP-0.5.2-eq:11.27 | Valid signatures for guarantee
+        GP-0.7.0-eq:11.23 | Valid signatures for guarantee
 
         Parameters
         ----------
@@ -1196,7 +1198,7 @@ class Assurances(StateComponent):
     @staticmethod
     def are_guarentees_sorted(guarantees: List[Guarantee]) -> bool:
         """
-        GP-0.5.2-eq:11.25 | The core index of guarantees must be in ascending order
+        GP-0.7.0-eq:11.25 | The core index of guarantees must be in ascending order
 
         Parameters
         ----------
@@ -1213,7 +1215,7 @@ class Assurances(StateComponent):
     @staticmethod
     def has_duplicated_guarentees(guarantees: List[Guarantee]) -> bool:
         """
-        GP-0.5.2-eq:11.25 | The core index of each guarantee must be unique
+        GP-0.7.0-eq:11.25 | The core index of each guarantee must be unique
 
         Parameters
         ----------
@@ -1227,9 +1229,10 @@ class Assurances(StateComponent):
         return len(core_indices) != len(set(core_indices))
 
     @staticmethod
+    # TODO: typo in function name; incorrect
     def are_guarentee_signatures_sorted(signatures: List[Credential]) -> bool:
         """
-        GP-0.5.2-eq:11.26 | Are signatures correctly sorted by validator index
+        GP-0.7.0-eq:11.25 | Are signatures correctly sorted by validator index
 
         Parameters
         ----------
@@ -1268,14 +1271,14 @@ class Disputes(StateComponent):
             pre_state_disputes: DisputesState
     ) -> DisputesOutput:
         """
-        GP-0.5.0-eq:10.16,10.17,10.18,10.19 (ψ') | State transition function for the state's disputes.
+        GP-0.7.0-eq:10.16,10.17,10.18,10.19 (ψ') | State transition function for the state's disputes.
 
         Parameters
         ----------
         extrinsic_disputes: ExtrinsicDisputes
-            GP-0.5.0-eq:4.12 (bold_E_D)
+            GP-0.7.0-eq:4.11 (bold_E_D)
         pre_state_disputes: DisputesState
-            GP-0.5.0-eq:4.12 (ψ)
+            GP-0.7.0-eq:4.11 (ψ)
 
         Returns
         -------
@@ -1290,14 +1293,17 @@ class Disputes(StateComponent):
         if not self.are_faults_verdict_correct(extrinsic_disputes.faults):
             raise StateTransitionError(DisputesErrorCode.fault_verdict_wrong)
 
+        # TODO: add reference to GP equations
         # Check if all culprits have valid signatures
         if not all(c.has_valid_signature() for c in extrinsic_disputes.culprits):
             raise StateTransitionError(DisputesErrorCode.bad_signature)
 
+        # TODO: add reference to GP equations
         # Check if all faults have valid signatures
         if not all(f.has_valid_signature() for f in extrinsic_disputes.faults):
             raise StateTransitionError(DisputesErrorCode.bad_signature)
 
+        # TODO: add reference to GP equations
         # Check if verdicts are sorted
         if not self.are_verdicts_sorted(extrinsic_disputes.verdicts):
             raise StateTransitionError(DisputesErrorCode.verdicts_not_sorted_unique)
@@ -1305,6 +1311,7 @@ class Disputes(StateComponent):
         if self.has_duplicate_report_hashes(extrinsic_disputes.verdicts):
             raise StateTransitionError(DisputesErrorCode.verdicts_not_sorted_unique)
 
+        # TODO: add reference to GP equations
         # Process verdicts
         for verdict in extrinsic_disputes.verdicts:
 
@@ -1329,6 +1336,7 @@ class Disputes(StateComponent):
             else:
                 raise StateTransitionError(DisputesErrorCode.bad_vote_split)
 
+        # TODO: add reference to GP equations
         # Process culprits
         if not self.are_culprits_sorted(extrinsic_disputes.culprits):
             raise StateTransitionError(DisputesErrorCode.culprits_not_sorted_unique)
@@ -1336,6 +1344,7 @@ class Disputes(StateComponent):
         for culprit in extrinsic_disputes.culprits:
             self.add_culprit(culprit)
 
+        # TODO: add reference to GP equations
         # Process faults
         if not self.are_faults_sorted(extrinsic_disputes.faults):
             raise StateTransitionError(DisputesErrorCode.faults_not_sorted_unique)
@@ -1349,7 +1358,7 @@ class Disputes(StateComponent):
     # TODO: proper documentation
     def has_valid_judgement_signatures(cls, verdict: Verdict, validators: List[ValidatorData]) -> bool:
         """
-        GP-0.5.0-eq:10.3
+        GP-0.7.0-eq:10.3
 
         Parameters
         ----------
@@ -1377,7 +1386,7 @@ class Disputes(StateComponent):
     # TODO: proper documentation
     def are_judgements_sorted(votes: List[Judgement]) -> bool:
         """
-        GP-0.5.0-eq:10.10
+        GP-0.7.0-eq:10.10
 
         Parameters
         ----------
@@ -1393,7 +1402,7 @@ class Disputes(StateComponent):
     # TODO: proper documentation
     def has_duplicate_judgements(votes: List[Judgement]) -> bool:
         """
-        GP-0.5.0-eq:10.10
+        GP-0.7.0-eq:10.10
 
         Parameters
         ----------
@@ -1416,7 +1425,7 @@ class Disputes(StateComponent):
     # TODO: proper documentation
     def are_verdicts_sorted(verdicts: List[Verdict]) -> bool:
         """
-        GP-0.5.0-eq:10.7
+        GP-0.7.0-eq:10.7
 
         Parameters
         ----------
@@ -1432,7 +1441,7 @@ class Disputes(StateComponent):
     # TODO: proper documentation
     def are_culprits_sorted(culprits: List[Culprit]) -> bool:
         """
-        GP-0.5.0-eq:10.8
+        GP-0.7.0-eq:10.8
 
         Parameters
         ----------
@@ -1448,7 +1457,7 @@ class Disputes(StateComponent):
     # TODO: proper documentation
     def are_faults_sorted(faults: List[Fault]) -> bool:
         """
-        GP-0.5.0-eq:10.8
+        GP-0.7.0-eq:10.8
 
         Parameters
         ----------
@@ -1492,7 +1501,7 @@ class Disputes(StateComponent):
     # TODO: proper documentation
     def has_duplicate_report_hashes(verdicts: List[Verdict]) -> bool:
         """
-        GP-0.5.0-eq:10.9
+        GP-0.7.0-eq:10.9
 
         Parameters
         ----------
@@ -1515,7 +1524,7 @@ class Disputes(StateComponent):
     # TODO: proper documentation
     def check_valid_faults_count(faults: List[Fault], report_hash: bytes):
         """
-        GP-0.5.0-eq:10.13
+        GP-0.7.0-eq:10.13
 
         Parameters
         ----------
@@ -1533,7 +1542,7 @@ class Disputes(StateComponent):
     # TODO: proper documentation
     def check_valid_culprits_count(culprits: List[Culprit], report_hash: bytes):
         """
-        GP-0.5.0-eq:10.14
+        GP-0.7.0-eq:10.14
 
         Parameters
         ----------
@@ -1571,17 +1580,17 @@ class Disputes(StateComponent):
 
         validator_keys = [v.ed25519 for v in pre_state_validator_pool.validators]
 
+        # TODO: add reference to GP equations
         # Check if culprit is in validator set
         for culprit in extrinsic_disputes.culprits:
             if culprit.key not in validator_keys:
                 raise BlockValidationError(DisputesErrorCode.bad_guarantor_key)
 
+        # TODO: add reference to GP equations
         # Check if faulty auditor is in validator set
         for fault in extrinsic_disputes.faults:
             if fault.key not in validator_keys:
                 raise BlockValidationError(DisputesErrorCode.bad_auditor_key)
-
-
 
 
 class Statistics(StateComponent):
@@ -1600,37 +1609,39 @@ class Statistics(StateComponent):
             header: Header
     ) -> StatisticsOutput:
         """
-        GP-0.5.0-eq:13.3,13.4 (π') | State transition function for the state's statistics.
+        GP-0.7.0-eq:13.4,13.5,13.8,13.12 (π') | State transition function for the state's statistics.
 
         Parameters
         ----------
         extrinsic_guarantees: List[Guarantee]
-            GP-0.5.0-eq:4.20 (bold_E_G)
+            GP-0.7.0-eq:4.20 (bold_E_G)
         extrinsic_preimages: List[Preimage]
-            GP-0.5.0-eq:4.20 (bold_E_P)
+            GP-0.7.0-eq:4.20 (bold_E_P)
         extrinsic_assurances: List[Assurance]
-            GP-0.5.0-eq:4.20 (bold_E_A)
+            GP-0.7.0-eq:4.20 (bold_E_A)
         extrinsic_tickets: List[TicketEnvelope]
-            GP-0.5.0-eq:4.20 (bold_E_T)
+            GP-0.7.0-eq:4.20 (bold_E_T)
         pre_state_timeslot: TimeslotState
-            GP-0.5.0-eq:4.20 (τ)
+            GP-0.7.0-eq:4.20 (τ)
         post_state_timeslot: TimeslotState
-            GP-0.5.0-eq:4.20 (τ')
+            GP-0.7.0-eq:4.20 (τ')
         post_state_validator_pool: ValidatorPoolState
-            GP-0.5.0-eq:4.20 (κ')
+            GP-0.7.0-eq:4.20 (κ')
         pre_state_statistics: StatisticsState
-            GP-0.5.0-eq:4.20 (π)
+            GP-0.7.0-eq:4.20 (π)
         header: Header
-            GP-0.5.0-eq:4.20 (bold_H)
+            GP-0.7.0-eq:4.20 (bold_H)
 
         Returns
         -------
         StatisticsOutput
             Output containing: Posterior state of StatisticsState (π')
         """
+        # TODO: check input parameters: remove tau_prime and add bold_S
+
         post_state = deepcopy(pre_state_statistics)
 
-        # GP-0.6.4-eq:13.3 | Shift statistics after epoch change
+        # GP-0.7.0-eq:13.4 | Shift statistics after epoch change
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             post_state.vals_last = post_state.vals_current
             post_state.vals_current = [ActivityRecord(
@@ -1642,7 +1653,7 @@ class Statistics(StateComponent):
                 assurances=0
             ) for _ in range(gp_const.VALIDATOR_COUNT)]
 
-        # GP-0.6.4-eq:13.4 | Update validator stats
+        # GP-0.7.0-eq:13.5 | Update validator stats
         post_state.vals_current[header.author_index].blocks += 1
         post_state.vals_current[header.author_index].tickets += len(extrinsic_tickets)
         post_state.vals_current[header.author_index].pre_images += len(extrinsic_preimages)
@@ -1656,7 +1667,7 @@ class Statistics(StateComponent):
 
         incoming_work_reports = [g.report for g in extrinsic_guarantees]
 
-        # GP-0.6.4-eq:13.8 | Update core statistics
+        # GP-0.7.0-eq:13.8 | Update core statistics
         for c in range(gp_const.CORE_COUNT):
             post_state.cores[c].update(
                 core_index=c,
@@ -1667,13 +1678,13 @@ class Statistics(StateComponent):
 
         post_state.services = {}
 
-        # GP-0.6.4-eq:13.12 | Determine affected services
+        # GP-0.7.0-eq:13.12 | Determine affected services
         services = [r.service_id for w in incoming_work_reports for r in w.results]
         services += [p.requester for p in extrinsic_preimages]
         services += self.block_context.accumulation_statistics.keys()
         services += self.block_context.deferred_transfer_statistics.keys()
 
-        # GP-0.6.4-eq:13.11 | Update service statistics
+        # GP-0.7.0-eq:13.7 | Update service statistics
         for s in sorted(set(services)):
             activity_record = ServiceActivityRecord()
             for p in extrinsic_preimages:
@@ -1756,7 +1767,7 @@ class Services(StateComponent):
     @staticmethod
     def are_preimages_unique(preimages: List[Preimage]) -> bool:
         """
-        GP-0.6.2-eq:12.29 | Are all preimages unique?
+        GP-0.7.0-eq:12.34 | Are all preimages unique?
 
         Parameters
         ----------
@@ -1771,7 +1782,7 @@ class Services(StateComponent):
     @staticmethod
     def are_preimages_sorted(preimages: List[Preimage]) -> bool:
         """
-        GP-0.6.2-eq:12.29 | Are all preimages sorted?
+        GP-0.7.0-eq:12.34 | Are all preimages sorted?
 
         Parameters
         ----------
@@ -1795,17 +1806,17 @@ class Services(StateComponent):
             post_state_timeslot: TimeslotState
     ) -> ServicesAfterPreimagesOutput:
         """
-        GP-0.3.8-eq:156 (δ†) | Intermediate state transition function after processing Preimages for the state's
+        GP-0.7.0-eq:12.36 (δ') | Final state transition function after processing Preimages for the state's
         services.
 
         Parameters
         ----------
         extrinsic_preimages: List[Preimage]
-            GP-0.3.8-eq:24 (bold_E_P)
+            GP-0.7.0-eq:4.18 (bold_E_P)
         intermediate_state_after_transfers: ServicesState
-            GP-0.3.8-eq:24 (δ‡)
+            GP-0.7.0-eq:4.18 (δ‡)
         post_state_timeslot: TimeslotState
-            GP-0.3.8-eq:24 (τ')
+            GP-0.7.0-eq:4.18 (τ')
 
         Returns
         -------
@@ -1813,7 +1824,7 @@ class Services(StateComponent):
             Output containing: Intermediate state after processing Preimages of ServicesState (δ†)
         """
 
-        # GP-0.5.4-eq:12.33
+        # GP-0.7.0-eq:12.35
         for preimage in extrinsic_preimages:
             # Store preimage
             intermediate_state_after_transfers.store_preimage(
@@ -1844,26 +1855,27 @@ class Services(StateComponent):
             post_state_entropy: EntropyState,
     ) -> ServicesAfterAccumulationOutput:
         """
-        GP-0.6.0-eq:12.21,12.22 (δ†) | State transition function for the state's services.
+        GP-0.7.0-eq:12.25 (δ†) | State transition function for the state's services.
 
         Parameters
         ----------
         accumulatable_work_reports: List[WorkReport]
-            GP-0.6.0-eq:12.21 (W*)
+            GP-0.7.0-eq:4.16 (R*)
         pre_state_services: ServicesState
-            GP-0.6.0-eq:12.21 (δ)
+            GP-0.7.0-eq:4.16 (δ)
         pre_state_privileged_services: PrivilegedServicesState
-            GP-0.6.0-eq:12.21 (χ)
+            GP-0.7.0-eq:4.16 (χ)
         pre_state_validator_queue: ValidatorQueueState
-            GP-0.6.0-eq:12.21 (ι)
+            GP-0.7.0-eq:4.16 (ι)
         pre_state_authorizer_queues: AuthorizerQueuesState
-            GP-0.6.0-eq:12.21 (φ)
+            GP-0.7.0-eq:4.16 (𝜙)
 
         Returns
         -------
         ServicesAfterAccumulationOutput
             Output containing: intermediate state of ServicesState (δ†) and BeefyCommitmentMap (C).
         """
+        # TODO: check GP-0.7.0-eq:4.16; needs attention and refactoring
 
         services = ServicesState(services=deepcopy(pre_state_services.services))
         services.set_storage_engine(self.storage_engine)
@@ -1924,7 +1936,7 @@ class Services(StateComponent):
             deferred_transfers: List[DeferredTransfer]
     ) -> ServicesAfterTransfersOutput:
         """
-        GP-0.6.1-eq:12.24 (δ‡) | State transition function for the state's services.
+        GP-0.7.0-eq:12.28 (δ‡) | State transition function for the state's services.
 
         Parameters
         ----------

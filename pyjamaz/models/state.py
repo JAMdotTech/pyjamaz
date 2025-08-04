@@ -193,14 +193,15 @@ class AuthorizerPoolsState(State, Serializable):
 @dataclass
 class Mmr(Serializable):
     """
-    GP-0.5.0-eq:E.8,E.9 (bold_b) | A Merkle Mountain Range.
+    GP-0.7.0-eq:E.8,E.9 (bold_b) | A Merkle Mountain Range.
 
     Attributes
     ----------
 
     peaks: Vec(Option(H256))
-        GP-0.5.0-eq:7.1 (bold_b) | A collection of optional peaks in a Merkle Mountain Range
+        GP-0.7.0-eq:7.3 (β_B) | A collection of optional peaks in a Merkle Mountain Range
     """
+    # TODO: double check β_B
     peaks: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
 
     def super_peak(self) -> bytes:
@@ -229,19 +230,19 @@ class ReportedWorkPackage(Serializable):
 @dataclass
 class RecentBlock(Serializable):
     """
-    GP-0.5.0-eq:7.1 (β) | A single item in the RecentHistory partition of the overall state.
+    GP-0.7.0-eq:7.2 (β_H) | A single item in the RecentHistory partition of the overall state.
 
     Attributes
     ----------
 
     header_hash: H256
-        GP-0.5.0-eq:7.1 (h, blackboard_H) | Header hash of the recent block.
-    mmr: Mmr
-        GP-0.5.0-eq:7.1 (bold_b) | Accumulation result Merkle Mountain Range of the recent block.
+        GP-0.7.0-eq:7.2 (h, blackboard_H) | Header hash of the recent block.
+    beefy_root: H256
+        GP-0.7.0-eq:7.2 (b) | Beefy root of the recent block.
     state_root: H256
-        GP-0.5.0-eq:7.1 (s, blackboard_H) | State root of the recent block.
+        GP-0.7.0-eq:7.2 (s, blackboard_H) | State root of the recent block.
     reported: Vec(ReportedWorkPackage)
-        GP-0.5.0-eq:7.1 (bold_p) | A collection of ReportedWorkPackage for each work-report made into the MMR, limited
+        GP-0.7.0-eq:7.2 (bold_p) | A collection of ReportedWorkPackage for each work-report made into the MMR, limited
         to the number of cores (constant_c=341)
     """
     header_hash: bytes = field(metadata={'codec': H256})
@@ -259,13 +260,15 @@ class RecentBlock(Serializable):
 @dataclass
 class RecentHistoryState(State, Serializable):
     """
-    GP-0.5.0-eq:7.1 (β) | RecentHistory partition of the overall state
+    GP-0.7.0-eq:7.1 (β) | RecentHistory partition of the overall state
 
     Attributes
     ----------
     recent_blocks: Vec(RecentBlock)
-        GP-0.5.0-eq:7.1 (β) | A collection of items in the RecentHistory partition of the overall state of
+        GP-0.7.0-eq:7.1 (β_H) | A collection of items in the RecentHistory partition of the overall state of
         up to constant_H (8) items.
+    accumulation_output_log: Vec(Option(H256))
+        GP-0.7.0-eq:7.1 (β_B) | A collection of optional peaks in a Merkle Mountain Range.
     """
     recent_blocks: List[RecentBlock] = field(metadata={'codec': Vec(RecentBlock.to_codec_def())})
     accumulation_output_log: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
@@ -634,12 +637,12 @@ class ServicesState(State, Serializable):
 
         return preimage
 
-    #GP-0.6.4-eq:9.7 (historical lookup)
+    #GP-0.7.0-eq:9.7 (historical lookup)
     def historical_preimage_lookup(self, service_account_id: int, timeslot: int, preimage_hash: bytes) -> Optional[bytes]:
         """
         historical lookup
-        GP-0.6.4-eq:9.5
-        GP-0.6.4-eq:9.7
+        GP-0.7.0-eq:9.5
+        GP-0.7.0-eq:9.7
 
 
         Parameters
@@ -681,11 +684,11 @@ class ServicesState(State, Serializable):
 
     def is_preimage_needed(self, preimage: Preimage) -> bool:
         """
-        GP-0.5.4-eq:12.30 | Is preimage needed
+        GP-0.7.0-eq:12.35 | Is preimage needed
 
         Parameters
         ----------
-        preimage: Primage
+        preimage: Preimage
 
         Returns
         -------
@@ -944,12 +947,12 @@ class ServicesState(State, Serializable):
 @dataclass
 class AssurancesState(State, Serializable):
     """
-    GP-0.5.0-eq:11.1 (ρ) | Assurances partition of the overall state.
+    GP-0.7.0-eq:11.1 (ρ) | Assurances partition of the overall state.
 
     Attributes
     ----------
     assurances: Vec(Option(Assurance))
-        GP-0.5.0-eq:11.1 (ρ) | A collection of optional assurances per core.
+        GP-0.7.0-eq:11.1 (ρ) | A collection of optional assurances per core.
     """
     assurances: List[Optional[Assurance]] = field(
         metadata={'codec': Array(Option(Assurance.to_codec_def()), CORE_COUNT)}
@@ -959,12 +962,12 @@ class AssurancesState(State, Serializable):
 @dataclass
 class AuthorizerQueuesState(State, Serializable):
     """
-    GP-0.5.0-eq:8.1 (φ) | A collections of queues of authorizations for all cores.
+    GP-0.7.0-eq:8.1 (𝜙) | A collections of queues of authorizations for all cores.
 
     Attributes
     ----------
     authorizer_queues: Array(Array(H256,constant_Q),constant_C)
-        GP-0.5.0-eq:8.1 (φ) | A collections of queues of authorizations for all cores.
+        GP-0.7.0-eq:8.1 (𝜙) | A collections of queues of authorizations for all cores.
     """
     authorizer_queues: List[List[bytes]] = field(
         metadata={'codec': Array(Array(H256, MAXIMUM_AUTHORIZATION_QUEUE_ITEMS), CORE_COUNT)}
@@ -974,22 +977,23 @@ class AuthorizerQueuesState(State, Serializable):
 @dataclass
 class PrivilegedServicesState(State, Serializable):
     """
-    GP-0.6.7-eq:9.9 (χ) | The PrivilegedServices partition of the overall state.
+    GP-0.7.0-eq:9.9 (χ) | The PrivilegedServices partition of the overall state.
 
     Attributes
     ----------
     manager: U32
-        GP-0.5.0-eq:9.9 (χ_m) | The service index of the empower service. I.e. the service that allows state transitions
+        GP-0.7.0-eq:9.9 (χ_M) | The service index of the manager service. I.e. the service that allows state transitions
         of PrivilegedServices (χ).
-    assigners: U32
-        GP-0.5.0-eq:9.9 (χ_a) | The service index of the assign service. I.e. the service that allows state transitions
-        of AuthorizerQueue (φ).
+    assigners: Array(U32, Constant_C)
+        GP-0.7.0-eq:9.9 (χ_A) | The service index of the assign service. I.e. the service that allows state transitions
+        of AuthorizerQueue (𝜙).
     delegator: U32
-        GP-0.5.0-eq:9.9 (χ_v) | The service index of the designate service. I.e. the service that allows state
+        GP-0.7.0-eq:9.9 (χ_V) | The service index of the designate service. I.e. the service that allows state
         transitions of ValidatorQueue (ι).
     always_accumulators: Dict(U32,U64)
-        GP-0.5.0-eq:9.9 (χ_g) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
+        GP-0.7.0-eq:9.9 (χ_Z) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
+    # TODO: restructure in 0.7.0 add: χ_R (U32) and new order: (χ_M,χ_V,χ_R,χ_A,χ_Z)
     manager: int = field(metadata={'codec': U32})
     assigners: List[int] = field(metadata={'codec': Array(U32, CORE_COUNT)})
     delegator: int = field(metadata={'codec': U32})
@@ -999,18 +1003,18 @@ class PrivilegedServicesState(State, Serializable):
 @dataclass
 class DisputesState(State, Serializable):
     """
-    GP-0.5.0-eq:9.9 (ψ) | A collection of judgements of validators over the validity of work reports.
+    GP-0.7.0-eq:10.1 (ψ) | A collection of judgements of validators over the validity of work reports.
 
     Attributes
     ----------
     good_set: Vec(H256)
-        GP-0.5.0-eq:10.1,10.16 (ψ_g) | A collection of work reports hashes with a good verdict.
+        GP-0.7.0-eq:10.1,10.16 (ψ_G) | A collection of work reports hashes with a good verdict.
     bad_set: Vec(H256)
-        GP-0.5.0-eq:10.1,10.17 (ψ_b) | A collection of work reports hashes with a bad verdict.
+        GP-0.7.0-eq:10.1,10.17 (ψ_B) | A collection of work reports hashes with a bad verdict.
     wonky_set: Vec(H256)
-        GP-0.5.0-eq:10.1,10.18 (ψ_w) | A collection of work reports hashes with a wonky verdict.
+        GP-0.7.0-eq:10.1,10.18 (ψ_W) | A collection of work reports hashes with a wonky verdict.
     offenders: Vec(H256)
-        GP-0.5.0-eq:10.1,10.19 (ψ_o) | A collection Edwards 25519 keys for validators found guilty of offending.
+        GP-0.7.0-eq:10.1,10.19 (ψ_O) | A collection Edwards 25519 keys for validators found guilty of offending.
     """
     good_set: List[bytes] = field(metadata={'codec': Vec(H256)})
     bad_set: List[bytes] = field(metadata={'codec': Vec(H256)})
@@ -1021,22 +1025,22 @@ class DisputesState(State, Serializable):
 @dataclass
 class ActivityRecord(Serializable):
     """
-    GP-0.5.0-eq:13.1 (π.0.V) | A set of cumulative metrics for a single validator in a single epochs.
+    GP-0.7.0-eq:13.2 (π_V,π_L) | A set of cumulative metrics for a single validator in a single epochs.
 
     Attributes
     ----------
     blocks: U32
-        GP-0.5.0-eq:13.1 (b) | The number of blocks produced by the validator.
+        GP-0.7.0-eq:13.2 (b) | The number of blocks produced by the validator.
     tickets: U32
-        GP-0.5.0-eq:13.1 (t) | The number of tickets introduced by the validator.
+        GP-0.7.0-eq:13.2 (t) | The number of tickets introduced by the validator.
     pre_images: U32
-        GP-0.5.0-eq:13.1 (p) | The number of preimages introduced by the validator.
+        GP-0.7.0-eq:13.2 (p) | The number of preimages introduced by the validator.
     pre_images_size: U32
-        GP-0.5.0-eq:13.1 (d) | The number of total number of bytes across all preimages introduced by the validator.
+        GP-0.7.0-eq:13.2 (d) | The number of total number of bytes across all preimages introduced by the validator.
     guarantees: U32
-        GP-0.5.0-eq:13.1 (g) | The number of reports guaranteed by the validator.
+        GP-0.7.0-eq:13.2 (g) | The number of reports guaranteed by the validator.
     assurances: U32
-        GP-0.5.0-eq:13.1 (a) | The number of availability assurances made by the validator.
+        GP-0.7.0-eq:13.2 (a) | The number of availability assurances made by the validator.
     """
     blocks: int = field(metadata={'codec': U32})
     tickets: int = field(metadata={'codec': U32})
@@ -1049,27 +1053,29 @@ class ActivityRecord(Serializable):
 @dataclass
 class CoreActivityRecord(Serializable):
     """
-    GP-0.7.0-eq:13.6 | Core activity statistics
-    TODO e replaced with x ??
+    GP-0.7.0-eq:13.6 (π_C) | Core activity statistics
+
     Attributes
     ----------
     da_load: U32
-        GP-0.6.4-eq:13.6 (d) | Amount of bytes which are placed into either Audits or Segments DA.
+        GP-0.7.0-eq:13.6 (d) | Amount of bytes which are placed into either Audits or Segments DA.
     popularity: U16
-        GP-0.6.4-eq:13.6 (p) | Number of validators which formed super-majority for assurance.
+        GP-0.7.0-eq:13.6 (p) | Number of validators which formed super-majority for assurance.
     imports: U16
-        GP-0.6.4-eq:13.6 (i) | Number of segments imported from DA made by core for reported work.
+        GP-0.7.0-eq:13.6 (i) | Number of segments imported from DA made by core for reported work.
     exports: U16
-        GP-0.6.4-eq:13.6 (e) | Number of segments exported into DA made by core for reported work.
+        GP-0.7.0-eq:13.6 (e) | Number of segments exported into DA made by core for reported work.
     extrinsic_size: U32
-        GP-0.6.4-eq:13.6 (z) | Total size of extrinsics used by core for reported work.
+        GP-0.7.0-eq:13.6 (z) | Total size of extrinsic data used by core for reported work.
     extrinsic_count: U16
-        GP-0.6.4-eq:13.6 (x) | Total number of extrinsics used by core for reported work.
+        GP-0.7.0-eq:13.6 (x) | Total number of extrinsics used by core for reported work.
     bundle_size: U32
-        GP-0.6.4-eq:13.6 (b) | The work-bundle size. This is the size of data being placed into Audits DA by the core.
+        GP-0.7.0-eq:13.6 (l) | The work-bundle size. This is the size of data being placed into Audits DA by the core.
     gas_used: U64
-         GP-0.6.4-eq:13.6 (u) | Total gas consumed by core for reported work. Includes all refinement and authorizations
+         GP-0.7.0-eq:13.6 (u) | Total gas consumed by core for reported work. Includes all refinement and authorizations
     """
+    # TODO: check order and structure for 0.7.0 release
+    # Semantics matter ambiguity in use of i, e and x | e replaced with x ??
     da_load: int = field(metadata={'codec': VarInt64})
     popularity: int = field(metadata={'codec': VarInt64})
     imports: int = field(metadata={'codec': VarInt64})
@@ -1086,7 +1092,7 @@ class CoreActivityRecord(Serializable):
                extrinsic_assurances: List['ExtrinsicAssurance']
     ):
         """
-         GP-0.6.4-eq:13.8 | Updating core stats for specified core
+         GP-0.7.0-eq:13.8 | Updating core stats for specified core
         """
         self.gas_used = 0
         self.imports = 0
@@ -1108,7 +1114,7 @@ class CoreActivityRecord(Serializable):
 
     def update_from_incoming_work_reports(self, core_index: int, incoming_work_reports: List[WorkReport]):
         """
-        GP-0.6.4-eq:13.9 (R) | Updating core stats using incoming work-reports in extrinsic data (GP-0.6.4-eq:11.28)
+        GP-0.7.0-eq:13.9 (R) | Updating core stats using incoming work-reports (bold_I) in extrinsic data (GP-0.7.0-eq:11.28)
         """
         for w in incoming_work_reports:
             if w.core_index == core_index:
@@ -1122,7 +1128,7 @@ class CoreActivityRecord(Serializable):
 
     def update_from_available_work_reports(self, core_index: int, available_work_reports: List[WorkReport]):
         """
-        GP-0.6.4-eq:13.10 (D) | Updating core stats using available work-reports (bold_W) (GP-0.6.4-eq:11.16)
+        GP-0.7.0-eq:13.11 (D) | Updating core stats using available work-reports (bold_R) (GP-0.7.0-eq:11.16)
         """
         self.da_load = sum([
             w.package_spec.length + EC_SEGMENT_SIZE * ceil(w.package_spec.exports_count * 65/64)
@@ -1132,34 +1138,37 @@ class CoreActivityRecord(Serializable):
 @dataclass
 class ServiceActivityRecord(Serializable):
     """
+    GP-0.7.0-eq:13.7 (π_S) | A collection of statistics for all validators for two epochs.
 
     Attributes
     ----------
     provided_count: U16
-        GP-0.6.4-eq:13.7 (p_0) | Number of preimages provided to this service.
+        GP-0.7.0-eq:13.7 (p_0) | Number of preimages provided to this service.
     provided_size: U32
-        GP-0.6.4-eq:13.7 (p_1)| Total size of preimages provided to this service.
+        GP-0.7.0-eq:13.7 (p_1)| Total size of preimages provided to this service.
     refinement_count: U32
-        GP-0.6.4-eq:13.7 (r_0)| Number of work-items refined by service for reported work.
+        GP-0.7.0-eq:13.7 (r_0)| Number of work-items refined by service for reported work.
     refinement_gas_used: U64
-        GP-0.6.4-eq:13.7 (r_0)| Amount of gas used for refinement by service for reported work.
+        GP-0.7.0-eq:13.7 (r_1)| Amount of gas used for refinement by service for reported work.
     imports: U32
-        GP-0.6.4-eq:13.7 (i) | Number of segments imported from the DL by service for reported work.
+        GP-0.7.0-eq:13.7 (i) | Number of segments imported from the DL by service for reported work.
     extrinsic_size: U32
-        GP-0.6.4-eq:13.7 (z) | Total size of extrinsics used by service for reported work.
+        GP-0.7.0-eq:13.7 (z) | Total size of extrinsics used by service for reported work.
     extrinsic_count: U32
-        GP-0.6.4-eq:13.7 (x) | Total number of extrinsics used by service for reported work.
+        GP-0.7.0-eq:13.7 (x) | Total number of extrinsics used by service for reported work.
     exports: U32
-        GP-0.6.4-eq:13.7 (e) | Number of segments exported into the DL by service for reported work.
+        GP-0.7.0-eq:13.7 (e) | Number of segments exported into the DL by service for reported work.
     accumulate_count: U32
-        GP-0.6.4-eq:13.7 (a_0) | Number of work-items accumulated by service.
+        GP-0.7.0-eq:13.7 (a_0) | Number of work-items accumulated by service.
     accumulate_gas_used: U64
-        GP-0.6.4-eq:13.7 (a_1) | Amount of gas used for accumulation by service.
+        GP-0.7.0-eq:13.7 (a_1) | Amount of gas used for accumulation by service.
     on_transfers_count: U32
-        GP-0.6.4-eq:13.7 (t_0) | Number of transfers processed by service.
+        GP-0.7.0-eq:13.7 (t_0) | Number of transfers processed by service.
     on_transfers_gas_used: U64
-        GP-0.6.4-eq:13.7 (t_1) | Amount of gas used for processing transfers by service.
+        GP-0.7.0-eq:13.7 (t_1) | Amount of gas used for processing transfers by service.
     """
+    # TODO: check order and structure for 0.7.0 release
+    # Semantics matter ambiguity in use of i, e and x
     provided_count: int = field(metadata={'codec': VarInt64}, default=0)
     provided_size: int = field(metadata={'codec': VarInt64}, default=0)
     refinement_count: int = field(metadata={'codec': VarInt64}, default=0)
@@ -1177,19 +1186,19 @@ class ServiceActivityRecord(Serializable):
 @dataclass
 class StatisticsState(State, Serializable):
     """
-    GP-0.6.4-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
+    GP-0.7.0-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
 
     Attributes
     ----------
 
     vals_current: Array(Statistic,constant_V)
-        GP-0.6.4-eq:13.1 (π) | A collection of statistics for all validators for current epoch.
+        GP-0.7.0-eq:13.1 (π_V) | A collection of statistics for all validators for current epoch.
     vals_last: Array(Statistic,constant_V)
-        GP-0.6.4-eq:13.1 (π) | A collection of statistics for all validators for last epoch.
+        GP-0.7.0-eq:13.1 (π_L) | A collection of statistics for all validators for last epoch.
     cores: Array(Statistic,constant_C)
-        GP-0.6.4-eq:13.1 (π) | Core activity statistics for last block.
+        GP-0.7.0-eq:13.1 (π_C) | Core activity statistics for last block.
     services: Map(U32, ServiceActivityRecord)
-        GP-0.6.4-eq:13.1 (π) | Service activity statistics for last block.
+        GP-0.7.0-eq:13.1 (π_S) | Service activity statistics for last block.
     """
     vals_current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
     vals_last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
@@ -1253,12 +1262,12 @@ class AccumulationHistoryState(State, Serializable):
 @dataclass
 class BeefyCommitmentMap(Serializable):
     """
-    GP-0.6.1-eq:12.15 (B) | a service-indexed commitment to the accumulation output
+    GP-0.7.0-eq:12.17 (italic_B) | Service-indexed commitment to the accumulation output
 
     Attributes
     ----------
     beefy_commitment_map: Dict(U32,H256)
-        GP-0.6.1-eq:12.15 (B) | Beefy Commitment Map dictionary. Provides accumulation
+        GP-0.7.0-eq:12.17 (italic_B) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
     beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
@@ -1306,7 +1315,7 @@ class JamState(State, Serializable):
     timeslot: TimeslotState
         GP-0.7.0-eq:4.4 (τ) | Timeslot partition of the overall state
     authorizer_queues: AuthorizerQueuesState
-        GP-0.7.0-eq:4.4 (φ) | AuthorizerQueue partition of the overall state
+        GP-0.7.0-eq:4.4 () | AuthorizerQueue partition of the overall state
     privileged_services: PrivilegedServicesState
         GP-0.7.0-eq:4.4 (χ) | PrivilegedServices partition of the overall state
     disputes: DisputesState
@@ -1425,15 +1434,15 @@ class DeferredTransfer(Serializable):
     Attributes
     ----------
     sender: U32
-        GP-0.5.2-eq:12.14 (s) | Sender of a deferred transfer.
+        GP-0.7.0-eq:12.14 (s) | Sender of a deferred transfer.
     receiver: U32
-        GP-0.5.2-eq:12.14 (d) | Receiver of a deferred transfer (destination).
+        GP-0.7.0-eq:12.14 (d) | Receiver of a deferred transfer (destination).
     amount: U64
-        GP-0.5.2-eq:12.14 (a) | Balance to be transferred (amount) of the deferred transfer.
+        GP-0.7.0-eq:12.14 (a) | Balance to be transferred (amount) of the deferred transfer.
     memo: Array(U8, SIZE_TRANSFER_MEMO)
-        GP-0.5.2-eq:12.14 (m) | Constant length memo blob of the deferred transfer.
+        GP-0.7.0-eq:12.14 (m) | Constant length memo blob of the deferred transfer.
     gas_limit: U64
-        GP-0.5.2-eq:12.14 (g) | Gas limit of the deferred transfer.
+        GP-0.7.0-eq:12.14 (g) | Gas limit of the deferred transfer.
     """
     sender: int = field(metadata={'codec': U32})
     receiver: int = field(metadata={'codec': U32})
@@ -1472,7 +1481,7 @@ class AccumulationStateComponents(Serializable):
     privileged_services: PrivilegedServicesState
         GP-0.5.2-eq:12.13 (bold_x) | Privileged Services state.
     """
-    # TODO: structure change in 0.7.0
+    # TODO: structure change in 0.7.0 split up privileged services
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
