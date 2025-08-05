@@ -22,6 +22,9 @@ def hc_gas(
     """
     GP-0.6.7-section:B.6 (Ω_G) | General host function: gas.
 
+    Query the gas left.
+    Returns the remaining gas in register 7.
+
     Parameters
     ----------
     registers: List[int]
@@ -125,7 +128,23 @@ def hc_read(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_R) | General host function: read.
+
     Puts a Service StorageItem blob into PVM memory
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    service: ServiceAccount
+    service_id: int
+    services: ServicesState
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"READ", "general")
     invocation_output.gas_limit -= 10
@@ -193,7 +212,23 @@ def hc_write(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_W) | General host function: write.
+
     Writes/deletes a Service StorageItem blob
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    service: ServiceAccount
+    service_id: int
+    services: ServicesState
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"WRITE", "general")
     invocation_output.gas_limit -= 10
@@ -288,7 +323,23 @@ def hc_info(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_I) | General host function: info.
+
     Writes ServiceAccount into PVM memory
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    service: ServiceAccount
+    service_id: int
+    services: ServicesState
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"INFO", "general")
     invocation_output.gas_limit -= 10
@@ -358,10 +409,31 @@ def hc_fetch(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_F) | General host function: fetch.
+
     Fetch the data defined by this Fetch into the given target buffer.
     target: The buffer to write the fetched data into.
     skip: The number of bytes to skip from the start of the data to be fetched.
-    Returns the full length of the data which is being fetched. If this is smaller than the target's length, then some of the buffer will not be written to. If the request does not identify any data to be fetched (e. g. because an index is out of range) then returns None.
+    Returns the full length of the data which is being fetched. If this is smaller than the target's length, then some of the buffer will not be written to. If the request does not identify any data to be fetched (e.g. because an index is out of range) then returns None.
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    work_package: Optional[WorkPackage]
+    entropy: Optional[bytes]
+    authorizer_output: Optional[bytes]
+    work_item_index: Optional[int]
+    work_item_segs: Optional[List[List[bytes]]]
+    extrinsics: Optional[List[List[bytes]]]
+    accumulation_operands: Optional[List[AccumulationOperand]]
+    deferred_transfers: Optional[List[DeferredTransfer]]
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
 
     logger.hc_regs(f"FETCH", "general")
