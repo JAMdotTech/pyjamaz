@@ -34,19 +34,6 @@ def reverse_bytes(x):
     return y
 
 
-def reverse_bits_32(x):
-    x = ((x & 0x55555555) << 1) | ((x & 0xAAAAAAAA) >> 1)
-    x = ((x & 0x33333333) << 2) | ((x & 0xCCCCCCCC) >> 2)
-    x = ((x & 0x0F0F0F0F) << 4) | ((x & 0xF0F0F0F0) >> 4)
-    x = ((x & 0x00FF00FF) << 8) | ((x & 0xFF00FF00) >> 8)
-    x = ((x & 0x0000FFFF) << 16) | ((x & 0xFFFF0000) >> 16)
-    return x
-
-def reverse_bits_64(x):
-    b = '{:0{width}b}'.format(x, width=64)
-    return int(b[::-1], 2)
-
-
 def count_trailing_zeroes(value, max_bits=64):
     #https://stackoverflow.com/a/63552117
     #https://github.com/numpy/numpy/issues/16325
