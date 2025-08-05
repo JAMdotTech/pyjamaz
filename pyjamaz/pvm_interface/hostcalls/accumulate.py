@@ -63,7 +63,6 @@ def hc_bless(
             auto_accumulate_services = None   # bold_g = ∇
 
     try:
-        #TODO: check against 0.6.7!
         service_exists = all(x.context.state_context.services.retrieve_service_account(idx) for idx in [m, a, v])
     except (StateKeyNoResult, OverflowError):
         service_exists = False
@@ -691,7 +690,7 @@ def hc_forget(
         )
 
         preimage_cardinality = len(preimage_availability)
-        if preimage_cardinality == 2 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
+        if preimage_cardinality in (0, 2) and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
             # TODO: mark dirty? maybe register changes
             state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
             state.services.delete_preimage(service_id, preimage_hash)

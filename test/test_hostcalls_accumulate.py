@@ -251,31 +251,27 @@ class TestHCAccumulate(unittest.TestCase):
                 footprint_storage_items=service_config.get("footprint_storage_items", 0)
             )
         
-        # Load preimage availability from test vector
+        # load preimage availability from test vector (if set)
         preimage_availability_data = test_vector.get("context", {}).get("preimage_availability", {})
         
         services, preimage_availability_dict = create_mock_services_state(service_accounts=service_accounts)
         
-        # Populate preimage availability
+        # make preimage data available
         for key, value in preimage_availability_data.items():
             preimage_availability_dict[key] = value
         
-        # Create privileged services
         privileged_services = Mock(spec=PrivilegedServicesState)
         privileged_services.empower_service = None
         privileged_services.assign_service = None
         privileged_services.designate_service = None
         privileged_services.auto_accumulate_services = {}
         
-        # Create authorizer queues
         authorizer_queues = Mock(spec=AuthorizerQueuesState)
         authorizer_queues.authorizer_queues = {}
         
-        # Create validator queue
         validator_queue = Mock(spec=ValidatorQueueState)
         validator_queue.validators = []
         
-        # Create accumulation state components
         state_components = Mock(spec=AccumulationStateComponents)
         state_components.services = services
         state_components.privileged_services = privileged_services
@@ -283,25 +279,21 @@ class TestHCAccumulate(unittest.TestCase):
         state_components.validator_queue = validator_queue
         state_components.check_service_id = Mock(side_effect=lambda x: x)
         
-        # Create accumulate context item
         context_item = Mock(spec=AccumulateContextItem)
         context_item.state_context = state_components
         context_item.service_account_id = test_vector.get("context", {}).get("service_account_id", 1)
         context_item.new_service_account_id = test_vector.get("context", {}).get("new_service_account_id", 256)
         context_item.deferred_transfers = []
         
-        # Handle preimages
         preimages_data = test_vector.get("context", {}).get("preimages", [])
         preimages_hex = test_vector.get("context", {}).get("preimages_hex", False)
         context_item.preimages = []
         for preimage in preimages_data:
             if preimages_hex:
-                # Convert hex string to bytes
                 context_item.preimages.append((preimage[0], bytes.fromhex(preimage[1])))
             else:
                 context_item.preimages.append(tuple(preimage))
         
-        # Create accumulate invocation context
         accumulate_context = Mock(spec=AccumulateInvocationContext)
         accumulate_context.context = context_item
         accumulate_context.timeslot = test_vector.get("context", {}).get("timeslot", 0)
@@ -423,7 +415,7 @@ class TestHCAccumulate(unittest.TestCase):
             f"{name}: Expected exit reason {expected_exit_reason}, but got {invocation_output.exit_condition.reason.name.lower()}"
         )
         
-        # Check expected privileged services if provided
+        # additionally, heck expected privileged services if provided
         if "expected-privileged-services" in test_vector:
             expected_ps = test_vector["expected-privileged-services"]
             if expected_ps.get("empower_service") is not None:
@@ -445,7 +437,6 @@ class TestHCAccumulate(unittest.TestCase):
                     f"{name}: Expected designate_service {expected_ps['designate_service']}, but got {privileged_services.designate_service}"
                 )
             if "auto_accumulate_services" in expected_ps:
-                # Convert string keys to int keys for comparison
                 expected_auto_acc = {int(k): v for k, v in expected_ps["auto_accumulate_services"].items()}
                 self.assertEqual(
                     expected_auto_acc,
