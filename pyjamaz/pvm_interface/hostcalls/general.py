@@ -11,15 +11,28 @@ from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
-from pyjamaz.pvm_interface.invocation import RefineInvocationContext
 from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult
 
 
 def hc_gas(
-        registers: List[int],   #TODO: weg?
+        registers: List[int],
         memory: PVMMemory,
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+    """
+    GP-0.6.7-section:B.6 (Ω_G) | General host function: gas.
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
+    """
     logger.hc_regs(f"GAS", "general")
     invocation_output.gas_limit -= 10
     invocation_output.registers[7] = invocation_output.gas_limit
@@ -35,11 +48,27 @@ def hc_lookup(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_L) | General host function: lookup.
+
     Make a lookup into the service's preimage store.
     hash: The hash of the preimage to look up.
     Returns the preimage or None if the preimage was not available.
     --------------------------
     Puts a Service Preimage blob into PVM memory
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    service: ServiceAccount
+    service_id: int
+    services: ServicesState
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"LOOKUP", "general")
     invocation_output.gas_limit -= 10
@@ -155,7 +184,6 @@ def hc_read(
                            f"s={new_service_id} k={storage_key.hex()} (len(storage_item)) write_bytes({o}, {o + l})")
 
 
-#TODO: should work without services (bold_d??)
 def hc_write(
         registers: List[int],
         memory: PVMMemory,

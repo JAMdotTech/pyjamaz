@@ -241,7 +241,7 @@ class PVMInterpreter:
             try:
                 match inst_type:
 
-                    #GP_A.5.1
+                    #GP-0.6.7-section:A.5.1
                     case InstructionType.none:
 
                         match opcode:
