@@ -99,10 +99,10 @@ class TestReports(unittest.TestCase):
                 "storage_items": {},
                 "preimages": {},
                 "preimage_availability": {},
-                "deposit_offset": s["data"]["service"]["deposit-offset"],
-                "creation_slot": s["data"]["service"]["creation-slot"],
-                "last_accumulation_slot": s["data"]["service"]["last-accumulation-slot"],
-                "parent_service": s["data"]["service"]["parent-service"]
+                "deposit_offset": s["data"]["service"]["deposit_offset"],
+                "creation_slot": s["data"]["service"]["creation_slot"],
+                "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
+                "parent_service": s["data"]["service"]["parent_service"]
 
             } for s in test_vector["pre_state"]["accounts"]}}
         )

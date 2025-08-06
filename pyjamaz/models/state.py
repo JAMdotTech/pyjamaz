@@ -344,9 +344,9 @@ class ServiceAccount(Serializable):
     threshold_balance: U64
         GP-0.6.2-eq:9.8 (t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
         footprint.
-    deposit_offset: U64
+    deposit_offset: U32
         GP-0.6.7-eq:9.3 (f) | Gratis deposit offset.
-    creation_slot: U64
+    creation_slot: U32
         GP-0.6.7-eq:9.3 (r) | Timeslot when created
     last_accumulation_slot: U64
         GP-0.6.7-eq:9.3 (a) | Timeslot when last accumulated
@@ -378,7 +378,8 @@ class ServiceAccount(Serializable):
 
     @property
     def threshold_balance(self):
-        return (
+        # GP-0.6.7-eq:9.8 (a_t)
+        return max(0,
             MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * self.footprint_storage_items +
             MINIMUM_BALANCE_OCTET * self.footprint_storage_bytes - self.deposit_offset
         )
@@ -393,6 +394,9 @@ class ServiceAccount(Serializable):
             footprint_storage_bytes=U64.decode(JamBytes(serialized_bytes[56:64])),
             deposit_offset=U64.decode(JamBytes(serialized_bytes[64:72])),
             footprint_storage_items=U32.decode(JamBytes(serialized_bytes[72:76])),
+            creation_slot=U32.decode(JamBytes(serialized_bytes[76:80])),
+            last_accumulation_slot=U32.decode(JamBytes(serialized_bytes[80:84])),
+            parent_service=U32.decode(JamBytes(serialized_bytes[84:88])),
             storage_items={},
             preimages={},
             preimage_availability={},
@@ -404,7 +408,11 @@ class ServiceAccount(Serializable):
         serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
         serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
         serialized_bytes += U64.encode(self.footprint_storage_bytes).to_bytes()
+        serialized_bytes += U64.encode(self.deposit_offset).to_bytes()
         serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
+        serialized_bytes += U32.encode(self.creation_slot).to_bytes()
+        serialized_bytes += U32.encode(self.last_accumulation_slot).to_bytes()
+        serialized_bytes += U32.encode(self.parent_service).to_bytes()
         return serialized_bytes
 
     def update_from(self, service_account: "ServiceAccount"):
@@ -415,36 +423,36 @@ class ServiceAccount(Serializable):
         self.gas_limit_accumulate = service_account.gas_limit_on_transfer
         self.gas_limit_on_transfer = service_account.gas_limit_on_transfer
 
-    def update_footprint_add_storage_item(self, size: int) -> None:
+    def update_footprint_add_storage_item(self, key_len: int, value_len: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
         self.footprint_storage_items += 1
-        self.footprint_storage_bytes += 32 + size
+        self.footprint_storage_bytes += 34 + key_len + value_len
 
-    def update_footprint_remove_storage_item(self, size: int) -> None:
+    def update_footprint_remove_storage_item(self, key_len: int, value_len: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
         self.footprint_storage_items -= 1
-        self.footprint_storage_bytes -= 32 + size
+        self.footprint_storage_bytes -= 34 + key_len + value_len
 
-    def update_footprint_update_storage_item(self, old_size: int, new_size: int) -> None:
+    def update_footprint_update_storage_item(self, old_value_len: int, new_value_len: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
-        self.footprint_storage_bytes += new_size - old_size
+        self.footprint_storage_bytes += new_value_len - old_value_len
 
     def update_footprint_add_preimage(self, size: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
         self.footprint_storage_items += 2
         self.footprint_storage_bytes += 81 + size
 
     def update_footprint_remove_preimage(self, size: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
         self.footprint_storage_items -= 2
         self.footprint_storage_bytes -= 81 + size
@@ -890,23 +898,23 @@ class ServicesState(State, Serializable):
         storage_item_hash = blake2b_256_hash(int(service_account_id).to_bytes(length=4, byteorder="little") + key)
         return self.retrieve_storage_item(service_account_id, storage_item_hash)
 
-    def store_storage_item(self, service_account_id: int, storage_item_hash: bytes, value: bytes, commit=False):
+    def store_storage_item(self, service_account_id: int, storage_key: bytes, value: bytes, commit=False):
         """
         Store a storage item in the storage engine
         """
         if service_account_id not in self.services:
             self.services[service_account_id] = self.retrieve_service_account(service_account_id)
 
-        storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
+        state_key = state_key_constructor_storage_item(service_account_id, storage_key)
 
         if commit:
             if self.storage_transaction is None:
                 raise ValueError('storage_transaction must be set before storing storage items')
-            self.storage_transaction.put(storage_key, value)
+            self.storage_transaction.put(state_key, value)
 
-        logging.debug(f'store_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex()} state_key={storage_key.hex()} [commit={commit}]')
+        logging.debug(f'store_storage_item(s={service_account_id}, k={storage_key.hex()}): v={value.hex()} state_key={state_key.hex()} [commit={commit}]')
 
-        self.services[service_account_id].storage_items[storage_item_hash] = value
+        self.services[service_account_id].storage_items[storage_key] = value
 
 
     def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, commit=False):

@@ -42,7 +42,7 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
     AccumulationQueueWorkPackage, DeferredTransfer, ServiceActivityRecord
 from pyjamaz.transport.pubsub import PubSubSignal
-from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates
+from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates, format_hash
 
 
 class Timeslot(StateComponent):
@@ -147,7 +147,7 @@ class Entropy(StateComponent):
         if header.author_bandersnatch_key is None or self.block_context.seal_vrf_output == bytes(96):
             return bytes(32)
 
-        logging.debug(f"Verifying entropy source signature: {bytes(header.author_bandersnatch_key).hex()} {self.block_context.seal_vrf_output.hex()}")
+        logging.debug(f"Verifying entropy source signature: bs_key={format_hash(bytes(header.author_bandersnatch_key))} vrf_output={format_hash(self.block_context.seal_vrf_output)}")
 
         return ietf_vrf_verify(
             bytes(header.author_bandersnatch_key),
@@ -646,7 +646,7 @@ class RecentHistory(StateComponent):
         else:
             accumulate_root = beefy_commitment_map.get_accumulate_root()
 
-        logging.debug(f'accumulate_root={accumulate_root.hex()}')
+        logging.debug(f'accumulate_root={format_hash(accumulate_root)}')
 
         mmr = MerkleMountainRange(mmr_peaks)
         mmr.insert(accumulate_root)
@@ -659,7 +659,7 @@ class RecentHistory(StateComponent):
             state_root=bytes(32),
             reported=reported_work_packages
         )
-        logging.debug(f"beefy_root={recent_block.beefy_root}")
+        logging.debug(f"beefy_root={format_hash(recent_block.beefy_root)}")
 
         post_state_recent_history.recent_blocks.append(recent_block)
 
@@ -1141,6 +1141,9 @@ class Assurances(StateComponent):
 
             for signature in guarantee.signatures:
                 reporters.append(guarantor_assignments[signature.validator_index].validator_ed25519)
+
+        # Make reporters unique
+        reporters = list(set(reporters))
 
         # Sort output lists
         reported.sort(key=lambda rp: rp.work_package_hash)
@@ -1890,6 +1893,16 @@ class Services(StateComponent):
             post_state_timeslot=post_state_timeslot,
             post_state_entropy=post_state_entropy
         )
+
+        # GP-0.6.7-eq:12.30 | Update last_accumulation_slot
+        for s in output.accumulation_gas_utilized.keys():
+            try:
+                service_account = output.post_accumulation_state.services.retrieve_service_account(s)
+                service_account.last_accumulation_slot = post_state_timeslot.number
+                output.post_accumulation_state.services.store_service_account(s, service_account)
+            except StateKeyNoResult:
+                # todo what to do with service_id=0?
+                pass
 
         # GP-0.6.0-eq:12.22
         return ServicesAfterAccumulationOutput(

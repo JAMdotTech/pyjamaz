@@ -175,8 +175,7 @@ def hc_read(
     storage_item = None  # bold_v
     if service_account is not None:
         try:
-            new_service_id_bytes = new_service_id.to_bytes(length=4, byteorder="little")
-            storage_key = blake2b_256_hash(new_service_id_bytes + memory.read_bytes(k_o, k_z))
+            storage_key = memory.read_bytes(k_o, k_z)
             storage_item = services.retrieve_storage_item(service_account_id=new_service_id, storage_item_hash=storage_key)
         except StateKeyNoResult:
             storage_item = None  # bold_v = ∅
@@ -247,8 +246,8 @@ def hc_write(
     service_storage_item = None
 
     try:
-        k = memory.read_bytes(k_o, k_z)  # Note: service local storage key
-        storage_key = blake2b_256_hash(service_id.to_bytes(length=4, byteorder="little") + k)  # GP: k
+        k = memory.read_bytes(k_o, k_z)  # GP k: service storage key
+
         try:
             if v_z == 0:
                 service_storage_item = None  # GP: bold_a (delete)
@@ -258,7 +257,7 @@ def hc_write(
             service_storage_item_mem_error = True  # GP: a = ∇
 
         try:
-            si = services.retrieve_storage_item(service_id, storage_key)
+            si = services.retrieve_storage_item(service_id, k)
             l = len(si)
         except StateKeyNoResult:
             si = bytes()
@@ -281,26 +280,26 @@ def hc_write(
             # TODO: mark dirty? maybe register changes
             services.delete_storage_item(
                 service_account_id=service_id,
-                storage_item_hash=storage_key
+                storage_item_hash=k
             )
             logger.hc_log("WRITE DELETE", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
 
             # Update storage footprint
             if l != HostCallResult.NONE.value:
-                service_account.update_footprint_remove_storage_item(len(si))
+                service_account.update_footprint_remove_storage_item(len(k), len(si))
 
         else:
             # TODO: mark dirty? maybe register changes
             services.store_storage_item(
                 service_account_id=service_id,
-                storage_item_hash=storage_key,
+                storage_key=k,
                 value=service_storage_item,
             )
 
             # Update storage footprint
             if len(si) == 0:
                 # TODO: mark dirty? maybe register changes
-                service_account.update_footprint_add_storage_item(len(service_storage_item))
+                service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
                 logger.hc_log("WRITE NONE",
                                    f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
@@ -374,8 +373,8 @@ def hc_info(
         service_account_bytes += U32.encode(service_account.last_accumulation_slot).to_bytes()
         service_account_bytes += U32.encode(service_account.parent_service).to_bytes()
 
-        f = min(registers[11], len(service_account_bytes))
-        l = min(registers[12], len(service_account_bytes) - f)
+        f = min(registers[9], len(service_account_bytes))
+        l = min(registers[10], len(service_account_bytes) - f)
 
         try:
             invocation_output.memory.write_bytes(o, service_account_bytes[f:f+l])

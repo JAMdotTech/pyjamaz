@@ -291,6 +291,7 @@ def pvm_invoke_accumulate(
     except StateKeyNoResult:
         # Program not found
         preimage_blob = None
+        logging.debug(f'⚠️ Could not retrieve program for service={service_id}')
 
     if preimage_blob is None or len(preimage_blob) > MAXIMUM_SIZE_SERVICE_CODE:
         return PvmAccumulateOutput(
@@ -374,7 +375,7 @@ def pvm_invoke_on_transfer(
 
     Returns
     -------
-    ServiceAccount
+    PvmOnTransferOutput
     """
 
     service_account = services_state.retrieve_service_account(service_id)
