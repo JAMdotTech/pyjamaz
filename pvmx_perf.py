@@ -20,17 +20,24 @@ def pvm_X(x: np.uint64, n: np.uint8) -> np.uint64:
 
 
 # Bitwise implementation
-def sign_extend_bitwise(value: int, num_bytes: int) -> int:
-    """Sign extend using bitwise operations like JavaScript"""
-    # Check if MSB is set
-    sign_bit = 1 << (num_bytes * 8 - 1)
-    if value & sign_bit:
-        # Negative number - fill upper bits with 1s
-        mask = (1 << (num_bytes * 8)) - 1
-        return value | (~mask & ((1 << 64) - 1))
-    else:
-        # Positive number - value is already correct
-        return value
+def sign_extend_bitwise(x: int, n: int) -> int:
+    # """Sign extend using bitwise operations like JavaScript"""
+    # # Check if MSB is set
+    # sign_bit = 1 << (num_bytes * 8 - 1)
+    # if value & sign_bit:
+    #     # Negative number - fill upper bits with 1s
+    #     mask = (1 << (num_bytes * 8)) - 1
+    #     return value | (~mask & ((1 << 64) - 1))
+    # else:
+    #     # Positive number - value is already correct
+    #     return value
+    if n == 0:
+        # Domain contains only 0, and sign-extension of 0 bytes is 0
+        return 0
+
+    sign_bit = (x >> (8 * n - 1)) & 1  # 0 or 1
+    mask = sign_bit * ((1 << 64) - (1 << (8 * n)))
+    return (x & ((1 << (8 * n)) - 1)) + mask
 
 
 # Numpy native signed integer conversion
