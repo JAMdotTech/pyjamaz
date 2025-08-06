@@ -1,0 +1,12 @@
+{
+  "description": "Test hc_gas with low gas amount",
+  "hostcall": "hc_gas",
+  "gas": 11,
+  "initial-registers": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "initial-page-map": [],
+  "initial-memory": [],
+  "expected-regs": [0, 0, 0, 0, 0, 0, 0, 90, 0, 0, 0, 0, 0],
+  "expected-memory": [],
+  "expected-exit-reason": "resume",
+  "expected-gas": 1
+}

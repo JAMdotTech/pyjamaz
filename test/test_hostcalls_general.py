@@ -11,7 +11,7 @@ from jamcodec.base import JamBytes
 from parameterized import parameterized
 
 from pyjamaz.pvm_interface.hostcalls.general import (
-    # hc_gas,
+    hc_gas,
     hc_read,
     hc_write,
     hc_info,
@@ -199,7 +199,7 @@ class TestHCGeneral(unittest.TestCase):
 
         invocation_output = InvocationMutationOutput(
             exit_condition=ExitCondition(reason=ExitReason.resume),
-            gas_limit=1000000,  # Start with plenty of gas
+            gas_limit=test_vector.get("gas", 1000000),  # Use test gas or default to plenty
             registers=np.array(pvm_regs, dtype=np.uint64),
             memory=deepcopy(pvm_memory),
             context=None
@@ -362,6 +362,13 @@ class TestHCGeneral(unittest.TestCase):
                 invocation_output,
                 logger)
 
+        elif hostcall == "hc_gas":
+            hc_gas(
+                pvm_regs,
+                pvm_memory,
+                invocation_output,
+                logger)
+
         else:
             raise ValueError(f"Unknown GENERAL hostcall: {hostcall}")
 
@@ -388,6 +395,14 @@ class TestHCGeneral(unittest.TestCase):
             invocation_output.exit_condition.reason.name.lower(),
             f"{name}: Expected exit reason {expected_exit_reason}, but got {invocation_output.exit_condition.reason.name.lower()}"
         )
+        
+        # Check expected gas if specified
+        if "expected-gas" in test_vector:
+            self.assertEqual(
+                test_vector["expected-gas"],
+                invocation_output.gas_limit,
+                f"{name}: Expected gas {test_vector['expected-gas']}, but got {invocation_output.gas_limit}"
+            )
 
 
 if __name__ == '__main__':
