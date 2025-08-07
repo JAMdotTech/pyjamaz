@@ -894,6 +894,7 @@ class ServicesState(State, Serializable):
     def retrieve_storage_local_key(self, service_account_id: int, key: bytes) -> bytes:
         """
         Retrieves a storage item from a service by its local key
+        TODO deprecated since GP-0.6.7
         """
         storage_item_hash = blake2b_256_hash(int(service_account_id).to_bytes(length=4, byteorder="little") + key)
         return self.retrieve_storage_item(service_account_id, storage_item_hash)

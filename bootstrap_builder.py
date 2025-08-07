@@ -8,9 +8,6 @@ from pyjamaz.models.builder import Instruction, ServiceRegistry
 from pyjamaz.models.common import Authorizer, RefinementContext, WorkPackage, WorkItem, WorkItemExtrinsic, Preimage
 from pyjamaz.rpc.ws_client import WebsocketClient
 
-
-# Bootstrap service - Helper functions
-
 async def get_service_registry(client) -> ServiceRegistry:
     best_block = await client.bestBlock()
     block_hash = best_block["header_hash"]
@@ -28,7 +25,7 @@ async def create_empty_workpackage(client: WebsocketClient) -> WorkPackage:
     beefy_root = await client.beefyRoot(block_hash)
 
     authorizer = Authorizer(
-        code_hash=bytes.fromhex('1f5b06efb68e00d58f668d6c2f5e34bdfe52c18d1176b2304e0bae45f367ca6f'),
+        code_hash=bytes.fromhex('36221cd090524aa7f1d8bc3bfd450612023f65371df5089629a6654c18765b1e'),
         params=b''
     )
 
@@ -56,7 +53,7 @@ async def create_bootservice_workpackage(client: WebsocketClient, instruction: I
     work_package.items.append(
             WorkItem(
                 accumulate_gas_limit=10000000,
-                code_hash=bytes.fromhex('bc804dccb6bae35cd48cc1e11e426e7ba218727e2ba7dd43e8163f4f5d06333f'),
+                code_hash=bytes.fromhex('41c4cef40ceb12fc597fa7367643063d9cd3e414391c802070ef7f18fdc18382'),
                 export_count=0,
                 extrinsic=[WorkItemExtrinsic.from_blob(e) for e in extrinsic],
                 import_segments=[],
@@ -67,8 +64,6 @@ async def create_bootservice_workpackage(client: WebsocketClient, instruction: I
     )
 
     return work_package
-
-# Bootstrap service - Script
 
 async def main():
 
