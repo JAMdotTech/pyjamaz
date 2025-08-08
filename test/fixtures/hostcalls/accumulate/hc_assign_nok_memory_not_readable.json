@@ -24,7 +24,18 @@
   ],
   "initial-memory": [],
   "context": {
-    "services": {}
+    "services": {
+      "100": {
+        "code_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "balance": 1000000
+      }
+    },
+    "service_account_id": 100,
+    "privileged_services": {
+      "assigners_sparse": {
+        "0": 100
+      }
+    }
   },
   "expected-regs": [
     0,

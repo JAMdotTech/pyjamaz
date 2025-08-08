@@ -10,12 +10,12 @@ from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.state import ServiceAccount, DeferredTransfer, ServicesState
-from pyjamaz.pvm_interface.models import AccumulateInvocationContext
+from pyjamaz.hostcalls.models import AccumulateInvocationContext
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
-from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult, HostCallDebug, HostCallGeneral, HostCallAccumulate
+from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.utils import format_hash
 
 
@@ -80,13 +80,18 @@ def hc_bless(
             for idx in range(n):
                 offset = o + idx * 12
                 service_idx = U32.decode(JamBytes(memory.read_bytes(offset, 4)))
-                gas = U64.decode(JamBytes(memory.read_bytes(offset + 4, 4+8)))
+                gas = U64.decode(JamBytes(memory.read_bytes(offset + 4, 8)))
                 auto_accumulate_services[service_idx] = gas
         except PVMMemoryError:
             auto_accumulate_services = None   # bold_g = ∇
 
     try:
-        service_exists = all(x.context.state_context.services.retrieve_service_account(idx) for idx in [m, a, v])
+        # Check if manager and delegator services exist
+        services_to_check = [m, v]
+        # Also check if all assigner services exist (if assigners were successfully read)
+        if assigners is not None:
+            services_to_check.extend(assigners)
+        service_exists = all(x.context.state_context.services.retrieve_service_account(idx) for idx in services_to_check)
     except (StateKeyNoResult, OverflowError):
         service_exists = False
 

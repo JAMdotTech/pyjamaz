@@ -10,7 +10,7 @@
     0,
     0,
     10,
-    20,
+    131200,
     30,
     131072,
     3
@@ -26,12 +26,56 @@
     {
       "address": 131072,
       "contents": [
-        42, 0, 0, 0,
-        192, 198, 45, 0, 0, 0, 0, 0,
-        43, 0, 0, 0,
-        0, 45, 49, 1, 0, 0, 0, 0,
-        44, 0, 0, 0,
-        0, 53, 12, 0, 0, 0, 0, 0
+        42,
+        0,
+        0,
+        0,
+        192,
+        198,
+        45,
+        0,
+        0,
+        0,
+        0,
+        0,
+        43,
+        0,
+        0,
+        0,
+        0,
+        45,
+        49,
+        1,
+        0,
+        0,
+        0,
+        0,
+        44,
+        0,
+        0,
+        0,
+        0,
+        53,
+        12,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "comment": "Assigners array for 2 cores (all set to service 20)",
+      "address": 131200,
+      "contents": [
+        20,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
       ]
     }
   ],
@@ -61,6 +105,10 @@
         "code_hash": "6677889900112233445566778899001122334455667788990011223344556677",
         "balance": 6000000
       }
+    },
+    "service_account_id": 10,
+    "privileged_services": {
+      "manager": 10
     }
   },
   "expected-regs": [
@@ -72,7 +120,7 @@
     0,
     0,
     0,
-    20,
+    131200,
     30,
     131072,
     3
@@ -80,10 +128,13 @@
   "expected-memory": [],
   "expected-exit-reason": "resume",
   "expected-privileged-services": {
-    "empower_service": 10,
-    "assign_service": 20,
-    "designate_service": 30,
-    "auto_accumulate_services": {
+    "manager": 10,
+    "assigners": [
+      20,
+      20
+    ],
+    "delegator": 30,
+    "always_accumulators": {
       "42": 3000000,
       "43": 20000000,
       "44": 800000

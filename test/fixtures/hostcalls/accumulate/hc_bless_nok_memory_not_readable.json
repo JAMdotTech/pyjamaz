@@ -37,6 +37,10 @@
         "code_hash": "3344556677889900112233445566778899001122334455667788990011223344",
         "balance": 3000000
       }
+    },
+    "service_account_id": 10,
+    "privileged_services": {
+      "manager": 10
     }
   },
   "expected-regs": [

@@ -10,7 +10,7 @@ import numpy as np
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
-from pyjamaz.pvm_interface.hostcalls.accumulate import (
+from pyjamaz.hostcalls.accumulate import (
     hc_bless,
     hc_assign,
     hc_designate,
@@ -33,8 +33,8 @@ from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState, ValidatorQueueState
 from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.pvm_interface.models import AccumulateInvocationContext, AccumulateContextItem
-from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult
+from pyjamaz.hostcalls.models import AccumulateInvocationContext, AccumulateContextItem
+from pyjamaz.hostcalls.constants import HostCallResult
 
 
 def load_test_vectors(directory):
@@ -261,11 +261,31 @@ class TestHCAccumulate(unittest.TestCase):
         for key, value in preimage_availability_data.items():
             preimage_availability_dict[key] = value
         
+        # Setup privileged services from test vector if provided
+        privileged_services_data = test_vector.get("context", {}).get("privileged_services", {})
         privileged_services = Mock(spec=PrivilegedServicesState)
-        privileged_services.empower_service = None
-        privileged_services.assign_service = None
-        privileged_services.designate_service = None
-        privileged_services.auto_accumulate_services = {}
+        privileged_services.manager = privileged_services_data.get("manager", None)
+        
+        # Handle assigners - it can be a partial array or sparse dict in test vector
+        privileged_services.assigners = [None] * 341  # Initialize array of 341 cores (CORE_COUNT)
+        
+        # Check for sparse format first (dict with core indices as keys)
+        if "assigners_sparse" in privileged_services_data:
+            assigners_sparse = privileged_services_data["assigners_sparse"]
+            for core_idx, assigner in assigners_sparse.items():
+                idx = int(core_idx)
+                if idx < 341:
+                    privileged_services.assigners[idx] = assigner
+        # Otherwise use dense array format
+        elif "assigners" in privileged_services_data:
+            assigners_from_test = privileged_services_data["assigners"]
+            # Override specific cores from test vector
+            for i, assigner in enumerate(assigners_from_test):
+                if i < 341:
+                    privileged_services.assigners[i] = assigner
+        
+        privileged_services.delegator = privileged_services_data.get("delegator", None)
+        privileged_services.always_accumulators = privileged_services_data.get("always_accumulators", {})
         
         authorizer_queues = Mock(spec=AuthorizerQueuesState)
         authorizer_queues.authorizer_queues = {}
@@ -427,30 +447,33 @@ class TestHCAccumulate(unittest.TestCase):
         # additionally, heck expected privileged services if provided
         if "expected-privileged-services" in test_vector:
             expected_ps = test_vector["expected-privileged-services"]
-            if expected_ps.get("empower_service") is not None:
+            if expected_ps.get("manager") is not None:
                 self.assertEqual(
-                    expected_ps["empower_service"],
-                    privileged_services.empower_service,
-                    f"{name}: Expected empower_service {expected_ps['empower_service']}, but got {privileged_services.empower_service}"
+                    expected_ps["manager"],
+                    privileged_services.manager,
+                    f"{name}: Expected manager {expected_ps['manager']}, but got {privileged_services.manager}"
                 )
-            if expected_ps.get("assign_service") is not None:
+            if expected_ps.get("assigners") is not None:
+                # Compare only the first few assigners as specified in test
+                expected_assigners = expected_ps["assigners"]
+                actual_assigners = privileged_services.assigners[:len(expected_assigners)]
                 self.assertEqual(
-                    expected_ps["assign_service"],
-                    privileged_services.assign_service,
-                    f"{name}: Expected assign_service {expected_ps['assign_service']}, but got {privileged_services.assign_service}"
+                    expected_assigners,
+                    actual_assigners,
+                    f"{name}: Expected assigners {expected_assigners}, but got {actual_assigners}"
                 )
-            if expected_ps.get("designate_service") is not None:
+            if expected_ps.get("delegator") is not None:
                 self.assertEqual(
-                    expected_ps["designate_service"],
-                    privileged_services.designate_service,
-                    f"{name}: Expected designate_service {expected_ps['designate_service']}, but got {privileged_services.designate_service}"
+                    expected_ps["delegator"],
+                    privileged_services.delegator,
+                    f"{name}: Expected delegator {expected_ps['delegator']}, but got {privileged_services.delegator}"
                 )
-            if "auto_accumulate_services" in expected_ps:
-                expected_auto_acc = {int(k): v for k, v in expected_ps["auto_accumulate_services"].items()}
+            if "always_accumulators" in expected_ps:
+                expected_auto_acc = {int(k): v for k, v in expected_ps["always_accumulators"].items()}
                 self.assertEqual(
                     expected_auto_acc,
-                    privileged_services.auto_accumulate_services,
-                    f"{name}: Expected auto_accumulate_services {expected_auto_acc}, but got {privileged_services.auto_accumulate_services}"
+                    privileged_services.always_accumulators,
+                    f"{name}: Expected always_accumulators {expected_auto_acc}, but got {privileged_services.always_accumulators}"
                 )
 
         # verify context modifications for accumulate hostcalls

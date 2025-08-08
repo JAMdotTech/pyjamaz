@@ -24,7 +24,11 @@
   ],
   "initial-memory": [],
   "context": {
-    "services": {}
+    "services": {},
+    "privileged_services": {
+      "delegator": 100
+    },
+    "service_account_id": 100
   },
   "expected-regs": [
     0,

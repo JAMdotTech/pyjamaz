@@ -1,6 +1,6 @@
 {
   "hostcall": "hc_assign",
-  "description": "Tests successful assignment to maximum valid core index (1)",
+  "description": "Tests successful assignment to maximum valid core index (1 for tiny test suite)",
   "initial-registers": [
     0,
     0,
@@ -26,13 +26,54 @@
     {
       "address": 131072,
       "contents": [
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 
-        255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255
       ]
     }
   ],
   "context": {
-    "services": {}
+    "service_account_id": 100,
+    "services": {
+      "100": {
+        "code_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "balance": 1000000
+      }
+    },
+    "privileged_services": {
+      "assigners_sparse": {
+        "1": 100
+      }
+    }
   },
   "expected-regs": [
     0,

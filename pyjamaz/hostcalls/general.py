@@ -11,7 +11,7 @@ from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
-from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult
+from pyjamaz.hostcalls.constants import HostCallResult
 
 
 def hc_gas(

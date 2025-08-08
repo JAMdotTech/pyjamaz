@@ -12,8 +12,8 @@ from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram, PVMCode
-from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult, InnerPVMResult
-from pyjamaz.pvm_interface.models import RefineInvocationContext, IntegratedPVM
+from pyjamaz.hostcalls.constants import HostCallResult, InnerPVMResult
+from pyjamaz.hostcalls.models import RefineInvocationContext, IntegratedPVM
 
 
 def hc_historical_lookup(

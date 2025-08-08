@@ -10,11 +10,11 @@ from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
     BeefyCommitmentMap, TimeslotState, EntropyState
 
-from pyjamaz.pvm_interface.invocation import pvm_invoke_accumulate
+from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
 from pyjamaz.utils import substitute_if_nothing
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.pvm_interface.models import PvmAccumulateOutput
+    from pyjamaz.hostcalls.models import PvmAccumulateOutput
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
     """

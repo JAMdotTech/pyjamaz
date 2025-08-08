@@ -10,7 +10,7 @@ import numpy as np
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
-from pyjamaz.pvm_interface.hostcalls.general import (
+from pyjamaz.hostcalls.general import (
     hc_gas,
     hc_read,
     hc_write,
@@ -55,7 +55,11 @@ def create_mock_service_account(
         footprint_storage_bytes=0,
         footprint_storage_items=0,
         storage_items=None,
-        preimages=None
+        preimages=None,
+        deposit_offset=0,
+        creation_slot=0,
+        last_accumulation_slot=0,
+        parent_service=0
 ):
     service_account = Mock(spec=ServiceAccount)
     service_account.code_hash = code_hash or b'\x00' * 32
@@ -67,6 +71,10 @@ def create_mock_service_account(
     service_account.footprint_storage_items = footprint_storage_items
     service_account.storage_items = storage_items or {}
     service_account.preimages = preimages or {}
+    service_account.deposit_offset = deposit_offset
+    service_account.creation_slot = creation_slot
+    service_account.last_accumulation_slot = last_accumulation_slot
+    service_account.parent_service = parent_service
 
     service_account.update_footprint_add_storage_item = Mock()
     service_account.update_footprint_remove_storage_item = Mock()
@@ -93,8 +101,10 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
             return storage_items_dict[key]
         raise StateKeyNoResult(f"Storage item not found")
 
-    def store_storage_item(service_account_id, storage_item_hash, value):
-        key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
+    def store_storage_item(service_account_id, storage_key=None, storage_item_hash=None, value=None):
+        # Support both old parameter name (storage_item_hash) and new (storage_key)
+        hash_value = storage_key if storage_key is not None else storage_item_hash
+        key = (service_account_id, hash_value.hex() if isinstance(hash_value, bytes) else hash_value)
         storage_items_dict[key] = value
 
     def delete_storage_item(service_account_id, storage_item_hash):
@@ -215,7 +225,11 @@ class TestHCGeneral(unittest.TestCase):
             gas_limit_accumulate=service_config.get("gas_limit_accumulate", 1000000),
             gas_limit_on_transfer=service_config.get("gas_limit_on_transfer", 1000000),
             footprint_storage_bytes=service_config.get("footprint_storage_bytes", 0),
-            footprint_storage_items=service_config.get("footprint_storage_items", 0)
+            footprint_storage_items=service_config.get("footprint_storage_items", 0),
+            deposit_offset=service_config.get("deposit_offset", 0),
+            creation_slot=service_config.get("creation_slot", 0),
+            last_accumulation_slot=service_config.get("last_accumulation_slot", 0),
+            parent_service=service_config.get("parent_service", 0)
         )
 
         other_services = {}
@@ -227,7 +241,11 @@ class TestHCGeneral(unittest.TestCase):
                 gas_limit_accumulate=other_config.get("gas_limit_accumulate", 1000000),
                 gas_limit_on_transfer=other_config.get("gas_limit_on_transfer", 1000000),
                 footprint_storage_bytes=other_config.get("footprint_storage_bytes", 0),
-                footprint_storage_items=other_config.get("footprint_storage_items", 0)
+                footprint_storage_items=other_config.get("footprint_storage_items", 0),
+                deposit_offset=other_config.get("deposit_offset", 0),
+                creation_slot=other_config.get("creation_slot", 0),
+                last_accumulation_slot=other_config.get("last_accumulation_slot", 0),
+                parent_service=other_config.get("parent_service", 0)
             )
 
         all_services = {service_id: service}
