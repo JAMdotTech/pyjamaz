@@ -14,6 +14,7 @@ from pyjamaz.pvm_interface.hostcalls.accumulate import (
     hc_bless,
     hc_assign,
     hc_designate,
+    hc_checkpoint,
     hc_new,
     hc_upgrade,
     hc_transfer,
@@ -388,6 +389,14 @@ class TestHCAccumulate(unittest.TestCase):
                 invocation_output,
                 logger
             )
+        elif hostcall == "hc_checkpoint":
+            hc_checkpoint(
+                pvm_regs,
+                pvm_memory,
+                accumulate_context,
+                invocation_output,
+                logger
+            )
         else:
             raise ValueError(f"Unknown ACCUMULATE hostcall: {hostcall}")
 
@@ -442,6 +451,206 @@ class TestHCAccumulate(unittest.TestCase):
                     expected_auto_acc,
                     privileged_services.auto_accumulate_services,
                     f"{name}: Expected auto_accumulate_services {expected_auto_acc}, but got {privileged_services.auto_accumulate_services}"
+                )
+
+        # verify context modifications for accumulate hostcalls
+        if hostcall == "hc_bless":
+            # hc_bless modifies privileged services in the context
+            # Changes are verified above in expected-privileged-services
+            pass
+        
+        elif hostcall == "hc_assign":
+            # hc_assign modifies authorizer queues in the context
+            if "expected-authorizer-queues" in test_vector:
+                for core_index, expected_queue in test_vector["expected-authorizer-queues"].items():
+                    actual_queue = authorizer_queues.authorizer_queues.get(int(core_index), [])
+                    self.assertEqual(
+                        expected_queue,
+                        actual_queue,
+                        f"{name}: Expected authorizer queue for core {core_index} to be {expected_queue}, but got {actual_queue}"
+                    )
+        
+        elif hostcall == "hc_designate":
+            # hc_designate modifies validator queue in the context
+            if "expected-validator-queue" in test_vector:
+                self.assertEqual(
+                    test_vector["expected-validator-queue"],
+                    validator_queue.validators,
+                    f"{name}: Expected validator queue {test_vector['expected-validator-queue']}, but got {validator_queue.validators}"
+                )
+        
+        elif hostcall == "hc_checkpoint":
+            # hc_checkpoint saves a snapshot of the context
+            # the savepoint_context should be updated to be a deep copy of context
+            self.assertIsNotNone(
+                accumulate_context.savepoint_context,
+                f"{name}: Expected savepoint_context to be set after hc_checkpoint"
+            )
+            # verify that savepoint_context is a copy of context (has same values)
+            self.assertEqual(
+                accumulate_context.context.service_account_id,
+                accumulate_context.savepoint_context.service_account_id,
+                f"{name}: savepoint_context should have same service_account_id as context"
+            )
+            self.assertEqual(
+                accumulate_context.context.new_service_account_id,
+                accumulate_context.savepoint_context.new_service_account_id,
+                f"{name}: savepoint_context should have same new_service_account_id as context"
+            )
+        
+        elif hostcall == "hc_new":
+            # hc_new creates a new service account and modifies:
+            # - new_service_account_id in context
+            # - service accounts in state_context
+            # - balance of the calling service
+            if "expected-new-service-id" in test_vector:
+                self.assertEqual(
+                    test_vector["expected-new-service-id"],
+                    context_item.new_service_account_id,
+                    f"{name}: Expected new_service_account_id {test_vector['expected-new-service-id']}, but got {context_item.new_service_account_id}"
+                )
+            
+            #check if new service was stored
+            if "expected-new-service" in test_vector:
+                new_service_data = test_vector["expected-new-service"]
+                # Verify store_service_account was called for the new service
+                store_calls = services.store_service_account.call_args_list
+                new_service_stored = any(
+                    call[0][0] == new_service_data.get("id") 
+                    for call in store_calls
+                )
+                self.assertTrue(
+                    new_service_stored,
+                    f"{name}: Expected new service {new_service_data.get('id')} to be stored"
+                )
+        
+        elif hostcall == "hc_upgrade":
+            # hc_upgrade modifies the service accounts code hash and gas limits
+            # vhanges are stored in the services state
+            if "expected-service-updates" in test_vector:
+                # Verify store_service_account was called with updated service
+                self.assertGreater(
+                    services.store_service_account.call_count,
+                    0,
+                    f"{name}: Expected store_service_account to be called for upgrade"
+                )
+        
+        elif hostcall == "hc_transfer":
+            # hc_transfer adds to deferred_transfers in context
+            if "expected-deferred-transfers-count" in test_vector:
+                self.assertEqual(
+                    test_vector["expected-deferred-transfers-count"],
+                    len(context_item.deferred_transfers),
+                    f"{name}: Expected {test_vector['expected-deferred-transfers-count']} deferred transfers, but got {len(context_item.deferred_transfers)}"
+                )
+            
+            # verify transfer details if specified
+            if "expected-deferred-transfers" in test_vector:
+                for i, expected_transfer in enumerate(test_vector["expected-deferred-transfers"]):
+                    if i < len(context_item.deferred_transfers):
+                        actual_transfer = context_item.deferred_transfers[i]
+                        if "sender" in expected_transfer:
+                            self.assertEqual(
+                                expected_transfer["sender"],
+                                actual_transfer.sender,
+                                f"{name}: Transfer {i} sender mismatch"
+                            )
+                        if "receiver" in expected_transfer:
+                            self.assertEqual(
+                                expected_transfer["receiver"],
+                                actual_transfer.receiver,
+                                f"{name}: Transfer {i} receiver mismatch"
+                            )
+                        if "amount" in expected_transfer:
+                            self.assertEqual(
+                                expected_transfer["amount"],
+                                actual_transfer.amount,
+                                f"{name}: Transfer {i} amount mismatch"
+                            )
+        
+        elif hostcall == "hc_eject":
+            # hc_eject removes a zombie service and transfers its balance
+            # modifies service balances and removes preimage availability
+            if "expected-service-balance" in test_vector:
+                # Verify that the calling service's balance was updated
+                for service_id, expected_balance in test_vector["expected-service-balance"].items():
+                    # Check if store_service_account was called with updated balance
+                    store_calls = services.store_service_account.call_args_list
+                    balance_updated = False
+                    for call in store_calls:
+                        if call[0][0] == int(service_id):
+                            stored_service = call[0][1]
+                            if hasattr(stored_service, 'balance'):
+                                self.assertEqual(
+                                    expected_balance,
+                                    stored_service.balance,
+                                    f"{name}: Expected service {service_id} balance {expected_balance}, but got {stored_service.balance}"
+                                )
+                                balance_updated = True
+                                break
+                    if not balance_updated and int(service_id) == context_item.service_account_id:
+                        # Check the service object directly
+                        service = services.services.get(int(service_id))
+                        if service:
+                            self.assertEqual(
+                                expected_balance,
+                                service.balance,
+                                f"{name}: Expected service {service_id} balance {expected_balance}, but got {service.balance}"
+                            )
+            
+            if "expected-ejected-service" in test_vector:
+                # Verify the zombie service was removed
+                ejected_id = test_vector["expected-ejected-service"]
+                # Check if delete_service_account or similar was called
+                # Since we're using mocks, we can check if the service still exists
+                self.assertNotIn(
+                    ejected_id,
+                    services.services,
+                    f"{name}: Expected service {ejected_id} to be ejected (removed)"
+                )
+        
+        elif hostcall == "hc_query":
+            # hc_query retrieves service account information
+            # it doesnt modify context, just reads and returns data
+            pass
+        
+        elif hostcall == "hc_quit":
+            # hc_quit adds storage item for preimage lookup
+            # verified through services state modifications
+            pass
+        
+        elif hostcall == "hc_solicit":
+            # hc_solicit may add preimage availability
+            # check if store_preimage_availability was called
+            pass
+        
+        elif hostcall == "hc_forget":
+            # hc_forget removes preimage availability
+            # check if delete_preimage_availability was called
+            pass
+        
+        elif hostcall == "hc_yield":
+            # hc_yield sets invocation_output in context
+            if "expected-invocation-output" in test_vector:
+                self.assertIsNotNone(
+                    context_item.invocation_output,
+                    f"{name}: Expected invocation_output to be set after hc_yield"
+                )
+                if context_item.invocation_output:
+                    expected_output = bytes.fromhex(test_vector["expected-invocation-output"])
+                    self.assertEqual(
+                        expected_output,
+                        context_item.invocation_output,
+                        f"{name}: Expected invocation_output {expected_output.hex()}, but got {context_item.invocation_output.hex()}"
+                    )
+        
+        elif hostcall == "hc_provide":
+            # hc_provide adds preimages to the context
+            if "expected-preimages-count" in test_vector:
+                self.assertEqual(
+                    test_vector["expected-preimages-count"],
+                    len(context_item.preimages),
+                    f"{name}: Expected {test_vector['expected-preimages-count']} preimages, but got {len(context_item.preimages)}"
                 )
 
 

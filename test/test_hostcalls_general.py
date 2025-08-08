@@ -404,6 +404,72 @@ class TestHCGeneral(unittest.TestCase):
                 f"{name}: Expected gas {test_vector['expected-gas']}, but got {invocation_output.gas_limit}"
             )
 
+        # context related checks for generals hostcalls
+        if hostcall == "hc_fetch":
+            # hc_fetch provides access to work package data, extrinsics, etc.
+            # The data is written directly to memory as specified in expected-memory
+            pass
+        
+        if hostcall == "hc_info":
+            # hc_info provides access to service account information
+            # it writes service info to memory which is verified via expected-memory
+            pass
+        
+        if hostcall == "hc_lookup":
+            # hc_lookup reads preimage data from the service preimage store
+            pass
+        
+        if hostcall == "hc_read":
+            # hc_read reads storage items from the service storage
+            pass
+        
+        if hostcall == "hc_write":
+            # hc_write modifies the services storage
+            # storage changes are handled through the services mock
+            # verify storage was actually modified if expected
+            if "expected_storage_items" in test_vector:
+                for expected_item in test_vector["expected_storage_items"]:
+                    key = (expected_item["service_id"], expected_item["hash"])
+                    actual_value = storage_items.get(key)
+                    expected_value = bytes.fromhex(expected_item["value"]) if expected_item["value"] else None
+                    
+                    if expected_value is None:
+                        self.assertIsNone(
+                            actual_value,
+                            f"{name}: Expected storage item {key} to be deleted, but found {actual_value}"
+                        )
+                    else:
+                        self.assertEqual(
+                            expected_value,
+                            actual_value,
+                            f"{name}: Expected storage item {key} to have value {expected_value.hex()}, but got {actual_value.hex() if actual_value else 'None'}"
+                        )
+            
+            # vreify service account footprint updates were called if storage was modified
+            if "expected_footprint_calls" in test_vector:
+                for call_type, expected_count in test_vector["expected_footprint_calls"].items():
+                    if call_type == "add":
+                        actual_count = service.update_footprint_add_storage_item.call_count
+                        self.assertEqual(
+                            expected_count,
+                            actual_count,
+                            f"{name}: Expected {expected_count} add_storage_item calls, but got {actual_count}"
+                        )
+                    elif call_type == "remove":
+                        actual_count = service.update_footprint_remove_storage_item.call_count
+                        self.assertEqual(
+                            expected_count,
+                            actual_count,
+                            f"{name}: Expected {expected_count} remove_storage_item calls, but got {actual_count}"
+                        )
+                    elif call_type == "update":
+                        actual_count = service.update_footprint_update_storage_item.call_count
+                        self.assertEqual(
+                            expected_count,
+                            actual_count,
+                            f"{name}: Expected {expected_count} update_storage_item calls, but got {actual_count}"
+                        )
+
 
 if __name__ == '__main__':
     unittest.main()
