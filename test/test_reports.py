@@ -98,7 +98,11 @@ class TestReports(unittest.TestCase):
                 "threshold_balance": 0,
                 "storage_items": {},
                 "preimages": {},
-                "preimage_availability": {}
+                "preimage_availability": {},
+                "deposit_offset": s["data"]["service"]["deposit_offset"],
+                "creation_slot": s["data"]["service"]["creation_slot"],
+                "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
+                "parent_service": s["data"]["service"]["parent_service"]
 
             } for s in test_vector["pre_state"]["accounts"]}}
         )
@@ -106,7 +110,10 @@ class TestReports(unittest.TestCase):
         pre_services.set_storage_engine(self.storage_engine)
 
         intermediate_state_recent_history = RecentHistoryState.from_json(
-            {"recent_history": test_vector["pre_state"]["recent_blocks"]}
+            {
+                'recent_blocks': test_vector["pre_state"]["recent_blocks"]['history'],
+                'accumulation_output_log': test_vector["pre_state"]["recent_blocks"]['mmr']['peaks']
+            }
         )
 
         pre_authorizer_pools = AuthorizerPoolsState.from_json(

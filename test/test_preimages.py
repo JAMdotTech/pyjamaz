@@ -79,7 +79,11 @@ class TestPreimages(unittest.TestCase):
                 footprint_storage_bytes=0,
                 storage_items={},
                 preimages={},
-                preimage_availability={}
+                preimage_availability={},
+                deposit_offset=0,
+                creation_slot=0,
+                last_accumulation_slot=0,
+                parent_service=0
             )
             pre_services.store_service_account(s["id"], service_account)
             pre_services.retrieve_service_account(s["id"])

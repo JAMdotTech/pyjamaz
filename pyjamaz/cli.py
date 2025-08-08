@@ -3,7 +3,7 @@ import logging
 import re
 import traceback
 from asyncio import CancelledError
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import shutil
@@ -163,8 +163,6 @@ async def initialize_app(
 async def main():
     pass
 
-# @click.group(invoke_without_command=True)
-# @click.pass_context
 
 @main.command(name='run', help='Run a Pyjamaz JAM node')
 @click.option('--seed', type=str,
@@ -224,6 +222,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
         raise BadParameter(f'DB is not yet initialized; run init first')
 
     app.network_bootstrap = network_bootstrap
+    common_era_time = datetime.fromtimestamp(app.config.common_era, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
     logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
@@ -231,7 +230,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
     logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
     logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
-    logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
+    logging.info(f'🗓️ Common Era: {app.config.common_era} ({common_era_time})')
     logging.info(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
     logging.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 

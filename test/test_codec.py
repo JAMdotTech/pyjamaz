@@ -151,7 +151,7 @@ class TestCodec(unittest.TestCase):
         self.assertDictEqual(test_vector, value)
 
         with open(path.join(self.test_vector_jdt_dir, f'state_recent_history.bin'), "rb") as f:
-           jam_data = f.read()
+            jam_data = f.read()
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 
     def test_jdt_state_safrole(self):

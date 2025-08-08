@@ -239,8 +239,8 @@ class RecentBlock(Serializable):
 
     header_hash: H256
         GP-0.5.0-eq:7.1 (h, blackboard_H) | Header hash of the recent block.
-    mmr: Mmr
-        GP-0.5.0-eq:7.1 (bold_b) | Accumulation result Merkle Mountain Range of the recent block.
+    beefy_root: H256
+        GP-0.5.0-eq:7.1 (bold_b) | Beefy root of the recent block.
     state_root: H256
         GP-0.5.0-eq:7.1 (s, blackboard_H) | State root of the recent block.
     reported: Vec(ReportedWorkPackage)
@@ -248,7 +248,7 @@ class RecentBlock(Serializable):
         to the number of cores (constant_c=341)
     """
     header_hash: bytes = field(metadata={'codec': H256})
-    mmr: Mmr = field(metadata={'codec': Mmr.to_codec_def()})
+    beefy_root: bytes = field(metadata={'codec': H256})
     state_root: bytes = field(metadata={'codec': H256})
     # TODO: GP-0.5.0-eq:7.1 states bold_p needs to be a dictionary, GP-0.5.0-eq:D.2 states bold_p needs to have a
     # length prefix encoding.
@@ -266,11 +266,13 @@ class RecentHistoryState(State, Serializable):
 
     Attributes
     ----------
-    recent_history: Vec(RecentBlock)
+    recent_blocks: Vec(RecentBlock)
         GP-0.5.0-eq:7.1 (β) | A collection of items in the RecentHistory partition of the overall state of
         up to constant_H (8) items.
     """
-    recent_history: List[RecentBlock] = field(metadata={'codec': Vec(RecentBlock.to_codec_def())})
+    recent_blocks: List[RecentBlock] = field(metadata={'codec': Vec(RecentBlock.to_codec_def())})
+    accumulation_output_log: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
+
 
     def __post_init__(self):
         # Todo: RecentHistory is allowed to have up to constant_H (HISTORY) items
@@ -281,7 +283,7 @@ class RecentHistoryState(State, Serializable):
         pass
 
     def get_recent_block(self, block_hash) -> Optional[RecentBlock]:
-        for block in self.recent_history:
+        for block in self.recent_blocks:
             if block.header_hash == block_hash:
                 return block
         return None
@@ -342,6 +344,14 @@ class ServiceAccount(Serializable):
     threshold_balance: U64
         GP-0.6.2-eq:9.8 (t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
         footprint.
+    deposit_offset: U32
+        GP-0.6.7-eq:9.3 (f) | Gratis deposit offset.
+    creation_slot: U32
+        GP-0.6.7-eq:9.3 (r) | Timeslot when created
+    last_accumulation_slot: U64
+        GP-0.6.7-eq:9.3 (a) | Timeslot when last accumulated
+    parent_service: U64
+        GP-0.6.7-eq:9.3 (p) | Parent service.
     storage_items: Dict(H256,Bytes)
         GP-0.6.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
     preimages: Dict(H256,Bytes)
@@ -355,18 +365,23 @@ class ServiceAccount(Serializable):
     gas_limit_accumulate: int = field(metadata={'codec': U64})
     gas_limit_on_transfer: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U64})
+    deposit_offset: int = field(metadata={'codec': U64})
     footprint_storage_items: int = field(metadata={'codec': U32})
     storage_items: Union[Dict[bytes, Optional[bytes]], StorageItemMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimages: Union[Dict[bytes, bytes], PreimageMap] = field(metadata={'codec': Map(H256, Bytes)})
     preimage_availability: Union[Dict[Tuple[bytes, int], List[int]], PreimageAvailabilityMap] = field(metadata={
         'codec': Map(JamTuple(H256, U32), Vec(U32))}
     )
+    creation_slot: int = field(metadata={'codec': U32})
+    last_accumulation_slot: int = field(metadata={'codec': U32})
+    parent_service: int = field(metadata={'codec': U32})
 
     @property
     def threshold_balance(self):
-        return (
+        # GP-0.6.7-eq:9.8 (a_t)
+        return max(0,
             MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * self.footprint_storage_items +
-            MINIMUM_BALANCE_OCTET * self.footprint_storage_bytes
+            MINIMUM_BALANCE_OCTET * self.footprint_storage_bytes - self.deposit_offset
         )
 
     @classmethod
@@ -377,7 +392,11 @@ class ServiceAccount(Serializable):
             gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
             gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[48:56])),
             footprint_storage_bytes=U64.decode(JamBytes(serialized_bytes[56:64])),
-            footprint_storage_items=U32.decode(JamBytes(serialized_bytes[64:68])),
+            deposit_offset=U64.decode(JamBytes(serialized_bytes[64:72])),
+            footprint_storage_items=U32.decode(JamBytes(serialized_bytes[72:76])),
+            creation_slot=U32.decode(JamBytes(serialized_bytes[76:80])),
+            last_accumulation_slot=U32.decode(JamBytes(serialized_bytes[80:84])),
+            parent_service=U32.decode(JamBytes(serialized_bytes[84:88])),
             storage_items={},
             preimages={},
             preimage_availability={},
@@ -389,7 +408,11 @@ class ServiceAccount(Serializable):
         serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
         serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
         serialized_bytes += U64.encode(self.footprint_storage_bytes).to_bytes()
+        serialized_bytes += U64.encode(self.deposit_offset).to_bytes()
         serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
+        serialized_bytes += U32.encode(self.creation_slot).to_bytes()
+        serialized_bytes += U32.encode(self.last_accumulation_slot).to_bytes()
+        serialized_bytes += U32.encode(self.parent_service).to_bytes()
         return serialized_bytes
 
     def update_from(self, service_account: "ServiceAccount"):
@@ -400,36 +423,36 @@ class ServiceAccount(Serializable):
         self.gas_limit_accumulate = service_account.gas_limit_on_transfer
         self.gas_limit_on_transfer = service_account.gas_limit_on_transfer
 
-    def update_footprint_add_storage_item(self, size: int) -> None:
+    def update_footprint_add_storage_item(self, key_len: int, value_len: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
         self.footprint_storage_items += 1
-        self.footprint_storage_bytes += 32 + size
+        self.footprint_storage_bytes += 34 + key_len + value_len
 
-    def update_footprint_remove_storage_item(self, size: int) -> None:
+    def update_footprint_remove_storage_item(self, key_len: int, value_len: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
         self.footprint_storage_items -= 1
-        self.footprint_storage_bytes -= 32 + size
+        self.footprint_storage_bytes -= 34 + key_len + value_len
 
-    def update_footprint_update_storage_item(self, old_size: int, new_size: int) -> None:
+    def update_footprint_update_storage_item(self, old_value_len: int, new_value_len: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
-        self.footprint_storage_bytes += new_size - old_size
+        self.footprint_storage_bytes += new_value_len - old_value_len
 
     def update_footprint_add_preimage(self, size: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
         self.footprint_storage_items += 2
         self.footprint_storage_bytes += 81 + size
 
     def update_footprint_remove_preimage(self, size: int) -> None:
         """
-        GP-0.6.2-eq:9.8
+        GP-0.6.7-eq:9.8
         """
         self.footprint_storage_items -= 2
         self.footprint_storage_bytes -= 81 + size
@@ -868,30 +891,23 @@ class ServicesState(State, Serializable):
 
         return data
 
-    def retrieve_storage_local_key(self, service_account_id: int, key: bytes) -> bytes:
-        """
-        Retrieves a storage item from a service by its local key
-        """
-        storage_item_hash = blake2b_256_hash(int(service_account_id).to_bytes(length=4, byteorder="little") + key)
-        return self.retrieve_storage_item(service_account_id, storage_item_hash)
-
-    def store_storage_item(self, service_account_id: int, storage_item_hash: bytes, value: bytes, commit=False):
+    def store_storage_item(self, service_account_id: int, storage_key: bytes, value: bytes, commit=False):
         """
         Store a storage item in the storage engine
         """
         if service_account_id not in self.services:
             self.services[service_account_id] = self.retrieve_service_account(service_account_id)
 
-        storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
+        state_key = state_key_constructor_storage_item(service_account_id, storage_key)
 
         if commit:
             if self.storage_transaction is None:
                 raise ValueError('storage_transaction must be set before storing storage items')
-            self.storage_transaction.put(storage_key, value)
+            self.storage_transaction.put(state_key, value)
 
-        logging.debug(f'store_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={value.hex()} state_key={storage_key.hex()} [commit={commit}]')
+        logging.debug(f'store_storage_item(s={service_account_id}, k={storage_key.hex()}): v={value.hex()} state_key={state_key.hex()} [commit={commit}]')
 
-        self.services[service_account_id].storage_items[storage_item_hash] = value
+        self.services[service_account_id].storage_items[storage_key] = value
 
 
     def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, commit=False):
@@ -953,26 +969,26 @@ class AuthorizerQueuesState(State, Serializable):
 @dataclass
 class PrivilegedServicesState(State, Serializable):
     """
-    GP-0.5.0-eq:9.9 (χ) | The PrivilegedServices partition of the overall state.
+    GP-0.6.7-eq:9.9 (χ) | The PrivilegedServices partition of the overall state.
 
     Attributes
     ----------
-    empower_service: U32
+    manager: U32
         GP-0.5.0-eq:9.9 (χ_m) | The service index of the empower service. I.e. the service that allows state transitions
         of PrivilegedServices (χ).
-    assign_service: U32
+    assigners: U32
         GP-0.5.0-eq:9.9 (χ_a) | The service index of the assign service. I.e. the service that allows state transitions
         of AuthorizerQueue (φ).
-    designate_service: U32
+    delegator: U32
         GP-0.5.0-eq:9.9 (χ_v) | The service index of the designate service. I.e. the service that allows state
         transitions of ValidatorQueue (ι).
-    auto_accumulate_services: Dict(U32,U64)
+    always_accumulators: Dict(U32,U64)
         GP-0.5.0-eq:9.9 (χ_g) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
-    empower_service: int = field(metadata={'codec': U32})
-    assign_service: int = field(metadata={'codec': U32})
-    designate_service: int = field(metadata={'codec': U32})
-    auto_accumulate_services: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
+    manager: int = field(metadata={'codec': U32})
+    assigners: List[int] = field(metadata={'codec': Array(U32, CORE_COUNT)})
+    delegator: int = field(metadata={'codec': U32})
+    always_accumulators: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
 
 
 @dataclass
@@ -1354,7 +1370,8 @@ class JamState(State, Serializable):
                 ]
             ),
             recent_history=RecentHistoryState(
-                recent_history=[]
+                recent_blocks=[],
+                accumulation_output_log=[]
             ),
             services=ServicesState(services={}),
             assurances=AssurancesState(
@@ -1366,10 +1383,10 @@ class JamState(State, Serializable):
                 ]
             ),
             privileged_services=PrivilegedServicesState(
-                empower_service=0,
-                assign_service=0,
-                designate_service=0,
-                auto_accumulate_services={}
+                manager=0,
+                assigners=[0 for _ in range(CORE_COUNT)],
+                delegator=0,
+                always_accumulators={}
             ),
             disputes=DisputesState(
                 good_set=[],
@@ -1436,7 +1453,7 @@ class DeferredTransfers(Serializable):
 @dataclass
 class AccumulationStateComponents(Serializable):
     """
-    GP-0.5.2-eq:12.13 (blackboard_U) | State components which are needed and mutable by the accumulation process.
+    GP-0.6.7-eq:12.13 (blackboard_U) | State components which are needed and mutable by the accumulation process.
 
     Attributes
     ----------
