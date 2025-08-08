@@ -15,10 +15,27 @@ from pyjamaz.pvm_interface.hostcalls.constants import HostCallResult
 
 
 def hc_gas(
-        registers: List[int],   #TODO: weg?
+        registers: List[int],
         memory: PVMMemory,
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
+    """
+    GP-0.6.7-section:B.6 (Ω_G) | General host function: gas.
+
+    Query the gas left.
+    Returns the remaining gas in register 7.
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
+    """
     logger.hc_regs(f"GAS", "general")
     invocation_output.gas_limit -= 10
 
@@ -40,11 +57,27 @@ def hc_lookup(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_L) | General host function: lookup.
+
     Make a lookup into the service's preimage store.
     hash: The hash of the preimage to look up.
     Returns the preimage or None if the preimage was not available.
     --------------------------
     Puts a Service Preimage blob into PVM memory
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    service: ServiceAccount
+    service_id: int
+    services: ServicesState
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"LOOKUP", "general")
     invocation_output.gas_limit -= 10
@@ -101,7 +134,23 @@ def hc_read(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_R) | General host function: read.
+
     Puts a Service StorageItem blob into PVM memory
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    service: ServiceAccount
+    service_id: int
+    services: ServicesState
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"READ", "general")
     invocation_output.gas_limit -= 10
@@ -132,8 +181,7 @@ def hc_read(
     storage_item = None  # bold_v
     if service_account is not None:
         try:
-            new_service_id_bytes = new_service_id.to_bytes(length=4, byteorder="little")
-            storage_key = blake2b_256_hash(new_service_id_bytes + memory.read_bytes(k_o, k_z))
+            storage_key = memory.read_bytes(k_o, k_z)
             storage_item = services.retrieve_storage_item(service_account_id=new_service_id, storage_item_hash=storage_key)
         except StateKeyNoResult:
             storage_item = None  # bold_v = ∅
@@ -169,7 +217,23 @@ def hc_write(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_W) | General host function: write.
+
     Writes/deletes a Service StorageItem blob
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    service: ServiceAccount
+    service_id: int
+    services: ServicesState
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"WRITE", "general")
     invocation_output.gas_limit -= 10
@@ -188,8 +252,8 @@ def hc_write(
     service_storage_item = None
 
     try:
-        k = memory.read_bytes(k_o, k_z)  # Note: service local storage key
-        storage_key = blake2b_256_hash(service_id.to_bytes(length=4, byteorder="little") + k)  # GP: k
+        k = memory.read_bytes(k_o, k_z)  # GP k: service storage key
+
         try:
             if v_z == 0:
                 service_storage_item = None  # GP: bold_a (delete)
@@ -199,7 +263,7 @@ def hc_write(
             service_storage_item_mem_error = True  # GP: a = ∇
 
         try:
-            si = services.retrieve_storage_item(service_id, storage_key)
+            si = services.retrieve_storage_item(service_id, k)
             l = len(si)
         except StateKeyNoResult:
             si = bytes()
@@ -222,26 +286,26 @@ def hc_write(
             # TODO: mark dirty? maybe register changes
             services.delete_storage_item(
                 service_account_id=service_id,
-                storage_item_hash=storage_key
+                storage_item_hash=k
             )
             logger.hc_log("WRITE DELETE", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
 
             # Update storage footprint
             if l != HostCallResult.NONE.value:
-                service_account.update_footprint_remove_storage_item(len(si))
+                service_account.update_footprint_remove_storage_item(len(k), len(si))
 
         else:
             # TODO: mark dirty? maybe register changes
             services.store_storage_item(
                 service_account_id=service_id,
-                storage_item_hash=storage_key,
+                storage_key=k,
                 value=service_storage_item,
             )
 
             # Update storage footprint
             if len(si) == 0:
                 # TODO: mark dirty? maybe register changes
-                service_account.update_footprint_add_storage_item(len(service_storage_item))
+                service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
                 logger.hc_log("WRITE NONE",
                                    f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
@@ -264,7 +328,23 @@ def hc_info(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_I) | General host function: info.
+
     Writes ServiceAccount into PVM memory
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    service: ServiceAccount
+    service_id: int
+    services: ServicesState
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"INFO", "general")
     invocation_output.gas_limit -= 10
@@ -283,19 +363,27 @@ def hc_info(
 
     o = registers[8]
 
-    service_account_bytes = None  # GP: bold_m
+    service_account_bytes = None  # GP: bold_v
     mem_write_error = False
     if service_account is not None:
-        # GP: bold_m
+        # GP: bold_v
         service_account_bytes = service_account.code_hash
-        service_account_bytes += VarInt64.encode(service_account.balance).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.threshold_balance).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.gas_limit_accumulate).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.gas_limit_on_transfer).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.footprint_storage_bytes).to_bytes()
-        service_account_bytes += VarInt64.encode(service_account.footprint_storage_items).to_bytes()
+        service_account_bytes += U64.encode(service_account.balance).to_bytes()
+        service_account_bytes += U64.encode(service_account.threshold_balance).to_bytes()
+        service_account_bytes += U64.encode(service_account.gas_limit_accumulate).to_bytes()
+        service_account_bytes += U64.encode(service_account.gas_limit_on_transfer).to_bytes()
+        service_account_bytes += U64.encode(service_account.footprint_storage_bytes).to_bytes()
+        service_account_bytes += U32.encode(service_account.footprint_storage_items).to_bytes()
+        service_account_bytes += U64.encode(service_account.deposit_offset).to_bytes()
+        service_account_bytes += U32.encode(service_account.creation_slot).to_bytes()
+        service_account_bytes += U32.encode(service_account.last_accumulation_slot).to_bytes()
+        service_account_bytes += U32.encode(service_account.parent_service).to_bytes()
+
+        f = min(registers[9], len(service_account_bytes))
+        l = min(registers[10], len(service_account_bytes) - f)
+
         try:
-            invocation_output.memory.write_bytes(o, service_account_bytes)
+            invocation_output.memory.write_bytes(o, service_account_bytes[f:f+l])
         except PVMMemoryError:
             mem_write_error = True
 
@@ -308,7 +396,7 @@ def hc_info(
         logger.hc_log("INFO NONE", f"s={service_id} bytes=none")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = HostCallResult.OK.value
+        invocation_output.registers[7] = len(service_account_bytes)
         logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
 
 
@@ -326,10 +414,31 @@ def hc_fetch(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.6 (Ω_F) | General host function: fetch.
+
     Fetch the data defined by this Fetch into the given target buffer.
     target: The buffer to write the fetched data into.
     skip: The number of bytes to skip from the start of the data to be fetched.
-    Returns the full length of the data which is being fetched. If this is smaller than the target's length, then some of the buffer will not be written to. If the request does not identify any data to be fetched (e. g. because an index is out of range) then returns None.
+    Returns the full length of the data which is being fetched. If this is smaller than the target's length, then some of the buffer will not be written to. If the request does not identify any data to be fetched (e.g. because an index is out of range) then returns None.
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    work_package: Optional[WorkPackage]
+    entropy: Optional[bytes]
+    authorizer_output: Optional[bytes]
+    work_item_index: Optional[int]
+    work_item_segs: Optional[List[List[bytes]]]
+    extrinsics: Optional[List[List[bytes]]]
+    accumulation_operands: Optional[List[AccumulationOperand]]
+    deferred_transfers: Optional[List[DeferredTransfer]]
+    invocation_output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
 
     logger.hc_regs(f"FETCH", "general")

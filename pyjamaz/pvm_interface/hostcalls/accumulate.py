@@ -26,17 +26,30 @@ def hc_bless(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    Reset the privileged services.
+    GP-0.6.7-section:B.8 (Ω_B) | Accumulate host function: bless.
 
-    - `manager`: The ID of the service which may effectually call [bless] in the future.
-    - `assigner`: The ID of the service which may effectually call [assign] in the future.
-    - `designator`: The ID of the service which may effectually call [designate] in the future.
-    - `always_acc`: The list of service IDs which accumulate at least once in every JAM block,
-      together with the baseline gas they get for accumulation. This may be supplemented with
-      additional gas should there be Work Items for the service.
+    Set the privileged services.
+    manager: The ID of the service which may effectually call bless in the future.
+    assigners: The IDs of the services which may effectually call assign in the future (one per core).
+    delegator: The ID of the service which may effectually call designate in the future.
+    always_acc: The list of service IDs which accumulate at least once in every JAM block,
+    together with the baseline gas they get for accumulation. This may be supplemented with
+    additional gas should there be Work Items for the service.
     --------------------------
     State transition function for privileged services.
     Updates gas limits for privileged services
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"BLESS", "accumulate")
 
@@ -44,11 +57,21 @@ def hc_bless(
 
     # Privileged services:
     m = registers[7] # m: index of manager service (manager of chi(X))
-    a = registers[8] # a: index of assign service (authorization queue)
+    a = registers[8] # a: address to read values of the assign services (authorization queue)
     v = registers[9] # v: index of designate service (validator queue)
 
     o = registers[10] # offset to read service indices and accompanying gas limits from
     n = registers[11] # number of entries in the auto_accumulate_services dictionary to read
+
+    assigners = None # GP: bold_a
+    if memory.is_accessible(a, 4 * CORE_COUNT, PVMMemoryMode.readable):
+        try:
+            assigners = []
+            for idx in range(CORE_COUNT):
+                offset = a + idx * 4
+                assigners.append(U32.decode(JamBytes(memory.read_bytes(offset, 4))))
+        except PVMMemoryError:
+            assigners = None   # bold_a = ∇
 
     auto_accumulate_services = None #GP: bold_g
     if memory.is_accessible(o, 12 * n, PVMMemoryMode.readable):
@@ -67,11 +90,14 @@ def hc_bless(
     except (StateKeyNoResult, OverflowError):
         service_exists = False
 
-    if auto_accumulate_services is None:
+    if auto_accumulate_services is None or assigners is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
-    #TODO: volgens GP hoeven we alleen ints te checken?
-    #elif any(idx >= 2**32 for idx in [m, a, v]):
+
+    elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.HUH.value
+        logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
     elif not service_exists:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.WHO.value
@@ -82,10 +108,10 @@ def hc_bless(
 
         # TODO: mark dirty? maybe register changes
         ps = x.context.state_context.privileged_services
-        ps.empower_service = m
-        ps.assign_service = a
-        ps.designate_service = v
-        ps.auto_accumulate_services = auto_accumulate_services
+        ps.manager = m
+        ps.assigners = assigners
+        ps.delegator = v
+        ps.always_accumulators = auto_accumulate_services
 
         logger.hc_log("BLESS OK", f"m={m} a={a} v={v}")
 
@@ -97,12 +123,27 @@ def hc_assign(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.8 (Ω_A) | Accumulate host function: assign.
+
     Assign a series of authorizers to a core.
     core: The index of the core to assign the authorizers to.
-    auth_queue: The authorizer-queue to assign to the core. These are a series of AuthorizerHash values, which determine what kinds of Work Packages are allowed to be executed on the core.
+    auth_queue: The authorizer-queue to assign to the core. These are a series of AuthorizerHash values,
+    which determine what kinds of Work Packages are allowed to be executed on the core.
     Returns Ok on success or Err if the operation failed. Failure can only happen if the value of core is out of range.
     --------------------------
     Update authorization queue (state transition function of Phi)
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"ASSIGN", "accumulate")
     output.gas_limit -= 10
@@ -125,10 +166,17 @@ def hc_assign(
     if authorization_queue is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("ASSIGN PANIC", f"c={core_index}")
+
     elif core_index >= CORE_COUNT:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.CORE.value
         logger.hc_log("ASSIGN CORE", f"c={core_index}")
+
+    elif x.context.service_account_id != x.context.state_context.privileged_services.assigners[core_index]:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.HUH.value
+        logger.hc_log("BLESS HUH", f"X_s={x.context.service_account_id}")
+
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
@@ -144,10 +192,25 @@ def hc_designate(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.8 (Ω_D) | Accumulate host function: designate.
+
     Designate the new validator keys.
     keys: The new validator keys.
+    Only callable by the designated delegator service.
     --------------------------
     Update the validator Queue (State transition function for the validator queue)
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"DESIGNATE", "accumulate")
     output.gas_limit -= 10
@@ -169,6 +232,12 @@ def hc_designate(
     if validator_queue is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("DESIGNATE PANIC", f"o={o}")
+
+    elif x.context.service_account_id != x.context.state_context.privileged_services.delegator:
+        output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        output.registers[7] = HostCallResult.HUH.value
+        logger.hc_log("DESIGNATE HUH", f"Xs={x.context.service_account_id}")
+
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.OK.value
@@ -184,10 +253,26 @@ def hc_checkpoint(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.8 (Ω_C) | Accumulate host function: checkpoint.
+
     Checkpoint the state of the accumulation at present.
-    In the case that accumulation runs out of gas or otherwise terminates unexpectedly, all changes extrinsic to the machine state, such as storage writes and transfers, will be rolled back to the most recent call to checkpoint, or the beginning of the accumulation if no checkpoint has been made.
+    In the case that accumulation runs out of gas or otherwise terminates unexpectedly, all changes extrinsic to the
+    machine state, such as storage writes and transfers, will be rolled back to the most recent call to checkpoint,
+    or the beginning of the accumulation if no checkpoint has been made.
     --------------------------
     Copy the invocation result context x to y
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"CHECKPOINT", "accumulate")
     output.gas_limit -= 10
@@ -204,7 +289,21 @@ def hc_new(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    Creates a new service
+    GP-0.6.7-section:B.8 (Ω_N) | Accumulate host function: new.
+
+    Creates new service account.
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"NEW", "accumulate")
     output.gas_limit -= 10
@@ -213,6 +312,7 @@ def hc_new(
     l = registers[8]  # size (byte length) of the code blob
     g = registers[9]  # gas_limit_accumulate
     m = registers[10] # gas_limit_on_transfer
+    f = registers[11] # deposit_offset
 
     code_hash = None
     if 0 < l < 2**32 and memory.is_accessible(o, 32, PVMMemoryMode.readable):
@@ -226,6 +326,7 @@ def hc_new(
     new_service_id = None
     deducted_balance = None
     new_service_account = None  # GP: bold_s
+
     if not code_hash is None:
         new_service_account = ServiceAccount(
             code_hash=code_hash,
@@ -236,8 +337,13 @@ def hc_new(
             footprint_storage_bytes=0,
             storage_items={},  # bold_s
             preimages={},  # bold_p
-            preimage_availability={}  # {(code_hash, l): []} #bold_l
+            preimage_availability={},  # {(code_hash, l): []} #bold_l
+            deposit_offset=f,
+            creation_slot=x.timeslot,
+            last_accumulation_slot=0,
+            parent_service=x.context.service_account_id,
         )
+
         new_service_id = x.context.new_service_account_id
         new_service_account.update_footprint_add_preimage(l)
         new_service_account.balance = new_service_account.threshold_balance
@@ -247,10 +353,12 @@ def hc_new(
     if code_hash is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("NEW PANIC", f"old_service={service_id}")
+
     elif deducted_balance < service_account.threshold_balance:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = HostCallResult.CASH.value
         logger.hc_log("NEW CASH", f"old_service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
+
     else:
         output.exit_condition = ExitCondition(reason=ExitReason.resume)
         output.registers[7] = new_service_id
@@ -274,15 +382,28 @@ def hc_upgrade(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    Upgrade the code of the service.
+    GP-0.6.7-section:B.8 (Ω_U) | Accumulate host function: upgrade.
 
-    - `code_hash`: The hash of the code to upgrade to, to be found in the service's preimage store.
-    - `min_item_gas`: The minimum gas required to be set aside for the accumulation of a single Work
-      Item in the new service.
-    - `min_memo_gas`: The minimum gas required to be set aside for any single transfer of funds and
-      corresponding processing of a memo in the new service.
+    Upgrade the code of the service.
+    code_hash: The hash of the code to upgrade to, to be found in the service's preimage store.
+    min_item_gas: The minimum gas required to be set aside for the accumulation of a single Work
+    Item in the new service.
+    min_memo_gas: The minimum gas required to be set aside for any single transfer of funds and
+    corresponding processing of a memo in the new service.
     --------------------------
     Updates codehash and gas limits for a service account
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"UPGRADE", "accumulate")
     output.gas_limit -= 10
@@ -322,19 +443,30 @@ def hc_transfer(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.7 (Ω_T) | Accumulate host function: transfer.
+
     Transfer data and/or funds to another service asynchronously.
-
-    - `destination`: The ID of the service to transfer to. This service must exist at present.
-    - `amount`: The amount of funds to transfer to the `destination` service. Reducing the services
-      balance by this amount must not result in it falling below the minimum balance required.
-    - `gas_limit`: The amount of gas to set aside for the processing of the transfer by the
-      `destination` service. This must be at least the service's [ServiceInfo::min_memo_gas]. The
-      effective gas cost of this call is increased by this amount.
-    - `memo`: A piece of data to give the `destination` service.
+    destination: The ID of the service to transfer to. This service must exist at present.
+    amount: The amount of funds to transfer to the destination service. Reducing the services
+    balance by this amount must not result in it falling below the minimum balance required.
+    gas_limit: The amount of gas to set aside for the processing of the transfer by the
+    destination service. This must be at least the service's min_memo_gas. The
+    effective gas cost of this call is increased by this amount.
+    memo: A piece of data to give the destination service.
     --------------------------
-    Returns `Ok` on success or `Err` if the operation failed.
+    Creates a new transfer and add to the deferred transfers
 
-    Create a new transfer and add to the deferred transfers
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"TRANSFER", "accumulate")
     gas_cost = 10 + registers[9]
@@ -400,19 +532,31 @@ def hc_eject(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    Remove the `target` zombie service, drop its final preimage item `code_hash` and transfer
+    GP-0.6.7-section:B.8 (Ω_E) | Accumulate host function: eject.
+
+    Remove the target zombie service, drop its final preimage item code_hash and transfer
     remaining balance to this service.
-
-    - `target`: The ID of a zombie service which nominated the caller service as its ejector.
-    - `code_hash`: The hash of the only preimage item of the `target` service. It must be
-      unrequested and droppable.
-
+    target: The ID of a zombie service which nominated the caller service as its ejector.
+    code_hash: The hash of the only preimage item of the target service. It must be
+    unrequested and droppable.
     Target must therefore satisfy several requirements:
     - it should have a code hash which is simply the LE32-encoding of the caller service's ID;
-    - it should have only one preimage lookup item, `code_hash`;
+    - it should have only one preimage lookup item, code_hash;
     - it should have nothing in its storage.
+    --------------------------
+    Performs an ejection of a Service Account's preimage
 
-    Returns `Ok` on success or `Err` if the operation failed.
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"EJECT", "accumulate")
     output.gas_limit -= 10
@@ -484,14 +628,27 @@ def hc_query(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.8 (Ω_Q) | Accumulate host function: query.
+
     Query the status of a preimage.
-
-    - `hash`: The hash of the preimage to be queried.
-    - `len`: The length of the preimage to be queried.
-
-    Returns `Some` if `hash`/`len` has an active solicitation outstanding or `None` if not.
+    hash: The hash of the preimage to be queried.
+    length: The length of the preimage to be queried.
+    Returns Some if hash/length has an active solicitation outstanding or None if not.
+    Status values indicate: 0=requested, 1=available, 2=unavailable, 3=re-available.
     --------------------------
     Determines the availability of a preimage
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"QUERY", "accumulate")
     output.gas_limit -= 10
@@ -562,20 +719,28 @@ def hc_solicit(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.8 (Ω_S) | Accumulate host function: solicit.
+
     Request that preimage data be available for lookup.
-
-    - `hash`: The hash of the preimage to be made available.
-    - `len`: The length of the preimage to be made available.
-
-    Returns `Ok` on success or `Err` if the request failed.
-
-    [is_available] may be used to determine availability; once available, the preimage may be
-    fetched with [lookup] or its variants.
-
+    hash: The hash of the preimage to be made available.
+    length: The length of the preimage to be made available.
+    Returns Ok on success or Err if the request failed.
     A preimage may only be solicited once for any service and soliciting a preimage raises the
     minimum balance required to be held by the service.
     --------------------------
     Modifies the preimage availability lookup (requests a preimage to be made available)
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"SOLICIT", "accumulate")
     output.gas_limit -= 10
@@ -654,13 +819,29 @@ def hc_forget(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.8 (Ω_F) | Accumulate host function: forget.
+
     No longer request that preimage data be available for lookup, or drop preimage data once time limit has passed.
     hash: The hash of the preimage to be forgotten.
-    len: The length of the preimage to be forgotten.
+    length: The length of the preimage to be forgotten.
     Returns Ok on success or Err if the request failed.
-    This function is used twice in the lifetime of a requested preimage; once to indicate that the preimage is no longer needed and again to "clean up" the preimage once the required duration has passed. Whether it does one or the other is determined by the current state of the preimage request.
+    This function is used twice in the lifetime of a requested preimage; once to indicate that the preimage is no longer
+    needed and again to "clean up" the preimage once the required duration has passed. Whether it does one or the other
+    is determined by the current state of the preimage request.
     --------------------------
     Deletes PreimageAvailability (status queue)
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"FORGET", "accumulate")
     output.gas_limit -= 10
@@ -739,11 +920,27 @@ def hc_yield(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
+    GP-0.6.7-section:B.8 (Ω_Y) | Accumulate host function: yield.
+
     Set the default result hash of Accumulation.
     hash: The hash to be used as the Accumulation result.
-    This value will be returned from Accumulation on success. It may be overridden by further calls to this function or by explicitly returning Some value from the crate::Service::accumulate function. The checkpoint function may be used after a call to this function to ensure that this value is returned in the case of an irregular termination.
+    This value will be returned from Accumulation on success. It may be overridden by further calls to this function or
+    by explicitly returning Some value from the Service::accumulate function. The checkpoint function may be used after
+    a call to this function to ensure that this value is returned in the case of an irregular termination.
     --------------------------
     Sets the invocation output given what is put in pvm memory
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    x: AccumulateInvocationContext
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
     logger.hc_regs(f"YIELD", "accumulate")
     output.gas_limit -= 10
@@ -774,9 +971,23 @@ def hc_provide(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    Provide a requested preimage to any service.
-    --------------------------
+    GP-0.6.7-section:B.8 (Ω_P) | Accumulate host function: provide.
+
     Provides a preimage for specified service ID
+
+    Parameters
+    ----------
+    registers: List[int]
+    memory: PVMMemory
+    ctx_in: AccumulateInvocationContext
+    services: ServicesState
+    service_id: int
+    output: InvocationMutationOutput
+    logger: PVMLogger
+
+    Returns
+    ----------
+    None
     """
 
     logger.hc_regs(f"PROVIDE", "accumulate")

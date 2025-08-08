@@ -206,7 +206,7 @@ def rpcListServices(app: PyjamazApp, params):
     services = [0]
     try:
         # Check bootstrap service for service registry
-        services_registry = app.state.services.retrieve_storage_local_key(0, b'\x10service_registry')
+        services_registry = app.state.services.retrieve_storage_item(0, b'\x10service_registry')
         services_registry = ServiceRegistry.from_jam_bytes(JamBytes(services_registry))
         services += [info.id for meta, info in services_registry.services]
     except StateKeyNoResult:
@@ -224,7 +224,7 @@ def rpcServicePreimage(app, params):
 def rpcStateRoot(app: PyjamazApp, params):
 
     header_hash = bytes(params[0])
-    for n, block in enumerate(reversed(app.state.recent_history.recent_history)):
+    for n, block in enumerate(reversed(app.state.recent_history.recent_blocks)):
         if block.header_hash == header_hash:
             if n == 0:
                 return list(app.state_trie_root)
@@ -325,7 +325,7 @@ def rpcSubscribeServiceRequest(app: PyjamazApp, params):
 
 def rpcServiceValue(app: PyjamazApp, params):
     try:
-        return list(app.state.services.retrieve_storage_local_key(service_account_id=params[1], key=bytes(params[2])))
+        return list(app.state.services.retrieve_storage_item(service_account_id=params[1], storage_item_hash=bytes(params[2])))
     except StateKeyNoResult:
         return None
 

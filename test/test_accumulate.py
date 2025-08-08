@@ -5,18 +5,16 @@ import unittest
 from os import path
 from typing import Optional
 
-from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import WorkReport
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
-from pyjamaz.state.components import Assurances, Services, AccumulationHistory, AccumulationQueue
+from pyjamaz.state.components import Services, AccumulationHistory, AccumulationQueue
 from pyjamaz.storage import InMemoryStorage
-from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
-from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, \
+from pyjamaz.models.block import Header
+from pyjamaz.models.state import TimeslotState, ServicesState, AccumulationHistoryState, EntropyState, \
     AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, AuthorizerQueuesState, \
     AccumulationQueueWorkPackage
 
@@ -93,10 +91,14 @@ class TestAccumulate(unittest.TestCase):
                 "gas_limit_on_transfer": s["data"]["service"]["min_memo_gas"],
                 "footprint_storage_items": s["data"]["service"]["items"],
                 "footprint_storage_bytes": s["data"]["service"]["bytes"],
-                "threshold_balance": 0,
-                "storage_items": {},
+                "deposit_offset": s["data"]["service"]["deposit_offset"],
+                "creation_slot": s["data"]["service"]["creation_slot"],
+                "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
+                "parent_service": s["data"]["service"]["parent_service"],
+                "storage_items": {p['key']:p['value'] for p in s['data']['storage']},
                 "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
-                "preimage_availability": {}
+                "preimage_availability": {},
+                "threshold_balance": 0
 
             } for s in test_vector["pre_state"]["accounts"]}}
         )
@@ -104,10 +106,10 @@ class TestAccumulate(unittest.TestCase):
         pre_services.set_storage_engine(self.storage_engine)
 
         pre_privileged_services = PrivilegedServicesState(
-            empower_service=test_vector["pre_state"]["privileges"]["bless"],
-            assign_service=test_vector["pre_state"]["privileges"]["assign"],
-            designate_service=test_vector["pre_state"]["privileges"]["designate"],
-            auto_accumulate_services={} #test_vector["pre_state"]["privileges"]["always_acc"]
+            manager=test_vector["pre_state"]["privileges"]["bless"],
+            assigners=test_vector["pre_state"]["privileges"]["assign"],
+            delegator=test_vector["pre_state"]["privileges"]["designate"],
+            always_accumulators={} #test_vector["pre_state"]["privileges"]["always_acc"]
         )
 
         # Set up post-state
@@ -138,9 +140,13 @@ class TestAccumulate(unittest.TestCase):
                         "footprint_storage_items": s["data"]["service"]["items"],
                         "footprint_storage_bytes": s["data"]["service"]["bytes"],
                         "threshold_balance": 0,
-                        "storage_items": {},
+                        "storage_items": {p['key']:p['value'] for p in s['data']['storage']},
                         "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
-                        "preimage_availability": {}
+                        "preimage_availability": {},
+                        "deposit_offset": s["data"]["service"]["deposit_offset"],
+                        "creation_slot": s["data"]["service"]["creation_slot"],
+                        "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
+                        "parent_service": s["data"]["service"]["parent_service"],
                     } for s in test_vector["post_state"]["accounts"]
                 }
             }
@@ -197,16 +203,7 @@ class TestAccumulate(unittest.TestCase):
         self.assertEqual(post_accumulation_history.to_json(), history_output.post_state.to_json())
         self.assertEqual(post_accumulation_queue.to_json(), queue_output.post_state.to_json())
 
-        # services = Services(self.storage_engine, self.block_context, self.app_context)
-        # try:
-        #     output = services.accumulation_queueing()
-        #
-        #     output = services.accumulation_execution()
-        #
-        # except StateTransitionError as e:
-        #     output = None
-
-        # self.assertDictEqual(test_vector['output'], output)
+        self.assertDictEqual(post_services.to_json()['services'][0][1], transfer_output.intermediate_state_after_transfers.to_json()['services'][0][1])
 
 
 if __name__ == '__main__':

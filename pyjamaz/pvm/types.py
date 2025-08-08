@@ -510,16 +510,16 @@ class PVMMemory:
         return self._heap.paged_tail
 
 
-    def zero(self, page_idx: int, nr_pages: int):
+    def zero(self, page_idx: int, nr_pages: int, acl: PVMMemoryMode):
         mem_addr = page_idx * PVM_PAGE_SIZE
-
+        # TODO we assume acl should be set this way, cannot test right now
         if not self.section_offsets and mem_addr == PVM_INIT_ZONE_SIZE:
             if not self._rom:
                 self._rom = MemorySection(
                     address=PVM_INIT_ZONE_SIZE,
                     length=nr_pages*PVM_PAGE_SIZE,
                     contents=bytes(nr_pages*PVM_PAGE_SIZE),
-                    acl=PVMMemoryMode.writable
+                    acl=acl
                 )
             addr = page_idx * PVM_PAGE_SIZE - self._rom.address
             mem = self._rom.contents
@@ -530,7 +530,7 @@ class PVMMemory:
                     address = (2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(self._rom.contents)),
                     length = nr_pages * PVM_PAGE_SIZE,
                     contents = bytes(nr_pages*PVM_PAGE_SIZE),
-                    acl=PVMMemoryMode.writable
+                    acl=acl
                 )
             addr = page_idx * PVM_PAGE_SIZE - self._heap.address
             mem = self._heap.contents
@@ -541,7 +541,7 @@ class PVMMemory:
                     address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - (nr_pages * PVM_PAGE_SIZE),
                     length=nr_pages * PVM_PAGE_SIZE,
                     contents=bytes(nr_pages * PVM_PAGE_SIZE),
-                    acl=PVMMemoryMode.writable
+                    acl=acl
                 )
             addr = page_idx * PVM_PAGE_SIZE - self._stack.address
             mem = self._stack.contents
@@ -551,12 +551,12 @@ class PVMMemory:
 
         self.update_offsets()
         for page_nr in range(nr_pages):
-            self._acl[page_idx + page_nr] = PVMMemoryMode.writable.value
+            self._acl[page_idx + page_nr] = acl.value
             for idx in range(PVM_PAGE_SIZE):
                 mem[addr + page_nr * PVM_PAGE_SIZE + idx] = 0
 
 
-    def void(self, page_idx: int, nr_pages: int):
+    def void(self, page_idx: int, nr_pages: int, acl: PVMMemoryMode):
         mem_addr = page_idx * PVM_PAGE_SIZE
 
         section = self.find_section(mem_addr)
@@ -564,11 +564,16 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {mem_addr}")
 
         for page_nr in range(nr_pages):
-            self._acl[page_idx + page_nr] = PVMMemoryMode.inaccesible.value
+            self._acl[page_idx + page_nr] = acl.value
         for x in range(nr_pages * PVM_PAGE_SIZE):
             section.contents[mem_addr-section.address + x] = 0
 
+    def has_inaccessible_acl(self, page_idx: int, nr_pages: int) -> bool:
+        for page_nr in range(nr_pages):
+            if page_idx + page_nr not in self._acl or self._acl[page_idx + page_nr] == PVMMemoryMode.inaccesible.value:
+                return True
 
+        return False
 
     @staticmethod
     def page_size(items: int) -> int:

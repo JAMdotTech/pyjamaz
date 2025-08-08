@@ -6,6 +6,7 @@ from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS
 from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
+from pyjamaz.utils import format_hash
 
 
 class BlockValidation:
@@ -77,7 +78,7 @@ class BlockValidation:
             sealer_key = post_safrole.slot_sealer_series.keys[header.timeslot % EPOCH_TIMESLOTS]
 
             logging.debug(
-                f'Validate key | Timeslot: {header.timeslot} |  Author: {sealer_key.hex()} | Entropy: {entropy.hex()}'
+                f'Validate key | Timeslot: {header.timeslot} |  Author: {format_hash(sealer_key)} | Entropy: {format_hash(entropy)}'
             )
 
             if author_key != sealer_key:
@@ -85,7 +86,7 @@ class BlockValidation:
                 raise BlockValidationError("Invalid author key")
             try:
 
-                logging.debug(f"Validate Seal with entropy {entropy.hex()}")
+                logging.debug(f"Validate Seal with entropy {format_hash(entropy)}")
 
                 self.block_context.seal_vrf_output = header.verify_fallback_seal(author_key, entropy)
 

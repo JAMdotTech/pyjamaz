@@ -22,7 +22,7 @@ from pyjamaz.pvm_interface.hostcalls.constants import HostCallAccumulate, HostCa
 from pyjamaz.pvm_interface.hostcalls.debug import hc_log
 from pyjamaz.pvm_interface.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch
 from pyjamaz.pvm_interface.hostcalls.refine import hc_historical_lookup, hc_export, hc_machine, hc_peek, \
-    hc_poke, hc_zero, hc_void, hc_invoke, hc_expunge
+    hc_poke, hc_invoke, hc_expunge, hc_pages
 from pyjamaz.utils import format_hash
 
 
@@ -291,6 +291,7 @@ def pvm_invoke_accumulate(
     except StateKeyNoResult:
         # Program not found
         preimage_blob = None
+        logging.debug(f'⚠️ Could not retrieve program for service={service_id}')
 
     if preimage_blob is None or len(preimage_blob) > MAXIMUM_SIZE_SERVICE_CODE:
         return PvmAccumulateOutput(
@@ -374,7 +375,7 @@ def pvm_invoke_on_transfer(
 
     Returns
     -------
-    ServiceAccount
+    PvmOnTransferOutput
     """
 
     service_account = services_state.retrieve_service_account(service_id)
@@ -666,17 +667,8 @@ class RefineInvocationMutator(InvocationMutator):
                     logger=_pvm.log
                 )
 
-            case HostCallRefine.zero.value:
-                hc_zero(
-                    registers=registers,
-                    memory=memory,
-                    m_e=invocation_context,
-                    invocation_output=ctx_out,
-                    logger=_pvm.log
-                )
-
-            case HostCallRefine.void.value:
-                hc_void(
+            case HostCallRefine.pages.value:
+                hc_pages(
                     registers=registers,
                     memory=memory,
                     m_e=invocation_context,
@@ -720,7 +712,7 @@ def pvm_invoke_refine(
     extrinsics: List[List[bytes]] # GP-0.6.6-eq:B.6: x_flat list of extrinsics per workitem
 ) -> PvmRefineOutput:
     """
-    GP-0.6.6-eq:B.5 (Ψ_R) | the refine service-account invocation function
+    GP-0.6.7-eq:B.5 (Ψ_R) | the refine service-account invocation function
 
     # TODO integrate with app?
 

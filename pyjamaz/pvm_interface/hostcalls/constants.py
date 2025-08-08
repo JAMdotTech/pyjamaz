@@ -29,38 +29,37 @@ class HostCallDebug(Enum):
 #GP-0.6.4:B.6
 class HostCallGeneral(Enum):
     gas               = 0  #ΩG
-    lookup            = 1  #ΩL
-    read              = 2  #ΩR
-    write             = 3  #ΩW
-    info              = 4  #ΩI
-    fetch             = 18 #ΩY
+    fetch             = 1 #ΩY
+    lookup            = 2  #ΩL
+    read              = 3  #ΩR
+    write             = 4  #ΩW
+    info              = 5  #ΩI
 
 
 #GP-0.6.4:B.7
 class HostCallAccumulate(Enum):
-    bless                  = 5  #ΩB
-    assign                 = 6  #ΩA
-    designate              = 7  #ΩD
-    checkpoint             = 8  #ΩC
-    new                    = 9  #ΩN
-    upgrade                = 10 #ΩU
-    transfer               = 11 #ΩT
-    eject                  = 12 #ΩJ
-    query                  = 13 #ΩQ
-    solicit                = 14 #ΩS
-    forget                 = 15 #ΩF
-    _yield                 = 16 #Ω♉︎
-    provide                = 27 #Ω♈︎
+    bless                  = 14  #ΩB
+    assign                 = 15  #ΩA
+    designate              = 16  #ΩD
+    checkpoint             = 17  #ΩC
+    new                    = 18  #ΩN
+    upgrade                = 19 #ΩU
+    transfer               = 20 #ΩT
+    eject                  = 21 #ΩJ
+    query                  = 22 #ΩQ
+    solicit                = 23 #ΩS
+    forget                 = 24 #ΩF
+    _yield                 = 25 #Ω♉︎
+    provide                = 26 #Ω♈︎
 
 
 #GP-0.6.4:B.7
 class HostCallRefine(Enum):
-    historical_lookup      = 17 #ΩH
-    export                 = 19 #ΩE
-    machine                = 20 #ΩM
-    peek                   = 21 #ΩP
-    poke                   = 22 #ΩO
-    zero                   = 23 #ΩZ
-    void                   = 24 #ΩV
-    invoke                 = 25 #ΩK
-    expunge                = 26 #ΩX
+    historical_lookup      = 6 #ΩH
+    export                 = 7 #ΩE
+    machine                = 8 #ΩM
+    peek                   = 9 #ΩP
+    poke                   = 10 #ΩO
+    pages                  = 11 #ΩZ
+    invoke                 = 12 #ΩK
+    expunge                = 13 #ΩX
