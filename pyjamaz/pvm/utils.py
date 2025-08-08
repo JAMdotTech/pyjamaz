@@ -1,3 +1,5 @@
+import struct
+
 import numpy as np
 import numpy.typing as npt
 
@@ -125,15 +127,70 @@ def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
         There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
         2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
     """
-    x = int(x)
-    n = int(n)
-
-    assert 0 <= x < 2 ** (8 * n) <= 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
-
-    sign_mask = (2 ** 64 - 2 ** (8 * n))
-    sign_bits = int(x // (2 ** (8 * n - 1)))
-
-    return x + sign_bits * sign_mask
+    # x = int(x)
+    # n = int(n)
+    #
+    # assert 0 <= x < 2 ** (8 * n) <= 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
+    #
+    # sign_mask = (2 ** 64 - 2 ** (8 * n))
+    # sign_bits = int(x // (2 ** (8 * n - 1)))
+    #
+    # return x + sign_bits * sign_mask
+    if n == 1:
+        signed_val = struct.unpack('b', struct.pack('B', x & 0xFF))[0]
+        return signed_val if signed_val >= 0 else signed_val + (1 << 64)
+    elif n == 2:
+        signed_val = struct.unpack('h', struct.pack('H', x & 0xFFFF))[0]
+        return signed_val if signed_val >= 0 else signed_val + (1 << 64)
+    elif n == 3:
+        # For 24-bit, handle manually - struct doesn't have 24-bit type
+        masked = x & 0xFFFFFF
+        # Check if sign bit (bit 23) is set
+        if masked & 0x800000:
+            # Negative - sign extend to 64 bits
+            return masked | 0xFFFFFFFFFF000000
+        else:
+            # Positive
+            return masked
+    elif n == 4:
+        signed_val = struct.unpack('i', struct.pack('I', x & 0xFFFFFFFF))[0]
+        return signed_val if signed_val >= 0 else signed_val + (1 << 64)
+    elif n == 5:
+        # For 40-bit, handle manually
+        masked = x & 0xFFFFFFFFFF
+        # Check if sign bit (bit 39) is set
+        if masked & 0x8000000000:
+            # Negative - sign extend to 64 bits
+            return masked | 0xFFFFFF0000000000
+        else:
+            # Positive
+            return masked
+    elif n == 6:
+        # For 48-bit, handle manually
+        masked = x & 0xFFFFFFFFFFFF
+        # Check if sign bit (bit 47) is set
+        if masked & 0x800000000000:
+            # Negative - sign extend to 64 bits
+            return masked | 0xFFFF000000000000
+        else:
+            # Positive
+            return masked
+    elif n == 7:
+        # For 56-bit, handle manually
+        masked = x & 0xFFFFFFFFFFFFFF
+        # Check if sign bit (bit 55) is set
+        if masked & 0x80000000000000:
+            # Negative - sign extend to 64 bits
+            return masked | 0xFF00000000000000
+        else:
+            # Positive
+            return masked
+    elif n == 8:
+        # For 64-bit, struct.unpack('q', ...) would give signed 64-bit
+        # But for sign extension of 64-bit to 64-bit, just return the value
+        return x & 0xFFFFFFFFFFFFFFFF
+    else:
+        return x
 
 
 def pvm_Z(a:int, n:np.uint8) -> np.int64:

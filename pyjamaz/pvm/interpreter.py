@@ -169,17 +169,6 @@ class PVMInterpreter:
         bytes_to_read = MemOps[opcode]["bytes"]
         return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
 
-    def mem_read_signed(self, opcode, addr):
-        """Optimized signed memory read for load_i8, load_i16, load_i32"""
-        if opcode not in MemOps:
-            raise Exception(f"Invalid memory operation: {opcode}")
-
-        if not MemOps[opcode]["read"]:
-            raise Exception(f"Not a valid memory read operation: {opcode}")
-
-        bytes_to_read = MemOps[opcode]["bytes"]
-        return self.mem.read_int_signed(addr % self.mem.SIZE, bytes_to_read)
-
 
     #GP-0.6.7-section:A.15
     def djump(self, a: int):
@@ -355,7 +344,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
                             case op.load_i8.value:
-                                self.reg[r_a] = self.mem_read_signed(opcode, v_x)
+                                self.reg[r_a] = pvm_X(self.mem_read(opcode, v_x), 1)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
                             case op.load_u16.value:
@@ -363,7 +352,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
                             case op.load_i16.value:
-                                self.reg[r_a] = self.mem_read_signed(opcode, v_x)
+                                self.reg[r_a] = pvm_X(self.mem_read(opcode, v_x), 2)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
                             case op.load_u32.value:
@@ -371,7 +360,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
                             case op.load_i32.value:
-                                self.reg[r_a] = self.mem_read_signed(opcode, v_x)
+                                self.reg[r_a] = pvm_X(self.mem_read(opcode, v_x), 4)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
                             case op.load_u64.value:
@@ -591,7 +580,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                             case op.load_ind_i8.value:
-                                self.reg[r_a] = self.mem_read_signed(opcode, w_b + v_x)
+                                self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, w_b + v_x), 1), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                             case op.load_ind_u16.value:
@@ -599,7 +588,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                             case op.load_ind_i16.value:
-                                self.reg[r_a] = self.mem_read_signed(opcode, w_b + v_x)
+                                self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, w_b + v_x), 2), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                             case op.load_ind_u32.value:
@@ -607,7 +596,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                             case op.load_ind_i32.value:
-                                self.reg[r_a] = self.mem_read_signed(opcode, w_b + v_x)
+                                self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, w_b + v_x), 4), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                             case op.load_ind_u64.value:
