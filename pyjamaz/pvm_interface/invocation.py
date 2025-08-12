@@ -712,7 +712,7 @@ def pvm_invoke_refine(
     extrinsics: List[List[bytes]] # GP-0.6.6-eq:B.6: x_flat list of extrinsics per workitem
 ) -> PvmRefineOutput:
     """
-    GP-0.6.6-eq:B.5 (Ψ_R) | the refine service-account invocation function
+    GP-0.6.7-eq:B.5 (Ψ_R) | the refine service-account invocation function
 
     # TODO integrate with app?
 
