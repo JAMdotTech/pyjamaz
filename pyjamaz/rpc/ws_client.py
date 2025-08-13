@@ -1,14 +1,14 @@
 import json
 import logging
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Dict
 
 import websockets
 import asyncio
 
-from pyjamaz.models.common import Authorizer, RefinementContext, WorkPackage, WorkItem
+from pyjamaz.models.common import WorkPackage
 from pyjamaz.models.state import ServiceAccount
 from pyjamaz.rpc.interface import RPCMethods
-from pyjamaz.rpc.rpc import generate_req_id, jsonapi_parse, RPCCallException, jsonapi_request
+from pyjamaz.rpc.rpc import generate_req_id, RPCCallException, jsonapi_request
 
 
 class WebsocketClient(RPCMethods):

@@ -345,15 +345,15 @@ class Header(Serializable):
     tickets_marker: Option(Array(TicketBody,EPOCH_TIMESLOTS))
         GP-0.7.0-eq:5.10 (bold_H_W) |
         Optional block's winning tickets marker; provides a series of 600 slot sealing tickets for the next epoch
-    offenders_marker: Vec(H256)
-        GP-0.7.0-eq:5.10 (bold_H_O) |
-        List of Ed25519 keys for offenders
     author_index: U16
         GP-0.7.0-eq:5.9 (bold_H_I) |
         Index to identify the block author into the posterior state of the current validator set (kappa)
     entropy_source: Array(U8, 96)
         GP-0.7.0-eq:6.17 (bold_H_V) |
         Entropy-yielding VRF signature
+    offenders_marker: Vec(H256)
+        GP-0.7.0-eq:5.10 (bold_H_O) |
+        List of Ed25519 keys for offenders
     seal: Array(U8, 96)
         GP-0.7.0-eq:6.15,6.16 (bold_H_S) |
         Seal signature
@@ -366,13 +366,10 @@ class Header(Serializable):
     tickets_marker: Optional[List[TicketBody]] = field(
         metadata={'codec': Option(Array(TicketBody.to_codec_def(), EPOCH_TIMESLOTS))}
     )
-    offenders_marker: List[bytes] = field(metadata={'codec': Vec(H256)})
     author_index: int = field(metadata={'codec': U16})
     entropy_source: bytes = field(metadata={'codec': Array(U8, 96)})
+    offenders_marker: List[bytes] = field(metadata={'codec': Vec(H256)})
     seal: bytes = field(metadata={'codec': Array(U8, 96)})
-
-    # TODO recent-history seems to need this, how to handle with this
-    # hash: bytes = field(default=None, metadata={'codec': H256})
 
     @property
     def hash(self) -> bytes:

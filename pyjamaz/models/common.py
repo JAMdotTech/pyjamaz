@@ -185,47 +185,30 @@ class WorkItem(Serializable):
         GP-0.7.0-eq:14.3 (s) | The index of a service to which it relates.
     code_hash: H256
         GP-0.7.0-eq:14.3 (c) | The hash of the code  of the service at the time of being reported.
-    payload: Bytes
-        GP-0.7.0-eq:14.3 (bold_y) | A payload blob.
     refine_gas_limit: U64
         GP-0.7.0-eq:14.3 (g) | The gas limit.
     accumulate_gas_limit: U64
         GP-0.7.0-eq:14.3 (a) | The gas limit.
+    export_count: U16
+        GP-0.7.0-eq:14.3 (e) | The number of data segments exported by this work item.
+    payload: Bytes
+        GP-0.7.0-eq:14.3 (bold_y) | A payload blob.
     import_segments: Vec(ImportSegment)
         GP-0.7.0-eq:14.3 (bold_i) | Imported data segments.
     extrinsic: Vec(WorkItemExtrinsic)
         GP-0.7.0-eq:14.3 (bold_x) | A sequence of blob hashes and lengths.
-    export_count: U16
-        GP-0.7.0-eq:14.3 (e) | The number of data segments exported by this work item.
     """
-    # Todo: check order i & e
     service: int = field(metadata={'codec': U32})
     code_hash: bytes = field(metadata={'codec': H256})
-    payload: bytes = field(metadata={'codec': Bytes})
     refine_gas_limit: int = field(metadata={'codec': U64})
     accumulate_gas_limit: int = field(metadata={'codec': U64})
+    export_count: int = field(metadata={'codec': U16})
+    payload: bytes = field(metadata={'codec': Bytes})
     import_segments: List[ImportSegment] = field(metadata={'codec': Vec(ImportSegment.to_codec_def())})
     extrinsic: List[WorkItemExtrinsic] = field(metadata={'codec': Vec(WorkItemExtrinsic.to_codec_def())})
-    export_count: int = field(metadata={'codec': U16})
 
     def add_extrinsic(self, extrinsic_data: bytes):
         self.extrinsic.append(WorkItemExtrinsic(hash=blake2b_256_hash(extrinsic_data), len=len(extrinsic_data)))
-
-
-@dataclass
-class Authorizer(Serializable):
-    """
-    GP-0.7.0-eq:14.2 (u & bold_f) | A tuple of the authorization code hash and the parameterization blob.
-
-    Attributes
-    ----------
-    code_hash: H256
-        GP-0.7.0-eq:14.2 (u) | The authorization code hash.
-    params: Bytes
-        GP-0.7.0-eq:14.2 (bold_f) | A parameterization blob.
-    """
-    code_hash: bytes = field(metadata={'codec': H256})
-    params: bytes = field(metadata={'codec': Bytes})
 
 
 @dataclass
@@ -235,24 +218,26 @@ class WorkPackage(Serializable):
 
     Attributes
     ----------
-    authorization: Bytes
-        GP-0.7.0-eq:14.2 (bold_j) | Authorization token blob.
     auth_code_host: U32
         GP-0.7.0-eq:14.2 (h) | Index of the service which hosts the authorization code.
-    authorizer: Authorizer
-        GP-0.7.0-eq:14.2 (u & bold_f) | A tuple of the authorization code hash and the parameterization blob.
+    auth_code_hash: H256
+        GP-0.7.0-eq:14.2 (u) | The authorization code hash.
     context: pyjamaz.models.common.RefinementContext
         GP-0.7.0-eq:14.2 (bold_c) | The refinement context.
+    authorization: Bytes
+        GP-0.7.0-eq:14.2 (bold_j) | Authorization token blob.
+    authorizer_config: bytes
+        GP-0.7.0-eq:14.2 (bold_f) | A parameterization blob.
     items: Vec(WorkItem)
         GP-0.7.0-eq:14.2 (bold_w) | A sequence of work items.
     """
-    authorization: bytes = field(metadata={'codec': Bytes})
     auth_code_host: int = field(metadata={'codec': U32})
-    authorizer: Authorizer = field(metadata={'codec': Authorizer.to_codec_def()})
+    auth_code_hash: bytes = field(metadata={'codec': H256})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
+    authorization: bytes = field(metadata={'codec': Bytes})
+    authorizer_config: bytes = field(metadata={'codec': Bytes})
     items: List[WorkItem] = field(metadata={'codec': Vec(WorkItem.to_codec_def())}) # TODO min 1, max constant_I (16)
 
-    #TODO: implement bold_p_a & bold_p_c as mentioned in GP-0.6.4-eq:14.9
     #TODO: implement contraints as mentioned in GP-0.6.4-eq:14.4,14.5,14.7
 
     def hash(self) -> bytes:
@@ -262,7 +247,7 @@ class WorkPackage(Serializable):
         """
         GP-0.7.0-eq:14.10 (bold_p_a) | Authorizer hash.
         """
-        return blake2b_256_hash(self.authorizer.code_hash + self.authorizer.params)
+        return blake2b_256_hash(self.auth_code_hash + self.authorizer_config)
 
     @property
     def authorization_metadata(self) -> str:
@@ -286,7 +271,7 @@ class WorkPackage(Serializable):
         preimage_blob = services_state.historical_preimage_lookup(
             service_account_id=self.auth_code_host,
             timeslot=self.context.lookup_anchor_slot,
-            preimage_hash=self.authorizer.code_hash
+            preimage_hash=self.auth_code_hash
         )
         if preimage_blob:
             preimage = Preimage.extract(preimage_blob)
@@ -492,23 +477,23 @@ class WorkReport(Serializable):
         GP-0.7.0-eq:11.2 (c) | The core-index.
     authorizer_hash: H256
         GP-0.7.0-eq:11.2 (a) | The authorizer hash.
+    auth_gas_used: VarInt64
+        GP-0.7.0-eq:11.2 (g)
     auth_output: Bytes
         GP-0.7.0-eq:11.2 (bold_t) | The output.
     segment_root_lookup: Vec(SegmentRootLookupItem)
         GP-0.7.0-eq:11.2 (bold_l) | The segment root lookup dictionary.
     results: Vec(WorkResult)
         GP-0.7.0-eq:11.2 (bold_d) | The results of the evaluation of each of the items in the work package.
-    auth_gas_used: VarInt64
-        GP-0.7.0-eq:11.2 (g)
     """
     package_spec: WorkPackageSpec = field(metadata={'codec': WorkPackageSpec.to_codec_def()})
     context: RefinementContext = field(metadata={'codec': RefinementContext.to_codec_def()})
     core_index: int = field(metadata={'codec': VarInt64})
     authorizer_hash: bytes = field(metadata={'codec': H256})
+    auth_gas_used: int = field(metadata={'codec': VarInt64})
     auth_output: bytes = field(metadata={'codec': Bytes})
     segment_root_lookup: Dict[bytes, bytes] = field(metadata={'codec': Map(H256, H256)})
     results: List[WorkDigest] = field(metadata={'codec': Vec(WorkDigest.to_codec_def())})
-    auth_gas_used: int = field(metadata={'codec': VarInt64})
 
     def dependency_count(self) -> int:
         """

@@ -5,7 +5,7 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.builder import Instruction, ServiceRegistry
-from pyjamaz.models.common import Authorizer, RefinementContext, WorkPackage, WorkItem, WorkItemExtrinsic, Preimage
+from pyjamaz.models.common import RefinementContext, WorkPackage, WorkItem, WorkItemExtrinsic, Preimage
 from pyjamaz.rpc.ws_client import WebsocketClient
 
 async def get_service_registry(client) -> ServiceRegistry:
@@ -24,11 +24,6 @@ async def create_empty_workpackage(client: WebsocketClient) -> WorkPackage:
     state_root = await client.stateRoot(block_hash)
     beefy_root = await client.beefyRoot(block_hash)
 
-    authorizer = Authorizer(
-        code_hash=bytes.fromhex('36221cd090524aa7f1d8bc3bfd450612023f65371df5089629a6654c18765b1e'),
-        params=b''
-    )
-
     context = RefinementContext(
         anchor=block_hash,
         state_root=state_root,
@@ -41,7 +36,8 @@ async def create_empty_workpackage(client: WebsocketClient) -> WorkPackage:
     work_package = WorkPackage(
         authorization=b'',
         auth_code_host=0,
-        authorizer=authorizer,
+        auth_code_hash=bytes.fromhex('36221cd090524aa7f1d8bc3bfd450612023f65371df5089629a6654c18765b1e'),
+        authorizer_config=b'',
         context=context,
         items=[]
     )
