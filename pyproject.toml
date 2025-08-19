@@ -38,7 +38,7 @@ Homepage = "https://github.com/JAMdotTech/pyjamaz"
 pyjamaz = "pyjamaz.cli:main"
 
 [tool.setuptools.dynamic]
-version = {attr = "pyjamaz.__version__"}
+version = {attr = "pyjamaz.settings.APP_VERSION"}
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
@@ -46,5 +46,5 @@ where = ["."]
 exclude = ["contrib", "docs", "tests", "test"]
 
 [tool.setuptools.package-data]
-pyjamaz = ["data/*"]
+pyjamaz = ["data/*", "data/**/*.json"]
 
