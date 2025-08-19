@@ -1,4 +1,4 @@
-setuptools~=78.1
+setuptools>=80.9
 asyncclick~=8.1
 anyio~=4.9
 websockets~=13.0
