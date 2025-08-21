@@ -1246,21 +1246,21 @@ class AccumulationHistoryState(State, Serializable):
 
 
 @dataclass
-class BeefyCommitmentMap(Serializable):
+class BeefyCommitmentMap(State, Serializable):
     """
-    GP-0.6.1-eq:12.15 (B) | a service-indexed commitment to the accumulation output
+    GP-0.6.7-eq:7.4 (θ) | a service-indexed commitment to the accumulation output
 
     Attributes
     ----------
     beefy_commitment_map: Dict(U32,H256)
-        GP-0.6.1-eq:12.15 (B) | Beefy Commitment Map dictionary. Provides accumulation
+        GP-0.6.7-eq:7.4 (θ) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
     beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
     def get_accumulate_root(self) -> bytes:
         """
-        GP-0.6.1-eq:7.3 (r) | The accumulation-result tree root of the beefy commitment map.
+        GP-0.6.1-eq:7.6,7.7 (r) | The accumulation-result tree root of the beefy commitment map.
 
         Returns
         -------
@@ -1274,44 +1274,46 @@ class BeefyCommitmentMap(Serializable):
 @dataclass
 class JamState(State, Serializable):
     """
-    GP-0.6.4-eq:4.4 (σ) | Logically partitioned state into several largely independent segments which can help both
+    GP-0.6.7-eq:4.4 (σ) | Logically partitioned state into several largely independent segments which can help both
     visual clutter within the protocol description and provide formality over elements of computation which may be
     simultaneously calculated (i.e. parallelized).
 
     Attributes
     ----------
     authorizer_pools: AuthorizerPoolsState
-        GP-0.6.4-eq:4.4 (α) | AuthorizerPool partition of the overall state
+        GP-0.6.7-eq:4.4 (α) | AuthorizerPool partition of the overall state
     recent_history: RecentHistoryState
-        GP-0.6.4-eq:4.4 (β) | RecentHistory partition of the overall state
+        GP-0.6.7-eq:4.4 (β) | RecentHistory partition of the overall state
     safrole: SafroleState
-        GP-0.6.4-eq:4.4 (γ) | Safrole partition of the overall state
+        GP-0.6.7-eq:4.4 (γ) | Safrole partition of the overall state
     services: ServicesState
-        GP-0.6.4-eq:4.4 (δ) | Services partition of the overall state
+        GP-0.6.7-eq:4.4 (δ) | Services partition of the overall state
     entropy: EntropyState
-        GP-0.6.4-eq:4.4 (η) | Entropy partition of the overall state
+        GP-0.6.7-eq:4.4 (η) | Entropy partition of the overall state
     validator_queue: ValidatorQueueState
-        GP-0.6.4-eq:4.4 (ι) | ValidatorQueue partition of the overall state
+        GP-0.6.7-eq:4.4 (ι) | ValidatorQueue partition of the overall state
     validator_pool: ValidatorPoolState
-        GP-0.6.4-eq:4.4 (κ) | ValidatorPool partition of the overall state
+        GP-0.6.7-eq:4.4 (κ) | ValidatorPool partition of the overall state
     validator_archive: ValidatorArchiveState
-        GP-0.6.4-eq:4.4 (λ) | ValidatorArchive partition of the overall state
+        GP-0.6.7-eq:4.4 (λ) | ValidatorArchive partition of the overall state
     assurances: AssurancesState
-        GP-0.6.4-eq:4.4 (ρ) | Assurances partition of the overall state
+        GP-0.6.7-eq:4.4 (ρ) | Assurances partition of the overall state
     timeslot: TimeslotState
-        GP-0.6.4-eq:4.4 (τ) | Timeslot partition of the overall state
+        GP-0.6.7-eq:4.4 (τ) | Timeslot partition of the overall state
     authorizer_queues: AuthorizerQueuesState
-        GP-0.6.4-eq:4.4 (φ) | AuthorizerQueue partition of the overall state
+        GP-0.6.7-eq:4.4 (φ) | AuthorizerQueue partition of the overall state
     privileged_services: PrivilegedServicesState
-        GP-0.6.4-eq:4.4 (χ) | PrivilegedServices partition of the overall state
+        GP-0.6.7-eq:4.4 (χ) | PrivilegedServices partition of the overall state
     disputes: DisputesState
-        GP-0.6.4-eq:4.4 (ψ) | Disputes partition of the overall state
+        GP-0.6.7-eq:4.4 (ψ) | Disputes partition of the overall state
     statistics: StatisticsState
-        GP-0.6.4-eq:4.4 (π) | Statistics partition of the overall state
+        GP-0.6.7-eq:4.4 (π) | Statistics partition of the overall state
     accumulation_queue: AccumulationQueueState
-        GP-0.6.4-eq:4.4 (ϑ) | AccumulationQueue partition of the overall state
+        GP-0.6.7-eq:4.4 (ϑ) | AccumulationQueue partition of the overall state
     accumulation_history: AccumulationHistoryState
-        GP-0.6.4-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
+        GP-0.6.7-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
+    recent_accumulation_outputs: BeefyCommitmentMap
+        GP-0.6.7-eq:4.4 (θ) | The most recent Accumulation outputs
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
@@ -1329,6 +1331,7 @@ class JamState(State, Serializable):
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
     accumulation_queue: AccumulationQueueState = field(metadata={'codec': AccumulationQueueState.to_codec_def()})
     accumulation_history: AccumulationHistoryState = field(metadata={'codec': AccumulationHistoryState.to_codec_def()})
+    recent_accumulation_outputs: BeefyCommitmentMap = field(metadata={'codec': BeefyCommitmentMap.to_codec_def()})
 
     @classmethod
     def create_genesis_state(cls, validators: Optional[List[ValidatorData]] = None):
@@ -1407,7 +1410,8 @@ class JamState(State, Serializable):
             ),
             accumulation_history=AccumulationHistoryState(
                 accumulation_history=[[] for _ in range(EPOCH_TIMESLOTS)]
-            )
+            ),
+            recent_accumulation_outputs=BeefyCommitmentMap(beefy_commitment_map={})
         )
 
 

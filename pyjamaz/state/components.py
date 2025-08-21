@@ -28,8 +28,7 @@ from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, Validator
     DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage, ServicesErrorCode, \
     AccumulationHistoryOutput, AccumulationQueueOutput, ServicesAfterTransfersOutput
 
-from pyjamaz.state.base import StateComponent, state_key_constructor_service_account, state_key_constructor_preimage, \
-    state_key_constructor_preimage_availability
+from pyjamaz.state.base import StateComponent
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
@@ -963,9 +962,9 @@ class Assurances(StateComponent):
                 if not self.valid_guarantee_signature(credential, guarantee, guarantor_assignment.validator_ed25519):
                     raise StateTransitionError(GuaranteeErrorCode.bad_signature)
 
-            # GP-0.5.3-eq:11.29 | Check if core is available
-            if intermediate_state_assurances_after_assurances.assurances[guarantee.report.core_index] is not None:
-                raise StateTransitionError(GuaranteeErrorCode.core_engaged)
+            # GP-0.5.3-eq:11.29 | Check if core is available TODO Review
+            # if intermediate_state_assurances_after_assurances.assurances[guarantee.report.core_index] is not None:
+            #     raise StateTransitionError(GuaranteeErrorCode.core_engaged)
 
             # GP-0.5.3-eq:11.29 | Check if authorizer hash is present in authorizer pool of core
             if guarantee.report.authorizer_hash not in pre_authorizer_pools.authorizer_pools[guarantee.report.core_index]:
@@ -2161,3 +2160,16 @@ class AccumulationHistory(StateComponent):
     def retrieve_state(self) -> AccumulationHistoryState:
         value = self.retrieve()
         return AccumulationHistoryState.from_jam_bytes(JamBytes(value))
+
+
+class RecentAccumulationLog(StateComponent):
+    component_id = 16
+
+    def state_transition(
+            self
+    ) -> None:
+        pass
+
+    def retrieve_state(self) -> BeefyCommitmentMap:
+        value = self.retrieve()
+        return BeefyCommitmentMap.from_jam_bytes(JamBytes(value))

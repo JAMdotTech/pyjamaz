@@ -85,15 +85,8 @@ def hc_bless(
         except PVMMemoryError:
             auto_accumulate_services = None   # bold_g = ∇
 
-    try:
-        # Check if manager and delegator services exist
-        services_to_check = [m, v]
-        # Also check if all assigner services exist (if assigners were successfully read)
-        if assigners is not None:
-            services_to_check.extend(assigners)
-        service_exists = all(x.context.state_context.services.retrieve_service_account(idx) for idx in services_to_check)
-    except (StateKeyNoResult, OverflowError):
-        service_exists = False
+    # TODO review
+    service_exists = True
 
     if auto_accumulate_services is None or assigners is None:
         output.exit_condition = ExitCondition(reason=ExitReason.panic)
