@@ -1,0 +1,22 @@
+{
+  "hostcall": "hc_checkpoint",
+  "description": "Test multiple checkpoints (only last one matters)",
+  "initial-registers": [0, 0, 0, 0, 0, 0, 0, 5000, 0, 0, 0, 0],
+  "initial-page-map": [],
+  "initial-memory": [],
+  "context": {
+    "services": {
+      "200": {
+        "code-hash": [17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17],
+        "balance": 3000000,
+        "threshold-balance": 300,
+        "gas-limit-accumulate": 2000000,
+        "gas-limit-on-transfer": 2000000
+      }
+    },
+    "service-account-id": 200
+  },
+  "expected-regs": [0, 0, 0, 0, 0, 0, 0, 999990, 0, 0, 0, 0],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}

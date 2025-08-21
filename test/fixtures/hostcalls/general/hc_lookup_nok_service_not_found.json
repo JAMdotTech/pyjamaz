@@ -1,0 +1,53 @@
+{
+  "hostcall": "hc_lookup",
+  "description": "Tests lookup when service account doesn't exist, return NONE",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    999,
+    131072,
+    131104,
+    0,
+    32
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        170, 187, 204, 221, 238, 255, 0, 17, 34, 51, 68, 85, 102, 119, 136, 153,
+        170, 187, 204, 221, 238, 255, 0, 17, 34, 51, 68, 85, 102, 119, 136, 153
+      ]
+    }
+  ],
+  "service_id": 42,
+  "other_services": {},
+  "preimages": [],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    131104,
+    0,
+    32
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}

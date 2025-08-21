@@ -33,7 +33,7 @@ from .constants import (
     ExitCondition,
 )
 
-from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
+from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
 class PVMInterpreter:

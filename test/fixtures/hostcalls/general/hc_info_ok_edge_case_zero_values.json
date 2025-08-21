@@ -1,0 +1,98 @@
+{
+  "hostcall": "hc_info",
+  "description": "Tests edge case with zero values for all numeric fields to test minimum VarInt64 encoding",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    0,
+    100,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "balance": 0,
+    "threshold_balance": 0,
+    "gas_limit_accumulate": 0,
+    "gas_limit_on_transfer": 0,
+    "footprint_storage_bytes": 0,
+    "footprint_storage_items": 0
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    96,
+    131072,
+    0,
+    100,
+    0,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

@@ -1,0 +1,22 @@
+{
+  "hostcall": "hc_checkpoint",
+  "description": "Test checkpoint with low gas remaining",
+  "initial-registers": [0, 0, 0, 0, 0, 0, 0, 999, 0, 0, 0, 0],
+  "initial-page-map": [],
+  "initial-memory": [],
+  "context": {
+    "services": {
+      "100": {
+        "code-hash": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "balance": 500000,
+        "threshold-balance": 50,
+        "gas-limit-accumulate": 1000000,
+        "gas-limit-on-transfer": 1000000
+      }
+    },
+    "service-account-id": 100
+  },
+  "expected-regs": [0, 0, 0, 0, 0, 0, 0, 999990, 0, 0, 0, 0],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}

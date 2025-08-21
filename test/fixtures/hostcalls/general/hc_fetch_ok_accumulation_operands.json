@@ -1,0 +1,69 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching all accumulation operands (w10=14), writes operands to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    80,
+    14,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "accumulation_operands": [
+    {
+      "encoded": "11223344556677889900aabbccddeeff11223344"
+    },
+    {
+      "encoded": "aabbccddeeff00112233445566778899aabbccdd"
+    },
+    {
+      "encoded": "deadbeefcafebabe1234567890abcdefdeadbeef"
+    }
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    61,
+    0,
+    80,
+    14,
+    0,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        3,
+        17, 34, 51, 68, 85, 102, 119, 136, 153, 0, 170, 187, 204, 221, 238, 255,
+        17, 34, 51, 68,
+        170, 187, 204, 221, 238, 255, 0, 17, 34, 51, 68, 85, 102, 119, 136, 153,
+        170, 187, 204, 221,
+        222, 173, 190, 239, 202, 254, 186, 190, 18, 52, 86, 120, 144, 171, 205, 239,
+        222, 173, 190, 239
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

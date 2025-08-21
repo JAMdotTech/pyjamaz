@@ -1,0 +1,53 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching with invalid index (w10=15, w11 out of bounds), should return NONE",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    20,
+    15,
+    5,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "accumulation_operands": [
+    {
+      "encoded": "11223344556677889900aabbccddeeff11223344"
+    },
+    {
+      "encoded": "fedcba9876543210fedcba9876543210fedcba98"
+    }
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    0,
+    20,
+    15,
+    5,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}

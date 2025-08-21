@@ -1,0 +1,79 @@
+{
+  "hostcall": "hc_read",
+  "description": "Tests when storage item exists and written to memory. Storage value 'Oepsie' is read and written to memory. Expects registr 7 to contain the length of the storage item",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    4,
+    131076,
+    0,
+    6
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        129,
+        130,
+        131,
+        132
+      ]
+    }
+  ],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "storage_items": [
+    {
+      "service_id": 42,
+      "hash": "81828384",
+      "value": "4f6570736965"
+    }
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    6,
+    131072,
+    4,
+    131076,
+    0,
+    6
+  ],
+  "expected-memory": [
+    {
+      "address": 131076,
+      "contents": [
+        79,
+        101,
+        112,
+        115,
+        105,
+        101
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

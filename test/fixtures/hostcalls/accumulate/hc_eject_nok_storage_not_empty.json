@@ -1,0 +1,65 @@
+{
+  "hostcall": "hc_eject",
+  "description": "Tests eject failure when target has more than just preimage in storage, returns HUH",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    99,
+    131072,
+    0,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171,
+        171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171, 171
+      ]
+    }
+  ],
+  "context": {
+    "service_account_id": 42,
+    "services": {
+      "42": {
+        "code_hash": "1122334455667788990011223344556677889900112233445566778899001122",
+        "balance": 1000000
+      },
+      "99": {
+        "code_hash": "2a00000000000000000000000000000000000000000000000000000000000000",
+        "balance": 50000,
+        "footprint_storage_items": 5,
+        "footprint_storage_bytes": 200
+      }
+    }
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551607,
+    131072,
+    0,
+    0,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}

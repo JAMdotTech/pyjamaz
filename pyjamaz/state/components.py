@@ -12,7 +12,7 @@ from jamcodec.base import JamBytes
 from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue,
                                   transfers_service_mapping)
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.pvm_interface.invocation import pvm_invoke_on_transfer
+from pyjamaz.hostcalls.invocation import pvm_invoke_on_transfer
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange

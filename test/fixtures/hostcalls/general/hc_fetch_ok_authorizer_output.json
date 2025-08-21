@@ -1,0 +1,56 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching authorizer output (w10=2), authorizer output  written to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    64,
+    2,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "authorizer_output": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    64,
+    0,
+    64,
+    2,
+    0,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        171, 205, 239, 1, 35, 69, 103, 137, 171, 205, 239, 1, 35, 69, 103, 137,
+        171, 205, 239, 1, 35, 69, 103, 137, 171, 205, 239, 1, 35, 69, 103, 137,
+        171, 205, 239, 1, 35, 69, 103, 137, 171, 205, 239, 1, 35, 69, 103, 137,
+        171, 205, 239, 1, 35, 69, 103, 137, 171, 205, 239, 1, 35, 69, 103, 137
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

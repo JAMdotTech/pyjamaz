@@ -1,0 +1,53 @@
+{
+  "hostcall": "hc_upgrade",
+  "description": "Tests upgrade failure when memory is not readable",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    999999,
+    2000000,
+    1000000,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [],
+  "context": {
+    "service_account_id": 42,
+    "services": {
+      "42": {
+        "code_hash": "1122334455667788990011223344556677889900112233445566778899001122",
+        "balance": 1000000,
+        "gas_limit_accumulate": 1000000,
+        "gas_limit_on_transfer": 500000
+      }
+    }
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    999999,
+    2000000,
+    1000000,
+    0,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+}

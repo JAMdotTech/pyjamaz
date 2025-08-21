@@ -1,0 +1,80 @@
+{
+  "hostcall": "hc_bless",
+  "description": "Tests blessing failure when none of the privileged services exist, returns WHO",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    500,
+    131100,
+    700,
+    131072,
+    1
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [
+    {
+      "comment": "Assigners array at address 131100 - service 600 doesn't exist",
+      "address": 131100,
+      "contents": [
+        88, 2, 0, 0,
+        88, 2, 0, 0
+      ]
+    },
+    {
+      "address": 131072,
+      "contents": [
+        100,
+        0,
+        0,
+        0,
+        0,
+        0,
+        100,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "context": {
+    "services": {
+      "100": {
+        "code_hash": "aa11223344556677889900112233445566778899001122334455667788990011",
+        "balance": 10000000
+      }
+    },
+    "service_account_id": 500,
+    "privileged_services": {
+      "manager": 500
+    }
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551612,
+    131100,
+    700,
+    131072,
+    1
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}
