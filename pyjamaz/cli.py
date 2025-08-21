@@ -635,7 +635,7 @@ async def replay_traces(
             app.state_db.delete(key)
 
 
-@fuzzer.command('local', help='Start Fuzzer target over UNIX socket.')
+@fuzzer.command('target', help='Start Fuzzer target over UNIX socket.')
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys", default='0x0000000000000000000000000000000000000000000000000000000000000000', show_default=True)
 @click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
 @click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
