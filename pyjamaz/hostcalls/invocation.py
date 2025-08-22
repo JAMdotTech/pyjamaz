@@ -21,7 +21,7 @@ from pyjamaz.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_c
 from pyjamaz.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine, \
     HostCallResult
 from pyjamaz.hostcalls.debug import hc_log
-from pyjamaz.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch
+from pyjamaz.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch, hc_not_found
 from pyjamaz.hostcalls.refine import hc_historical_lookup, hc_export, hc_machine, hc_peek, \
     hc_poke, hc_invoke, hc_expunge, hc_pages
 from pyjamaz.utils import format_hash
@@ -157,9 +157,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 hc_provide(registers, memory, invocation_context, services, service_id, invocation_output, _pvm.log)
             case _:
                 # Host call not found
-                invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-                invocation_output.gas_limit -= 10
-                invocation_output.registers[7] = HostCallResult.WHAT.value
+                hc_not_found(invocation_output, _pvm.log)
 
         return invocation_output
 
@@ -241,9 +239,7 @@ class OnTransferInvocationMutator(InvocationMutator):
 
             case _:
                 # Host call not found
-                ctx_out.exit_condition = ExitCondition(reason=ExitReason.resume)
-                ctx_out.gas_limit -= 10
-                ctx_out.registers[7] = HostCallResult.WHAT.value
+                hc_not_found(ctx_out, _pvm.log)
 
         return ctx_out
 
@@ -493,9 +489,7 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
                 )
             case _:
                 # Host call not found
-                ctx_out.exit_condition = ExitCondition(reason=ExitReason.resume)
-                ctx_out.gas_limit -= 10
-                ctx_out.registers[7] = HostCallResult.WHAT.value
+                hc_not_found(ctx_out, _pvm.log)
 
         return ctx_out
 
@@ -705,9 +699,7 @@ class RefineInvocationMutator(InvocationMutator):
 
             case _:
                 # Host call not found
-                ctx_out.exit_condition = ExitCondition(reason=ExitReason.resume)
-                ctx_out.gas_limit -= 10
-                ctx_out.registers[7] = HostCallResult.WHAT.value
+                hc_not_found(ctx_out, _pvm.log)
 
         return ctx_out
 

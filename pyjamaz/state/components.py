@@ -963,8 +963,8 @@ class Assurances(StateComponent):
                     raise StateTransitionError(GuaranteeErrorCode.bad_signature)
 
             # GP-0.5.3-eq:11.29 | Check if core is available TODO Review
-            # if intermediate_state_assurances_after_assurances.assurances[guarantee.report.core_index] is not None:
-            #     raise StateTransitionError(GuaranteeErrorCode.core_engaged)
+            if intermediate_state_assurances_after_assurances.assurances[guarantee.report.core_index] is not None:
+                raise StateTransitionError(GuaranteeErrorCode.core_engaged)
 
             # GP-0.5.3-eq:11.29 | Check if authorizer hash is present in authorizer pool of core
             if guarantee.report.authorizer_hash not in pre_authorizer_pools.authorizer_pools[guarantee.report.core_index]:
