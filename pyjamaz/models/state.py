@@ -1479,7 +1479,7 @@ class AccumulationStateComponents(Serializable):
         """
         B.13 | Find an unused service id
         """
-        if service_id not in self.services.services:
+        if service_id not in self.services.services: # TODO replace with retrieve_service_account
             return service_id
         else:
             return self.check_service_id((service_id - 2**8 + 1) % (2**32 - 2**9) + 2**8)
