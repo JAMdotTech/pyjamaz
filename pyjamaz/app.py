@@ -434,6 +434,7 @@ class PyjamazApp:
         assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
             extrinsic_assurances=block.extrinsic.assurances,
             intermediate_state_assurances_after_disputes=assurances_after_disputes_output.intermediate_state_after_disputes,
+            header=block.header,
         )
 
         # GP-0.6.1-eq:11.16
