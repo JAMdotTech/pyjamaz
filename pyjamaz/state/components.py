@@ -28,8 +28,7 @@ from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, Validator
     DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage, ServicesErrorCode, \
     AccumulationHistoryOutput, AccumulationQueueOutput, ServicesAfterTransfersOutput
 
-from pyjamaz.state.base import StateComponent, state_key_constructor_service_account, state_key_constructor_preimage, \
-    state_key_constructor_preimage_availability
+from pyjamaz.state.base import StateComponent
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
@@ -749,10 +748,11 @@ class Assurances(StateComponent):
     def state_transition_after_assurances(
             self,
             extrinsic_assurances: List[Assurance],
-            intermediate_state_assurances_after_disputes: AssurancesState
+            intermediate_state_assurances_after_disputes: AssurancesState,
+            header: Header
     ) -> AssurancesAfterAssurancesOutput:
         """
-        GP-0.5.0-eq:11.28 (ρ‡) | Intermediate state transition function for the state's assurances that processes
+        GP-0.6.7-eq:11.17 (ρ‡) | Intermediate state transition function for the state's assurances that processes
         assurances extrinsic.
 
         Parameters
@@ -761,6 +761,7 @@ class Assurances(StateComponent):
             GP-0.5.0-eq:4.14 (bold_E_A)
         intermediate_state_assurances_after_disputes: AssurancesState
             GP-0.5.0-eq:4.14 (ρ†)
+        header: Header
 
         Returns
         -------
@@ -775,7 +776,6 @@ class Assurances(StateComponent):
 
         for assurance in extrinsic_assurances:
 
-
             for core in assurance.cores_engaged:
                 if intermediate_state_assurances_after_disputes.assurances[core] is None:
                     raise StateTransitionError(AssurancesErrorCode.core_not_engaged)
@@ -786,10 +786,14 @@ class Assurances(StateComponent):
         for idx, assurance in enumerate(intermediate_state_assurances_after_disputes.assurances):
             if assurance:
                 if total_assurances_per_core[assurance.report.core_index] > 2 / 3 * gp_const.VALIDATOR_COUNT:
-                    # GP-0.5.2-eq:11.17 | Work report becomes available
+                    # GP-0.6.7-eq:11.16 | Work report becomes available
                     reported.append(intermediate_state_assurances_after_disputes.assurances[idx].report)
 
-                    # GP-0.5.2-eq:11.18 | Remove from assurances
+                    # GP-0.6.7-eq:11.17 | Remove from assurances
+                    intermediate_state_assurances_after_assurances.assurances[idx] = None
+
+                # GP-0.6.7-eq:11.17 Check for timed out work reports
+                if assurance and header.timeslot >= assurance.timeout + gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD:
                     intermediate_state_assurances_after_assurances.assurances[idx] = None
 
         return AssurancesAfterAssurancesOutput(
@@ -1117,8 +1121,6 @@ class Assurances(StateComponent):
         """
         post_state_assurances = deepcopy(intermediate_state_assurances_after_assurances)
 
-        self.process_stale_reports(post_state_assurances, post_state_timeslot)
-
         reported = []
         reporters = []
 
@@ -1155,23 +1157,6 @@ class Assurances(StateComponent):
             reporters=reporters
         )
 
-    @staticmethod
-    def process_stale_reports(post_state_assurances: AssurancesState, post_state_timeslot: TimeslotState):
-        """
-        GP-0.5.2-eq:11.30 | Check for stale reports
-
-        Parameters
-        ----------
-        post_state_assurances: AssurancesState
-        post_state_timeslot: TimeslotState
-
-        Returns
-        -------
-
-        """
-        for idx, assurance in enumerate(post_state_assurances.assurances):
-            if assurance and post_state_timeslot.number >= assurance.timeout + gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD:
-                post_state_assurances.assurances[idx] = None
 
     @staticmethod
     def valid_guarantee_signature(credential: Credential, guarantee: Guarantee, validator_ed25519: bytes) -> bool:
@@ -2161,3 +2146,16 @@ class AccumulationHistory(StateComponent):
     def retrieve_state(self) -> AccumulationHistoryState:
         value = self.retrieve()
         return AccumulationHistoryState.from_jam_bytes(JamBytes(value))
+
+
+class RecentAccumulationLog(StateComponent):
+    component_id = 16
+
+    def state_transition(
+            self
+    ) -> None:
+        pass
+
+    def retrieve_state(self) -> BeefyCommitmentMap:
+        value = self.retrieve()
+        return BeefyCommitmentMap.from_jam_bytes(JamBytes(value))

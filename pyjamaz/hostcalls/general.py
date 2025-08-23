@@ -550,3 +550,11 @@ def hc_fetch(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(bold_v)
         invocation_output.memory.write_bytes(o, bold_v[f:f+l])
+
+def hc_not_found(
+        invocation_output: InvocationMutationOutput,
+        logger: PVMLogger):
+    logger.hc_regs(f"NOT_FOUND", "general")
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+    invocation_output.gas_limit -= 10
+    invocation_output.registers[7] = HostCallResult.WHAT.value

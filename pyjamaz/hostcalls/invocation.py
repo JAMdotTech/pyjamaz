@@ -18,9 +18,10 @@ from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationM
 from pyjamaz.pvm.types import PVMMemory
 from pyjamaz.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_checkpoint, hc_upgrade, \
     hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new, hc_provide
-from pyjamaz.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine
+from pyjamaz.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine, \
+    HostCallResult
 from pyjamaz.hostcalls.debug import hc_log
-from pyjamaz.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch
+from pyjamaz.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch, hc_not_found
 from pyjamaz.hostcalls.refine import hc_historical_lookup, hc_export, hc_machine, hc_peek, \
     hc_poke, hc_invoke, hc_expunge, hc_pages
 from pyjamaz.utils import format_hash
@@ -155,8 +156,8 @@ class AccumulateInvocationMutator(InvocationMutator):
             case HostCallAccumulate.provide.value:
                 hc_provide(registers, memory, invocation_context, services, service_id, invocation_output, _pvm.log)
             case _:
-                # TODO: implement B.16: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
-                raise NotImplementedError(f"Accumulate invoked host-call {host_call_instr_nr} not implemented")
+                # Host call not found
+                hc_not_found(invocation_output, _pvm.log)
 
         return invocation_output
 
@@ -237,8 +238,8 @@ class OnTransferInvocationMutator(InvocationMutator):
                 )
 
             case _:
-                #TODO: implement B.16: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
-                raise NotImplementedError(f"On-Transfer invoked host-call {host_call_instr_nr} not implemented")
+                # Host call not found
+                hc_not_found(ctx_out, _pvm.log)
 
         return ctx_out
 
@@ -364,7 +365,7 @@ def pvm_invoke_on_transfer(
         deferred_transfers: List[DeferredTransfer]
 ) -> PvmOnTransferOutput:
     """
-    GP-0.6.2-eq:B.14 (Ψ_T) | the on-transfer service-account invocation function
+    GP-0.6.7-eq:B.15 (Ψ_T) | the on-transfer service-account invocation function
 
     Parameters
     ----------
@@ -378,9 +379,8 @@ def pvm_invoke_on_transfer(
     PvmOnTransferOutput
     """
 
-    service_account = services_state.retrieve_service_account(service_id)
+    service_account = services_state.retrieve_service_account(service_id) # bold_s
     preimage_blob = service_account.preimages.get(service_account.code_hash)
-    gas_used = 0
 
     serialized_program = None
     program_name = None
@@ -393,11 +393,14 @@ def pvm_invoke_on_transfer(
         except Exception:
             pass
 
-    if serialized_program is not None and len(serialized_program) <= MAXIMUM_SIZE_SERVICE_CODE and len(deferred_transfers) > 0:
-        logging.info(f'💸 Processing transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
+    # Update balance
+    service_account.balance += sum([t.amount for t in deferred_transfers])
 
-        # Update balance
-        service_account.balance += sum([t.amount for t in deferred_transfers])
+    if serialized_program is None or len(serialized_program) > MAXIMUM_SIZE_SERVICE_CODE or len(deferred_transfers) == 0:
+        gas_used = 0
+        logging.debug(f'Skipping on_transfer for s={service_id}')
+    else:
+        logging.info(f'💸 Processing transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
 
         argument_data = OnTransferPvmArguments(
             timeslot=timeslot,
@@ -424,7 +427,7 @@ def pvm_invoke_on_transfer(
             program_name=program_name
         )
 
-        service_account = marshalling_output.context.service_account
+        service_account = marshalling_output.context.service_account # bold_s'
         gas_used = marshalling_output.gas_used
 
     return PvmOnTransferOutput(
@@ -485,8 +488,8 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
                     logger=_pvm.log
                 )
             case _:
-                #TODO: implement B.2: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
-                raise NotImplementedError(f"On-Transfer invoked host-call {host_call_instr_nr} not implemented")
+                # Host call not found
+                hc_not_found(ctx_out, _pvm.log)
 
         return ctx_out
 
@@ -695,8 +698,8 @@ class RefineInvocationMutator(InvocationMutator):
                 )
 
             case _:
-                #TODO: implement B.2: (▸,ϱ−10,[ω0,...,ω6,WHAT,ω8,...],µ,s) otherwise
-                raise NotImplementedError(f"Refine invoked host-call {host_call_instr_nr} not implemented")
+                # Host call not found
+                hc_not_found(ctx_out, _pvm.log)
 
         return ctx_out
 

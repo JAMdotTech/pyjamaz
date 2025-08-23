@@ -72,7 +72,7 @@ class AccumulateInvocationContext(InvocationContext):
             cls, accumulation_state: AccumulationStateComponents, service_account_id: int, entropy: bytes, timeslot: int
     ) -> 'AccumulateInvocationContext':
         """
-                B.9 (I)
+                B.10 (I)
 
                 entropy: eta_0
                 timeslot: int post_state
@@ -81,9 +81,9 @@ class AccumulateInvocationContext(InvocationContext):
         # Generate new unique service id
         check_payload = int.from_bytes(
             blake2b_256_hash(
-                service_account_id.to_bytes(length=4, byteorder='little') +
+                VarInt64.encode(service_account_id).to_bytes() +
                 entropy +
-                timeslot.to_bytes(length=4, byteorder='little')
+                VarInt64.encode(timeslot).to_bytes()
             )[:4],
             byteorder='little'
         )
