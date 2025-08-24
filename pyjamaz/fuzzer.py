@@ -180,20 +180,32 @@ class TargetServer:
             )
         elif req.set_state is not None:
 
+            # Flush DB
+            for key, _ in self.app.state_db:
+                self.app.state_db.delete(key)
+
+            logging.debug(f"State DB flushed")
+
             # Update state from received set_state message
             for k, v in req.set_state.state:
                 self.app.state_db.put(bytes(k), bytes(v))
 
-            self.app.state = self.app.retrieve_jam_state()
-            await self.app.update_state_trie()
+            logging.debug(f"Privided state DB keyvals inserted")
 
-            # Add to ancestors
-            self.app.block_context.ancestor_headers.append(req.set_state.header)
+            await self.app.initialize()
+            self.app.block_context.ancestor_headers = [req.set_state.header]
 
             logging.info(f"💾 State set to {format_hash(self.app.state_trie_root)}")
             return FuzzerMessage(state_root=self.app.state_trie_root)
 
         elif req.import_block is not None:
+
+            # Add stub parent as ancestor
+            stub_parent = Header.default()
+            stub_parent.hash = req.import_block.header.parent
+            stub_parent.timeslot = req.import_block.header.timeslot - 1
+            self.app.block_context.ancestor_headers.append(stub_parent)
+
             await self.app.import_block(req.import_block)
             logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.state_trie_root)}")
             return FuzzerMessage(state_root=self.app.state_trie_root)
