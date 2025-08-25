@@ -1,0 +1,86 @@
+{
+  "hostcall": "hc_bless",
+  "description": "Tests successful blessing with valid privileged services but empty auto-accumulate list (n=0)",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    100,
+    131072,
+    102,
+    131100,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [
+    {
+      "comment": "Assigners array for 2 cores (all set to service 101)",
+      "address": 131072,
+      "contents": [
+        101,
+        0,
+        0,
+        0,
+        101,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "context": {
+    "services": {
+      "100": {
+        "code_hash": "aa11223344556677889900112233445566778899001122334455667788990011",
+        "balance": 1000000
+      },
+      "101": {
+        "code_hash": "bb22334455667788990011223344556677889900112233445566778899001122",
+        "balance": 2000000
+      },
+      "102": {
+        "code_hash": "cc33445566778899001122334455667788990011223344556677889900112233",
+        "balance": 3000000
+      }
+    },
+    "service_account_id": 100,
+    "privileged_services": {
+      "manager": 100
+    }
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    102,
+    131100,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume",
+  "expected-privileged-services": {
+    "manager": 100,
+    "assigners": [
+      101,
+      101
+    ],
+    "delegator": 102,
+    "always_accumulators": {}
+  }
+}

@@ -384,9 +384,8 @@ class PVMMemory:
 
     def is_accessible(self, address: int, length: int, mode: PVMMemoryMode) -> bool:
         if length == 0:
-            return True #TODO: move after section lookup
+            return True
 
-        # TODO: allow for acl per page
         try:
             section = self.find_section(address)
         except (PanicError, PVMMemoryError):
@@ -399,9 +398,14 @@ class PVMMemory:
             raise PVMMemoryError(f"Invalid mode: {mode}")
 
         if self._acl is not None:
-            page_nr = address // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] < mode.value:
-                raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is inaccessible for mode {mode.value}")
+            # Check ACL for all pages that this operation spans
+            start_page = address // PVM_PAGE_SIZE
+            end_address = address + length - 1
+            end_page = end_address // PVM_PAGE_SIZE
+            
+            for page_nr in range(start_page, end_page + 1):
+                if not page_nr in self._acl or self._acl[page_nr] < mode.value:
+                    return False
 
         local_addr = address - section.address
         bytes_required = local_addr + length
@@ -425,20 +429,20 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
-        # if self._acl is not None and self._acl.get(address//PVM_PAGE_SIZE) == PVMMemoryMode.inaccesible.value:
-        #     #TODO: check per page if operations spans multiple pages
-        #     raise PVMMemoryError(f"MemorySection {section.address} - ({section.size} bytes) is inaccessible")
-
         section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
-        section_bytes = section.size #(section.size - section_addr)
+        section_bytes = (section.size - section_addr)
 
         if section_bytes < length:
             raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
 
         if self._acl is not None:
-            page_nr = address // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
-                raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is nor readable")
+            start_page = address // PVM_PAGE_SIZE
+            end_address = address + length - 1
+            end_page = end_address // PVM_PAGE_SIZE
+            
+            for page_nr in range(start_page, end_page + 1):
+                if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
+                    raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not readable")
 
         mem_bytes = bytes(section.contents[section_addr:section_addr+length])
         if padding and len(mem_bytes) < padding:
@@ -463,12 +467,16 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         if self._acl is not None:
-            page_nr = address // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
-                raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is not writable")
+            start_page = address // PVM_PAGE_SIZE
+            end_address = address + len(content) - 1
+            end_page = end_address // PVM_PAGE_SIZE
+            
+            for page_nr in range(start_page, end_page + 1):
+                if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
+                    raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not writable")
 
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
-        section_bytes = section.size #(section.size - section_addr)
+        section_bytes = (section.size - section_addr)
 
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")

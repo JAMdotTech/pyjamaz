@@ -1,0 +1,66 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching any work item segment (w10=5)",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    48,
+    5,
+    1,
+    2
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "work_item_segs": [
+    [
+      "aa00aa00",
+      "bb11bb11",
+      "cc22cc22"
+    ],
+    [
+      "dd33dd33dd33dd33",
+      "ee44ee44ee44ee44",
+      "ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55ff55"
+    ]
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    48,
+    0,
+    48,
+    5,
+    1,
+    2
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        255, 85, 255, 85, 255, 85, 255, 85, 255, 85, 255, 85, 255, 85, 255, 85,
+        255, 85, 255, 85, 255, 85, 255, 85, 255, 85, 255, 85, 255, 85, 255, 85,
+        255, 85, 255, 85, 255, 85, 255, 85, 255, 85, 255, 85, 255, 85, 255, 85
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

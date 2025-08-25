@@ -1,8 +1,10 @@
 import logging
 import time
 
+from pyjamaz.models.stf_output import SafroleErrorCode
+
 from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
-from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS
+from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS, TICKET_ENTRIES
 from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
@@ -45,6 +47,12 @@ class BlockValidation:
         #  GP-0.5.4-eq:5.4 | Check extrinsic hash
         if header.extrinsic_hash != extrinsic.generate_extrinsic_hash():
             raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
+
+        # Check ticket markers attempt
+        if header.tickets_marker:
+            for tickets_marker in header.tickets_marker:
+                if tickets_marker.attempt >= TICKET_ENTRIES:
+                    raise ValueError(SafroleErrorCode.bad_ticket_attempt)
 
         parent_header = self.block_context.get_parent(header)
 

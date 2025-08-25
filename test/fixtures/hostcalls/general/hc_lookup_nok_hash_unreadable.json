@@ -1,0 +1,44 @@
+{
+  "hostcall": "hc_lookup",
+  "description": "Tests lookup when hash memory is not readable",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    200704,
+    131072,
+    0,
+    32
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "preimages": [],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    200704,
+    131072,
+    0,
+    32
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+}

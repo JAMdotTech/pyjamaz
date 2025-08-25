@@ -1,0 +1,88 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching specific work item (w10=12), writes to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    60,
+    12,
+    1,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "work_package": {
+    "authorizer": "deadbeefcafebabe1234567890abcdefdeadbeefcafebabe1234567890abcdef",
+    "authorization": "aabbccdd",
+    "context": "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100",
+    "encoded": "00112233445566778899aabbccddeeff",
+    "items": [
+      {
+        "service": 10,
+        "code_hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+        "refine_gas_limit": 500000,
+        "accumulate_gas_limit": 1000000,
+        "export_count": 2,
+        "import_segments": [0, 1],
+        "extrinsic": [],
+        "payload": "deadbeef"
+      },
+      {
+        "service": 30,
+        "code_hash": "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0",
+        "refine_gas_limit": 750000,
+        "accumulate_gas_limit": 1500000,
+        "export_count": 3,
+        "import_segments": [1, 2, 3],
+        "extrinsic": [],
+        "payload": "baadf00d"
+      }
+    ]
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    62,
+    0,
+    60,
+    12,
+    1,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        30, 0, 0, 0,
+        18, 52, 86, 120, 154, 188, 222, 240, 18, 52, 86, 120, 154, 188, 222, 240,
+        18, 52, 86, 120, 154, 188, 222, 240, 18, 52, 86, 120, 154, 188, 222, 240,
+        176, 113, 11, 0, 0, 0, 0, 0,
+        96, 227, 22, 0, 0, 0, 0, 0,
+        3, 0,
+        3, 0,
+        0, 0,
+        4, 0, 0, 0
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

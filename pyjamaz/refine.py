@@ -4,7 +4,7 @@ from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_SIZE_ENCODED_WORK_REPORT
 from pyjamaz.models.common import WorkReport, WorkPackage, WorkDigest, WorkExecResult, WorkPackageSpec
 from pyjamaz.models.state import ServicesState
-from pyjamaz.pvm_interface.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
+from pyjamaz.hostcalls.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
 from pyjamaz.utils import flatten_list
 
 

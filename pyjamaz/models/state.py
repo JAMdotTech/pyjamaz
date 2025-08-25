@@ -1252,21 +1252,21 @@ class AccumulationHistoryState(State, Serializable):
 
 
 @dataclass
-class BeefyCommitmentMap(Serializable):
+class BeefyCommitmentMap(State, Serializable):
     """
-    GP-0.7.0-eq:12.17 (italic_B) | Service-indexed commitment to the accumulation output
+    GP-0.7.0-eq:7.4 (θ) | Service-indexed commitment to the accumulation output
 
     Attributes
     ----------
     beefy_commitment_map: Dict(U32,H256)
-        GP-0.7.0-eq:12.17 (italic_B) | Beefy Commitment Map dictionary. Provides accumulation
+        GP-0.7.0-eq:7.4 (θ) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
     beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
 
     def get_accumulate_root(self) -> bytes:
         """
-        GP-0.6.1-eq:7.3 (r) | The accumulation-result tree root of the beefy commitment map.
+        GP-0.6.1-eq:7.6,7.7 (r) | The accumulation-result tree root of the beefy commitment map.
 
         Returns
         -------
@@ -1318,6 +1318,8 @@ class JamState(State, Serializable):
         GP-0.7.0-eq:4.4 (ω) | AccumulationQueue partition of the overall state
     accumulation_history: AccumulationHistoryState
         GP-0.7.0-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
+    recent_accumulation_outputs: BeefyCommitmentMap
+        GP-0.7.0-eq:4.4 (θ) | The most recent Accumulation outputs
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
@@ -1336,6 +1338,7 @@ class JamState(State, Serializable):
     statistics: StatisticsState = field(metadata={'codec': StatisticsState.to_codec_def()})
     accumulation_queue: AccumulationQueueState = field(metadata={'codec': AccumulationQueueState.to_codec_def()})
     accumulation_history: AccumulationHistoryState = field(metadata={'codec': AccumulationHistoryState.to_codec_def()})
+    recent_accumulation_outputs: BeefyCommitmentMap = field(metadata={'codec': BeefyCommitmentMap.to_codec_def()})
 
     @classmethod
     def create_genesis_state(cls, validators: Optional[List[ValidatorData]] = None):
@@ -1414,7 +1417,8 @@ class JamState(State, Serializable):
             ),
             accumulation_history=AccumulationHistoryState(
                 accumulation_history=[[] for _ in range(EPOCH_TIMESLOTS)]
-            )
+            ),
+            recent_accumulation_outputs=BeefyCommitmentMap(beefy_commitment_map={})
         )
 
 
@@ -1483,7 +1487,7 @@ class AccumulationStateComponents(Serializable):
         """
         B.13 | Find an unused service id
         """
-        if service_id not in self.services.services:
+        if service_id not in self.services.services: # TODO replace with retrieve_service_account
             return service_id
         else:
             return self.check_service_id((service_id - 2**8 + 1) % (2**32 - 2**9) + 2**8)

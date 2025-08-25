@@ -1,0 +1,143 @@
+{
+  "hostcall": "hc_bless",
+  "description": "Tests successful blessing with valid privileged services and auto-accumulate list",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    10,
+    131200,
+    30,
+    131072,
+    3
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        42,
+        0,
+        0,
+        0,
+        192,
+        198,
+        45,
+        0,
+        0,
+        0,
+        0,
+        0,
+        43,
+        0,
+        0,
+        0,
+        0,
+        45,
+        49,
+        1,
+        0,
+        0,
+        0,
+        0,
+        44,
+        0,
+        0,
+        0,
+        0,
+        53,
+        12,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "comment": "Assigners array for 2 cores (all set to service 20)",
+      "address": 131200,
+      "contents": [
+        20,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "context": {
+    "services": {
+      "10": {
+        "code_hash": "1122334455667788990011223344556677889900112233445566778899001122",
+        "balance": 1000000
+      },
+      "20": {
+        "code_hash": "2233445566778899001122334455667788990011223344556677889900112233",
+        "balance": 2000000
+      },
+      "30": {
+        "code_hash": "3344556677889900112233445566778899001122334455667788990011223344",
+        "balance": 3000000
+      },
+      "42": {
+        "code_hash": "4455667788990011223344556677889900112233445566778899001122334455",
+        "balance": 4000000
+      },
+      "43": {
+        "code_hash": "5566778899001122334455667788990011223344556677889900112233445566",
+        "balance": 5000000
+      },
+      "44": {
+        "code_hash": "6677889900112233445566778899001122334455667788990011223344556677",
+        "balance": 6000000
+      }
+    },
+    "service_account_id": 10,
+    "privileged_services": {
+      "manager": 10
+    }
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131200,
+    30,
+    131072,
+    3
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume",
+  "expected-privileged-services": {
+    "manager": 10,
+    "assigners": [
+      20,
+      20
+    ],
+    "delegator": 30,
+    "always_accumulators": {
+      "42": 3000000,
+      "43": 20000000,
+      "44": 800000
+    }
+  }
+}
