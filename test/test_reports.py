@@ -9,7 +9,7 @@ from parameterized import parameterized
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState
+    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Assurances
@@ -124,6 +124,13 @@ class TestReports(unittest.TestCase):
 
         post_entropy = EntropyState.from_json({"entropy": test_vector["pre_state"]["entropy"]})
 
+        post_disputes = DisputesState.from_json({
+            "good_set": [],
+            "bad_set": [],
+            "wonky_set": [],
+            "offenders": test_vector["pre_state"]["offenders"]
+        })
+
         # Prepare block context
         self.block_context.reset()
         self.block_context.set_guarantor_assignments(
@@ -152,7 +159,8 @@ class TestReports(unittest.TestCase):
                 pre_accumulation_history=pre_accumulation_history,
                 post_entropy=post_entropy,
                 post_state_timeslot=post_state_timeslot,
-                post_state_validator_archive=post_state_validator_archive
+                post_state_validator_archive=post_state_validator_archive,
+                post_state_disputes=post_disputes,
             )
 
             output = assurances.state_transition_after_guarantees(

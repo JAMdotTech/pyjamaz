@@ -1056,11 +1056,11 @@ class CoreActivityRecord(Serializable):
     imports: U16
         GP-0.7.0-eq:13.6 (i) | Number of segments imported from DA made by core for reported work.
     exports: U16
-        GP-0.7.0-eq:13.6 (e) | Number of segments exported into DA made by core for reported work.
+        GP-0.7.0-eq:13.6 (x) | Number of segments exported into DA made by core for reported work.
     extrinsic_size: U32
         GP-0.7.0-eq:13.6 (z) | Total size of extrinsic data used by core for reported work.
     extrinsic_count: U16
-        GP-0.7.0-eq:13.6 (x) | Total number of extrinsics used by core for reported work.
+        GP-0.7.0-eq:13.6 (e) | Total number of extrinsics used by core for reported work.
     bundle_size: U32
         GP-0.7.0-eq:13.6 (l) | The work-bundle size. This is the size of data being placed into Audits DA by the core.
     gas_used: U64
@@ -1071,9 +1071,9 @@ class CoreActivityRecord(Serializable):
     da_load: int = field(metadata={'codec': VarInt64})
     popularity: int = field(metadata={'codec': VarInt64})
     imports: int = field(metadata={'codec': VarInt64})
-    exports: int = field(metadata={'codec': VarInt64})
-    extrinsic_size: int = field(metadata={'codec': VarInt64})
     extrinsic_count: int = field(metadata={'codec': VarInt64})
+    extrinsic_size: int = field(metadata={'codec': VarInt64})
+    exports: int = field(metadata={'codec': VarInt64})
     bundle_size: int = field(metadata={'codec': VarInt64})
     gas_used: int = field(metadata={'codec': VarInt64})
 

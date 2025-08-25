@@ -258,7 +258,9 @@ class GuaranteeErrorCode(Serializable, enum.Enum):
     too_many_dependencies = 19,
     segment_root_lookup_invalid = 20,
     bad_signature = 21,
-    work_report_too_big = 22
+    work_report_too_big = 22,
+    banned_validator = 23,
+    lookup_anchor_not_recent = 24,
 
 
 @dataclass

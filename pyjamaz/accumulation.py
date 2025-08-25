@@ -11,7 +11,7 @@ from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationState
     BeefyCommitmentMap, TimeslotState, EntropyState
 
 from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
-from pyjamaz.utils import substitute_if_nothing
+from pyjamaz.utils import substitute_if_nothing, sum_dict_values
 
 if typing.TYPE_CHECKING:
     from pyjamaz.hostcalls.models import PvmAccumulateOutput
@@ -130,17 +130,17 @@ class ParallelAccumulationOutput:
 @dataclass
 class FullAccumulationOutput:
     """
-    GP-0.6.4-eq:12.21
+    GP-0.7.0-eq:12.24
     """
     # n
     nr_work_results_accumulated: int
-    # o
+    # e'
     post_accumulation_state: AccumulationStateComponents
-    # t
+    # bold_t
     deferred_transfers: List[DeferredTransfer]
-    # C
+    # θ
     accumulation_commitment: BeefyCommitmentMap
-    # u
+    # bold_u
     accumulation_gas_utilized: Dict[int, int]
 
 
@@ -153,7 +153,7 @@ def full_sequential_accumulation(
         post_state_entropy: EntropyState
 ) -> FullAccumulationOutput:
     """
-    GP-0.6.1-eq:12.16 ∆+ | full sequential accumulation function
+    GP-0.7.0-eq:12.16 ∆+ | full sequential accumulation function
 
     Parameters
     ----------
@@ -176,6 +176,7 @@ def full_sequential_accumulation(
     for i, work_report in enumerate(work_reports, start=1):
         gas_used += sum([r.accumulate_gas for r in work_report.results])
         if gas_used > gas_limit:
+            i -= 1
             break
 
     if i == 0:
@@ -208,8 +209,9 @@ def full_sequential_accumulation(
         second_output.accumulation_commitment.beefy_commitment_map
     )
 
-    output.accumulation_gas_utilized.update(
-        second_output.accumulation_gas_utilized
+    # Update gas statistics
+    output.accumulation_gas_utilized = sum_dict_values(
+        output.accumulation_gas_utilized, second_output.accumulation_gas_utilized
     )
 
     return FullAccumulationOutput(

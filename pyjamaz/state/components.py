@@ -858,7 +858,8 @@ class Assurances(StateComponent):
             pre_accumulation_history: AccumulationHistoryState,
             post_entropy: EntropyState,
             post_state_timeslot: TimeslotState,
-            post_state_validator_archive: ValidatorArchiveState
+            post_state_validator_archive: ValidatorArchiveState,
+            post_state_disputes: DisputesState
     ):
 
         # GP-0.7.0-eq:11.29 (r or I)
@@ -966,6 +967,10 @@ class Assurances(StateComponent):
 
                 if guarantor_assignment.core_index != guarantee.report.core_index:
                     raise StateTransitionError(GuaranteeErrorCode.wrong_assignment)
+
+                # Check if validator not on offender list
+                if guarantor_assignment.validator_ed25519 in post_state_disputes.offenders:
+                    raise StateTransitionError(GuaranteeErrorCode.banned_validator)
 
                 if not self.valid_guarantee_signature(credential, guarantee, guarantor_assignment.validator_ed25519):
                     raise StateTransitionError(GuaranteeErrorCode.bad_signature)
@@ -1873,8 +1878,8 @@ class Services(StateComponent):
             privileged_services=deepcopy(pre_state_privileged_services)
         )
 
-        # GP-0.6.0-eq:12.20
-        gas_limit = min(
+        # GP-0.7.0-eq:12.22
+        gas_limit = max(
             gp_const.GAS_TOTAL, gp_const.GAS_ACCUMULATION * gp_const.CORE_COUNT + sum(
                 pre_state_privileged_services.always_accumulators.values()
             )
@@ -1882,7 +1887,7 @@ class Services(StateComponent):
 
         logging.debug(f'ORDERED ACCUMULATION: W^*={[w.package_spec.hash.hex() for w in accumulatable_work_reports]}')
 
-        # GP-0.6.0-eq:12.21
+        # GP-0.7.0-eq:12.24
         output = full_sequential_accumulation(
             gas_limit=gas_limit,
             work_reports=accumulatable_work_reports,
