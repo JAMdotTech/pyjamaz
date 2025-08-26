@@ -1049,25 +1049,23 @@ class CoreActivityRecord(Serializable):
 
     Attributes
     ----------
-    da_load: U32
+    da_load: VarInt64
         GP-0.7.0-eq:13.6 (d) | Amount of bytes which are placed into either Audits or Segments DA.
-    popularity: U16
+    popularity: VarInt64
         GP-0.7.0-eq:13.6 (p) | Number of validators which formed super-majority for assurance.
-    imports: U16
+    imports: VarInt64
         GP-0.7.0-eq:13.6 (i) | Number of segments imported from DA made by core for reported work.
-    exports: U16
+    exports: VarInt64
         GP-0.7.0-eq:13.6 (x) | Number of segments exported into DA made by core for reported work.
-    extrinsic_size: U32
+    extrinsic_size: VarInt64
         GP-0.7.0-eq:13.6 (z) | Total size of extrinsic data used by core for reported work.
-    extrinsic_count: U16
+    extrinsic_count: VarInt64
         GP-0.7.0-eq:13.6 (e) | Total number of extrinsics used by core for reported work.
-    bundle_size: U32
+    bundle_size: VarInt64
         GP-0.7.0-eq:13.6 (l) | The work-bundle size. This is the size of data being placed into Audits DA by the core.
-    gas_used: U64
+    gas_used: VarInt64
          GP-0.7.0-eq:13.6 (u) | Total gas consumed by core for reported work. Includes all refinement and authorizations
     """
-    # TODO: check order and structure for 0.7.0 release
-    # Semantics matter ambiguity in use of i, e and x | e replaced with x ??
     da_load: int = field(metadata={'codec': VarInt64})
     popularity: int = field(metadata={'codec': VarInt64})
     imports: int = field(metadata={'codec': VarInt64})
@@ -1134,41 +1132,39 @@ class ServiceActivityRecord(Serializable):
 
     Attributes
     ----------
-    provided_count: U16
+    provided_count: VarInt64
         GP-0.7.0-eq:13.7 (p_0) | Number of preimages provided to this service.
-    provided_size: U32
+    provided_size: VarInt64
         GP-0.7.0-eq:13.7 (p_1)| Total size of preimages provided to this service.
-    refinement_count: U32
+    refinement_count: VarInt64
         GP-0.7.0-eq:13.7 (r_0)| Number of work-items refined by service for reported work.
-    refinement_gas_used: U64
+    refinement_gas_used: VarInt64
         GP-0.7.0-eq:13.7 (r_1)| Amount of gas used for refinement by service for reported work.
-    imports: U32
+    imports: VarInt64
         GP-0.7.0-eq:13.7 (i) | Number of segments imported from the DL by service for reported work.
-    extrinsic_size: U32
-        GP-0.7.0-eq:13.7 (z) | Total size of extrinsics used by service for reported work.
-    extrinsic_count: U32
+    extrinsic_count: VarInt64
         GP-0.7.0-eq:13.7 (x) | Total number of extrinsics used by service for reported work.
-    exports: U32
+    extrinsic_size: VarInt64
+        GP-0.7.0-eq:13.7 (z) | Total size of extrinsics used by service for reported work.
+    exports: VarInt64
         GP-0.7.0-eq:13.7 (e) | Number of segments exported into the DL by service for reported work.
-    accumulate_count: U32
+    accumulate_count: VarInt64
         GP-0.7.0-eq:13.7 (a_0) | Number of work-items accumulated by service.
-    accumulate_gas_used: U64
+    accumulate_gas_used: VarInt64
         GP-0.7.0-eq:13.7 (a_1) | Amount of gas used for accumulation by service.
-    on_transfers_count: U32
+    on_transfers_count: VarInt64
         GP-0.7.0-eq:13.7 (t_0) | Number of transfers processed by service.
-    on_transfers_gas_used: U64
+    on_transfers_gas_used: VarInt64
         GP-0.7.0-eq:13.7 (t_1) | Amount of gas used for processing transfers by service.
     """
-    # TODO: check order and structure for 0.7.0 release
-    # Semantics matter ambiguity in use of i, e and x
     provided_count: int = field(metadata={'codec': VarInt64}, default=0)
     provided_size: int = field(metadata={'codec': VarInt64}, default=0)
     refinement_count: int = field(metadata={'codec': VarInt64}, default=0)
     refinement_gas_used: int = field(metadata={'codec': VarInt64}, default=0)
     imports: int = field(metadata={'codec': VarInt64}, default=0)
-    exports: int = field(metadata={'codec': VarInt64}, default=0)
-    extrinsic_size: int = field(metadata={'codec': VarInt64}, default=0)
     extrinsic_count: int = field(metadata={'codec': VarInt64}, default=0)
+    extrinsic_size: int = field(metadata={'codec': VarInt64}, default=0)
+    exports: int = field(metadata={'codec': VarInt64}, default=0)
     accumulate_count: int = field(metadata={'codec': VarInt64}, default=0)
     accumulate_gas_used: int = field(metadata={'codec': VarInt64}, default=0)
     on_transfers_count: int = field(metadata={'codec': VarInt64}, default=0)
