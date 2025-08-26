@@ -50,7 +50,7 @@ def work_result_computation(
             extrinsics=extrinsics
         )
 
-        if total_digest_size + len(refine_output.work_exec_result.ok) > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
+        if total_digest_size + len(refine_output.work_exec_result.ok or b'') > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
             work_exec_result = WorkExecResult(digest_oversize=True)
             export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
 
