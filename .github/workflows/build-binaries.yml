@@ -33,14 +33,15 @@ jobs:
 
       - name: Resolve version from pyjamaz.settings.APP_VERSION
         id: version
+        shell: bash
         run: |
-          PYTHONPATH=. python - <<'PY'
-          import os
+          VERSION=$(PYTHONPATH=. python - <<'PY'
           import importlib
           mod = importlib.import_module("pyjamaz.settings")
-          print(f"version={mod.APP_VERSION}")
+          print(mod.APP_VERSION)
           PY
-        shell: bash >> $GITHUB_OUTPUT
+          )
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Install build tooling
         run: |
