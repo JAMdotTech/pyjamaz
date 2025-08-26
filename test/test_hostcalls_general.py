@@ -308,6 +308,8 @@ class TestHCGeneral(unittest.TestCase):
                 work_package = Mock(spec=WorkPackage)
                 work_package.authorizer = Mock()
                 work_package.authorizer.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(work_package_data.get("authorizer", "00" * 32))))
+                work_package.auth_code_hash = bytes.fromhex(work_package_data.get("auth_code_hash", "00" * 32))
+                work_package.authorizer_config = bytes.fromhex(work_package_data.get("authorizer_config", ""))
                 work_package.authorization = bytes.fromhex(work_package_data.get("authorization", ""))
                 work_package.context = Mock()
                 work_package.context.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(work_package_data.get("context", "00" * 32))))
