@@ -64,6 +64,7 @@ jobs:
           )"
           # Build new name: pyjamaz-${{ steps.version.outputs.version }}-${ABI}-none-any.whl
           BASE="pyjamaz-${{ steps.version.outputs.version }}-${ABI}-none-any.whl"
+          echo "BASE=$BASE"
           mv "$WHEEL" "dist/$BASE"
           echo "RENAMED_WHEEL=dist/$BASE" >> $GITHUB_ENV
 
@@ -93,18 +94,18 @@ jobs:
             os_tag: linux
             arch: x86_64
             label: Linux x86_64
-          - runner: ubuntu-22.04-arm64
-            os_tag: linux
-            arch: aarch64
-            label: Linux aarch64
-          - runner: macos-13
-            os_tag: macos
-            arch: x86_64
-            label: macOS x86_64
-          - runner: macos-14
-            os_tag: macos
-            arch: arm64
-            label: macOS arm64
+#          - runner: ubuntu-22.04-arm64
+#            os_tag: linux
+#            arch: aarch64
+#            label: Linux aarch64
+#          - runner: macos-13
+#            os_tag: macos
+#            arch: x86_64
+#            label: macOS x86_64
+#          - runner: macos-14
+#            os_tag: macos
+#            arch: arm64
+#            label: macOS arm64
 
     steps:
       - name: Checkout
@@ -117,13 +118,15 @@ jobs:
 
       - name: Resolve version from pyjamaz.settings.APP_VERSION
         id: version
+        shell: bash
         run: |
-          PYTHONPATH=. python - <<'PY'
+          VERSION=$(PYTHONPATH=. python - <<'PY'
           import importlib
           mod = importlib.import_module("pyjamaz.settings")
-          print(f"version={mod.APP_VERSION}")
+          print(mod.APP_VERSION)
           PY
-        shell: bash >> $GITHUB_OUTPUT
+          )
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Install package & PyInstaller
         run: |
