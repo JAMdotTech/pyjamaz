@@ -697,6 +697,9 @@ async def fuzzer_target(
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
+    if custom_db_path:
+        force_overwrite = True
+
     # Safety checks
     if settings.SOLO_MODE:
         logging.warning('settings.SOLO_MODE is enabled')

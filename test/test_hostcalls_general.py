@@ -151,7 +151,7 @@ class TestHCGeneral(unittest.TestCase):
         mem_heap = None
         mem_pages = []
         heap_pages = []
-        
+
         for page_map in test_vector["initial-page-map"]:
             page = MemorySection(
                 address=page_map["address"],
@@ -164,7 +164,7 @@ class TestHCGeneral(unittest.TestCase):
             else:
                 heap_pages.append(page)
             mem_pages.append(page)
-        
+
         # For tests with multiple heap pages, we need to combine them into one
         if len(heap_pages) == 1:
             mem_heap = heap_pages[0]
@@ -173,7 +173,7 @@ class TestHCGeneral(unittest.TestCase):
             min_addr = min(p.address for p in heap_pages)
             max_addr = max(p.address + p.size for p in heap_pages)
             total_size = max_addr - min_addr
-            
+
             # Create a combined heap section
             combined_contents = [0] * total_size
             mem_heap = MemorySection(
@@ -184,7 +184,7 @@ class TestHCGeneral(unittest.TestCase):
             )
 
         pvm_memory = PVMMemory(mem_rom, mem_heap, None, None)
-        
+
         # For tests with specific memory access requirements, update ACL after creation
         if len(heap_pages) > 1:
             for page in heap_pages:
@@ -305,8 +305,6 @@ class TestHCGeneral(unittest.TestCase):
             if work_package_data:
 
                 work_package = Mock(spec=WorkPackage)
-                work_package.authorizer = Mock()
-                work_package.authorizer.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(work_package_data.get("authorizer", "00" * 32))))
                 work_package.auth_code_hash = bytes.fromhex(work_package_data.get("auth_code_hash", "00" * 32))
                 work_package.authorizer_config = bytes.fromhex(work_package_data.get("authorizer_config", ""))
                 work_package.authorization = bytes.fromhex(work_package_data.get("authorization", ""))
@@ -414,7 +412,7 @@ class TestHCGeneral(unittest.TestCase):
             invocation_output.exit_condition.reason.name.lower(),
             f"{name}: Expected exit reason {expected_exit_reason}, but got {invocation_output.exit_condition.reason.name.lower()}"
         )
-        
+
         # Check expected gas if specified
         if "expected-gas" in test_vector:
             self.assertEqual(
@@ -428,20 +426,20 @@ class TestHCGeneral(unittest.TestCase):
             # hc_fetch provides access to work package data, extrinsics, etc.
             # The data is written directly to memory as specified in expected-memory
             pass
-        
+
         if hostcall == "hc_info":
             # hc_info provides access to service account information
             # it writes service info to memory which is verified via expected-memory
             pass
-        
+
         if hostcall == "hc_lookup":
             # hc_lookup reads preimage data from the service preimage store
             pass
-        
+
         if hostcall == "hc_read":
             # hc_read reads storage items from the service storage
             pass
-        
+
         if hostcall == "hc_write":
             # hc_write modifies the services storage
             # storage changes are handled through the services mock
@@ -451,7 +449,7 @@ class TestHCGeneral(unittest.TestCase):
                     key = (expected_item["service_id"], expected_item["hash"])
                     actual_value = storage_items.get(key)
                     expected_value = bytes.fromhex(expected_item["value"]) if expected_item["value"] else None
-                    
+
                     if expected_value is None:
                         self.assertIsNone(
                             actual_value,
@@ -463,7 +461,7 @@ class TestHCGeneral(unittest.TestCase):
                             actual_value,
                             f"{name}: Expected storage item {key} to have value {expected_value.hex()}, but got {actual_value.hex() if actual_value else 'None'}"
                         )
-            
+
             # vreify service account footprint updates were called if storage was modified
             if "expected_footprint_calls" in test_vector:
                 for call_type, expected_count in test_vector["expected_footprint_calls"].items():

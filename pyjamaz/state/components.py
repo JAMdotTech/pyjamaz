@@ -968,7 +968,7 @@ class Assurances(StateComponent):
                 if guarantor_assignment.core_index != guarantee.report.core_index:
                     raise StateTransitionError(GuaranteeErrorCode.wrong_assignment)
 
-                # Check if validator not on offender list
+                # Check if validator not on offender list TODO create global checked Validator set
                 if guarantor_assignment.validator_ed25519 in post_state_disputes.offenders:
                     raise StateTransitionError(GuaranteeErrorCode.banned_validator)
 
