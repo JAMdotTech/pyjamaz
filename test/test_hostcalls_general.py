@@ -211,8 +211,7 @@ class TestHCGeneral(unittest.TestCase):
             exit_condition=ExitCondition(reason=ExitReason.resume),
             gas_limit=test_vector.get("gas", 1000000),  # Use test gas or default to plenty
             registers=np.array(pvm_regs, dtype=np.uint64),
-            memory=deepcopy(pvm_memory),
-            context=None
+            memory=deepcopy(pvm_memory)
         )
 
         service_id = test_vector.get("service_id", 0)

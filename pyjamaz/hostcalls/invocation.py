@@ -64,8 +64,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
             registers=_pvm.reg,
-            memory=_pvm.mem,
-            context=invocation_context
+            memory=_pvm.mem
         )
 
         service_id = invocation_context.context.service_account_id
@@ -185,8 +184,7 @@ class OnTransferInvocationMutator(InvocationMutator):
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
             registers=_pvm.reg,
-            memory=_pvm.mem,
-            context=invocation_context
+            memory=_pvm.mem
         )
 
         service_id = invocation_context.service_id
@@ -458,8 +456,7 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
             registers=_pvm.reg,
-            memory=_pvm.mem,
-            context=invocation_context
+            memory=_pvm.mem
         )
 
         match host_call_instr_nr:
@@ -590,8 +587,7 @@ class RefineInvocationMutator(InvocationMutator):
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
             registers=_pvm.reg,
-            memory=_pvm.mem,
-            context=invocation_context
+            memory=_pvm.mem
         )
 
         match host_call_instr_nr:
