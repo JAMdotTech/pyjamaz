@@ -353,9 +353,13 @@ def invoke_native(
         if inst_type == 0:
             if opcode == 0:  # trap
                 status = EXIT_PANIC
+                # Copy registers before returning
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
                 status_out[0] = status
                 pc_out[0] = pc
                 gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
                 return ERROR_PANIC_TRAP
             elif opcode == 1:  # fallthrough
                 pass
@@ -784,9 +788,11 @@ class PVMInterpreter(PVMInterpreterBase):
 
             # Handle errors
             if error_code == ERROR_PANIC_TRAP:
-                raise PanicError("trap")
+                self.status = ExitReason.panic.value
+                break  # Exit the main loop
             elif error_code == ERROR_PANIC_INVALID_PC:
-                raise PanicError(f"Invalid PC: {self.pc}")
+                self.status = ExitReason.panic.value
+                break  # Exit the main loop
             elif error_code == ERROR_INVALID_OPCODE:
                 # Fall back to Python implementation for this instruction
                 consecutive_fallbacks += 1
@@ -847,8 +853,13 @@ class PVMInterpreter(PVMInterpreterBase):
                             self.gas = saved_gas - insts_executed
                             
                         # print(f"DEBUG: After Python fallback, PC={self.pc}")
+                    except PanicError as e:
+                        # Handle panic from Python execution
+                        self.status = ExitReason.panic.value
+                        # Don't restore state - keep the PC where the panic occurred
+                        break  # Exit the main loop
                     except Exception as e:
-                        # Restore state on error
+                        # Restore state on other errors
                         self.pc = saved_pc
                         self.inst_nr = saved_inst_nr 
                         self.gas = saved_gas
