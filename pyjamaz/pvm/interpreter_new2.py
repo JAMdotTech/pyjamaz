@@ -31,12 +31,6 @@ from .constants_new import (
     MemOps,
     OpcodeNames,
     ExitCondition,
-    EXIT_RESUME,
-    EXIT_HALT,
-    EXIT_PANIC,
-    EXIT_PAGE_FAULT,
-    EXIT_HOST_HALT,
-    OPCODE_LOOKUP,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -61,7 +55,7 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
 
         self.mem:PVMMemory = None
-        self.status:int = EXIT_RESUME
+        self.status:int = ExitReason.resume.value
         self.exit_value:int = None
 
         self.log = None
@@ -143,7 +137,7 @@ class PVMInterpreter:
         for idx, val in enumerate(program.registers):
             self.reg[idx] = np.uint64(val)
 
-        self.status = EXIT_RESUME
+        self.status = ExitReason.resume.value
 
         self.inst_bitmask: List[bool] = program.code.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -179,7 +173,7 @@ class PVMInterpreter:
     #GP-0.6.7-section:A.15
     def djump(self, a: int):
         if a == 2 ** 32 - 2 ** 16:
-            self.status = EXIT_HALT
+            self.status = ExitReason.halt.value
             return 0
         elif (a == 0 or
               a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
@@ -193,16 +187,16 @@ class PVMInterpreter:
         exit_value = None
         exit_reason = self.status
 
-        if self.status in (EXIT_HOST_HALT, EXIT_PAGE_FAULT):
+        if self.status in (ExitReason.host_halt.value, ExitReason.page_fault.value):
             exit_value = int(self.exit_value)
-        elif self.status == EXIT_HALT:
+        elif self.status == ExitReason.halt.value:
             mem = bytes()
             try:
                 mem = self.mem.read_bytes(self.reg[7], self.reg[8])
             except (PVMMemoryError, PanicError):
                 pass
             exit_value = mem
-        elif self.status == EXIT_PANIC:
+        elif self.status == ExitReason.panic.value:
             exit_value = None
         else:
             exit_value = b''
@@ -226,14 +220,14 @@ class PVMInterpreter:
             self.log.pvm_header()
 
         # GP-0.6.7-section:A.4 Single-Step State Transition
-        while self.status == EXIT_RESUME and self.gas > 0:
+        while self.status == ExitReason.resume.value and self.gas > 0:
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
             self.inst_nr += 1
 
             if self.pc >= self.code_size:
-                self.status = EXIT_PANIC
+                self.status = ExitReason.panic.value
                 self.exit_value = None
                 break
 
@@ -261,7 +255,7 @@ class PVMInterpreter:
                     v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
 
                     if opcode == 10:  # op.ecalli
-                        self.status = EXIT_HOST_HALT
+                        self.status = ExitReason.host_halt.value
                         self.exit_value = v_x
                         self.log and self.log(imm1=v_x)
                     else:
@@ -860,15 +854,15 @@ class PVMInterpreter:
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 202:  # op.shlo_l_32
+                    elif opcode == 197:  # op.shlo_l_32
                         self.reg[r_d] = pvm_X((w_a * 2**(w_b % 32)) % 2**32, 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 203:  # op.shlo_r_32
+                    elif opcode == 198:  # op.shlo_r_32
                         self.reg[r_d] = pvm_X(riscv_div(w_a % 2**32, 2**(w_b % 32)), 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 204:  # op.shar_r_32
+                    elif opcode == 199:  # op.shar_r_32
                         self.reg[r_d] = pvm_Z_inv(
                             riscv_div(
                                 pvm_Z(w_a % 2**32, 4),
@@ -878,26 +872,26 @@ class PVMInterpreter:
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 207:  # op.add_64
+                    elif opcode == 200:  # op.add_64
                         self.reg[r_d] = (w_a + w_b) #% 2**64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 208:  # op.sub_64
+                    elif opcode == 201:  # op.sub_64
                         self.reg[r_d] = (int(w_a) + 2**64 - int(w_b)) % 2**64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 209:  # op.mul_64
+                    elif opcode == 202:  # op.mul_64
                         self.reg[r_d] = (w_a * w_b) #% 2**64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 210:  # op.div_u_64
+                    elif opcode == 203:  # op.div_u_64
                         if w_b == 0:
                             self.reg[r_d] = 2**64 - 1
                         else:
                             self.reg[r_d] = riscv_div(w_a, w_b)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 211:  # op.div_s_64
+                    elif opcode == 204:  # op.div_s_64
                         if w_b == 0:
                             self.reg[r_d] = 2**64 - 1
                         elif pvm_Z(w_a, 8) == -2**63 and pvm_Z(w_b, 8) == -1:
@@ -912,14 +906,14 @@ class PVMInterpreter:
                             )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 212:  # op.rem_u_64
+                    elif opcode == 205:  # op.rem_u_64
                         if w_b == 0:
                             self.reg[r_d] = w_a
                         else:
                             self.reg[r_d] = w_a % w_b
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 213:  # op.rem_s_64
+                    elif opcode == 206:  # op.rem_s_64
                         a = pvm_Z(w_a, 8)
                         b = pvm_Z(w_b, 8)
 
@@ -932,15 +926,15 @@ class PVMInterpreter:
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 214:  # op.shlo_l_64
+                    elif opcode == 207:  # op.shlo_l_64
                         self.reg[r_d] = (w_a * 2**(w_b % 64)) #% 2**64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 215:  # op.shlo_r_64
+                    elif opcode == 208:  # op.shlo_r_64
                         self.reg[r_d] = riscv_div(w_a, 2**(w_b % 64))
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 216:  # op.shar_r_64
+                    elif opcode == 209:  # op.shar_r_64
                         self.reg[r_d] = pvm_Z_inv(
                             riscv_div(
                                 pvm_Z(w_a, 8),
@@ -950,67 +944,67 @@ class PVMInterpreter:
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 197:  # op._and
+                    elif opcode == 210:  # op._and
                         self.reg[r_d] = self.reg[r_a] & self.reg[r_b]
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 198:  # op.xor
+                    elif opcode == 211:  # op.xor
                         self.reg[r_d] = self.reg[r_a] ^ self.reg[r_b]
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 199:  # op._or
+                    elif opcode == 212:  # op._or
                         self.reg[r_d] = self.reg[r_a] | self.reg[r_b]
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 217:  # op.mul_upper_s_s
+                    elif opcode == 213:  # op.mul_upper_s_s
                         self.reg[r_d] = pvm_Z_inv(
                             riscv_div((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)), 2**64),
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 218:  # op.mul_upper_u_u
+                    elif opcode == 214:  # op.mul_upper_u_u
                         self.reg[r_d] = riscv_div(int(w_a) * int(w_b), 2**64)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 219:  # op.mul_upper_s_u
+                    elif opcode == 215:  # op.mul_upper_s_u
                         self.reg[r_d] = pvm_Z_inv(
                             riscv_div(pvm_Z(w_a, 8) * int(w_b), 2**64),
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 200:  # op.set_lt_u
+                    elif opcode == 216:  # op.set_lt_u
                         self.reg[r_d] = np.uint64(w_a < w_b)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 201:  # op.set_lt_s
+                    elif opcode == 217:  # op.set_lt_s
                         self.reg[r_d] = np.int64(pvm_Z(w_a, 8) < pvm_Z(w_b,8))
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 205:  # op.cmov_iz
+                    elif opcode == 218:  # op.cmov_iz
                         if w_b == 0:
                             self.reg[r_d] = w_a
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 206:  # op.cmov_nz
+                    elif opcode == 219:  # op.cmov_nz
                         if w_b != 0:
                             self.reg[r_d] = w_a
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 221:  # op.rot_l_64
+                    elif opcode == 220:  # op.rot_l_64
                         self.reg[r_d] = roli64(w_a, w_b % 64)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 223:  # op.rot_l_32
+                    elif opcode == 221:  # op.rot_l_32
                         self.reg[r_d] = pvm_X(roli32(np.uint32(w_a), w_b % 32), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 220:  # op.rot_r_64
+                    elif opcode == 222:  # op.rot_r_64
                         self.reg[r_d] = rori64(w_a, w_b % 64)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                    elif opcode == 222:  # op.rot_r_32
+                    elif opcode == 223:  # op.rot_r_32
                         self.reg[r_d] = pvm_X(rori32(np.uint32(w_a), w_b % 32), 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
@@ -1055,11 +1049,11 @@ class PVMInterpreter:
                     raise InvalidOpcode(f"Invalid instruction type: {inst_type}")
 
             except PVMMemoryError:
-                self.status = EXIT_PAGE_FAULT
+                self.status = ExitReason.page_fault.value
                 # self.gas -= 1
                 self.exit_value = self.mem._mem_addr
                 break
 
             except PanicError as panic_error:
-                self.status = EXIT_PANIC
+                self.status = ExitReason.panic.value
                 break
