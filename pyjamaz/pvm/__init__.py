@@ -1,1 +1,1 @@
-from .interpreter_new2 import PVMInterpreter
+from .interpreter_new3 import PVMInterpreter
