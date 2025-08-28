@@ -1923,7 +1923,8 @@ class Services(StateComponent):
             self,
             intermediate_state_after_accumulation: ServicesState,
             post_state_timeslot: TimeslotState,
-            deferred_transfers: List[DeferredTransfer]
+            deferred_transfers: List[DeferredTransfer],
+            post_state_entropy: EntropyState
     ) -> ServicesAfterTransfersOutput:
         """
         GP-0.7.0-eq:12.28 (δ‡) | State transition function for the state's services.
@@ -1958,7 +1959,8 @@ class Services(StateComponent):
                 services_state=intermediate_state_after_accumulation,
                 timeslot=post_state_timeslot.number,
                 service_id=service_id,
-                deferred_transfers=service_transfers
+                deferred_transfers=service_transfers,
+                post_state_entropy=post_state_entropy
             )
 
             intermediate_state_after_transfers.services.update({

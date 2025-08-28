@@ -360,17 +360,19 @@ def pvm_invoke_on_transfer(
         services_state: ServicesState,
         timeslot: int,
         service_id: int,
-        deferred_transfers: List[DeferredTransfer]
+        deferred_transfers: List[DeferredTransfer],
+        post_state_entropy: EntropyState
 ) -> PvmOnTransferOutput:
     """
     GP-0.6.7-eq:B.15 (Ψ_T) | the on-transfer service-account invocation function
 
     Parameters
     ----------
-    services: Dict[int, ServiceAccount]
+    services_state: ServicesState,
     timeslot: int
     service_id: int
     deferred_transfers: List[DeferredTransfer]
+    post_state_entropy: EntropyState
 
     Returns
     -------
@@ -412,7 +414,9 @@ def pvm_invoke_on_transfer(
                 service_account=service_account,
                 services_state=services_state
             ),
-            invocation_mutator=OnTransferInvocationMutator(deferred_transfers=deferred_transfers)
+            invocation_mutator=OnTransferInvocationMutator(
+                deferred_transfers=deferred_transfers, post_entropy=post_state_entropy
+            )
         )
 
         gas_limit = sum([t.gas_limit for t in deferred_transfers])
