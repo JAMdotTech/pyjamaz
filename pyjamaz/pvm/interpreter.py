@@ -254,11 +254,11 @@ class PVMInterpreter:
                     case InstructionType.none:
 
                         match opcode:
-                            case op.trap.value:
+                            case op.trap:
                                 self.log and self.log()
                                 #self.status = ExitCondition.panic.value
                                 raise PanicError(f"trap")
-                            case op.fallthrough.value:
+                            case op.fallthrough:
                                 self.log and self.log()
 
                             case _:
@@ -271,7 +271,7 @@ class PVMInterpreter:
                         v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
 
                         match opcode:
-                            case op.ecalli.value:
+                            case op.ecalli:
                                 self.status = EXIT_HOST_HALT
                                 self.exit_value = v_x
                                 self.log and self.log(imm1=v_x)
@@ -287,7 +287,7 @@ class PVMInterpreter:
                         v_x = read_uint(self.code, self.pc + 2, 8)
 
                         match opcode:
-                            case op.load_imm_64.value:
+                            case op.load_imm_64:
                                 self.reg[r_a] = v_x
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
@@ -303,16 +303,16 @@ class PVMInterpreter:
                         v_y = pvm_X(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
 
                         match opcode:
-                            case op.store_imm_u8.value:
+                            case op.store_imm_u8:
                                 self.mem_write(opcode, v_x, v_y % 2 ** 8)
                                 self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 1)})
-                            case op.store_imm_u16.value:
+                            case op.store_imm_u16:
                                 self.mem_write(opcode, v_x, v_y % 2 ** 16)
                                 self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 2)})
-                            case op.store_imm_u32.value:
+                            case op.store_imm_u32:
                                 self.mem_write(opcode, v_x, v_y % 2 ** 32)
                                 self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 4)})
-                            case op.store_imm_u64.value:
+                            case op.store_imm_u64:
                                 self.mem_write(opcode, v_x, v_y)
                                 self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 8)})
 
@@ -327,7 +327,7 @@ class PVMInterpreter:
                         v_x = pvm_Z(read_uint(self.code, self.pc + 1, l_x), l_x)
 
                         match opcode:
-                            case op.jump.value:
+                            case op.jump:
                                 self.skip_len = v_x
                                 self.log and self.log(off1=v_x)
 
@@ -343,55 +343,55 @@ class PVMInterpreter:
 
 
                         match opcode:
-                            case op.jump_ind.value:
+                            case op.jump_ind:
                                 self.skip_len = self.djump(np.uint32(self.reg[r_a]+v_x))
                                 self.log and self.log(reg1=r_a, imm1=v_x, context={"skip_len": self.skip_len})
 
-                            case op.load_imm.value:
+                            case op.load_imm:
                                 self.reg[r_a] = v_x
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
-                            case op.load_u8.value:
+                            case op.load_u8:
                                 self.reg[r_a] = self.mem_read(opcode, v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
-                            case op.load_i8.value:
+                            case op.load_i8:
                                 self.reg[r_a] = pvm_X(self.mem_read(opcode, v_x), 1)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
-                            case op.load_u16.value:
+                            case op.load_u16:
                                 self.reg[r_a] = self.mem_read(opcode, v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
-                            case op.load_i16.value:
+                            case op.load_i16:
                                 self.reg[r_a] = pvm_X(self.mem_read(opcode, v_x), 2)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
-                            case op.load_u32.value:
+                            case op.load_u32:
                                 self.reg[r_a] = self.mem_read(opcode, v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
-                            case op.load_i32.value:
+                            case op.load_i32:
                                 self.reg[r_a] = pvm_X(self.mem_read(opcode, v_x), 4)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
-                            case op.load_u64.value:
+                            case op.load_u64:
                                 self.reg[r_a] = self.mem_read(opcode, v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x)
 
-                            case op.store_u8.value:
+                            case op.store_u8:
                                 self.mem_write(opcode, v_x, self.reg[r_a] % 2**8)
                                 self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 1)})
 
-                            case op.store_u16.value:
+                            case op.store_u16:
                                 self.mem_write(opcode, v_x, self.reg[r_a] % 2**16)
                                 self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 2)})
 
-                            case op.store_u32.value:
+                            case op.store_u32:
                                 self.mem_write(opcode, v_x, self.reg[r_a] % 2**32)
                                 self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 4)})
 
-                            case op.store_u64.value:
+                            case op.store_u64:
                                 self.mem_write(opcode, v_x, self.reg[r_a])
                                 self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 8)})
 
@@ -415,19 +415,19 @@ class PVMInterpreter:
 
                         match opcode:
 
-                            case op.store_imm_ind_u8.value:
+                            case op.store_imm_ind_u8:
                                 self.mem_write(opcode, w_a + v_x, v_y % 2**8)
                                 self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 1)})
 
-                            case op.store_imm_ind_u16.value:
+                            case op.store_imm_ind_u16:
                                 self.mem_write(opcode, w_a + v_x, v_y % 2**16)
                                 self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 2)})
 
-                            case op.store_imm_ind_u32.value:
+                            case op.store_imm_ind_u32:
                                 self.mem_write(opcode, w_a + v_x, v_y % 2**32)
                                 self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 4)})
 
-                            case op.store_imm_ind_u64.value:
+                            case op.store_imm_ind_u64:
                                 self.mem_write(opcode, w_a + v_x, v_y)
                                 self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 8)})
 
@@ -448,48 +448,48 @@ class PVMInterpreter:
                         v_y = pvm_Z(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
 
                         match opcode:
-                            case op.load_imm_jump.value:
+                            case op.load_imm_jump:
                                 self.skip_len = v_y
                                 self.reg[r_a] = v_x
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_eq_imm.value:
+                            case op.branch_eq_imm:
                                 self.branch(v_y, w_a == v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_ne_imm.value:
+                            case op.branch_ne_imm:
                                 self.branch(v_y, w_a != v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_lt_u_imm.value:
+                            case op.branch_lt_u_imm:
                                 self.branch(v_y, w_a < v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_le_u_imm.value:
+                            case op.branch_le_u_imm:
                                 self.branch(v_y, w_a <= v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_ge_u_imm.value:
+                            case op.branch_ge_u_imm:
                                 self.branch(v_y, w_a >= v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_gt_u_imm.value:
+                            case op.branch_gt_u_imm:
                                 self.branch(v_y, w_a > v_x)
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_lt_s_imm.value:
+                            case op.branch_lt_s_imm:
                                 self.branch(v_y, pvm_Z(w_a, 8) < pvm_Z(v_x, 8))
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_le_s_imm.value:
+                            case op.branch_le_s_imm:
                                 self.branch(v_y, pvm_Z(w_a, 8) <= pvm_Z(v_x, 8))
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_ge_s_imm.value:
+                            case op.branch_ge_s_imm:
                                 self.branch(v_y, pvm_Z(w_a, 8) >= pvm_Z(v_x, 8))
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
-                            case op.branch_gt_s_imm.value:
+                            case op.branch_gt_s_imm:
                                 self.branch(v_y, pvm_Z(w_a, 8) > pvm_Z(v_x, 8))
                                 self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
 
@@ -503,54 +503,54 @@ class PVMInterpreter:
                         r_a = min(12, self.code[self.pc + 1] // 16)
 
                         match opcode:
-                            case op.move_reg.value:
+                            case op.move_reg:
                                 self.reg[r_d] = self.reg[r_a]
                                 self.log and self.log(reg1=r_d, reg2=r_a)
 
-                            case op.sbrk.value:
+                            case op.sbrk:
                                 # Note: set break / set break pointer (extend heap memory)
                                 self.reg[r_d] = self.mem.extend_heap(self.reg[r_a])
                                 self.log and self.log(reg1=r_d, reg2=r_a)
 
-                            case op.count_set_bits_64.value:
+                            case op.count_set_bits_64:
                                 self.reg[r_d] = np.bitwise_count(self.reg[r_a])
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
-                            case op.count_set_bits_32.value:
+                            case op.count_set_bits_32:
                                 self.reg[r_d] = np.bitwise_count(np.uint32(self.reg[r_a]))
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
-                            case op.leading_zero_bits_64.value:
+                            case op.leading_zero_bits_64:
                                 #self.reg[r_d] = count_leading_zeroes(reverse_bits_64(self.reg[r_a]))
                                 self.reg[r_d] = count_leading_zeroes(self.reg[r_a])
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
-                            case op.leading_zero_bits_32.value:
+                            case op.leading_zero_bits_32:
                                 #self.reg[r_d] = count_leading_zeroes(np.uint32(reverse_bits_32(self.reg[r_a])), 32)
                                 self.reg[r_d] = count_leading_zeroes(np.uint32(self.reg[r_a]), 32)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
-                            case op.trailing_zero_bits_64.value:
+                            case op.trailing_zero_bits_64:
                                 self.reg[r_d] = count_trailing_zeroes(self.reg[r_a])
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
-                            case op.trailing_zero_bits_32.value:
+                            case op.trailing_zero_bits_32:
                                 self.reg[r_d] = count_trailing_zeroes(np.uint32(self.reg[r_a]), 32)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
-                            case op.sign_extend_8.value:
+                            case op.sign_extend_8:
                                 self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a] % 2**8, 1), 8)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
-                            case op.sign_extend_16.value:
+                            case op.sign_extend_16:
                                 self.reg[r_d] = pvm_Z_inv(pvm_Z(self.reg[r_a] % 2**16, 2), 8)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
-                            case op.zero_extend_16.value:
+                            case op.zero_extend_16:
                                 self.reg[r_d] = self.reg[r_a] % 2**16
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
-                            case op.reverse_bytes.value:
+                            case op.reverse_bytes:
                                 self.reg[r_d] = reverse_bytes(self.reg[r_a])
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
@@ -571,87 +571,87 @@ class PVMInterpreter:
 
                         match opcode:
 
-                            case op.store_ind_u8.value:
+                            case op.store_ind_u8:
                                 self.mem_write(opcode, w_b + v_x, w_a % 2**8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**8, "w_b": w_b})
 
-                            case op.store_ind_u16.value:
+                            case op.store_ind_u16:
                                 self.mem_write(opcode, w_b + v_x, w_a % 2**16)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**16, "w_b": w_b})
 
-                            case op.store_ind_u32.value:
+                            case op.store_ind_u32:
                                 self.mem_write(opcode, w_b + v_x, w_a % 2**32)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**32, "w_b": w_b})
 
-                            case op.store_ind_u64.value:
+                            case op.store_ind_u64:
                                 self.mem_write(opcode, w_b + v_x, w_a)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
-                            case op.load_ind_u8.value:
+                            case op.load_ind_u8:
                                 self.reg[r_a] = self.mem_read(opcode, w_b + v_x)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
-                            case op.load_ind_i8.value:
+                            case op.load_ind_i8:
                                 self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, w_b + v_x), 1), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
-                            case op.load_ind_u16.value:
+                            case op.load_ind_u16:
                                 self.reg[r_a] = self.mem_read(opcode, w_b + v_x)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
-                            case op.load_ind_i16.value:
+                            case op.load_ind_i16:
                                 self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, w_b + v_x), 2), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
-                            case op.load_ind_u32.value:
+                            case op.load_ind_u32:
                                 self.reg[r_a] = self.mem_read(opcode, w_b + v_x)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
-                            case op.load_ind_i32.value:
+                            case op.load_ind_i32:
                                 self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, w_b + v_x), 4), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
-                            case op.load_ind_u64.value:
+                            case op.load_ind_u64:
                                 self.reg[r_a] = self.mem_read(opcode, w_b + v_x)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
-                            case op.add_imm_32.value:
+                            case op.add_imm_32:
                                 self.reg[r_a] = pvm_X((w_b + v_x) % 2**32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
-                            case op.and_imm.value:
+                            case op.and_imm:
                                 self.reg[r_a] = w_b & v_x
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
-                            case op.xor_imm.value:
+                            case op.xor_imm:
                                 self.reg[r_a] = w_b ^ v_x
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
-                            case op.or_imm.value:
+                            case op.or_imm:
                                 self.reg[r_a] = w_b | v_x
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
-                            case op.mul_imm_32.value:
+                            case op.mul_imm_32:
                                 self.reg[r_a] = pvm_X((w_b * v_x) % 2**32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
-                            case op.set_lt_u_imm.value:
+                            case op.set_lt_u_imm:
                                 self.reg[r_a] = w_b < v_x and 1 or 0
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
-                            case op.set_lt_s_imm.value:
+                            case op.set_lt_s_imm:
                                 self.reg[r_a] = pvm_Z(w_b, 8) < pvm_Z(v_x, 8) and 1 or 0
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
-                            case op.shlo_l_imm_32.value:
+                            case op.shlo_l_imm_32:
                                 self.reg[r_a] = pvm_X((w_b * 2**(v_x % 32)) % 2 ** 32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
-                            case op.shlo_r_imm_32.value:
+                            case op.shlo_r_imm_32:
                                 self.reg[r_a] = pvm_X(riscv_div((w_b % 2 ** 32), (2 ** (v_x % 32))), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
-                            case op.shar_r_imm_32.value:
+                            case op.shar_r_imm_32:
                                 self.reg[r_a] = pvm_Z_inv(
                                     riscv_div(
                                         pvm_Z(w_b % 2 ** 32, 4),
@@ -661,27 +661,27 @@ class PVMInterpreter:
                                 )
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.neg_add_imm_32.value:
+                            case op.neg_add_imm_32:
                                 self.reg[r_a] = pvm_X((v_x + 2**32 - w_b) % 2**32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.set_gt_u_imm.value:
+                            case op.set_gt_u_imm:
                                 self.reg[r_a] = w_b > v_x and 1 or 0
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.set_gt_s_imm.value:
+                            case op.set_gt_s_imm:
                                 self.reg[r_a] = pvm_Z(w_b, 8) > pvm_Z(v_x, 8) and 1 or 0
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.shlo_l_imm_alt_32.value:
+                            case op.shlo_l_imm_alt_32:
                                 self.reg[r_a] = pvm_X((v_x * (2 ** (w_b % 32))) % 2**32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.shlo_r_imm_alt_32.value:
+                            case op.shlo_r_imm_alt_32:
                                 self.reg[r_a] = pvm_X(riscv_div(v_x % 2**32, (2 ** (w_b % 32))), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.shar_r_imm_alt_32.value:
+                            case op.shar_r_imm_alt_32:
                                 self.reg[r_a] = pvm_Z_inv(
                                     riscv_div(
                                         pvm_Z(v_x % 2**32, 4),
@@ -691,33 +691,33 @@ class PVMInterpreter:
                                 )
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.cmov_iz_imm.value:
+                            case op.cmov_iz_imm:
                                 if w_b == 0:
                                     self.reg[r_a] = v_x
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.cmov_nz_imm.value:
+                            case op.cmov_nz_imm:
                                 if w_b != 0:
                                     self.reg[r_a] = v_x
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.add_imm_64.value:
+                            case op.add_imm_64:
                                 self.reg[r_a] = (w_b + v_x) #% 2**64
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.mul_imm_64.value:
+                            case op.mul_imm_64:
                                 self.reg[r_a] = (w_b * v_x) #% 2**64
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.shlo_l_imm_64.value:
+                            case op.shlo_l_imm_64:
                                 self.reg[r_a] = pvm_X((w_b * 2**(v_x % 64)), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.shlo_r_imm_64.value:
+                            case op.shlo_r_imm_64:
                                 self.reg[r_a] = pvm_X(riscv_div(w_b, np.uint64(2**(v_x % 64))), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.shar_r_imm_64.value:
+                            case op.shar_r_imm_64:
                                 self.reg[r_a] = pvm_Z_inv(
                                     riscv_div(
                                         pvm_Z(w_b, 8),
@@ -727,19 +727,19 @@ class PVMInterpreter:
                                 )
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.neg_add_imm_64.value:
+                            case op.neg_add_imm_64:
                                 self.reg[r_a] = ((int(v_x) + 2**64 - int(w_b)) % 2**64)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.shlo_l_imm_alt_64.value:
+                            case op.shlo_l_imm_alt_64:
                                 self.reg[r_a] = (v_x * 2**(w_b % 64)) #% 2**64
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.shlo_r_imm_alt_64.value:
+                            case op.shlo_r_imm_alt_64:
                                 self.reg[r_a] = riscv_div(v_x, np.uint64(2**(w_b % 64)))
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.shar_r_imm_alt_64.value:
+                            case op.shar_r_imm_alt_64:
                                 self.reg[r_a] = pvm_Z_inv(
                                     riscv_div(
                                         pvm_Z(v_x, 8),
@@ -748,19 +748,19 @@ class PVMInterpreter:
                                 )
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.rot_r_64_imm.value:
+                            case op.rot_r_64_imm:
                                 self.reg[r_a] = rori64(w_b, v_x)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.rot_r_64_imm_alt.value:
+                            case op.rot_r_64_imm_alt:
                                 self.reg[r_a] = rori64(v_x, w_b)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.rot_r_32_imm.value:
+                            case op.rot_r_32_imm:
                                 self.reg[r_a] = pvm_X(rori32(np.uint32(w_b), np.uint32(v_x)), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
-                            case op.rot_r_32_imm_alt.value:
+                            case op.rot_r_32_imm_alt:
                                 self.reg[r_a] = pvm_X(rori32(np.uint32(v_x), np.uint32(w_b)), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
@@ -778,27 +778,27 @@ class PVMInterpreter:
                         v_x = pvm_Z(read_uint(self.code, self.pc + 2, l_x), l_x)
 
                         match opcode:
-                            case op.branch_eq.value:
+                            case op.branch_eq:
                                 self.branch(v_x, w_a == w_b)
                                 self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
 
-                            case op.branch_ne.value:
+                            case op.branch_ne:
                                 self.branch(v_x, w_a != w_b)
                                 self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
 
-                            case op.branch_lt_u.value:
+                            case op.branch_lt_u:
                                 self.branch(v_x, w_a < w_b)
                                 self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
 
-                            case op.branch_lt_s.value:
+                            case op.branch_lt_s:
                                 self.branch(v_x, pvm_Z(w_a, 8) < pvm_Z(w_b, 8))
                                 self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
 
-                            case op.branch_ge_u.value:
+                            case op.branch_ge_u:
                                 self.branch(v_x, w_a >= w_b)
                                 self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
 
-                            case op.branch_ge_s.value:
+                            case op.branch_ge_s:
                                 self.branch(v_x, pvm_Z(w_a, 8) >= pvm_Z(w_b, 8))
                                 self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
 
@@ -823,7 +823,7 @@ class PVMInterpreter:
 
                         match opcode:
 
-                            case op.load_imm_jump_ind.value:
+                            case op.load_imm_jump_ind:
                                 self.reg[r_a] = v_x
                                 self.skip_len = self.djump(int(w_b + v_y) % 2**32)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context={"skip_len": self.skip_len})
@@ -842,19 +842,19 @@ class PVMInterpreter:
                         w_b = self.reg[r_b]
 
                         match opcode:
-                            case op.add_32.value:
+                            case op.add_32:
                                 self.reg[r_d] = pvm_X((w_a + w_b) % 2**32, 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.sub_32.value:
+                            case op.sub_32:
                                 self.reg[r_d] = pvm_X((w_a + 2**32 - (w_b % 2**32)) % 2**32, 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.mul_32.value:
+                            case op.mul_32:
                                 self.reg[r_d] = pvm_X((w_a * w_b) % 2**32, 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.div_u_32.value:
+                            case op.div_u_32:
                                 if self.reg[r_b] == 0:
                                     self.reg[r_d] = 2**64-1
                                 else:
@@ -862,7 +862,7 @@ class PVMInterpreter:
 
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.div_s_32.value:
+                            case op.div_s_32:
                                 a = np.int32(pvm_Z(w_a % 2**32, 4))
                                 b = np.int32(pvm_Z(w_b % 2**32, 4))
 
@@ -875,7 +875,7 @@ class PVMInterpreter:
 
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.rem_u_32.value:
+                            case op.rem_u_32:
                                 if w_b % 2**32 == 0:
                                     self.reg[r_d] = pvm_X(w_a % 2**32, 4)
                                 else:
@@ -883,7 +883,7 @@ class PVMInterpreter:
 
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.rem_s_32.value:
+                            case op.rem_s_32:
                                 a = pvm_Z(w_a % 2**32, 4)
                                 b = pvm_Z(w_b % 2**32, 4)
 
@@ -896,15 +896,15 @@ class PVMInterpreter:
 
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.shlo_l_32.value:
+                            case op.shlo_l_32:
                                 self.reg[r_d] = pvm_X((w_a * 2**(w_b % 32)) % 2**32, 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.shlo_r_32.value:
+                            case op.shlo_r_32:
                                 self.reg[r_d] = pvm_X(riscv_div(w_a % 2**32, 2**(w_b % 32)), 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.shar_r_32.value:
+                            case op.shar_r_32:
                                 self.reg[r_d] = pvm_Z_inv(
                                     riscv_div(
                                         pvm_Z(w_a % 2**32, 4),
@@ -914,26 +914,26 @@ class PVMInterpreter:
                                 )
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.add_64.value:
+                            case op.add_64:
                                 self.reg[r_d] = (w_a + w_b) #% 2**64
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.sub_64.value:
+                            case op.sub_64:
                                 self.reg[r_d] = (int(w_a) + 2**64 - int(w_b)) % 2**64
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.mul_64.value:
+                            case op.mul_64:
                                 self.reg[r_d] = (w_a * w_b) #% 2**64
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.div_u_64.value:
+                            case op.div_u_64:
                                 if w_b == 0:
                                     self.reg[r_d] = 2**64 - 1
                                 else:
                                     self.reg[r_d] = riscv_div(w_a, w_b)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.div_s_64.value:
+                            case op.div_s_64:
                                 if w_b == 0:
                                     self.reg[r_d] = 2**64 - 1
                                 elif pvm_Z(w_a, 8) == -2**63 and pvm_Z(w_b, 8) == -1:
@@ -948,14 +948,14 @@ class PVMInterpreter:
                                     )
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.rem_u_64.value:
+                            case op.rem_u_64:
                                 if w_b == 0:
                                     self.reg[r_d] = w_a
                                 else:
                                     self.reg[r_d] = w_a % w_b
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.rem_s_64.value:
+                            case op.rem_s_64:
                                 a = pvm_Z(w_a, 8)
                                 b = pvm_Z(w_b, 8)
 
@@ -968,15 +968,15 @@ class PVMInterpreter:
 
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.shlo_l_64.value:
+                            case op.shlo_l_64:
                                 self.reg[r_d] = (w_a * 2**(w_b % 64)) #% 2**64
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.shlo_r_64.value:
+                            case op.shlo_r_64:
                                 self.reg[r_d] = riscv_div(w_a, 2**(w_b % 64))
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.shar_r_64.value:
+                            case op.shar_r_64:
                                 self.reg[r_d] = pvm_Z_inv(
                                     riscv_div(
                                         pvm_Z(w_a, 8),
@@ -986,83 +986,83 @@ class PVMInterpreter:
                                 )
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op._and.value:
+                            case op._and:
                                 self.reg[r_d] = self.reg[r_a] & self.reg[r_b]
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.xor.value:
+                            case op.xor:
                                 self.reg[r_d] = self.reg[r_a] ^ self.reg[r_b]
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op._or.value:
+                            case op._or:
                                 self.reg[r_d] = self.reg[r_a] | self.reg[r_b]
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.mul_upper_s_s.value:
+                            case op.mul_upper_s_s:
                                 self.reg[r_d] = pvm_Z_inv(
                                     riscv_div((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)), 2**64),
                                     8
                                 )
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.mul_upper_u_u.value:
+                            case op.mul_upper_u_u:
                                 self.reg[r_d] = riscv_div(int(w_a) * int(w_b), 2**64)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.mul_upper_s_u.value:
+                            case op.mul_upper_s_u:
                                 self.reg[r_d] = pvm_Z_inv(
                                     riscv_div(pvm_Z(w_a, 8) * int(w_b), 2**64),
                                     8
                                 )
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.set_lt_u.value:
+                            case op.set_lt_u:
                                 self.reg[r_d] = np.uint64(w_a < w_b)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.set_lt_s.value:
+                            case op.set_lt_s:
                                 self.reg[r_d] = np.int64(pvm_Z(w_a, 8) < pvm_Z(w_b,8))
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.cmov_iz.value:
+                            case op.cmov_iz:
                                 if w_b == 0:
                                     self.reg[r_d] = w_a
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.cmov_nz.value:
+                            case op.cmov_nz:
                                 if w_b != 0:
                                     self.reg[r_d] = w_a
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.rot_l_64.value:
+                            case op.rot_l_64:
                                 self.reg[r_d] = roli64(w_a, w_b % 64)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.rot_l_32.value:
+                            case op.rot_l_32:
                                 self.reg[r_d] = pvm_X(roli32(np.uint32(w_a), w_b % 32), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.rot_r_64.value:
+                            case op.rot_r_64:
                                 self.reg[r_d] = rori64(w_a, w_b % 64)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.rot_r_32.value:
+                            case op.rot_r_32:
                                 self.reg[r_d] = pvm_X(rori32(np.uint32(w_a), w_b % 32), 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.and_inv.value:
+                            case op.and_inv:
                                 self.reg[r_d] = w_a & ~w_b
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.or_inv.value:
+                            case op.or_inv:
                                 self.reg[r_d] = w_a | ~w_b
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.xnor.value:
+                            case op.xnor:
                                 self.reg[r_d] = np.uint64(~(w_a ^ w_b))
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op._max.value:
+                            case op._max:
                                 #TODO: should probably just cast to np.uint64 <-> np.int64 ??
                                 self.reg[r_d] = pvm_Z_inv(
                                     max(pvm_Z(w_a, 8), pvm_Z(w_b, 8)),
@@ -1070,18 +1070,18 @@ class PVMInterpreter:
                                 )
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.max_u.value:
+                            case op.max_u:
                                 self.reg[r_d] = max(w_a,  w_b)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op._min.value:
+                            case op._min:
                                 self.reg[r_d] = pvm_Z_inv(
                                     min(pvm_Z(w_a, 8), pvm_Z(w_b, 8)),
                                     8
                                 )
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
-                            case op.min_u.value:
+                            case op.min_u:
                                 self.reg[r_d] = min(w_a,  w_b)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
