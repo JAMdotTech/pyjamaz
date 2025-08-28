@@ -182,3 +182,6 @@ def ed25519_pubkey_from_peer_id(peer_id: str) -> bytes:
         n = n * 32 + char_to_value[c]
 
     return n.to_bytes(32, 'little')
+
+def sum_dict_values(d1: dict, d2: dict) -> dict:
+    return {k: d1.get(k, 0) + d2.get(k, 0) for k in set(d1) | set(d2)}

@@ -1,0 +1,47 @@
+{
+  "hostcall": "hc_write",
+  "description": "Tests the panic condition when both storage_key_mem_error (key reading fails) AND service_storage_item_mem_error (value reading fails). Both key and value addresses are beyond allocated memory",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    262144,
+    32,
+    327680,
+    100
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "storage_items": [],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    262144,
+    32,
+    327680,
+    100
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+} 

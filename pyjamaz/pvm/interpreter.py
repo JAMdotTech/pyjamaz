@@ -39,7 +39,7 @@ from .constants import (
     OPCODE_LOOKUP,
 )
 
-from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
+from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
 # Helper function for fast min operation

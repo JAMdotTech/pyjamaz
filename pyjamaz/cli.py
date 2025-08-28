@@ -3,7 +3,7 @@ import logging
 import re
 import traceback
 from asyncio import CancelledError
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import shutil
@@ -222,6 +222,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
         raise BadParameter(f'DB is not yet initialized; run init first')
 
     app.network_bootstrap = network_bootstrap
+    common_era_time = datetime.fromtimestamp(app.config.common_era, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
     logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
@@ -229,7 +230,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
     logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
     logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
-    logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
+    logging.info(f'🗓️ Common Era: {app.config.common_era} ({common_era_time})')
     logging.info(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
     logging.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
 
@@ -498,7 +499,7 @@ async def init(
 async def fuzzer():
     pass
 
-@fuzzer.command('traces', help='Run trace files in given folder')
+@main.command('traces', help='Run trace files in given folder')
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
@@ -633,8 +634,58 @@ async def replay_traces(
         for key, _ in app.state_db:
             app.state_db.delete(key)
 
+@fuzzer.command('traces', help='Start Fuzzer target over UNIX socket.')
+@click.argument('traces_dir', type=click.Path(exists=True))
+@click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
+@click.option('--db-path', 'custom_db_path', type=click.Path())
+@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+async def fuzzer_traces(traces_dir, socket_path, custom_db_path, force_overwrite, verbose):
+    log_level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(log_level)
 
-@fuzzer.command('local', help='Start Fuzzer target over UNIX socket.')
+    fuzzer_session = FuzzerSession(socket_path, app=None)
+    await fuzzer_session.connect()
+
+    logging.info(f'Fuzzer session started.')
+
+    traces_files = await anyio.to_thread.run_sync(
+        lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin') and f != 'genesis.bin'}),
+    )
+
+    for nr, block_file in enumerate(traces_files, start=1):
+        logging.info(f'📂 Processing trace file {block_file}')
+
+        with open(os.path.join(traces_dir, block_file), 'rb') as fp:
+            trace = Trace.from_jam_bytes(JamBytes(fp.read()))
+
+        # Add stub parent as ancestor
+        stub_parent = Header.default()
+
+        request = FuzzerMessage(
+            set_state=SetStateMessage(state=trace.pre_state.keyvals, header=stub_parent),
+        )
+        response = await fuzzer_session.send_request(request)
+
+        logging.info(f'💾 Fuzzer: Set state: {format_hash(response.state_root)}')
+
+        if response.state_root != trace.pre_state.state_root:
+            logging.error(f'Fuzzer state root mismatch: exp={format_hash(trace.pre_state.state_root)} got={format_hash(response.state_root)}')
+            exit(2)
+
+        request = FuzzerMessage(
+            import_block=trace.block,
+        )
+        response = await fuzzer_session.send_request(request)
+
+        if response.state_root == trace.post_state.state_root:
+            logging.info(f'✅ Imported block {format_hash(trace.block.header.hash)} successfully: State root matches ({format_hash(response.state_root)})')
+        else:
+            logging.error(f'Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
+            exit(2)
+
+
+@fuzzer.command('target', help='Start Fuzzer target over UNIX socket.')
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys", default='0x0000000000000000000000000000000000000000000000000000000000000000', show_default=True)
 @click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
 @click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
@@ -645,6 +696,9 @@ async def fuzzer_target(
 ):
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
+
+    if custom_db_path:
+        force_overwrite = True
 
     # Safety checks
     if settings.SOLO_MODE:

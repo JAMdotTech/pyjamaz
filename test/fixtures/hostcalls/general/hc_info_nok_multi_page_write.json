@@ -1,0 +1,59 @@
+{
+  "hostcall": "hc_info",
+  "description": "Tests when service account write starts in writable page but would continue past first page into non writable memory, totests multi-page ACL",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    135150,
+    0,
+    100,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    },
+    {
+      "address": 135168,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "balance": 1000000,
+    "threshold_balance": 5000,
+    "gas_limit_accumulate": 2000000,
+    "gas_limit_on_transfer": 3000000,
+    "footprint_storage_bytes": 1024,
+    "footprint_storage_items": 10
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    135150,
+    0,
+    100,
+    0,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+}

@@ -56,7 +56,7 @@ pyjamaz init --seed 0x0000000000000000000000000000000000000000000000000000000000
 ### Run node
 
 ```bash
-pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000
+pyjamaz run --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000
 ```
 
 ### Run and record each block as a replayable file in given folder
@@ -65,16 +65,16 @@ pyjamaz --seed 0x000000000000000000000000000000000000000000000000000000000000000
 pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --record-trace ./data/trace
 ```
 
-### Replay and validate a recorded trace
+### Replay and validate recorded traces in a folder
 
 ```bash
-pyjamaz replay_traces ./test/fixtures/traces/pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000
+pyjamaz fuzzer traces ./test/fixtures/traces/pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000
 ```
 
 ### Run as fuzzer target
 
 ```bash
-pyjamaz fuzzer_target --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --db-path /tmp/fuzzer --force-overwrite --socket_path /tmp/jam_target.sock
+pyjamaz fuzzer target --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --db-path /tmp/fuzzer --force-overwrite --socket_path /tmp/jam_target.sock
 ```
 
 ### Connect to a fuzzer target 
@@ -88,6 +88,11 @@ pyjamaz --seed 0x000000000000000000000000000000000000000000000000000000000000000
 pip install ".[dev]"
 mkdocs serve
 ```
+
+## Wheel containing only compiled code
+* `pip install pyc_wheel`
+* `python -m build --wheel`
+* `python3 -m pyc_wheel dist/pyjamaz-0.1.4-py3-none-any.whl`
 
 # Resources
 * https://hackmd.io/@polkadot/jamsdk#JAM-Client-Tooling

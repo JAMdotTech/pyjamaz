@@ -1,0 +1,76 @@
+{
+  "hostcall": "hc_write",
+  "description": "Tests the panic condition when storage_key_mem_error is true. This occurs when reading the storage key from memory fails due to accessing beyond page boundary. Tests the storage_key_mem_error condition",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    196590,
+    32,
+    131072,
+    10
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "address": 196590,
+      "contents": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ]
+    }
+  ],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "storage_items": [],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    196590,
+    32,
+    131072,
+    10
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+}

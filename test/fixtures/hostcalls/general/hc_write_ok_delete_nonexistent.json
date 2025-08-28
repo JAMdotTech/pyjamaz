@@ -1,0 +1,71 @@
+{
+  "hostcall": "hc_write",
+  "description": "Tests the success case for deleting a non existent storage item. Storage item doesnt exist (l = NONE) and service_storage_item is None (v_z = 0). Tests if service_storage_item is None condition with no existing item. Expects NONE (2^64-1) in reg7",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    16,
+    131100,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45
+      ]
+    }
+  ],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100,
+    "footprint_storage_bytes": 0,
+    "footprint_storage_items": 0
+  },
+  "storage_items": [],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    16,
+    131100,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+} 

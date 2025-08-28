@@ -1,11 +1,14 @@
 import logging
 import time
 
+from pyjamaz.models.stf_output import SafroleErrorCode
+
 from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
-from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS
+from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS, TICKET_ENTRIES
 from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
+from pyjamaz.utils import format_hash
 
 
 class BlockValidation:
@@ -45,6 +48,12 @@ class BlockValidation:
         if header.extrinsic_hash != extrinsic.generate_extrinsic_hash():
             raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
 
+        # Check ticket markers attempt
+        if header.tickets_marker:
+            for tickets_marker in header.tickets_marker:
+                if tickets_marker.attempt >= TICKET_ENTRIES:
+                    raise ValueError(SafroleErrorCode.bad_ticket_attempt)
+
         parent_header = self.block_context.get_parent(header)
 
         if parent_header is None:
@@ -77,7 +86,7 @@ class BlockValidation:
             sealer_key = post_safrole.slot_sealer_series.keys[header.timeslot % EPOCH_TIMESLOTS]
 
             logging.debug(
-                f'Validate key | Timeslot: {header.timeslot} |  Author: {sealer_key.hex()} | Entropy: {entropy.hex()}'
+                f'Validate key | Timeslot: {header.timeslot} |  Author: {format_hash(sealer_key)} | Entropy: {format_hash(entropy)}'
             )
 
             if author_key != sealer_key:
@@ -85,7 +94,7 @@ class BlockValidation:
                 raise BlockValidationError("Invalid author key")
             try:
 
-                logging.debug(f"Validate Seal with entropy {entropy.hex()}")
+                logging.debug(f"Validate Seal with entropy {format_hash(entropy)}")
 
                 self.block_context.seal_vrf_output = header.verify_fallback_seal(author_key, entropy)
 

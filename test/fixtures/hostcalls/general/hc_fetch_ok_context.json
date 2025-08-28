@@ -1,0 +1,60 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching work package context (w10=10), context is written to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    32,
+    10,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "work_package": {
+    "authorizer": "deadbeefcafebabe1234567890abcdefdeadbeefcafebabe1234567890abcdef",
+    "authorization": "aabbccdd",
+    "context": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+    "encoded": "00112233445566778899aabbccddeeff",
+    "items": []
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    32,
+    0,
+    32,
+    10,
+    0,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240,
+        15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

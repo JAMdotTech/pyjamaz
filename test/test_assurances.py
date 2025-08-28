@@ -74,7 +74,8 @@ class TestAssurances(unittest.TestCase):
 
             intermediate_output = assurances.state_transition_after_assurances(
                 extrinsic_assurances=extrinsic_assurances,
-                intermediate_state_assurances_after_disputes=pre_state_assurances
+                intermediate_state_assurances_after_disputes=pre_state_assurances,
+                header=header
             )
 
             output = assurances.state_transition_after_guarantees(

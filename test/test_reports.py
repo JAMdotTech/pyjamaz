@@ -9,7 +9,7 @@ from parameterized import parameterized
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState
+    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Assurances
@@ -99,10 +99,10 @@ class TestReports(unittest.TestCase):
                 "storage_items": {},
                 "preimages": {},
                 "preimage_availability": {},
-                "deposit_offset": s["data"]["service"]["deposit-offset"],
-                "creation_slot": s["data"]["service"]["creation-slot"],
-                "last_accumulation_slot": s["data"]["service"]["last-accumulation-slot"],
-                "parent_service": s["data"]["service"]["parent-service"]
+                "deposit_offset": s["data"]["service"]["deposit_offset"],
+                "creation_slot": s["data"]["service"]["creation_slot"],
+                "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
+                "parent_service": s["data"]["service"]["parent_service"]
 
             } for s in test_vector["pre_state"]["accounts"]}}
         )
@@ -123,6 +123,13 @@ class TestReports(unittest.TestCase):
         pre_accumulation_history = AccumulationHistoryState(accumulation_history=[])
 
         post_entropy = EntropyState.from_json({"entropy": test_vector["pre_state"]["entropy"]})
+
+        post_disputes = DisputesState.from_json({
+            "good_set": [],
+            "bad_set": [],
+            "wonky_set": [],
+            "offenders": test_vector["pre_state"]["offenders"]
+        })
 
         # Prepare block context
         self.block_context.reset()
@@ -152,7 +159,8 @@ class TestReports(unittest.TestCase):
                 pre_accumulation_history=pre_accumulation_history,
                 post_entropy=post_entropy,
                 post_state_timeslot=post_state_timeslot,
-                post_state_validator_archive=post_state_validator_archive
+                post_state_validator_archive=post_state_validator_archive,
+                post_state_disputes=post_disputes,
             )
 
             output = assurances.state_transition_after_guarantees(

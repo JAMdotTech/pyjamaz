@@ -4,7 +4,7 @@ from pyjamaz.exceptions import ProcessWorkpackageError
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_SIZE_ENCODED_WORK_REPORT
 from pyjamaz.models.common import WorkReport, WorkPackage, WorkDigest, WorkExecResult, WorkPackageSpec
 from pyjamaz.models.state import ServicesState
-from pyjamaz.pvm_interface.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
+from pyjamaz.hostcalls.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
 from pyjamaz.utils import flatten_list
 
 
@@ -15,7 +15,7 @@ def work_result_computation(
         extrinsics: List[List[bytes]]
 ) -> WorkReport:
     """
-    GP-0.6.4-eq:14.11 (function Ξ) | the work result computation function.
+    GP-0.6.7-eq:14.12 (function Ξ) | the work result computation function.
 
     TODO WIP
     """
@@ -50,16 +50,16 @@ def work_result_computation(
             extrinsics=extrinsics
         )
 
-        if not refine_output.work_exec_result.ok:
-            work_exec_result = refine_output.work_exec_result
-            export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
-
-        elif total_digest_size + len(refine_output.work_exec_result.ok) > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
+        if total_digest_size + len(refine_output.work_exec_result.ok or b'') > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
             work_exec_result = WorkExecResult(digest_oversize=True)
             export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
 
         elif len(refine_output.export_segments) != work_item.export_count:
             work_exec_result = WorkExecResult(bad_exports=True)
+            export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+
+        elif refine_output.work_exec_result.ok is None:
+            work_exec_result = refine_output.work_exec_result
             export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
 
         else:

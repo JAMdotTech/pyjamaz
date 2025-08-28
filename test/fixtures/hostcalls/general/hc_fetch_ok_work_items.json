@@ -1,0 +1,98 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching all work items (w10=11), writes VarInt64 encoded count + serialized items to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    128,
+    11,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "work_package": {
+    "authorizer": "deadbeefcafebabe1234567890abcdefdeadbeefcafebabe1234567890abcdef",
+    "authorization": "aabbccdd",
+    "context": "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100",
+    "encoded": "00112233445566778899aabbccddeeff",
+    "items": [
+      {
+        "service": 10,
+        "code_hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+        "refine_gas_limit": 500000,
+        "accumulate_gas_limit": 1000000,
+        "export_count": 2,
+        "import_segments": [0, 1],
+        "extrinsic": [],
+        "payload": "deadbeef"
+      },
+      {
+        "service": 20,
+        "code_hash": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+        "refine_gas_limit": 250000,
+        "accumulate_gas_limit": 500000,
+        "export_count": 1,
+        "import_segments": [2],
+        "extrinsic": [],
+        "payload": "cafebabe"
+      }
+    ]
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    125,
+    0,
+    128,
+    11,
+    0,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        2,
+        10, 0, 0, 0,
+        171, 205, 239, 1, 35, 69, 103, 137, 171, 205, 239, 1, 35, 69, 103, 137,
+        171, 205, 239, 1, 35, 69, 103, 137, 171, 205, 239, 1, 35, 69, 103, 137,
+        32, 161, 7, 0, 0, 0, 0, 0,
+        64, 66, 15, 0, 0, 0, 0, 0,
+        2, 0,
+        2, 0,
+        0, 0,
+        4, 0, 0, 0,
+        20, 0, 0, 0,
+        254, 220, 186, 152, 118, 84, 50, 16, 254, 220, 186, 152, 118, 84, 50, 16,
+        254, 220, 186, 152, 118, 84, 50, 16, 254, 220, 186, 152, 118, 84, 50, 16,
+        144, 208, 3, 0, 0, 0, 0, 0,
+        32, 161, 7, 0, 0, 0, 0, 0,
+        1, 0,
+        1, 0,
+        0, 0,
+        4, 0, 0, 0
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

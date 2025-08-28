@@ -112,12 +112,10 @@ class SubscriptionStorageItem(WSubscription):
 
     def check_params(self, data: Any):
         if data:
-            storage_hash = blake2b_256_hash(int(self.params[self.PARAM_SERVICE_ID]).to_bytes(length=4, byteorder="little") + bytes(self.params[self.PARAM_STORAGE_KEY]))
-            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and list(storage_hash) == list(data[self.PARAM_STORAGE_KEY])
+            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and bytes(self.params[self.PARAM_STORAGE_KEY]) == data[self.PARAM_STORAGE_KEY]
         return True
 
     def create_data(self, data: Any):
-        #return list(data[self.DATA_SERVICE_BLOB])
         return {
             "header_hash": list(self.app.get_best_header_hash()),
             "slot": self.app.state.timeslot.number,

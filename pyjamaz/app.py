@@ -30,7 +30,7 @@ from pyjamaz.storage import StorageEngine, Transaction
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services, \
-    AccumulationQueue, AccumulationHistory
+    AccumulationQueue, AccumulationHistory, RecentAccumulationLog
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, Guarantee, Credential, \
     Assurance, Preimage
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, SafroleState, EntropyState
@@ -210,7 +210,8 @@ class PyjamazApp:
             disputes=self.components.disputes.retrieve_state(),
             statistics=self.components.statistics.retrieve_state(),
             accumulation_queue=self.components.accumulation_queue.retrieve_state(),
-            accumulation_history=self.components.accumulation_history.retrieve_state()
+            accumulation_history=self.components.accumulation_history.retrieve_state(),
+            recent_accumulation_outputs = self.components.recent_accumulation_output.retrieve_state()
         )
         # Set storage engine for services
         jam_state.services.set_storage_engine(self.state_db)
@@ -233,6 +234,7 @@ class PyjamazApp:
         await self.components.authorizer_pools.store_state(state.authorizer_pools, transaction)
         await self.components.accumulation_queue.store_state(state.accumulation_queue, transaction)
         await self.components.accumulation_history.store_state(state.accumulation_history, transaction)
+        await self.components.recent_accumulation_output.store_state(state.recent_accumulation_outputs, transaction)
 
 
 
@@ -432,6 +434,7 @@ class PyjamazApp:
         assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
             extrinsic_assurances=block.extrinsic.assurances,
             intermediate_state_assurances_after_disputes=assurances_after_disputes_output.intermediate_state_after_disputes,
+            header=block.header,
         )
 
         # GP-0.6.1-eq:11.16
@@ -464,7 +467,8 @@ class PyjamazApp:
             pre_accumulation_history=pre_state_accumulation_history,
             post_entropy=entropy_output.post_state,
             post_state_timeslot=timeslot_output.post_state,
-            post_state_validator_archive=validator_archive_output.post_state
+            post_state_validator_archive=validator_archive_output.post_state,
+            post_state_disputes=disputes_output.post_state
         )
 
         # Assurances After Guarantees STF Block Data | GP-0.5.0-eq:4.15
@@ -577,7 +581,6 @@ class PyjamazApp:
         )
 
         # All state transitions successful, commit state changes
-
         self.state.timeslot = timeslot_output.post_state
         self.state.entropy = entropy_output.post_state
         self.state.disputes = disputes_output.post_state
@@ -594,6 +597,7 @@ class PyjamazApp:
         self.state.accumulation_history = accumulation_history_output.post_state
         self.state.validator_queue = services_after_accumulation_output.post_state_validator_queue
         self.state.privileged_services = services_after_accumulation_output.post_state_privileged_services
+        self.state.recent_accumulation_outputs = services_after_accumulation_output.beefy_commitment_map
 
         # TODO only set local memory self.state not write to DB if not finalized
         await self.components.timeslot.store_state(self.state.timeslot, transaction)
@@ -612,6 +616,7 @@ class PyjamazApp:
         await self.components.accumulation_history.store_state(self.state.accumulation_history, transaction)
         await self.components.validator_queue.store_state(self.state.validator_queue, transaction)
         await self.components.privileged_services.store_state(self.state.privileged_services, transaction)
+        await self.components.recent_accumulation_output.store_state(self.state.recent_accumulation_outputs, transaction)
 
         return STFOutput(
             epoch_mark=safrole_output.epoch_mark,
@@ -1168,3 +1173,4 @@ class StateComponents:
         self.authorizer_pools = AuthorizerPools(storage_engine, block_context, app_context)
         self.accumulation_queue = AccumulationQueue(storage_engine, block_context, app_context)
         self.accumulation_history = AccumulationHistory(storage_engine, block_context, app_context)
+        self.recent_accumulation_output = RecentAccumulationLog(storage_engine, block_context, app_context)

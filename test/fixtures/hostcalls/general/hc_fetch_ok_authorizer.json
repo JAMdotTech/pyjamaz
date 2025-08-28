@@ -1,0 +1,62 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching work package authorizer (w10=8), writes authorizer to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    32,
+    8,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "work_package": {
+    "auth_code_hash": "deadbeefcafebabe1234567890abcdefdeadbeefcafebabe1234567890abcdef",
+    "authorizer_config": "",
+    "authorization": "aabbccdd",
+    "context": "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100",
+    "encoded": "00112233445566778899aabbccddeeff",
+    "items": []
+  },
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    33,
+    0,
+    32,
+    8,
+    0,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        222, 173, 190, 239, 202, 254, 186, 190, 18, 52, 86, 120, 144, 171, 205, 239,
+        222, 173, 190, 239, 202, 254, 186, 190, 18, 52, 86, 120, 144, 171, 205, 239,
+        0
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

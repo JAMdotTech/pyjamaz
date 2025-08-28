@@ -1,0 +1,31 @@
+{
+  "hostcall": "hc_checkpoint",
+  "description": "Test checkpoint with existing state modifications",
+  "initial-registers": [0, 0, 0, 0, 0, 0, 0, 1234, 0, 0, 0, 0],
+  "initial-page-map": [],
+  "initial-memory": [],
+  "context": {
+    "services": {
+      "100": {
+        "code-hash": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "balance": 2000000,
+        "threshold-balance": 200,
+        "gas-limit-accumulate": 2000000,
+        "gas-limit-on-transfer": 1500000
+      }
+    },
+    "service-account-id": 100,
+    "deferred-transfers": [
+      {
+        "sender": 100,
+        "receiver": 200,
+        "amount": 500,
+        "memo": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "gas-limit": 1000
+      }
+    ]
+  },
+  "expected-regs": [0, 0, 0, 0, 0, 0, 0, 999990, 0, 0, 0, 0],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}
