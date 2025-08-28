@@ -1,139 +1,3 @@
-# """
-# JIT-optimized PVM interpreter using Numba for performance-critical utility functions.
-#
-# This module provides a hybrid approach where utility functions are JIT-compiled
-# while the main interpreter loop remains in Python to handle complex control flow.
-# """
-#
-# import numpy as np
-# from numba import njit
-# from .interpreter_new3 import PVMInterpreter as PVMInterpreterBase
-# from .utils_new3 import (
-#     rori64, roli64, rori32, roli32,
-#     pvm_smod, riscv_div, pvm_rtz_div
-# )
-#
-# __all__ = ['PVMInterpreter']
-#
-#
-# # JIT-compiled utility functions
-# @njit
-# def pvm_X_jit(a, n):
-#     """JIT-compiled transform signed to unsigned."""
-#     n = int(n)
-#     a = int(a)
-#
-#     if n == 1:
-#         return (a + 128) % 256
-#     elif n == 2:
-#         return (a + 32768) % 65536
-#     elif n == 4:
-#         return (a + 2147483648) % 4294967296
-#     elif n == 8:
-#         if a < 0:
-#             return np.uint64(18446744073709551616 + a)
-#         return np.uint64(a)
-#     else:
-#         return np.uint64(a % (1 << (n * 8)))
-#
-#
-# @njit
-# def pvm_Z_jit(a, n):
-#     """JIT-compiled transform unsigned to signed."""
-#     n = int(n)
-#     a = int(a)
-#
-#     if n == 1:
-#         boundary = 1 << 7
-#         if a < boundary:
-#             return a
-#         return a - (1 << 8)
-#     elif n == 2:
-#         boundary = 1 << 15
-#         if a < boundary:
-#             return a
-#         return a - (1 << 16)
-#     elif n == 4:
-#         boundary = 1 << 31
-#         if a < boundary:
-#             return a
-#         return a - (1 << 32)
-#     elif n == 8:
-#         boundary = 1 << 63
-#         if a < boundary:
-#             return a
-#         return a - (1 << 64)
-#     else:
-#         boundary = 1 << (n * 8 - 1)
-#         if a < boundary:
-#             return a
-#         return a - (1 << (n * 8))
-#
-#
-# @njit
-# def count_leading_zeroes_jit(x):
-#     """JIT-compiled count leading zeroes."""
-#     if x == 0:
-#         return np.uint64(64)
-#
-#     count = np.uint64(0)
-#     mask = np.uint64(1) << np.uint64(63)
-#
-#     while (x & mask) == 0:
-#         count += 1
-#         mask >>= 1
-#
-#     return count
-#
-#
-# @njit
-# def count_trailing_zeroes_jit(x):
-#     """JIT-compiled count trailing zeroes."""
-#     if x == 0:
-#         return np.uint64(64)
-#
-#     count = np.uint64(0)
-#     temp = x
-#
-#     while (temp & 1) == 0:
-#         count += 1
-#         temp >>= 1
-#     return count
-#
-#
-# @njit
-# def reverse_bytes_jit(x):
-#     """JIT-compiled reverse bytes."""
-#     result = np.uint64(0)
-#     for i in range(8):
-#         byte = np.uint64((x >> np.uint64(i * 8)) & np.uint64(0xFF))
-#         result |= np.uint64(byte << np.uint64((7 - i) * 8))
-#     return result
-#
-#
-# class PVMInterpreter(PVMInterpreterBase):
-#     """
-#     JIT-optimized PVM interpreter that uses Numba-compiled utility functions.
-#
-#     This class inherits from the base interpreter and overrides utility method
-#     calls to use JIT-compiled versions for better performance.
-#     """
-#
-#     def __init__(self, program, logger_cls=None):
-#         """Initialize the interpreter with JIT-compiled utilities."""
-#         super().__init__(program, logger_cls)
-#
-#         # Override utility functions with JIT versions in the instance
-#         self._setup_jit_utilities()
-#
-#     def _setup_jit_utilities(self):
-#         """Setup JIT-compiled utility functions for use in the interpreter."""
-#         # These are imported from utils_new3.py which has JIT versions
-#         # The parent class will use these automatically
-#         pass
-#
-#     # The invoke method is inherited from parent and uses the optimized utilities
-#     # from utils_new3.py which are already JIT-compiled
 
 """
 JIT-optimized PVM interpreter with Numba-compiled invoke_native function.
@@ -163,6 +27,116 @@ EXIT_HALT = 1
 EXIT_PANIC = 2
 EXIT_HOST_HALT = 3
 EXIT_PAGE_FAULT = 4
+
+
+# Pure numerical functions - can be JIT compiled
+@njit
+def rori64(x, shift_amount):
+    """JIT-compiled rotate right for 64-bit integers."""
+    return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
+
+
+@njit
+def roli64(x, shift_amount):
+    """JIT-compiled rotate left for 64-bit integers."""
+    return np.uint64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
+
+
+@njit
+def rori32(x, shift_amount):
+    """JIT-compiled rotate right for 32-bit integers."""
+    return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
+
+
+@njit
+def roli32(x, shift_amount):
+    """JIT-compiled rotate left for 32-bit integers."""
+    return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
+
+
+@njit
+def pvm_smod(a: np.int64, b: np.int64) -> np.int64:
+    """
+    JIT-compiled signed modulo operation.
+
+    Returns a % b with sign of a preserved.
+    Special case: if b == 0, returns a.
+    """
+    if b == 0:
+        return a
+
+    if a >= 0:
+        if b >= 0:
+            return a % b
+        else:
+            return a % (-b)
+    else:
+        if b >= 0:
+            return -((-a) % b)
+        else:
+            return -((-a) % (-b))
+
+
+@njit
+def riscv_div(x: np.int64, y: np.int64) -> np.int64:
+    """JIT-compiled integer division."""
+    return x // y
+
+
+@njit
+def pvm_rtz_div(a: np.int64, b: np.int64) -> np.int64:
+    """
+    JIT-compiled truncated division (rounds toward zero).
+    """
+    if a >= 0:
+        if b > 0:
+            return a // b
+        else:
+            return -(a // (-b))
+    else:
+        if b > 0:
+            return -((-a) // b)
+        else:
+            return (-a) // (-b)
+
+
+@njit
+def count_trailing_zeroes(value: np.uint64, max_bits: np.int32) -> np.int32:
+    """JIT-compiled count trailing zeroes."""
+    if value == 0:
+        return max_bits
+    # Find the position of the least significant bit
+    count = np.int32(0)
+    temp = value
+    while (temp & 1) == 0:
+        count += 1
+        temp >>= 1
+    return count
+
+
+@njit
+def count_leading_zeroes(value: np.uint64, max_bits: np.int32) -> np.int32:
+    """JIT-compiled count leading zeroes."""
+    # Simple bit-by-bit scanning approach that Numba can compile
+    if max_bits == 64:
+        v = value
+    else:
+        v = value & ((np.uint64(1) << max_bits) - np.uint64(1))
+
+    if v == 0:
+        return max_bits
+
+    # Count leading zeros by shifting
+    count = np.int32(0)
+    test_bit = np.uint64(1) << np.uint64(max_bits - 1)
+
+    for i in range(max_bits):
+        if v & test_bit:
+            break
+        count = count + np.int32(1)
+        test_bit = test_bit >> np.uint64(1)
+
+    return count
 
 
 @njit
@@ -280,8 +254,8 @@ def reverse_bytes_jit(x):
     """JIT-compiled reverse bytes."""
     result = np.uint64(0)
     for i in range(8):
-        byte = (x >> (i * 8)) & 0xFF
-        result |= byte << ((7 - i) * 8)
+        byte = np.uint64((x >> np.uint64(i * 8)) & np.uint64(0xFF))
+        result |= np.uint64(byte << np.uint64((7 - i) * 8))
     return result
 
 
@@ -354,11 +328,15 @@ def invoke_native(
                 break
 
         if inst_index < 0:
-            status = EXIT_PANIC
+            # Can't find instruction - fall back to Python
+            for i in range(len(reg)):
+                registers_out[i] = reg[i]
             status_out[0] = status
+            exit_value_out[0] = exit_value
             pc_out[0] = pc
             gas_out[0] = gas
-            return ERROR_PANIC_INVALID_PC
+            inst_nr_out[0] = inst_nr
+            return ERROR_INVALID_OPCODE
 
         # Fetch opcode and decode
         opcode = code[pc]
@@ -437,8 +415,15 @@ def invoke_native(
             # Note: Many more opcodes would need to be implemented here
             # For now, return error for unimplemented
             else:
-                # Fall back to Python for complex operations
-                break
+                # Fall back to Python for complex operations - copy state first
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc
+                gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
+                return ERROR_INVALID_OPCODE
 
         # Type 8: InstructionType.reg_reg
         elif inst_type == 8:
@@ -462,8 +447,15 @@ def invoke_native(
             elif opcode == 111:  # reverse_bytes
                 reg[r_d] = reverse_bytes_jit(reg[r_a])
             else:
-                # Fall back for unimplemented
-                break
+                # Fall back for unimplemented - copy state first
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc
+                gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
+                return ERROR_INVALID_OPCODE
 
         # Type 12: InstructionType.reg_reg_reg
         elif inst_type == 12:
@@ -501,11 +493,25 @@ def invoke_native(
             elif opcode == 222:  # rot_r_64
                 reg[r_d] = rori64(w_a, w_b % 64)
             else:
-                # Fall back for unimplemented
-                break
+                # Fall back for unimplemented - copy state first
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc
+                gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
+                return ERROR_INVALID_OPCODE
         else:
-            # Unsupported instruction type - fall back to Python
-            break
+            # Unsupported instruction type - fall back to Python - copy state first
+            for i in range(len(reg)):
+                registers_out[i] = reg[i]
+            status_out[0] = status
+            exit_value_out[0] = exit_value
+            pc_out[0] = pc
+            gas_out[0] = gas
+            inst_nr_out[0] = inst_nr
+            return ERROR_INVALID_OPCODE
 
     # Copy output state
     for i in range(len(reg)):
@@ -532,9 +538,14 @@ class PVMInterpreter(PVMInterpreterBase):
     def _prepare_jit_data(self):
         """Prepare data structures for JIT compilation."""
         # Convert dictionaries to arrays for JIT access
-        self.inst_pos_keys = np.array(list(self.inst_pos.keys()), dtype=np.int32)
-        self.inst_pos_vals = np.array([v - 1 for v in self.inst_pos.values()], dtype=np.int32)
-        self.inst_arg_len_array = np.array(self.inst_arg_len, dtype=np.int32)
+        if self.inst_pos:
+            self.inst_pos_keys = np.array(list(self.inst_pos.keys()), dtype=np.int32)
+            self.inst_pos_vals = np.array([v - 1 for v in self.inst_pos.values()], dtype=np.int32)
+        else:
+            # Empty arrays if no instructions
+            self.inst_pos_keys = np.array([], dtype=np.int32)
+            self.inst_pos_vals = np.array([], dtype=np.int32)
+        self.inst_arg_len_array = np.array(self.inst_arg_len if self.inst_arg_len else [], dtype=np.int32)
 
         # Build opcode scheme array - use 255 as invalid
         self.opcode_scheme_array = np.full(256, 255, dtype=np.int32)
