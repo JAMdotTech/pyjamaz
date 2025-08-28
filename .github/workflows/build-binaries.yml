@@ -83,49 +83,35 @@ jobs:
   # ---------------------------
   binaries:
     name: Binary · ${{ matrix.label }}
+    # macos-13 = Intel (x86_64), macos-14 = Apple Silicon (arm64)
+    # ubuntu-22.04 = x64, ubuntu-22.04-arm64 = ARM64
     runs-on: ${{ matrix.runner }}
-    # ADD: build Linux targets inside an older-glibc container
-    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # ---- Linux x86_64 (manylinux2014, glibc 2.17) ----
           - runner: ubuntu-22.04
-            container: quay.io/pypa/manylinux2014_x86_64
             os_tag: linux
             arch: x86_64
             label: Linux x86_64
-            py_bin: /opt/python/cp312-cp312/bin/python
-          # ---- Linux aarch64 (needs ARM64 runner) ----
-          - runner: ubuntu-22.04-arm64
-            container: quay.io/pypa/manylinux2014_aarch64
-            os_tag: linux
-            arch: aarch64
-            label: Linux aarch64
-            py_bin: /opt/python/cp312-cp312/bin/python
-
-          # ---- macOS (no container; builds on host SDKs) ----
-          - runner: macos-13
-            container:
-            os_tag: macos
-            arch: x86_64
-            label: macOS x86_64
-            py_bin: python3
+#          - runner: ubuntu-22.04-arm64
+#            os_tag: linux
+#            arch: aarch64
+#            label: Linux aarch64
+#          - runner: macos-13
+#            os_tag: macos
+#            arch: x86_64
+#            label: macOS x86_64
           - runner: macos-14
-            container:
             os_tag: macos
             arch: arm64
             label: macOS arm64
-            py_bin: python3
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # macOS runners need Python set up; the manylinux images already ship Pythons in /opt/python
-      - name: Set up Python for macOS
-        if: startsWith(matrix.os_tag, 'macos')
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -134,7 +120,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          VERSION=$(PYTHONPATH=. ${{ matrix.py_bin }} - <<'PY'
+          VERSION=$(PYTHONPATH=. python - <<'PY'
           import importlib
           mod = importlib.import_module("pyjamaz.settings")
           print(mod.APP_VERSION)
@@ -143,23 +129,19 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Install package & PyInstaller
-        shell: bash
         run: |
-          set -eux
-          # Always use the selected interpreter
-          P=${{ matrix.py_bin }}
-          $P -m pip install --upgrade pip
-          $P -m pip install -e .
-          $P -m pip install pyinstaller
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
 
       - name: Build one-file binary
-        shell: bash
         run: |
           set -eux
-          P=${{ matrix.py_bin }}
-          BIN_PATH="$($P -c 'import shutil,sys;print(shutil.which("pyjamaz") or "")')"
+          # Ensure CLI entrypoint is discoverable
+          BIN_PATH="$(which pyjamaz)"
           echo "pyjamaz entrypoint: $BIN_PATH"
-          $P -m PyInstaller --onefile --name pyjamaz --collect-data pyjamaz "$BIN_PATH"
+          pyinstaller --onefile --name pyjamaz --collect-data pyjamaz "$BIN_PATH"
+          # Zip with version + platform in filename
           VERSION="${{ steps.version.outputs.version }}"
           OUT_ZIP="dist/pyjamaz-${VERSION}-${{ matrix.os_tag }}-${{ matrix.arch }}.zip"
           (cd dist && zip -r "$(basename "$OUT_ZIP")" pyjamaz*)
