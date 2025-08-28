@@ -329,6 +329,7 @@ def invoke_native(
 
         if inst_index < 0:
             # Can't find instruction - fall back to Python
+            # Copy state and return, letting Python handle it
             for i in range(len(reg)):
                 registers_out[i] = reg[i]
             status_out[0] = status
@@ -412,6 +413,53 @@ def invoke_native(
 
             if opcode == 51:  # load_imm
                 reg[r_a] = v_x
+            elif opcode == 52:  # load_u8
+                # For now, fall back for memory operations
+                # Memory operations are complex and safer in Python
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc
+                gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
+                return ERROR_INVALID_OPCODE
+            elif opcode == 56:  # load_u32  
+                # For now, fall back for memory operations
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc
+                gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
+                return ERROR_INVALID_OPCODE
+            elif opcode == 59:  # store_u8
+                # For now, fall back for memory operations
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc
+                gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
+                return ERROR_INVALID_OPCODE
+            elif opcode == 61:  # store_u32
+                # For now, fall back for memory operations
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc
+                gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
+                return ERROR_INVALID_OPCODE
+            elif opcode == 90:  # add_imm
+                reg[r_a] = (reg[r_a] + v_x) & np.uint64(0xFFFFFFFFFFFFFFFF)
+            elif opcode == 91:  # add_imm_32
+                reg[r_a] = pvm_X_jit((reg[r_a] + v_x) % (2**32), np.uint8(4))
+            elif opcode == 92:  # sub_imm  
+                reg[r_a] = (reg[r_a] + np.uint64(0xFFFFFFFFFFFFFFFF) - v_x + np.uint64(1)) & np.uint64(0xFFFFFFFFFFFFFFFF)
             # Note: Many more opcodes would need to be implemented here
             # For now, return error for unimplemented
             else:
@@ -457,6 +505,46 @@ def invoke_native(
                 inst_nr_out[0] = inst_nr
                 return ERROR_INVALID_OPCODE
 
+        # Type 10: InstructionType.reg_reg_offset
+        elif inst_type == 10:
+            r_a = min(12, code[pc + 1] % 16)
+            r_b = min(12, code[pc + 1] // 16)
+            l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
+            v_x = pvm_Z_jit(read_uint_jit(code, pc + 2, l_x), l_x)
+            
+            if opcode == 170:  # branch_eq
+                if reg[r_a] == reg[r_b]:
+                    skip_len = v_x
+            elif opcode == 171:  # branch_ne
+                if reg[r_a] != reg[r_b]:
+                    skip_len = v_x
+            elif opcode == 172:  # branch_less_unsigned
+                if reg[r_a] < reg[r_b]:
+                    skip_len = v_x
+            elif opcode == 173:  # branch_less_signed
+                a_signed = pvm_Z_jit(reg[r_a], 8)
+                b_signed = pvm_Z_jit(reg[r_b], 8)
+                if a_signed < b_signed:
+                    skip_len = v_x
+            elif opcode == 174:  # branch_greater_or_equal_unsigned
+                if reg[r_a] >= reg[r_b]:
+                    skip_len = v_x
+            elif opcode == 175:  # branch_greater_or_equal_signed
+                a_signed = pvm_Z_jit(reg[r_a], 8)
+                b_signed = pvm_Z_jit(reg[r_b], 8)
+                if a_signed >= b_signed:
+                    skip_len = v_x
+            else:
+                # Fall back for unimplemented
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc
+                gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
+                return ERROR_INVALID_OPCODE
+        
         # Type 12: InstructionType.reg_reg_reg
         elif inst_type == 12:
             r_a = min(12, code[pc + 1] % 16)
@@ -540,7 +628,7 @@ class PVMInterpreter(PVMInterpreterBase):
         # Convert dictionaries to arrays for JIT access
         if self.inst_pos:
             self.inst_pos_keys = np.array(list(self.inst_pos.keys()), dtype=np.int32)
-            self.inst_pos_vals = np.array([v - 1 for v in self.inst_pos.values()], dtype=np.int32)
+            self.inst_pos_vals = np.array(list(self.inst_pos.values()), dtype=np.int32)
         else:
             # Empty arrays if no instructions
             self.inst_pos_keys = np.array([], dtype=np.int32)
