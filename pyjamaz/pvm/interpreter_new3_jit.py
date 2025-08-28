@@ -312,32 +312,36 @@ def invoke_native(
 
     # Main execution loop
     while status == EXIT_RESUME and gas > 0:
-        gas -= 1
-        pc = np.uint32(pc + skip_len)
-        inst_nr += 1
-
-        if pc >= code_size:
+        # Calculate next PC but don't update yet
+        next_pc = np.uint32(pc + skip_len)
+        
+        if next_pc >= code_size:
             status = EXIT_PANIC
             break
 
-        # Find instruction index
+        # Find instruction index at next PC
         inst_index = -1
         for i in range(len(inst_pos_keys)):
-            if inst_pos_keys[i] == pc:
+            if inst_pos_keys[i] == next_pc:
                 inst_index = inst_pos_vals[i]
                 break
 
         if inst_index < 0:
             # Can't find instruction - fall back to Python
-            # Copy state and return, letting Python handle it
+            # Return state BEFORE advancing (Python will handle advancement)
             for i in range(len(reg)):
                 registers_out[i] = reg[i]
             status_out[0] = status
             exit_value_out[0] = exit_value
-            pc_out[0] = pc
-            gas_out[0] = gas
-            inst_nr_out[0] = inst_nr
+            pc_out[0] = pc  # Return current PC, not next_pc
+            gas_out[0] = gas  # Return current gas
+            inst_nr_out[0] = inst_nr  # Return current inst_nr
             return ERROR_INVALID_OPCODE
+        
+        # Now we know we can proceed, so update state
+        gas -= 1
+        pc = next_pc
+        inst_nr += 1
 
         # Fetch opcode and decode
         opcode = code[pc]
@@ -420,9 +424,9 @@ def invoke_native(
                     registers_out[i] = reg[i]
                 status_out[0] = status
                 exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
             elif opcode == 56:  # load_u32  
                 # For now, fall back for memory operations
@@ -430,9 +434,9 @@ def invoke_native(
                     registers_out[i] = reg[i]
                 status_out[0] = status
                 exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
             elif opcode == 59:  # store_u8
                 # For now, fall back for memory operations
@@ -440,9 +444,9 @@ def invoke_native(
                     registers_out[i] = reg[i]
                 status_out[0] = status
                 exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
             elif opcode == 61:  # store_u32
                 # For now, fall back for memory operations
@@ -450,9 +454,9 @@ def invoke_native(
                     registers_out[i] = reg[i]
                 status_out[0] = status
                 exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
             elif opcode == 90:  # add_imm
                 reg[r_a] = (reg[r_a] + v_x) & np.uint64(0xFFFFFFFFFFFFFFFF)
@@ -468,9 +472,9 @@ def invoke_native(
                     registers_out[i] = reg[i]
                 status_out[0] = status
                 exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
 
         # Type 8: InstructionType.reg_reg
@@ -500,9 +504,9 @@ def invoke_native(
                     registers_out[i] = reg[i]
                 status_out[0] = status
                 exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
 
         # Type 10: InstructionType.reg_reg_offset
@@ -540,9 +544,9 @@ def invoke_native(
                     registers_out[i] = reg[i]
                 status_out[0] = status
                 exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
         
         # Type 12: InstructionType.reg_reg_reg
@@ -586,19 +590,20 @@ def invoke_native(
                     registers_out[i] = reg[i]
                 status_out[0] = status
                 exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
         else:
-            # Unsupported instruction type - fall back to Python - copy state first
+            # Unsupported instruction type - fall back to Python
+            # Return state BEFORE this instruction (Python will execute it)
             for i in range(len(reg)):
                 registers_out[i] = reg[i]
             status_out[0] = status
             exit_value_out[0] = exit_value
-            pc_out[0] = pc
-            gas_out[0] = gas
-            inst_nr_out[0] = inst_nr
+            pc_out[0] = pc  # PC already points to current instruction
+            gas_out[0] = gas + 1  # Return gas before decrement
+            inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
             return ERROR_INVALID_OPCODE
 
     # Copy output state
@@ -606,7 +611,7 @@ def invoke_native(
         registers_out[i] = reg[i]
     status_out[0] = status
     exit_value_out[0] = exit_value
-    pc_out[0] = pc
+    pc_out[0] = pc + skip_len  # Return next PC
     gas_out[0] = gas
     inst_nr_out[0] = inst_nr
 
@@ -650,6 +655,8 @@ class PVMInterpreter(PVMInterpreterBase):
 
         # Try to execute with JIT-compiled function
         while self.status == ExitReason.resume.value and self.gas > 0:
+            # if self.inst_nr >= 7 and self.inst_nr <= 10:
+            #     print(f"DEBUG[{self.inst_nr}]: Loop iteration starting with PC={self.pc}, gas={self.gas}")
             # Prepare output arrays
             registers_out = np.zeros(13, dtype=np.uint64)
             status_out = np.array([0], dtype=np.int32)
@@ -677,6 +684,8 @@ class PVMInterpreter(PVMInterpreterBase):
             self.pc = pc_out[0]
             self.gas = gas_out[0]
             self.inst_nr += inst_nr_out[0]
+            # if self.inst_nr >= 7 and self.inst_nr <= 10:
+            #     print(f"DEBUG[{self.inst_nr}]: After JIT, PC={self.pc}, gas={self.gas}, error={error_code}")
 
             # Handle errors
             if error_code == ERROR_PANIC_TRAP:
@@ -688,16 +697,27 @@ class PVMInterpreter(PVMInterpreterBase):
                 if self.gas > 0 and self.status == ExitReason.resume.value:
                     # Execute one instruction with parent implementation
                     saved_gas = self.gas
-                    self.gas = 1  # Execute just one instruction
+                    self.gas = 2  # Need 2 gas: 1 for decrement, 1 to execute
+                    
+                    # Debug output
+                    # print(f"DEBUG: Falling back at PC={self.pc}, gas={saved_gas}")
 
                     try:
-                        super().invoke(self.pc, 1)
+                        # DEBUG: Check what PC we're passing to Python
+                        if self.pc == 31:
+                            print(f"WARNING: About to invoke Python with PC=31!")
+                            print(f"  pc_out was: {pc_out[0]}")
+                            print(f"  self.pc is: {self.pc}")
+                            print(f"  This will cause KeyError!")
+                            import traceback
+                            traceback.print_stack()
+                        super().invoke(self.pc, 2)  # Pass 2 gas so Python can execute one instruction
+                        # print(f"DEBUG: After Python fallback, PC={self.pc}")
                     finally:
                         # Restore gas counter
-                        if self.gas == 0:
-                            self.gas = saved_gas - 1
-                        else:
-                            self.gas = saved_gas - (1 - self.gas)
+                        # Python used (2 - self.gas) gas
+                        gas_used = 2 - self.gas
+                        self.gas = saved_gas - gas_used
             elif error_code != ERROR_NONE:
                 # Other errors
                 self.status = ExitReason.panic.value
