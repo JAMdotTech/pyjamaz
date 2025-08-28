@@ -327,13 +327,13 @@ def invoke_native(
                 break
 
         if inst_index < 0:
-            # Can't find instruction - fall back to Python
-            # Return state BEFORE advancing (Python will handle advancement)
+            # Can't find instruction - need to return with next_pc for Python to handle
+            # Python will validate and handle the invalid PC appropriately
             for i in range(len(reg)):
                 registers_out[i] = reg[i]
             status_out[0] = status
             exit_value_out[0] = exit_value
-            pc_out[0] = pc  # Return current PC, not next_pc
+            pc_out[0] = next_pc  # Return the problematic next_pc for Python to handle
             gas_out[0] = gas  # Return current gas
             inst_nr_out[0] = inst_nr  # Return current inst_nr
             return ERROR_INVALID_OPCODE
@@ -394,6 +394,24 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas
                 return ERROR_INVALID_OPCODE
+
+        # Type 3: InstructionType.imm_imm
+        elif inst_type == 3:
+            l_x = min(4, code[pc + 1] % 8)
+            l_y = min(4, max(0, inst_arg_len[inst_index] - l_x - 1))
+            v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
+            v_y = pvm_X_jit(read_uint_jit(code, pc + 2 + l_x, l_y), np.uint8(l_y))
+            
+            # All type 3 opcodes are memory stores - fall back to Python for safety
+            # Memory operations are complex and safer in Python
+            for i in range(len(reg)):
+                registers_out[i] = reg[i]
+            status_out[0] = status
+            exit_value_out[0] = exit_value
+            pc_out[0] = pc  # PC already points to current instruction
+            gas_out[0] = gas + 1  # Return gas before decrement  
+            inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
+            return ERROR_INVALID_OPCODE
 
         # Type 4: InstructionType.offset
         elif inst_type == 4:
@@ -509,6 +527,70 @@ def invoke_native(
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
 
+        # Type 9: InstructionType.reg_reg_imm
+        elif inst_type == 9:
+            r_a = min(12, code[pc + 1] % 16)
+            r_b = min(12, code[pc + 1] // 16)
+            l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
+            v_x = read_uint_jit(code, pc + 2, l_x)
+            
+            w_a = reg[r_a]
+            w_b = reg[r_b]
+            
+            if opcode == 130:  # load_ind_u64
+                # Memory operation - fall back to Python
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
+                return ERROR_INVALID_OPCODE
+            elif opcode == 131:  # add_imm_32
+                reg[r_a] = pvm_X_jit((w_b + v_x) % (2 ** 32), np.uint8(4))
+            elif opcode == 132:  # and_imm
+                reg[r_a] = w_b & v_x
+            elif opcode == 133:  # xor_imm
+                reg[r_a] = w_b ^ v_x
+            elif opcode == 134:  # or_imm
+                reg[r_a] = w_b | v_x
+            elif opcode == 135:  # mul_imm_32
+                reg[r_a] = pvm_X_jit((w_b * v_x) % (2 ** 32), np.uint8(4))
+            elif opcode == 149:  # add_imm_64
+                reg[r_a] = (w_b + v_x) & np.uint64(0xFFFFFFFFFFFFFFFF)
+            elif opcode == 150:  # mul_imm_64
+                reg[r_a] = (w_b * v_x) & np.uint64(0xFFFFFFFFFFFFFFFF)
+            elif opcode == 151:  # shlo_l_imm_64
+                if v_x < 64:
+                    reg[r_a] = (w_b << v_x) & np.uint64(0xFFFFFFFFFFFFFFFF)
+                else:
+                    reg[r_a] = np.uint64(0)
+            elif opcode == 152:  # shlo_r_imm_64
+                if v_x < 64:
+                    reg[r_a] = w_b >> v_x
+                else:
+                    reg[r_a] = np.uint64(0)
+            elif opcode == 153:  # shar_r_imm_64
+                v_x_clamped = min(v_x, 63)
+                w_b_signed = pvm_Z_jit(w_b, 8)
+                if w_b_signed >= 0:
+                    reg[r_a] = w_b >> np.uint64(v_x_clamped)
+                else:
+                    # Arithmetic right shift for negative numbers
+                    sign_bits = np.uint64(0xFFFFFFFFFFFFFFFF) << np.uint64(64 - v_x_clamped)
+                    reg[r_a] = (w_b >> np.uint64(v_x_clamped)) | sign_bits
+            else:
+                # Fall back for unimplemented - copy state first
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                exit_value_out[0] = exit_value
+                pc_out[0] = pc  # PC already points to current instruction
+                gas_out[0] = gas + 1  # Return gas before decrement  
+                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
+                return ERROR_INVALID_OPCODE
+        
         # Type 10: InstructionType.reg_reg_offset
         elif inst_type == 10:
             r_a = min(12, code[pc + 1] % 16)

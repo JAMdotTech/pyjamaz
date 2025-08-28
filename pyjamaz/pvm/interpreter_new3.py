@@ -235,6 +235,12 @@ class PVMInterpreter:
                 self.exit_value = None
                 break
 
+            # Check if PC is valid
+            if self.pc not in self.inst_pos:
+                # Invalid PC - this is a panic condition
+                self.status = ExitReason.panic.value
+                raise PanicError(f"Invalid PC: {self.pc} is not an instruction boundary")
+            
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
             inst_type = OpcodeScheme[opcode]
