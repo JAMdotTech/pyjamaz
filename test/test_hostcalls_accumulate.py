@@ -27,8 +27,8 @@ from pyjamaz.hostcalls.accumulate import (
 
 from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
-from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE
+from pyjamaz.pvm.types_new import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
+from pyjamaz.pvm.constants_new import ExitCondition, ExitReason, PVM_PAGE_SIZE
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState, ValidatorQueueState
 from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand

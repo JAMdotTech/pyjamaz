@@ -7,10 +7,10 @@ import numpy.typing as npt
 
 from pyjamaz.models.common import Preimage
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
+from pyjamaz.pvm.constants_new import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
 from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm.duna_logger import PVMDunaLog
-from pyjamaz.pvm.types import PVMProgram, PVMMemory
+from pyjamaz.pvm.types_new import PVMProgram, PVMMemory
 
 
 class InvocationContext:

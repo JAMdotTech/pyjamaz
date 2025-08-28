@@ -4,9 +4,9 @@ import numpy.typing as npt
 from typing import List, Dict
 
 from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
-from .types import PVMProgram, PVMMemory
+from .types_new import PVMProgram, PVMMemory
 
-from .utils import (
+from .utils_new import (
     pvm_Z,
     pvm_X,
     pvm_Z_inv,
@@ -23,7 +23,7 @@ from .utils import (
     read_uint,
 )
 
-from .constants import (
+from .constants_new import (
     Opcode as op,
     OpcodeScheme,
     InstructionType,
@@ -244,7 +244,7 @@ class PVMInterpreter:
 
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
-            inst_type = OPCODE_LOOKUP[int(opcode)]
+            inst_type = OPCODE_LOOKUP[opcode]  # numpy uint8 works as array index
             self.skip_len = self.inst_arg_len[inst_index] + 1
 
             try:

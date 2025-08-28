@@ -4,8 +4,8 @@ from datetime import datetime
 import numpy as np
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.pvm.constants import OpcodeNames
-from pyjamaz.pvm.types import PVMMemory, PVMLogger
+from pyjamaz.pvm.constants_new import OpcodeNames
+from pyjamaz.pvm.types_new import PVMMemory, PVMLogger
 
 
 class PVMDebugLog(PVMLogger):

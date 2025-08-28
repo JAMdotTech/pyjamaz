@@ -10,9 +10,9 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import AccumulationOperand, RefinementContext, WorkPackage, WorkExecResult
 from pyjamaz.models.state import AccumulationStateComponents, DeferredTransfer, ServiceAccount, ServicesState
 
-from pyjamaz.pvm.constants import ExitCondition
+from pyjamaz.pvm.constants_new import ExitCondition
 from pyjamaz.pvm.invocation import InvocationContext
-from pyjamaz.pvm.types import PVMCode, PVMMemory
+from pyjamaz.pvm.types_new import PVMCode, PVMMemory
 
 
 @dataclass

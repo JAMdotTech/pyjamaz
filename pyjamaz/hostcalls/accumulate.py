@@ -11,10 +11,10 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.state import ServiceAccount, DeferredTransfer, ServicesState
 from pyjamaz.hostcalls.models import AccumulateInvocationContext
-from pyjamaz.pvm.constants import ExitCondition, ExitReason
+from pyjamaz.pvm.constants_new import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
+from pyjamaz.pvm.types_new import PVMMemoryMode, PVMLogger, PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.utils import format_hash
 

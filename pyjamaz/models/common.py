@@ -11,7 +11,7 @@ from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map
 from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import WellBalancedMerkleTree
-from pyjamaz.pvm.constants import ExitCondition, ExitReason
+from pyjamaz.pvm.constants_new import ExitCondition, ExitReason
 
 if typing.TYPE_CHECKING:
     from pyjamaz.models.state import ServicesState

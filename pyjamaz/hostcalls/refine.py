@@ -7,11 +7,11 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
 from pyjamaz.models.state import ServicesState
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.constants import ExitReason, ExitCondition
+from pyjamaz.pvm.constants_new import ExitReason, ExitCondition
 from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.pvm.types import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram, PVMCode
+from pyjamaz.pvm.types_new import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram, PVMCode
 from pyjamaz.hostcalls.constants import HostCallResult, InnerPVMResult
 from pyjamaz.hostcalls.models import RefineInvocationContext, IntegratedPVM
 

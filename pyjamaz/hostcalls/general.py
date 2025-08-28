@@ -7,10 +7,10 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkPackage, AccumulationOperand, WorkItem
 from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer
-from pyjamaz.pvm.constants import ExitCondition, ExitReason
+from pyjamaz.pvm.constants_new import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
+from pyjamaz.pvm.types_new import PVMMemoryMode, PVMLogger, PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 
 

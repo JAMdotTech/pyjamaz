@@ -1,5 +1,5 @@
 import logging
-from pyjamaz.pvm.constants import OpcodeNames
+from pyjamaz.pvm.constants_new import OpcodeNames
 from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.utils import format_hash
 

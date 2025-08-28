@@ -643,4 +643,4 @@ OpcodeNames = {
 # Build optimized opcode lookup array for performance
 OPCODE_LOOKUP = [InstructionType.none] * 256
 for opcode, inst_type in OpcodeScheme.items():
-    OPCODE_LOOKUP[int(opcode)] = inst_type
+    OPCODE_LOOKUP[opcode] = inst_type  # opcode is already an int (IntEnum)
