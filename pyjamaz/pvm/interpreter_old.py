@@ -4,9 +4,9 @@ import numpy.typing as npt
 from typing import List, Dict
 
 from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
-from .types_new import PVMProgram, PVMMemory
+from .types_old import PVMProgram, PVMMemory
 
-from .utils_new import (
+from .utils_old import (
     pvm_Z,
     pvm_X,
     pvm_Z_inv,
