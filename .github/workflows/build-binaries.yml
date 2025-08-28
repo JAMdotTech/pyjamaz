@@ -159,7 +159,7 @@ jobs:
   # ---------------------------
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [wheels, binaries]
+    needs: [wheels]
     runs-on: ubuntu-latest
     permissions:
       contents: write
