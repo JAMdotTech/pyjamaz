@@ -19,6 +19,13 @@ class ExitReason(Enum):
     page_fault:int      = 4 #GP-A.2: F: page-fault
     host_halt:int       = 5 #GP-A.2: h: host-call
 
+# Cache frequently used enum values for performance
+EXIT_RESUME = ExitReason.resume.value
+EXIT_HALT = ExitReason.halt.value
+EXIT_PANIC = ExitReason.panic.value
+EXIT_PAGE_FAULT = ExitReason.page_fault.value
+EXIT_HOST_HALT = ExitReason.host_halt.value
+
 
 @dataclass
 class ExitCondition:
@@ -632,3 +639,8 @@ OpcodeNames = {
     op._min.value: "_min",
     op.min_u.value: "min_u"
 }
+
+# Build optimized opcode lookup array for performance
+OPCODE_LOOKUP = [InstructionType.none] * 256
+for opcode, inst_type in OpcodeScheme.items():
+    OPCODE_LOOKUP[int(opcode)] = inst_type

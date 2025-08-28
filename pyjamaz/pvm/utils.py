@@ -121,27 +121,24 @@ def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
     """
     Sign extend a number to two's complement form for value X and number of bytes n
 
-    Note:
-        Should be implemented / inlined using bitwise operators.
-        For clarity it is as closely implemented to the definition as in the GP.
-        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
-        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
+    Optimized version using bit operations to avoid struct overhead.
     """
-    # x = int(x)
-    # n = int(n)
-    #
-    # assert 0 <= x < 2 ** (8 * n) <= 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
-    #
-    # sign_mask = (2 ** 64 - 2 ** (8 * n))
-    # sign_bits = int(x // (2 ** (8 * n - 1)))
-    #
-    # return x + sign_bits * sign_mask
+    # Convert to Python int to handle all numpy types
+    x = int(x) if hasattr(x, '__int__') else x
+    n = int(n) if hasattr(n, '__int__') else n
+    
     if n == 1:
-        signed_val = struct.unpack('b', struct.pack('B', x & 0xFF))[0]
-        return signed_val if signed_val >= 0 else signed_val + (1 << 64)
+        # Optimized sign extension for 1-byte
+        masked = x & 0xFF
+        if masked & 0x80:  # Check sign bit
+            return masked | 0xFFFFFFFFFFFFFF00
+        return masked
     elif n == 2:
-        signed_val = struct.unpack('h', struct.pack('H', x & 0xFFFF))[0]
-        return signed_val if signed_val >= 0 else signed_val + (1 << 64)
+        # Optimized sign extension for 2-byte
+        masked = x & 0xFFFF
+        if masked & 0x8000:  # Check sign bit
+            return masked | 0xFFFFFFFFFFFF0000
+        return masked
     elif n == 3:
         # For 24-bit, handle manually - struct doesn't have 24-bit type
         masked = x & 0xFFFFFF
@@ -153,8 +150,11 @@ def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
             # Positive
             return masked
     elif n == 4:
-        signed_val = struct.unpack('i', struct.pack('I', x & 0xFFFFFFFF))[0]
-        return signed_val if signed_val >= 0 else signed_val + (1 << 64)
+        # Optimized sign extension for 4-byte
+        masked = x & 0xFFFFFFFF
+        if masked & 0x80000000:  # Check sign bit
+            return masked | 0xFFFFFFFF00000000
+        return masked
     elif n == 5:
         # For 40-bit, handle manually
         masked = x & 0xFFFFFFFFFF
@@ -233,48 +233,25 @@ def pvm_Z_inv(a:int, n:np.uint8) -> np.uint64:
 
 
 def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
+    # Optimized version using NumPy views for common cases
     if l == 0:
         return 0
     elif l == 1:
-        return np.uint64(source[addr + 0]) % 2**8
+        return np.uint64(source[addr])
     elif l == 2:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        return np.uint64((byte1 << 8) + byte0) % 2**16
+        # Use NumPy view for 2-byte reads (little-endian)
+        return np.uint64(source[addr:addr+2].view(dtype='<u2')[0])
+    elif l == 4:
+        # Use NumPy view for 4-byte reads (little-endian) 
+        return np.uint64(source[addr:addr+4].view(dtype='<u4')[0])
+    elif l == 8:
+        # Use NumPy view for 8-byte reads (little-endian)
+        return np.uint64(source[addr:addr+8].view(dtype='<u8')[0])
     elif l == 3:
+        # Fall back to original for 3-byte case
         byte0 = np.uint8(source[addr + 0])
         byte1 = np.uint16(source[addr + 1])
         byte2 = np.uint32(source[addr + 2])
         return np.uint64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
-    elif l == 4:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        byte3 = np.uint32(source[addr + 3])
-        return np.uint64(
-            (byte3 << 24) +
-            (byte2 << 16) +
-            (byte1 << 8) +
-            byte0
-        ) % 2**32
-    elif l == 8:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        byte3 = np.uint32(source[addr + 3])
-        byte4 = np.uint64(source[addr + 4])
-        byte5 = np.uint64(source[addr + 5])
-        byte6 = np.uint64(source[addr + 6])
-        byte7 = np.uint64(source[addr + 7])
-        return np.uint64(
-            (byte7 << 56) +
-            (byte6 << 48) +
-            (byte5 << 40) +
-            (byte4 << 32) +
-            (byte3 << 24) +
-            (byte2 << 16) +
-            (byte1 << 8) +
-            byte0
-        )
     else:
         raise UIntValueError(f"Invalid uint length: {l}")

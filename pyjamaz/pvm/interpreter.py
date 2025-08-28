@@ -31,9 +31,20 @@ from .constants import (
     MemOps,
     OpcodeNames,
     ExitCondition,
+    EXIT_RESUME,
+    EXIT_HALT,
+    EXIT_PANIC,
+    EXIT_PAGE_FAULT,
+    EXIT_HOST_HALT,
+    OPCODE_LOOKUP,
 )
 
 from ..graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
+
+
+# Helper function for fast min operation
+def fast_min(a, b):
+    return a if a < b else b
 
 
 class PVMInterpreter:
@@ -55,7 +66,7 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
 
         self.mem:PVMMemory = None
-        self.status:int = ExitReason.resume.value
+        self.status:int = EXIT_RESUME
         self.exit_value:int = None
 
         self.log = None
@@ -137,7 +148,7 @@ class PVMInterpreter:
         for idx, val in enumerate(program.registers):
             self.reg[idx] = np.uint64(val)
 
-        self.status = ExitReason.resume.value
+        self.status = EXIT_RESUME
 
         self.inst_bitmask: List[bool] = program.code.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -173,7 +184,7 @@ class PVMInterpreter:
     #GP-0.6.7-section:A.15
     def djump(self, a: int):
         if a == 2 ** 32 - 2 ** 16:
-            self.status = ExitReason.halt.value
+            self.status = EXIT_HALT
             return 0
         elif (a == 0 or
               a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
@@ -187,16 +198,16 @@ class PVMInterpreter:
         exit_value = None
         exit_reason = self.status
 
-        if self.status in (ExitReason.host_halt.value, ExitReason.page_fault.value):
+        if self.status in (EXIT_HOST_HALT, EXIT_PAGE_FAULT):
             exit_value = int(self.exit_value)
-        elif self.status == ExitReason.halt.value:
+        elif self.status == EXIT_HALT:
             mem = bytes()
             try:
                 mem = self.mem.read_bytes(self.reg[7], self.reg[8])
             except (PVMMemoryError, PanicError):
                 pass
             exit_value = mem
-        elif self.status == ExitReason.panic.value:
+        elif self.status == EXIT_PANIC:
             exit_value = None
         else:
             exit_value = b''
@@ -220,20 +231,20 @@ class PVMInterpreter:
             self.log.pvm_header()
 
         # GP-0.6.7-section:A.4 Single-Step State Transition
-        while self.status == ExitReason.resume.value and self.gas > 0:
+        while self.status == EXIT_RESUME and self.gas > 0:
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
             self.inst_nr += 1
 
             if self.pc >= self.code_size:
-                self.status = ExitReason.panic.value
+                self.status = EXIT_PANIC
                 self.exit_value = None
                 break
 
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
-            inst_type = OpcodeScheme[opcode]
+            inst_type = OPCODE_LOOKUP[int(opcode)]
             self.skip_len = self.inst_arg_len[inst_index] + 1
 
             try:
@@ -261,7 +272,7 @@ class PVMInterpreter:
 
                         match opcode:
                             case op.ecalli.value:
-                                self.status = ExitReason.host_halt.value
+                                self.status = EXIT_HOST_HALT
                                 self.exit_value = v_x
                                 self.log and self.log(imm1=v_x)
 
@@ -271,7 +282,8 @@ class PVMInterpreter:
                     #GP-0.6.7-section:A.5.3
                     case InstructionType.reg_ext_imm:
 
-                        r_a = min(12, self.code[self.pc + 1] % 16)
+                        temp = self.code[self.pc + 1] % 16
+                        r_a = temp if temp < 12 else 12
                         v_x = read_uint(self.code, self.pc + 2, 8)
 
                         match opcode:
@@ -1079,11 +1091,11 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid instruction type: {inst_type}")
 
             except PVMMemoryError:
-                self.status = ExitReason.page_fault.value
+                self.status = EXIT_PAGE_FAULT
                 # self.gas -= 1
                 self.exit_value = self.mem._mem_addr
                 break
 
             except PanicError as panic_error:
-                self.status = ExitReason.panic.value
+                self.status = EXIT_PANIC
                 break

@@ -134,9 +134,15 @@ class MemorySection:
         self.size = PVMMemory.page_size(len(contents))
 
     def update(self, idx, _bytes):
-        # TODO: implement more efficiently
-        for c_idx, val in enumerate(_bytes):
-            self.contents[idx+c_idx] = np.uint8(val)
+        # Optimized with NumPy vectorized operations
+        if _bytes:
+            length = len(_bytes)
+            if isinstance(_bytes, (list, tuple)):
+                self.contents[idx:idx+length] = np.array(_bytes, dtype=np.uint8)
+            elif isinstance(_bytes, np.ndarray):
+                self.contents[idx:idx+length] = _bytes.astype(np.uint8)
+            else:
+                self.contents[idx:idx+length] = np.frombuffer(bytes(_bytes), dtype=np.uint8)
         #self.tail += len(_bytes)
 
     def contains(self, addr):
