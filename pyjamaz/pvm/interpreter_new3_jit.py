@@ -654,6 +654,7 @@ class PVMInterpreter(PVMInterpreterBase):
         self.gas = gas
 
         # Try to execute with JIT-compiled function
+        consecutive_fallbacks = 0
         while self.status == ExitReason.resume.value and self.gas > 0:
             # if self.inst_nr >= 7 and self.inst_nr <= 10:
             #     print(f"DEBUG[{self.inst_nr}]: Loop iteration starting with PC={self.pc}, gas={self.gas}")
@@ -681,9 +682,21 @@ class PVMInterpreter(PVMInterpreterBase):
             self.reg[:] = registers_out
             self.status = status_out[0]
             self.exit_value = exit_value_out[0]
+            old_pc = self.pc
             self.pc = pc_out[0]
+            
+            # Debug check for invalid PC
+            # if self.pc == 31:
+            #     print(f"DEBUG: JIT returned PC=31! old_pc={old_pc}, error_code={error_code}")
+            #     print(f"  inst_nr: {self.inst_nr} -> {self.inst_nr + inst_nr_out[0]}")
+                
             self.gas = gas_out[0]
             self.inst_nr += inst_nr_out[0]
+            
+            # Validate PC after JIT execution (disabled for now)
+            # if self.pc not in self.inst_pos and self.pc != 0 and self.gas > 0:
+            #     # PC is invalid - this might be a JIT bug
+            #     print(f"WARNING: JIT returned invalid PC={self.pc} (from {old_pc}), error_code={error_code}")
             # if self.inst_nr >= 7 and self.inst_nr <= 10:
             #     print(f"DEBUG[{self.inst_nr}]: After JIT, PC={self.pc}, gas={self.gas}, error={error_code}")
 
@@ -694,34 +707,77 @@ class PVMInterpreter(PVMInterpreterBase):
                 raise PanicError(f"Invalid PC: {self.pc}")
             elif error_code == ERROR_INVALID_OPCODE:
                 # Fall back to Python implementation for this instruction
+                consecutive_fallbacks += 1
+                if consecutive_fallbacks > 100:
+                    raise PanicError(f"Too many consecutive fallbacks at PC={self.pc}")
+                    
                 if self.gas > 0 and self.status == ExitReason.resume.value:
                     # Execute one instruction with parent implementation
                     saved_gas = self.gas
-                    self.gas = 2  # Need 2 gas: 1 for decrement, 1 to execute
+                    saved_pc = self.pc
+                    saved_inst_nr = self.inst_nr
                     
                     # Debug output
                     # print(f"DEBUG: Falling back at PC={self.pc}, gas={saved_gas}")
 
                     try:
-                        # DEBUG: Check what PC we're passing to Python
-                        if self.pc == 31:
-                            print(f"WARNING: About to invoke Python with PC=31!")
-                            print(f"  pc_out was: {pc_out[0]}")
-                            print(f"  self.pc is: {self.pc}")
+                        # DEBUG: Check what PC we're passing to Python  
+                        if self.pc not in self.inst_pos and self.pc != 0:
+                            print(f"WARNING: About to invoke Python with invalid PC={self.pc}!")
                             print(f"  This will cause KeyError!")
-                            import traceback
-                            traceback.print_stack()
-                        super().invoke(self.pc, 2)  # Pass 2 gas so Python can execute one instruction
+                            # Find what would be the correct next PC
+                            valid_pcs = sorted(self.inst_pos.keys())
+                            prev_pc = None
+                            for vpc in valid_pcs:
+                                if vpc < self.pc:
+                                    prev_pc = vpc
+                                elif vpc > self.pc:
+                                    print(f"  Previous valid PC was {prev_pc}")
+                                    print(f"  Next valid PC is {vpc}")
+                                    break
+                        
+                        # Execute exactly one instruction using Python's new single-step mode
+                        old_pc = self.pc
+                        old_inst_nr = self.inst_nr
+                        
+                        # Debug before invoking Python
+                        # print(f"DEBUG: Fallback at PC={self.pc}, inst_nr={self.inst_nr}")
+                            
+                        # Use single-step mode with enough gas to execute one instruction
+                        super().invoke(self.pc, 2, single_step=True)
+                        
+                        # Debug after invoking Python
+                        # print(f"DEBUG: After fallback PC={old_pc} -> {self.pc}")
+                        
+                        # Check that we executed exactly one instruction
+                        insts_executed = self.inst_nr - old_inst_nr
+                        
+                        if insts_executed == 0:
+                            # No instruction executed - this shouldn't happen with gas=2
+                            print(f"WARNING: No instruction executed at PC={old_pc}")
+                            self.gas = saved_gas  # No gas used
+                        elif insts_executed == 1:
+                            # Perfect, executed exactly one
+                            self.gas = saved_gas - 1
+                        else:
+                            # Should not happen with single_step=True
+                            print(f"WARNING: Single-step mode executed {insts_executed} instructions from PC={old_pc}")
+                            self.gas = saved_gas - insts_executed
+                            
                         # print(f"DEBUG: After Python fallback, PC={self.pc}")
-                    finally:
-                        # Restore gas counter
-                        # Python used (2 - self.gas) gas
-                        gas_used = 2 - self.gas
-                        self.gas = saved_gas - gas_used
+                    except Exception as e:
+                        # Restore state on error
+                        self.pc = saved_pc
+                        self.inst_nr = saved_inst_nr 
+                        self.gas = saved_gas
+                        raise
             elif error_code != ERROR_NONE:
                 # Other errors
                 self.status = ExitReason.panic.value
                 raise PanicError(f"JIT execution error: {error_code}")
+            else:
+                # JIT executed successfully, reset fallback counter
+                consecutive_fallbacks = 0
 
             # If JIT completed successfully or status changed, we're done
             if self.status != ExitReason.resume.value:

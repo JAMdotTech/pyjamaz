@@ -213,7 +213,8 @@ class PVMInterpreter:
     def invoke(
         self,
         pc: int,
-        gas: int
+        gas: int,
+        single_step: bool = False
     ):
         self.pc = pc
         self.gas = gas
@@ -1056,4 +1057,13 @@ class PVMInterpreter:
 
             except PanicError as panic_error:
                 self.status = ExitReason.panic.value
+            
+            # If single-step mode, exit after one instruction  
+            if single_step:
+                # In single-step mode, we need to manually advance PC for the next instruction
+                # since the advancement happens at the start of the loop
+                # Apply the skip_len that was just calculated for the next instruction
+                # But only if we haven't hit a terminating condition
+                if self.status == ExitReason.resume.value:
+                    self.pc = int(self.pc) + self.skip_len
                 break
