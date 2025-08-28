@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import IntEnum
 
 import numpy as np
 import numpy.typing as npt
@@ -50,7 +50,7 @@ class PVMLogger(ABC):
         pass
 
 
-class PVMMemoryMode(Enum):
+class PVMMemoryMode(IntEnum):
     inaccesible = 0
     readable    = 1
     writable    = 2
@@ -352,7 +352,7 @@ class PVMMemory:
 
         if self._acl is not None:
             page_nr = addr // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
+            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable:
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is not writable")
 
         section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
@@ -377,7 +377,7 @@ class PVMMemory:
 
         if self._acl is not None:
             page_nr = addr // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
+            if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible:
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is inaccessible")
 
         section_addr = (addr - section.address) #% section.size  #TODO: not sure if % necesarry?
@@ -406,8 +406,8 @@ class PVMMemory:
 
         if self._acl is not None:
             page_nr = address // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] < mode.value:
-                raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is inaccessible for mode {mode.value}")
+            if not page_nr in self._acl or self._acl[page_nr] < mode:
+                raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is inaccessible for mode {mode}")
 
         local_addr = address - section.address
         bytes_required = local_addr + length
@@ -431,7 +431,7 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
-        # if self._acl is not None and self._acl.get(address//PVM_PAGE_SIZE) == PVMMemoryMode.inaccesible.value:
+        # if self._acl is not None and self._acl.get(address//PVM_PAGE_SIZE) == PVMMemoryMode.inaccesible:
         #     #TODO: check per page if operations spans multiple pages
         #     raise PVMMemoryError(f"MemorySection {section.address} - ({section.size} bytes) is inaccessible")
 
@@ -443,7 +443,7 @@ class PVMMemory:
 
         if self._acl is not None:
             page_nr = address // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
+            if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible:
                 raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is nor readable")
 
         mem_bytes = bytes(section.contents[section_addr:section_addr+length])
@@ -470,7 +470,7 @@ class PVMMemory:
 
         if self._acl is not None:
             page_nr = address // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
+            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable:
                 raise PVMMemoryError(f"MemorySection {address} - ({section.size} bytes) is not writable")
 
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
@@ -502,7 +502,7 @@ class PVMMemory:
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
             pages = growth // PVM_PAGE_SIZE + 1
             for page_nr in range(pages):
-                self._acl[next_page_nr + page_nr] = PVMMemoryMode.writable.value
+                self._acl[next_page_nr + page_nr] = PVMMemoryMode.writable
 
         self._heap.paged_tail = new_heap_ptr
         return self._heap.paged_tail
@@ -549,7 +549,7 @@ class PVMMemory:
 
         self.update_offsets()
         for page_nr in range(nr_pages):
-            self._acl[page_idx + page_nr] = acl.value
+            self._acl[page_idx + page_nr] = acl
             for idx in range(PVM_PAGE_SIZE):
                 mem[addr + page_nr * PVM_PAGE_SIZE + idx] = 0
 
@@ -562,13 +562,13 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {mem_addr}")
 
         for page_nr in range(nr_pages):
-            self._acl[page_idx + page_nr] = acl.value
+            self._acl[page_idx + page_nr] = acl
         for x in range(nr_pages * PVM_PAGE_SIZE):
             section.contents[mem_addr-section.address + x] = 0
 
     def has_inaccessible_acl(self, page_idx: int, nr_pages: int) -> bool:
         for page_nr in range(nr_pages):
-            if page_idx + page_nr not in self._acl or self._acl[page_idx + page_nr] == PVMMemoryMode.inaccesible.value:
+            if page_idx + page_nr not in self._acl or self._acl[page_idx + page_nr] == PVMMemoryMode.inaccesible:
                 return True
 
         return False

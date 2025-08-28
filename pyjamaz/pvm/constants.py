@@ -33,7 +33,7 @@ class ExitCondition:
     value: Optional[Union[int, bytes]] = None
 
 
-class InstructionType(Enum):
+class InstructionType(IntEnum):
     """
     This enum serves as classification for how instructions should be decoded
     """
