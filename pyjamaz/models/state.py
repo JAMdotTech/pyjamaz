@@ -1473,20 +1473,22 @@ class AccumulationStateComponents(Serializable):
     privileged_services: PrivilegedServicesState
         GP-0.5.2-eq:12.13 (bold_x) | Privileged Services state.
     """
-    # TODO: structure change in 0.7.0 split up privileged services
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
+    # TODO: structure change in 0.7.0 split up privileged services
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
 
     def check_service_id(self, service_id: int) -> int:
         """
         B.13 | Find an unused service id
         """
-        if service_id not in self.services.services: # TODO replace with retrieve_service_account
+        try:
+            self.services.retrieve_service_account(service_id)
+            return self.check_service_id((service_id - 2 ** 8 + 1) % (2 ** 32 - 2 ** 9) + 2 ** 8)
+
+        except StateKeyNoResult:
             return service_id
-        else:
-            return self.check_service_id((service_id - 2**8 + 1) % (2**32 - 2**9) + 2**8)
 
 
     def to_invocation_context(self, service_account_id: int, entropy: bytes, timeslot: int) -> 'AccumulateInvocationContext':

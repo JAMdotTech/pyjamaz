@@ -26,26 +26,25 @@ class BlockContext:
     GP-0.6.4-section:I.4.1 | Block context terms.
     TODO parameter docstring
     """
-    # G
+    # M
     guarantor_assignments: Optional[List[GuarantorAssignment]] = None
-    # G*
+    # M*
     prev_guarantor_assignments: Optional[List[GuarantorAssignment]] = None
     # H_a
     author_bandersnatch_key: Optional[bytes] = None
     # TODO GP ref?
     seal_vrf_output: bytes = bytes(32)
-    # GP-0.6.4-eq:5.3 (bold_A)
+    # GP-0.7.0-eq:5.3 (bold_A)
     ancestor_headers: List[Header] = field(default_factory=list)
-
-    # W
+    # R
     available_work_reports: Optional[List[WorkReport]] = None
-    # W!
+    # R!
     ready_work_reports: Optional[List[WorkReport]] = None
-    # W_Q
+    # R_Q
     queued_work_reports: Optional[List[AccumulationQueueWorkPackage]] = None
-    # W*
+    # R*
     accumulatable_work_reports: Optional[List[WorkReport]] = None
-    # R (Reporters set, containing Ed25519 key of validator)
+    # G (Reporters set, containing Ed25519 key of validator)
     reporters: Optional[List[bytes]] = None
 
     # M_o

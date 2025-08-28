@@ -637,10 +637,8 @@ async def replay_traces(
 @fuzzer.command('traces', help='Start Fuzzer target over UNIX socket.')
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
-@click.option('--db-path', 'custom_db_path', type=click.Path())
-@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-async def fuzzer_traces(traces_dir, socket_path, custom_db_path, force_overwrite, verbose):
+async def fuzzer_traces(traces_dir, socket_path, verbose):
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
@@ -652,6 +650,8 @@ async def fuzzer_traces(traces_dir, socket_path, custom_db_path, force_overwrite
     traces_files = await anyio.to_thread.run_sync(
         lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin') and f != 'genesis.bin'}),
     )
+
+    start_time = time.time()
 
     for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
@@ -683,6 +683,8 @@ async def fuzzer_traces(traces_dir, socket_path, custom_db_path, force_overwrite
         else:
             logging.error(f'Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
             exit(2)
+
+    logging.info(f'Fuzzer session finished in {time.time() - start_time} seconds')
 
 
 @fuzzer.command('target', help='Start Fuzzer target over UNIX socket.')
