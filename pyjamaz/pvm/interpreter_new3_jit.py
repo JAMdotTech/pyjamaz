@@ -536,7 +536,7 @@ def invoke_native(
             r_a = min(12, code[pc + 1] % 16)
             r_b = min(12, code[pc + 1] // 16)
             l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
-            v_x = read_uint_jit(code, pc + 2, l_x)
+            v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
             
             w_a = reg[r_a]
             w_b = reg[r_b]
@@ -680,6 +680,17 @@ def invoke_native(
                 gas_out[0] = gas + 1  # Return gas before decrement  
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
+        elif inst_type == 255: #TODO!!!!!!!!!!!!HUH?>????????
+            # Undefined opcode - should halt
+            status = EXIT_HALT
+            for i in range(len(reg)):
+                registers_out[i] = reg[i]
+            status_out[0] = status
+            exit_value_out[0] = exit_value
+            pc_out[0] = pc
+            gas_out[0] = gas
+            inst_nr_out[0] = inst_nr
+            return ERROR_NONE
         else:
             # Unsupported instruction type - fall back to Python
             # Return state BEFORE this instruction (Python will execute it)
@@ -829,13 +840,16 @@ class PVMInterpreter(PVMInterpreterBase):
                         old_inst_nr = self.inst_nr
                         
                         # Debug before invoking Python
-                        # print(f"DEBUG: Fallback at PC={self.pc}, inst_nr={self.inst_nr}")
+                        debug_fallback = False  # Set to True to enable debug output
+                        if debug_fallback:
+                            print(f"DEBUG: Fallback at PC={self.pc}, inst_nr={self.inst_nr}")
                             
                         # Use single-step mode with enough gas to execute one instruction
                         super().invoke(self.pc, 2, single_step=True)
                         
                         # Debug after invoking Python
-                        # print(f"DEBUG: After fallback PC={old_pc} -> {self.pc}")
+                        if debug_fallback:
+                            print(f"DEBUG: After fallback PC={old_pc} -> {self.pc}")
                         
                         # Check that we executed exactly one instruction
                         insts_executed = self.inst_nr - old_inst_nr

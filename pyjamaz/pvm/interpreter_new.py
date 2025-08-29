@@ -233,6 +233,12 @@ class PVMInterpreter:
 
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
+            # Handle undefined opcodes
+            if opcode not in OpcodeScheme:
+                # Undefined opcode - halt
+                self.status = ExitReason.halt.value
+                self.exit_value = None
+                break
             inst_type = OpcodeScheme[opcode]
             self.skip_len = self.inst_arg_len[inst_index] + 1
 

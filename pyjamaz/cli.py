@@ -561,6 +561,7 @@ async def replay_traces(
         lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin') and f !='genesis.bin'}),
     )
 
+    start_t = time.time()
     for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
 
@@ -633,6 +634,7 @@ async def replay_traces(
         # Flush DB
         for key, _ in app.state_db:
             app.state_db.delete(key)
+    logging.info(f"BENCH: {time.time()-start_t}")
 
 @fuzzer.command('traces', help='Start Fuzzer target over UNIX socket.')
 @click.argument('traces_dir', type=click.Path(exists=True))
