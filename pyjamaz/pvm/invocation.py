@@ -29,7 +29,6 @@ class InvocationMutationOutput:
     gas_limit: int
     registers: npt.NDArray[np.uint64]
     memory: PVMMemory
-    context: Optional[InvocationContext]
 
 
 class InvocationMutator:

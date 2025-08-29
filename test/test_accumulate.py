@@ -181,7 +181,8 @@ class TestAccumulate(unittest.TestCase):
         transfer_output = services.state_transition_transfers(
             intermediate_state_after_accumulation=accumulation_output.intermediate_state_after_accumulation,
             post_state_timeslot=post_state_timeslot,
-            deferred_transfers=accumulation_output.deferred_transfers
+            deferred_transfers=accumulation_output.deferred_transfers,
+            post_state_entropy=post_entropy,
         )
 
         accumulation_history = AccumulationHistory(self.storage_engine, self.block_context, self.app_context)

@@ -467,7 +467,8 @@ class PyjamazApp:
             pre_accumulation_history=pre_state_accumulation_history,
             post_entropy=entropy_output.post_state,
             post_state_timeslot=timeslot_output.post_state,
-            post_state_validator_archive=validator_archive_output.post_state
+            post_state_validator_archive=validator_archive_output.post_state,
+            post_state_disputes=disputes_output.post_state
         )
 
         # Assurances After Guarantees STF Block Data | GP-0.5.0-eq:4.15
@@ -521,7 +522,8 @@ class PyjamazApp:
         services_after_transfers_output = self.components.services.state_transition_transfers(
             intermediate_state_after_accumulation=services_after_accumulation_output.intermediate_state_after_accumulation,
             post_state_timeslot=timeslot_output.post_state,
-            deferred_transfers=services_after_accumulation_output.deferred_transfers
+            deferred_transfers=services_after_accumulation_output.deferred_transfers,
+            post_state_entropy=entropy_output.post_state,
         )
 
         # GP-0.6.4-eq:12.30

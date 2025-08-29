@@ -72,7 +72,7 @@ nav:
       - Validator Archive (λ): stfs/lambda.md
       - Assurances (ρ): stfs/rho.md
       - Timeslot (τ): stfs/tau.md
-      - Authorizer Queues (φ): stfs/phi.md
+      - Authorizer Queues (𝜙): stfs/phi.md
       - Privileged Services (χ): stfs/chi.md
       - Disputes (ψ): stfs/psi.md
       - Statistics (π): stfs/pi.md

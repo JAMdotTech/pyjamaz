@@ -232,8 +232,7 @@ class TestHCAccumulate(unittest.TestCase):
             exit_condition=ExitCondition(reason=ExitReason.resume),
             gas_limit=1000000,  # Start with plenty of gas
             registers=np.array(pvm_regs, dtype=np.uint64),
-            memory=deepcopy(pvm_memory),
-            context=None
+            memory=deepcopy(pvm_memory)
         )
 
         hostcall = test_vector["hostcall"]

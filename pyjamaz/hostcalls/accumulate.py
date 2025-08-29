@@ -23,7 +23,7 @@ def hc_bless(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_B) | Accumulate host function: bless.
@@ -44,7 +44,7 @@ def hc_bless(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -53,7 +53,7 @@ def hc_bless(
     """
     logger.hc_regs(f"BLESS", "accumulate")
 
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     # Privileged services:
     m = registers[7] # m: index of manager service (manager of chi(X))
@@ -89,20 +89,20 @@ def hc_bless(
     service_exists = True
 
     if auto_accumulate_services is None or assigners is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
 
     elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.HUH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
     elif not service_exists:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.WHO.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.WHO.value
         logger.hc_log("BLESS WHO", f"m={m} a={a} v={v}")
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
 
         # TODO: mark dirty? maybe register changes
         ps = x.context.state_context.privileged_services
@@ -118,7 +118,7 @@ def hc_assign(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_A) | Accumulate host function: assign.
@@ -136,7 +136,7 @@ def hc_assign(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -144,7 +144,7 @@ def hc_assign(
     None
     """
     logger.hc_regs(f"ASSIGN", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     # Privileged services:
     core_index = registers[7] # Core index to update (0..341)
@@ -162,22 +162,22 @@ def hc_assign(
         authorization_queue = None # bold_c = ∇
 
     if authorization_queue is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("ASSIGN PANIC", f"c={core_index}")
 
     elif core_index >= CORE_COUNT:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.CORE.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.CORE.value
         logger.hc_log("ASSIGN CORE", f"c={core_index}")
 
     elif x.context.service_account_id != x.context.state_context.privileged_services.assigners[core_index]:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.HUH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("BLESS HUH", f"X_s={x.context.service_account_id}")
 
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
         # TODO: mark dirty? maybe register changes
         x.context.state_context.authorizer_queues.authorizer_queues[core_index] = authorization_queue
         logger.hc_log("ASSIGN OK", f"c={core_index} o={o}")
@@ -187,7 +187,7 @@ def hc_designate(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_D) | Accumulate host function: designate.
@@ -203,7 +203,7 @@ def hc_designate(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -211,7 +211,7 @@ def hc_designate(
     None
     """
     logger.hc_regs(f"DESIGNATE", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     o = registers[7] # memory offset
 
@@ -228,17 +228,17 @@ def hc_designate(
         validator_queue = None # GP: bold_v = ∇
 
     if validator_queue is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("DESIGNATE PANIC", f"o={o}")
 
     elif x.context.service_account_id != x.context.state_context.privileged_services.delegator:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.HUH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("DESIGNATE HUH", f"Xs={x.context.service_account_id}")
 
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
         # TODO: mark dirty? maybe register changes
         x.context.state_context.validator_queue.validators = validator_queue
         logger.hc_log("DESIGNATE OK", f"o={o}")
@@ -248,7 +248,7 @@ def hc_checkpoint(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_C) | Accumulate host function: checkpoint.
@@ -265,7 +265,7 @@ def hc_checkpoint(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -273,9 +273,9 @@ def hc_checkpoint(
     None
     """
     logger.hc_regs(f"CHECKPOINT", "accumulate")
-    output.gas_limit -= 10
-    output.registers[7] = output.gas_limit
-    output.exit_condition = ExitCondition(reason=ExitReason.resume)
+    invocation_output.gas_limit -= 10
+    invocation_output.registers[7] = invocation_output.gas_limit
+    invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
     x.savepoint_context = deepcopy(x.context)
 
@@ -284,7 +284,7 @@ def hc_new(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_N) | Accumulate host function: new.
@@ -296,7 +296,7 @@ def hc_new(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -304,7 +304,7 @@ def hc_new(
     None
     """
     logger.hc_regs(f"NEW", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     o = registers[7]  # offset to read service data from
     l = registers[8]  # size (byte length) of the code blob
@@ -349,17 +349,17 @@ def hc_new(
         deducted_balance = service_account.balance - new_service_account.threshold_balance
 
     if code_hash is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("NEW PANIC", f"old_service={service_id}")
 
     elif deducted_balance < service_account.threshold_balance:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.CASH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.CASH.value
         logger.hc_log("NEW CASH", f"old_service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
 
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = new_service_id
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = new_service_id
         updated_new_service_id = 2 ** 8 + (new_service_id - 2 ** 8 + 42) % (2 ** 32 - 2 ** 9)
         # TODO: mark dirty? maybe register changes
         x.context.new_service_account_id = x.context.state_context.check_service_id(
@@ -377,7 +377,7 @@ def hc_upgrade(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_U) | Accumulate host function: upgrade.
@@ -396,7 +396,7 @@ def hc_upgrade(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -404,7 +404,7 @@ def hc_upgrade(
     None
     """
     logger.hc_regs(f"UPGRADE", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     o = registers[7]  # offset for service codehash
     g = registers[8]  # gas_limit_accumulate
@@ -419,11 +419,11 @@ def hc_upgrade(
         code_hash = None # GP: c = ∇
 
     if code_hash is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("UPGRADE PANIC", "")
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
 
         # TODO: mark dirty? maybe register changes
         service_account.code_hash = code_hash
@@ -438,7 +438,7 @@ def hc_transfer(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.7 (Ω_T) | Accumulate host function: transfer.
@@ -459,7 +459,7 @@ def hc_transfer(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -468,7 +468,7 @@ def hc_transfer(
     """
     logger.hc_regs(f"TRANSFER", "accumulate")
     gas_cost = 10 + registers[9]
-    output.gas_limit -= gas_cost
+    invocation_output.gas_limit -= gas_cost
 
     d = registers[7]     # destination
     a = registers[8]     # amount
@@ -498,22 +498,22 @@ def hc_transfer(
         b = None
 
     if transfer is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif dest_service_account is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.WHO.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.WHO.value
         logger.hc_log("TRANSFER WHO", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
     elif g < dest_service_account.gas_limit_on_transfer:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.LOW.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.LOW.value
         logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
     elif b < service_account.threshold_balance:   # insufficient funds
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.CASH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.CASH.value
         logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
 
         # TODO: mark dirty? maybe register changes
         service_account.balance = b
@@ -527,7 +527,7 @@ def hc_eject(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_E) | Accumulate host function: eject.
@@ -549,7 +549,7 @@ def hc_eject(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -557,7 +557,7 @@ def hc_eject(
     None
     """
     logger.hc_regs(f"EJECT", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     d = registers[7]
     o = registers[8]
@@ -589,21 +589,21 @@ def hc_eject(
             eject_service_account = None  #GP: bold_d = ∇
 
     if preimage_hash is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("EJECT PANIC", f"")
     elif eject_service_account is None or eject_service_account.code_hash != int(service_id).to_bytes(length=32, byteorder="little"):
         # Note: eject service grants eject by setting code_hash to current service_id
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.WHO.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.WHO.value
         logger.hc_log("EJECT WHO", f"")
     elif eject_service_account.footprint_storage_items != 2 or preimage_availability is None:
         # Note: if this storage_account emptied and the preimage exists
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.HUH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability}")
     elif len(preimage_availability) == 2 and preimage_availability[1] < x.timeslot - PREIMAGE_EXPUNGE_TIMESLOTS:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
 
         # TODO: nodig?
         # TODO: mark dirty? maybe register changes
@@ -614,8 +614,8 @@ def hc_eject(
         state.services.store_service_account(service_id, service_account) # TODO: meenemen in de finalize vd transactie
         logger.hc_log("EJECT OK", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.HUH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
 
 
@@ -623,7 +623,7 @@ def hc_query(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_Q) | Accumulate host function: query.
@@ -641,7 +641,7 @@ def hc_query(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -649,7 +649,7 @@ def hc_query(
     None
     """
     logger.hc_regs(f"QUERY", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     o = registers[7]    # memory offset
     preimage_length = registers[8]    # preimage length
@@ -674,39 +674,39 @@ def hc_query(
         preimage_availability = None
 
     if preimage_hash is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("QUERY PANIC", f"")
     elif preimage_availability is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.NONE.value
-        output.registers[8] = 0
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.NONE.value
+        invocation_output.registers[8] = 0
         logger.hc_log("QUERY NONE", f"r7={registers[7]} (NONE) r8={registers[8]}")
     elif len(preimage_availability) == 0:
         # Note: Marked as requested
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = 0
-        output.registers[8] = 0
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = 0
+        invocation_output.registers[8] = 0
         logger.hc_log("QUERY 0", f"r7={registers[7]} r8={registers[8]}")
     elif len(preimage_availability) == 1:
         # Note: Marked as available
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = 1 + 2 ** 32 * preimage_availability[0]
-        output.registers[8] = 0
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = 1 + 2 ** 32 * preimage_availability[0]
+        invocation_output.registers[8] = 0
         logger.hc_log(f"QUERY 1", f"r7={registers[7]} r8={registers[8]}")
     elif len(preimage_availability) == 2:
         # Note: Marked as unavailable
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = 2 + 2 ** 32 * preimage_availability[0]
-        output.registers[8] = preimage_availability[1]
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = 2 + 2 ** 32 * preimage_availability[0]
+        invocation_output.registers[8] = preimage_availability[1]
         logger.hc_log(f"QUERY 2", f"r7={registers[7]} r8={registers[8]}")
     elif len(preimage_availability) == 3:
         # Note: Marked as re-available
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = 3 + 2 ** 32 * preimage_availability[0]
-        output.registers[8] = preimage_availability[1] + 2 ** 32 * preimage_availability[2]
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = 3 + 2 ** 32 * preimage_availability[0]
+        invocation_output.registers[8] = preimage_availability[1] + 2 ** 32 * preimage_availability[2]
         logger.hc_log(f"QUERY 3", f"r7={registers[7]} r8={registers[8]}")
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("QUERY PANIC", f"")
 
 
@@ -714,7 +714,7 @@ def hc_solicit(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_S) | Accumulate host function: solicit.
@@ -733,7 +733,7 @@ def hc_solicit(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -741,7 +741,7 @@ def hc_solicit(
     None
     """
     logger.hc_regs(f"SOLICIT", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     state = x.context.state_context
     service_id = x.context.service_account_id
@@ -773,19 +773,19 @@ def hc_solicit(
         state.services.store_service_account(service_id, service_account)
 
     if preimage_hash is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("SOLICIT PANIC", f"")
     elif preimage_availability is not None and len(preimage_availability) != 2:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.HUH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("SOLICIT HUH", f"h={preimage_hash} newvalue={preimage_availability}")
     elif service_account.balance < service_account.threshold_balance:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.FULL.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.FULL.value
         logger.hc_log("SOLICIT FULL", f"h={preimage_hash} newvalue={preimage_availability}")
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
 
         if preimage_availability is None:
 
@@ -814,7 +814,7 @@ def hc_forget(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_F) | Accumulate host function: forget.
@@ -834,7 +834,7 @@ def hc_forget(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -842,7 +842,7 @@ def hc_forget(
     None
     """
     logger.hc_regs(f"FORGET", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     o = registers[7]
     preimage_length = registers[8]  #GP: z
@@ -899,15 +899,15 @@ def hc_forget(
         preimage_updated = False
 
     if preimage_hash is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("FORGET PANIC", f"")
     elif preimage_updated is False:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.HUH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("FORGET HUH", f"preimage_hash={preimage_hash.hex()}")
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
         logger.hc_log("FORGET OK", f"preimage_hash={preimage_hash.hex()}")
 
 
@@ -915,7 +915,7 @@ def hc_yield(
         registers: List[int],
         memory: PVMMemory,
         x: AccumulateInvocationContext,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_Y) | Accumulate host function: yield.
@@ -933,7 +933,7 @@ def hc_yield(
     registers: List[int]
     memory: PVMMemory
     x: AccumulateInvocationContext
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -941,7 +941,7 @@ def hc_yield(
     None
     """
     logger.hc_regs(f"YIELD", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
     o = registers[7]
 
     # gp: h
@@ -951,11 +951,11 @@ def hc_yield(
         invocation_data = None
 
     if invocation_data is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("YIELD PANIC", f"")
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
         x.context.invocation_output = invocation_data
         logger.hc_log("YIELD OK", f"invocation_data={invocation_data.hex()}")
 
@@ -966,7 +966,7 @@ def hc_provide(
         ctx_in: AccumulateInvocationContext,
         services: ServicesState,
         service_id: int,
-        output: InvocationMutationOutput,
+        invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
     GP-0.6.7-section:B.8 (Ω_P) | Accumulate host function: provide.
@@ -980,7 +980,7 @@ def hc_provide(
     ctx_in: AccumulateInvocationContext
     services: ServicesState
     service_id: int
-    output: InvocationMutationOutput
+    invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
     Returns
@@ -989,7 +989,7 @@ def hc_provide(
     """
 
     logger.hc_regs(f"PROVIDE", "accumulate")
-    output.gas_limit -= 10
+    invocation_output.gas_limit -= 10
 
     preimage_address = registers[8] # GP: o
     preimage_length = registers[9]  # GP: z
@@ -1024,27 +1024,27 @@ def hc_provide(
         preimage_availability = None
 
     if preimage_blob is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger.hc_log("PROVIDE PANIC", f"")
 
     elif service_account is None:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.WHO.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.WHO.value
         logger.hc_log("PROVIDE WHO", f"")
 
     elif preimage_availability is not None and preimage_availability != []:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.HUH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("PROVIDE HUH", f"")
 
     elif (service_account_id, preimage_blob) in ctx_in.context.preimages:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.HUH.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
         logger.hc_log("PROVIDE HUH", f"")
 
     else:
-        output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        output.registers[7] = HostCallResult.OK.value
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
 
         # Add preimage to invocation context
         ctx_in.context.preimages.append((service_account_id, preimage_blob))

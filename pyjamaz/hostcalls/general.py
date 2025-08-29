@@ -1,7 +1,7 @@
 from copy import deepcopy
 from typing import List, Optional
 
-from jamcodec.types import U64, U32, VarInt64, U8, U16, Vec
+from jamcodec.types import U64, U32, VarInt64, U8, U16, Vec, Bytes
 from pyjamaz import graypaper_constants as gp_const
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
@@ -507,13 +507,13 @@ def hc_fetch(
         bold_v = work_package.to_jam_bytes().to_bytes()
 
     elif w10 == 8 and work_package is not None:
-        bold_v = work_package.authorizer.to_jam_bytes().to_bytes()
+        bold_v = work_package.auth_code_hash + Bytes.encode(work_package.authorizer_config).to_bytes()
 
     elif w10 == 9 and work_package is not None:
         bold_v = work_package.authorization
 
     elif w10 == 10 and work_package is not None:
-        bold_v = work_package.context.to_jam_bytes().to_bytes() # TODO check again with GP
+        bold_v = work_package.context.to_jam_bytes().to_bytes()
 
     elif w10 == 11 and work_package is not None:
         serialized_work_items = [serialize_work_item(w) for w in work_package.items]

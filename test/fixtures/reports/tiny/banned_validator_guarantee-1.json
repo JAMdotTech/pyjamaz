@@ -57,9 +57,66 @@
                         "signature": "0xf3659bade52060cf6b4f2e1d61a384d65b5d95e7904dda8d83a80f2991970ddfe265ad3bc7d7bc67ea693b9c1971b9233ccffbb7201df788883bb540cf1e050b"
                     }
                 ]
+            },
+            {
+                "report": {
+                    "package_spec": {
+                        "hash": "0xa300c7a2ec3b6e09c01d64d74afa36d62f66161be1b4c89baf77756cbcc38a5a",
+                        "length": 15021,
+                        "erasure_root": "0x9fc7e637969aef1a95dfb560a914cf5161a76498db3aa19df131cea199ed6e44",
+                        "exports_root": "0x5c9dca800c145685f052ce1ba343e2b66b4c333ee4c4ca3b29cb347b1009cb83",
+                        "exports_count": 3
+                    },
+                    "context": {
+                        "anchor": "0x39cb518983b02695034b3b92cb31a7334e1a2ec3ef7dbfa32c68e4e8444363f1",
+                        "state_root": "0xd8c577816b629241676502d0461e4eae42a375461314d64484f35f4228da23d6",
+                        "beefy_root": "0xf5df0c11416d43c55b43e096572d450b7780ed0fd7b540f26c8ded8e0d41e183",
+                        "lookup_anchor": "0x16bda47e5a68daf53c39ddee8af4ecaced7e87f3f0ac9da5a6f4f9e41350d319",
+                        "lookup_anchor_slot": 6,
+                        "prerequisites": []
+                    },
+                    "core_index": 1,
+                    "authorizer_hash": "0x9a3a97d1950356ef6d3c20acb5ab6699be454b1498ecd513bdc6d849497e42eb",
+                    "auth_gas_used": 0,
+                    "auth_output": "0x",
+                    "segment_root_lookup": [],
+                    "results": [
+                        {
+                            "service_id": 42,
+                            "code_hash": "0x6470fd21983eae8d706f1edd5e2dc5afe095980f8fb7bd4ebfd33550d8730246",
+                            "payload_hash": "0x3cf2d09da453bbdd6b68d8a1acd5f15ba23ba46d4ff087592b3d319432500a50",
+                            "accumulate_gas": 16083,
+                            "result": {
+                                "ok": "0x64756d6d792d726573756c74"
+                            },
+                            "refine_load": {
+                                "gas_used": 513,
+                                "imports": 6,
+                                "extrinsic_count": 6,
+                                "extrinsic_size": 1986,
+                                "exports": 19
+                            }
+                        }
+                    ]
+                },
+                "slot": 14,
+                "signatures": [
+                    {
+                        "validator_index": 0,
+                        "signature": "0x420ddb1308c3838c96a3ab1b2a433e1bd8465005337e5952de981df3b9d55f9bc76f45e6432d48f089d6d24cbffbad22d4da66008d989e47cfce4d0fe2ca380a"
+                    },
+                    {
+                        "validator_index": 2,
+                        "signature": "0x851bdb1d7e6c59c2608bbeddb6a459418f0679c610005ab60e8c093d68a8589404b27bc099c4f9a299749f56e218e47ad013e0f443a568f6d03d9b7fa95dd603"
+                    },
+                    {
+                        "validator_index": 3,
+                        "signature": "0x84d269ea70c88b5472fcb520dba630d89b44e04112773f6b84f86a5a1ed8cf52ece1bd05b39237eb87199179b010a792b116e04acb906c5fe2a9c4017b414c06"
+                    }
+                ]
             }
         ],
-        "slot": 22,
+        "slot": 14,
         "known_packages": [
             "0x22f6c9658e97a10aab5054000140a3355aa61c2a42d9de904ef9e8533ce4a0f2",
             "0x303026af983b91393c6b31e972263759f72c5e7656c00b267e9b61292252c125",
@@ -153,7 +210,9 @@
             "0x7b0aa1735e5ba58d3236316c671fe4f00ed366ee72417c9ed02a53a8019e85b8",
             "0x8c039ff7caa17ccebfcadc44bd9fce6a4b6699c4d03de2e3349aa1dc11193cd7"
         ],
-        "offenders": [],
+        "offenders": [
+            "0xcab2b9ff25c2410fbe9b8a717abb298c716a03983c98ceb4def2087500b8e341"
+        ],
         "recent_blocks": {
             "history": [
                 {
@@ -234,7 +293,9 @@
                 "0x9a3a97d1950356ef6d3c20acb5ab6699be454b1498ecd513bdc6d849497e42eb",
                 "0x66ae71c0cc186692ff500c6d4b7dbe88059cd3fe506fe5b908a4bc9bca009fd6"
             ],
-            []
+            [
+                "0x9a3a97d1950356ef6d3c20acb5ab6699be454b1498ecd513bdc6d849497e42eb"
+            ]
         ],
         "accounts": [
             {
@@ -280,7 +341,7 @@
         "services_statistics": []
     },
     "output": {
-        "err": "report_epoch_before_last"
+        "err": "banned_validator"
     },
     "post_state": {
         "avail_assignments": [
@@ -369,7 +430,9 @@
             "0x7b0aa1735e5ba58d3236316c671fe4f00ed366ee72417c9ed02a53a8019e85b8",
             "0x8c039ff7caa17ccebfcadc44bd9fce6a4b6699c4d03de2e3349aa1dc11193cd7"
         ],
-        "offenders": [],
+        "offenders": [
+            "0xcab2b9ff25c2410fbe9b8a717abb298c716a03983c98ceb4def2087500b8e341"
+        ],
         "recent_blocks": {
             "history": [
                 {
@@ -450,7 +513,9 @@
                 "0x9a3a97d1950356ef6d3c20acb5ab6699be454b1498ecd513bdc6d849497e42eb",
                 "0x66ae71c0cc186692ff500c6d4b7dbe88059cd3fe506fe5b908a4bc9bca009fd6"
             ],
-            []
+            [
+                "0x9a3a97d1950356ef6d3c20acb5ab6699be454b1498ecd513bdc6d849497e42eb"
+            ]
         ],
         "accounts": [
             {
