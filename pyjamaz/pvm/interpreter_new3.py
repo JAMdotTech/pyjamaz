@@ -4,7 +4,7 @@ import numpy.typing as npt
 from typing import List, Dict
 
 from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
-from .types_new import PVMProgram, PVMMemory
+from .types_new import PVMProgram, PVMMemory, PVMMemoryMode
 
 from .utils_new import (
     pvm_Z,
@@ -33,7 +33,7 @@ from .constants_new import (
     ExitCondition,
 )
 
-from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
+from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
 
 
 class PVMInterpreter:
@@ -57,6 +57,16 @@ class PVMInterpreter:
         self.mem:PVMMemory = None
         self.status:int = ExitReason.resume.value
         self.exit_value:int = None
+        
+        # Initialize memory operation lookups
+        self._init_mem_ops_lookup()
+        
+        # Initialize memory sections storage
+        self.mem_sections = []
+        self.mem_section_refs = []
+        self.mem_section_starts = np.array([], dtype=np.uint32)
+        self.mem_section_ends = np.array([], dtype=np.uint32)
+        self.mem_section_acls = np.array([], dtype=np.uint8)
 
         self.log = None
 
@@ -133,6 +143,9 @@ class PVMInterpreter:
         self.code_size: np.uint64 = np.uint64(len(self.code))
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
+        
+        # Initialize memory sections from the PVMMemory object
+        self._init_memory_sections(program.memory)
 
         for idx, val in enumerate(program.registers):
             self.reg[idx] = np.uint64(val)
@@ -144,30 +157,199 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
 
+
     #TODO: registers_as_int
     def get_registers(self):
         return [int(x) for x in self.reg]
 
+
+    def _init_mem_ops_lookup(self):
+        """Initialize memory operation lookups as numpy arrays for fast access"""
+        # Create lookup arrays for memory operations
+        self.mem_ops_bytes = np.zeros(256, dtype=np.uint8)
+        self.mem_ops_read = np.zeros(256, dtype=np.bool_)
+        self.mem_ops_write = np.zeros(256, dtype=np.bool_)
+        
+        # Populate the lookup arrays from MemOps
+        for opcode, ops in MemOps.items():
+            self.mem_ops_bytes[opcode] = ops["bytes"]
+            self.mem_ops_read[opcode] = ops["read"]
+            self.mem_ops_write[opcode] = ops["write"]
+
+
+    def _init_memory_sections(self, memory):
+        """Initialize memory sections as numpy arrays"""
+        # Store memory sections as numpy arrays with their boundaries
+        self.mem_sections = []
+        self.mem_section_starts = []
+        self.mem_section_ends = []  # This will use paged_tail, not size
+        self.mem_section_acls = []
+        self.mem_section_refs = []  # Keep references to original sections
+        
+        if memory:
+            # Access the actual memory sections (rom, heap, stack, args)
+            for section in [memory._rom, memory._heap, memory._stack, memory._args]:
+                if section:
+                    # We directly use the section's contents array (shared reference)
+                    # This way changes to self.mem_sections will be reflected in the original
+                    self.mem_sections.append(section.contents)
+                    self.mem_section_starts.append(section.address)
+                    # Use paged_tail for the actual used portion, not the full size
+                    self.mem_section_ends.append(section.paged_tail)
+                    # Handle ACL - if it's an enum, get its value
+                    acl_value = section.acl.value if hasattr(section.acl, 'value') else section.acl
+                    self.mem_section_acls.append(acl_value)
+                    self.mem_section_refs.append(section)  # Keep reference to original
+        
+        # Convert to numpy arrays for faster access
+        if self.mem_sections:
+            self.mem_section_starts = np.array(self.mem_section_starts, dtype=np.uint32)
+            self.mem_section_ends = np.array(self.mem_section_ends, dtype=np.uint32)
+            self.mem_section_acls = np.array(self.mem_section_acls, dtype=np.uint8)
+        else:
+            self.mem_section_starts = np.array([], dtype=np.uint32)
+            self.mem_section_ends = np.array([], dtype=np.uint32)
+            self.mem_section_acls = np.array([], dtype=np.uint8)
+
+
+    def _sbrk(self):
+        """Update cached memory bounds after heap extension"""
+        if self.mem_section_refs:
+            for i, section in enumerate(self.mem_section_refs):
+                if section:
+                    # Update the end boundary to reflect current paged_tail
+                    self.mem_section_ends[i] = section.paged_tail
+
+
+    def find_memory_section(self, addr):
+        """Find which memory section an address belongs to"""
+        addr = addr % (2**32)  # Wrap address to q32-bit
+        
+        # Find the section containing this address
+        # Note: using <= for upper bound (not <) to match original implementation
+        for i in range(len(self.mem_sections)):
+            if self.mem_section_starts[i] <= addr <= self.mem_section_ends[i]:
+                return i
+        
+        # Only check for invalid addresses if not found in any section
+        # GP-0.6.2-eq:A.7 - addresses below 2^16 are invalid
+        if addr < 2**16:
+            raise PanicError("Invalid memory access")
+        
+        return -1  # Not found
+
+
     def mem_write(self, opcode, addr, value):
-        if opcode not in MemOps:
-            raise Exception(f"Invalid memory operation: {opcode}")
+        """Write to memory based on opcode"""
+        if not self.mem_ops_write[opcode]:
+            raise Exception(f"Opcode {opcode} is not a valid memory write operation")
+        
+        bytes_to_write = int(self.mem_ops_bytes[opcode])
+        addr = addr % (2 ** 32)  # Wrap address to 32-bit
 
-        if not MemOps[opcode]["write"]:
-            raise Exception(f"Not a valid memory write operation: {opcode}")
+        # Find the memory section
+        section_idx = self.find_memory_section(addr)
+        if section_idx == -1:
+            raise PVMMemoryError(f"Memory address {addr} not found in any section")
 
-        bytes_to_write = MemOps[opcode]["bytes"]
-        self.mem.write_int(addr % self.mem.SIZE, value, bytes_to_write)
+        # Check if writable using page-based ACL (if available)
+        if self.mem and self.mem._acl is not None:
+            page_nr = addr // PVM_PAGE_SIZE
+            if page_nr not in self.mem._acl or self.mem._acl[page_nr] < PVMMemoryMode.writable:
+                raise PVMMemoryError(f"Memory at address {addr} is not writable")
+        else:
+            # Fall back to section-level ACL
+            if self.mem_section_acls[section_idx] < PVMMemoryMode.writable:
+                raise PVMMemoryError(f"Memory at address {addr} is not writable")
+
+        section = self.mem_sections[section_idx]
+        section_offset = addr - self.mem_section_starts[section_idx]
+
+        # Check bounds against the actual section size (not paged_tail)
+        # The section might be larger than paged_tail if it has been extended
+        if section_offset + bytes_to_write > len(section):
+            raise PVMMemoryError(f"Memory write at {addr} would overflow section")
+
+        # Apply modulus for values less than 8 bytes
+        if bytes_to_write < 8:
+            value = value % (2 ** (int(bytes_to_write) * 8))
+
+        # Write bytes in little-endian order
+        if bytes_to_write == 1:
+            section[section_offset] = np.uint8(value & 0xFF)
+        elif bytes_to_write == 2:
+            section[section_offset] = np.uint8(value & 0xFF)
+            section[section_offset + 1] = np.uint8((value >> 8) & 0xFF)
+        elif bytes_to_write == 4:
+            section[section_offset] = np.uint8(value & 0xFF)
+            section[section_offset + 1] = np.uint8((value >> 8) & 0xFF)
+            section[section_offset + 2] = np.uint8((value >> 16) & 0xFF)
+            section[section_offset + 3] = np.uint8((value >> 24) & 0xFF)
+        elif bytes_to_write == 8:
+            section[section_offset] = np.uint8(value & 0xFF)
+            section[section_offset + 1] = np.uint8((value >> 8) & 0xFF)
+            section[section_offset + 2] = np.uint8((value >> 16) & 0xFF)
+            section[section_offset + 3] = np.uint8((value >> 24) & 0xFF)
+            section[section_offset + 4] = np.uint8((value >> 32) & 0xFF)
+            section[section_offset + 5] = np.uint8((value >> 40) & 0xFF)
+            section[section_offset + 6] = np.uint8((value >> 48) & 0xFF)
+            section[section_offset + 7] = np.uint8((value >> 56) & 0xFF)
+        else:
+            raise PVMMemoryError(f"Invalid write length: {bytes_to_write}")
 
 
     def mem_read(self, opcode, addr):
-        if opcode not in MemOps:
-            raise Exception(f"Invalid memory operation: {opcode}")
+        """Read from memory based on opcode"""
+        if not self.mem_ops_read[opcode]:
+            raise Exception(f"Opcode {opcode} is not a valid memory read operation")
 
-        if not MemOps[opcode]["read"]:
-            raise Exception(f"Not a valid memory read operation: {opcode}")
+        bytes_to_read = int(self.mem_ops_bytes[opcode])
+        addr = addr % (2 ** 32)  # Wrap address to 32-bit
 
-        bytes_to_read = MemOps[opcode]["bytes"]
-        return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
+        # Find the memory section
+        section_idx = self.find_memory_section(addr)
+        if section_idx == -1:
+            raise PVMMemoryError(f"Memory address {addr} not found in any section")
+
+        # Check if readable using page-based ACL (if available)
+        if self.mem and self.mem._acl is not None:
+            page_nr = addr // PVM_PAGE_SIZE
+            if page_nr not in self.mem._acl or self.mem._acl[page_nr] == PVMMemoryMode.inaccesible:
+                raise PVMMemoryError(f"Memory at address {addr} is not accessible")
+        else:
+            # Fall back to section-level ACL
+            if self.mem_section_acls[section_idx] == PVMMemoryMode.inaccesible:
+                raise PVMMemoryError(f"Memory at address {addr} is not accessible")
+
+        section = self.mem_sections[section_idx]
+        section_offset = addr - self.mem_section_starts[section_idx]
+
+        # Check bounds against the actual section size
+        if section_offset + bytes_to_read > len(section):
+            raise PVMMemoryError(f"Memory read at {addr} would overflow section")
+
+        # Read bytes in little-endian order
+        if bytes_to_read == 1:
+            return int(section[section_offset])
+        elif bytes_to_read == 2:
+            return (int(section[section_offset]) |
+                    (int(section[section_offset + 1]) << 8))
+        elif bytes_to_read == 4:
+            return (int(section[section_offset]) |
+                    (int(section[section_offset + 1]) << 8) |
+                    (int(section[section_offset + 2]) << 16) |
+                    (int(section[section_offset + 3]) << 24))
+        elif bytes_to_read == 8:
+            return (int(section[section_offset]) |
+                    (int(section[section_offset + 1]) << 8) |
+                    (int(section[section_offset + 2]) << 16) |
+                    (int(section[section_offset + 3]) << 24) |
+                    (int(section[section_offset + 4]) << 32) |
+                    (int(section[section_offset + 5]) << 40) |
+                    (int(section[section_offset + 6]) << 48) |
+                    (int(section[section_offset + 7]) << 56))
+        else:
+            raise PVMMemoryError(f"Invalid read length: {bytes_to_read}")
 
 
     #GP-0.6.7-section:A.15
@@ -182,6 +364,7 @@ class PVMInterpreter:
             raise PanicError(f"Invalid djump operation: a={a}")
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
+
 
     def get_exit_condition(self) -> ExitCondition:
         exit_value = None
@@ -203,9 +386,11 @@ class PVMInterpreter:
 
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
+
     def next_instruction(self):
         inst_index = self.inst_pos[self.pc]
         self.skip_len = self.inst_arg_len[inst_index] + 1
+
 
     def invoke(
         self,
@@ -483,6 +668,8 @@ class PVMInterpreter:
                     elif opcode == 101:  # op.sbrk
                         # Note: set break / set break pointer (extend heap memory)
                         self.reg[r_d] = self.mem.extend_heap(self.reg[r_a])
+                        # Update our cached memory bounds after heap extension
+                        self._sbrk()
                         self.log and self.log(reg1=r_d, reg2=r_a)
 
                     elif opcode == 102:  # op.count_set_bits_64
