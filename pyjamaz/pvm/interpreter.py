@@ -219,8 +219,13 @@ class PVMInterpreter:
             self.log.pvm_counters()
             self.log.pvm_header()
 
-        # GP-0.6.7-section:A.4 Single-Step State Transition
-        while self.status == ExitReason.resume.value and self.gas > 0:
+        # GP-0.7.0-section:A.1 Single-Step State Transition
+        while self.status == ExitReason.resume.value:
+
+            if self.gas <= 0:
+                self.status = ExitReason.out_of_gas.value
+                self.exit_value = None
+                break
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
