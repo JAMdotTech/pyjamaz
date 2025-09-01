@@ -251,6 +251,7 @@ class PVMMemory:
     _acl: Optional[Dict[int, int]] # TODO convert to PVMMemoryMode??
 
     SIZE:int = 2**32
+    _pvm_invoke_nr:int = 0
 
 
     @classmethod
@@ -499,6 +500,7 @@ class PVMMemory:
             return 0
 
         next_page_boundary = PVMMemory.page_size(current_heap_ptr)
+        #logging.critical(f"{new_heap_ptr} > {next_page_boundary}")
         if new_heap_ptr > next_page_boundary:
             growth = PVMMemory.page_size(new_heap_ptr) - next_page_boundary
             self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
@@ -509,6 +511,8 @@ class PVMMemory:
             pages = growth // PVM_PAGE_SIZE + 1
             for page_nr in range(pages):
                 self._acl[next_page_nr + page_nr] = PVMMemoryMode.writable
+
+            #logging.critical(f"????: {self._heap.size} - {pages} - {next_page_nr}")
 
         self._heap.paged_tail = new_heap_ptr
         return self._heap.paged_tail

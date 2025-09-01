@@ -4,6 +4,7 @@ import numpy.typing as npt
 from typing import List, Dict
 
 from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
+from .memory_debug import get_memory_hash
 from .types_new import PVMProgram, PVMMemory
 
 from .utils_new import (
@@ -1057,3 +1058,6 @@ class PVMInterpreter:
             except PanicError as panic_error:
                 self.status = ExitReason.panic.value
                 break
+
+            finally:
+                self.mem._pvm_invoke_nr += 1
