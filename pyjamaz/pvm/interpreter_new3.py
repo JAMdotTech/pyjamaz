@@ -11,18 +11,18 @@ from .types_new import PVMProgram, PVMMemory, PVMMemoryMode
 
 from .utils_new import (
     pvm_Z,
-    pvm_X,
+    # pvm_X,
     pvm_Z_inv,
-    count_trailing_zeroes,
-    count_leading_zeroes,
-    reverse_bytes,
-    rori64,
-    rori32,
+    # count_trailing_zeroes,
+    # count_leading_zeroes,
+    # reverse_bytes,
+    # rori64,
+    # rori32,
     riscv_div,
-    pvm_smod,
-    pvm_rtz_div,
-    roli32,
-    roli64,
+    # pvm_smod,
+    # pvm_rtz_div,
+    # roli32,
+    # roli64,
     read_uint,
 )
 
@@ -38,154 +38,117 @@ from .constants_new import (
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
 
-#
-# def rori64(x, shift_amount):
-#     """JIT-compiled rotate right for 64-bit integers."""
-#     return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
-#
-#
-# def roli64(x, shift_amount):
-#     """JIT-compiled rotate left for 64-bit integers."""
-#     return np.uint64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
-#
-#
-# def rori32(x, shift_amount):
-#     """JIT-compiled rotate right for 32-bit integers."""
-#     return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
-#
-#
-# def roli32(x, shift_amount):
-#     """JIT-compiled rotate left for 32-bit integers."""
-#     return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
-#
-#
-# def pvm_smod(a: np.int64, b: np.int64) -> np.int64:
-#     """
-#     JIT-compiled signed modulo operation.
-#
-#     Returns a % b with sign of a preserved.
-#     Special case: if b == 0, returns a.
-#     """
-#     if b == 0:
-#         return a
-#
-#     if a >= 0:
-#         if b >= 0:
-#             return a % b
-#         else:
-#             return a % (-b)
-#     else:
-#         if b >= 0:
-#             return -((-a) % b)
-#         else:
-#             return -((-a) % (-b))
-#
-#
+
+def rori64(x, shift_amount):
+    """JIT-compiled rotate right for 64-bit integers."""
+    return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
+
+
+def roli64(x, shift_amount):
+    """JIT-compiled rotate left for 64-bit integers."""
+    return np.uint64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
+
+
+def rori32(x, shift_amount):
+    """JIT-compiled rotate right for 32-bit integers."""
+    return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
+
+
+def roli32(x, shift_amount):
+    """JIT-compiled rotate left for 32-bit integers."""
+    return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
+
+
+def pvm_smod(a: np.int64, b: np.int64) -> np.int64:
+    """
+    JIT-compiled signed modulo operation.
+
+    Returns a % b with sign of a preserved.
+    Special case: if b == 0, returns a.
+    """
+    if b == 0:
+        return a
+
+    if a >= 0:
+        if b >= 0:
+            return a % b
+        else:
+            return a % (-b)
+    else:
+        if b >= 0:
+            return -((-a) % b)
+        else:
+            return -((-a) % (-b))
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!
 # def riscv_div(x: np.int64, y: np.int64) -> np.int64:
 #     """JIT-compiled integer division."""
 #     return x // y
-#
-#
-# def pvm_rtz_div(a: np.int64, b: np.int64) -> np.int64:
-#     """
-#     JIT-compiled truncated division (rounds toward zero).
-#     """
-#     if a >= 0:
-#         if b > 0:
-#             return a // b
-#         else:
-#             return -(a // (-b))
-#     else:
-#         if b > 0:
-#             return -((-a) // b)
-#         else:
-#             return (-a) // (-b)
-#
-#
-# def count_trailing_zeroes(value: np.uint64, max_bits: np.int32) -> np.int32:
-#     """JIT-compiled count trailing zeroes."""
-#     if value == 0:
-#         return max_bits
-#     # Find the position of the least significant bit
-#     count = np.int32(0)
-#     temp = value
-#     while (temp & 1) == 0:
-#         count += 1
-#         temp >>= 1
-#     return count
-#
-#
-# def count_leading_zeroes(value: np.uint64, max_bits: np.int32) -> np.int32:
-#     """JIT-compiled count leading zeroes."""
-#     # Simple bit-by-bit scanning approach that Numba can compile
-#     if max_bits == 64:
-#         v = value
-#     else:
-#         v = value & ((np.uint64(1) << max_bits) - np.uint64(1))
-#
-#     if v == 0:
-#         return max_bits
-#
-#     # Count leading zeros by shifting
-#     count = np.int32(0)
-#     test_bit = np.uint64(1) << np.uint64(max_bits - 1)
-#
-#     for i in range(max_bits):
-#         if v & test_bit:
-#             break
-#         count = count + np.int32(1)
-#         test_bit = test_bit >> np.uint64(1)
-#
-#     return count
-#
-#
-# def pvm_X_jit(x, n):
-#     """JIT-compiled sign extension."""
-#     x = int(x)
-#     n = int(n)
-#
-#     if n == 1:
-#         masked = x & 0xFF
-#         if masked & 0x80:
-#             return np.uint64(masked | 0xFFFFFFFFFFFFFF00)
-#         return np.uint64(masked)
-#     elif n == 2:
-#         masked = x & 0xFFFF
-#         if masked & 0x8000:
-#             return np.uint64(masked | 0xFFFFFFFFFFFF0000)
-#         return np.uint64(masked)
-#     elif n == 3:
-#         masked = x & 0xFFFFFF
-#         if masked & 0x800000:
-#             return np.uint64(masked | 0xFFFFFFFFFF000000)
-#         return np.uint64(masked)
-#     elif n == 4:
-#         masked = x & 0xFFFFFFFF
-#         if masked & 0x80000000:
-#             return np.uint64(masked | 0xFFFFFFFF00000000)
-#         return np.uint64(masked)
-#     elif n == 5:
-#         masked = x & 0xFFFFFFFFFF
-#         if masked & 0x8000000000:
-#             return np.uint64(masked | 0xFFFFFF0000000000)
-#         return np.uint64(masked)
-#     elif n == 6:
-#         masked = x & 0xFFFFFFFFFFFF
-#         if masked & 0x800000000000:
-#             return np.uint64(masked | 0xFFFF000000000000)
-#         return np.uint64(masked)
-#     elif n == 7:
-#         masked = x & 0xFFFFFFFFFFFFFF
-#         if masked & 0x80000000000000:
-#             return np.uint64(masked | 0xFF00000000000000)
-#         return np.uint64(masked)
-#     elif n == 8:
-#         return np.uint64(x & 0xFFFFFFFFFFFFFFFF)
-#     else:
-#         return np.uint64(x)
-#
-#
-# def pvm_Z_jit(a, n):
+
+
+def pvm_rtz_div(a: np.int64, b: np.int64) -> np.int64:
+    """
+    JIT-compiled truncated division (rounds toward zero).
+    """
+    if a >= 0:
+        if b > 0:
+            return a // b
+        else:
+            return -(a // (-b))
+    else:
+        if b > 0:
+            return -((-a) // b)
+        else:
+            return (-a) // (-b)
+
+
+def pvm_X(x, n):
+    """JIT-compiled sign extension."""
+    x = int(x)
+    n = int(n)
+
+    if n == 1:
+        masked = x & 0xFF
+        if masked & 0x80:
+            return np.uint64(masked | 0xFFFFFFFFFFFFFF00)
+        return np.uint64(masked)
+    elif n == 2:
+        masked = x & 0xFFFF
+        if masked & 0x8000:
+            return np.uint64(masked | 0xFFFFFFFFFFFF0000)
+        return np.uint64(masked)
+    elif n == 3:
+        masked = x & 0xFFFFFF
+        if masked & 0x800000:
+            return np.uint64(masked | 0xFFFFFFFFFF000000)
+        return np.uint64(masked)
+    elif n == 4:
+        masked = x & 0xFFFFFFFF
+        if masked & 0x80000000:
+            return np.uint64(masked | 0xFFFFFFFF00000000)
+        return np.uint64(masked)
+    elif n == 5:
+        masked = x & 0xFFFFFFFFFF
+        if masked & 0x8000000000:
+            return np.uint64(masked | 0xFFFFFF0000000000)
+        return np.uint64(masked)
+    elif n == 6:
+        masked = x & 0xFFFFFFFFFFFF
+        if masked & 0x800000000000:
+            return np.uint64(masked | 0xFFFF000000000000)
+        return np.uint64(masked)
+    elif n == 7:
+        masked = x & 0xFFFFFFFFFFFFFF
+        if masked & 0x80000000000000:
+            return np.uint64(masked | 0xFF00000000000000)
+        return np.uint64(masked)
+    elif n == 8:
+        return np.uint64(x & 0xFFFFFFFFFFFFFFFF)
+    else:
+        return np.uint64(x)
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# def pvm_Z(a, n):
 #     """JIT-compiled transform unsigned to signed."""
 #     n = int(n)
 #     a = int(a)
@@ -216,45 +179,46 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_S
 #         return a - (1 << (shift + 1))
 #
 #
-# def count_leading_zeroes_jit(value, max_bits=64):
-#     """JIT-compiled count leading zeroes."""
-#     value = value & ((1 << max_bits) - 1)
-#     if value == 0:
-#         return max_bits
-#
-#     count = 0
-#     test_bit = 1 << (max_bits - 1)
-#
-#     while (value & test_bit) == 0 and count < max_bits:
-#         count += 1
-#         test_bit >>= 1
-#
-#     return count
-#
-#
-# def count_trailing_zeroes_jit(value, max_bits=64):
-#     """JIT-compiled count trailing zeroes."""
-#     if value == 0:
-#         return max_bits
-#
-#     count = 0
-#     temp = value
-#     while (temp & 1) == 0:
-#         count += 1
-#         temp >>= 1
-#     return count
-#
-#
-# def reverse_bytes_jit(x):
-#     """JIT-compiled reverse bytes."""
-#     result = np.uint64(0)
-#     for i in range(8):
-#         byte = np.uint64((x >> np.uint64(i * 8)) & np.uint64(0xFF))
-#         result |= np.uint64(byte << np.uint64((7 - i) * 8))
-#     return result
-#
-#
-# def read_uint_jit(code, addr, length):
+def count_leading_zeroes(value, max_bits=64):
+    """JIT-compiled count leading zeroes."""
+    value = value & ((1 << max_bits) - 1)
+    if value == 0:
+        return max_bits
+
+    count = 0
+    test_bit = 1 << (max_bits - 1)
+
+    while (value & test_bit) == 0 and count < max_bits:
+        count += 1
+        test_bit >>= 1
+
+    return count
+
+
+def count_trailing_zeroes(value, max_bits=64):
+    """JIT-compiled count trailing zeroes."""
+    if value == 0:
+        return max_bits
+
+    count = 0
+    temp = value
+    while (temp & 1) == 0:
+        count += 1
+        temp >>= 1
+    return count
+
+
+def reverse_bytes(x):
+    """JIT-compiled reverse bytes."""
+    result = np.uint64(0)
+    for i in range(8):
+        byte = np.uint64((x >> np.uint64(i * 8)) & np.uint64(0xFF))
+        result |= np.uint64(byte << np.uint64((7 - i) * 8))
+    return result
+
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# def read_uint(code, addr, length):
 #     """JIT-compiled version of read_uint for bytecode reading."""
 #     if length == 0:
 #         return np.uint64(0)
@@ -274,7 +238,7 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_S
 #         return result
 #     else:
 #         return np.uint64(0)
-#
+
 
 class PVMInterpreter:
 
@@ -306,7 +270,20 @@ class PVMInterpreter:
         self.mem_section_starts = np.array([], dtype=np.uint32)
         self.mem_section_ends = np.array([], dtype=np.uint32)
         self.mem_section_size = np.array([], dtype=np.uint32)
-        #self.mem_section_acls = np.array([], dtype=np.uint8)
+        """
+        TODO: for jit version, use from numba.typed import Dict and copy back after invoke
+        d = Dict.empty(
+            key_type=types.int64,
+            value_type=types.int64,
+        )
+        """
+        self.mem_acl: Dict[int, int] = {}
+
+        self._mem_addr: int = -1
+
+        self.mem_inaccesible = PVMMemoryMode.inaccesible
+        self.mem_readable = PVMMemoryMode.readable
+        self.mem_writable = PVMMemoryMode.writable
 
         self.log = None
 
@@ -384,8 +361,8 @@ class PVMInterpreter:
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
         
-        # Initialize memory sections from the PVMMemory object
-        self._init_memory_sections(program.memory)
+        # Initialize memory sections from the PVMMemory object (just reference where possible)
+        self._link_memory(program.memory)
 
         for idx, val in enumerate(program.registers):
             self.reg[idx] = np.uint64(val)
@@ -417,36 +394,43 @@ class PVMInterpreter:
             self.mem_ops_write[opcode] = ops["write"]
 
 
-    def _init_memory_sections(self, memory):
+    def _link_memory(self, memory):
         """Initialize memory sections as numpy arrays"""
         # Store memory sections as numpy arrays with their boundaries
         mem_section_starts = []
         mem_section_ends = []  # This will use paged_tail, not size
         mem_section_size = []
-        #self.mem_section_acls = []
 
         # Access the actual memory sections (rom, heap, stack, args)
         for section in [memory._rom, memory._heap, memory._stack, memory._args]:
             if section:
-                # We directly use the section's contents array (shared reference)
-                # This way changes to self.mem_sections will be reflected in the original
                 self.mem_sections.append(section.contents)
                 mem_section_starts.append(section.address)
-                # Use paged_tail for the actual used portion, not the full size
                 mem_section_ends.append(section.paged_tail)
                 mem_section_size.append(section.size)
-                # Handle ACL - if it's an enum, get its value
-                #acl_value = section.acl.value if hasattr(section.acl, 'value') else section.acl
-                #self.mem_section_acls.append(acl_value)
+            else:
+                self.mem_sections.append(None)
+                mem_section_starts.append(0)
+                mem_section_ends.append(0)
+                mem_section_size.append(0)
 
         self.mem_section_starts = np.array(mem_section_starts, dtype=np.uint32)
         self.mem_section_ends = np.array(mem_section_ends, dtype=np.uint32)
         self.mem_section_size = np.array(mem_section_size, dtype=np.uint32)
-        #self.mem_section_acls = np.array(self.mem_section_acls, dtype=np.uint8)
+        self.mem_acl = memory._acl #TODO: pure ref for now, use from numba.typed import Dict for jit version
+
+
+    def _sync_memory(self):
+        """Sync memory state back to original PVMMemory and MemorySection objects after execution"""
+        if self.mem_sections and self.mem_section_starts[1]:
+            self.mem._heap.contents = self.mem_sections[1]
+            self.mem._heap.size = len(self.mem_sections[1])
+            self.mem._heap.paged_tail = self.mem_section_ends[1]
+            self.mem._acl = self.mem_acl
+            self.mem._mem_addr = self._mem_addr
 
 
     def _sbrk(self, size):
-        """Note: this is the PVMMemory.extend_heap function"""
         heap = self.mem_sections[1]
 
         #logging.critical(f"SBRK: {heap.size}")
@@ -469,21 +453,17 @@ class PVMInterpreter:
             if new_heap_end - self.mem_section_starts[1] > len(heap):
                 heap = np.concatenate((heap, np.zeros(growth, dtype=np.uint8)))
                 self.mem_sections[1] = heap
-                self.mem._heap.contents = heap
-                self.mem._heap.size = len(heap)
                 #logging.critical(f"EXTENDING HEAP: {heap.size}")
 
             # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
             pages = growth // PVM_PAGE_SIZE + 1
             for page_nr in range(pages):
-                self.mem._acl[next_page_nr + page_nr] = PVMMemoryMode.writable
-                #self.mem_section_acls[next_page_nr + page_nr] = PVMMemoryMode.writable
+                self.mem_acl[next_page_nr + page_nr] = self.mem_writable
 
             #logging.critical(f"????: {heap.size} - {pages} - {next_page_nr}")
 
         self.mem_section_ends[1] = new_heap_ptr
-        self.mem._heap.paged_tail = new_heap_ptr
         return new_heap_ptr
 
 
@@ -508,12 +488,15 @@ class PVMInterpreter:
 
     def mem_write(self, opcode, addr, value):
         """Write to memory based on opcode"""
-        #TODO: echt nodig?
+        #TODO: necessary?
         if not self.mem_ops_write[opcode]:
             raise Exception(f"Opcode {opcode} is not a valid memory write operation")
         
         bytes_to_write = int(self.mem_ops_bytes[opcode])
-        addr = addr % (2 ** 32)  # Wrap address to 32-bit
+        #addr = addr % (2 ** 32)  #TODO: necessary?
+
+        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
+        self._mem_addr = addr
 
         # Find the memory section
         section_idx = self.find_memory_section(addr)
@@ -521,14 +504,10 @@ class PVMInterpreter:
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
 
         # Check if writable using page-based ACL (if available)
-        if self.mem and self.mem._acl is not None:
+        if self.mem_acl is not None:
             page_nr = addr // PVM_PAGE_SIZE
-            if page_nr not in self.mem._acl or self.mem._acl[page_nr] < PVMMemoryMode.writable:
+            if page_nr not in self.mem_acl or self.mem_acl[page_nr] < self.mem_writable:
                 raise PVMMemoryError(f"Memory at address {addr} is not writable")
-        # else:
-        #     # Fall back to section-level ACL
-        #     if self.mem_section_acls[section_idx] < PVMMemoryMode.writable:
-        #         raise PVMMemoryError(f"Memory at address {addr} is not writable")
 
         section = self.mem_sections[section_idx]
         section_offset = addr - self.mem_section_starts[section_idx]
@@ -566,14 +545,53 @@ class PVMInterpreter:
             raise PVMMemoryError(f"Invalid write length: {bytes_to_write}")
 
 
+    def _mem_read_int(self, addr: int, bytes_to_read: int):
+        section_idx = self.find_memory_section(addr)
+        if section_idx == -1:
+            raise PVMMemoryError(f"mem_read_int: Memory address {addr} not found in any section")
+
+        section = self.mem_sections[section_idx]
+        section_offset = addr - self.mem_section_starts[section_idx]
+
+        # Check bounds against the actual section size
+        if section_offset + bytes_to_read > len(section):
+            raise PVMMemoryError(f"mem_read_int: Memory read at {addr} would overflow section")
+
+        # Read bytes in little-endian order
+        if bytes_to_read == 1:
+            return int(section[section_offset])
+        elif bytes_to_read == 2:
+            return (int(section[section_offset]) |
+                    (int(section[section_offset + 1]) << 8))
+        elif bytes_to_read == 4:
+            return (int(section[section_offset]) |
+                    (int(section[section_offset + 1]) << 8) |
+                    (int(section[section_offset + 2]) << 16) |
+                    (int(section[section_offset + 3]) << 24))
+        elif bytes_to_read == 8:
+            return (int(section[section_offset]) |
+                    (int(section[section_offset + 1]) << 8) |
+                    (int(section[section_offset + 2]) << 16) |
+                    (int(section[section_offset + 3]) << 24) |
+                    (int(section[section_offset + 4]) << 32) |
+                    (int(section[section_offset + 5]) << 40) |
+                    (int(section[section_offset + 6]) << 48) |
+                    (int(section[section_offset + 7]) << 56))
+        else:
+            return -1
+
+
     def mem_read(self, opcode, addr):
         """Read from memory based on opcode"""
-        # TODO: echt nodig?
+        # TODO: necessary?
         if not self.mem_ops_read[opcode]:
             raise Exception(f"Opcode {opcode} is not a valid memory read operation")
 
         bytes_to_read = int(self.mem_ops_bytes[opcode])
-        addr = addr % (2 ** 32)  # Wrap address to 32-bit
+        #addr = addr % (2 ** 32)  # TODO: necessary?
+
+        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
+        self._mem_addr = addr
 
         # TODO: zet ook huidig section en skip als we direct zien dat we al de juiste section hebben!!!!!!
         # Find the memory section
@@ -582,14 +600,10 @@ class PVMInterpreter:
             raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
 
         # Check if readable using page-based ACL (if available)
-        if self.mem and self.mem._acl is not None:
+        if self.mem and self.mem_acl is not None:
             page_nr = addr // PVM_PAGE_SIZE
-            if page_nr not in self.mem._acl or self.mem._acl[page_nr] == PVMMemoryMode.inaccesible:
+            if page_nr not in self.mem_acl or self.mem_acl[page_nr] == self.mem_inaccesible:
                 raise PVMMemoryError(f"Memory at address {addr} is not accessible")
-        # else:
-        #     # Fall back to section-level ACL
-        #     if self.mem_section_acls[section_idx] == PVMMemoryMode.inaccesible:
-        #         raise PVMMemoryError(f"Memory at address {addr} is not accessible")
 
         section = self.mem_sections[section_idx]
         section_offset = addr - self.mem_section_starts[section_idx]
@@ -745,16 +759,16 @@ class PVMInterpreter:
 
                     if opcode == 30:  # op.store_imm_u8
                         self.mem_write(opcode, v_x, v_y % 2 ** 8)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 1)})
+                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 1)})
                     elif opcode == 31:  # op.store_imm_u16
                         self.mem_write(opcode, v_x, v_y % 2 ** 16)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 2)})
+                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 2)})
                     elif opcode == 32:  # op.store_imm_u32
                         self.mem_write(opcode, v_x, v_y % 2 ** 32)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 4)})
+                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 4)})
                     elif opcode == 33:  # op.store_imm_u64
                         self.mem_write(opcode, v_x, v_y)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 8)})
+                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 8)})
                     else:
                         raise InvalidOpcode(f"Invalid imm_imm opcode: {opcode} for instruction type {inst_type}")
 
@@ -815,19 +829,19 @@ class PVMInterpreter:
 
                     elif opcode == 59:  # op.store_u8
                         self.mem_write(opcode, v_x, self.reg[r_a] % 2**8)
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 1)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 1)})
 
                     elif opcode == 60:  # op.store_u16
                         self.mem_write(opcode, v_x, self.reg[r_a] % 2**16)
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 2)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 2)})
 
                     elif opcode == 61:  # op.store_u32
                         self.mem_write(opcode, v_x, self.reg[r_a] % 2**32)
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 4)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 4)})
 
                     elif opcode == 62:  # op.store_u64
                         self.mem_write(opcode, v_x, self.reg[r_a])
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 8)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 8)})
 
                     else:
                         raise InvalidOpcode(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
@@ -847,19 +861,19 @@ class PVMInterpreter:
 
                     if opcode == 70:  # op.store_imm_ind_u8
                         self.mem_write(opcode, w_a + v_x, v_y % 2**8)
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 1)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 1)})
 
                     elif opcode == 71:  # op.store_imm_ind_u16
                         self.mem_write(opcode, w_a + v_x, v_y % 2**16)
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 2)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 2)})
 
                     elif opcode == 72:  # op.store_imm_ind_u32
                         self.mem_write(opcode, w_a + v_x, v_y % 2**32)
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 4)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 4)})
 
                     elif opcode == 73:  # op.store_imm_ind_u64
                         self.mem_write(opcode, w_a + v_x, v_y)
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 8)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 8)})
 
                     else:
                         raise InvalidOpcode(f"Invalid reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
@@ -1516,7 +1530,7 @@ class PVMInterpreter:
                 #logging.error(mem_error)
                 self.status = ExitReason.page_fault.value
                 # self.gas -= 1
-                self.exit_value = self.mem._mem_addr
+                self.exit_value = self._mem_addr
                 break
 
             except PanicError as panic_error:
@@ -1525,39 +1539,5 @@ class PVMInterpreter:
                 self.status = ExitReason.panic.value
                 break
             finally:
-                self.mem._pvm_invoke_nr += 1
-                #self._sync_memory_back()
-
-                # if self.mem._pvm_invoke_nr == 84:
-                #     logging.warning(get_memory_hash(self.mem))
-                #     exit()
-
-
-    # def _sync_memory_back(self):
-    #     """Sync memory state back to original PVMMemory and MemorySection objects after execution"""
-    #     if not self.mem:
-    #         return
-    #
-    #     # Sync paged_tail values for all sections
-    #     if self.mem._rom: #and section_idx < len(self.mem_section_ends):
-    #         self.mem._rom.paged_tail = self.mem_section_ends[0]
-    #
-    #     if self.mem._heap: #and section_idx < len(self.mem_section_ends):
-    #         self.mem._heap.paged_tail = self.mem_section_ends[1]
-    #
-    #     if self.mem._stack: #and section_idx < len(self.mem_section_ends):
-    #         self.mem._stack.paged_tail = self.mem_section_ends[2]
-    #
-    #     if self.mem._args: #and section_idx < len(self.mem_section_ends):
-    #         self.mem._args.paged_tail = self.mem_section_ends[3]
-    #
-    #     # Note: The actual memory contents (numpy arrays) are already shared references,
-    #     # so any changes to the contents are already reflected in the original objects.
-    #     # We only need to sync the metadata like paged_tail.
-    #
-    #     # Also sync the ACL if it was modified
-    #     # if hasattr(self, 'mem_acl_pages') and self.mem._acl is not None:
-    #     #     # Update ACL from our cached arrays
-    #     #     for i, page_num in enumerate(self.mem_acl_pages):
-    #     #         if page_num != 0:  # 0 means unused slot
-    #     #             self.mem._acl[page_num] = int(self.mem_acl_values[i])
+                #self.mem._pvm_invoke_nr += 1
+                self._sync_memory()

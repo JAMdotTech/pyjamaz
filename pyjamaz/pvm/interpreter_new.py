@@ -503,7 +503,7 @@ class PVMInterpreter:
 
                             case op.sbrk:
                                 # Note: set break / set break pointer (extend heap memory)
-                                self.reg[r_d] = self.mem.extend_heap(self.reg[r_a])
+                                self.reg[r_d] = self.mem._sbrk(self.reg[r_a])
                                 self.log and self.log(reg1=r_d, reg2=r_a)
 
                             case op.count_set_bits_64:

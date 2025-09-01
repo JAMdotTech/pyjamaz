@@ -476,7 +476,7 @@ class PVMInterpreter:
 
                     elif opcode == 101:  # op.sbrk
                         # Note: set break / set break pointer (extend heap memory)
-                        self.reg[r_d] = self.mem.extend_heap(self.reg[r_a])
+                        self.reg[r_d] = self.mem._sbrk(self.reg[r_a])
                         self.log and self.log(reg1=r_d, reg2=r_a)
 
                     elif opcode == 102:  # op.count_set_bits_64
@@ -1058,6 +1058,3 @@ class PVMInterpreter:
             except PanicError as panic_error:
                 self.status = ExitReason.panic.value
                 break
-
-            finally:
-                self.mem._pvm_invoke_nr += 1
