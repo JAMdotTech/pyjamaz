@@ -1772,7 +1772,7 @@ class Services(StateComponent):
     @staticmethod
     def are_preimages_sorted(preimages: List[Preimage]) -> bool:
         """
-        GP-0.7.0-eq:12.34 | Are all preimages sorted?
+        GP-0.7.0-eq:12.39 | Are all preimages sorted?
 
         Parameters
         ----------
@@ -1783,7 +1783,7 @@ class Services(StateComponent):
         bool
         """
 
-        sorted_preimage = lambda p: int(p.requester).to_bytes(2, byteorder="little") + p.blob
+        sorted_preimage = lambda p: int(p.requester).to_bytes(4, byteorder="big") + p.blob
 
         return all(
             sorted_preimage(preimages[i]) <= sorted_preimage(preimages[i + 1]) for i in range(len(preimages) - 1)
