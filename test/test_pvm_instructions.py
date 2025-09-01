@@ -52,7 +52,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
             for page_map in test_vector["initial-page-map"]:
                 page = MemorySection(
                     address=page_map["address"],
-                    length=page_map["length"],
+                    size=page_map["length"],
                     acl=PVMMemoryMode.writable if page_map["is-writable"] else PVMMemoryMode.readable,
                     contents=[0] * page_map["length"]
                 )

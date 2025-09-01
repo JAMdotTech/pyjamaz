@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import numpy.typing as npt
 
@@ -303,6 +305,7 @@ class PVMInterpreter:
         self.mem_sections = []
         self.mem_section_starts = np.array([], dtype=np.uint32)
         self.mem_section_ends = np.array([], dtype=np.uint32)
+        self.mem_section_size = np.array([], dtype=np.uint32)
         #self.mem_section_acls = np.array([], dtype=np.uint8)
 
         self.log = None
@@ -417,40 +420,36 @@ class PVMInterpreter:
     def _init_memory_sections(self, memory):
         """Initialize memory sections as numpy arrays"""
         # Store memory sections as numpy arrays with their boundaries
-        self.mem_sections = []
-        self.mem_section_starts = []
-        self.mem_section_ends = []  # This will use paged_tail, not size
+        mem_section_starts = []
+        mem_section_ends = []  # This will use paged_tail, not size
+        mem_section_size = []
         #self.mem_section_acls = []
 
-        if memory:
-            # Access the actual memory sections (rom, heap, stack, args)
-            for section in [memory._rom, memory._heap, memory._stack, memory._args]:
-                if section:
-                    # We directly use the section's contents array (shared reference)
-                    # This way changes to self.mem_sections will be reflected in the original
-                    self.mem_sections.append(section.contents)
-                    self.mem_section_starts.append(section.address)
-                    # Use paged_tail for the actual used portion, not the full size
-                    self.mem_section_ends.append(section.paged_tail)
-                    # Handle ACL - if it's an enum, get its value
-                    acl_value = section.acl.value if hasattr(section.acl, 'value') else section.acl
-                    #self.mem_section_acls.append(acl_value)
+        # Access the actual memory sections (rom, heap, stack, args)
+        for section in [memory._rom, memory._heap, memory._stack, memory._args]:
+            if section:
+                # We directly use the section's contents array (shared reference)
+                # This way changes to self.mem_sections will be reflected in the original
+                self.mem_sections.append(section.contents)
+                mem_section_starts.append(section.address)
+                # Use paged_tail for the actual used portion, not the full size
+                mem_section_ends.append(section.paged_tail)
+                mem_section_size.append(section.size)
+                # Handle ACL - if it's an enum, get its value
+                #acl_value = section.acl.value if hasattr(section.acl, 'value') else section.acl
+                #self.mem_section_acls.append(acl_value)
 
-        # Convert to numpy arrays for faster access
-        if self.mem_sections:
-            self.mem_section_starts = np.array(self.mem_section_starts, dtype=np.uint32)
-            self.mem_section_ends = np.array(self.mem_section_ends, dtype=np.uint32)
-            #self.mem_section_acls = np.array(self.mem_section_acls, dtype=np.uint8)
-        else:
-            self.mem_section_starts = np.array([], dtype=np.uint32)
-            self.mem_section_ends = np.array([], dtype=np.uint32)
-            #self.mem_section_acls = np.array([], dtype=np.uint8)
+        self.mem_section_starts = np.array(mem_section_starts, dtype=np.uint32)
+        self.mem_section_ends = np.array(mem_section_ends, dtype=np.uint32)
+        self.mem_section_size = np.array(mem_section_size, dtype=np.uint32)
+        #self.mem_section_acls = np.array(self.mem_section_acls, dtype=np.uint8)
 
 
     def _sbrk(self, size):
         """Note: this is the PVMMemory.extend_heap function"""
         heap = self.mem_sections[1]
 
+        #logging.critical(f"SBRK: {heap.size}")
         if size == 0:
             return self.mem_section_ends[1]
 
@@ -463,11 +462,16 @@ class PVMInterpreter:
         #logging.critical(f"{new_heap_ptr} > {next_page_boundary}")
 
         if new_heap_ptr > next_page_boundary:
-            growth = PVMMemory.page_size(new_heap_ptr) - next_page_boundary
-            heap =  np.concatenate((heap, np.zeros(growth, dtype=np.uint8)))
-            self.mem_sections[1] = heap
-            self.mem._heap.contents = heap
-            self.mem._heap.size = len(heap)
+            new_heap_end = PVMMemory.page_size(new_heap_ptr)
+            growth = new_heap_end - next_page_boundary
+
+            # Only grow when we exceed pre-allocated heap mem
+            if new_heap_end - self.mem_section_starts[1] > len(heap):
+                heap = np.concatenate((heap, np.zeros(growth, dtype=np.uint8)))
+                self.mem_sections[1] = heap
+                self.mem._heap.contents = heap
+                self.mem._heap.size = len(heap)
+                #logging.critical(f"EXTENDING HEAP: {heap.size}")
 
             # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
@@ -486,18 +490,19 @@ class PVMInterpreter:
     def find_memory_section(self, addr):
         """Find which memory section an address belongs to"""
         addr = addr % (2**32)  # Wrap address to q32-bit
-        
+
+        # Only check for invalid addresses if not found in any section
+        # GP-0.6.2-eq:A.7 - addresses below 2^16 are invalid
+        if addr < 2**16:
+            raise PanicError("Invalid memory access")
+
+        # TODO: unroll and sort on most accessed memory segments first!
         # Find the section containing this address
         # Note: using <= for upper bound (not <) to match original implementation
         for i in range(len(self.mem_sections)):
             if self.mem_section_starts[i] <= addr <= self.mem_section_ends[i]:
                 return i
-        
-        # Only check for invalid addresses if not found in any section
-        # GP-0.6.2-eq:A.7 - addresses below 2^16 are invalid
-        if addr < 2**16:
-            raise PanicError("Invalid memory access")
-        
+
         return -1  # Not found
 
 
@@ -513,7 +518,7 @@ class PVMInterpreter:
         # Find the memory section
         section_idx = self.find_memory_section(addr)
         if section_idx == -1:
-            raise PVMMemoryError(f"Memory address {addr} not found in any section")
+            raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
 
         # Check if writable using page-based ACL (if available)
         if self.mem and self.mem._acl is not None:
@@ -570,10 +575,11 @@ class PVMInterpreter:
         bytes_to_read = int(self.mem_ops_bytes[opcode])
         addr = addr % (2 ** 32)  # Wrap address to 32-bit
 
+        # TODO: zet ook huidig section en skip als we direct zien dat we al de juiste section hebben!!!!!!
         # Find the memory section
         section_idx = self.find_memory_section(addr)
         if section_idx == -1:
-            raise PVMMemoryError(f"Memory address {addr} not found in any section")
+            raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
 
         # Check if readable using page-based ACL (if available)
         if self.mem and self.mem._acl is not None:
@@ -1514,6 +1520,8 @@ class PVMInterpreter:
                 break
 
             except PanicError as panic_error:
+                #logging.error("PanicError")
+                #logging.error(panic_error)
                 self.status = ExitReason.panic.value
                 break
             finally:

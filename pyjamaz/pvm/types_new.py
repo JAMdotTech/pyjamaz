@@ -14,7 +14,7 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger, Bytes
 
-from pyjamaz.pvm.constants_new import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
+from pyjamaz.pvm.constants_new import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, PVM_MAX_HEAP_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
 
@@ -115,23 +115,16 @@ class MemorySection:
     paged_tail: int # Note: the address of the last written index for this section
     contents: npt.NDArray[np.uint8]
 
-    def __init__(self, address, length, contents, acl:PVMMemoryMode):
+    def __init__(self, address, size, contents, acl:PVMMemoryMode):
         if not contents:
             contents = []
 
         self.acl = acl
         self.address:int = address
-        self.size:int = length
-        #TODO!!!!!!!!!!!!!!!!! ode aan peter: make nicer!!!!!!
-        if self.size > 2**21:
-            raise Exception(f'Memory size too large: {self.size}')
-
+        self.size:int = PVMMemory.page_size(size)
         self.contents: npt.NDArray[np.uint8] = np.zeros(self.size, dtype=np.uint8)
-        #self.tail = address
         self.update(0, contents)
-        #self.paged_tail = address + self.size
-        self.paged_tail = PVMMemory.page_size(len(contents)+address)    #TODO: we might need to exclude address from, the paged_size calculation, rename paged_tail to a netter name, abs_section_tail somethingsoething
-        self.size = PVMMemory.page_size(len(contents))
+        self.paged_tail = PVMMemory.page_size(len(contents)+address)
 
     def update(self, idx, _bytes):
         if _bytes:
@@ -258,25 +251,25 @@ class PVMMemory:
     def allocate(cls, rom_pages, heap_pages, stack_pages, arg_pages):
         _rom = MemorySection(
             address=PVM_INIT_ZONE_SIZE,
-            length=rom_pages * PVM_PAGE_SIZE,
+            size=rom_pages * PVM_PAGE_SIZE,
             contents=bytes(rom_pages * PVM_PAGE_SIZE),
             acl=PVMMemoryMode.readable
         )
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(_rom.size),
-            length=heap_pages * PVM_PAGE_SIZE,
+            size=heap_pages * PVM_PAGE_SIZE,
             contents=bytes(heap_pages * PVM_PAGE_SIZE),
             acl=PVMMemoryMode.writable
         )
         _stack = MemorySection(
             address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - stack_pages * PVM_PAGE_SIZE,
-            length=stack_pages * PVM_PAGE_SIZE,
+            size=stack_pages * PVM_PAGE_SIZE,
             contents=bytes(stack_pages * PVM_PAGE_SIZE),
             acl=PVMMemoryMode.writable,
         )
         _arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            length=arg_pages * PVM_PAGE_SIZE,
+            size=arg_pages * PVM_PAGE_SIZE,
             contents=bytes(arg_pages * PVM_PAGE_SIZE),
             acl=PVMMemoryMode.readable
         )
@@ -502,9 +495,12 @@ class PVMMemory:
         next_page_boundary = PVMMemory.page_size(current_heap_ptr)
         #logging.critical(f"{new_heap_ptr} > {next_page_boundary}")
         if new_heap_ptr > next_page_boundary:
-            growth = PVMMemory.page_size(new_heap_ptr) - next_page_boundary
-            self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
-            self._heap.size = len(self._heap.contents)
+            new_heap_end = PVMMemory.page_size(new_heap_ptr)
+            growth = new_heap_end - next_page_boundary
+
+            if new_heap_end - self._heap.address > len(self._heap.contents):
+                self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
+                self._heap.size = len(self._heap.contents)
 
             # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
@@ -525,7 +521,7 @@ class PVMMemory:
             if not self._rom:
                 self._rom = MemorySection(
                     address=PVM_INIT_ZONE_SIZE,
-                    length=nr_pages*PVM_PAGE_SIZE,
+                    size=nr_pages * PVM_PAGE_SIZE,
                     contents=bytes(nr_pages*PVM_PAGE_SIZE),
                     acl=acl
                 )
@@ -536,7 +532,7 @@ class PVMMemory:
             if not self._heap:
                 self._heap = MemorySection(
                     address = (2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(self._rom.contents)),
-                    length = nr_pages * PVM_PAGE_SIZE,
+                    size=nr_pages * PVM_PAGE_SIZE,
                     contents = bytes(nr_pages*PVM_PAGE_SIZE),
                     acl=acl
                 )
@@ -547,7 +543,7 @@ class PVMMemory:
             if not self._stack:
                 self._stack = MemorySection(
                     address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - (nr_pages * PVM_PAGE_SIZE),
-                    length=nr_pages * PVM_PAGE_SIZE,
+                    size=nr_pages * PVM_PAGE_SIZE,
                     contents=bytes(nr_pages * PVM_PAGE_SIZE),
                     acl=acl
                 )
@@ -627,29 +623,33 @@ class PVMProgram(Serializable):
 
         _rom = MemorySection(
             address=PVM_INIT_ZONE_SIZE,
-            length=PVMMemory.page_size(len(rom_contents)),
+            size=PVMMemory.page_size(len(rom_contents)),
             contents=rom_contents,
             acl=PVMMemoryMode.readable
         )
 
-        # TODO: add sanity check on heap_mem_size
+        # preallocate a big enough chunk to prevent lots of memory allocations...
+        heap_mem_size = max(PVMMemory.page_size(2 ** 21), PVMMemory.page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
+        if heap_mem_size > PVM_MAX_HEAP_SIZE:
+            raise PVMMemoryError(f"Heap memory size too large: {}")
+
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
-            length=PVMMemory.page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE,
+            size=heap_mem_size,
             contents=heap_contents,
             acl=PVMMemoryMode.writable
         )
 
         _stack = MemorySection(
             address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
-            length=PVMMemory.page_size(stack_mem_size),
+            size=PVMMemory.page_size(stack_mem_size),
             contents=bytes(PVMMemory.page_size(stack_mem_size)),    #TODO: hoeft niet dubbel hier
             acl=PVMMemoryMode.writable
         )
 
         _arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            length=PVMMemory.page_size(len(argument_contents)),
+            size=PVMMemory.page_size(len(argument_contents)),
             contents=argument_contents,
             acl=PVMMemoryMode.readable
         )
