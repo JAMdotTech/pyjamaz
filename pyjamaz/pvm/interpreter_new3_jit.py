@@ -508,7 +508,7 @@ def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
     
     # Check various invalid conditions
     if (a == 0 or 
-        a >= len(jump_table) * 4 or  # PVM_DYNAMIC_ALIGNMENT_FACTOR = 4
+        a >= len(jump_table) * 4 or  # TODO: use constant PVM_DYNAMIC_ALIGNMENT_FACTOR = 4
         a % 4 != 0):
         return I32(-2)  # Invalid jump
         
@@ -682,177 +682,113 @@ def invoke_native(
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
-        # Type 5: InstructionType.reg_imm
+        #GP-0.6.7-section:A.5.6
         elif inst_type == inst_reg_imm:
             r_a = min(12, code[pc + 1] % 16)
             l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
             v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
 
             if opcode == op_jump_ind:
-                jump_target = U32(reg[r_a] + v_x) % (2**32)
+                jump_target = U32(reg[r_a] + v_x)
                 djump_result = djump_jit(jump_target, jump_table, pc, inst_pos_keys)
                 if djump_result == I32(-1):
-                    status = EXIT_HALT
+                    return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_NONE)
                 elif djump_result == I32(-2):
-                    status = EXIT_PANIC
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_PANIC_INVALID_DJUMP
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_DJUMP)
                 else:
                     skip_len = djump_result
+
             elif opcode == op_load_imm:
                 reg[r_a] = v_x
+
             elif opcode == op_load_u8:
-                # Memory load - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = loaded_value
+
             elif opcode == op_load_i8:
-                # Memory load - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = pvm_X_jit(loaded_value, U8(1))
+
             elif opcode == op_load_u16:
-                # Memory load - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = loaded_value
+
             elif opcode == op_load_i16:
-                # Memory load - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = pvm_X_jit(loaded_value, U8(2))
+
             elif opcode == op_load_u32:
                 loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
                 if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
-                    status = EXIT_PAGE_FAULT
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_MEMORY_FAULT
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
+
             elif opcode == op_load_i32:
-                # Memory load - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = pvm_X_jit(loaded_value, U8(4))
+
             elif opcode == op_load_u64:
-                # Memory load - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                loaded_value = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = loaded_value
+
             elif opcode == op_store_u8:
-                # Memory store - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                if mem_write_jit(v_x, reg[r_a] % (2**8), U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
             elif opcode == op_store_u16:
-                # Memory store - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                if mem_write_jit(v_x, reg[r_a] % (2**16), U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
             elif opcode == op_store_u32:
-                # Memory store - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                if mem_write_jit(v_x, reg[r_a] % (2**32), U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
             elif opcode == op_store_u64:
-                # Memory store - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
-            elif opcode == op_add_imm_64:
-                reg[r_a] = (reg[r_a] + v_x) & U64(0xFFFFFFFFFFFFFFFF)
-            elif opcode == op_add_imm_32:
-                reg[r_a] = pvm_X_jit((reg[r_a] + v_x) % (2**32), U8(4))
-            elif opcode == op_sub_imm:
-                reg[r_a] = (reg[r_a] + U64(0xFFFFFFFFFFFFFFFF) - v_x + U64(1)) & U64(0xFFFFFFFFFFFFFFFF)
-            elif opcode == op_and_imm:
-                reg[r_a] = reg[r_a] & v_x
-            elif opcode == op_xor_imm:
-                reg[r_a] = reg[r_a] ^ v_x
-            elif opcode == op_or_imm:
-                reg[r_a] = reg[r_a] | v_x
-            elif opcode == op_mul_imm_64:
-                reg[r_a] = (reg[r_a] * v_x) & U64(0xFFFFFFFFFFFFFFFF)
-            elif opcode == op_set_lt_u_imm:
-                reg[r_a] = U64(1) if reg[r_a] < v_x else U64(0)
-            elif opcode == op_set_lt_s_imm:
-                reg[r_a] = U64(1) if pvm_Z_jit(reg[r_a], 8) < pvm_Z_jit(v_x, 8) else U64(0)
-            elif opcode == op_shlo_l_imm_64:
-                if v_x < 64:
-                    reg[r_a] = (reg[r_a] << v_x) & U64(0xFFFFFFFFFFFFFFFF)
-                else:
-                    reg[r_a] = U64(0)
-            # Note: Many more opcodes would need to be implemented here
-            # For now, return error for unimplemented
+                if mem_write_jit(v_x, reg[r_a], U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
             else:
-                # Fall back to Python for complex operations - copy state first
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc  # PC already points to current instruction
-                gas_out[0] = gas + 1  # Return gas before decrement  
-                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_PANIC_TRAP
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
         # Type 6: InstructionType.reg_imm_imm  
         elif inst_type == inst_reg_imm_imm:
