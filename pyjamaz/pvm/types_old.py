@@ -34,8 +34,7 @@ class PVMLogger(ABC):
         pass
 
     @abstractmethod
-    def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str,
-                 message: str) -> None:
+    def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
         pass
 
     @abstractmethod

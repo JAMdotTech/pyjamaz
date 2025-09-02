@@ -120,6 +120,9 @@ class MemorySection:
         if not contents:
             contents = []
 
+        if size > PVM_MAX_HEAP_SIZE:
+            raise PVMMemoryError(f"Memory size too large: {size} > {PVM_MAX_HEAP_SIZE}")
+
         self.acl = acl
         self.address:int = address
         self.size:int = PVMMemory.page_size(size)
@@ -628,11 +631,8 @@ class PVMProgram(Serializable):
             acl=PVMMemoryMode.readable
         )
 
-        # preallocate a big enough chunk to prevent lots of memory allocations...
+        # If PVM_MIN_HEP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
         heap_mem_size = max(PVMMemory.page_size(PVM_MIN_HEAP_SIZE), PVMMemory.page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
-        if heap_mem_size > PVM_MAX_HEAP_SIZE:
-            raise PVMMemoryError(f"Heap memory size too large: {heap_mem_size}")
-
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
             size=heap_mem_size,
