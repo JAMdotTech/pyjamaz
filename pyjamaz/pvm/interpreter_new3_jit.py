@@ -790,17 +790,49 @@ def invoke_native(
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
-        # Type 6: InstructionType.reg_imm_imm  
+        #GP-0.6.7-section:A.5.7
         elif inst_type == inst_reg_imm_imm:
-            # Memory operations - fall back to Python for now
-            for i in range(len(reg)):
-                registers_out[i] = reg[i]
-            status_out[0] = status
-            exit_value_out[0] = exit_value
-            pc_out[0] = pc
-            gas_out[0] = gas + 1
-            inst_nr_out[0] = inst_nr - 1
-            return ERROR_PANIC_TRAP
+            r_a = min(12, code[pc + 1] % 16)
+            w_a = reg[r_a]
+            
+            l_x = min(4, (code[pc + 1] // 16) % 8)
+            v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), U8(l_x))
+            
+            l_y = min(4, max(0, inst_arg_len[inst_index] - l_x - 1))
+            v_y = pvm_X_jit(read_uint_jit(code, pc + 2 + l_x, l_y), U8(l_y))
+            
+            if opcode == op_store_imm_ind_u8:
+                store_addr = w_a + v_x
+                if mem_write_jit(store_addr, v_y % (2**8), U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
+            elif opcode == op_store_imm_ind_u16:
+                store_addr = w_a + v_x
+                if mem_write_jit(store_addr, v_y % (2**16), U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
+            elif opcode == op_store_imm_ind_u32:
+                store_addr = w_a + v_x
+                if mem_write_jit(store_addr, v_y % (2**32), U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
+            elif opcode == op_store_imm_ind_u64:
+                store_addr = w_a + v_x
+                if mem_write_jit(store_addr, v_y, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
+            else:
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
             
         # Type 7: InstructionType.reg_reg_imm_imm
         elif inst_type == inst_reg_imm_offset:
