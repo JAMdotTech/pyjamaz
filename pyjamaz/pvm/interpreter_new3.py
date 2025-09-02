@@ -20,10 +20,14 @@ from .constants_new import (
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
 
 
-#TODO: alles zo aliassen!!!!!!!!
+U8 = np.uint8
+U16 = np.uint16
+U32 = np.uint32
 U64 = np.uint64
+I8 = np.int8
+I16 = np.int16
+I32 = np.int32
 I64 = np.int64
-
 
 # --- 64x64 -> 128 helpers to ditch Pythons int() boxing
 
@@ -68,27 +72,27 @@ def smul_u64wide(a: I64, b: U64):
     return U64(hi), U64(lo)
 
 
-def rori64(x, shift_amount):
+def rori64(x: U64, shift_amount: U64) -> U64:
     """JIT-compiled rotate right for 64-bit integers."""
-    return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
+    return U64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-def roli64(x, shift_amount):
+def roli64(x: U64, shift_amount: U64) -> U64:
     """JIT-compiled rotate left for 64-bit integers."""
-    return np.uint64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
+    return U64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-def rori32(x, shift_amount):
+def rori32(x: U32, shift_amount: U32) -> U32:
     """JIT-compiled rotate right for 32-bit integers."""
-    return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
+    return U32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-def roli32(x, shift_amount):
+def roli32(x: U32, shift_amount: U32) -> U32:
     """JIT-compiled rotate left for 32-bit integers."""
-    return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
+    return U32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-def pvm_smod(a: np.int64, b: np.int64) -> np.int64:
+def pvm_smod(a: I64, b: I64) -> I64:
     """
     JIT-compiled signed modulo operation.
 
@@ -110,7 +114,7 @@ def pvm_smod(a: np.int64, b: np.int64) -> np.int64:
             return -((-a) % (-b))
 
 
-def pvm_rtz_div(a: np.int64, b: np.int64) -> np.int64:
+def pvm_rtz_div(a: I64, b: I64) -> I64:
     """
     JIT-compiled truncated division (rounds toward zero).
     """
@@ -126,53 +130,54 @@ def pvm_rtz_div(a: np.int64, b: np.int64) -> np.int64:
             return (-a) // (-b)
 
 
-def pvm_X(x, n):
+def pvm_X(x: U64, n: U64) -> U64:
     """JIT-compiled sign extension."""
-    x = np.uint64(x)
-    n = np.uint64(n)
+    #TODO: cast nodig?
+    x = U64(x)
+    n = U64(n)
 
     if n == 1:
         masked = x & 0xFF
         if masked & 0x80:
-            return np.uint64(masked | 0xFFFFFFFFFFFFFF00)
-        return np.uint64(masked)
+            return U64(masked | 0xFFFFFFFFFFFFFF00)
+        return U64(masked)
     elif n == 2:
         masked = x & 0xFFFF
         if masked & 0x8000:
-            return np.uint64(masked | 0xFFFFFFFFFFFF0000)
-        return np.uint64(masked)
+            return U64(masked | 0xFFFFFFFFFFFF0000)
+        return U64(masked)
     elif n == 3:
         masked = x & 0xFFFFFF
         if masked & 0x800000:
-            return np.uint64(masked | 0xFFFFFFFFFF000000)
-        return np.uint64(masked)
+            return U64(masked | 0xFFFFFFFFFF000000)
+        return U64(masked)
     elif n == 4:
         masked = x & 0xFFFFFFFF
         if masked & 0x80000000:
-            return np.uint64(masked | 0xFFFFFFFF00000000)
-        return np.uint64(masked)
+            return U64(masked | 0xFFFFFFFF00000000)
+        return U64(masked)
     elif n == 5:
         masked = x & 0xFFFFFFFFFF
         if masked & 0x8000000000:
-            return np.uint64(masked | 0xFFFFFF0000000000)
-        return np.uint64(masked)
+            return U64(masked | 0xFFFFFF0000000000)
+        return U64(masked)
     elif n == 6:
         masked = x & 0xFFFFFFFFFFFF
         if masked & 0x800000000000:
-            return np.uint64(masked | 0xFFFF000000000000)
-        return np.uint64(masked)
+            return U64(masked | 0xFFFF000000000000)
+        return U64(masked)
     elif n == 7:
         masked = x & 0xFFFFFFFFFFFFFF
         if masked & 0x80000000000000:
-            return np.uint64(masked | 0xFF00000000000000)
-        return np.uint64(masked)
+            return U64(masked | 0xFF00000000000000)
+        return U64(masked)
     elif n == 8:
-        return np.uint64(x & 0xFFFFFFFFFFFFFFFF)
+        return U64(x & 0xFFFFFFFFFFFFFFFF)
     else:
-        return np.uint64(x)
+        return U64(x)
 
 
-def pvm_Z(a: np.int64, n: np.int64):
+def pvm_Z(a: U64, n: U64) -> I64:
     """JIT-friendly unsigned->signed conversion for n bytes (1..8).
     Returns np.int64 with proper two's-complement sign extension without Python big-ints.
     """
@@ -199,7 +204,8 @@ def pvm_Z(a: np.int64, n: np.int64):
         return I64(val)
 
 
-def count_leading_zeroes(value, max_bits=64):
+#TODO: max_bits u8 maken?
+def count_leading_zeroes(value: U64, max_bits=64):
     """JIT-compiled count leading zeroes."""
     value = value & ((1 << max_bits) - 1)
     if value == 0:
@@ -215,7 +221,8 @@ def count_leading_zeroes(value, max_bits=64):
     return count
 
 
-def count_trailing_zeroes(value, max_bits=64):
+#TODO: max_bits u8 maken?
+def count_trailing_zeroes(value: U64, max_bits=64):
     """JIT-compiled count trailing zeroes."""
     if value == 0:
         return max_bits
@@ -228,29 +235,29 @@ def count_trailing_zeroes(value, max_bits=64):
     return count
 
 
-def reverse_bytes(x):
+def reverse_bytes(x: U64) -> U64:
     """JIT-compiled reverse bytes."""
-    result = np.uint64(0)
+    result = U64(0)
     for i in range(8):
-        byte = np.uint64((x >> np.uint64(i * 8)) & np.uint64(0xFF))
-        result |= np.uint64(byte << np.uint64((7 - i) * 8))
+        byte = U64((x >> U64(i * 8)) & U64(0xFF))
+        result |= U64(byte << U64((7 - i) * 8))
     return result
 
 
-def read_uint(code: npt.NDArray[np.uint8], addr:np.uint32, length:np.uint8):
-    addr32 = np.uint32(addr)      # wrap to 32-bit address space
-    len8   = np.uint8(length)
+def read_uint(code: npt.NDArray[U8], addr:U32, length:U8) -> U64:
+    addr32 = U32(addr)      # wrap to 32-bit address space
+    len8   = U8(length)
 
-    if len8 == np.uint8(0):
-        return np.uint64(0)
+    if len8 == U8(0):
+        return U64(0)
 
-    if len8 == np.uint8(1):
-        return np.uint64(code[np.uint32(addr32)])
+    if len8 == U8(1):
+        return U64(code[U32(addr32)])
 
-    if len8 == np.uint8(2):
-        b0 = np.uint64(code[np.uint32(addr32)])
-        b1 = np.uint64(code[np.uint32(addr32 + np.uint32(1))])
-        return b0 | (b1 << np.uint64(8))
+    if len8 == U8(2):
+        b0 = U64(code[U32(addr32)])
+        b1 = U64(code[U32(addr32 + U32(1))])
+        return b0 | (b1 << U64(8))
 
     if len8 == np.uint8(3):
         b0 = np.uint64(code[np.uint32(addr32)])
@@ -1033,20 +1040,20 @@ class PVMInterpreter:
 
                     elif opcode == 104:  # op.leading_zero_bits_64
                         #self.reg[r_d] = count_leading_zeroes(reverse_bits_64(self.reg[r_a]))
-                        self.reg[r_d] = count_leading_zeroes(self.reg[r_a])
+                        self.reg[r_d] = count_leading_zeroes(self.reg[r_a], 64)
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 105:  # op.leading_zero_bits_32
                         #self.reg[r_d] = count_leading_zeroes(np.uint32(reverse_bits_32(self.reg[r_a])), 32)
-                        self.reg[r_d] = count_leading_zeroes(np.uint32(self.reg[r_a]), 32)
+                        self.reg[r_d] = count_leading_zeroes(self.reg[r_a], 32)
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 106:  # op.trailing_zero_bits_64
-                        self.reg[r_d] = count_trailing_zeroes(self.reg[r_a])
+                        self.reg[r_d] = count_trailing_zeroes(self.reg[r_a], 64)
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 107:  # op.trailing_zero_bits_32
-                        self.reg[r_d] = count_trailing_zeroes(np.uint32(self.reg[r_a]), 32)
+                        self.reg[r_d] = count_trailing_zeroes(self.reg[r_a], 32)
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 108:  # op.sign_extend_8
