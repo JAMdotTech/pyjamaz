@@ -179,7 +179,7 @@ def pvm_X(x: U64, n: U64) -> U64:
 
 def pvm_Z(a: U64, n: U64) -> I64:
     """JIT-friendly unsigned->signed conversion for n bytes (1..8).
-    Returns np.int64 with proper two's-complement sign extension without Python big-ints.
+    Returns I64 with proper two's-complement sign extension without Python big-ints.
     """
     au = U64(a)
     nb = U64(n)
@@ -259,74 +259,74 @@ def read_uint(code: npt.NDArray[U8], addr:U32, length:U8) -> U64:
         b1 = U64(code[U32(addr32 + U32(1))])
         return b0 | (b1 << U64(8))
 
-    if len8 == np.uint8(3):
-        b0 = np.uint64(code[np.uint32(addr32)])
-        b1 = np.uint64(code[np.uint32(addr32 + np.uint32(1))])
-        b2 = np.uint64(code[np.uint32(addr32 + np.uint32(2))])
-        return b0 | (b1 << np.uint64(8)) | (b2 << np.uint64(16))
+    if len8 == U8(3):
+        b0 = U64(code[U32(addr32)])
+        b1 = U64(code[U32(addr32 + U32(1))])
+        b2 = U64(code[U32(addr32 + U32(2))])
+        return b0 | (b1 << U64(8)) | (b2 << U64(16))
 
-    if len8 == np.uint8(4):
-        b0 = np.uint64(code[np.uint32(addr32)])
-        b1 = np.uint64(code[np.uint32(addr32 + np.uint32(1))])
-        b2 = np.uint64(code[np.uint32(addr32 + np.uint32(2))])
-        b3 = np.uint64(code[np.uint32(addr32 + np.uint32(3))])
-        return b0 | (b1 << np.uint64(8)) | (b2 << np.uint64(16)) | (b3 << np.uint64(24))
+    if len8 == U8(4):
+        b0 = U64(code[U32(addr32)])
+        b1 = U64(code[U32(addr32 + U32(1))])
+        b2 = U64(code[U32(addr32 + U32(2))])
+        b3 = U64(code[U32(addr32 + U32(3))])
+        return b0 | (b1 << U64(8)) | (b2 << U64(16)) | (b3 << U64(24))
 
-    if len8 == np.uint8(8):
-        b0 = np.uint64(code[np.uint32(addr32 + np.uint32(0))])
-        b1 = np.uint64(code[np.uint32(addr32 + np.uint32(1))])
-        b2 = np.uint64(code[np.uint32(addr32 + np.uint32(2))])
-        b3 = np.uint64(code[np.uint32(addr32 + np.uint32(3))])
-        b4 = np.uint64(code[np.uint32(addr32 + np.uint32(4))])
-        b5 = np.uint64(code[np.uint32(addr32 + np.uint32(5))])
-        b6 = np.uint64(code[np.uint32(addr32 + np.uint32(6))])
-        b7 = np.uint64(code[np.uint32(addr32 + np.uint32(7))])
-        return (b0 | (b1 << np.uint64(8))  | (b2 << np.uint64(16)) |
-                (b3 << np.uint64(24)) | (b4 << np.uint64(32)) |
-                (b5 << np.uint64(40)) | (b6 << np.uint64(48)) |
-                (b7 << np.uint64(56)))
+    if len8 == U8(8):
+        b0 = U64(code[U32(addr32 + U32(0))])
+        b1 = U64(code[U32(addr32 + U32(1))])
+        b2 = U64(code[U32(addr32 + U32(2))])
+        b3 = U64(code[U32(addr32 + U32(3))])
+        b4 = U64(code[U32(addr32 + U32(4))])
+        b5 = U64(code[U32(addr32 + U32(5))])
+        b6 = U64(code[U32(addr32 + U32(6))])
+        b7 = U64(code[U32(addr32 + U32(7))])
+        return (b0 | (b1 << U64(8))  | (b2 << U64(16)) |
+                (b3 << U64(24)) | (b4 << U64(32)) |
+                (b5 << U64(40)) | (b6 << U64(48)) |
+                (b7 << U64(56)))
 
     raise Exception("read_uint: unsupported length")
 
 
-def pvm_Z_inv(a: np.int64, n: np.uint8) -> np.uint64:
+def pvm_Z_inv(a: I64, n: U8) -> U64:
     """
     JIT-compiled transform signed to unsigned.
     """
     if n == 1:
         if a >= 0:
-            return np.uint64(a & 0xFF)
-        return np.uint64((a + (1 << 8)) & 0xFF)
+            return U64(a & 0xFF)
+        return U64((a + (1 << 8)) & 0xFF)
     elif n == 2:
         if a >= 0:
-            return np.uint64(a & 0xFFFF)
-        return np.uint64((a + (1 << 16)) & 0xFFFF)
+            return U64(a & 0xFFFF)
+        return U64((a + (1 << 16)) & 0xFFFF)
     elif n == 4:
         if a >= 0:
-            return np.uint64(a & 0xFFFFFFFF)
-        return np.uint64((a + np.int64(1 << 32)) & 0xFFFFFFFF)
+            return U64(a & 0xFFFFFFFF)
+        return U64((a + I64(1 << 32)) & 0xFFFFFFFF)
     elif n == 8:
-        return np.uint64(a)
+        return U64(a)
     else:
         shift = n << 3
         mask = (1 << shift) - 1
         if a >= 0:
-            return np.uint64(a & mask)
-        return np.uint64((a + (1 << shift)) & mask)
+            return U64(a & mask)
+        return U64((a + (1 << shift)) & mask)
 
 
 class PVMInterpreter:
 
     def __init__(self, program: PVMProgram, logger_cls=None):
         self.name = program.name
-        self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
-        self.inst_nr:np.uint32 = np.uint32(0)
-        self.pc:np.uint32 = np.uint32(0)
+        self.reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
+        self.inst_nr:U32 = U32(0)
+        self.pc:U32 = U32(0)
         self.opcode:int = 0
         self.skip_len: int = 0
-        self.gas:np.int64 = np.int64(0)
-        self.code:npt.NDArray[np.uint8] = np.array(1, dtype=np.uint8)
-        self.code_size: np.uint64 = np.uint64(0)
+        self.gas:I64 = I64(0)
+        self.code:npt.NDArray[U8] = np.array(1, dtype=U8)
+        self.code_size: U64 = U64(0)
         self.jump_table = []
 
         self.inst_bitmask: List[bool] = []
@@ -342,9 +342,9 @@ class PVMInterpreter:
 
         # Initialize memory sections storage
         self.mem_sections = []
-        self.mem_section_starts = np.array([], dtype=np.uint32)
-        self.mem_section_ends = np.array([], dtype=np.uint32)
-        self.mem_section_size = np.array([], dtype=np.uint32)
+        self.mem_section_starts = np.array([], dtype=U32)
+        self.mem_section_ends = np.array([], dtype=U32)
+        self.mem_section_size = np.array([], dtype=U32)
         """
         TODO: for jit version, use from numba.typed import Dict and copy back after invoke
         d = Dict.empty(
@@ -427,12 +427,12 @@ class PVMInterpreter:
 
 
     def reset(self, program: PVMProgram):
-        self.pc = np.uint32(0)
-        self.gas = np.int64(0)
+        self.pc = U32(0)
+        self.gas = I64(0)
 
         self.name = program.name
-        self.code:npt.NDArray[np.uint8] = np.array(program.code.code, dtype=np.uint8)
-        self.code_size: np.uint64 = np.uint64(len(self.code))
+        self.code:npt.NDArray[U8] = np.array(program.code.code, dtype=U8)
+        self.code_size: U64 = U64(len(self.code))
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
 
@@ -440,7 +440,7 @@ class PVMInterpreter:
         self._link_memory(program.memory)
 
         for idx, val in enumerate(program.registers):
-            self.reg[idx] = np.uint64(val)
+            self.reg[idx] = U64(val)
 
         self.status = ExitReason.resume.value
 
@@ -452,13 +452,13 @@ class PVMInterpreter:
 
     #TODO: registers_as_int
     def get_registers(self):
-        return [np.uint64(x) for x in self.reg]
+        return [U64(x) for x in self.reg]
 
 
     def _init_mem_ops_lookup(self):
         """Initialize memory operation lookups as numpy arrays for fast access"""
         # Create lookup arrays for memory operations
-        self.mem_ops_bytes = np.zeros(256, dtype=np.uint8)
+        self.mem_ops_bytes = np.zeros(256, dtype=U8)
         self.mem_ops_read = np.zeros(256, dtype=np.bool_)
         self.mem_ops_write = np.zeros(256, dtype=np.bool_)
 
@@ -489,9 +489,9 @@ class PVMInterpreter:
                 mem_section_ends.append(0)
                 mem_section_size.append(0)
 
-        self.mem_section_starts = np.array(mem_section_starts, dtype=np.uint32)
-        self.mem_section_ends = np.array(mem_section_ends, dtype=np.uint32)
-        self.mem_section_size = np.array(mem_section_size, dtype=np.uint32)
+        self.mem_section_starts = np.array(mem_section_starts, dtype=U32)
+        self.mem_section_ends = np.array(mem_section_ends, dtype=U32)
+        self.mem_section_size = np.array(mem_section_size, dtype=U32)
         self.mem_acl = memory._acl #TODO: pure ref for now, use from numba.typed import Dict for jit version
 
 
@@ -526,7 +526,7 @@ class PVMInterpreter:
 
             # Only grow when we exceed pre-allocated heap mem
             if new_heap_end - self.mem_section_starts[1] > len(heap):
-                heap = np.concatenate((heap, np.zeros(growth, dtype=np.uint8)))
+                heap = np.concatenate((heap, np.zeros(growth, dtype=U8)))
                 self.mem_sections[1] = heap
                 #logging.critical(f"EXTENDING HEAP: {heap.size}")
 
@@ -567,7 +567,7 @@ class PVMInterpreter:
         if not self.mem_ops_write[opcode]:
             raise Exception(f"Opcode {opcode} is not a valid memory write operation")
 
-        bytes_to_write = np.uint64(self.mem_ops_bytes[opcode])
+        bytes_to_write = U64(self.mem_ops_bytes[opcode])
         #addr = addr % (2 ** 32)  #TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -598,24 +598,24 @@ class PVMInterpreter:
 
         # Write bytes in little-endian order
         if bytes_to_write == 1:
-            section[section_offset] = np.uint8(value & 0xFF)
+            section[section_offset] = U8(value & 0xFF)
         elif bytes_to_write == 2:
-            section[section_offset] = np.uint8(value & 0xFF)
-            section[section_offset + 1] = np.uint8((value >> 8) & 0xFF)
+            section[section_offset] = U8(value & 0xFF)
+            section[section_offset + 1] = U8((value >> 8) & 0xFF)
         elif bytes_to_write == 4:
-            section[section_offset] = np.uint8(value & 0xFF)
-            section[section_offset + 1] = np.uint8((value >> 8) & 0xFF)
-            section[section_offset + 2] = np.uint8((value >> 16) & 0xFF)
-            section[section_offset + 3] = np.uint8((value >> 24) & 0xFF)
+            section[section_offset] = U8(value & 0xFF)
+            section[section_offset + 1] = U8((value >> 8) & 0xFF)
+            section[section_offset + 2] = U8((value >> 16) & 0xFF)
+            section[section_offset + 3] = U8((value >> 24) & 0xFF)
         elif bytes_to_write == 8:
-            section[section_offset] = np.uint8(value & 0xFF)
-            section[section_offset + 1] = np.uint8((value >> 8) & 0xFF)
-            section[section_offset + 2] = np.uint8((value >> 16) & 0xFF)
-            section[section_offset + 3] = np.uint8((value >> 24) & 0xFF)
-            section[section_offset + 4] = np.uint8((value >> 32) & 0xFF)
-            section[section_offset + 5] = np.uint8((value >> 40) & 0xFF)
-            section[section_offset + 6] = np.uint8((value >> 48) & 0xFF)
-            section[section_offset + 7] = np.uint8((value >> 56) & 0xFF)
+            section[section_offset] = U8(value & 0xFF)
+            section[section_offset + 1] = U8((value >> 8) & 0xFF)
+            section[section_offset + 2] = U8((value >> 16) & 0xFF)
+            section[section_offset + 3] = U8((value >> 24) & 0xFF)
+            section[section_offset + 4] = U8((value >> 32) & 0xFF)
+            section[section_offset + 5] = U8((value >> 40) & 0xFF)
+            section[section_offset + 6] = U8((value >> 48) & 0xFF)
+            section[section_offset + 7] = U8((value >> 56) & 0xFF)
         else:
             raise PVMMemoryError(f"Invalid write length: {bytes_to_write}")
 
@@ -634,24 +634,24 @@ class PVMInterpreter:
 
         # Read bytes in little-endian order
         if bytes_to_read == 1:
-            return np.uint64(section[section_offset])
+            return U64(section[section_offset])
         elif bytes_to_read == 2:
-            return (np.uint64(section[section_offset]) |
-                    (np.uint64(section[section_offset + 1]) << 8))
+            return (U64(section[section_offset]) |
+                    (U64(section[section_offset + 1]) << 8))
         elif bytes_to_read == 4:
-            return (np.uint64(section[section_offset]) |
-                    (np.uint64(section[section_offset + 1]) << 8) |
-                    (np.uint64(section[section_offset + 2]) << 16) |
-                    (np.uint64(section[section_offset + 3]) << 24))
+            return (U64(section[section_offset]) |
+                    (U64(section[section_offset + 1]) << 8) |
+                    (U64(section[section_offset + 2]) << 16) |
+                    (U64(section[section_offset + 3]) << 24))
         elif bytes_to_read == 8:
-            return (np.uint64(section[section_offset]) |
-                    (np.uint64(section[section_offset + 1]) << 8) |
-                    (np.uint64(section[section_offset + 2]) << 16) |
-                    (np.uint64(section[section_offset + 3]) << 24) |
-                    (np.uint64(section[section_offset + 4]) << 32) |
-                    (np.uint64(section[section_offset + 5]) << 40) |
-                    (np.uint64(section[section_offset + 6]) << 48) |
-                    (np.uint64(section[section_offset + 7]) << 56))
+            return (U64(section[section_offset]) |
+                    (U64(section[section_offset + 1]) << 8) |
+                    (U64(section[section_offset + 2]) << 16) |
+                    (U64(section[section_offset + 3]) << 24) |
+                    (U64(section[section_offset + 4]) << 32) |
+                    (U64(section[section_offset + 5]) << 40) |
+                    (U64(section[section_offset + 6]) << 48) |
+                    (U64(section[section_offset + 7]) << 56))
         else:
             return -1
 
@@ -662,7 +662,7 @@ class PVMInterpreter:
         if not self.mem_ops_read[opcode]:
             raise Exception(f"Opcode {opcode} is not a valid memory read operation")
 
-        bytes_to_read = np.uint64(self.mem_ops_bytes[opcode])
+        bytes_to_read = U64(self.mem_ops_bytes[opcode])
         #addr = addr % (2 ** 32)  # TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -689,24 +689,24 @@ class PVMInterpreter:
 
         # Read bytes in little-endian order
         if bytes_to_read == 1:
-            return np.uint64(section[section_offset])
+            return U64(section[section_offset])
         elif bytes_to_read == 2:
-            return (np.uint64(section[section_offset]) |
-                    (np.uint64(section[section_offset + 1]) << 8))
+            return (U64(section[section_offset]) |
+                    (U64(section[section_offset + 1]) << 8))
         elif bytes_to_read == 4:
-            return (np.uint64(section[section_offset]) |
-                    (np.uint64(section[section_offset + 1]) << 8) |
-                    (np.uint64(section[section_offset + 2]) << 16) |
-                    (np.uint64(section[section_offset + 3]) << 24))
+            return (U64(section[section_offset]) |
+                    (U64(section[section_offset + 1]) << 8) |
+                    (U64(section[section_offset + 2]) << 16) |
+                    (U64(section[section_offset + 3]) << 24))
         elif bytes_to_read == 8:
-            return (np.uint64(section[section_offset]) |
-                    (np.uint64(section[section_offset + 1]) << 8) |
-                    (np.uint64(section[section_offset + 2]) << 16) |
-                    (np.uint64(section[section_offset + 3]) << 24) |
-                    (np.uint64(section[section_offset + 4]) << 32) |
-                    (np.uint64(section[section_offset + 5]) << 40) |
-                    (np.uint64(section[section_offset + 6]) << 48) |
-                    (np.uint64(section[section_offset + 7]) << 56))
+            return (U64(section[section_offset]) |
+                    (U64(section[section_offset + 1]) << 8) |
+                    (U64(section[section_offset + 2]) << 16) |
+                    (U64(section[section_offset + 3]) << 24) |
+                    (U64(section[section_offset + 4]) << 32) |
+                    (U64(section[section_offset + 5]) << 40) |
+                    (U64(section[section_offset + 6]) << 48) |
+                    (U64(section[section_offset + 7]) << 56))
         else:
             raise PVMMemoryError(f"Invalid read length: {bytes_to_read}")
 
@@ -802,7 +802,7 @@ class PVMInterpreter:
 
                 #GP-0.6.7-section:A.5.2
                 elif inst_type == 1:  # InstructionType.imm
-                    l_x = np.uint64(min(4, self.inst_arg_len[inst_index]))
+                    l_x = U64(min(4, self.inst_arg_len[inst_index]))
                     v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
 
                     if opcode == 10:  # op.ecalli
@@ -827,8 +827,8 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.4
                 elif inst_type == 3:  # InstructionType.imm_imm
 
-                    l_x = np.uint64(min(4, self.code[self.pc + 1] % 8))
-                    l_y = np.uint64(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
+                    l_x = U64(min(4, self.code[self.pc + 1] % 8))
+                    l_y = U64(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
                     v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
                     v_y = pvm_X(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
 
@@ -850,7 +850,7 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.5
                 elif inst_type == 4:  # InstructionType.offset
 
-                    l_x = np.uint64(min(4, self.inst_arg_len[inst_index]))
+                    l_x = U64(min(4, self.inst_arg_len[inst_index]))
                     v_x = pvm_Z(read_uint(self.code, self.pc + 1, l_x), l_x)
 
                     if opcode == 40:  # op.jump
@@ -863,11 +863,11 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.6
                 elif inst_type == 5:  # InstructionType.reg_imm
                     r_a = min(12, self.code[self.pc + 1] % 16)
-                    l_x = np.uint64(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
+                    l_x = U64(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
                     v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
 
                     if opcode == 50:  # op.jump_ind
-                        self.skip_len = self.djump(np.uint32(self.reg[r_a]+v_x))
+                        self.skip_len = self.djump(U32(self.reg[r_a]+v_x))
                         self.log and self.log(reg1=r_a, imm1=v_x, context={"skip_len": self.skip_len})
 
                     elif opcode == 51:  # op.load_imm
@@ -928,10 +928,10 @@ class PVMInterpreter:
                     w_a = self.reg[r_a]
 
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
-                    l_x = np.uint64(min(4, (self.code[self.pc + 1] // 16) % 8))
+                    l_x = U64(min(4, (self.code[self.pc + 1] // 16) % 8))
                     v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
 
-                    l_y = np.uint64(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
+                    l_y = U64(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
                     v_y = pvm_X(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
 
                     if opcode == 70:  # op.store_imm_ind_u8
@@ -960,10 +960,10 @@ class PVMInterpreter:
                     w_a = self.reg[r_a]
 
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
-                    l_x = np.uint64(min(4, (self.code[self.pc + 1] // 16) % 8))
+                    l_x = U64(min(4, (self.code[self.pc + 1] // 16) % 8))
                     v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
 
-                    l_y = np.uint64(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
+                    l_y = U64(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
                     v_y = pvm_Z(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
 
                     if opcode == 80:  # op.load_imm_jump
@@ -1035,7 +1035,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 103:  # op.count_set_bits_32
-                        self.reg[r_d] = np.bitwise_count(np.uint32(self.reg[r_a]))
+                        self.reg[r_d] = np.bitwise_count(U32(self.reg[r_a]))
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 104:  # op.leading_zero_bits_64
@@ -1044,7 +1044,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 105:  # op.leading_zero_bits_32
-                        #self.reg[r_d] = count_leading_zeroes(np.uint32(reverse_bits_32(self.reg[r_a])), 32)
+                        #self.reg[r_d] = count_leading_zeroes(U32(reverse_bits_32(self.reg[r_a])), 32)
                         self.reg[r_d] = count_leading_zeroes(self.reg[r_a], 32)
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
@@ -1084,7 +1084,7 @@ class PVMInterpreter:
                     w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
 
-                    l_x = np.uint64(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
+                    l_x = U64(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
                     v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
 
                     if opcode == 120:  # op.store_ind_u8
@@ -1164,11 +1164,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == 139:  # op.shlo_r_imm_32
-                        self.reg[r_a] = pvm_X(np.uint32(w_b) >> np.uint32(np.uint32(v_x) & np.uint32(31)), 4)
+                        self.reg[r_a] = pvm_X(U32(w_b) >> U32(U32(v_x) & U32(31)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == 140:  # op.shar_r_imm_32
-                        self.reg[r_a] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(w_b), 4)) >> np.int64(np.uint32(v_x) & np.uint32(31)), 8)
+                        self.reg[r_a] = pvm_Z_inv(I32(pvm_Z(U32(w_b), 4)) >> I64(U32(v_x) & U32(31)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 141:  # op.neg_add_imm_32
@@ -1188,11 +1188,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 145:  # op.shlo_r_imm_alt_32
-                        self.reg[r_a] = pvm_X(np.uint32(v_x) >> np.uint32(np.uint32(w_b) & np.uint32(31)), 4)
+                        self.reg[r_a] = pvm_X(U32(v_x) >> U32(U32(w_b) & U32(31)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 146:  # op.shar_r_imm_alt_32
-                        self.reg[r_a] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(v_x), 4)) >> np.int64(np.uint32(w_b) & np.uint32(31)), 8)
+                        self.reg[r_a] = pvm_Z_inv(I32(pvm_Z(U32(v_x), 4)) >> I64(U32(w_b) & U32(31)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 147:  # op.cmov_iz_imm
@@ -1222,12 +1222,12 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 153:  # op.shar_r_imm_64
-                        self.reg[r_a] = pvm_Z_inv(I64(pvm_Z(w_b, 8)) >> np.int64(U64(v_x) & U64(63)), 8)
+                        self.reg[r_a] = pvm_Z_inv(I64(pvm_Z(w_b, 8)) >> I64(U64(v_x) & U64(63)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 154:  # op.neg_add_imm_64
                         #huh?: self.reg[r_a] = ((int(v_x) + 2**64 - int(w_b)) % 2**64)
-                        self.reg[r_a] = np.uint64(v_x) + np.uint64(-w_b)
+                        self.reg[r_a] = U64(v_x) + U64(-w_b)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 155:  # op.shlo_l_imm_alt_64
@@ -1239,7 +1239,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 157:  # op.shar_r_imm_alt_64
-                        self.reg[r_a] = pvm_Z_inv(I64(pvm_Z(v_x, 8)) >> np.int64(U64(w_b) & U64(63)), 8)
+                        self.reg[r_a] = pvm_Z_inv(I64(pvm_Z(v_x, 8)) >> I64(U64(w_b) & U64(63)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 158:  # op.rot_r_64_imm
@@ -1251,11 +1251,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 160:  # op.rot_r_32_imm
-                        self.reg[r_a] = pvm_X(rori32(np.uint32(w_b), np.uint32(v_x)), 4)
+                        self.reg[r_a] = pvm_X(rori32(U32(w_b), U32(v_x)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 161:  # op.rot_r_32_imm_alt
-                        self.reg[r_a] = pvm_X(rori32(np.uint32(v_x), np.uint32(w_b)), 4)
+                        self.reg[r_a] = pvm_X(rori32(U32(v_x), U32(w_b)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     else:
@@ -1307,15 +1307,15 @@ class PVMInterpreter:
                     #w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
 
-                    l_x = np.uint64(min(4, self.code[self.pc + 2] % 8))
+                    l_x = U64(min(4, self.code[self.pc + 2] % 8))
                     v_x = pvm_X(read_uint(self.code, self.pc + 3, l_x), l_x)
 
-                    l_y = np.uint64(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 2)))
+                    l_y = U64(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 2)))
                     v_y = pvm_X(read_uint(self.code, self.pc + 3 + l_x, l_y), l_y)
 
                     if opcode == 180:  # op.load_imm_jump_ind
                         self.reg[r_a] = v_x
-                        self.skip_len = self.djump((np.uint64(w_b) + np.uint64(v_y)) % 2**32)
+                        self.skip_len = self.djump((U64(w_b) + U64(v_y)) % 2**32)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context={"skip_len": self.skip_len})
                     else:
                         raise InvalidOpcode(f"Invalid reg_reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
@@ -1346,13 +1346,13 @@ class PVMInterpreter:
                         if self.reg[r_b] == 0:
                             self.reg[r_d] = 2**64 - 1
                         else:
-                            self.reg[r_d] = pvm_X(np.uint32(w_a) // np.uint32(w_b), 4)
+                            self.reg[r_d] = pvm_X(U32(w_a) // U32(w_b), 4)
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 194:  # op.div_s_32
-                        a = np.int32(pvm_Z(w_a % 2**32, 4))
-                        b = np.int32(pvm_Z(w_b % 2**32, 4))
+                        a = I32(pvm_Z(w_a % 2**32, 4))
+                        b = I32(pvm_Z(w_b % 2**32, 4))
 
                         if b == 0:
                             self.reg[r_d] = 2**64-1
@@ -1389,11 +1389,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 198:  # op.shlo_r_32
-                        self.reg[r_d] = pvm_X(np.uint32(w_a) >> np.uint32(np.uint32(w_b) & np.uint32(31)), 4)
+                        self.reg[r_d] = pvm_X(U32(w_a) >> U32(U32(w_b) & U32(31)), 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 199:  # op.shar_r_32
-                        self.reg[r_d] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(w_a), 4)) >> np.int64(np.uint32(w_b) & np.uint32(31)), 8)
+                        self.reg[r_d] = pvm_Z_inv(I32(pvm_Z(U32(w_a), 4)) >> I64(U32(w_b) & U32(31)), 8)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 200:  # op.add_64
@@ -1402,7 +1402,7 @@ class PVMInterpreter:
 
                     elif opcode == 201:  # op.sub_64
                         #TODO:huh: self.reg[r_d] = (int(w_a) + 2**64 - int(w_b)) % 2**64
-                        self.reg[r_d] = np.uint64(w_a) + np.uint64(-w_b)
+                        self.reg[r_d] = U64(w_a) + U64(-w_b)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 202:  # op.mul_64
@@ -1460,7 +1460,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 209:  # op.shar_r_64
-                        self.reg[r_d] = pvm_Z_inv(I64(pvm_Z(w_a, 8)) >> np.int64(U64(w_b) & U64(63)), 8)
+                        self.reg[r_d] = pvm_Z_inv(I64(pvm_Z(w_a, 8)) >> I64(U64(w_b) & U64(63)), 8)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 210:  # op._and
@@ -1493,11 +1493,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 216:  # op.set_lt_u
-                        self.reg[r_d] = np.uint64(w_a < w_b)
+                        self.reg[r_d] = U64(w_a < w_b)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 217:  # op.set_lt_s
-                        self.reg[r_d] = np.int64(pvm_Z(w_a, 8) < pvm_Z(w_b,8))
+                        self.reg[r_d] = I64(pvm_Z(w_a, 8) < pvm_Z(w_b,8))
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 218:  # op.cmov_iz
@@ -1515,7 +1515,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 221:  # op.rot_l_32
-                        self.reg[r_d] = pvm_X(roli32(np.uint32(w_a), w_b % 32), 4)
+                        self.reg[r_d] = pvm_X(roli32(U32(w_a), w_b % 32), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 222:  # op.rot_r_64
@@ -1523,7 +1523,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 223:  # op.rot_r_32
-                        self.reg[r_d] = pvm_X(rori32(np.uint32(w_a), w_b % 32), 4)
+                        self.reg[r_d] = pvm_X(rori32(U32(w_a), w_b % 32), 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 224:  # op.and_inv
@@ -1535,11 +1535,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 226:  # op.xnor
-                        self.reg[r_d] = np.uint64(~(w_a ^ w_b))
+                        self.reg[r_d] = U64(~(w_a ^ w_b))
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 227:  # op._max
-                        #TODO: should probably just cast to np.uint64 <-> np.int64 ??
+                        #TODO: should probably just cast to U64 <-> I64 ??
                         self.reg[r_d] = pvm_Z_inv(
                             max(pvm_Z(w_a, 8), pvm_Z(w_b, 8)),
                             8
