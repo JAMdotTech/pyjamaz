@@ -5,7 +5,6 @@ from typing import List, Union, Optional, Set
 
 from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ietf_vrf_verify
 from ed25519_zebra import ed_verify
-from jamcodec.types import Vec, U32
 
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
@@ -1772,7 +1771,7 @@ class Services(StateComponent):
     @staticmethod
     def are_preimages_sorted(preimages: List[Preimage]) -> bool:
         """
-        GP-0.7.0-eq:12.34 | Are all preimages sorted?
+        GP-0.7.0-eq:12.39 | Are all preimages sorted?
 
         Parameters
         ----------
@@ -1783,7 +1782,7 @@ class Services(StateComponent):
         bool
         """
 
-        sorted_preimage = lambda p: int(p.requester).to_bytes(2, byteorder="little") + p.blob
+        sorted_preimage = lambda p: int(p.requester).to_bytes(4, byteorder="big") + p.blob
 
         return all(
             sorted_preimage(preimages[i]) <= sorted_preimage(preimages[i + 1]) for i in range(len(preimages) - 1)
@@ -2003,33 +2002,38 @@ class Services(StateComponent):
         # Collect all service accounts in current memory
         for service_id, service_account in state.services.items():
 
-            # Process storage items
-            for storage_key, storage_value in service_account.storage_items.items():
-                if storage_value is None:
-                    state_mutations.append(("storage_items_delete", service_id, storage_key))
-                else:
-                    state_mutations.append(("storage_items_update", service_id, storage_key, storage_value))
-
-            # Process preimages
-            for preimage_hash, preimage_blob in service_account.preimages.items():
-                if preimage_blob is None:
-                    state_mutations.append(("preimages_delete", service_id, preimage_hash))
-                else:
-                    state_mutations.append(("preimages_update", service_id, preimage_hash, preimage_blob))
-
-            # Process preimage availability
-            for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
-
-                if availability is None:
-                    state_mutations.append(("preimage_availability_delete", service_id, preimage_hash, preimage_length))
-                else:
-                    state_mutations.append(("preimage_availability_update", service_id, preimage_hash, preimage_length, availability))
-
             # Process service account
             if service_account is None:
                 state_mutations.append(("service_account_delete", service_id,))
             else:
-                state_mutations.append(("service_account_update", service_id, service_account))
+
+                if service_account.marked_as_deleted:
+                    state_mutations.append(("service_account_delete", service_id,))
+                else:
+                    state_mutations.append(("service_account_update", service_id, service_account))
+
+                # Process storage items
+                for storage_key, storage_value in service_account.storage_items.items():
+                    if storage_value is None:
+                        state_mutations.append(("storage_items_delete", service_id, storage_key))
+                    else:
+                        state_mutations.append(("storage_items_update", service_id, storage_key, storage_value))
+
+                # Process preimages
+                for preimage_hash, preimage_blob in service_account.preimages.items():
+                    if preimage_blob is None:
+                        state_mutations.append(("preimages_delete", service_id, preimage_hash))
+                    else:
+                        state_mutations.append(("preimages_update", service_id, preimage_hash, preimage_blob))
+
+                # Process preimage availability
+                for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
+
+                    if availability is None:
+                        state_mutations.append(("preimage_availability_delete", service_id, preimage_hash, preimage_length))
+                    else:
+                        state_mutations.append(("preimage_availability_update", service_id, preimage_hash, preimage_length, availability))
+
 
         # Process all mutations afterwards (in order) to prevent mutating the state while iterating over it
         for mut in state_mutations:

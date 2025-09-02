@@ -377,6 +377,14 @@ class ServiceAccount(Serializable):
     parent_service: int = field(metadata={'codec': U32})
 
     @property
+    def marked_as_deleted(self) -> bool:
+        return getattr(self, '_marked_as_deleted', False)
+
+    @marked_as_deleted.setter
+    def marked_as_deleted(self, value: bool) -> None:
+        setattr(self, '_marked_as_deleted', value)
+
+    @property
     def threshold_balance(self):
         # GP-0.6.7-eq:9.8 (a_t)
         return max(0,
@@ -589,19 +597,22 @@ class ServicesState(State, Serializable):
         -------
 
         """
+        state_key = state_key_constructor_service_account(service_account_id)
 
         if commit:
 
             if self.storage_transaction is None:
                 raise ValueError('storage_transaction must be set before deleting service account data')
 
-            state_key = state_key_constructor_service_account(service_account_id)
-
             self.storage_transaction.delete(state_key)
 
             del self.services[service_account_id]
         else:
-            self.services[service_account_id] = None
+
+            if service_account_id in self.services:
+                self.services[service_account_id].marked_as_deleted = True
+            else:
+                self.services[service_account_id] = None
 
         logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
 
@@ -821,7 +832,7 @@ class ServicesState(State, Serializable):
                 raise ValueError('storage_transaction must be set before deleting preimage availability data')
 
             self.storage_transaction.delete(storage_key)
-            del self.services[service_account_id].preimages[preimage_hash]
+            self.services[service_account_id].preimages.pop(preimage_hash, None)
         else:
             self.services[service_account_id].preimages[preimage_hash] = None
 
@@ -845,7 +856,7 @@ class ServicesState(State, Serializable):
                 raise ValueError('storage_transaction must be set before deleting preimage availability data')
 
             self.storage_transaction.delete(storage_key)
-            del self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
+            self.services[service_account_id].preimage_availability.pop((preimage_hash, preimage_length), None)
 
         else:
             self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = None
@@ -926,7 +937,7 @@ class ServicesState(State, Serializable):
 
             self.storage_transaction.delete(storage_key)
 
-            del self.services[service_account_id].storage_items[storage_item_hash]
+            self.services[service_account_id].storage_items.pop(storage_item_hash, None)
 
         else:
             self.services[service_account_id].storage_items[storage_item_hash] = None

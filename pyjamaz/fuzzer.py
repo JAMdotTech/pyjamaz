@@ -97,7 +97,7 @@ class TargetServer:
     async def start(self) -> None:
         self.server = await asyncio.start_unix_server(self._handle_client, path=self.path)
         addr = self.server.sockets[0].getsockname()
-        logging.info(f'🥋 PyJAMaz JAM [Fuzzer]')
+        logging.info(f'🥋 PyJAMaz JAM v{APP_VERSION} [Fuzzer target]')
         logging.info(f"🌐 Listening on {addr}")
         logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
 

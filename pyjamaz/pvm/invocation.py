@@ -92,7 +92,7 @@ class PVMInvocation:
             gas_limit: int,                        # ρ
     ) -> PvMHostCallOutput:
         """
-        A.33 Ψ_H
+        GP-0.7.0-eq:A.35 (Ψ_H) | Hostcall definition
         """
 
         while True:
@@ -128,7 +128,7 @@ class PVMInvocation:
                     _pvm=self.pvm
                 )
 
-                # Update gas usage TODO!!!!!!!!!!!!!!!!!!!!!!!
+                # Update gas usage
                 gas_limit = host_call_output.gas_limit
 
                 if host_call_output.exit_condition.reason == ExitReason.page_fault:
@@ -155,7 +155,7 @@ class PVMInvocation:
                         gas_limit=host_call_output.gas_limit,
                         registers=host_call_output.registers,
                         memory=host_call_output.memory,
-                        invocation_context=host_call_output.context
+                        invocation_context=self.invocation_context
                     )
                 else:
                     raise Exception("OEPSIE!")
