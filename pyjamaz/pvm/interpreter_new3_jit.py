@@ -486,6 +486,20 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
 
 
 @njit
+def sync_state_and_return(reg, registers_out, status, status_out, pc, pc_out, 
+                         gas, gas_out, inst_nr, inst_nr_out, exit_value, exit_value_out, error_code):
+    """Helper function to sync state and return error code - reduces code duplication."""
+    for i in range(len(reg)):
+        registers_out[i] = reg[i]
+    status_out[0] = status
+    pc_out[0] = pc
+    gas_out[0] = gas
+    inst_nr_out[0] = inst_nr
+    exit_value_out[0] = exit_value
+    return error_code
+
+
+@njit
 def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
     """JIT implementation of djump with validation."""
     halt_value = U32(2**32 - 2**16)
@@ -585,136 +599,83 @@ def invoke_native(
         inst_type = opcode_scheme[opcode]
         skip_len = inst_arg_len[inst_index] + 1
         
-        # Handle trap instruction immediately
-        if opcode == op.trap:  # trap - should always panic
-            status = EXIT_PANIC
-            for i in range(len(reg)):
-                registers_out[i] = reg[i]
-            status_out[0] = status
-            pc_out[0] = pc
-            gas_out[0] = gas
-            inst_nr_out[0] = inst_nr
-            return ERROR_PANIC_TRAP
-
-        # Process instructions by type
-        # Type 0: InstructionType.none
+        #GP-0.6.7-section:A.5.1
         if inst_type == inst_none:
-            if opcode == op.trap:
-                status = EXIT_PANIC
-                # Copy registers before returning
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
-                return ERROR_PANIC_TRAP
+            if opcode == op_trap:
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out, 
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
             elif opcode == op_fallthrough:
                 pass
             else:
-                status = EXIT_PANIC
-                status_out[0] = status
-                pc_out[0] = pc
-                gas_out[0] = gas
-                return ERROR_PANIC_TRAP
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
-        # Type 1: InstructionType.imm
+        #GP-0.6.7-section:A.5.2
         elif inst_type == inst_imm:
             l_x = min(4, inst_arg_len[inst_index])
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
             if opcode == op_ecalli:
-                status = EXIT_HOST_HALT
-                exit_value = v_x
+                return sync_state_and_return(reg, registers_out, EXIT_HOST_HALT, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           v_x, exit_value_out, ERROR_NONE)
             else:
-                status = EXIT_PANIC
-                status_out[0] = status
-                pc_out[0] = pc
-                gas_out[0] = gas
-                return ERROR_PANIC_TRAP
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
-        # Type 2: InstructionType.reg_ext_imm
+        #GP-0.6.7-section:A.5.3
         elif inst_type == inst_reg_ext_imm:
             r_a = min(12, code[pc + 1] % 16)
             v_x = read_uint_jit(code, pc + 2, 8)
 
-            if opcode == op.load_imm_64:
+            if opcode == op_load_imm_64:
                 reg[r_a] = v_x
-                # Debug: store debug info in exit_value for load_imm_64
-                if r_a == 8:
-                    exit_value = v_x  # Store the loaded value for debugging
             else:
-                status = EXIT_PANIC
-                status_out[0] = status
-                pc_out[0] = pc
-                gas_out[0] = gas
-                return ERROR_PANIC_TRAP
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
-        # Type 3: InstructionType.imm_imm
+        #GP-0.6.7-section:A.5.4
         elif inst_type == inst_imm_imm:
             l_x = min(4, code[pc + 1] % 8)
             l_y = min(4, max(0, inst_arg_len[inst_index] - l_x - 1))
             v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
             v_y = pvm_X_jit(read_uint_jit(code, pc + 2 + l_x, l_y), np.uint8(l_y))
             
-            # Memory store operations  
-            if opcode == op.store_imm_u8:
+            if opcode == op_store_imm_u8:
                 if mem_write_jit(v_x, v_y % (2**8), U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
-                    status = EXIT_PAGE_FAULT
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_MEMORY_FAULT
-            elif opcode == op.store_imm_u16:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+            elif opcode == op_store_imm_u16:
                 if mem_write_jit(v_x, v_y % (2**16), U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
-                    status = EXIT_PAGE_FAULT
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_MEMORY_FAULT
-            elif opcode == op.store_imm_u32:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+            elif opcode == op_store_imm_u32:
                 if mem_write_jit(v_x, v_y % (2**32), U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
-                    status = EXIT_PAGE_FAULT
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_MEMORY_FAULT
-            elif opcode == op.store_imm_u64:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+            elif opcode == op_store_imm_u64:
                 if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
-                    status = EXIT_PAGE_FAULT
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_MEMORY_FAULT
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
             else:
-                # Unsupported type 3 opcode
-                status = EXIT_PANIC
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                pc_out[0] = pc
-                gas_out[0] = gas
-                inst_nr_out[0] = inst_nr
-                return ERROR_PANIC_TRAP
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
         # Type 4: InstructionType.offset
         elif inst_type == inst_offset:
             l_x = min(4, inst_arg_len[inst_index])
             v_x = pvm_Z_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
-            if opcode == op.jump:
+            if opcode == op_jump:
                 skip_len = v_x
             else:
                 status = EXIT_PANIC
@@ -729,7 +690,7 @@ def invoke_native(
             l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
             v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
 
-            if opcode == op.jump_ind:
+            if opcode == op_jump_ind:
                 jump_target = U32(reg[r_a] + v_x) % (2**32)
                 djump_result = djump_jit(jump_target, jump_table, pc, inst_pos_keys)
                 if djump_result == I32(-1):
@@ -745,9 +706,9 @@ def invoke_native(
                     return ERROR_PANIC_INVALID_DJUMP
                 else:
                     skip_len = djump_result
-            elif opcode == op.load_imm:
+            elif opcode == op_load_imm:
                 reg[r_a] = v_x
-            elif opcode == op.load_u8:
+            elif opcode == op_load_u8:
                 # Memory load - fall back for now
                 for i in range(len(reg)):
                     registers_out[i] = reg[i]
@@ -787,7 +748,7 @@ def invoke_native(
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
                 return ERROR_PANIC_TRAP
-            elif opcode == op.load_u32:
+            elif opcode == op_load_u32:
                 loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
                 if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
                     status = EXIT_PAGE_FAULT
@@ -924,7 +885,7 @@ def invoke_native(
             r_d = min(12, code[pc + 1] % 16)
             r_a = min(12, code[pc + 1] // 16)
 
-            if opcode == op.move_reg:
+            if opcode == op_move_reg:
                 reg[r_d] = reg[r_a]
             elif opcode == op_sbrk:
                 # Heap allocation - fall back to Python for now
@@ -1052,7 +1013,7 @@ def invoke_native(
                     # Arithmetic right shift for negative numbers
                     sign_bits = U64(0xFFFFFFFFFFFFFFFF) << U64(64 - w_b_clamped)
                     reg[r_a] = (v_x >> U64(w_b_clamped)) | sign_bits
-            elif opcode == op.store_ind_u8:
+            elif opcode == op_store_ind_u8:
                 store_addr = w_b + v_x
                 store_value = w_a % (2**8)
                 if mem_write_jit(store_addr, store_value, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
@@ -1064,7 +1025,7 @@ def invoke_native(
                     gas_out[0] = gas
                     inst_nr_out[0] = inst_nr
                     return ERROR_MEMORY_FAULT
-            elif opcode == op.store_ind_u16:
+            elif opcode == op_store_ind_u16:
                 store_addr = w_b + v_x
                 store_value = w_a % (2**16)
                 if mem_write_jit(store_addr, store_value, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
@@ -1076,7 +1037,7 @@ def invoke_native(
                     gas_out[0] = gas
                     inst_nr_out[0] = inst_nr
                     return ERROR_MEMORY_FAULT
-            elif opcode == op.store_ind_u32:
+            elif opcode == op_store_ind_u32:
                 store_addr = w_b + v_x
                 store_value = w_a % (2**32)
                 if mem_write_jit(store_addr, store_value, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
@@ -1088,7 +1049,7 @@ def invoke_native(
                     gas_out[0] = gas
                     inst_nr_out[0] = inst_nr
                     return ERROR_MEMORY_FAULT
-            elif opcode == op.store_ind_u64:
+            elif opcode == op_store_ind_u64:
                 store_addr = w_b + v_x
                 if mem_write_jit(store_addr, w_a, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     status = EXIT_PAGE_FAULT
@@ -1159,34 +1120,34 @@ def invoke_native(
             w_a = reg[r_a]
             w_b = reg[r_b]
 
-            if opcode == op.add_32:
+            if opcode == op_add_32:
                 reg[r_d] = pvm_X_jit((w_a + w_b) % (2 ** 32), np.uint8(4))
-            elif opcode == op.sub_32:
+            elif opcode == op_sub_32:
                 reg[r_d] = pvm_X_jit((w_a + 2 ** 32 - (w_b % 2 ** 32)) % 2 ** 32, np.uint8(4))
-            elif opcode == op.mul_32:
+            elif opcode == op_mul_32:
                 reg[r_d] = pvm_X_jit((w_a * w_b) % (2 ** 32), np.uint8(4))
-            elif opcode == op.add_64:
+            elif opcode == op_add_64:
                 reg[r_d] = (w_a + w_b) & np.uint64(0xFFFFFFFFFFFFFFFF)
-            elif opcode == op.sub_64:
+            elif opcode == op_sub_64:
                 # Perform modular subtraction without overflow
                 if w_a >= w_b:
                     reg[r_d] = w_a - w_b
                 else:
                     reg[r_d] = np.uint64(0xFFFFFFFFFFFFFFFF) - (w_b - w_a) + np.uint64(1)
-            elif opcode == op.mul_64:
+            elif opcode == op_mul_64:
                 reg[r_d] = (w_a * w_b) & np.uint64(0xFFFFFFFFFFFFFFFF)
-            elif opcode == op._and:
+            elif opcode == op_and:
                 reg[r_d] = w_a & w_b
-            elif opcode == op.xor:
+            elif opcode == op_xor:
                 reg[r_d] = w_a ^ w_b
-            elif opcode == op._or:
+            elif opcode == op_or:
                 reg[r_d] = w_a | w_b
-            elif opcode == op.div_u_32:
+            elif opcode == op_div_u_32:
                 if (w_b % (2**32)) == 0:
                     reg[r_d] = pvm_X_jit(U64(0xFFFFFFFF), U8(4))
                 else:
                     reg[r_d] = pvm_X_jit(U64(w_a % (2**32)) // U64(w_b % (2**32)), U8(4))
-            elif opcode == op.div_s_32:
+            elif opcode == op_div_s_32:
                 # Signed 32-bit division
                 a_signed = pvm_Z_jit(w_a % (2**32), 4)
                 b_signed = pvm_Z_jit(w_b % (2**32), 4) 
@@ -1195,12 +1156,12 @@ def invoke_native(
                 else:
                     result = pvm_rtz_div_jit(a_signed, b_signed)
                     reg[r_d] = pvm_X_jit(pvm_Z_inv_jit(result, U8(4)), U8(4))
-            elif opcode == op.div_u_64:
+            elif opcode == op_div_u_64:
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)  # Division by zero
                 else:
                     reg[r_d] = w_a // w_b
-            elif opcode == op.div_s_64:
+            elif opcode == op_div_s_64:
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)  # Division by zero
                 elif pvm_Z_jit(w_a, 8) == I64(-9223372036854775808) and pvm_Z_jit(w_b, 8) == I64(-1):
@@ -1213,17 +1174,17 @@ def invoke_native(
                     reg[r_d] = pvm_X_jit(w_a % (2**32), U8(4))
                 else:
                     reg[r_d] = pvm_X_jit((w_a % (2**32)) % (w_b % (2**32)), U8(4))
-            elif opcode == op.shlo_r_32:
+            elif opcode == op_shlo_r_32:
                 shift_amount = U32(w_b & U64(31))  # Clamp to 0-31 range
                 shifted_value = U32(w_a) >> shift_amount
                 reg[r_d] = pvm_X_jit(U64(shifted_value), U8(4))
-            elif opcode == op.shlo_l_64:
+            elif opcode == op_shlo_l_64:
                 shift_amount = w_b % 64
                 if shift_amount < 64:
                     reg[r_d] = (w_a << shift_amount) & U64(0xFFFFFFFFFFFFFFFF)
                 else:
                     reg[r_d] = U64(0)
-            elif opcode == op.shlo_r_64:
+            elif opcode == op_shlo_r_64:
                 reg[r_d] = w_a >> U64(w_b & U64(63))
             elif opcode == op_shar_r_64:
                 w_b_clamped = min(w_b % 64, 63)
@@ -1234,11 +1195,11 @@ def invoke_native(
                     # Arithmetic right shift for negative numbers
                     sign_bits = U64(0xFFFFFFFFFFFFFFFF) << U64(64 - w_b_clamped)
                     reg[r_d] = (w_a >> U64(w_b_clamped)) | sign_bits
-            elif opcode == op._and:
+            elif opcode == op_and:
                 reg[r_d] = w_a & w_b
-            elif opcode == op.xor:
+            elif opcode == op_xor:
                 reg[r_d] = w_a ^ w_b
-            elif opcode == op._or:
+            elif opcode == op_or:
                 reg[r_d] = w_a | w_b
             elif opcode == op_set_lt_u:
                 reg[r_d] = U64(1) if w_a < w_b else U64(0)
