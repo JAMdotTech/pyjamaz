@@ -332,6 +332,13 @@ class PyjamazApp:
             pre_state_services=pre_state_services
         )
 
+        # Validate quality of assurance extrinsic data
+        self.components.assurances.validate_after_disputes(
+            extrinsic_assurances=block.extrinsic.assurances,
+            pre_state_validator_pool=pre_state_validator_pool,
+            header=block.header
+        )
+
         # Validator Pool STF Block Data | GP-0.5.0-eq:4.10
         validator_pool_output = self.components.validator_pool.state_transition(
             header=block.header,
@@ -371,13 +378,6 @@ class PyjamazApp:
         assurances_after_disputes_output = self.components.assurances.state_transition_after_disputes(
             extrinsic_disputes=block.extrinsic.disputes,
             pre_state_assurances=pre_state_assurances
-        )
-
-        # Validate quality of assurance extrinsic data
-        self.components.assurances.validate_after_disputes(
-            extrinsic_assurances=block.extrinsic.assurances,
-            pre_state_validator_pool=pre_state_validator_pool,
-            header=block.header
         )
 
         # Validator Archive STF Block Data | GP-0.5.0-eq:4.11

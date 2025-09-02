@@ -155,7 +155,7 @@ class PVMInvocation:
                         gas_limit=host_call_output.gas_limit,
                         registers=host_call_output.registers,
                         memory=host_call_output.memory,
-                        invocation_context=host_call_output.context
+                        invocation_context=self.invocation_context
                     )
                 else:
                     raise Exception("OEPSIE!")
