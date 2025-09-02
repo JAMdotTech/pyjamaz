@@ -435,7 +435,7 @@ def invoke_native(
             pc_out[0] = next_pc  # Return the problematic next_pc for Python to handle
             gas_out[0] = gas  # Return current gas
             inst_nr_out[0] = inst_nr  # Return current inst_nr
-            return ERROR_INVALID_OPCODE
+            return ERROR_PANIC_TRAP
         
         # Now we know we can proceed, so update state
         gas -= 1
@@ -480,7 +480,7 @@ def invoke_native(
                 status_out[0] = status
                 pc_out[0] = pc
                 gas_out[0] = gas
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
 
         # Type 1: InstructionType.imm
         elif inst_type == 1:
@@ -495,7 +495,7 @@ def invoke_native(
                 status_out[0] = status
                 pc_out[0] = pc
                 gas_out[0] = gas
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
 
         # Type 2: InstructionType.reg_ext_imm
         elif inst_type == 2:
@@ -512,7 +512,7 @@ def invoke_native(
                 status_out[0] = status
                 pc_out[0] = pc
                 gas_out[0] = gas
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
 
         # Type 3: InstructionType.imm_imm
         elif inst_type == 3:
@@ -530,7 +530,7 @@ def invoke_native(
             pc_out[0] = pc  # PC already points to current instruction
             gas_out[0] = gas + 1  # Return gas before decrement  
             inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-            return ERROR_INVALID_OPCODE
+            return ERROR_PANIC_TRAP
 
         # Type 4: InstructionType.offset
         elif inst_type == 4:
@@ -544,7 +544,7 @@ def invoke_native(
                 status_out[0] = status
                 pc_out[0] = pc
                 gas_out[0] = gas
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
 
         # Type 5: InstructionType.reg_imm
         elif inst_type == 5:
@@ -579,7 +579,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 53:  # load_i8  
                 # Memory load - fall back for now
                 for i in range(len(reg)):
@@ -589,7 +589,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 54:  # load_u16
                 # Memory load - fall back for now
                 for i in range(len(reg)):
@@ -599,7 +599,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 55:  # load_i16
                 # Memory load - fall back for now
                 for i in range(len(reg)):
@@ -609,7 +609,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 56:  # load_u32  
                 # Memory load - fall back for now
                 for i in range(len(reg)):
@@ -619,7 +619,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 57:  # load_i32
                 # Memory load - fall back for now
                 for i in range(len(reg)):
@@ -629,7 +629,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 58:  # load_u64
                 # Memory load - fall back for now
                 for i in range(len(reg)):
@@ -639,7 +639,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 59:  # store_u8
                 # Memory store - fall back for now
                 for i in range(len(reg)):
@@ -649,7 +649,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 60:  # store_u16
                 # Memory store - fall back for now
                 for i in range(len(reg)):
@@ -659,7 +659,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 61:  # store_u32
                 # Memory store - fall back for now
                 for i in range(len(reg)):
@@ -669,7 +669,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 62:  # store_u64
                 # Memory store - fall back for now
                 for i in range(len(reg)):
@@ -679,7 +679,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 90:  # add_imm
                 reg[r_a] = (reg[r_a] + v_x) & U64(0xFFFFFFFFFFFFFFFF)
             elif opcode == 91:  # add_imm_32
@@ -714,7 +714,7 @@ def invoke_native(
                 pc_out[0] = pc  # PC already points to current instruction
                 gas_out[0] = gas + 1  # Return gas before decrement  
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
 
         # Type 6: InstructionType.reg_imm_imm  
         elif inst_type == 6:
@@ -726,19 +726,19 @@ def invoke_native(
             pc_out[0] = pc
             gas_out[0] = gas + 1
             inst_nr_out[0] = inst_nr - 1
-            return ERROR_INVALID_OPCODE
+            return ERROR_PANIC_TRAP
             
         # Type 7: InstructionType.reg_reg_imm_imm
         elif inst_type == 7:
-            # Fall back to Python for now
+            # Unsupported - panic
+            status = EXIT_PANIC
             for i in range(len(reg)):
                 registers_out[i] = reg[i]
             status_out[0] = status
-            exit_value_out[0] = exit_value
             pc_out[0] = pc
-            gas_out[0] = gas + 1
-            inst_nr_out[0] = inst_nr - 1
-            return ERROR_INVALID_OPCODE
+            gas_out[0] = gas
+            inst_nr_out[0] = inst_nr
+            return ERROR_PANIC_TRAP
 
         # Type 8: InstructionType.reg_reg
         elif inst_type == 8:
@@ -756,7 +756,7 @@ def invoke_native(
                 pc_out[0] = pc
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 102:  # count_set_bits_64
                 # Manual bit counting (np.bitwise_count not available in numba)
                 val = reg[r_a]
@@ -797,7 +797,7 @@ def invoke_native(
                 pc_out[0] = pc  # PC already points to current instruction
                 gas_out[0] = gas + 1  # Return gas before decrement  
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
 
         # Type 9: InstructionType.reg_reg_imm
         elif inst_type == 9:
@@ -818,7 +818,7 @@ def invoke_native(
                 pc_out[0] = pc  # PC already points to current instruction
                 gas_out[0] = gas + 1  # Return gas before decrement  
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
             elif opcode == 131:  # add_imm_32
                 reg[r_a] = pvm_X_jit((w_b + v_x) % (2 ** 32), np.uint8(4))
             elif opcode == 132:  # and_imm
@@ -882,7 +882,7 @@ def invoke_native(
                 pc_out[0] = pc  # PC already points to current instruction
                 gas_out[0] = gas + 1  # Return gas before decrement  
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
         
         # Type 10: InstructionType.reg_reg_offset
         elif inst_type == 10:
@@ -922,7 +922,7 @@ def invoke_native(
                 pc_out[0] = pc  # PC already points to current instruction
                 gas_out[0] = gas + 1  # Return gas before decrement  
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
         
         # Type 12: InstructionType.reg_reg_reg
         elif inst_type == 12:
@@ -1029,7 +1029,7 @@ def invoke_native(
                 pc_out[0] = pc  # PC already points to current instruction
                 gas_out[0] = gas + 1  # Return gas before decrement  
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_INVALID_OPCODE
+                return ERROR_PANIC_TRAP
         elif inst_type == 255: #TODO!!!!!!!!!!!!HUH?>????????
             # Undefined opcode - should halt
             status = EXIT_HALT
@@ -1051,7 +1051,7 @@ def invoke_native(
             pc_out[0] = pc  # PC already points to current instruction
             gas_out[0] = gas + 1  # Return gas before decrement
             inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-            return ERROR_INVALID_OPCODE
+            return ERROR_PANIC_TRAP
 
     # Copy output state
     for i in range(len(reg)):
@@ -1067,7 +1067,8 @@ def invoke_native(
 
 class PVMInterpreter(PVMInterpreterBase):
     """
-    JIT-optimized PVM interpreter that uses Numba for the core execution loop.
+    Pure JIT-optimized PVM interpreter using Numba compilation only.
+    No fallback to Python interpreter.
     """
 
     def __init__(self, program: PVMProgram, logger_cls=None):
@@ -1094,17 +1095,17 @@ class PVMInterpreter(PVMInterpreterBase):
 
     def invoke(self, pc: int, gas: int):
         """
-        Enhanced invoke that uses JIT compilation for the hot path.
-        Falls back to Python for complex operations.
+        Pure JIT invoke that uses only Numba compilation.
+        No fallback to Python interpreter.
         """
         self.pc = pc
         self.gas = gas
 
-        # Try to execute with JIT-compiled function
-        consecutive_fallbacks = 0
+        jump_table_array = np.array(self.jump_table, dtype=np.int32)
+
+        # Execute with pure JIT-compiled function
         while self.status == ExitReason.resume.value and self.gas > 0:
-            # if self.inst_nr >= 7 and self.inst_nr <= 10:
-            #     print(f"DEBUG[{self.inst_nr}]: Loop iteration starting with PC={self.pc}, gas={self.gas}")
+            # TODO: kan dit efficienter??
             # Prepare output arrays
             registers_out = np.zeros(13, dtype=np.uint64)
             status_out = np.array([0], dtype=np.int32)
@@ -1114,7 +1115,6 @@ class PVMInterpreter(PVMInterpreterBase):
             inst_nr_out = np.array([0], dtype=np.uint32)
 
             # Call JIT-compiled function
-            jump_table_array = np.array(self.jump_table, dtype=np.int32)
             error_code = invoke_native(
                 self.pc, self.gas,
                 self.code, self.code_size,
@@ -1132,23 +1132,10 @@ class PVMInterpreter(PVMInterpreterBase):
             self.exit_value = exit_value_out[0]
             old_pc = self.pc
             self.pc = pc_out[0]
-            
-            
-            # Debug check for invalid PC
-            # if self.pc == 31:
-            #     print(f"DEBUG: JIT returned PC=31! old_pc={old_pc}, error_code={error_code}")
-            #     print(f"  inst_nr: {self.inst_nr} -> {self.inst_nr + inst_nr_out[0]}")
-                
+
             self.gas = gas_out[0]
             self.inst_nr += inst_nr_out[0]
             
-            # Validate PC after JIT execution (disabled for now)
-            # if self.pc not in self.inst_pos and self.pc != 0 and self.gas > 0:
-            #     # PC is invalid - this might be a JIT bug
-            #     print(f"WARNING: JIT returned invalid PC={self.pc} (from {old_pc}), error_code={error_code}")
-            # if self.inst_nr >= 7 and self.inst_nr <= 10:
-            #     print(f"DEBUG[{self.inst_nr}]: After JIT, PC={self.pc}, gas={self.gas}, error={error_code}")
-
             # Handle errors
             if error_code == ERROR_PANIC_TRAP:
                 self.status = ExitReason.panic.value
@@ -1160,87 +1147,16 @@ class PVMInterpreter(PVMInterpreterBase):
                 self.status = ExitReason.panic.value
                 break  # Exit the main loop
             elif error_code == ERROR_INVALID_OPCODE:
-                # Fall back to Python implementation for this instruction
-                consecutive_fallbacks += 1
-                if consecutive_fallbacks > 100:
-                    raise PanicError(f"Too many consecutive fallbacks at PC={self.pc}")
-                    
-                    
-                if self.gas > 0 and self.status == ExitReason.resume.value:
-                    # Execute one instruction with parent implementation
-                    saved_gas = self.gas
-                    saved_pc = self.pc
-                    saved_inst_nr = self.inst_nr
-                    
-                    # Debug output
-                    # print(f"DEBUG: Falling back at PC={self.pc}, gas={saved_gas}")
-
-                    try:
-                        # DEBUG: Check what PC we're passing to Python  
-                        if self.pc not in self.inst_pos and self.pc != 0:
-                            print(f"WARNING: About to invoke Python with invalid PC={self.pc}!")
-                            print(f"  This will cause KeyError!")
-                            # Find what would be the correct next PC
-                            valid_pcs = sorted(self.inst_pos.keys())
-                            prev_pc = None
-                            for vpc in valid_pcs:
-                                if vpc < self.pc:
-                                    prev_pc = vpc
-                                elif vpc > self.pc:
-                                    print(f"  Previous valid PC was {prev_pc}")
-                                    print(f"  Next valid PC is {vpc}")
-                                    break
-                        
-                        # Execute exactly one instruction using Python's new single-step mode
-                        old_pc = self.pc
-                        old_inst_nr = self.inst_nr
-                        
-                        # Debug before invoking Python
-                        debug_fallback = False  # Set to True to enable debug output
-                        if debug_fallback:
-                            print(f"DEBUG: Fallback at PC={self.pc}, inst_nr={self.inst_nr}")
-                            
-                        # Use enough gas to execute one instruction
-                        super().invoke(self.pc, 2)
-                        
-                        # Debug after invoking Python
-                        if debug_fallback:
-                            print(f"DEBUG: After fallback PC={old_pc} -> {self.pc}")
-                        
-                        # Check that we executed exactly one instruction
-                        insts_executed = self.inst_nr - old_inst_nr
-                        
-                        if insts_executed == 0:
-                            # No instruction executed - this shouldn't happen with gas=2
-                            print(f"WARNING: No instruction executed at PC={old_pc}")
-                            self.gas = saved_gas  # No gas used
-                        elif insts_executed == 1:
-                            # Perfect, executed exactly one
-                            self.gas = saved_gas - 1
-                        else:
-                            # Should not happen with single_step=True
-                            print(f"WARNING: Single-step mode executed {insts_executed} instructions from PC={old_pc}")
-                            self.gas = saved_gas - insts_executed
-                            
-                        # print(f"DEBUG: After Python fallback, PC={self.pc}")
-                    except PanicError as e:
-                        # Handle panic from Python execution
-                        self.status = ExitReason.panic.value
-                        # Don't restore state - keep the PC where the panic occurred
-                        break  # Exit the main loop
-                    except Exception as e:
-                        # Restore state on other errors
-                        self.pc = saved_pc
-                        self.inst_nr = saved_inst_nr 
-                        self.gas = saved_gas
-                        raise
-            elif error_code != ERROR_NONE:
-                # Other errors
+                # No fallback - treat as panic
                 self.status = ExitReason.panic.value
-                raise PanicError(f"JIT execution error: {error_code}")
-            else:
-                # JIT executed successfully, reset fallback counter
-                consecutive_fallbacks = 0
+                break
+            elif error_code == ERROR_MEMORY_FAULT:
+                self.status = ExitReason.page_fault.value
+                break
+            elif error_code != ERROR_NONE:
+                # Other errors cause panic
+                self.status = ExitReason.panic.value
+                break
 
 
             # If JIT completed successfully or status changed, we're done
