@@ -39,6 +39,54 @@ from .constants_new import (
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
 
 
+#TODO: alles zo aliassen!!!!!!!!
+U64 = np.uint64
+I64 = np.int64
+
+
+# --- 64x64 -> 128 helpers to ditch Pythons int() boxing
+
+def umul64wide(a: U64, b: U64):
+    """Unsigned 64x64 -> (hi, lo) as uint64s."""
+    mask32 = U64(0xFFFFFFFF)
+    a_lo = a & mask32
+    a_hi = a >> U64(32)
+    b_lo = b & mask32
+    b_hi = b >> U64(32)
+
+    ll = a_lo * b_lo              # 64-bit
+    lh = a_lo * b_hi
+    hl = a_hi * b_lo
+    hh = a_hi * b_hi
+
+    carry   = (ll >> U64(32)) + (lh & mask32) + (hl & mask32)
+    lo      = (ll & mask32) | ((carry & mask32) << U64(32))
+    hi      = hh + (lh >> U64(32)) + (hl >> U64(32)) + (carry >> U64(32))
+    return U64(hi), U64(lo)
+
+
+def imul64wide(a: I64, b: I64):
+    """Signed 64x64 -> (hi, lo) representing 128-bit two's-complement product."""
+    ua = U64(a)   # reinterpret
+    ub = U64(b)
+    hi, lo = umul64wide(ua, ub)
+    # Adjust high word for two's-complement signs (see Hacker's Delight)
+    if a < 0:
+        hi = U64(hi - ub)
+    if b < 0:
+        hi = U64(hi - ua)
+    return U64(hi), U64(lo)
+
+
+def smul_u64wide(a: I64, b: U64):
+    """Signed * Unsigned -> (hi, lo), two's-complement."""
+    ua = U64(a)
+    hi, lo = umul64wide(ua, b)
+    if a < 0:
+        hi = U64(hi - b)
+    return U64(hi), U64(lo)
+
+
 def rori64(x, shift_amount):
     """JIT-compiled rotate right for 64-bit integers."""
     return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
@@ -564,7 +612,7 @@ class PVMInterpreter:
         if not self.mem_ops_write[opcode]:
             raise Exception(f"Opcode {opcode} is not a valid memory write operation")
         
-        bytes_to_write = int(self.mem_ops_bytes[opcode])
+        bytes_to_write = np.uint64(self.mem_ops_bytes[opcode])
         #addr = addr % (2 ** 32)  #TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -659,7 +707,7 @@ class PVMInterpreter:
         if not self.mem_ops_read[opcode]:
             raise Exception(f"Opcode {opcode} is not a valid memory read operation")
 
-        bytes_to_read = self.mem_ops_bytes[opcode]
+        bytes_to_read = np.uint64(self.mem_ops_bytes[opcode])
         #addr = addr % (2 ** 32)  # TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -1508,22 +1556,33 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 213:  # op.mul_upper_s_s
-                        self.reg[r_d] = pvm_Z_inv(
-                            riscv_div(int(pvm_Z(w_a, 8)) * int(pvm_Z(w_b, 8)), 2**64),
-                            8
-                        )
+                        # self.reg[r_d] = pvm_Z_inv(
+                        #     riscv_div(int(pvm_Z(w_a, 8)) * int(pvm_Z(w_b, 8)), 2**64),
+                        #     8
+                        # )
+                        # self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
+                        hi, _lo = imul64wide(I64(w_a), I64(w_b))
+                        self.reg[r_d] = U64(hi)  # store as word (two's-complement bits)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 214:  # op.mul_upper_u_u
-                        result = int(w_a) * int(w_b)  # Use Python int for multiplication to avoid overflow
-                        self.reg[r_d] = riscv_div(result, 2**64)
+                        # result = int(w_a) * int(w_b)  # Use Python int for multiplication to avoid overflow
+                        # self.reg[r_d] = riscv_div(result, 2**64)
+                        # self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
+                        # unsigned * unsigned: just take high word of 128-bit product
+                        hi, _lo = umul64wide(U64(w_a), U64(w_b))
+                        self.reg[r_d] = U64(hi)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 215:  # op.mul_upper_s_u
-                        self.reg[r_d] = pvm_Z_inv(
-                            riscv_div(int(pvm_Z(w_a, 8)) * int(w_b), 2**64),
-                            8
-                        )
+                        # self.reg[r_d] = pvm_Z_inv(
+                        #     riscv_div(int(pvm_Z(w_a, 8)) * int(w_b), 2**64),
+                        #     8
+                        # )
+                        # self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
+                        # signed * unsigned: use mixed helper
+                        hi, _lo = smul_u64wide(I64(w_a), U64(w_b))
+                        self.reg[r_d] = U64(hi)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 216:  # op.set_lt_u
