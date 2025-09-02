@@ -18,7 +18,7 @@ from .utils_new import (
     # reverse_bytes,
     # rori64,
     # rori32,
-    riscv_div as riscv_div2,
+    #riscv_div as riscv_div2,
     # pvm_smod,
     # pvm_rtz_div,
     # roli32,
@@ -129,22 +129,22 @@ def pvm_smod(a: np.int64, b: np.int64) -> np.int64:
             return -((-a) % (-b))
 
 
-def riscv_div3(x: np.int64, y: np.int64) -> np.int64:
-    """JIT-compiled integer division."""
-    return x // y
-
-
-def riscv_div(x: np.int64, y: np.int64) -> np.int64:
-    """JIT-compiled integer division."""
-    v2 = riscv_div2(x,y)
-    try:
-        v3 = riscv_div3(x,y)
-        if v2 != v3:
-            print("RISCV_DIV DIFF: ", x,y,v2,v3)
-    except:
-        print("RISCV_DIV ERR: ", x,y,v2)
-
-    return v2
+# def riscv_div3(x: np.int64, y: np.int64) -> np.int64:
+#     """JIT-compiled integer division."""
+#     return x // y
+#
+#
+# def riscv_div(x: np.int64, y: np.int64) -> np.int64:
+#     """JIT-compiled integer division; compare vs riscv_div2 and fall back safely."""
+#     v2 = riscv_div2(x, y)
+#     try:
+#         v3 = riscv_div3(x, y)
+#     except Exception as e:
+#         print("RISCV_DIV ERR:", x, y, v2, repr(e))
+#         return v2
+#     if v2 != v3:
+#         print("RISCV_DIV DIFF:", x, y, v2, v3)
+#     return v3
 
 
 def pvm_rtz_div(a: np.int64, b: np.int64) -> np.int64:
@@ -381,10 +381,10 @@ class PVMInterpreter:
         self.mem:PVMMemory = None
         self.status:int = ExitReason.resume.value
         self.exit_value:int = None
-        
+
         # Initialize memory operation lookups
         self._init_mem_ops_lookup()
-        
+
         # Initialize memory sections storage
         self.mem_sections = []
         self.mem_section_starts = np.array([], dtype=np.uint32)
@@ -480,7 +480,7 @@ class PVMInterpreter:
         self.code_size: np.uint64 = np.uint64(len(self.code))
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
-        
+
         # Initialize memory sections from the PVMMemory object (just reference where possible)
         self._link_memory(program.memory)
 
@@ -506,7 +506,7 @@ class PVMInterpreter:
         self.mem_ops_bytes = np.zeros(256, dtype=np.uint8)
         self.mem_ops_read = np.zeros(256, dtype=np.bool_)
         self.mem_ops_write = np.zeros(256, dtype=np.bool_)
-        
+
         # Populate the lookup arrays from MemOps
         for opcode, ops in MemOps.items():
             self.mem_ops_bytes[opcode] = ops["bytes"]
@@ -611,7 +611,7 @@ class PVMInterpreter:
         #TODO: necessary?
         if not self.mem_ops_write[opcode]:
             raise Exception(f"Opcode {opcode} is not a valid memory write operation")
-        
+
         bytes_to_write = np.uint64(self.mem_ops_bytes[opcode])
         #addr = addr % (2 ** 32)  #TODO: necessary?
 
@@ -825,7 +825,7 @@ class PVMInterpreter:
             #     # Invalid PC - this is a panic condition
             #     self.status = ExitReason.panic.value
             #     raise PanicError(f"Invalid PC: {self.pc} is not an instruction boundary")
-            
+
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
             inst_type = OpcodeScheme[opcode]
@@ -1209,17 +1209,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == 139:  # op.shlo_r_imm_32
-                        self.reg[r_a] = pvm_X(riscv_div((w_b % 2 ** 32), (2 ** (v_x % 32))), 4)
+                        self.reg[r_a] = pvm_X(np.uint32(w_b) >> np.uint32(np.uint32(v_x) & np.uint32(31)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == 140:  # op.shar_r_imm_32
-                        self.reg[r_a] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(w_b % 2 ** 32, 4),
-                                (2 ** (v_x % 32))
-                            ),
-                         8
-                        )
+                        self.reg[r_a] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(w_b), 4)) >> np.int64(np.uint32(v_x) & np.uint32(31)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 141:  # op.neg_add_imm_32
@@ -1239,17 +1233,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 145:  # op.shlo_r_imm_alt_32
-                        self.reg[r_a] = pvm_X(riscv_div(v_x % 2**32, (2 ** (w_b % 32))), 4)
+                        self.reg[r_a] = pvm_X(np.uint32(v_x) >> np.uint32(np.uint32(w_b) & np.uint32(31)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 146:  # op.shar_r_imm_alt_32
-                        self.reg[r_a] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(v_x % 2**32, 4),
-                                2 ** (w_b % 32)
-                            ),
-                            8
-                        )
+                        self.reg[r_a] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(v_x), 4)) >> np.int64(np.uint32(w_b) & np.uint32(31)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 147:  # op.cmov_iz_imm
@@ -1275,17 +1263,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 152:  # op.shlo_r_imm_64
-                        self.reg[r_a] = pvm_X(riscv_div(w_b, np.uint64(2**(v_x % 64))), 8)
+                        self.reg[r_a] = U64(w_b) >> U64(v_x & U64(63))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 153:  # op.shar_r_imm_64
-                        self.reg[r_a] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(w_b, 8),
-                                2**(v_x % 64)
-                            ),
-                            8
-                        )
+                        self.reg[r_a] = pvm_Z_inv(I64(pvm_Z(w_b, 8)) >> np.int64(U64(v_x) & U64(63)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 154:  # op.neg_add_imm_64
@@ -1298,16 +1280,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 156:  # op.shlo_r_imm_alt_64
-                        self.reg[r_a] = riscv_div(v_x, np.uint64(2**(w_b % 64)))
+                        self.reg[r_a] = U64(v_x) >> U64(w_b & U64(63))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 157:  # op.shar_r_imm_alt_64
-                        self.reg[r_a] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(v_x, 8),
-                                2**(w_b % 64)),
-                            8
-                        )
+                        self.reg[r_a] = pvm_Z_inv(I64(pvm_Z(v_x, 8)) >> np.int64(U64(w_b) & U64(63)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == 158:  # op.rot_r_64_imm
@@ -1412,9 +1389,9 @@ class PVMInterpreter:
 
                     elif opcode == 193:  # op.div_u_32
                         if self.reg[r_b] == 0:
-                            self.reg[r_d] = 2**64-1
+                            self.reg[r_d] = 2**64 - 1
                         else:
-                            self.reg[r_d] = pvm_X(riscv_div(w_a % 2**32, w_b % 2**32), 4)
+                            self.reg[r_d] = pvm_X(np.uint32(w_a) // np.uint32(w_b), 4)
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
@@ -1457,17 +1434,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 198:  # op.shlo_r_32
-                        self.reg[r_d] = pvm_X(riscv_div(w_a % 2**32, 2**(w_b % 32)), 4)
+                        self.reg[r_d] = pvm_X(np.uint32(w_a) >> np.uint32(np.uint32(w_b) & np.uint32(31)), 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 199:  # op.shar_r_32
-                        self.reg[r_d] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(w_a % 2**32, 4),
-                                2**(w_b % 32)
-                            ),
-                         8
-                        )
+                        self.reg[r_d] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(w_a), 4)) >> np.int64(np.uint32(w_b) & np.uint32(31)), 8)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 200:  # op.add_64
@@ -1485,9 +1456,9 @@ class PVMInterpreter:
 
                     elif opcode == 203:  # op.div_u_64
                         if w_b == 0:
-                            self.reg[r_d] = 2**64 - 1
+                            self.reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
                         else:
-                            self.reg[r_d] = riscv_div(w_a, w_b)
+                            self.reg[r_d] = U64(U64(w_a) // U64(w_b))
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 204:  # op.div_s_64
@@ -1530,17 +1501,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 208:  # op.shlo_r_64
-                        self.reg[r_d] = riscv_div(w_a, 2**(w_b % 64))
+                        self.reg[r_d] = U64(w_a) >> U64(w_b & U64(63))
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 209:  # op.shar_r_64
-                        self.reg[r_d] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(w_a, 8),
-                                2**(w_b % 64)
-                            ),
-                            8
-                        )
+                        self.reg[r_d] = pvm_Z_inv(I64(pvm_Z(w_a, 8)) >> np.int64(U64(w_b) & U64(63)), 8)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 210:  # op._and
@@ -1556,30 +1521,17 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 213:  # op.mul_upper_s_s
-                        # self.reg[r_d] = pvm_Z_inv(
-                        #     riscv_div(int(pvm_Z(w_a, 8)) * int(pvm_Z(w_b, 8)), 2**64),
-                        #     8
-                        # )
-                        # self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
                         hi, _lo = imul64wide(I64(w_a), I64(w_b))
                         self.reg[r_d] = U64(hi)  # store as word (two's-complement bits)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 214:  # op.mul_upper_u_u
-                        # result = int(w_a) * int(w_b)  # Use Python int for multiplication to avoid overflow
-                        # self.reg[r_d] = riscv_div(result, 2**64)
-                        # self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
                         # unsigned * unsigned: just take high word of 128-bit product
                         hi, _lo = umul64wide(U64(w_a), U64(w_b))
                         self.reg[r_d] = U64(hi)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == 215:  # op.mul_upper_s_u
-                        # self.reg[r_d] = pvm_Z_inv(
-                        #     riscv_div(int(pvm_Z(w_a, 8)) * int(w_b), 2**64),
-                        #     8
-                        # )
-                        # self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
                         # signed * unsigned: use mixed helper
                         hi, _lo = smul_u64wide(I64(w_a), U64(w_b))
                         self.reg[r_d] = U64(hi)
