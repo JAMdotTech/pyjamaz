@@ -43,7 +43,11 @@ from .constants_new import (
     op_shar_r_64, op_and, op_xor, op_or, op_mul_upper_s_s, op_mul_upper_u_u,
     op_mul_upper_s_u, op_set_lt_u, op_set_lt_s, op_cmov_iz, op_cmov_nz, op_rot_l_64,
     op_rot_l_32, op_rot_r_64, op_rot_r_32, op_and_inv, op_or_inv, op_xnor, op_max,
-    op_max_u, op_min, op_min_u
+    op_max_u, op_min, op_min_u,
+
+    inst_none, inst_imm, inst_reg_ext_imm, inst_imm_imm, inst_offset, inst_reg_imm,
+    inst_reg_imm_imm, inst_reg_imm_offset, inst_reg_reg, inst_reg_reg_imm,
+    inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg, inst_undefined
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
@@ -817,7 +821,7 @@ class PVMInterpreter:
 
             try:
                 #GP-0.6.7-section:A.5.1
-                if inst_type == 0:  # InstructionType.none
+                if inst_type == inst_none:  # InstructionType.none
                     if opcode == op_trap:
                         self.log and self.log()
                         #self.status = ExitCondition.panic.value
@@ -830,7 +834,7 @@ class PVMInterpreter:
 
 
                 #GP-0.6.7-section:A.5.2
-                elif inst_type == 1:  # InstructionType.imm
+                elif inst_type == inst_imm:  # InstructionType.imm
                     l_x = U64(min(4, self.inst_arg_len[inst_index]))
                     v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
 
@@ -842,7 +846,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid imm opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.3
-                elif inst_type == 2:  # InstructionType.reg_ext_imm
+                elif inst_type == inst_reg_ext_imm:  # InstructionType.reg_ext_imm
 
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     v_x = read_uint(self.code, self.pc + 2, 8)
@@ -854,7 +858,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid reg_ext_imm opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.4
-                elif inst_type == 3:  # InstructionType.imm_imm
+                elif inst_type == inst_imm_imm:  # InstructionType.imm_imm
 
                     l_x = U64(min(4, self.code[self.pc + 1] % 8))
                     l_y = U64(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
@@ -877,7 +881,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid imm_imm opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.5
-                elif inst_type == 4:  # InstructionType.offset
+                elif inst_type == inst_offset:  # InstructionType.offset
 
                     l_x = U64(min(4, self.inst_arg_len[inst_index]))
                     v_x = pvm_Z(read_uint(self.code, self.pc + 1, l_x), l_x)
@@ -890,7 +894,7 @@ class PVMInterpreter:
 
 
                 #GP-0.6.7-section:A.5.6
-                elif inst_type == 5:  # InstructionType.reg_imm
+                elif inst_type == inst_reg_imm:  # InstructionType.reg_imm
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     l_x = U64(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
                     v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
@@ -951,7 +955,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.7
-                elif inst_type == 6:  # InstructionType.reg_imm_imm
+                elif inst_type == inst_reg_imm_imm:  # InstructionType.reg_imm_imm
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     w_a = self.reg[r_a]
@@ -983,7 +987,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.8
-                elif inst_type == 7:  # InstructionType.reg_imm_offset
+                elif inst_type == inst_reg_imm_offset:  # InstructionType.reg_imm_offset
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     w_a = self.reg[r_a]
@@ -1044,7 +1048,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid reg_imm_offset opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.9
-                elif inst_type == 8:  # InstructionType.reg_reg
+                elif inst_type == inst_reg_reg:  # InstructionType.reg_reg
 
                     r_d = min(12, self.code[self.pc + 1] % 16)
                     r_a = min(12, self.code[self.pc + 1] // 16)
@@ -1105,7 +1109,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.10
-                elif inst_type == 9:  # InstructionType.reg_reg_imm
+                elif inst_type == inst_reg_reg_imm:  # InstructionType.reg_reg_imm
 
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     r_b = min(12, self.code[self.pc + 1] // 16)
@@ -1291,7 +1295,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.11
-                elif inst_type == 10:  # InstructionType.reg_reg_offset
+                elif inst_type == inst_reg_reg_offset:  # InstructionType.reg_reg_offset
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     r_b = min(12, self.code[self.pc + 1] // 16)
                     w_a = self.reg[r_a]
@@ -1328,7 +1332,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.12
-                elif inst_type == 11:  # InstructionType.reg_reg_imm_imm
+                elif inst_type == inst_reg_reg_imm_imm:  # InstructionType.reg_reg_imm_imm
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     r_b = self.code[self.pc + 1] // 16
@@ -1350,7 +1354,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid reg_reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
 
                 #GP-0.6.7-section:A.5.13
-                elif inst_type == 12:  # InstructionType.reg_reg_reg
+                elif inst_type == inst_reg_reg_reg:  # InstructionType.reg_reg_reg
 
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     r_b = min(12, self.code[self.pc + 1] // 16)

@@ -12,7 +12,7 @@ from .interpreter_new3 import PVMInterpreter as PVMInterpreterBase
 from .types_new import PVMProgram
 from .constants_new import (
     ExitReason, OpcodeScheme, Opcode as op,
-    # Import all individual opcode constants
+
     op_trap, op_fallthrough, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
     op_store_imm_u32, op_store_imm_u64, op_jump, op_jump_ind, op_load_imm, op_load_u8,
     op_load_i8, op_load_u16, op_load_i16, op_load_u32, op_load_i32, op_load_u64,
@@ -42,7 +42,11 @@ from .constants_new import (
     op_shar_r_64, op_and, op_xor, op_or, op_mul_upper_s_s, op_mul_upper_u_u,
     op_mul_upper_s_u, op_set_lt_u, op_set_lt_s, op_cmov_iz, op_cmov_nz, op_rot_l_64,
     op_rot_l_32, op_rot_r_64, op_rot_r_32, op_and_inv, op_or_inv, op_xnor, op_max,
-    op_max_u, op_min, op_min_u
+    op_max_u, op_min, op_min_u,
+
+    inst_none, inst_imm, inst_reg_ext_imm, inst_imm_imm, inst_offset, inst_reg_imm,
+    inst_reg_imm_imm, inst_reg_imm_offset, inst_reg_reg, inst_reg_reg_imm,
+    inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg, inst_undefined
 )
 
 
@@ -594,7 +598,7 @@ def invoke_native(
 
         # Process instructions by type
         # Type 0: InstructionType.none
-        if inst_type == 0:
+        if inst_type == inst_none:
             if opcode == op.trap:
                 status = EXIT_PANIC
                 # Copy registers before returning
@@ -615,7 +619,7 @@ def invoke_native(
                 return ERROR_PANIC_TRAP
 
         # Type 1: InstructionType.imm
-        elif inst_type == 1:
+        elif inst_type == inst_imm:
             l_x = min(4, inst_arg_len[inst_index])
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
@@ -630,7 +634,7 @@ def invoke_native(
                 return ERROR_PANIC_TRAP
 
         # Type 2: InstructionType.reg_ext_imm
-        elif inst_type == 2:
+        elif inst_type == inst_reg_ext_imm:
             r_a = min(12, code[pc + 1] % 16)
             v_x = read_uint_jit(code, pc + 2, 8)
 
@@ -647,7 +651,7 @@ def invoke_native(
                 return ERROR_PANIC_TRAP
 
         # Type 3: InstructionType.imm_imm
-        elif inst_type == 3:
+        elif inst_type == inst_imm_imm:
             l_x = min(4, code[pc + 1] % 8)
             l_y = min(4, max(0, inst_arg_len[inst_index] - l_x - 1))
             v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
@@ -706,7 +710,7 @@ def invoke_native(
                 return ERROR_PANIC_TRAP
 
         # Type 4: InstructionType.offset
-        elif inst_type == 4:
+        elif inst_type == inst_offset:
             l_x = min(4, inst_arg_len[inst_index])
             v_x = pvm_Z_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
@@ -720,7 +724,7 @@ def invoke_native(
                 return ERROR_PANIC_TRAP
 
         # Type 5: InstructionType.reg_imm
-        elif inst_type == 5:
+        elif inst_type == inst_reg_imm:
             r_a = min(12, code[pc + 1] % 16)
             l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
             v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
@@ -892,7 +896,7 @@ def invoke_native(
                 return ERROR_PANIC_TRAP
 
         # Type 6: InstructionType.reg_imm_imm  
-        elif inst_type == 6:
+        elif inst_type == inst_reg_imm_imm:
             # Memory operations - fall back to Python for now
             for i in range(len(reg)):
                 registers_out[i] = reg[i]
@@ -904,7 +908,7 @@ def invoke_native(
             return ERROR_PANIC_TRAP
             
         # Type 7: InstructionType.reg_reg_imm_imm
-        elif inst_type == 7:
+        elif inst_type == inst_reg_imm_offset:
             # Unsupported - panic
             status = EXIT_PANIC
             for i in range(len(reg)):
@@ -916,7 +920,7 @@ def invoke_native(
             return ERROR_PANIC_TRAP
 
         # Type 8: InstructionType.reg_reg
-        elif inst_type == 8:
+        elif inst_type == inst_reg_reg:
             r_d = min(12, code[pc + 1] % 16)
             r_a = min(12, code[pc + 1] // 16)
 
@@ -975,7 +979,7 @@ def invoke_native(
                 return ERROR_PANIC_TRAP
 
         # Type 9: InstructionType.reg_reg_imm
-        elif inst_type == 9:
+        elif inst_type == inst_reg_reg_imm:
             r_a = min(12, code[pc + 1] % 16)
             r_b = min(12, code[pc + 1] // 16)
             l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
@@ -1107,7 +1111,7 @@ def invoke_native(
                 return ERROR_PANIC_TRAP
         
         # Type 10: InstructionType.reg_reg_offset
-        elif inst_type == 10:
+        elif inst_type == inst_reg_reg_offset:
             r_a = min(12, code[pc + 1] % 16)
             r_b = min(12, code[pc + 1] // 16)
             l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
@@ -1147,7 +1151,7 @@ def invoke_native(
                 return ERROR_PANIC_TRAP
         
         # Type 12: InstructionType.reg_reg_reg
-        elif inst_type == 12:
+        elif inst_type == inst_reg_reg_reg:
             r_a = min(12, code[pc + 1] % 16)
             r_b = min(12, code[pc + 1] // 16)
             r_d = min(12, code[pc + 2])
@@ -1256,7 +1260,7 @@ def invoke_native(
                 gas_out[0] = gas + 1  # Return gas before decrement  
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_PANIC_TRAP
-        elif inst_type == 255: #TODO!!!!!!!!!!!!HUH?>????????
+        elif inst_type == inst_undefined: #TODO!!!!!!!!!!!!HUH?>????????
             # Undefined opcode - should halt
             status = EXIT_HALT
             for i in range(len(reg)):
