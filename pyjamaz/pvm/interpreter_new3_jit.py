@@ -670,7 +670,7 @@ def invoke_native(
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
-        # Type 4: InstructionType.offset
+        #GP-0.6.7-section:A.5.5
         elif inst_type == inst_offset:
             l_x = min(4, inst_arg_len[inst_index])
             v_x = pvm_Z_jit(read_uint_jit(code, pc + 1, l_x), l_x)
@@ -678,11 +678,9 @@ def invoke_native(
             if opcode == op_jump:
                 skip_len = v_x
             else:
-                status = EXIT_PANIC
-                status_out[0] = status
-                pc_out[0] = pc
-                gas_out[0] = gas
-                return ERROR_PANIC_TRAP
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
         # Type 5: InstructionType.reg_imm
         elif inst_type == inst_reg_imm:
