@@ -500,6 +500,26 @@ def sync_state_and_return(reg, registers_out, status, status_out, pc, pc_out,
 
 
 @njit
+def branch_jit(pc: U32, offset: I64, condition: bool, inst_pos_keys) -> I32:
+    """JIT implementation of branch with validation."""
+    if condition:
+        target_pc = pc + offset
+        # Check if target PC is valid
+        found = False
+        for i in range(len(inst_pos_keys)):
+            if inst_pos_keys[i] == target_pc:
+                found = True
+                break
+        
+        if not found:
+            return I32(-1)  # Invalid branch - panic
+        
+        return I32(offset)  # Valid branch
+    else:
+        return I32(0)  # No branch - continue
+
+
+@njit
 def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
     """JIT implementation of djump with validation."""
     halt_value = U32(2**32 - 2**16)
@@ -834,17 +854,105 @@ def invoke_native(
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
             
-        # Type 7: InstructionType.reg_reg_imm_imm
+        #GP-0.6.7-section:A.5.8
         elif inst_type == inst_reg_imm_offset:
-            # Unsupported - panic
-            status = EXIT_PANIC
-            for i in range(len(reg)):
-                registers_out[i] = reg[i]
-            status_out[0] = status
-            pc_out[0] = pc
-            gas_out[0] = gas
-            inst_nr_out[0] = inst_nr
-            return ERROR_PANIC_TRAP
+            r_a = min(12, code[pc + 1] % 16)
+            w_a = reg[r_a]
+            
+            l_x = min(4, (code[pc + 1] // 16) % 8)
+            v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), U8(l_x))
+            
+            l_y = min(4, max(0, inst_arg_len[inst_index] - l_x - 1))
+            v_y = pvm_Z_jit(read_uint_jit(code, pc + 2 + l_x, l_y), U8(l_y))
+            
+            if opcode == op_load_imm_jump:
+                reg[r_a] = v_x
+                skip_len = v_y  # Jump with offset
+
+            elif opcode == op_branch_eq_imm:
+                branch_result = branch_jit(pc, v_y, w_a == v_x, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_ne_imm:
+                branch_result = branch_jit(pc, v_y, w_a != v_x, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_lt_u_imm:
+                branch_result = branch_jit(pc, v_y, w_a < v_x, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_le_u_imm:
+                branch_result = branch_jit(pc, v_y, w_a <= v_x, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_ge_u_imm:
+                branch_result = branch_jit(pc, v_y, w_a >= v_x, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_gt_u_imm:
+                branch_result = branch_jit(pc, v_y, w_a > v_x, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_lt_s_imm:
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_le_s_imm:
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_ge_s_imm:
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_gt_s_imm:
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            else:
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
         # Type 8: InstructionType.reg_reg
         elif inst_type == inst_reg_reg:
@@ -1334,6 +1442,8 @@ class PVMInterpreter(PVMInterpreterBase):
         elif error_code == ERROR_PANIC_INVALID_PC:
             self.status = ExitReason.panic.value
         elif error_code == ERROR_PANIC_INVALID_DJUMP:
+            self.status = ExitReason.panic.value
+        elif error_code == ERROR_PANIC_INVALID_BRANCH:
             self.status = ExitReason.panic.value
         elif error_code == ERROR_INVALID_OPCODE:
             # No fallback - treat as panic
