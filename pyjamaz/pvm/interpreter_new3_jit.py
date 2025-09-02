@@ -366,34 +366,42 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     if section_idx < 0:
         return I32(-1)  # Memory error
     
-    section_start = section_starts[section_idx]
-    section_offset = U64(addr - section_start)
-    section_data_start = mem_sections_offsets[section_idx]
+    section_start = U64(section_starts[section_idx])
+    section_offset = addr - section_start
+    section_data_start = U64(mem_sections_offsets[section_idx])
+    
+    # Convert bytes_to_write to U64 for calculations
+    bytes_u64 = U64(bytes_to_write)
     
     # Apply modulus for values less than 8 bytes
-    if bytes_to_write < 8:
-        value = value % (2 ** (U64(bytes_to_write) * 8))
+    if bytes_u64 < U64(8):
+        shift_amount = bytes_u64 * U64(8)
+        mask = (U64(1) << shift_amount) - U64(1)
+        value = value & mask
+
+    # Convert to integers for array indexing
+    base_idx = int(section_data_start + section_offset)
 
     # Write bytes in little-endian order
-    if bytes_to_write == 1:
-        mem_sections_flat[section_data_start + section_offset] = U8(value & 0xFF)
-    elif bytes_to_write == 2:
-        mem_sections_flat[section_data_start + section_offset] = U8(value & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 1] = U8((value >> 8) & 0xFF)
-    elif bytes_to_write == 4:
-        mem_sections_flat[section_data_start + section_offset] = U8(value & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 1] = U8((value >> 8) & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 2] = U8((value >> 16) & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 3] = U8((value >> 24) & 0xFF)
-    elif bytes_to_write == 8:
-        mem_sections_flat[section_data_start + section_offset] = U8(value & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 1] = U8((value >> 8) & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 2] = U8((value >> 16) & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 3] = U8((value >> 24) & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 4] = U8((value >> 32) & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 5] = U8((value >> 40) & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 6] = U8((value >> 48) & 0xFF)
-        mem_sections_flat[section_data_start + section_offset + 7] = U8((value >> 56) & 0xFF)
+    if bytes_to_write == U8(1):
+        mem_sections_flat[base_idx] = U8(value & U64(0xFF))
+    elif bytes_to_write == U8(2):
+        mem_sections_flat[base_idx] = U8(value & U64(0xFF))
+        mem_sections_flat[base_idx + 1] = U8((value >> U64(8)) & U64(0xFF))
+    elif bytes_to_write == U8(4):
+        mem_sections_flat[base_idx] = U8(value & U64(0xFF))
+        mem_sections_flat[base_idx + 1] = U8((value >> U64(8)) & U64(0xFF))
+        mem_sections_flat[base_idx + 2] = U8((value >> U64(16)) & U64(0xFF))
+        mem_sections_flat[base_idx + 3] = U8((value >> U64(24)) & U64(0xFF))
+    elif bytes_to_write == U8(8):
+        mem_sections_flat[base_idx] = U8(value & U64(0xFF))
+        mem_sections_flat[base_idx + 1] = U8((value >> U64(8)) & U64(0xFF))
+        mem_sections_flat[base_idx + 2] = U8((value >> U64(16)) & U64(0xFF))
+        mem_sections_flat[base_idx + 3] = U8((value >> U64(24)) & U64(0xFF))
+        mem_sections_flat[base_idx + 4] = U8((value >> U64(32)) & U64(0xFF))
+        mem_sections_flat[base_idx + 5] = U8((value >> U64(40)) & U64(0xFF))
+        mem_sections_flat[base_idx + 6] = U8((value >> U64(48)) & U64(0xFF))
+        mem_sections_flat[base_idx + 7] = U8((value >> U64(56)) & U64(0xFF))
     else:
         return I32(-1)  # Invalid bytes_to_write
         
@@ -409,30 +417,33 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
     if section_idx < 0:
         return U64(0xFFFFFFFFFFFFFFFF)  # Error marker
     
-    section_start = section_starts[section_idx]
-    section_offset = U64(addr - section_start)
-    section_data_start = mem_sections_offsets[section_idx]
+    section_start = U64(section_starts[section_idx])
+    section_offset = addr - section_start
+    section_data_start = U64(mem_sections_offsets[section_idx])
+    
+    # Convert to integer for array indexing
+    base_idx = int(section_data_start + section_offset)
     
     # Read bytes in little-endian order
-    if bytes_to_read == 1:
-        return U64(mem_sections_flat[section_data_start + section_offset])
-    elif bytes_to_read == 2:
-        return (U64(mem_sections_flat[section_data_start + section_offset]) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 1]) << 8))
-    elif bytes_to_read == 4:
-        return (U64(mem_sections_flat[section_data_start + section_offset]) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 1]) << 8) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 2]) << 16) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 3]) << 24))
-    elif bytes_to_read == 8:
-        return (U64(mem_sections_flat[section_data_start + section_offset]) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 1]) << 8) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 2]) << 16) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 3]) << 24) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 4]) << 32) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 5]) << 40) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 6]) << 48) |
-                (U64(mem_sections_flat[section_data_start + section_offset + 7]) << 56))
+    if bytes_to_read == U8(1):
+        return U64(mem_sections_flat[base_idx])
+    elif bytes_to_read == U8(2):
+        return (U64(mem_sections_flat[base_idx]) |
+                (U64(mem_sections_flat[base_idx + 1]) << U64(8)))
+    elif bytes_to_read == U8(4):
+        return (U64(mem_sections_flat[base_idx]) |
+                (U64(mem_sections_flat[base_idx + 1]) << U64(8)) |
+                (U64(mem_sections_flat[base_idx + 2]) << U64(16)) |
+                (U64(mem_sections_flat[base_idx + 3]) << U64(24)))
+    elif bytes_to_read == U8(8):
+        return (U64(mem_sections_flat[base_idx]) |
+                (U64(mem_sections_flat[base_idx + 1]) << U64(8)) |
+                (U64(mem_sections_flat[base_idx + 2]) << U64(16)) |
+                (U64(mem_sections_flat[base_idx + 3]) << U64(24)) |
+                (U64(mem_sections_flat[base_idx + 4]) << U64(32)) |
+                (U64(mem_sections_flat[base_idx + 5]) << U64(40)) |
+                (U64(mem_sections_flat[base_idx + 6]) << U64(48)) |
+                (U64(mem_sections_flat[base_idx + 7]) << U64(56)))
     else:
         return U64(0xFFFFFFFFFFFFFFFF)  # Error marker
 
@@ -741,16 +752,18 @@ def invoke_native(
                 gas_out[0] = gas + 1
                 inst_nr_out[0] = inst_nr - 1
                 return ERROR_PANIC_TRAP
-            elif opcode == 56:  # load_u32  
-                # Memory load - fall back for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+            elif opcode == 56:  # load_u32
+                loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    status = EXIT_PAGE_FAULT
+                    for i in range(len(reg)):
+                        registers_out[i] = reg[i]
+                    status_out[0] = status
+                    pc_out[0] = pc
+                    gas_out[0] = gas
+                    inst_nr_out[0] = inst_nr
+                    return ERROR_MEMORY_FAULT
+                reg[r_a] = loaded_value
             elif opcode == 57:  # load_i32
                 # Memory load - fall back for now
                 for i in range(len(reg)):
@@ -1269,67 +1282,54 @@ class PVMInterpreter(PVMInterpreterBase):
         # Prepare memory arrays for JIT
         mem_sections_flat, mem_sections_offsets = self._prepare_memory_for_jit()
 
-        # Execute with pure JIT-compiled function
-        while self.status == ExitReason.resume.value and self.gas > 0:
-            # TODO: kan dit efficienter / buiten de loop??
-            # Prepare output arrays
-            registers_out = np.zeros(13, dtype=np.uint64)
-            status_out = np.array([0], dtype=np.int32)
-            exit_value_out = np.array([0], dtype=np.int64)
-            pc_out = np.array([0], dtype=np.uint32)
-            gas_out = np.array([0], dtype=np.int64)
-            inst_nr_out = np.array([0], dtype=np.uint32)
+        # TODO: kan dit efficienter / buiten de loop??
+        # Prepare output arrays
+        registers_out = np.zeros(13, dtype=np.uint64)
+        status_out = np.array([0], dtype=np.int32)
+        exit_value_out = np.array([0], dtype=np.int64)
+        pc_out = np.array([0], dtype=np.uint32)
+        gas_out = np.array([0], dtype=np.int64)
+        inst_nr_out = np.array([0], dtype=np.uint32)
 
-            # Call JIT-compiled function
-            error_code = invoke_native(
-                self.pc, self.gas,
-                self.code, self.code_size,
-                self.inst_pos_keys, self.inst_pos_vals, self.inst_arg_len_array,
-                self.opcode_scheme_array, jump_table_array,
-                self.mem_ops_read, self.mem_ops_write, self.mem_ops_bytes,
-                self.mem_section_starts, self.mem_section_ends, mem_sections_flat, mem_sections_offsets,
-                self.reg,
-                # Outputs
-                registers_out, status_out, exit_value_out,
-                pc_out, gas_out, inst_nr_out
-            )
-            
-            # Update state from outputs
-            self.reg[:] = registers_out
-            self.status = status_out[0]
-            self.exit_value = exit_value_out[0]
-            old_pc = self.pc
-            self.pc = pc_out[0]
+        # Call JIT-compiled function
+        error_code = invoke_native(
+            self.pc, self.gas,
+            self.code, self.code_size,
+            self.inst_pos_keys, self.inst_pos_vals, self.inst_arg_len_array,
+            self.opcode_scheme_array, jump_table_array,
+            self.mem_ops_read, self.mem_ops_write, self.mem_ops_bytes,
+            self.mem_section_starts, self.mem_section_ends, mem_sections_flat, mem_sections_offsets,
+            self.reg,
+            # Outputs
+            registers_out, status_out, exit_value_out,
+            pc_out, gas_out, inst_nr_out
+        )
 
-            self.gas = gas_out[0]
-            self.inst_nr += inst_nr_out[0]
-            
-            # Handle errors
-            if error_code == ERROR_PANIC_TRAP:
-                self.status = ExitReason.panic.value
-                break  # Exit the main loop
-            elif error_code == ERROR_PANIC_INVALID_PC:
-                self.status = ExitReason.panic.value
-                break  # Exit the main loop
-            elif error_code == ERROR_PANIC_INVALID_DJUMP:
-                self.status = ExitReason.panic.value
-                break  # Exit the main loop
-            elif error_code == ERROR_INVALID_OPCODE:
-                # No fallback - treat as panic
-                self.status = ExitReason.panic.value
-                break
-            elif error_code == ERROR_MEMORY_FAULT:
-                self.status = ExitReason.page_fault.value
-                break
-            elif error_code != ERROR_NONE:
-                # Other errors cause panic
-                self.status = ExitReason.panic.value
-                break
+        # Update state from outputs
+        self.reg[:] = registers_out
+        self.status = status_out[0]
+        self.exit_value = exit_value_out[0]
+        old_pc = self.pc
+        self.pc = pc_out[0]
 
+        self.gas = gas_out[0]
+        self.inst_nr += inst_nr_out[0]
 
-            # If JIT completed successfully or status changed, we're done
-            if self.status != ExitReason.resume.value:
-                break
-                
+        # Handle errors
+        if error_code == ERROR_PANIC_TRAP:
+            self.status = ExitReason.panic.value
+        elif error_code == ERROR_PANIC_INVALID_PC:
+            self.status = ExitReason.panic.value
+        elif error_code == ERROR_PANIC_INVALID_DJUMP:
+            self.status = ExitReason.panic.value
+        elif error_code == ERROR_INVALID_OPCODE:
+            # No fallback - treat as panic
+            self.status = ExitReason.panic.value
+        elif error_code == ERROR_MEMORY_FAULT:
+            self.status = ExitReason.page_fault.value
+        elif error_code != ERROR_NONE:
+            # Other errors cause panic
+            self.status = ExitReason.panic.value
+
         # Update memory sections from flat array
         self._update_memory_from_jit(mem_sections_flat, mem_sections_offsets)
