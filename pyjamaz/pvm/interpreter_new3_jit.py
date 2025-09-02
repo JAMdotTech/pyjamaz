@@ -10,7 +10,6 @@ from numba import njit
 
 from .interpreter_new3 import PVMInterpreter as PVMInterpreterBase
 from .types_new import PVMProgram
-from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
 from .constants_new import ExitReason, OpcodeScheme
 
 
@@ -350,6 +349,95 @@ def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
 
 
 @njit
+def find_memory_section_jit(addr: U64, section_starts, section_ends) -> I32:
+    """JIT-compiled find memory section."""
+    for i in range(len(section_starts)):
+        if section_starts[i] <= addr <= section_ends[i]:
+            return I32(i)
+    return I32(-1)
+
+
+@njit
+def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8, 
+                  section_starts, section_ends, mem_sections_flat, mem_sections_offsets) -> I32:
+    """JIT-compiled memory write."""
+    # Find section
+    section_idx = find_memory_section_jit(addr, section_starts, section_ends)
+    if section_idx < 0:
+        return I32(-1)  # Memory error
+    
+    section_start = section_starts[section_idx]
+    section_offset = U64(addr - section_start)
+    section_data_start = mem_sections_offsets[section_idx]
+    
+    # Apply modulus for values less than 8 bytes
+    if bytes_to_write < 8:
+        value = value % (2 ** (U64(bytes_to_write) * 8))
+
+    # Write bytes in little-endian order
+    if bytes_to_write == 1:
+        mem_sections_flat[section_data_start + section_offset] = U8(value & 0xFF)
+    elif bytes_to_write == 2:
+        mem_sections_flat[section_data_start + section_offset] = U8(value & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 1] = U8((value >> 8) & 0xFF)
+    elif bytes_to_write == 4:
+        mem_sections_flat[section_data_start + section_offset] = U8(value & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 1] = U8((value >> 8) & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 2] = U8((value >> 16) & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 3] = U8((value >> 24) & 0xFF)
+    elif bytes_to_write == 8:
+        mem_sections_flat[section_data_start + section_offset] = U8(value & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 1] = U8((value >> 8) & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 2] = U8((value >> 16) & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 3] = U8((value >> 24) & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 4] = U8((value >> 32) & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 5] = U8((value >> 40) & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 6] = U8((value >> 48) & 0xFF)
+        mem_sections_flat[section_data_start + section_offset + 7] = U8((value >> 56) & 0xFF)
+    else:
+        return I32(-1)  # Invalid bytes_to_write
+        
+    return I32(0)  # Success
+
+
+@njit
+def mem_read_jit(addr: U64, bytes_to_read: U8,
+                 section_starts, section_ends, mem_sections_flat, mem_sections_offsets) -> U64:
+    """JIT-compiled memory read."""
+    # Find section
+    section_idx = find_memory_section_jit(addr, section_starts, section_ends)
+    if section_idx < 0:
+        return U64(0xFFFFFFFFFFFFFFFF)  # Error marker
+    
+    section_start = section_starts[section_idx]
+    section_offset = U64(addr - section_start)
+    section_data_start = mem_sections_offsets[section_idx]
+    
+    # Read bytes in little-endian order
+    if bytes_to_read == 1:
+        return U64(mem_sections_flat[section_data_start + section_offset])
+    elif bytes_to_read == 2:
+        return (U64(mem_sections_flat[section_data_start + section_offset]) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 1]) << 8))
+    elif bytes_to_read == 4:
+        return (U64(mem_sections_flat[section_data_start + section_offset]) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 1]) << 8) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 2]) << 16) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 3]) << 24))
+    elif bytes_to_read == 8:
+        return (U64(mem_sections_flat[section_data_start + section_offset]) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 1]) << 8) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 2]) << 16) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 3]) << 24) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 4]) << 32) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 5]) << 40) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 6]) << 48) |
+                (U64(mem_sections_flat[section_data_start + section_offset + 7]) << 56))
+    else:
+        return U64(0xFFFFFFFFFFFFFFFF)  # Error marker
+
+
+@njit
 def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
     """JIT implementation of djump with validation."""
     halt_value = U32(2**32 - 2**16)
@@ -387,6 +475,8 @@ def invoke_native(
         code, code_size,
         inst_pos_keys, inst_pos_vals, inst_arg_len,
         opcode_scheme, jump_table,
+        mem_ops_read, mem_ops_write, mem_ops_bytes,
+        mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets,
         registers_in,
         # Output parameters (modified in-place)
         registers_out,
@@ -521,16 +611,57 @@ def invoke_native(
             v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
             v_y = pvm_X_jit(read_uint_jit(code, pc + 2 + l_x, l_y), np.uint8(l_y))
             
-            # All type 3 opcodes are memory stores - fall back to Python for safety
-            # Memory operations are complex and safer in Python
-            for i in range(len(reg)):
-                registers_out[i] = reg[i]
-            status_out[0] = status
-            exit_value_out[0] = exit_value
-            pc_out[0] = pc  # PC already points to current instruction
-            gas_out[0] = gas + 1  # Return gas before decrement  
-            inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-            return ERROR_PANIC_TRAP
+            # Memory store operations  
+            if opcode == 30:  # store_imm_u8
+                if mem_write_jit(v_x, v_y % (2**8), U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    status = EXIT_PAGE_FAULT
+                    for i in range(len(reg)):
+                        registers_out[i] = reg[i]
+                    status_out[0] = status
+                    pc_out[0] = pc
+                    gas_out[0] = gas
+                    inst_nr_out[0] = inst_nr
+                    return ERROR_MEMORY_FAULT
+            elif opcode == 31:  # store_imm_u16
+                if mem_write_jit(v_x, v_y % (2**16), U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    status = EXIT_PAGE_FAULT
+                    for i in range(len(reg)):
+                        registers_out[i] = reg[i]
+                    status_out[0] = status
+                    pc_out[0] = pc
+                    gas_out[0] = gas
+                    inst_nr_out[0] = inst_nr
+                    return ERROR_MEMORY_FAULT
+            elif opcode == 32:  # store_imm_u32
+                if mem_write_jit(v_x, v_y % (2**32), U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    status = EXIT_PAGE_FAULT
+                    for i in range(len(reg)):
+                        registers_out[i] = reg[i]
+                    status_out[0] = status
+                    pc_out[0] = pc
+                    gas_out[0] = gas
+                    inst_nr_out[0] = inst_nr
+                    return ERROR_MEMORY_FAULT
+            elif opcode == 33:  # store_imm_u64
+                if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    status = EXIT_PAGE_FAULT
+                    for i in range(len(reg)):
+                        registers_out[i] = reg[i]
+                    status_out[0] = status
+                    pc_out[0] = pc
+                    gas_out[0] = gas
+                    inst_nr_out[0] = inst_nr
+                    return ERROR_MEMORY_FAULT
+            else:
+                # Unsupported type 3 opcode
+                status = EXIT_PANIC
+                for i in range(len(reg)):
+                    registers_out[i] = reg[i]
+                status_out[0] = status
+                pc_out[0] = pc
+                gas_out[0] = gas
+                inst_nr_out[0] = inst_nr
+                return ERROR_PANIC_TRAP
 
         # Type 4: InstructionType.offset
         elif inst_type == 4:
@@ -1092,6 +1223,38 @@ class PVMInterpreter(PVMInterpreterBase):
         self.opcode_scheme_array = np.full(256, 255, dtype=np.int32)
         for opcode, scheme in OpcodeScheme.items():
             self.opcode_scheme_array[opcode] = scheme
+            
+    def _prepare_memory_for_jit(self):
+        """Prepare memory sections as flat arrays for JIT access."""
+        if not self.mem_sections:
+            return np.array([], dtype=np.uint8), np.array([], dtype=np.uint32)
+            
+        # Calculate total memory size and create offsets
+        total_size = 0
+        offsets = []
+        for section in self.mem_sections:
+            offsets.append(total_size)
+            total_size += len(section) if section is not None else 0
+            
+        # Create flat array
+        flat_memory = np.zeros(total_size, dtype=np.uint8)
+        current_offset = 0
+        for i, section in enumerate(self.mem_sections):
+            if section is not None:
+                section_size = len(section)
+                flat_memory[current_offset:current_offset + section_size] = section[:]
+                current_offset += section_size
+        
+        return flat_memory, np.array(offsets, dtype=np.uint32)
+    
+    def _update_memory_from_jit(self, mem_sections_flat, mem_sections_offsets):
+        """Update memory sections from flat array after JIT execution."""
+        current_offset = 0
+        for i, section in enumerate(self.mem_sections):
+            if section is not None:
+                section_size = len(section)
+                section[:] = mem_sections_flat[current_offset:current_offset + section_size]
+                current_offset += section_size
 
     def invoke(self, pc: int, gas: int):
         """
@@ -1103,9 +1266,12 @@ class PVMInterpreter(PVMInterpreterBase):
 
         jump_table_array = np.array(self.jump_table, dtype=np.int32)
 
+        # Prepare memory arrays for JIT
+        mem_sections_flat, mem_sections_offsets = self._prepare_memory_for_jit()
+
         # Execute with pure JIT-compiled function
         while self.status == ExitReason.resume.value and self.gas > 0:
-            # TODO: kan dit efficienter??
+            # TODO: kan dit efficienter / buiten de loop??
             # Prepare output arrays
             registers_out = np.zeros(13, dtype=np.uint64)
             status_out = np.array([0], dtype=np.int32)
@@ -1120,12 +1286,14 @@ class PVMInterpreter(PVMInterpreterBase):
                 self.code, self.code_size,
                 self.inst_pos_keys, self.inst_pos_vals, self.inst_arg_len_array,
                 self.opcode_scheme_array, jump_table_array,
+                self.mem_ops_read, self.mem_ops_write, self.mem_ops_bytes,
+                self.mem_section_starts, self.mem_section_ends, mem_sections_flat, mem_sections_offsets,
                 self.reg,
                 # Outputs
                 registers_out, status_out, exit_value_out,
                 pc_out, gas_out, inst_nr_out
             )
-
+            
             # Update state from outputs
             self.reg[:] = registers_out
             self.status = status_out[0]
@@ -1163,3 +1331,5 @@ class PVMInterpreter(PVMInterpreterBase):
             if self.status != ExitReason.resume.value:
                 break
                 
+        # Update memory sections from flat array
+        self._update_memory_from_jit(mem_sections_flat, mem_sections_offsets)
