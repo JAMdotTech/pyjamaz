@@ -105,7 +105,7 @@ class PVMInterpreter:
                 if inst_bitmask_idx > len(inst_bitmask) - 1:
                     is_opcode = True
 
-            # GP-0.6.2-eq:A.19 (l)
+            # GP-0.7.1-eq:A.20 (l)
             self.inst_arg_len.append(inst_args)
             inst_nr += 1
             self.inst_pos[inst_bitmask_idx - 1] = inst_nr
@@ -113,7 +113,7 @@ class PVMInterpreter:
 
     def branch(self, b:int, C:bool):
         """
-        #GP-0.6.4-eq:A.17
+        #GP-0.7.1-eq:A.17
         """
         if C:
             inst_pos = self.pc + b
@@ -170,7 +170,7 @@ class PVMInterpreter:
         return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
 
 
-    #GP-0.6.7-section:A.15
+    # GP-0.7.1-eq:A.18
     def djump(self, a: int):
         if a == 2 ** 32 - 2 ** 16:
             self.status = ExitReason.halt.value
@@ -219,7 +219,7 @@ class PVMInterpreter:
             self.log.pvm_counters()
             self.log.pvm_header()
 
-        # GP-0.6.7-section:A.4 Single-Step State Transition
+        # GP-0.7.1-eq:A.6 | Single-Step State Transition
         while self.status == ExitReason.resume.value and self.gas > 0:
 
             self.gas -= 1
@@ -239,7 +239,7 @@ class PVMInterpreter:
             try:
                 match inst_type:
 
-                    #GP-0.6.7-section:A.5.1
+                    # GP-0.7.1-section:A.5.1 | Instructions without Arguments
                     case InstructionType.none:
 
                         match opcode:
@@ -253,8 +253,7 @@ class PVMInterpreter:
                             case _:
                                 raise InvalidOpcode(f"Invalid noargs opcode: {opcode} for instruction type {inst_type}")
 
-
-                    #GP-0.6.7-section:A.5.2
+                    # GP-0.7.1-section:A.5.2 | Instructions with Arguments of One Immediate
                     case InstructionType.imm:
                         l_x = int(min(4, self.inst_arg_len[inst_index]))
                         v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
@@ -268,7 +267,8 @@ class PVMInterpreter:
                             case _:
                                 raise InvalidOpcode(f"Invalid imm opcode: {opcode} for instruction type {inst_type}")
 
-                    #GP-0.6.7-section:A.5.3
+                    # GP-0.7.1-section:A.5.3 | Instructions with Arguments of One Register and One Extended Width
+                    # Immediate
                     case InstructionType.reg_ext_imm:
 
                         r_a = min(12, self.code[self.pc + 1] % 16)
@@ -282,7 +282,7 @@ class PVMInterpreter:
                             case _:
                                 raise InvalidOpcode(f"Invalid reg_ext_imm opcode: {opcode} for instruction type {inst_type}")
 
-                    #GP-0.6.7-section:A.5.4
+                    # GP-0.7.1-section:A.5.4 | Instructions with Arguments of Two Immediates
                     case InstructionType.imm_imm:
 
                         l_x = int(min(4, self.code[self.pc + 1] % 8))
@@ -308,7 +308,7 @@ class PVMInterpreter:
                                 raise InvalidOpcode(f"Invalid imm_imm opcode: {opcode} for instruction type {inst_type}")
 
 
-                    #GP-0.6.7-section:A.5.5
+                    # GP-0.7.1-section:A.5.5 | Instructions with Arguments of One Offset
                     case InstructionType.offset:
 
                         l_x = int(min(4, self.inst_arg_len[inst_index]))
@@ -323,7 +323,7 @@ class PVMInterpreter:
                                 raise InvalidOpcode(f"Invalid offset opcode: {opcode} for instruction type {inst_type}")
 
 
-                    #GP-0.6.7-section:A.5.6
+                    # GP-0.7.1-section:A.5.6 | Instructions with Arguments of One Register and One Immediate
                     case InstructionType.reg_imm:
                         r_a = min(12, self.code[self.pc + 1] % 16)
                         l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
@@ -386,7 +386,7 @@ class PVMInterpreter:
                             case _:
                                 raise InvalidOpcode(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
 
-                    #GP-0.6.7-section:A.5.7
+                    # GP-0.7.1-section:A.5.7 | Instructions with Arguments of One Register and Two Immediates
                     case InstructionType.reg_imm_imm:
                         # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                         r_a = min(12, self.code[self.pc + 1] % 16)
@@ -422,7 +422,7 @@ class PVMInterpreter:
                             case _:
                                 raise InvalidOpcode(f"Invalid reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
 
-                    #GP-0.6.7-section:A.5.8
+                    # GP-0.7.1-section:A.5.8 | Instructions with Arguments of One Register, One Immediate and One Offset
                     case InstructionType.reg_imm_offset:
                         # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                         r_a = min(12, self.code[self.pc + 1] % 16)
@@ -484,7 +484,7 @@ class PVMInterpreter:
                             case _:
                                 raise InvalidOpcode(f"Invalid reg_imm_offset opcode: {opcode} for instruction type {inst_type}")
 
-                    #GP-0.6.7-section:A.5.9
+                    # GP-0.7.1-section:A.5.9 | Instructions with Arguments of Two Registers
                     case InstructionType.reg_reg:
 
                         r_d = min(12, self.code[self.pc + 1] % 16)
@@ -545,7 +545,7 @@ class PVMInterpreter:
                             case _:
                                 raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
-                    #GP-0.6.7-section:A.5.10
+                    # GP-0.7.1-section:A.5.10 | Instructions with Arguments of Two Registers and One Immediate
                     case InstructionType.reg_reg_imm:
 
                         r_a = min(12, self.code[self.pc + 1] % 16)
@@ -755,7 +755,7 @@ class PVMInterpreter:
                             case _:
                                 raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
-                    #GP-0.6.7-section:A.5.11
+                    # GP-0.7.1-section:A.5.11 | Instructions with Arguments of Two Registers and One Offset
                     case InstructionType.reg_reg_offset:
                         r_a = min(12, self.code[self.pc + 1] % 16)
                         r_b = min(12, self.code[self.pc + 1] // 16)
@@ -794,7 +794,7 @@ class PVMInterpreter:
                                 raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
 
 
-                    #GP-0.6.7-section:A.5.12
+                    # GP-0.7.1-section:A.5.12 | Instructions with Arguments of Two Registers and Two Immediates
                     case InstructionType.reg_reg_imm_imm:
                         # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                         r_a = min(12, self.code[self.pc + 1] % 16)
@@ -819,7 +819,7 @@ class PVMInterpreter:
                             case _:
                                 raise InvalidOpcode(f"Invalid reg_reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
 
-                    #GP-0.6.7-section:A.5.13
+                    # GP-0.7.1-section:A.5.13 | Instructions with Arguments of Three Registers
                     case InstructionType.reg_reg_reg:
 
                         r_a = min(12, self.code[self.pc + 1] % 16)

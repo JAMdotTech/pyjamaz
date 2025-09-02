@@ -39,7 +39,7 @@ class GenericAccumulationInput:
     memory: PVMMemory
 
 
-# GP-0.6.4-section:B.4 | Accumulate Invocations
+# GP-0.7.1-section:B.4 | Accumulate Invocations
 class AccumulateInvocationMutator(InvocationMutator):
 
     def __init__(self, post_entropy: EntropyState, accumulation_operands: List[AccumulationOperand]):
@@ -56,7 +56,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             _pvm: PVMInterpreter
     ) -> InvocationMutationOutput:
         """
-        GP-0.6.4-eq:B.11 | F ∈ Ω⟨(X,X)⟩∶(n,ρ,ω,μ,(x,y))
+        GP-0.7.1-eq:B.11 | F ∈ Ω⟨(X,X)⟩∶(n,ρ,ω,μ,(x,y))
         """
         logging.debug(f'PVM Accumulate host-call #{host_call_instr_nr}')
 
@@ -253,7 +253,7 @@ def pvm_invoke_accumulate(
         post_entropy: EntropyState
 ) -> PvmAccumulateOutput:
     """
-    GP-0.6.4-eq:B.9 (Ψ_A) | Accumulation invocation function
+    GP-0.7.1-eq:B.9 (Ψ_A) | Accumulation invocation function
 
     Parameters
     ----------
@@ -325,7 +325,7 @@ def pvm_invoke_accumulate(
         program_name=program_metadata
     )
 
-    # GP-0.6.2-eq:B.12 (C)
+    # GP-0.7.1-eq:B.13 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
 
         output = PvmAccumulateOutput(
@@ -436,7 +436,7 @@ def pvm_invoke_on_transfer(
     )
 
 
-# GP-0.6.4-section:B.5 | On-Transfer Invocations
+# GP-0.7.1-section:B.1 | Is-Authorized Invocations
 class IsAuthorizedInvocationMutator(InvocationMutator):
 
     def __init__(self, work_package: WorkPackage):
@@ -499,7 +499,7 @@ def pvm_invoke_is_authorized(
         core_index: int
 ) -> PvmIsAuthorizedOutput:
     """
-    GP-0.6.4-eq:B.1 (Ψ_I) | the is-authorized invocation function
+    GP-0.7.1-eq:B.1 (Ψ_I) | the is-authorized invocation function
 
     Parameters
     ----------
@@ -550,7 +550,7 @@ def pvm_invoke_is_authorized(
 
 
 
-# GP-0.6.4-section:B.5 | Refine Invocations
+# GP-0.7.1-section:B.5 | Refine Invocations
 class RefineInvocationMutator(InvocationMutator):
     def __init__(
         self,
@@ -704,7 +704,7 @@ class RefineInvocationMutator(InvocationMutator):
         return ctx_out
 
 
-# GP-0.6.6-eq:B.5: ΨR (refine invoke)
+# GP-0.7.1-eq:B.5: ΨR (refine invoke)
 def pvm_invoke_refine(
     work_item_index: int,      # GP-0.6.4-eq:B.5: italic_i index of workitem
     work_package: 'WorkPackage', # GP-0.6.4-eq:B.5: italic_p workpackage
@@ -715,7 +715,7 @@ def pvm_invoke_refine(
     extrinsics: List[List[bytes]] # GP-0.6.6-eq:B.6: x_flat list of extrinsics per workitem
 ) -> PvmRefineOutput:
     """
-    GP-0.6.7-eq:B.5 (Ψ_R) | the refine service-account invocation function
+    GP-0.7.1-eq:B.5 (Ψ_R) | the refine service-account invocation function
 
     # TODO integrate with app?
 
@@ -728,7 +728,7 @@ def pvm_invoke_refine(
     work_item = work_package.items[work_item_index]
     service_account_id = work_item.service
 
-    # GP-0.6.6-eq:B.5 (extract preimage data)
+    # GP-0.7.1-eq:B.5 (extract preimage data)
     preimage_data = services_state.historical_preimage_lookup(
         service_account_id,
         work_package.context.lookup_anchor_slot,

@@ -26,7 +26,7 @@ def hc_bless(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_B) | Accumulate host function: bless.
+    GP-0.7.1-section:B.7 (Ω_B) | Accumulate host function: bless.
 
     Set the privileged services.
     manager: The ID of the service which may effectually call bless in the future.
@@ -121,7 +121,7 @@ def hc_assign(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_A) | Accumulate host function: assign.
+    GP-0.7.1-section:B.7 (Ω_A) | Accumulate host function: assign.
 
     Assign a series of authorizers to a core.
     core: The index of the core to assign the authorizers to.
@@ -190,7 +190,7 @@ def hc_designate(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_D) | Accumulate host function: designate.
+    GP-0.7.1-section:B.7 (Ω_D) | Accumulate host function: designate.
 
     Designate the new validator keys.
     keys: The new validator keys.
@@ -251,7 +251,7 @@ def hc_checkpoint(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_C) | Accumulate host function: checkpoint.
+    GP-0.7.1-section:B.7 (Ω_C) | Accumulate host function: checkpoint.
 
     Checkpoint the state of the accumulation at present.
     In the case that accumulation runs out of gas or otherwise terminates unexpectedly, all changes extrinsic to the
@@ -287,7 +287,7 @@ def hc_new(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_N) | Accumulate host function: new.
+    GP-0.7.1-section:B.7 (Ω_N) | Accumulate host function: new.
 
     Creates new service account.
 
@@ -380,7 +380,7 @@ def hc_upgrade(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_U) | Accumulate host function: upgrade.
+    GP-0.7.1-section:B.7 (Ω_U) | Accumulate host function: upgrade.
 
     Upgrade the code of the service.
     code_hash: The hash of the code to upgrade to, to be found in the service's preimage store.
@@ -441,7 +441,7 @@ def hc_transfer(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.7 (Ω_T) | Accumulate host function: transfer.
+    GP-0.7.1-section:B.7 (Ω_T) | Accumulate host function: transfer.
 
     Transfer data and/or funds to another service asynchronously.
     destination: The ID of the service to transfer to. This service must exist at present.
@@ -530,7 +530,7 @@ def hc_eject(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_E) | Accumulate host function: eject.
+    GP-0.7.1-section:B.7 (Ω_E) | Accumulate host function: eject.
 
     Remove the target zombie service, drop its final preimage item code_hash and transfer
     remaining balance to this service.
@@ -626,7 +626,7 @@ def hc_query(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_Q) | Accumulate host function: query.
+    GP-0.7.1-section:B.7 (Ω_Q) | Accumulate host function: query.
 
     Query the status of a preimage.
     hash: The hash of the preimage to be queried.
@@ -717,7 +717,7 @@ def hc_solicit(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_S) | Accumulate host function: solicit.
+    GP-0.7.1-section:B.7 (Ω_S) | Accumulate host function: solicit.
 
     Request that preimage data be available for lookup.
     hash: The hash of the preimage to be made available.
@@ -817,7 +817,7 @@ def hc_forget(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_F) | Accumulate host function: forget.
+    GP-0.7.1-section:B.7 (Ω_F) | Accumulate host function: forget.
 
     No longer request that preimage data be available for lookup, or drop preimage data once time limit has passed.
     hash: The hash of the preimage to be forgotten.
@@ -918,7 +918,7 @@ def hc_yield(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_Y) | Accumulate host function: yield.
+    GP-0.7.1-section:B.7 (Ω_Y) | Accumulate host function: yield.
 
     Set the default result hash of Accumulation.
     hash: The hash to be used as the Accumulation result.
@@ -969,7 +969,7 @@ def hc_provide(
         output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_P) | Accumulate host function: provide.
+    GP-0.7.1-section:B.7 (Ω_P) | Accumulate host function: provide.
 
     Provides a preimage for specified service ID
 
@@ -1050,5 +1050,4 @@ def hc_provide(
         ctx_in.context.preimages.append((service_account_id, preimage_blob))
 
         logger.hc_log("PROVIDE OK", f"h={format_hash(blake2b_256_hash(preimage_blob))}")
-
 
