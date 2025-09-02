@@ -642,6 +642,23 @@ OpcodeNames = {
     op.min_u: "min_u"
 }
 
+
+inst_none = 0
+inst_imm = 1
+inst_reg_ext_imm = 2
+inst_imm_imm = 3
+inst_offset = 4
+inst_reg_imm = 5
+inst_reg_imm_imm = 6
+inst_reg_imm_offset = 7
+inst_reg_reg = 8
+inst_reg_reg_imm = 9
+inst_reg_reg_offset = 10
+inst_reg_reg_imm_imm = 11
+inst_reg_reg_reg = 12
+inst_undefined = 255
+
+
 op_trap = 0
 op_fallthrough = 1
 op_ecalli = 10
