@@ -23,44 +23,44 @@ class AppContext:
 @dataclass
 class BlockContext:
     """
-    GP-0.6.4-section:I.4.1 | Block context terms.
+    GP-0.7.1-section:I.4.1 | Block context terms.
     TODO parameter docstring
     """
-    # G
+    # M
     guarantor_assignments: Optional[List[GuarantorAssignment]] = None
-    # G*
+    # M*
     prev_guarantor_assignments: Optional[List[GuarantorAssignment]] = None
-    # H_a
+    # H_A
     author_bandersnatch_key: Optional[bytes] = None
     # TODO GP ref?
     seal_vrf_output: bytes = bytes(32)
-    # GP-0.6.4-eq:5.3 (bold_A)
+    # GP-0.7.1-eq:5.3 (bold_A)
     ancestor_headers: List[Header] = field(default_factory=list)
 
-    # W
+    # R
     available_work_reports: Optional[List[WorkReport]] = None
-    # W!
+    # R!
     ready_work_reports: Optional[List[WorkReport]] = None
-    # W_Q
+    # R^Q
     queued_work_reports: Optional[List[AccumulationQueueWorkPackage]] = None
-    # W*
+    # R*
     accumulatable_work_reports: Optional[List[WorkReport]] = None
-    # R (Reporters set, containing Ed25519 key of validator)
+    # G (Reporters set, containing Ed25519 key of validator)
     reporters: Optional[List[bytes]] = None
 
     # M_o
     state_root: Optional[bytes] = None
 
-    # C
+    # C TODO: C no longer as used block context variable in 0.7.1, part of Beta state component, right?
     beefy_commitment_map: Optional[BeefyCommitmentMap] = None
 
-    # S
+    # S TODO: S has different meaning in 0.7.1? Is this still used?
     accumulated_services: Optional[List[int]] = None
 
-    # I
+    # S
     accumulation_statistics: Optional[Dict[int, AccumulationStatistic]] = None
 
-    # X
+    # X TODO: X no longer used as block context variable in 0.7.1
     deferred_transfer_statistics: Optional[Dict[int, DeferredTransferStatistic]] = None
 
     def reset(self):
@@ -81,7 +81,7 @@ class BlockContext:
 
     def get_parent(self, header: Header) -> Optional[Header]:
         """
-        GP-0.5.4-eq:5.3 (P)
+        GP-0.7.1-eq:5.3 (P)
 
         Parameters
         ----------
@@ -106,7 +106,7 @@ class BlockContext:
                        post_validator_pool: ValidatorPoolState
                        ):
         """
-        GP-0.5.3-eq:11.21 (G) | Sets guarantor assignments for current rotation
+        GP-0.7.1-eq:11.21 (M) | Sets guarantor assignments for current rotation
 
         Parameters
         ----------
@@ -137,7 +137,7 @@ class BlockContext:
             post_validator_archive: ValidatorArchiveState
     ):
         """
-        GP-0.5.3-eq:11.22 (G*) | Sets guarantor assignments for previous rotation
+        GP-0.7.1-eq:11.22 (M*) | Sets guarantor assignments for previous rotation
 
         Parameters
         ----------
@@ -168,7 +168,7 @@ class BlockContext:
 
     def set_ready_work_reports(self):
         """
-        GP-0.5.4-eq:12.4 (W_!) | Calculates and sets ready work reports
+        GP-0.7.1-eq:12.4 (R^!) | Calculates and sets ready work reports
 
         Returns
         -------
@@ -184,7 +184,7 @@ class BlockContext:
 
     def set_queued_work_reports(self, accumulation_history: AccumulationHistoryState):
         """
-        GP-0.5.4-eq:12.5 (W_Q) | Calculates and sets queued work reports
+        GP-0.7.1-eq:12.5 (R^Q) | Calculates and sets queued work reports
 
         Returns
         -------
@@ -200,7 +200,7 @@ class BlockContext:
 
     def set_accumulatable_work_reports(self, header: Header, accumulation_queue: AccumulationQueueState):
         """
-        GP-0.5.4-eq:12.10-12.12 (W_*) | Sets accumulatable work reports
+        GP-0.7.1-eq:12.10-12.12 (R^*) | Sets accumulatable work reports
 
         Parameters
         ----------
@@ -218,22 +218,22 @@ class BlockContext:
         if self.queued_work_reports is None:
             raise ValueError("No queued reports set")
 
-        # GP-0.5.4-eq:12.10
+        # GP-0.7.1-eq:12.10
         m = header.timeslot % EPOCH_TIMESLOTS
 
-        # GP-0.5.4-eq:12.12
+        # GP-0.7.1-eq:12.12
         q = edit_queue(
             work_report_queue=flatten_list(accumulation_queue.accumulation_queue[m:]) +
                               flatten_list(accumulation_queue.accumulation_queue[:m]) +
                               self.queued_work_reports,
             accumulated_packages=work_report_mapping(self.ready_work_reports)
         )
-        # GP-0.5.4-eq:12.11
+        # GP-0.7.1-eq:12.11
         self.accumulatable_work_reports = self.ready_work_reports + priority_queue(q)
 
     def set_accumulation_statistics(self, accumulation_gas_utilized: Dict[int, int], nr_work_results_accumulated: int):
         """
-        GP-0.6.4-eq:12.24,12.25 | Compose accumulation statistics (I)
+        GP-0.7.1-eq:12.26,12.27 | Compose accumulation statistics (S)
         """
         if self.accumulatable_work_reports is None:
             raise ValueError("No accumulatable reports set")
