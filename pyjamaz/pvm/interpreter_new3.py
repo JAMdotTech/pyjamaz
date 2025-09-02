@@ -9,27 +9,8 @@ from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
 #from .memory_debug import get_memory_hash
 from .types_new import PVMProgram, PVMMemory, PVMMemoryMode
 
-from .utils_new import (
-    pvm_Z as pvm_Z2,
-    #pvm_X,
-    pvm_Z_inv as pvm_Z_inv2,
-    # count_trailing_zeroes,
-    # count_leading_zeroes,
-    # reverse_bytes,
-    # rori64,
-    # rori32,
-    #riscv_div as riscv_div2,
-    # pvm_smod,
-    # pvm_rtz_div,
-    # roli32,
-    # roli64,
-    read_uint as read_uint2,
-)
-
 from .constants_new import (
-    Opcode as op,
     OpcodeScheme,
-    InstructionType,
     ExitReason,
     MemOps,
     OpcodeNames,
@@ -129,24 +110,6 @@ def pvm_smod(a: np.int64, b: np.int64) -> np.int64:
             return -((-a) % (-b))
 
 
-# def riscv_div3(x: np.int64, y: np.int64) -> np.int64:
-#     """JIT-compiled integer division."""
-#     return x // y
-#
-#
-# def riscv_div(x: np.int64, y: np.int64) -> np.int64:
-#     """JIT-compiled integer division; compare vs riscv_div2 and fall back safely."""
-#     v2 = riscv_div2(x, y)
-#     try:
-#         v3 = riscv_div3(x, y)
-#     except Exception as e:
-#         print("RISCV_DIV ERR:", x, y, v2, repr(e))
-#         return v2
-#     if v2 != v3:
-#         print("RISCV_DIV DIFF:", x, y, v2, v3)
-#     return v3
-
-
 def pvm_rtz_div(a: np.int64, b: np.int64) -> np.int64:
     """
     JIT-compiled truncated division (rounds toward zero).
@@ -209,45 +172,32 @@ def pvm_X(x, n):
         return np.uint64(x)
 
 
-def pvm_Z3(a, n):
-    """JIT-compiled transform unsigned to signed."""
-    n = np.uint64(n)
-    a = np.uint64(a)
+def pvm_Z(a: np.int64, n: np.int64):
+    """JIT-friendly unsigned->signed conversion for n bytes (1..8).
+    Returns np.int64 with proper two's-complement sign extension without Python big-ints.
+    """
+    au = U64(a)
+    nb = U64(n)
+    width = nb << U64(3)  # bits = n * 8
 
-    if n == 1:
-        boundary = 1 << 7
-        if a < boundary:
-            return a
-        return a - (1 << 8)
-    elif n == 2:
-        boundary = 1 << 15
-        if a < boundary:
-            return a
-        return a - (1 << 16)
-    elif n == 4:
-        boundary = 1 << 31
-        if a < boundary:
-            return a
-        return a - (1 << 32)
-    elif n == 8:
-        # For n=8, use numpy casting
-        return np.int64(np.uint64(a))
+    # Clamp n to [1,8]; if n>=8, interpret full 64-bit as signed
+    if width >= U64(64):
+        return I64(au)
+    if width == U64(0):
+        return I64(0)
+
+    mask = (U64(1) << width) - U64(1)
+    val = au & mask
+    signbit = U64(1) << (width - U64(1))
+
+    if (val & signbit) != U64(0):
+        # Negative: extend the sign bit up to 64 bits
+        extend_mask = U64(0xFFFFFFFFFFFFFFFF) ^ mask
+        return I64(val | extend_mask)
     else:
-        shift = (n << 3) - 1
-        boundary = 1 << shift
-        if a < boundary:
-            return a
-        return a - (1 << (shift + 1))
+        # Positive
+        return I64(val)
 
-def pvm_Z(a, n):
-    v2 = pvm_Z2(a, n)
-    try:
-        v3 = pvm_Z3(a, n)
-        if not (v2 == v3):
-            print("pvm_Z DIFF:", a,n,v2,v3)
-    except:
-        print("pvm_Z ERR: ", a, n, v2)
-    return v2
 
 def count_leading_zeroes(value, max_bits=64):
     """JIT-compiled count leading zeroes."""
@@ -287,41 +237,52 @@ def reverse_bytes(x):
     return result
 
 
-def read_uint3(code, addr, length):
-    """JIT-compiled version of read_uint for bytecode reading."""
-    if length == 0:
+def read_uint(code: npt.NDArray[np.uint8], addr:np.uint32, length:np.uint8):
+    addr32 = np.uint32(addr)      # wrap to 32-bit address space
+    len8   = np.uint8(length)
+
+    if len8 == np.uint8(0):
         return np.uint64(0)
-    elif length == 1:
-        return np.uint64(code[addr])
-    elif length == 2:
-        return np.uint64(code[addr] | (code[addr + 1] << 8))
-    elif length == 3:
-        return np.uint64(code[addr] | (code[addr + 1] << 8) | (code[addr + 2] << 16))
-    elif length == 4:
-        return np.uint64(code[addr] | (code[addr + 1] << 8) |
-                         (code[addr + 2] << 16) | (code[addr + 3] << 24))
-    elif length == 8:
-        result = np.uint64(0)
-        for i in range(8):
-            result |= np.uint64(code[addr + i]) << np.uint64(i * 8)
-        return result
-    else:
-        raise Exception("HUH???")
+
+    if len8 == np.uint8(1):
+        return np.uint64(code[np.uint32(addr32)])
+
+    if len8 == np.uint8(2):
+        b0 = np.uint64(code[np.uint32(addr32)])
+        b1 = np.uint64(code[np.uint32(addr32 + np.uint32(1))])
+        return b0 | (b1 << np.uint64(8))
+
+    if len8 == np.uint8(3):
+        b0 = np.uint64(code[np.uint32(addr32)])
+        b1 = np.uint64(code[np.uint32(addr32 + np.uint32(1))])
+        b2 = np.uint64(code[np.uint32(addr32 + np.uint32(2))])
+        return b0 | (b1 << np.uint64(8)) | (b2 << np.uint64(16))
+
+    if len8 == np.uint8(4):
+        b0 = np.uint64(code[np.uint32(addr32)])
+        b1 = np.uint64(code[np.uint32(addr32 + np.uint32(1))])
+        b2 = np.uint64(code[np.uint32(addr32 + np.uint32(2))])
+        b3 = np.uint64(code[np.uint32(addr32 + np.uint32(3))])
+        return b0 | (b1 << np.uint64(8)) | (b2 << np.uint64(16)) | (b3 << np.uint64(24))
+
+    if len8 == np.uint8(8):
+        b0 = np.uint64(code[np.uint32(addr32 + np.uint32(0))])
+        b1 = np.uint64(code[np.uint32(addr32 + np.uint32(1))])
+        b2 = np.uint64(code[np.uint32(addr32 + np.uint32(2))])
+        b3 = np.uint64(code[np.uint32(addr32 + np.uint32(3))])
+        b4 = np.uint64(code[np.uint32(addr32 + np.uint32(4))])
+        b5 = np.uint64(code[np.uint32(addr32 + np.uint32(5))])
+        b6 = np.uint64(code[np.uint32(addr32 + np.uint32(6))])
+        b7 = np.uint64(code[np.uint32(addr32 + np.uint32(7))])
+        return (b0 | (b1 << np.uint64(8))  | (b2 << np.uint64(16)) |
+                (b3 << np.uint64(24)) | (b4 << np.uint64(32)) |
+                (b5 << np.uint64(40)) | (b6 << np.uint64(48)) |
+                (b7 << np.uint64(56)))
+
+    raise Exception("read_uint: unsupported length")
 
 
-def read_uint(code, addr, length):
-    v2 = read_uint2(code, addr, length)
-    try:
-        v3 = read_uint2(code, addr, length)
-        if v2 != v3:
-            print("read_uint DIFF: ", code, addr, length, v2, v3)
-    except:
-        print("read_uint ERR: ", code, addr, length, v2)
-
-    return v2
-
-
-def pvm_Z_inv3(a: np.int64, n: np.uint8) -> np.uint64:
+def pvm_Z_inv(a: np.int64, n: np.uint8) -> np.uint64:
     """
     JIT-compiled transform signed to unsigned.
     """
@@ -345,19 +306,6 @@ def pvm_Z_inv3(a: np.int64, n: np.uint8) -> np.uint64:
         if a >= 0:
             return np.uint64(a & mask)
         return np.uint64((a + (1 << shift)) & mask)
-
-
-def pvm_Z_inv(a: np.int64, n: np.uint8) -> np.uint64:
-    v2 = pvm_Z_inv2(a, n)
-
-    try:
-        v3 = pvm_Z_inv3(a, n)
-        if v2 != v3:
-            print("pvm_Z_inv DIFF: ", a, n, v2, v3)
-    except:
-        print("pvm_Z_inv ERR: ", a, n, v2)
-
-    return v2
 
 
 class PVMInterpreter:
