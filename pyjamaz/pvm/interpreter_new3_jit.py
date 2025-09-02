@@ -448,6 +448,7 @@ def invoke_native(
         skip_len = inst_arg_len[inst_index] + 1
         
         
+        
         # Handle trap instruction immediately  
         if opcode == 0:  # trap - should always panic
             status = EXIT_PANIC
@@ -503,6 +504,9 @@ def invoke_native(
 
             if opcode == 20:  # load_imm_64
                 reg[r_a] = v_x
+                # Debug: store debug info in exit_value for load_imm_64
+                if r_a == 8:
+                    exit_value = v_x  # Store the loaded value for debugging
             else:
                 status = EXIT_PANIC
                 status_out[0] = status
@@ -711,6 +715,30 @@ def invoke_native(
                 gas_out[0] = gas + 1  # Return gas before decrement  
                 inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
                 return ERROR_INVALID_OPCODE
+
+        # Type 6: InstructionType.reg_imm_imm  
+        elif inst_type == 6:
+            # Memory operations - fall back to Python for now
+            for i in range(len(reg)):
+                registers_out[i] = reg[i]
+            status_out[0] = status
+            exit_value_out[0] = exit_value
+            pc_out[0] = pc
+            gas_out[0] = gas + 1
+            inst_nr_out[0] = inst_nr - 1
+            return ERROR_INVALID_OPCODE
+            
+        # Type 7: InstructionType.reg_reg_imm_imm
+        elif inst_type == 7:
+            # Fall back to Python for now
+            for i in range(len(reg)):
+                registers_out[i] = reg[i]
+            status_out[0] = status
+            exit_value_out[0] = exit_value
+            pc_out[0] = pc
+            gas_out[0] = gas + 1
+            inst_nr_out[0] = inst_nr - 1
+            return ERROR_INVALID_OPCODE
 
         # Type 8: InstructionType.reg_reg
         elif inst_type == 8:
@@ -927,40 +955,46 @@ def invoke_native(
                 reg[r_d] = w_a ^ w_b
             elif opcode == 212:  # _or
                 reg[r_d] = w_a | w_b
-            elif opcode == 203:  # div_u_32
+            elif opcode == 193:  # div_u_32
                 if (w_b % (2**32)) == 0:
-                    reg[r_d] = U64(0xFFFFFFFF)  # Division by zero
+                    reg[r_d] = pvm_X_jit(U64(0xFFFFFFFF), U8(4))
                 else:
                     reg[r_d] = pvm_X_jit(U64(w_a % (2**32)) // U64(w_b % (2**32)), U8(4))
-            elif opcode == 204:  # div_u_64
+            elif opcode == 194:  # div_s_32
+                # Signed 32-bit division
+                a_signed = pvm_Z_jit(w_a % (2**32), 4)
+                b_signed = pvm_Z_jit(w_b % (2**32), 4) 
+                if b_signed == 0:
+                    reg[r_d] = pvm_X_jit(U64(0xFFFFFFFF), U8(4))
+                else:
+                    result = pvm_rtz_div_jit(a_signed, b_signed)
+                    reg[r_d] = pvm_X_jit(pvm_Z_inv_jit(result, U8(4)), U8(4))
+            elif opcode == 203:  # div_u_64
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)  # Division by zero
                 else:
                     reg[r_d] = w_a // w_b
-            elif opcode == 205:  # div_s_32
-                # Signed 32-bit division
-                a_signed = pvm_Z_jit(w_a % (2**32), 4)
-                b_signed = pvm_Z_jit(w_b % (2**32), 4)
-                if b_signed == 0:
-                    reg[r_d] = pvm_X_jit(U64(0xFFFFFFFF), U8(4))
-                else:
-                    result = riscv_div_jit(a_signed, b_signed)
-                    reg[r_d] = pvm_X_jit(pvm_Z_inv_jit(result, U8(4)), U8(4))
-            elif opcode == 206:  # div_s_64
+            elif opcode == 204:  # div_s_64
                 if w_b == 0:
-                    reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
+                    reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)  # Division by zero
+                elif pvm_Z_jit(w_a, 8) == I64(-9223372036854775808) and pvm_Z_jit(w_b, 8) == I64(-1):
+                    reg[r_d] = w_a  # Overflow case: -2^63 / -1 = -2^63 (overflow)
                 else:
-                    reg[r_d] = pvm_Z_inv_jit(riscv_div_jit(pvm_Z_jit(w_a, 8), pvm_Z_jit(w_b, 8)), U8(8))
-            elif opcode == 207:  # rem_u_32
+                    # Normal signed division using truncated division
+                    reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(pvm_Z_jit(w_a, 8), pvm_Z_jit(w_b, 8)), U8(8))
+            elif opcode == 195:  # rem_u_32
                 if (w_b % (2**32)) == 0:
                     reg[r_d] = pvm_X_jit(w_a % (2**32), U8(4))
                 else:
                     reg[r_d] = pvm_X_jit((w_a % (2**32)) % (w_b % (2**32)), U8(4))
-            elif opcode == 208:  # shlo_r_64
-                if w_b < 64:
-                    reg[r_d] = w_a >> (w_b % 64)
+            elif opcode == 207:  # shlo_l_64
+                shift_amount = w_b % 64
+                if shift_amount < 64:
+                    reg[r_d] = (w_a << shift_amount) & U64(0xFFFFFFFFFFFFFFFF)
                 else:
                     reg[r_d] = U64(0)
+            elif opcode == 208:  # shlo_r_64
+                reg[r_d] = w_a >> U64(w_b & U64(63))
             elif opcode == 209:  # shar_r_64  
                 w_b_clamped = min(w_b % 64, 63)
                 w_a_signed = pvm_Z_jit(w_a, 8)
@@ -1131,6 +1165,7 @@ class PVMInterpreter(PVMInterpreterBase):
                 if consecutive_fallbacks > 100:
                     raise PanicError(f"Too many consecutive fallbacks at PC={self.pc}")
                     
+                    
                 if self.gas > 0 and self.status == ExitReason.resume.value:
                     # Execute one instruction with parent implementation
                     saved_gas = self.gas
@@ -1207,6 +1242,8 @@ class PVMInterpreter(PVMInterpreterBase):
                 # JIT executed successfully, reset fallback counter
                 consecutive_fallbacks = 0
 
+
             # If JIT completed successfully or status changed, we're done
             if self.status != ExitReason.resume.value:
                 break
+                
