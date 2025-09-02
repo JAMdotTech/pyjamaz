@@ -1017,6 +1017,53 @@ def invoke_native(
                     # Arithmetic right shift for negative numbers
                     sign_bits = U64(0xFFFFFFFFFFFFFFFF) << U64(64 - w_b_clamped)
                     reg[r_a] = (v_x >> U64(w_b_clamped)) | sign_bits
+            elif opcode == 120:  # store_ind_u8
+                store_addr = w_b + v_x
+                store_value = w_a % (2**8)
+                if mem_write_jit(store_addr, store_value, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    status = EXIT_PAGE_FAULT
+                    for i in range(len(reg)):
+                        registers_out[i] = reg[i]
+                    status_out[0] = status
+                    pc_out[0] = pc
+                    gas_out[0] = gas
+                    inst_nr_out[0] = inst_nr
+                    return ERROR_MEMORY_FAULT
+            elif opcode == 121:  # store_ind_u16
+                store_addr = w_b + v_x
+                store_value = w_a % (2**16)
+                if mem_write_jit(store_addr, store_value, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    status = EXIT_PAGE_FAULT
+                    for i in range(len(reg)):
+                        registers_out[i] = reg[i]
+                    status_out[0] = status
+                    pc_out[0] = pc
+                    gas_out[0] = gas
+                    inst_nr_out[0] = inst_nr
+                    return ERROR_MEMORY_FAULT
+            elif opcode == 122:  # store_ind_u32
+                store_addr = w_b + v_x
+                store_value = w_a % (2**32)
+                if mem_write_jit(store_addr, store_value, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    status = EXIT_PAGE_FAULT
+                    for i in range(len(reg)):
+                        registers_out[i] = reg[i]
+                    status_out[0] = status
+                    pc_out[0] = pc
+                    gas_out[0] = gas
+                    inst_nr_out[0] = inst_nr
+                    return ERROR_MEMORY_FAULT
+            elif opcode == 123:  # store_ind_u64
+                store_addr = w_b + v_x
+                if mem_write_jit(store_addr, w_a, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    status = EXIT_PAGE_FAULT
+                    for i in range(len(reg)):
+                        registers_out[i] = reg[i]
+                    status_out[0] = status
+                    pc_out[0] = pc
+                    gas_out[0] = gas
+                    inst_nr_out[0] = inst_nr
+                    return ERROR_MEMORY_FAULT
             else:
                 # Fall back for unimplemented - copy state first
                 for i in range(len(reg)):
@@ -1131,6 +1178,10 @@ def invoke_native(
                     reg[r_d] = pvm_X_jit(w_a % (2**32), U8(4))
                 else:
                     reg[r_d] = pvm_X_jit((w_a % (2**32)) % (w_b % (2**32)), U8(4))
+            elif opcode == 198:  # shlo_r_32
+                shift_amount = U32(w_b & U64(31))  # Clamp to 0-31 range
+                shifted_value = U32(w_a) >> shift_amount
+                reg[r_d] = pvm_X_jit(U64(shifted_value), U8(4))
             elif opcode == 207:  # shlo_l_64
                 shift_amount = w_b % 64
                 if shift_amount < 64:
