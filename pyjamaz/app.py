@@ -175,7 +175,7 @@ class PyjamazApp:
 
     def retrieve_ancestor_headers(self) -> List[Header]:
         """
-        GP-0.6.4-eq:5.3 | We only require implementations to store headers of ancestors which were authored in the
+        GP-0.7.1-eq:5.3 | We only require implementations to store headers of ancestors which were authored in the
         previous (constant_L) = 24 hours of any block (bold_B) they wish to validate.
         """
         ancestor_headers = []
@@ -250,7 +250,7 @@ class PyjamazApp:
 
     def is_epoch_change(self, slotnumber: int = None) -> bool:
         """
-        GP-0.5.0-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+        GP-0.7.1-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
 
         Returns
         -------
@@ -266,14 +266,14 @@ class PyjamazApp:
 
     async def state_transition(self, block: 'Block', transaction: Transaction, produce=False) -> 'STFOutput':
         """
-        GP-0.6.4-eq:4.1 (Υ, σ') | Block Level State Transition Function for the JAM state.
+        GP-0.7.1-eq:4.1 (Υ, σ') | Block Level State Transition Function for the JAM state.
 
-        Implicit first parameter (self) | Current State | GP-0.6.4-eq:4.1 (σ)
+        Implicit first parameter (self) | Current State | GP-0.7.1-eq:4.1 (σ)
 
         Parameters
         ----------
         block: Block
-            Block Data | GP-0.5.0-eq:4.1 (bold_B)
+            Block Data | GP-0.7.1-eq:4.1 (bold_B)
         transaction: Transaction
         produce: bool
 
@@ -412,7 +412,7 @@ class PyjamazApp:
                 extrinsic=block.extrinsic
             )
 
-        # Entropy STF Block Data | GP-0.5.0-eq:4.9
+        # Entropy STF Block Data | GP-0.7.1-eq:4.8
         # TODO second time is necessary because author bandersnatch key is known after
         entropy_output = self.components.entropy.state_transition(
             header=block.header,
@@ -430,24 +430,24 @@ class PyjamazApp:
             )
 
 
-        # Assurances After Assurances STF Block Data | GP-0.5.0-eq:4.14
+        # Assurances After Assurances STF Block Data | GP-0.7.1-eq:4.13
         assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
             extrinsic_assurances=block.extrinsic.assurances,
             intermediate_state_assurances_after_disputes=assurances_after_disputes_output.intermediate_state_after_disputes,
             header=block.header,
         )
 
-        # GP-0.6.1-eq:11.16
+        # GP-0.7.1-eq:11.16
         self.block_context.available_work_reports = assurances_after_assurances_output.reported
 
-        # GP-0.6.1-eq:11.21
+        # GP-0.7.1-eq:11.21
         self.block_context.set_guarantor_assignments(
             post_entropy=entropy_output.post_state,
             post_timeslot=timeslot_output.post_state,
             post_validator_pool=validator_pool_output.post_state,
         )
 
-        # GP-0.6.1-eq:11.22
+        # GP-0.7.1-eq:11.22
         self.block_context.set_prev_guarantor_assignments(
             post_entropy=entropy_output.post_state,
             post_timeslot=timeslot_output.post_state,
@@ -471,7 +471,7 @@ class PyjamazApp:
             post_state_disputes=disputes_output.post_state
         )
 
-        # Assurances After Guarantees STF Block Data | GP-0.5.0-eq:4.15
+        # Assurances After Guarantees STF Block Data | GP-0.7.1-eq:4.14
         assurances_output = self.components.assurances.state_transition_after_guarantees(
             extrinsic_guarantees=block.extrinsic.guarantees,
             intermediate_state_assurances_after_assurances=assurances_after_assurances_output.intermediate_state_after_assurances,
@@ -479,16 +479,16 @@ class PyjamazApp:
             post_state_timeslot=timeslot_output.post_state
         )
 
-        # GP-0.6.1-eq:11.26
+        # GP-0.7.1-eq:11.26
         self.block_context.reporters = assurances_output.reporters
 
-        # GP-0.5.4-eq:12.4
+        # GP-0.7.1-eq:12.4
         self.block_context.set_ready_work_reports()
 
-        # GP-0.5.4-eq:12.5
+        # GP-0.7.1-eq:12.5
         self.block_context.set_queued_work_reports(pre_state_accumulation_history)
 
-        # GP-0.5.4-eq:12.10-12.12
+        # GP-0.7.1-eq:12.10-12.12
         self.block_context.set_accumulatable_work_reports(
             header=block.header,
             accumulation_queue=pre_state_accumulation_queue
@@ -502,7 +502,8 @@ class PyjamazApp:
         elif nr_acc_reports > 0:
             logging.info(f'📥 Accumulatable work-reports: {nr_acc_reports}')
 
-        # Services Accumulation STF Block Data | GP-0.5.0-eq:4.18
+        # Services Accumulation STF Block Data | GP-0.7.1-eq:4.18
+        # TODO: general review of this section after 0.7.1
         services_after_accumulation_output = self.components.services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_privileged_services=pre_state_privileged_services,
@@ -514,6 +515,7 @@ class PyjamazApp:
         )
 
         # GP-0.6.4-eq:12.24
+        # TODO: general review of this section after 0.7.1
         self.block_context.set_accumulation_statistics(
             accumulation_gas_utilized=services_after_accumulation_output.accumulation_gas_utilized,
             nr_work_results_accumulated=services_after_accumulation_output.nr_work_results_accumulated,
@@ -526,16 +528,17 @@ class PyjamazApp:
         )
 
         # GP-0.6.4-eq:12.30
+        # TODO: general review of this section after 0.7.1
         self.block_context.deferred_transfer_statistics = services_after_transfers_output.deferred_transfer_statistics
 
-        # Services After Preimages STF Block Data | GP-0.5.0-eq:??
+        # Services After Preimages STF Block Data | GP-0.7.1-eq:4.18
         services_after_preimages_output = self.components.services.state_transition_after_preimages(
             extrinsic_preimages=block.extrinsic.preimages,
             intermediate_state_after_transfers=services_after_transfers_output.intermediate_state_after_transfers,
             post_state_timeslot=timeslot_output.post_state
         )
 
-        # Statistics STF Block Data | GP-0.5.0-eq:4.20
+        # Statistics STF Block Data | GP-0.7.1-eq:4.20
         statistics_output = self.components.statistics.state_transition(
             extrinsic_guarantees=block.extrinsic.guarantees,
             extrinsic_preimages=block.extrinsic.preimages,
@@ -548,7 +551,7 @@ class PyjamazApp:
             header=block.header
         )
 
-        # AuthorizerPools STF Block Data | GP-0.5.4-eq:4.19
+        # AuthorizerPools STF Block Data | GP-0.7.1-eq:4.19
         authorizer_pools_output = self.components.authorizer_pools.state_transition(
            header=block.header,
            extrinsic_guarantees=block.extrinsic.guarantees,
@@ -556,7 +559,7 @@ class PyjamazApp:
            pre_state_authorizer_pools=pre_state_authorizer_pools
         )
 
-        # RecentHistory STF Block Data | GP-0.5.0-eq:4.17
+        # RecentHistory STF Block Data | GP-0.7.1-eq:4.17
         recent_history_output = self.components.recent_history.state_transition(
            header=block.header,
            extrinsic_guarantees=block.extrinsic.guarantees,
@@ -565,6 +568,7 @@ class PyjamazApp:
         )
 
         # Accumulation History STF | GP-0.6.1-eq:???
+        # TODO: general review of this section after 0.7.1
         accumulation_history_output = self.components.accumulation_history.state_transition(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_accumulation_history=pre_state_accumulation_history,
@@ -572,6 +576,7 @@ class PyjamazApp:
         )
 
         # Accumulation Queue STF | GP-0.6.1-eq:???
+        # TODO: general review of this section after 0.7.1
         accumulation_queue_output = self.components.accumulation_queue.state_transition(
             queued_work_reports=self.block_context.queued_work_reports,
             pre_state_accumulation_queue=pre_state_accumulation_queue,
@@ -747,7 +752,7 @@ class PyjamazApp:
 
     def generate_block_seal(self, header: Header, safrole_state: SafroleState, entropy_state: EntropyState) -> bytes:
         """
-        GP-0.5.4-eq:6.15,6.16 (bold_H_s) | Generate block seal
+        GP-0.7.1-eq:6.15,6.16 (bold_H_s) | Generate block seal
 
         Parameters
         ----------
@@ -783,7 +788,7 @@ class PyjamazApp:
 
     def generate_entropy_source(self, timeslot: int, safrole_state: SafroleState, entropy_state: EntropyState) -> bytes:
         """
-        GP-0.5.0-eq:6.17 (bold_H_v) | Generate entropy source
+        GP-0.7.1-eq:6.17 (bold_H_v) | Generate entropy source
 
         Parameters
         ----------
@@ -810,7 +815,7 @@ class PyjamazApp:
 
     def slot_phase_index(self, timeslot: int) -> int:
         """
-        Block Data | GP-0.5.0-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot
+        Block Data | GP-0.7.1-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot
 
         Returns
         -------
@@ -828,7 +833,7 @@ class PyjamazApp:
         """
         Get the author index for current node in the current validator set
 
-        Block Data | GP-0.5.0-eq:5.9
+        Block Data | GP-0.7.1-eq:5.9
 
         Parameters
         ----------
@@ -988,7 +993,7 @@ class PyjamazApp:
         if self.get_core_assigment() is None:
             raise ProcessWorkpackageError("Cannot process work package: no core assignment")
 
-        # Prepare extrinsic data (GP-0.6.6-eq:B6 bold_x_flat)
+        # Prepare extrinsic data (GP-0.7.1-eq:B.6 bold_x_flat)
         extrinsics = [
             [self.work_package_extrinsics.get(work_package, x.hash, x.len) for x in w.extrinsic]
             for w in work_package.items

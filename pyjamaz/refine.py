@@ -15,7 +15,7 @@ def work_result_computation(
         extrinsics: List[List[bytes]]
 ) -> WorkReport:
     """
-    GP-0.6.7-eq:14.12 (function Ξ) | the work result computation function.
+    GP-0.7.1-eq:14.12 (function Ξ) | the work result computation function.
 
     TODO WIP
     """

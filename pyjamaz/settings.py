@@ -1,5 +1,5 @@
 TEST_SUITE = 'tiny' # tiny or full
-GP_VERSION = '0.7.0'
+GP_VERSION = '0.7.1'
 APP_VERSION = '0.1.5'
 
 DEBUG = False

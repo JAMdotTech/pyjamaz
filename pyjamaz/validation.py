@@ -19,7 +19,7 @@ class BlockValidation:
     @staticmethod
     def is_epoch_change(pre_slotnumber: int, post_slotnumber: int) -> bool:
         """
-        GP-0.3.8-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+        GP-0.7.1-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
 
         Returns
         -------
@@ -44,7 +44,7 @@ class BlockValidation:
                         extrinsic: Extrinsic,
                         ):
 
-        #  GP-0.5.4-eq:5.4 | Check extrinsic hash
+        #  GP-0.7.1-eq:5.4 | Check extrinsic hash
         if header.extrinsic_hash != extrinsic.generate_extrinsic_hash():
             raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
 
@@ -61,7 +61,7 @@ class BlockValidation:
                 f"Parent hash {header.parent.hex()} does not has valid ancestor"
             )
 
-        # GP-0.5.4-eq:5.7
+        # GP-0.7.1-eq:5.7
         if header.timeslot <= parent_header.timeslot or header.timeslot > self.current_timeslot():
             raise BlockValidationError(BlockValidationErrorCode.bad_slot)
 

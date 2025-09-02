@@ -5,7 +5,7 @@ from Crypto.Hash import keccak
 
 def blake2b_256_hash(data: Union[str, bytes]) -> bytes:
     """
-    GP-0.5.3-section:I.3 (H) | Creates a Blake-SHA256 hash using the given data.
+    GP-0.7.1-section:I.3 (H) | Creates a Blake-SHA256 hash using the given data.
 
     Parameters
     ----------
@@ -55,7 +55,7 @@ def blake2b_64_hash(data: Union[str, bytes]) -> bytes:
 
 def keccak_256_hash(data: Union[str, bytes]) -> bytes:
     """
-    GP-0.5.3-section:I.3 (H_K) | Creates a Keccak-SHA256 hash using the given data.
+    GP-0.7.1-section:I.3 (H_K) | Creates a Keccak-SHA256 hash using the given data.
 
     Parameters
     ----------

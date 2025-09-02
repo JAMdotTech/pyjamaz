@@ -59,7 +59,7 @@ class BlockExtrinsicAccumulator:
 
         attempt = len(self.own_tickets_next)
 
-        # GP-0.3.8-eq:75
+        # GP-0.7.1-eq:6.31
         vrf_input_data = vrf_input_ticket_seal(entropy, attempt)
         aux_data = b''
 

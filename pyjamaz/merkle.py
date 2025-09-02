@@ -10,7 +10,7 @@ class PatriciaMerkleTrie:
     @staticmethod
     def _branch(left: bytes, right: bytes) -> bytes:
         """
-        GP-0.5.0-eq:D.3 | Creates a branch node from two 32-byte hashes
+        GP-0.7.1-eq:D.3 (function_B) | Creates a branch node from two 32-byte hashes
         """
         assert len(left) == 32 and len(right) == 32, "Branch inputs must be 32 bytes each."
         return bytes([left[0] & 0x7f]) + left[1:] + right
@@ -18,7 +18,7 @@ class PatriciaMerkleTrie:
     @staticmethod
     def _leaf(key: bytes, value: bytes) -> bytes:
         """
-        GP-0.6.6-eq:D.4 | Creates a leaf node encoding the key-value pair.
+        GP-0.7.1-eq:D.4 (function_L) | Creates a leaf node encoding the key-value pair.
         """
         if len(value) <= 32:
             head = 0b10000000 | len(value)
@@ -36,7 +36,7 @@ class PatriciaMerkleTrie:
 
     def merkle(self, data: List[Tuple[bytes, bytes]], index: int = 0) -> bytes:
         """
-        GP-0.6.6-eq:D.6 |
+        GP-0.7.1-eq:D.6 (function_M) | [add description]
         """
         if len(data) == 0:
             return b'\0' * 32
@@ -52,7 +52,7 @@ class PatriciaMerkleTrie:
 
     def root(self, index=0) -> bytes:
         """
-        GP-0.5.0-eq:D.5 | Constructs a Patricia Merkle trie root hash from the key-value pairs
+        GP-0.7.1-eq:D.5 | Constructs a Patricia Merkle trie root hash from the key-value pairs
         """
         return self.merkle(self.data, index=index)
 
@@ -131,7 +131,7 @@ class MerkleMountainRange:
 
     def super_peak(self, peaks: Optional[List[bytes]] = None) -> bytes:
         """
-        GP-0.6.1-eq:E.10 (M_R) | Calculate the MMR super peak
+        GP-0.7.1-eq:E.10 (M_R) | Calculate the MMR super peak
 
         Returns
         -------
@@ -155,7 +155,7 @@ class BinaryMerkleTree:
 
     def node(self, nodes: List[bytes]) -> bytes:
         """
-        GP-0.5.3-eq:E.1 | Node function
+        GP-0.7.1-eq:E.1 (function_N) | Node function
 
         Parameters
         ----------
@@ -177,7 +177,7 @@ class BinaryMerkleTree:
 class WellBalancedMerkleTree(BinaryMerkleTree):
     def root(self):
         """
-        GP-0.5.3-eq:E.3 | well-balanced merkle tree root hash
+        GP-0.7.1-eq:E.3 | well-balanced merkle tree root hash
 
         Returns
         -------

@@ -22,7 +22,7 @@ def flatten_list(nested_list: list) -> list:
 
 def transposition_operator(source_sequence: List[list]) -> List[list]:
     """
-    GP-0.6.4-eq:H.5 | the transposition operator
+    GP-0.7.1-eq:H.5 | the transposition operator
 
     TODO
     """
@@ -30,7 +30,7 @@ def transposition_operator(source_sequence: List[list]) -> List[list]:
 
 def numeric_sequence_from_entropy(entropy: bytes, lemgth: int) -> List[int]:
     """
-    GP-0.5.2-eq:F.2
+    GP-0.7.1-eq:F.2
 
     Parameters
     ----------
@@ -52,7 +52,7 @@ def numeric_sequence_from_entropy(entropy: bytes, lemgth: int) -> List[int]:
 
 def entropy_shuffle(data: List[int], entropy: bytes) -> List[int]:
     """
-    GP-0.5.2-eq:F.3
+    GP-0.7.1-eq:F.3
 
     Parameters
     ----------
@@ -69,7 +69,7 @@ def entropy_shuffle(data: List[int], entropy: bytes) -> List[int]:
 
 def fisher_yates_shuffle(data: List[int], sequence: List[int]) -> List[int]:
     """
-    GP-0.5.2-eq:F.1
+    GP-0.7.1-eq:F.1
 
     Parameters
     ----------
@@ -100,7 +100,7 @@ def fisher_yates_shuffle(data: List[int], sequence: List[int]) -> List[int]:
 
 def guarantor_rotation(core_indices: List[int], rotation_offset: int) -> List[int]:
     """
-    GP-0.5.3-eq:11.19 (R) | Guarantor assigment rotation function
+    GP-0.7.1-eq:11.19 (function_R) | Guarantor assigment rotation function
 
     Parameters
     ----------
@@ -115,7 +115,7 @@ def guarantor_rotation(core_indices: List[int], rotation_offset: int) -> List[in
 
 def guarantor_permute(entropy: bytes, timeslot: int) -> List[int]:
     """
-    GP-0.5.3-eq:11.20 (P) | Guarantor assigment permute function
+    GP-0.7.1-eq:11.20 (function_P) | Guarantor assigment permute function
 
     Parameters
     ----------
@@ -135,7 +135,7 @@ def guarantor_permute(entropy: bytes, timeslot: int) -> List[int]:
 
 def substitute_if_nothing(*args) -> Optional[any]:
     """
-    GP-0.6.4-eq:3.2 (function_U) | Equivalent to the first argument which is not ∅, or ∅ if no such argument exists.
+    GP-0.7.1-eq:3.2 (function_U) | Equivalent to the first argument which is not ∅, or ∅ if no such argument exists.
     """
     for arg in args:
         if arg is not None:
