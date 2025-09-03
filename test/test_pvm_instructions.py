@@ -34,11 +34,8 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/inst_load_imm_and_jump_indirect_different_regs_without_offset_ok.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
     def test_instruction(self, name, test_vector):
-
-        if "riscv" in name:
-            return
 
         # Set NumPy to ignore overflow warnings
         np.seterr(over='ignore')

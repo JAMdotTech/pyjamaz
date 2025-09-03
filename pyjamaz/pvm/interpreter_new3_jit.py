@@ -33,7 +33,6 @@ from .constants_new import (
     op_shar_r_imm_alt_32, op_cmov_iz_imm, op_cmov_nz_imm, op_add_imm_64, op_mul_imm_64,
     op_shlo_l_imm_64, op_shlo_r_imm_64, op_shar_r_imm_64, op_neg_add_imm_64,
     op_shlo_l_imm_alt_64, op_shlo_r_imm_alt_64, op_shar_r_imm_alt_64, op_rot_r_64_imm,
-    op_sub_imm, op_mul_imm, op_shlo_l_imm,
     op_rot_r_64_imm_alt, op_rot_r_32_imm, op_rot_r_32_imm_alt, op_branch_eq, op_branch_ne,
     op_branch_lt_u, op_branch_lt_s, op_branch_ge_u, op_branch_ge_s, op_load_imm_jump_ind,
     op_add_32, op_sub_32, op_mul_32, op_div_u_32, op_div_s_32, op_rem_u_32, op_rem_s_32,
@@ -402,6 +401,12 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     section_idx = find_memory_section_jit(addr, section_starts, section_ends)
     if section_idx < 0:
         return I32(-1)  # Memory error
+    
+    # Check if the entire write fits within the section bounds
+    section_end = section_ends[section_idx]
+    write_end_addr = addr + U64(bytes_to_write) - U64(1)
+    if write_end_addr >= section_end:
+        return I32(-1)  # Memory bounds error
     
     section_start = U64(section_starts[section_idx])
     section_offset = addr - section_start
