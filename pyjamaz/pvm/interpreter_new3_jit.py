@@ -1406,11 +1406,30 @@ def invoke_native(
                 else:
                     reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(pvm_Z_jit(w_a, 8), pvm_Z_jit(w_b, 8)), U8(8))
 
-            #elif opcode == op_rem_u_64:
-            #elif opcode == op_rem_s_64:
-            #elif opcode == op_shlo_l_64:
-            #elif opcode == op_shlo_r_64:
-            #elif opcode == op_shar_r_64:
+            elif opcode == op_rem_u_64:
+                if w_b == 0:
+                    reg[r_d] = w_a
+                else:
+                    reg[r_d] = w_a % w_b
+
+            elif opcode == op_rem_s_64:
+                a_signed = pvm_Z_jit(w_a, 8)
+                b_signed = pvm_Z_jit(w_b, 8)
+                if b_signed == 0:
+                    reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
+                elif a_signed == I64(-9223372036854775808) and b_signed == I64(-1):
+                    reg[r_d] = U64(0)
+                else:
+                    reg[r_d] = pvm_Z_inv_jit(pvm_smod_jit(a_signed, b_signed), U8(8))
+
+            elif opcode == op_shlo_l_64:
+                reg[r_d] = w_a * (2**(w_b % 64))
+
+            elif opcode == op_shlo_r_64:
+                reg[r_d] = w_a >> U64(w_b & U64(63))
+
+            elif opcode == op_shar_r_64:
+                reg[r_d] = pvm_Z_inv_jit(I64(pvm_Z_jit(w_a, 8)) >> I64(U64(w_b) & U64(63)), U8(8))
 
             elif opcode == op_and:
                 reg[r_d] = w_a & w_b
@@ -1421,9 +1440,17 @@ def invoke_native(
             elif opcode == op_or:
                 reg[r_d] = w_a | w_b
 
-            #elif opcode == op_mul_upper_s_s:
-            #elif opcode == op_mul_upper_u_u:
-            #elif opcode == op_mul_upper_s_u:
+            elif opcode == op_mul_upper_s_s:
+                hi, lo = imul64wide(I64(w_a), I64(w_b))
+                reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
+
+            elif opcode == op_mul_upper_u_u:
+                hi, lo = umul64wide(w_a, w_b)
+                reg[r_d] = hi
+
+            elif opcode == op_mul_upper_s_u:
+                hi, lo = smul_u64wide(I64(w_a), w_b)
+                reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
 
             elif opcode == op_set_lt_u:
                 reg[r_d] = U64(1) if w_a < w_b else U64(0)
@@ -1442,19 +1469,35 @@ def invoke_native(
             elif opcode == op_rot_l_64:
                 reg[r_d] = roli64_jit(w_a, w_b % 64)
 
-            #elif opcode == op_rot_l_32:
+            elif opcode == op_rot_l_32:
+                reg[r_d] = pvm_X_jit(roli32_jit(U32(w_a), U32(w_b % 32)), U8(4))
 
             elif opcode == op_rot_r_64:
                 reg[r_d] = rori64_jit(w_a, w_b % 64)
 
-            #elif opcode == op_rot_r_32:
-            #elif opcode == op_and_inv:
-            #elif opcode == op_or_inv:
-            #elif opcode == op_xnor:
-            #elif opcode == op_max:
-            #elif opcode == op_max_u:
-            #elif opcode == op_min:
-            #elif opcode == op_min_u:
+            elif opcode == op_rot_r_32:
+                reg[r_d] = pvm_X_jit(rori32_jit(U32(w_a), U32(w_b % 32)), U8(4))
+
+            elif opcode == op_and_inv:
+                reg[r_d] = U64(~(w_a & w_b))
+
+            elif opcode == op_or_inv:
+                reg[r_d] = U64(~(w_a | w_b))
+
+            elif opcode == op_xnor:
+                reg[r_d] = U64(~(w_a ^ w_b))
+
+            elif opcode == op_max:
+                reg[r_d] = w_a if pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8) else w_b
+
+            elif opcode == op_max_u:
+                reg[r_d] = w_a if w_a >= w_b else w_b
+
+            elif opcode == op_min:
+                reg[r_d] = w_a if pvm_Z_jit(w_a, 8) <= pvm_Z_jit(w_b, 8) else w_b
+
+            elif opcode == op_min_u:
+                reg[r_d] = w_a if w_a <= w_b else w_b
 
             else:
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
