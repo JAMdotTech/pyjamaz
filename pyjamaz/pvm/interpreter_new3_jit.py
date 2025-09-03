@@ -6,7 +6,8 @@ JIT-optimized PVM interpreter with Numba-compiled invoke_native function.
 import numpy as np
 import numpy.typing as npt
 
-from numba import njit
+from numba import njit, types
+from numba.typed import Dict
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 from .interpreter_new3 import PVMInterpreter as PVMInterpreterBase
@@ -556,59 +557,62 @@ def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
 
 
 @njit
-def log(inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
+def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
     """
     JIT-compatible logging function for instruction execution tracing.
     Matches the format used in the normal interpreter for consistency.
     """
-    # Get opcode name safely
-    if opcode in OpcodeNames:
-        opcode_name = OpcodeNames[opcode]
-    else:
-        opcode_name = f"UNKNOWN_{opcode}"
-
-    # Build instruction string (Numba-compatible, no format specifiers)
-    inst_str = f"{inst_nr}: PC {pc} {opcode_name} ({opcode})"
-
-    # Calculate spacing for alignment
-    spacing = " " * max(1, 51 - len(inst_str))
-
-    # Build parameter string
-    params = []
-    if reg1 is not None:
-        params.append(f"r{reg1}")
-    if reg2 is not None:
-        params.append(f"r{reg2}")
-    if reg3 is not None:
-        params.append(f"r{reg3}")
-    if imm1 is not None:
-        params.append(f"imm={imm1}")
-    if imm2 is not None:
-        params.append(f"imm2={imm2}")
-    if off1 is not None:
-        params.append(f"off={off1}")
-    if off2 is not None:
-        params.append(f"off2={off2}")
-
-    param_str = " ".join(params) if params else ""
-
-    # Convert registers to list for display
-    if hasattr(regs, 'tolist'):
-        reg_list = regs.tolist()
-    else:
-        reg_list = list(regs) if hasattr(regs, '__iter__') else str(regs)
-
-    # Build context string
+    # # Get opcode name safely
+    # if opcode in OpcodeNames:
+    #     opcode_name = OpcodeNames[opcode]
+    # else:
+    #     opcode_name = f"UNKNOWN_{opcode}"
+    #
+    # # Build instruction string (Numba-compatible, no format specifiers)
+    # inst_str = f"{inst_nr}: PC {pc} {opcode_name} ({opcode})"
+    #
+    # # Calculate spacing for alignment
+    # spacing = " " * max(1, 51 - len(inst_str))
+    #
+    # # Build parameter string
+    # params = []
+    # if reg1 is not None:
+    #     params.append(f"r{reg1}")
+    # if reg2 is not None:
+    #     params.append(f"r{reg2}")
+    # if reg3 is not None:
+    #     params.append(f"r{reg3}")
+    # if imm1 is not None:
+    #     params.append(f"imm={imm1}")
+    # if imm2 is not None:
+    #     params.append(f"imm2={imm2}")
+    # if off1 is not None:
+    #     params.append(f"off={off1}")
+    # if off2 is not None:
+    #     params.append(f"off2={off2}")
+    #
+    # param_str = " ".join(params) if params else ""
+    #
+    # # Convert registers to list for display
+    # if hasattr(regs, 'tolist'):
+    #     reg_list = regs.tolist()
+    # else:
+    #     reg_list = list(regs) if hasattr(regs, '__iter__') else str(regs)
+    #
+    # # Build context string
     context_str = ""
     if context:
         context_items = []
         for key, value in context.items():
             context_items.append(f"{key}={value}")
         context_str = f" [{', '.join(context_items)}]" if context_items else ""
-
-    # Print formatted log entry
-    print(f"{inst_str}{spacing}g={gas} {param_str} reg={reg_list}{context_str}")
-
+    #
+    # # Print formatted log entry
+    # print(f"{inst_str}{spacing}g={gas} {param_str} reg={reg_list}{context_str}")
+    name = opcode_names.get(np.int64(opcode), "UNKNOWN")
+    print("inst=",inst_nr, "op=",name, "pc=",pc, "gas=",gas,
+          "r1=",reg1, "r2=",reg2, "r3=",reg3,
+          "imm1=",imm1, "imm2=",imm2, "off1=",off1, "off2=",off2, context_str)
 
 
 @njit
@@ -620,7 +624,7 @@ def invoke_native(
         mem_ops_read, mem_ops_write, mem_ops_bytes,
         mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets,
         registers_in,
-        # Output parameters (modified in-place)
+        logging,
         registers_out,
         status_out, exit_value_out, pc_out, gas_out, inst_nr_out
 ):
@@ -637,10 +641,8 @@ def invoke_native(
     exit_value = I64(0)
     skip_len = 0
     inst_nr = U32(0)
-    logging = True
 
-    #           log(inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
-    logging and log(inst_nr, 1, pc, registers_out, gas, 1, 2,3, 1,2, 1,2, None)
+    logging and log(logging, inst_nr, 1, pc, registers_out, gas, 1, 2, 3, 1, 2, 1, 2, {"t1":1})
 
     # Copy registers
     reg = registers_in.copy()
@@ -1678,6 +1680,16 @@ class PVMInterpreter(PVMInterpreterBase):
         gas_out = np.array([0], dtype=np.int64)
         inst_nr_out = np.array([0], dtype=np.uint32)
 
+        OpcodeNames_typed = None
+        #Note: comment out to disable logging:
+        OpcodeNames_typed = Dict.empty(
+            key_type=types.int64,
+            value_type=types.unicode_type,
+        )
+        for _k, _v in OpcodeNames.items():
+            OpcodeNames_typed[int(_k)] = _v
+
+
         # Call JIT-compiled function
         error_code = invoke_native(
             self.pc, self.gas,
@@ -1687,6 +1699,7 @@ class PVMInterpreter(PVMInterpreterBase):
             self.mem_ops_read, self.mem_ops_write, self.mem_ops_bytes,
             self.mem_section_starts, self.mem_section_ends, mem_sections_flat, mem_sections_offsets,
             self.reg,
+            OpcodeNames_typed,
             # Outputs
             registers_out, status_out, exit_value_out,
             pc_out, gas_out, inst_nr_out
