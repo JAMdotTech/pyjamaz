@@ -4,6 +4,7 @@ APP_VERSION = '0.1.6'
 
 DEBUG = False
 SOLO_MODE = False
+STORAGE_ENGINE = 'rocksdb' # memory | rocksdb | leveldb
 
 DEBUG_PROGRAM_OVERRIDE = {}
 

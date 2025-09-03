@@ -1,27 +1,37 @@
-FROM python:3.13-slim-bookworm
-
+# ---------- builder ----------
+FROM python:3.13-slim-bookworm AS builder
 WORKDIR /app
 
-# Install OS-level dependencies securely
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc libffi-dev libssl-dev && \
-    rm -rf /var/lib/apt/lists/*
+# OS deps for building Rust/Python extensions (and RocksDB features if needed)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential pkg-config curl ca-certificates \
+    libffi-dev libssl-dev \
+    clang cmake \
+    zlib1g-dev libbz2-dev liblz4-dev libsnappy-dev libzstd-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-
-# Install project requirements
+# Speed up pip, prefer wheels where possible
+ENV PIP_NO_CACHE_DIR=1
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip wheel setuptools && \
+    # Try wheels first; fall back to source when necessary (Rust present)
+    pip wheel -r requirements.txt -w /wheels --prefer-binary
 
-# Copy source code
+# ---------- runtime ----------
+FROM python:3.13-slim-bookworm
+WORKDIR /app
+
+# Runtime libs only (openssl for some deps; compression libs if rocksdict links dynamically)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 zlib1g libbz2-1.0 liblz4-1 libsnappy1v5 libzstd1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /wheels /wheels
+RUN pip install /wheels/*
+
+# Your app
 COPY ./pyjamaz ./pyjamaz
+RUN python -m compileall -b ./pyjamaz && find ./pyjamaz -name "*.py" -delete
 
-# Compile app and remove source code
-RUN python -m compileall -b ./pyjamaz && \
-    find ./pyjamaz -name "*.py" -type f -delete
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH="/app"
-
-ENTRYPOINT ["python", "pyjamaz/cli.pyc"]
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/app
+ENTRYPOINT ["python","-m","pyjamaz.cli"]
