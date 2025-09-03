@@ -965,7 +965,7 @@ def invoke_native(
                 reg[r_d] = reg[r_a]
 
             elif opcode == op_sbrk:
-                # Heap allocation - not implemented in JIT yet, panic
+                # TODO: implement, preallocate for now?
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -1001,13 +1001,16 @@ def invoke_native(
                 reg[r_d] = count_trailing_zeroes_jit(reg[r_a] % (2**32), 32)
 
             elif opcode == op_sign_extend_8:
-                reg[r_d] = pvm_X_jit(reg[r_a], U8(1))
+                #todo: reg[r_d] = pvm_X_jit(reg[r_a], U8(1))
+                reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(reg[r_a] % (2**8), 1), U8(8))
 
             elif opcode == op_sign_extend_16:
-                reg[r_d] = pvm_X_jit(reg[r_a], U8(2))
+                #todo: reg[r_d] = pvm_X_jit(reg[r_a], U8(2))
+                reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(reg[r_a] % (2**16), 2), U8(8))
 
             elif opcode == op_zero_extend_16:
-                reg[r_d] = reg[r_a] & U64(0xFFFF)
+                #reg[r_d] = reg[r_a] & U64(0xFFFF)
+                reg[r_d] = reg[r_a] % (2**16)
 
             elif opcode == op_reverse_bytes:
                 reg[r_d] = reverse_bytes_jit(reg[r_a])
