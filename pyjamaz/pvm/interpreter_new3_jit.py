@@ -1321,9 +1321,145 @@ def invoke_native(
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
-        # Type 12: InstructionType.reg_reg_reg
+        #GP-0.6.7-section:A.5.13
         elif inst_type == inst_reg_reg_reg:
-           pass
+
+            r_a = min(12, code[pc + 1] % 16)
+            r_b = min(12, code[pc + 1] // 16)
+            r_d = min(12, code[pc + 2])
+            
+            w_a = reg[r_a]
+            w_b = reg[r_b]
+            
+            if opcode == op_add_32:
+                reg[r_d] = pvm_X_jit((w_a + w_b) % (2**32), U8(4))
+
+            elif opcode == op_sub_32:
+                reg[r_d] = pvm_X_jit((w_a + 2**32 - (w_b % 2**32)) % (2**32), U8(4))
+
+            elif opcode == op_mul_32:
+                reg[r_d] = pvm_X_jit((w_a * w_b) % (2**32), U8(4))
+
+            elif opcode == op_div_u_32:
+                if w_b == 0:
+                    reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
+                else:
+                    reg[r_d] = pvm_X_jit(U32(w_a) // U32(w_b), U8(4))
+
+            elif opcode == op_div_s_32:
+                a_signed = I32(pvm_Z_jit(w_a % (2**32), 4))
+                b_signed = I32(pvm_Z_jit(w_b % (2**32), 4))
+
+                if b_signed == 0:
+                    reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
+                elif a_signed == I32(-2**31) and b_signed == I32(-1):
+                    reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
+                else:
+                    reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(a_signed, b_signed), U8(8))
+
+            elif opcode == op_rem_u_32:
+                if (w_b % (2**32)) == 0:
+                    reg[r_d] = pvm_X_jit(w_a % (2**32), U8(4))
+                else:
+                    reg[r_d] = pvm_X_jit((w_a % (2**32)) % (w_b % (2**32)), U8(4))
+
+            elif opcode == op_rem_s_32:
+                a_signed = pvm_Z_jit(w_a % (2**32), 4)
+                b_signed = pvm_Z_jit(w_b % (2**32), 4)
+
+                if b_signed == 0:
+                    reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
+                elif a_signed == I64(-2**31) and b_signed == I64(-1):
+                    reg[r_d] = U64(0)
+                else:
+                    reg[r_d] = pvm_Z_inv_jit(pvm_smod_jit(a_signed, b_signed), U8(8))
+
+            elif opcode == op_shlo_l_32:
+                reg[r_d] = pvm_X_jit((w_a * (2**(w_b % 32))) % (2**32), U8(4))
+
+            elif opcode == op_shlo_r_32:
+                reg[r_d] = pvm_X_jit(U32(w_a) >> U32(U32(w_b) & U32(31)), U8(4))
+
+            elif opcode == op_shar_r_32:
+                reg[r_d] = pvm_Z_inv_jit(I32(pvm_Z_jit(U32(w_a), 4)) >> I64(U32(w_b) & U32(31)), U8(8))
+
+            elif opcode == op_add_64:
+                reg[r_d] = w_a + w_b
+
+            elif opcode == op_sub_64:
+                reg[r_d] = U64(w_a) + U64(-w_b)
+
+            elif opcode == op_mul_64:
+                reg[r_d] = w_a * w_b
+
+            elif opcode == op_div_u_64:
+                if w_b == 0:
+                    reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
+                else:
+                    reg[r_d] = w_a // w_b
+
+            elif opcode == op_div_s_64:
+                if w_b == 0:
+                    reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
+                elif pvm_Z_jit(w_a, 8) == I64(-9223372036854775808) and pvm_Z_jit(w_b, 8) == I64(-1):
+                    reg[r_d] = w_a  # Overflow case
+                else:
+                    reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(pvm_Z_jit(w_a, 8), pvm_Z_jit(w_b, 8)), U8(8))
+
+            #elif opcode == op_rem_u_64:
+            #elif opcode == op_rem_s_64:
+            #elif opcode == op_shlo_l_64:
+            #elif opcode == op_shlo_r_64:
+            #elif opcode == op_shar_r_64:
+
+            elif opcode == op_and:
+                reg[r_d] = w_a & w_b
+
+            elif opcode == op_xor:
+                reg[r_d] = w_a ^ w_b
+
+            elif opcode == op_or:
+                reg[r_d] = w_a | w_b
+
+            #elif opcode == op_mul_upper_s_s:
+            #elif opcode == op_mul_upper_u_u:
+            #elif opcode == op_mul_upper_s_u:
+
+            elif opcode == op_set_lt_u:
+                reg[r_d] = U64(1) if w_a < w_b else U64(0)
+
+            elif opcode == op_set_lt_s:
+                reg[r_d] = U64(1) if pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8) else U64(0)
+
+            elif opcode == op_cmov_iz:
+                if w_b == 0:
+                    reg[r_d] = w_a
+
+            elif opcode == op_cmov_nz:
+                if w_b != 0:
+                    reg[r_d] = w_a
+
+            elif opcode == op_rot_l_64:
+                reg[r_d] = roli64_jit(w_a, w_b % 64)
+
+            #elif opcode == op_rot_l_32:
+
+            elif opcode == op_rot_r_64:
+                reg[r_d] = rori64_jit(w_a, w_b % 64)
+
+            #elif opcode == op_rot_r_32:
+            #elif opcode == op_and_inv:
+            #elif opcode == op_or_inv:
+            #elif opcode == op_xnor:
+            #elif opcode == op_max:
+            #elif opcode == op_max_u:
+            #elif opcode == op_min:
+            #elif opcode == op_min_u:
+
+            else:
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
     # Copy output state
     for i in range(len(reg)):
