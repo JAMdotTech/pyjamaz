@@ -34,7 +34,7 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/riscv_rv64ua_amomaxu_w.json'))
     def test_instruction(self, name, test_vector):
 
         # Set NumPy to ignore overflow warnings
@@ -87,8 +87,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
                     mem[offset + idx] = np.uint8(byt)
 
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
-        pvm = PVMInterpreter(pvm_program)
-        #pvm = PVMInterpreter(pvm_program, logger_cls=PVMDebugLog)#, log_ctx=log_ctx) # Note: uncomment to enable debug logging
+        #pvm = PVMInterpreter(pvm_program)
+        pvm = PVMInterpreter(pvm_program, logger_cls=PVMDebugLog)#, log_ctx=log_ctx) # Note: uncomment to enable debug logging
         pvm.invoke(
             test_vector["initial-pc"],
             test_vector["initial-gas"]

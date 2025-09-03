@@ -406,7 +406,7 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     # Check if the entire write fits within the section bounds
     section_end = section_ends[section_idx]
     write_end_addr = addr + U64(bytes_to_write) - U64(1)
-    if write_end_addr >= section_end:
+    if write_end_addr > section_end:
         return I32(-1)  # Memory bounds error
     
     section_start = U64(section_starts[section_idx])
@@ -871,7 +871,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                #logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + mem_read_jit(store_addr, U8(1)))
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)))
 
             elif opcode == op_store_imm_ind_u16:
                 store_addr = w_a + v_x
@@ -879,7 +879,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                #logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + mem_read_jit(store_addr, U8(2)))
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)))
 
             elif opcode == op_store_imm_ind_u32:
                 store_addr = w_a + v_x
@@ -887,7 +887,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                #logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + mem_read_jit(store_addr, U8(4)))
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)))
 
             elif opcode == op_store_imm_ind_u64:
                 store_addr = w_a + v_x
@@ -895,7 +895,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                #logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + mem_read_jit(store_addr, U8(8)))
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)))
 
             else:
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode")
@@ -1122,7 +1122,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                #logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ w_a % (2**8)+" w_b: " + w_b)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a % (2**8))+" w_b: " + str(w_b))
 
             elif opcode == op_store_ind_u16:
                 store_addr = w_b + v_x
@@ -1130,7 +1130,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                #logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ w_a % (2**16)+" w_b: " + w_b)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a % (2**16))+" w_b: " + str(w_b))
 
             elif opcode == op_store_ind_u32:
                 store_addr = w_b + v_x
@@ -1138,7 +1138,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                #logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ w_a % (2**32)+" w_b: " + w_b)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a % (2**32))+" w_b: " + str(w_b))
 
             elif opcode == op_store_ind_u64:
                 store_addr = w_b + v_x
@@ -1146,7 +1146,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                #logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ w_a + " w_b: " + w_b)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a) + " w_b: " + str(w_b))
 
             elif opcode == op_load_ind_u8:
                 load_addr = w_b + v_x
