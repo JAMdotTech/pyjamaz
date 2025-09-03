@@ -976,6 +976,7 @@ def invoke_native(
             if opcode == op_load_imm_jump:
                 reg[r_a] = v_x
                 skip_len = v_y  # Jump with offset
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_eq_imm:
                 branch_result = branch_jit(pc, v_y, w_a == v_x, inst_pos_keys)
@@ -985,6 +986,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_ne_imm:
                 branch_result = branch_jit(pc, v_y, w_a != v_x, inst_pos_keys)
@@ -994,6 +996,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_lt_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a < v_x, inst_pos_keys)
@@ -1003,6 +1006,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_le_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a <= v_x, inst_pos_keys)
@@ -1012,6 +1016,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_ge_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a >= v_x, inst_pos_keys)
@@ -1021,6 +1026,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_gt_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a > v_x, inst_pos_keys)
@@ -1030,6 +1036,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_lt_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -1039,6 +1046,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_le_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -1048,6 +1056,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_ge_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -1057,6 +1066,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             elif opcode == op_branch_gt_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -1066,8 +1076,10 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif branch_result > I32(0):
                     skip_len = branch_result
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y)
 
             else:
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -1080,9 +1092,11 @@ def invoke_native(
 
             if opcode == op_move_reg:
                 reg[r_d] = reg[r_a]
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a)
 
             elif opcode == op_sbrk:
                 # TODO: implement, preallocate for now?
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -1095,6 +1109,7 @@ def invoke_native(
                     count += val & 1
                     val >>= 1
                 reg[r_d] = count
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             elif opcode == op_count_set_bits_32:
                 # TODO: helper function: bit counting (np.bitwise_count not available in numba)
@@ -1104,35 +1119,45 @@ def invoke_native(
                     count += val & 1
                     val >>= 1
                 reg[r_d] = count
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             elif opcode == op_leading_zero_bits_64:
                 reg[r_d] = count_leading_zeroes_jit(reg[r_a])
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             elif opcode == op_leading_zero_bits_32:
                 reg[r_d] = count_leading_zeroes_jit(reg[r_a] % (2**32), 32)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             elif opcode == op_trailing_zero_bits_64:
                 reg[r_d] = count_trailing_zeroes_jit(reg[r_a])
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             elif opcode == op_trailing_zero_bits_32:
                 reg[r_d] = count_trailing_zeroes_jit(reg[r_a] % (2**32), 32)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             elif opcode == op_sign_extend_8:
                 #todo: reg[r_d] = pvm_X_jit(reg[r_a], U8(1))
                 reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(reg[r_a] % (2**8), 1), U8(8))
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             elif opcode == op_sign_extend_16:
                 #todo: reg[r_d] = pvm_X_jit(reg[r_a], U8(2))
                 reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(reg[r_a] % (2**16), 2), U8(8))
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             elif opcode == op_zero_extend_16:
                 #reg[r_d] = reg[r_a] & U64(0xFFFF)
                 reg[r_d] = reg[r_a] % (2**16)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             elif opcode == op_reverse_bytes:
                 reg[r_d] = reverse_bytes_jit(reg[r_a])
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context={"w'_d": reg[r_d]})
 
             else:
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
