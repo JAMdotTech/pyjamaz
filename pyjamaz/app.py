@@ -245,7 +245,7 @@ class PyjamazApp:
         TODO create separate DB and only update affected branches for performance; now the whole state have to be
           in memory
         """
-        state_trie = PatriciaMerkleTrie(list(self.state_db))
+        state_trie = PatriciaMerkleTrie(list(self.state_db.items()))
         self.state_trie_root = state_trie.root()
 
     def is_epoch_change(self, slotnumber: int = None) -> bool:
