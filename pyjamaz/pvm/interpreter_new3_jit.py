@@ -1138,6 +1138,86 @@ def invoke_native(
             elif opcode == op_mul_imm_32:
                 reg[r_a] = pvm_X_jit((w_b * v_x) % (2 ** 32), np.uint8(4))
 
+            elif opcode == op_set_lt_u_imm:
+                reg[r_a] = U64(1) if w_b < v_x else U64(0)
+
+            elif opcode == op_set_lt_s_imm:
+                reg[r_a] = U64(1) if pvm_Z_jit(w_b, 8) < pvm_Z_jit(v_x, 8) else U64(0)
+
+            elif opcode == op_shlo_l_imm_32:
+                reg[r_a] = pvm_X_jit((w_b * (2**(v_x % 32))) % (2**32), U8(4))
+
+            elif opcode == op_shlo_r_imm_32:
+                #TODO!!!!!!!!!!?
+                reg[r_a] = pvm_X_jit(U32(w_b) >> U32(U32(v_x) & U32(31)), U8(4))
+
+            elif opcode == op_shar_r_imm_32:
+                reg[r_a] = pvm_Z_inv_jit(I32(pvm_Z_jit(U32(w_b), 4)) >> I64(U32(v_x) & U32(31)), U8(8))
+
+            elif opcode == op_neg_add_imm_32:
+                reg[r_a] = pvm_X_jit((v_x + 2**32 - w_b) % (2**32), U8(4))
+
+            elif opcode == op_set_gt_u_imm:
+                reg[r_a] = U64(1) if w_b > v_x else U64(0)
+
+            elif opcode == op_set_gt_s_imm:
+                reg[r_a] = U64(1) if pvm_Z_jit(w_b, 8) > pvm_Z_jit(v_x, 8) else U64(0)
+
+            elif opcode == op_shlo_l_imm_alt_32:
+                reg[r_a] = pvm_X_jit((v_x * (2**(w_b % 32))) % (2**32), U8(4))
+
+            elif opcode == op_shlo_r_imm_alt_32:
+                reg[r_a] = pvm_X_jit(U32(v_x) >> U32(U32(w_b) & U32(31)), U8(4))
+
+            elif opcode == op_shar_r_imm_alt_32:
+                reg[r_a] = pvm_Z_inv_jit(I32(pvm_Z_jit(U32(v_x), 4)) >> I64(U32(w_b) & U32(31)), U8(8))
+
+            elif opcode == op_cmov_iz_imm:
+                if w_b == 0:
+                    reg[r_a] = v_x
+
+            elif opcode == op_cmov_nz_imm:
+                if w_b != 0:
+                    reg[r_a] = v_x
+
+            elif opcode == op_add_imm_64:
+                reg[r_a] = w_b + v_x
+
+            elif opcode == op_mul_imm_64:
+                reg[r_a] = w_b * v_x
+
+            elif opcode == op_shlo_l_imm_64:
+                reg[r_a] = pvm_X_jit(w_b * (2**(v_x % 64)), U8(8))
+
+            elif opcode == op_shlo_r_imm_64:
+                reg[r_a] = w_b >> U64(v_x & U64(63))
+
+            elif opcode == op_shar_r_imm_64:
+                reg[r_a] = pvm_Z_inv_jit(I64(pvm_Z_jit(w_b, 8)) >> I64(U64(v_x) & U64(63)), U8(8))
+
+            elif opcode == op_neg_add_imm_64:
+                reg[r_a] = U64(v_x) + U64(-w_b)
+
+            elif opcode == op_shlo_l_imm_alt_64:
+                reg[r_a] = v_x * (2**(w_b % 64))
+
+            elif opcode == op_shlo_r_imm_alt_64:
+                reg[r_a] = v_x >> U64(w_b & U64(63))
+
+            elif opcode == op_shar_r_imm_alt_64:
+                reg[r_a] = pvm_Z_inv_jit(I64(pvm_Z_jit(v_x, 8)) >> I64(U64(w_b) & U64(63)), U8(8))
+
+            elif opcode == op_rot_r_64_imm:
+                reg[r_a] = rori64_jit(w_b, v_x)
+
+            elif opcode == op_rot_r_64_imm_alt:
+                reg[r_a] = rori64_jit(v_x, w_b)
+
+            elif opcode == op_rot_r_32_imm:
+                reg[r_a] = pvm_X_jit(rori32_jit(U32(w_b), U32(v_x)), U8(4))
+
+            elif opcode == op_rot_r_32_imm_alt:
+                reg[r_a] = pvm_X_jit(rori32_jit(U32(v_x), U32(w_b)), U8(4))
 
             else:
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
