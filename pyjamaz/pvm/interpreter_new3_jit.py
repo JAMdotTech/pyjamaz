@@ -1020,310 +1020,137 @@ def invoke_native(
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
-        # Type 9: InstructionType.reg_reg_imm
+        #GP-0.6.7-section:A.5.10
         elif inst_type == inst_reg_reg_imm:
+
             r_a = min(12, code[pc + 1] % 16)
             r_b = min(12, code[pc + 1] // 16)
+
+            w_a = reg[r_a]
+            w_b = reg[r_b]
+
             l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
             v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
             
-            w_a = reg[r_a]
-            w_b = reg[r_b]
-            
-            if opcode == op_load_ind_u64:
-                # Memory operation - fall back to Python
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc  # PC already points to current instruction
-                gas_out[0] = gas + 1  # Return gas before decrement  
-                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_PANIC_TRAP
-            elif opcode == op_add_imm_32:
-                reg[r_a] = pvm_X_jit((w_b + v_x) % (2 ** 32), np.uint8(4))
-            elif opcode == op_and_imm:
-                reg[r_a] = w_b & v_x
-            elif opcode == op_xor_imm:
-                reg[r_a] = w_b ^ v_x
-            elif opcode == op_or_imm:
-                reg[r_a] = w_b | v_x
-            elif opcode == op_mul_imm_32:
-                reg[r_a] = pvm_X_jit((w_b * v_x) % (2 ** 32), np.uint8(4))
-            elif opcode == op_add_imm_64:
-                reg[r_a] = (w_b + v_x) & np.uint64(0xFFFFFFFFFFFFFFFF)
-            elif opcode == op_mul_imm_64:
-                reg[r_a] = (w_b * v_x) & np.uint64(0xFFFFFFFFFFFFFFFF)
-            elif opcode == op_shlo_l_imm_64:
-                if v_x < 64:
-                    reg[r_a] = (w_b << v_x) & np.uint64(0xFFFFFFFFFFFFFFFF)
-                else:
-                    reg[r_a] = np.uint64(0)
-            elif opcode == op_shlo_r_imm_64:
-                if v_x < 64:
-                    reg[r_a] = w_b >> v_x
-                else:
-                    reg[r_a] = np.uint64(0)
-            elif opcode == op_shar_r_imm_64:
-                v_x_clamped = min(v_x, 63)
-                w_b_signed = pvm_Z_jit(w_b, 8)
-                if w_b_signed >= 0:
-                    reg[r_a] = w_b >> U64(v_x_clamped)
-                else:
-                    # Arithmetic right shift for negative numbers
-                    sign_bits = U64(0xFFFFFFFFFFFFFFFF) << U64(64 - v_x_clamped)
-                    reg[r_a] = (w_b >> U64(v_x_clamped)) | sign_bits
-            elif opcode == op_neg_add_imm_64:
-                reg[r_a] = U64(v_x) + U64(-w_b)
-            elif opcode == op_shlo_l_imm_alt_64:
-                if w_b < 64:
-                    reg[r_a] = (v_x << w_b) & U64(0xFFFFFFFFFFFFFFFF)
-                else:
-                    reg[r_a] = U64(0)
-            elif opcode == op_shlo_r_imm_alt_64:
-                if w_b < 64:
-                    reg[r_a] = v_x >> w_b
-                else:
-                    reg[r_a] = U64(0)
-            elif opcode == op_shar_r_imm_alt_64:
-                w_b_clamped = min(w_b, 63)
-                v_x_signed = pvm_Z_jit(v_x, 8)
-                if v_x_signed >= 0:
-                    reg[r_a] = v_x >> U64(w_b_clamped)
-                else:
-                    # Arithmetic right shift for negative numbers
-                    sign_bits = U64(0xFFFFFFFFFFFFFFFF) << U64(64 - w_b_clamped)
-                    reg[r_a] = (v_x >> U64(w_b_clamped)) | sign_bits
-            elif opcode == op_store_ind_u8:
+            if opcode == op_store_ind_u8:
                 store_addr = w_b + v_x
-                store_value = w_a % (2**8)
-                if mem_write_jit(store_addr, store_value, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
-                    status = EXIT_PAGE_FAULT
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_MEMORY_FAULT
+                if mem_write_jit(store_addr, w_a % (2**8), U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
             elif opcode == op_store_ind_u16:
                 store_addr = w_b + v_x
-                store_value = w_a % (2**16)
-                if mem_write_jit(store_addr, store_value, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
-                    status = EXIT_PAGE_FAULT
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_MEMORY_FAULT
+                if mem_write_jit(store_addr, w_a % (2**16), U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
             elif opcode == op_store_ind_u32:
                 store_addr = w_b + v_x
-                store_value = w_a % (2**32)
-                if mem_write_jit(store_addr, store_value, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
-                    status = EXIT_PAGE_FAULT
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_MEMORY_FAULT
+                if mem_write_jit(store_addr, w_a % (2**32), U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
             elif opcode == op_store_ind_u64:
                 store_addr = w_b + v_x
                 if mem_write_jit(store_addr, w_a, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
-                    status = EXIT_PAGE_FAULT
-                    for i in range(len(reg)):
-                        registers_out[i] = reg[i]
-                    status_out[0] = status
-                    pc_out[0] = pc
-                    gas_out[0] = gas
-                    inst_nr_out[0] = inst_nr
-                    return ERROR_MEMORY_FAULT
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+
+            elif opcode == op_load_ind_u8:
+                load_addr = w_b + v_x
+                loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = loaded_value
+
+            elif opcode == op_load_ind_i8:
+                load_addr = w_b + v_x
+                loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 1), U8(8))
+
+            elif opcode == op_load_ind_u16:
+                load_addr = w_b + v_x
+                loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = loaded_value
+
+            elif opcode == op_load_ind_i16:
+                load_addr = w_b + v_x
+                loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 2), U8(8))
+
+            elif opcode == op_load_ind_u32:
+                load_addr = w_b + v_x
+                loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = loaded_value
+
+            elif opcode == op_load_ind_i32:
+                load_addr = w_b + v_x
+                loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 4), U8(8))
+
+            elif opcode == op_load_ind_u64:
+                load_addr = w_b + v_x
+                loaded_value = mem_read_jit(load_addr, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
+                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                    return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                reg[r_a] = loaded_value
+
+            elif opcode == op_add_imm_32:
+                reg[r_a] = pvm_X_jit((w_b + v_x) % (2 ** 32), np.uint8(4))
+
+            elif opcode == op_and_imm:
+                reg[r_a] = w_b & v_x
+
+            elif opcode == op_xor_imm:
+                reg[r_a] = w_b ^ v_x
+
+            elif opcode == op_or_imm:
+                reg[r_a] = w_b | v_x
+
+            elif opcode == op_mul_imm_32:
+                reg[r_a] = pvm_X_jit((w_b * v_x) % (2 ** 32), np.uint8(4))
+
+
             else:
-                # Fall back for unimplemented - copy state first
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc  # PC already points to current instruction
-                gas_out[0] = gas + 1  # Return gas before decrement  
-                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_PANIC_TRAP
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
         
         # Type 10: InstructionType.reg_reg_offset
         elif inst_type == inst_reg_reg_offset:
-            r_a = min(12, code[pc + 1] % 16)
-            r_b = min(12, code[pc + 1] // 16)
-            l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
-            v_x = pvm_Z_jit(read_uint_jit(code, pc + 2, l_x), l_x)
-            
-            if opcode == op_branch_eq:
-                if reg[r_a] == reg[r_b]:
-                    skip_len = v_x
-            elif opcode == op_branch_ne:
-                if reg[r_a] != reg[r_b]:
-                    skip_len = v_x
-            elif opcode == op_branch_lt_u:
-                if reg[r_a] < reg[r_b]:
-                    skip_len = v_x
-            elif opcode == op_branch_lt_s:
-                a_signed = pvm_Z_jit(reg[r_a], 8)
-                b_signed = pvm_Z_jit(reg[r_b], 8)
-                if a_signed < b_signed:
-                    skip_len = v_x
-            elif opcode == op_branch_ge_u:
-                if reg[r_a] >= reg[r_b]:
-                    skip_len = v_x
-            elif opcode == op_branch_ge_s:
-                a_signed = pvm_Z_jit(reg[r_a], 8)
-                b_signed = pvm_Z_jit(reg[r_b], 8)
-                if a_signed >= b_signed:
-                    skip_len = v_x
-            else:
-                # Fall back for unimplemented
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc  # PC already points to current instruction
-                gas_out[0] = gas + 1  # Return gas before decrement  
-                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_PANIC_TRAP
-        
+            pass
+
         # Type 12: InstructionType.reg_reg_reg
         elif inst_type == inst_reg_reg_reg:
-            r_a = min(12, code[pc + 1] % 16)
-            r_b = min(12, code[pc + 1] // 16)
-            r_d = min(12, code[pc + 2])
-
-            w_a = reg[r_a]
-            w_b = reg[r_b]
-
-            if opcode == op_add_32:
-                reg[r_d] = pvm_X_jit((w_a + w_b) % (2 ** 32), np.uint8(4))
-            elif opcode == op_sub_32:
-                reg[r_d] = pvm_X_jit((w_a + 2 ** 32 - (w_b % 2 ** 32)) % 2 ** 32, np.uint8(4))
-            elif opcode == op_mul_32:
-                reg[r_d] = pvm_X_jit((w_a * w_b) % (2 ** 32), np.uint8(4))
-            elif opcode == op_add_64:
-                reg[r_d] = (w_a + w_b) & np.uint64(0xFFFFFFFFFFFFFFFF)
-            elif opcode == op_sub_64:
-                # Perform modular subtraction without overflow
-                if w_a >= w_b:
-                    reg[r_d] = w_a - w_b
-                else:
-                    reg[r_d] = np.uint64(0xFFFFFFFFFFFFFFFF) - (w_b - w_a) + np.uint64(1)
-            elif opcode == op_mul_64:
-                reg[r_d] = (w_a * w_b) & np.uint64(0xFFFFFFFFFFFFFFFF)
-            elif opcode == op_and:
-                reg[r_d] = w_a & w_b
-            elif opcode == op_xor:
-                reg[r_d] = w_a ^ w_b
-            elif opcode == op_or:
-                reg[r_d] = w_a | w_b
-            elif opcode == op_div_u_32:
-                if (w_b % (2**32)) == 0:
-                    reg[r_d] = pvm_X_jit(U64(0xFFFFFFFF), U8(4))
-                else:
-                    reg[r_d] = pvm_X_jit(U64(w_a % (2**32)) // U64(w_b % (2**32)), U8(4))
-            elif opcode == op_div_s_32:
-                # Signed 32-bit division
-                a_signed = pvm_Z_jit(w_a % (2**32), 4)
-                b_signed = pvm_Z_jit(w_b % (2**32), 4) 
-                if b_signed == 0:
-                    reg[r_d] = pvm_X_jit(U64(0xFFFFFFFF), U8(4))
-                else:
-                    result = pvm_rtz_div_jit(a_signed, b_signed)
-                    reg[r_d] = pvm_X_jit(pvm_Z_inv_jit(result, U8(4)), U8(4))
-            elif opcode == op_div_u_64:
-                if w_b == 0:
-                    reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)  # Division by zero
-                else:
-                    reg[r_d] = w_a // w_b
-            elif opcode == op_div_s_64:
-                if w_b == 0:
-                    reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)  # Division by zero
-                elif pvm_Z_jit(w_a, 8) == I64(-9223372036854775808) and pvm_Z_jit(w_b, 8) == I64(-1):
-                    reg[r_d] = w_a  # Overflow case: -2^63 / -1 = -2^63 (overflow)
-                else:
-                    # Normal signed division using truncated division
-                    reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(pvm_Z_jit(w_a, 8), pvm_Z_jit(w_b, 8)), U8(8))
-            elif opcode == op_rem_u_32:
-                if (w_b % (2**32)) == 0:
-                    reg[r_d] = pvm_X_jit(w_a % (2**32), U8(4))
-                else:
-                    reg[r_d] = pvm_X_jit((w_a % (2**32)) % (w_b % (2**32)), U8(4))
-            elif opcode == op_shlo_r_32:
-                shift_amount = U32(w_b & U64(31))  # Clamp to 0-31 range
-                shifted_value = U32(w_a) >> shift_amount
-                reg[r_d] = pvm_X_jit(U64(shifted_value), U8(4))
-            elif opcode == op_shlo_l_64:
-                shift_amount = w_b % 64
-                if shift_amount < 64:
-                    reg[r_d] = (w_a << shift_amount) & U64(0xFFFFFFFFFFFFFFFF)
-                else:
-                    reg[r_d] = U64(0)
-            elif opcode == op_shlo_r_64:
-                reg[r_d] = w_a >> U64(w_b & U64(63))
-            elif opcode == op_shar_r_64:
-                w_b_clamped = min(w_b % 64, 63)
-                w_a_signed = pvm_Z_jit(w_a, 8)
-                if w_a_signed >= 0:
-                    reg[r_d] = w_a >> U64(w_b_clamped)
-                else:
-                    # Arithmetic right shift for negative numbers
-                    sign_bits = U64(0xFFFFFFFFFFFFFFFF) << U64(64 - w_b_clamped)
-                    reg[r_d] = (w_a >> U64(w_b_clamped)) | sign_bits
-            elif opcode == op_and:
-                reg[r_d] = w_a & w_b
-            elif opcode == op_xor:
-                reg[r_d] = w_a ^ w_b
-            elif opcode == op_or:
-                reg[r_d] = w_a | w_b
-            elif opcode == op_set_lt_u:
-                reg[r_d] = U64(1) if w_a < w_b else U64(0)
-            elif opcode == op_set_lt_s:
-                reg[r_d] = U64(1) if pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8) else U64(0)
-            elif opcode == op_rot_l_64:
-                reg[r_d] = roli64_jit(w_a, w_b % 64)
-            elif opcode == op_rot_r_64:
-                reg[r_d] = rori64_jit(w_a, w_b % 64)
-            elif opcode == op_and_inv:
-                reg[r_d] = U64(~(w_a & w_b))
-            else:
-                # Fall back for unimplemented - copy state first
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc  # PC already points to current instruction
-                gas_out[0] = gas + 1  # Return gas before decrement  
-                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_PANIC_TRAP
-        elif inst_type == inst_undefined: #TODO!!!!!!!!!!!!HUH?>????????
-            # Undefined opcode - should halt
-            status = EXIT_HALT
-            for i in range(len(reg)):
-                registers_out[i] = reg[i]
-            status_out[0] = status
-            exit_value_out[0] = exit_value
-            pc_out[0] = pc
-            gas_out[0] = gas
-            inst_nr_out[0] = inst_nr
-            return ERROR_NONE
-        else:
-            # Unsupported instruction type - fall back to Python
-            # Return state BEFORE this instruction (Python will execute it)
-            for i in range(len(reg)):
-                registers_out[i] = reg[i]
-            status_out[0] = status
-            exit_value_out[0] = exit_value
-            pc_out[0] = pc  # PC already points to current instruction
-            gas_out[0] = gas + 1  # Return gas before decrement
-            inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-            return ERROR_PANIC_TRAP
+           pass
 
     # Copy output state
     for i in range(len(reg)):
