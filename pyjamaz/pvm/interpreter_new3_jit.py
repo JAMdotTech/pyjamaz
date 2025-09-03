@@ -741,22 +741,27 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y, context={"u'_vx": mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
             elif opcode == op_store_imm_u16:
                 if mem_write_jit(v_x, v_y % (2**16), U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y)
             elif opcode == op_store_imm_u32:
                 if mem_write_jit(v_x, v_y % (2**32), U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y)
             elif opcode == op_store_imm_u64:
                 if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y)
             else:
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)

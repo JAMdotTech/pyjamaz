@@ -34,7 +34,7 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/inst_store_imm_indirect_u64_with_offset_nok.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
     def test_instruction(self, name, test_vector):
 
         # Set NumPy to ignore overflow warnings
