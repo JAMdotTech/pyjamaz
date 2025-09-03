@@ -705,12 +705,12 @@ def invoke_native(
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
             if opcode == op_ecalli:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, None, None, None, v_x, None, None, None, None)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x)
                 return sync_state_and_return(reg, registers_out, EXIT_HOST_HALT, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            v_x, exit_value_out, ERROR_NONE)
             else:
-                logging and log(logging, inst_nr, opcode, pc, registers_out, gas, context={"error": "unknown opcode"})
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -722,7 +722,9 @@ def invoke_native(
 
             if opcode == op_load_imm_64:
                 reg[r_a] = v_x
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x)
             else:
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
