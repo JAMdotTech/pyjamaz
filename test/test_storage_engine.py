@@ -48,7 +48,7 @@ class TestLevelDBStorage(unittest.TestCase):
         state_db.put(b'test3', b'state3')
         block_db.put(b'test4', b'state4')
 
-        all_items = list(state_db)
+        all_items = state_db.items()
 
         self.assertEqual(len(all_items), 3)
 

@@ -25,10 +25,10 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.fuzzer import TargetServer, FuzzerSession, FuzzerMessage, SetStateMessage
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace, StateDump, ChainspecDump
+from pyjamaz.models.app import Trace, StateDump
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION
-from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
+from pyjamaz.storage import InMemoryStorage, RocksDictStorage
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
@@ -127,7 +127,7 @@ async def initialize_app(
         if memory_storage:
             storage_engine = InMemoryStorage()
         else:
-            storage_engine = LevelDBStorage.create_from_file(custom_db_path or default_db_path)
+            storage_engine = RocksDictStorage.create_from_file(custom_db_path or default_db_path)
 
     except IOError as e:
         logging.error(f'Could not initialize storage engine: {str(e)}')
@@ -606,7 +606,7 @@ async def replay_traces(
             logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
 
             # Diffing DBs
-            process_state_diff(list(app.state_db), trace.post_state.keyvals)
+            process_state_diff(list(app.state_db.items()), trace.post_state.keyvals)
 
             state_dump_file = f'state_{block_file.name.replace(".bin", "")}.json'
 
@@ -634,7 +634,7 @@ async def replay_traces(
                     break
 
         # Flush DB
-        for key, _ in app.state_db:
+        for key, _ in app.state_db.items():
             app.state_db.delete(key)
 
     logging.info(f'Traces finished in {time.time() - start_time} seconds')

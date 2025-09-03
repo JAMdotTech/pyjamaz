@@ -15,6 +15,10 @@ try:
 except ImportError:
     plyvel = None
 
+try:
+    import rocksdict
+except ImportError:
+    rocksdict = None
 
 class TransactionRolledBack(Exception):
     pass
@@ -55,6 +59,9 @@ class StorageEngine:
         raise NotImplementedError
 
     def dump_to_jam_bytes(self) -> JamBytes:
+        raise NotImplementedError
+
+    def items(self):
         raise NotImplementedError
 
 
@@ -102,9 +109,9 @@ class InMemoryStorage(StorageEngine):
     def namespace(self, prefix: bytes) -> 'InMemoryStorage':
         return InMemoryStorage(storage=self.storage, prefix=prefix + b'-')
 
-    def __iter__(self):
+    def items(self):
         prefixed_db = {k[len(self.prefix):]: v for k, v in self.storage.items() if k.startswith(self.prefix)}
-        return iter(prefixed_db.items())
+        return list(iter(prefixed_db.items()))
 
 
 class JSONTransaction(Transaction):
@@ -196,6 +203,85 @@ class RocksDBStorage(StorageEngine):
         return RocksDBTransaction(self.db)
 
 
+class RocksDictTransaction(Transaction):
+    def __init__(self, db, column_family):
+
+        self.db = db
+        self.column_family = column_family
+        self.write_batch = None
+
+    def __enter__(self):
+        self.write_batch = rocksdict.WriteBatch(raw_mode=True)
+        return self
+
+    def put(self, key: bytes, value: bytes):
+        self.write_batch.put(key, value, self.column_family)
+
+    def delete(self, key: bytes):
+        self.write_batch.delete(key, self.column_family)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            self.db.write(self.write_batch)
+        else:
+            raise TransactionRolledBack(exc_val)
+
+
+class RocksDictStorage(StorageEngine):
+
+    def __init__(self, db, namespace: Optional[str] = None):
+        super().__init__()
+        self.db = db
+
+        if namespace is not None:
+            self.column_family = db.get_column_family_handle(namespace)
+        else:
+            self.column_family = None
+
+    @classmethod
+    def create_from_file(cls, db_file: str) -> 'RocksDictStorage':
+        if rocksdict is None:
+            raise ImportError('rocksdict not installed')
+
+        opts = rocksdict.Options(raw_mode=True)
+        opts.create_if_missing(True)
+        opts.create_missing_column_families(True)
+
+        db = rocksdict.Rdict(db_file, opts)
+
+        return cls(db=db)
+
+    def put(self, key: bytes, value: bytes):
+        self.db[key] = value
+
+    def get(self, key: bytes) -> bytes:
+        return self.db.get(key)
+
+    def delete(self, key: bytes):
+        return self.db.delete(key)
+
+    def close(self):
+        self.db.close()
+
+    def transaction(self) -> RocksDictTransaction:
+        return RocksDictTransaction(self.db, self.column_family)
+
+    def namespace(self, prefix: bytes) -> 'RocksDictStorage':
+        # Create/open CFs for your namespaces
+        prefix = prefix.decode('utf-8')
+        try:
+            cf_opts = rocksdict.Options(raw_mode=True)
+            cf_opts.set_prefix_extractor(rocksdict.SliceTransform.create_fixed_prefix(3))
+            self.db.create_column_family(prefix, cf_opts)
+        except Exception:
+            pass  # already exists
+
+        return RocksDictStorage(self.db.get_column_family(prefix), namespace=prefix)
+
+    def items(self):
+        return self.db.items()
+
+
 class LevelDBTransaction(Transaction):
     def __init__(self, db):
 
@@ -266,5 +352,5 @@ class LevelDBStorage(StorageEngine):
         for k, v in genesis_data:
             self.put(bytes(k.value_object), bytes(v.value_object))
 
-    def __iter__(self):
-        return self.db.__iter__()
+    def items(self):
+        return list(self.db.__iter__())
