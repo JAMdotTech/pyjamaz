@@ -656,7 +656,6 @@ inst_reg_reg_imm = 9
 inst_reg_reg_offset = 10
 inst_reg_reg_imm_imm = 11
 inst_reg_reg_reg = 12
-inst_undefined = 255
 
 
 op_trap = 0

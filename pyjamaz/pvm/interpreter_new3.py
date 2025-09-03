@@ -47,7 +47,7 @@ from .constants_new import (
 
     inst_none, inst_imm, inst_reg_ext_imm, inst_imm_imm, inst_offset, inst_reg_imm,
     inst_reg_imm_imm, inst_reg_imm_offset, inst_reg_reg, inst_reg_reg_imm,
-    inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg, inst_undefined
+    inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE

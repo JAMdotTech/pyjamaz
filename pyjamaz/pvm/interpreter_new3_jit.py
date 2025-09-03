@@ -12,7 +12,7 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 from .interpreter_new3 import PVMInterpreter as PVMInterpreterBase
 from .types_new import PVMProgram
 from .constants_new import (
-    ExitReason, OpcodeScheme,
+    ExitReason, OpcodeScheme, OpcodeNames,
 
     op_trap, op_fallthrough, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
     op_store_imm_u32, op_store_imm_u64, op_jump, op_jump_ind, op_load_imm, op_load_u8,
@@ -45,7 +45,7 @@ from .constants_new import (
 
     inst_none, inst_imm, inst_reg_ext_imm, inst_imm_imm, inst_offset, inst_reg_imm,
     inst_reg_imm_imm, inst_reg_imm_offset, inst_reg_reg, inst_reg_reg_imm,
-    inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg, inst_undefined
+    inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg
 )
 
 
@@ -556,6 +556,62 @@ def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
 
 
 @njit
+def log(inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
+    """
+    JIT-compatible logging function for instruction execution tracing.
+    Matches the format used in the normal interpreter for consistency.
+    """
+    # Get opcode name safely
+    if opcode in OpcodeNames:
+        opcode_name = OpcodeNames[opcode]
+    else:
+        opcode_name = f"UNKNOWN_{opcode}"
+
+    # Build instruction string (Numba-compatible, no format specifiers)
+    inst_str = f"{inst_nr}: PC {pc} {opcode_name} ({opcode})"
+
+    # Calculate spacing for alignment
+    spacing = " " * max(1, 51 - len(inst_str))
+
+    # Build parameter string
+    params = []
+    if reg1 is not None:
+        params.append(f"r{reg1}")
+    if reg2 is not None:
+        params.append(f"r{reg2}")
+    if reg3 is not None:
+        params.append(f"r{reg3}")
+    if imm1 is not None:
+        params.append(f"imm={imm1}")
+    if imm2 is not None:
+        params.append(f"imm2={imm2}")
+    if off1 is not None:
+        params.append(f"off={off1}")
+    if off2 is not None:
+        params.append(f"off2={off2}")
+
+    param_str = " ".join(params) if params else ""
+
+    # Convert registers to list for display
+    if hasattr(regs, 'tolist'):
+        reg_list = regs.tolist()
+    else:
+        reg_list = list(regs) if hasattr(regs, '__iter__') else str(regs)
+
+    # Build context string
+    context_str = ""
+    if context:
+        context_items = []
+        for key, value in context.items():
+            context_items.append(f"{key}={value}")
+        context_str = f" [{', '.join(context_items)}]" if context_items else ""
+
+    # Print formatted log entry
+    print(f"{inst_str}{spacing}g={gas} {param_str} reg={reg_list}{context_str}")
+
+
+
+@njit
 def invoke_native(
         pc_start, gas_start,
         code, code_size,
@@ -581,6 +637,10 @@ def invoke_native(
     exit_value = I64(0)
     skip_len = 0
     inst_nr = U32(0)
+    logging = True
+
+    #           log(inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
+    logging and log(inst_nr, 1, pc, registers_out, gas, 1, 2,3, 1,2, 1,2, None)
 
     # Copy registers
     reg = registers_in.copy()
