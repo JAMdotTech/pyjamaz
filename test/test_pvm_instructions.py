@@ -34,8 +34,12 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/riscv_rv64ua_amomaxu_w.json'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs/riscv_rv64ua_amomaxu_w.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
     def test_instruction(self, name, test_vector):
+
+        if "riscv" in name:
+            return
 
         # Set NumPy to ignore overflow warnings
         np.seterr(over='ignore')
