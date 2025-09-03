@@ -1274,7 +1274,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 skip_len = branch_result
-            
+
             elif opcode == op_branch_ge_s:
                 branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8), inst_pos_keys)
                 if branch_result == I32(-1):
@@ -1285,6 +1285,38 @@ def invoke_native(
 
             else:
                 # Invalid opcode
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
+
+        #GP-0.6.7-section:A.5.12
+        elif inst_type == inst_reg_reg_imm_imm:
+            r_a = min(12, code[pc + 1] % 16)
+            r_b = code[pc + 1] // 16
+            
+            w_b = reg[r_b]
+            
+            l_x = min(4, code[pc + 2] % 8)
+            v_x = pvm_X_jit(read_uint_jit(code, pc + 3, l_x), U8(l_x))
+            
+            l_y = min(4, max(0, inst_arg_len[inst_index] - l_x - 2))
+            v_y = pvm_X_jit(read_uint_jit(code, pc + 3 + l_x, l_y), U8(l_y))
+            
+            if opcode == op_load_imm_jump_ind:
+                reg[r_a] = v_x
+                jump_target = (w_b + v_y) % (2**32)  # This one uses modulus like the original
+                djump_result = djump_jit(U32(jump_target), jump_table, pc, inst_pos_keys)
+                if djump_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_NONE)
+                elif djump_result == I32(-2):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_DJUMP)
+                else:
+                    skip_len = djump_result
+            else:
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
