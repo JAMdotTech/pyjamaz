@@ -888,7 +888,7 @@ class PVMInterpreter:
 
                     if opcode == op_jump:
                         self.skip_len = v_x
-                        self.log and self.log(off1=v_x)
+                        self.log and self.log(off1=v_x, context={"skip_len":v_x})
                     else:
                         raise InvalidOpcode(f"Invalid offset opcode: {opcode} for instruction type {inst_type}")
 

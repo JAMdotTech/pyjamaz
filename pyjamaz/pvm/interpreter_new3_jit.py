@@ -747,19 +747,22 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y,
+                               context={"u'_vx": mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
             elif opcode == op_store_imm_u32:
                 if mem_write_jit(v_x, v_y % (2**32), U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y,
+                               context={"u'_vx": mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
             elif opcode == op_store_imm_u64:
                 if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y,
+                               context={"u'_vx": mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
             else:
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
@@ -773,7 +776,9 @@ def invoke_native(
 
             if opcode == op_jump:
                 skip_len = v_x
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, off1=v_x, context={"skip_len":v_x})
             else:
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -797,9 +802,11 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_DJUMP)
                 else:
                     skip_len = djump_result
+                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context={"skip_len": djump_result})
 
             elif opcode == op_load_imm:
                 reg[r_a] = v_x
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x)
 
             elif opcode == op_load_u8:
                 loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
@@ -808,6 +815,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x)
 
             elif opcode == op_load_i8:
                 loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
@@ -816,6 +824,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(1))
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x)
 
             elif opcode == op_load_u16:
                 loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
@@ -832,6 +841,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(2))
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x)
 
             elif opcode == op_load_u32:
                 loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
@@ -840,6 +850,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x)
 
             elif opcode == op_load_i32:
                 loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
@@ -848,6 +859,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(4))
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x)
 
             elif opcode == op_load_u64:
                 loaded_value = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)
@@ -856,32 +868,42 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x)
 
             elif opcode == op_store_u8:
                 if mem_write_jit(v_x, reg[r_a] % (2**8), U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x,
+                               context={"u'_vx": mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
 
             elif opcode == op_store_u16:
                 if mem_write_jit(v_x, reg[r_a] % (2**16), U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x,
+                               context={"u'_vx": mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
 
             elif opcode == op_store_u32:
                 if mem_write_jit(v_x, reg[r_a] % (2**32), U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x,
+                               context={"u'_vx": mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
 
             elif opcode == op_store_u64:
                 if mem_write_jit(v_x, reg[r_a], U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x,
+                               context={"u'_vx": mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
 
             else:
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -903,6 +925,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y,
+                               context={"u'_vx": mem_read_jit(store_addr, U8(1), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
 
             elif opcode == op_store_imm_ind_u16:
                 store_addr = w_a + v_x
@@ -910,6 +934,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y,
+                               context={"u'_vx": mem_read_jit(store_addr, U8(2), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
 
             elif opcode == op_store_imm_ind_u32:
                 store_addr = w_a + v_x
@@ -917,6 +943,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y,
+                               context={"u'_vx": mem_read_jit(store_addr, U8(4), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
 
             elif opcode == op_store_imm_ind_u64:
                 store_addr = w_a + v_x
@@ -924,8 +952,11 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y,
+                               context={"u'_vx": mem_read_jit(store_addr, U8(8), mem_section_starts, mem_section_ends, mem_sections_flat, mem_sections_offsets)})
 
             else:
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
