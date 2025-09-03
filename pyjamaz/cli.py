@@ -1,12 +1,11 @@
-import asyncio
 import logging
-import re
 import traceback
 from asyncio import CancelledError
 from datetime import datetime, timezone
 import json
 import os
 import shutil
+from pathlib import Path
 from typing import List, Tuple
 
 import anyio
@@ -26,10 +25,10 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.fuzzer import TargetServer, FuzzerSession, FuzzerMessage, SetStateMessage
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace, StateDump, ChainspecDump
+from pyjamaz.models.app import Trace, StateDump
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION
-from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
+from pyjamaz.storage import InMemoryStorage, RocksDBStorage
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
@@ -128,7 +127,7 @@ async def initialize_app(
         if memory_storage:
             storage_engine = InMemoryStorage()
         else:
-            storage_engine = LevelDBStorage.create_from_file(custom_db_path or default_db_path)
+            storage_engine = RocksDBStorage.create_from_file(custom_db_path or default_db_path)
 
     except IOError as e:
         logging.error(f'Could not initialize storage engine: {str(e)}')
@@ -495,11 +494,11 @@ async def init(
     click.echo(f"✅ Initialization complete.")
     click.echo(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
 
-@main.group('fuzzer', help="Start a fuzzer target for provided mode [local, traces]")
+@main.group('fuzzer', help="Start a fuzzer target or run traces on a fuzzer target")
 async def fuzzer():
     pass
 
-@main.command('traces', help='Run trace files in given folder')
+@main.command('traces', help='Run trace files in specified folder')
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--db-path', 'custom_db_path', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
@@ -557,9 +556,13 @@ async def replay_traces(
 
             logging.info(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
 
+    traces_folder = Path(traces_dir)
+
     traces_files = await anyio.to_thread.run_sync(
-        lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin') and f !='genesis.bin'}),
+        lambda: sorted({f for f in list(traces_folder.rglob("*.bin")) if f.name not in ['genesis.bin', 'report.bin']}),
     )
+
+    start_time = time.time()
 
     for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
@@ -603,9 +606,9 @@ async def replay_traces(
             logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
 
             # Diffing DBs
-            process_state_diff(list(app.state_db), trace.post_state.keyvals)
+            process_state_diff(list(app.state_db.items()), trace.post_state.keyvals)
 
-            state_dump_file = f'state_{block_file.replace(".bin", "")}.json'
+            state_dump_file = f'state_{block_file.name.replace(".bin", "")}.json'
 
             with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
                 json.dump(app.state.to_json(), file, indent=2)
@@ -618,7 +621,7 @@ async def replay_traces(
             app.state = app.retrieve_jam_state()
             await app.update_state_trie()
 
-            state_dump_file = f'trace_post_{block_file.replace(".bin", "")}.json'
+            state_dump_file = f'trace_post_{block_file.name.replace(".bin", "")}.json'
 
             with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
                 json.dump(app.state.to_json(), file, indent=2)
@@ -631,16 +634,16 @@ async def replay_traces(
                     break
 
         # Flush DB
-        for key, _ in app.state_db:
+        for key, _ in app.state_db.items():
             app.state_db.delete(key)
+
+    logging.info(f'Traces finished in {time.time() - start_time} seconds')
 
 @fuzzer.command('traces', help='Start Fuzzer target over UNIX socket.')
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
-@click.option('--db-path', 'custom_db_path', type=click.Path())
-@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-async def fuzzer_traces(traces_dir, socket_path, custom_db_path, force_overwrite, verbose):
+async def fuzzer_traces(traces_dir, socket_path, verbose):
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
@@ -649,9 +652,13 @@ async def fuzzer_traces(traces_dir, socket_path, custom_db_path, force_overwrite
 
     logging.info(f'Fuzzer session started.')
 
+    traces_folder = Path(traces_dir)
+
     traces_files = await anyio.to_thread.run_sync(
-        lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin') and f != 'genesis.bin'}),
+        lambda: sorted({f for f in list(traces_folder.rglob("*.bin")) if f.name not in ['genesis.bin', 'report.bin']}),
     )
+
+    start_time = time.time()
 
     for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
@@ -683,6 +690,8 @@ async def fuzzer_traces(traces_dir, socket_path, custom_db_path, force_overwrite
         else:
             logging.error(f'Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
             exit(2)
+
+    logging.info(f'Fuzzer session finished in {time.time() - start_time} seconds')
 
 
 @fuzzer.command('target', help='Start Fuzzer target over UNIX socket.')
@@ -716,15 +725,13 @@ async def fuzzer_target(
         if not force_overwrite:
             click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
         shutil.rmtree(db_path)  # Delete the directory if it exists
-        logging.info(f"The database at '{db_path}' was deleted successfully.")
+        logging.debug(f"The database at '{db_path}' was deleted successfully.")
 
     os.makedirs(db_path, exist_ok=True)
     if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
         await init_certificate(db_path, seed)
 
     app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
-
-    logging.info(f'App initialized with DB: {db_path}')
 
     try:
         srv = TargetServer(socket_path, app)

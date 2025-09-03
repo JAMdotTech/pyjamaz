@@ -377,6 +377,14 @@ class ServiceAccount(Serializable):
     parent_service: int = field(metadata={'codec': U32})
 
     @property
+    def marked_as_deleted(self) -> bool:
+        return getattr(self, '_marked_as_deleted', False)
+
+    @marked_as_deleted.setter
+    def marked_as_deleted(self, value: bool) -> None:
+        setattr(self, '_marked_as_deleted', value)
+
+    @property
     def threshold_balance(self):
         # GP-0.7.1-eq:9.8 (a_t)
         return max(0,
@@ -589,19 +597,22 @@ class ServicesState(State, Serializable):
         -------
 
         """
+        state_key = state_key_constructor_service_account(service_account_id)
 
         if commit:
 
             if self.storage_transaction is None:
                 raise ValueError('storage_transaction must be set before deleting service account data')
 
-            state_key = state_key_constructor_service_account(service_account_id)
-
             self.storage_transaction.delete(state_key)
 
             del self.services[service_account_id]
         else:
-            self.services[service_account_id] = None
+
+            if service_account_id in self.services:
+                self.services[service_account_id].marked_as_deleted = True
+            else:
+                self.services[service_account_id] = None
 
         logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
 
@@ -821,7 +832,7 @@ class ServicesState(State, Serializable):
                 raise ValueError('storage_transaction must be set before deleting preimage availability data')
 
             self.storage_transaction.delete(storage_key)
-            del self.services[service_account_id].preimages[preimage_hash]
+            self.services[service_account_id].preimages.pop(preimage_hash, None)
         else:
             self.services[service_account_id].preimages[preimage_hash] = None
 
@@ -845,7 +856,7 @@ class ServicesState(State, Serializable):
                 raise ValueError('storage_transaction must be set before deleting preimage availability data')
 
             self.storage_transaction.delete(storage_key)
-            del self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
+            self.services[service_account_id].preimage_availability.pop((preimage_hash, preimage_length), None)
 
         else:
             self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = None
@@ -926,7 +937,7 @@ class ServicesState(State, Serializable):
 
             self.storage_transaction.delete(storage_key)
 
-            del self.services[service_account_id].storage_items[storage_item_hash]
+            self.services[service_account_id].storage_items.pop(storage_item_hash, None)
 
         else:
             self.services[service_account_id].storage_items[storage_item_hash] = None
@@ -987,6 +998,7 @@ class PrivilegedServicesState(State, Serializable):
     always_accumulators: Dict(U32,U64)
         GP-0.7.1-eq:9.9 (χ_Z) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
+    # TODO: restructure in 0.7.0 add: χ_R (U32) and new order: (χ_M,χ_V,χ_R,χ_A,χ_Z)
     manager: int = field(metadata={'codec': U32})
     assigners: List[int] = field(metadata={'codec': Array(U32, CORE_COUNT)})
     delegator: int = field(metadata={'codec': U32})
@@ -1322,6 +1334,7 @@ class JamState(State, Serializable):
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
+    # TODO: add θ to state check eq:4.4
     safrole: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     entropy: EntropyState = field(metadata={'codec': EntropyState.to_codec_def()})
@@ -1479,16 +1492,19 @@ class AccumulationStateComponents(Serializable):
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     validator_queue: ValidatorQueueState = field(metadata={'codec': ValidatorQueueState.to_codec_def()})
     authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
+    # TODO: structure change in 0.7.0 split up privileged services
     privileged_services: PrivilegedServicesState = field(metadata={'codec': PrivilegedServicesState.to_codec_def()})
 
     def check_service_id(self, service_id: int) -> int:
         """
         B.13 | Find an unused service id
         """
-        if service_id not in self.services.services: # TODO replace with retrieve_service_account
+        try:
+            self.services.retrieve_service_account(service_id)
+            return self.check_service_id((service_id - 2 ** 8 + 1) % (2 ** 32 - 2 ** 9) + 2 ** 8)
+
+        except StateKeyNoResult:
             return service_id
-        else:
-            return self.check_service_id((service_id - 2**8 + 1) % (2**32 - 2**9) + 2**8)
 
 
     def to_invocation_context(self, service_account_id: int, entropy: bytes, timeslot: int) -> 'AccumulateInvocationContext':

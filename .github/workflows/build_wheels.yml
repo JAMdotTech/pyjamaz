@@ -1,0 +1,104 @@
+name: Build wheels
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+env:
+  # Update this list if you add/remove supported CPython versions
+  PY_VERSIONS: "3.12 3.13"
+
+jobs:
+  # ---------------------------
+  # 1) Wheels for multiple Pythons
+  # ---------------------------
+  wheels:
+    name: Wheels (pyc) · CPython ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Resolve version from pyjamaz.settings.APP_VERSION
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(PYTHONPATH=. python - <<'PY'
+          import importlib
+          mod = importlib.import_module("pyjamaz.settings")
+          print(mod.APP_VERSION)
+          PY
+          )
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build pyc_wheel
+
+      - name: Build universal wheel
+        run: python -m build --wheel
+
+      - name: Rename wheel to cp tag
+        run: |
+          # Find the built wheel (assumed to be py3-none-any)
+          WHEEL=$(ls dist/*.whl | head -n1)
+          echo "Found wheel: $WHEEL"
+          # Compute CPython ABI tag for this interpreter (e.g., cp312)
+          ABI="cp$(python - <<'PY'
+          import sys
+          print(f"{sys.version_info.major}{sys.version_info.minor}")
+          PY
+          )"
+          # Build new name: pyjamaz-${{ steps.version.outputs.version }}-${ABI}-none-any.whl
+          BASE="pyjamaz-${{ steps.version.outputs.version }}-${ABI}-none-any.whl"
+          echo "BASE=$BASE"
+          mv "$WHEEL" "dist/$BASE"
+          echo "RENAMED_WHEEL=dist/$BASE" >> $GITHUB_ENV
+
+      - name: Compile .py to .pyc inside the wheel
+        run: python -m pyc_wheel "$RENAMED_WHEEL"
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.python-version }}-v${{ steps.version.outputs.version }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  # ---------------------------
+  # 3) (Optional) Collect & publish on tag
+  # ---------------------------
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [wheels]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release (attach all files)
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/**/*

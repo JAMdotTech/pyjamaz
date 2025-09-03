@@ -245,7 +245,7 @@ class PyjamazApp:
         TODO create separate DB and only update affected branches for performance; now the whole state have to be
           in memory
         """
-        state_trie = PatriciaMerkleTrie(list(self.state_db))
+        state_trie = PatriciaMerkleTrie(list(self.state_db.items()))
         self.state_trie_root = state_trie.root()
 
     def is_epoch_change(self, slotnumber: int = None) -> bool:
@@ -332,6 +332,13 @@ class PyjamazApp:
             pre_state_services=pre_state_services
         )
 
+        # Validate quality of assurance extrinsic data
+        self.components.assurances.validate_after_disputes(
+            extrinsic_assurances=block.extrinsic.assurances,
+            pre_state_validator_pool=pre_state_validator_pool,
+            header=block.header
+        )
+
         # Validator Pool STF Block Data | GP-0.5.0-eq:4.10
         validator_pool_output = self.components.validator_pool.state_transition(
             header=block.header,
@@ -371,13 +378,6 @@ class PyjamazApp:
         assurances_after_disputes_output = self.components.assurances.state_transition_after_disputes(
             extrinsic_disputes=block.extrinsic.disputes,
             pre_state_assurances=pre_state_assurances
-        )
-
-        # Validate quality of assurance extrinsic data
-        self.components.assurances.validate_after_disputes(
-            extrinsic_assurances=block.extrinsic.assurances,
-            pre_state_validator_pool=pre_state_validator_pool,
-            header=block.header
         )
 
         # Validator Archive STF Block Data | GP-0.5.0-eq:4.11
@@ -524,7 +524,8 @@ class PyjamazApp:
         services_after_transfers_output = self.components.services.state_transition_transfers(
             intermediate_state_after_accumulation=services_after_accumulation_output.intermediate_state_after_accumulation,
             post_state_timeslot=timeslot_output.post_state,
-            deferred_transfers=services_after_accumulation_output.deferred_transfers
+            deferred_transfers=services_after_accumulation_output.deferred_transfers,
+            post_state_entropy=entropy_output.post_state,
         )
 
         # GP-0.6.4-eq:12.30

@@ -5,17 +5,17 @@ from os import path, makedirs
 from pyjamaz.models.state import TimeslotState
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Timeslot
-from pyjamaz.storage import LevelDBStorage, InMemoryStorage
+from pyjamaz.storage import RocksDBStorage, InMemoryStorage
 
 
-class TestLevelDBStorage(unittest.TestCase):
+class TestRocksDBStorage(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         db_path = path.join(path.dirname(path.abspath(__file__)), '..', 'data', 'testdb')
         makedirs(db_path, exist_ok=True)
         shutil.rmtree(db_path)  # Clear DB
-        cls.storage = LevelDBStorage.create_from_file(db_path)
+        cls.storage = RocksDBStorage.create_from_file(db_path)
 
     async def test_state_storage(self):
 
@@ -48,13 +48,13 @@ class TestLevelDBStorage(unittest.TestCase):
         state_db.put(b'test3', b'state3')
         block_db.put(b'test4', b'state4')
 
-        all_items = list(state_db)
+        all_items = state_db.items()
 
         self.assertEqual(len(all_items), 3)
 
 
 
-class TestInMemoryStorage(TestLevelDBStorage):
+class TestInMemoryStorage(TestRocksDBStorage):
 
     @classmethod
     def setUpClass(cls):

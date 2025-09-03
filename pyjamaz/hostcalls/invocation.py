@@ -64,8 +64,7 @@ class AccumulateInvocationMutator(InvocationMutator):
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
             registers=_pvm.reg,
-            memory=_pvm.mem,
-            context=invocation_context
+            memory=_pvm.mem
         )
 
         service_id = invocation_context.context.service_account_id
@@ -185,8 +184,7 @@ class OnTransferInvocationMutator(InvocationMutator):
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
             registers=_pvm.reg,
-            memory=_pvm.mem,
-            context=invocation_context
+            memory=_pvm.mem
         )
 
         service_id = invocation_context.service_id
@@ -362,17 +360,19 @@ def pvm_invoke_on_transfer(
         services_state: ServicesState,
         timeslot: int,
         service_id: int,
-        deferred_transfers: List[DeferredTransfer]
+        deferred_transfers: List[DeferredTransfer],
+        post_state_entropy: EntropyState
 ) -> PvmOnTransferOutput:
     """
     GP-0.6.7-eq:B.15 (Ψ_T) | the on-transfer service-account invocation function
 
     Parameters
     ----------
-    services: Dict[int, ServiceAccount]
+    services_state: ServicesState,
     timeslot: int
     service_id: int
     deferred_transfers: List[DeferredTransfer]
+    post_state_entropy: EntropyState
 
     Returns
     -------
@@ -414,7 +414,9 @@ def pvm_invoke_on_transfer(
                 service_account=service_account,
                 services_state=services_state
             ),
-            invocation_mutator=OnTransferInvocationMutator(deferred_transfers=deferred_transfers)
+            invocation_mutator=OnTransferInvocationMutator(
+                deferred_transfers=deferred_transfers, post_entropy=post_state_entropy
+            )
         )
 
         gas_limit = sum([t.gas_limit for t in deferred_transfers])
@@ -458,8 +460,7 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
             registers=_pvm.reg,
-            memory=_pvm.mem,
-            context=invocation_context
+            memory=_pvm.mem
         )
 
         match host_call_instr_nr:
@@ -590,8 +591,7 @@ class RefineInvocationMutator(InvocationMutator):
             exit_condition=ExitCondition(reason=ExitReason.panic),
             gas_limit=gas_limit,
             registers=_pvm.reg,
-            memory=_pvm.mem,
-            context=invocation_context
+            memory=_pvm.mem
         )
 
         match host_call_instr_nr:
