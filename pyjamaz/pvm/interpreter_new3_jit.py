@@ -1224,9 +1224,70 @@ def invoke_native(
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
         
-        # Type 10: InstructionType.reg_reg_offset
+        #GP-0.6.7-section:A.5.11
         elif inst_type == inst_reg_reg_offset:
-            pass
+
+            r_a = min(12, code[pc + 1] % 16)
+            r_b = min(12, code[pc + 1] // 16)
+            w_a = reg[r_a]
+            w_b = reg[r_b]
+            
+            l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
+            v_x = pvm_Z_jit(read_uint_jit(code, pc + 2, l_x), U8(l_x))
+            
+            if opcode == op_branch_eq:
+                branch_result = branch_jit(pc, v_x, w_a == w_b, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_ne:
+                branch_result = branch_jit(pc, v_x, w_a != w_b, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_lt_u:
+                branch_result = branch_jit(pc, v_x, w_a < w_b, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_lt_s:
+                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8), inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            elif opcode == op_branch_ge_u:
+                branch_result = branch_jit(pc, v_x, w_a >= w_b, inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+            
+            elif opcode == op_branch_ge_s:
+                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8), inst_pos_keys)
+                if branch_result == I32(-1):
+                    return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                               pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                               exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                skip_len = branch_result
+
+            else:
+                # Invalid opcode
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
         # Type 12: InstructionType.reg_reg_reg
         elif inst_type == inst_reg_reg_reg:
