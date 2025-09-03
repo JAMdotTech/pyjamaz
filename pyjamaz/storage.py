@@ -6,11 +6,6 @@ from jamcodec.base import JamBytes
 from jamcodec.types import Vec, Tuple, H256, Bytes
 
 try:
-    import rocksdb3
-except ImportError:
-    rocksdb3 = None
-
-try:
     import plyvel
 except ImportError:
     plyvel = None
@@ -159,51 +154,6 @@ class JSONStorage(StorageEngine):
 
 
 class RocksDBTransaction(Transaction):
-    def __init__(self, db):
-
-        if rocksdb3 is None:
-            raise ImportError('rocksdb3 not installed')
-
-        self.db = db
-        self.write_batch = None
-
-    def __enter__(self):
-        self.write_batch = rocksdb3.WriterBatch()
-        return self
-
-    def put(self, key: bytes, value: bytes):
-        self.write_batch.put(key, value)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is None:
-            self.db.write(self.write_batch)
-        else:
-            raise TransactionRolledBack(exc_val)
-
-
-class RocksDBStorage(StorageEngine):
-
-    def __init__(self, db_file: str):
-        if rocksdb3 is None:
-            raise ImportError('rocksdb3 not installed')
-
-        super().__init__()
-        self.db = rocksdb3.open_default(db_file)
-
-    def put(self, key: bytes, value: bytes):
-        self.db.put(key, value)
-
-    def get(self, key: bytes) -> bytes:
-        return self.db.get(key)
-
-    def close(self):
-        del self.db
-
-    def transaction(self) -> RocksDBTransaction:
-        return RocksDBTransaction(self.db)
-
-
-class RocksDictTransaction(Transaction):
     def __init__(self, db, column_family):
 
         self.db = db
@@ -227,7 +177,7 @@ class RocksDictTransaction(Transaction):
             raise TransactionRolledBack(exc_val)
 
 
-class RocksDictStorage(StorageEngine):
+class RocksDBStorage(StorageEngine):
 
     def __init__(self, db, namespace: Optional[str] = None):
         super().__init__()
@@ -239,7 +189,7 @@ class RocksDictStorage(StorageEngine):
             self.column_family = None
 
     @classmethod
-    def create_from_file(cls, db_file: str) -> 'RocksDictStorage':
+    def create_from_file(cls, db_file: str) -> 'RocksDBStorage':
         if rocksdict is None:
             raise ImportError('rocksdict not installed')
 
@@ -263,10 +213,10 @@ class RocksDictStorage(StorageEngine):
     def close(self):
         self.db.close()
 
-    def transaction(self) -> RocksDictTransaction:
-        return RocksDictTransaction(self.db, self.column_family)
+    def transaction(self) -> RocksDBTransaction:
+        return RocksDBTransaction(self.db, self.column_family)
 
-    def namespace(self, prefix: bytes) -> 'RocksDictStorage':
+    def namespace(self, prefix: bytes) -> 'RocksDBStorage':
         # Create/open CFs for your namespaces
         prefix = prefix.decode('utf-8')
         try:
@@ -276,10 +226,10 @@ class RocksDictStorage(StorageEngine):
         except Exception:
             pass  # already exists
 
-        return RocksDictStorage(self.db.get_column_family(prefix), namespace=prefix)
+        return RocksDBStorage(self.db.get_column_family(prefix), namespace=prefix)
 
     def items(self):
-        return self.db.items()
+        return list(self.db.items())
 
 
 class LevelDBTransaction(Transaction):

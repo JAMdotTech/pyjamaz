@@ -28,7 +28,7 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, StateDump
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION
-from pyjamaz.storage import InMemoryStorage, RocksDictStorage
+from pyjamaz.storage import InMemoryStorage, RocksDBStorage
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
@@ -127,7 +127,7 @@ async def initialize_app(
         if memory_storage:
             storage_engine = InMemoryStorage()
         else:
-            storage_engine = RocksDictStorage.create_from_file(custom_db_path or default_db_path)
+            storage_engine = RocksDBStorage.create_from_file(custom_db_path or default_db_path)
 
     except IOError as e:
         logging.error(f'Could not initialize storage engine: {str(e)}')

@@ -11,7 +11,7 @@ permissions:
 
 env:
   # Update this list if you add/remove supported CPython versions
-  PY_VERSIONS: "3.12"
+  PY_VERSIONS: "3.12 3.13"
 
 jobs:
   # ---------------------------
@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.12']
+        python-version: ['3.12', '3.13']
 
     steps:
       - name: Checkout
