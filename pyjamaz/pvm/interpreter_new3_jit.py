@@ -601,7 +601,7 @@ def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3
     #
     # # Build context string
     context_str = ""
-    if context:
+    if context is not None:
         context_items = []
         for key, value in context.items():
             context_items.append(f"{key}={value}")
@@ -641,8 +641,6 @@ def invoke_native(
     exit_value = I64(0)
     skip_len = 0
     inst_nr = U32(0)
-
-    logging and log(logging, inst_nr, 1, pc, registers_out, gas, 1, 2, 3, 1, 2, 1, 2, {"t1":1})
 
     # Copy registers
     reg = registers_in.copy()
@@ -688,12 +686,15 @@ def invoke_native(
         #GP-0.6.7-section:A.5.1
         if inst_type == inst_none:
             if opcode == op_trap:
+                logging and log(logging, inst_nr, opcode, pc, registers_out, gas)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out, 
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
             elif opcode == op_fallthrough:
+                logging and log(logging, inst_nr, opcode, pc, registers_out, gas)
                 pass
             else:
+                logging and log(logging, inst_nr, opcode, pc, registers_out, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -704,10 +705,12 @@ def invoke_native(
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
             if opcode == op_ecalli:
+                logging and log(logging, inst_nr, opcode, pc, reg, gas, None, None, None, v_x, None, None, None, None)
                 return sync_state_and_return(reg, registers_out, EXIT_HOST_HALT, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            v_x, exit_value_out, ERROR_NONE)
             else:
+                logging and log(logging, inst_nr, opcode, pc, registers_out, gas, context={"error": "unknown opcode"})
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
