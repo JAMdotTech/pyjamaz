@@ -856,6 +856,7 @@ def invoke_native(
             
         #GP-0.6.7-section:A.5.8
         elif inst_type == inst_reg_imm_offset:
+
             r_a = min(12, code[pc + 1] % 16)
             w_a = reg[r_a]
             
@@ -954,64 +955,67 @@ def invoke_native(
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
-        # Type 8: InstructionType.reg_reg
+        #GP-0.6.7-section:A.5.9
         elif inst_type == inst_reg_reg:
+
             r_d = min(12, code[pc + 1] % 16)
             r_a = min(12, code[pc + 1] // 16)
 
             if opcode == op_move_reg:
                 reg[r_d] = reg[r_a]
+
             elif opcode == op_sbrk:
-                # Heap allocation - fall back to Python for now
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc
-                gas_out[0] = gas + 1
-                inst_nr_out[0] = inst_nr - 1
-                return ERROR_PANIC_TRAP
+                # Heap allocation - not implemented in JIT yet, panic
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
+
             elif opcode == op_count_set_bits_64:
-                # Manual bit counting (np.bitwise_count not available in numba)
+                # TODO: helper function: bit counting (np.bitwise_count not available in numba)
                 val = reg[r_a]
                 count = U64(0)
                 for _ in range(64):
                     count += val & 1
                     val >>= 1
                 reg[r_d] = count
+
             elif opcode == op_count_set_bits_32:
+                # TODO: helper function: bit counting (np.bitwise_count not available in numba)
                 val = U32(reg[r_a] % (2**32))
                 count = U64(0)
                 for _ in range(32):
                     count += val & 1
                     val >>= 1
                 reg[r_d] = count
+
             elif opcode == op_leading_zero_bits_64:
                 reg[r_d] = count_leading_zeroes_jit(reg[r_a])
+
             elif opcode == op_leading_zero_bits_32:
                 reg[r_d] = count_leading_zeroes_jit(reg[r_a] % (2**32), 32)
+
             elif opcode == op_trailing_zero_bits_64:
                 reg[r_d] = count_trailing_zeroes_jit(reg[r_a])
+
             elif opcode == op_trailing_zero_bits_32:
                 reg[r_d] = count_trailing_zeroes_jit(reg[r_a] % (2**32), 32)
+
             elif opcode == op_sign_extend_8:
                 reg[r_d] = pvm_X_jit(reg[r_a], U8(1))
+
             elif opcode == op_sign_extend_16:
                 reg[r_d] = pvm_X_jit(reg[r_a], U8(2))
+
             elif opcode == op_zero_extend_16:
                 reg[r_d] = reg[r_a] & U64(0xFFFF)
+
             elif opcode == op_reverse_bytes:
                 reg[r_d] = reverse_bytes_jit(reg[r_a])
+
             else:
-                # Fall back for unimplemented - copy state first
-                for i in range(len(reg)):
-                    registers_out[i] = reg[i]
-                status_out[0] = status
-                exit_value_out[0] = exit_value
-                pc_out[0] = pc  # PC already points to current instruction
-                gas_out[0] = gas + 1  # Return gas before decrement  
-                inst_nr_out[0] = inst_nr - 1  # Return inst_nr before increment
-                return ERROR_PANIC_TRAP
+                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
+                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
         # Type 9: InstructionType.reg_reg_imm
         elif inst_type == inst_reg_reg_imm:
