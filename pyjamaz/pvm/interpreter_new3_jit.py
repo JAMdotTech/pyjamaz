@@ -8,10 +8,11 @@ import numpy.typing as npt
 
 from numba import njit
 
+from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 from .interpreter_new3 import PVMInterpreter as PVMInterpreterBase
 from .types_new import PVMProgram
 from .constants_new import (
-    ExitReason, OpcodeScheme, Opcode as op,
+    ExitReason, OpcodeScheme,
 
     op_trap, op_fallthrough, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
     op_store_imm_u32, op_store_imm_u64, op_jump, op_jump_ind, op_load_imm, op_load_u8,
@@ -32,7 +33,6 @@ from .constants_new import (
     op_shar_r_imm_alt_32, op_cmov_iz_imm, op_cmov_nz_imm, op_add_imm_64, op_mul_imm_64,
     op_shlo_l_imm_64, op_shlo_r_imm_64, op_shar_r_imm_64, op_neg_add_imm_64,
     op_shlo_l_imm_alt_64, op_shlo_r_imm_alt_64, op_shar_r_imm_alt_64, op_rot_r_64_imm,
-    # Additional JIT opcodes
     op_sub_imm, op_mul_imm, op_shlo_l_imm,
     op_rot_r_64_imm_alt, op_rot_r_32_imm, op_rot_r_32_imm_alt, op_branch_eq, op_branch_ne,
     op_branch_lt_u, op_branch_lt_s, op_branch_ge_u, op_branch_ge_s, op_load_imm_jump_ind,
@@ -525,16 +525,15 @@ def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
     halt_value = U32(2**32 - 2**16)
     if a == halt_value:
         return I32(-1)  # Special return code for halt
-    
-    # Check various invalid conditions
+
     if (a == 0 or 
-        a >= len(jump_table) * 4 or  # TODO: use constant PVM_DYNAMIC_ALIGNMENT_FACTOR = 4
-        a % 4 != 0):
-        return I32(-2)  # Invalid jump
+        a > len(jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
+        a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0):
+        return I32(-2)
         
-    jump_idx = a // 4 - 1
-    if jump_idx >= len(jump_table):
-        return I32(-2)  # Invalid jump
+    jump_idx = a // PVM_DYNAMIC_ALIGNMENT_FACTOR - 1
+    if 0 > jump_idx >= len(jump_table):
+        return I32(-2)
         
     target_pc = jump_table[jump_idx]
     
@@ -546,7 +545,7 @@ def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
             break
     
     if not found:
-        return I32(-2)  # Invalid jump
+        return I32(-2)
         
     return I32(target_pc - pc)  # Valid skip_len
 
@@ -876,7 +875,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_ne_imm:
                 branch_result = branch_jit(pc, v_y, w_a != v_x, inst_pos_keys)
@@ -884,7 +884,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_lt_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a < v_x, inst_pos_keys)
@@ -892,7 +893,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_le_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a <= v_x, inst_pos_keys)
@@ -900,7 +902,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_ge_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a >= v_x, inst_pos_keys)
@@ -908,7 +911,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_gt_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a > v_x, inst_pos_keys)
@@ -916,7 +920,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_lt_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -924,7 +929,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_le_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -932,7 +938,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_ge_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -940,7 +947,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_gt_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -948,7 +956,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             else:
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
@@ -1241,7 +1250,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_ne:
                 branch_result = branch_jit(pc, v_x, w_a != w_b, inst_pos_keys)
@@ -1249,7 +1259,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_lt_u:
                 branch_result = branch_jit(pc, v_x, w_a < w_b, inst_pos_keys)
@@ -1257,7 +1268,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_lt_s:
                 branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8), inst_pos_keys)
@@ -1265,7 +1277,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_ge_u:
                 branch_result = branch_jit(pc, v_x, w_a >= w_b, inst_pos_keys)
@@ -1273,7 +1286,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             elif opcode == op_branch_ge_s:
                 branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8), inst_pos_keys)
@@ -1281,7 +1295,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                skip_len = branch_result
+                elif branch_result > I32(0):
+                    skip_len = branch_result
 
             else:
                 # Invalid opcode
@@ -1304,7 +1319,7 @@ def invoke_native(
             
             if opcode == op_load_imm_jump_ind:
                 reg[r_a] = v_x
-                jump_target = (w_b + v_y) % (2**32)  # This one uses modulus like the original
+                jump_target = (w_b + v_y) % (2**32)
                 djump_result = djump_jit(U32(jump_target), jump_table, pc, inst_pos_keys)
                 if djump_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
