@@ -520,6 +520,40 @@ def sync_state_and_return(reg, registers_out, status, status_out, pc, pc_out,
 
 
 @njit
+def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64, 
+            acl_dict, mem_writable: I64) -> U64:
+    """JIT implementation of sbrk heap allocation."""
+    if size == 0:
+        return current_heap_ptr
+    
+    new_heap_ptr = current_heap_ptr + size
+    if new_heap_ptr >= next_section_start:
+        return U64(0)  # Allocation failed - would overlap next section
+    
+    # Calculate page boundaries (simplified version of PVMMemory.page_size)
+    next_page_boundary = ((current_heap_ptr // PVM_PAGE_SIZE) + 1) * PVM_PAGE_SIZE
+    
+    if new_heap_ptr > next_page_boundary:
+        new_heap_end = ((new_heap_ptr // PVM_PAGE_SIZE) + 1) * PVM_PAGE_SIZE
+        growth = new_heap_end - next_page_boundary
+
+        # TODO: not supported for now
+        # Only grow when we exceed pre-allocated heap mem
+        # if new_heap_end - self.mem_section_starts[1] > len(heap):
+        #     heap = np.concatenate((heap, np.zeros(growth, dtype=U8)))
+        #     self.mem_sections[1] = heap
+        #     # logging.critical(f"EXTENDING HEAP: {heap.size}")
+
+        # Create ACL of new pages
+        next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
+        pages = growth // PVM_PAGE_SIZE + 1
+        for page_nr in range(pages):
+            acl_dict[int(next_page_nr + page_nr)] = int(mem_writable)
+    
+    return new_heap_ptr
+
+
+@njit
 def branch_jit(pc: U32, offset: I64, condition: bool, inst_pos_keys) -> I32:
     """JIT implementation of branch with validation."""
     if condition:
@@ -590,6 +624,7 @@ def invoke_native(
         opcode_scheme, jump_table,
         mem_ops_read, mem_ops_write, mem_ops_bytes,
         mem_section_starts, mem_section_ends, section_arrays, acl_dict,
+        heap_info,  # [current_heap_end, next_section_start, mem_writable_value]
         registers_in,
         logging,
         registers_out,
@@ -1051,11 +1086,18 @@ def invoke_native(
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a)
 
             elif opcode == op_sbrk:
-                # TODO: implement, preallocate for now?
+                size = reg[r_a]
+                current_heap_ptr = heap_info[0]
+                next_section_start = heap_info[1]
+                mem_writable_value = heap_info[2]
+                
+                new_heap_ptr = sbrk_jit(size, current_heap_ptr, next_section_start, acl_dict, mem_writable_value)
+                reg[r_d] = new_heap_ptr
+                
+                if new_heap_ptr != U64(0):
+                    heap_info[0] = new_heap_ptr
+                
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a)
-                return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                           pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                           exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
             elif opcode == op_count_set_bits_64:
                 # TODO: helper function: bit counting (np.bitwise_count not available in numba)
@@ -1812,6 +1854,13 @@ class PVMInterpreter(PVMInterpreterBase):
 
         # Prepare memory arrays for JIT
         mem_section_starts, mem_section_ends, section_arrays, acl_dict = self._prepare_memory_for_jit()
+        
+        # Prepare heap info (for sbrk)
+        heap_info = np.array([
+            self.mem_section_ends[1] if len(self.mem_section_ends) > 1 else 0,  # current heap end
+            self.mem_section_starts[2] if len(self.mem_section_starts) > 2 else 0xFFFFFFFF,  # next section start  
+            MEM_WRITABLE  # writable permission value
+        ], dtype=np.uint64)
 
         # TODO: kan dit efficienter / buiten de loop??
         # Prepare output arrays
@@ -1822,14 +1871,14 @@ class PVMInterpreter(PVMInterpreterBase):
         gas_out = np.array([0], dtype=np.int64)
         inst_nr_out = np.array([0], dtype=np.uint32)
 
-        OpcodeNames_typed = None
+        opcode_names = None
         #Note: comment out to disable logging:
-        OpcodeNames_typed = Dict.empty(
+        opcode_names = Dict.empty(
             key_type=types.int64,
             value_type=types.unicode_type,
         )
         for _k, _v in OpcodeNames.items():
-            OpcodeNames_typed[int(_k)] = _v
+            opcode_names[int(_k)] = _v
 
 
         # Call JIT-compiled function
@@ -1840,8 +1889,9 @@ class PVMInterpreter(PVMInterpreterBase):
             self.opcode_scheme_array, jump_table_array,
             self.mem_ops_read, self.mem_ops_write, self.mem_ops_bytes,
             mem_section_starts, mem_section_ends, section_arrays, acl_dict,
+            heap_info,
             self.reg,
-            OpcodeNames_typed,
+            opcode_names,
             # Outputs
             registers_out, status_out, exit_value_out,
             pc_out, gas_out, inst_nr_out
@@ -1876,3 +1926,13 @@ class PVMInterpreter(PVMInterpreterBase):
             self.status = ExitReason.panic.value
 
         # Memory sections are automatically updated via zero-copy views
+        
+        # Update heap end pointer if it was modified by sbrk
+        if len(self.mem_section_ends) > 1:
+            self.mem_section_ends[1] = heap_info[0]
+        
+        # Sync ACL changes back to original dict
+        if hasattr(self, 'mem_acl') and self.mem_acl is not None:
+            # Update original ACL with any new entries from sbrk
+            for page_nr in acl_dict:
+                self.mem_acl[int(page_nr)] = int(acl_dict[page_nr])
