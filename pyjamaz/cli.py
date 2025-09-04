@@ -186,11 +186,9 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     # Setup logging
     log_level = logging.DEBUG if verbose else logging.INFO
     # Note: Add packages that need a different logging level here
-    log_package_overrides = {
-        "pyjamaz.transport": log_level,
-        "quic": logging.WARNING,
-    }
-    setup_logging(log_level, log_package_overrides)
+    log_package_overrides = settings.LOG_PACKAGE_OVERRIDES
+    log_package_overrides["pyjamaz.transport"] = log_level
+    setup_logging(log_level, package_loggers=log_package_overrides)
 
     # Safety checks
     if settings.SOLO_MODE:
@@ -512,7 +510,7 @@ async def replay_traces(
 ):
 
     log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level)
+    setup_logging(log_level, package_loggers=settings.LOG_PACKAGE_OVERRIDES)
 
     # Safety checks
     if settings.SOLO_MODE:
@@ -644,7 +642,7 @@ async def replay_traces(
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def fuzzer_traces(traces_dir, socket_path, custom_db_path, force_overwrite, verbose):
     log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level)
+    setup_logging(log_level, package_loggers=settings.LOG_PACKAGE_OVERRIDES)
 
     fuzzer_session = FuzzerSession(socket_path, app=None)
     await fuzzer_session.connect()
@@ -697,7 +695,7 @@ async def fuzzer_target(
         custom_db_path, force_overwrite, seed, socket_path, verbose
 ):
     log_level = logging.DEBUG if verbose else logging.INFO
-    setup_logging(log_level)
+    setup_logging(log_level, package_loggers=settings.LOG_PACKAGE_OVERRIDES)
 
     if custom_db_path:
         force_overwrite = True

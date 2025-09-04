@@ -784,15 +784,15 @@ def invoke_native(
         #GP-0.6.7-section:A.5.1
         if inst_type == inst_none:
             if opcode == op_trap:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out, 
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
             elif opcode == op_fallthrough:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, mem=section_arrays)
                 pass
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -803,12 +803,12 @@ def invoke_native(
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
             if opcode == op_ecalli:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_HOST_HALT, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            v_x, exit_value_out, ERROR_NONE)
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -820,9 +820,9 @@ def invoke_native(
 
             if opcode == op_load_imm_64:
                 reg[r_a] = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -867,7 +867,7 @@ def invoke_native(
                     __s8, __v8 = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
                     log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v8), mem=section_arrays)
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -879,9 +879,9 @@ def invoke_native(
 
             if opcode == op_jump:
                 skip_len = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, off1=v_x, context="skip_len: " + str(v_x), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, off1=v_x, context="skip_len: " + str(v_x), mem=section_arrays)
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -905,11 +905,11 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_DJUMP)
                 else:
                     skip_len = djump_result
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="skip_len: " + str(djump_result), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="skip_len: " + str(djump_result), mem=section_arrays)
 
             elif opcode == op_load_imm:
                 reg[r_a] = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_u8:
                 status_read, loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
@@ -918,7 +918,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_i8:
                 status_read, loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
@@ -927,7 +927,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(1))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_u16:
                 status_read, loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
@@ -944,7 +944,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(2))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_u32:
                 status_read, loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
@@ -953,7 +953,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_i32:
                 status_read, loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
@@ -962,7 +962,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_u64:
                 status_read, loaded_value = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
@@ -971,7 +971,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_store_u8:
                 if mem_write_jit(v_x, reg[r_a] % (2**8), U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
@@ -1010,7 +1010,7 @@ def invoke_native(
                     log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="u'_vx: " + str(_rv8), mem=section_arrays)
 
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -1032,7 +1032,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
 
             elif opcode == op_store_imm_ind_u16:
                 store_addr = w_a + v_x
@@ -1040,7 +1040,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
 
             elif opcode == op_store_imm_ind_u32:
                 store_addr = w_a + v_x
@@ -1048,7 +1048,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
 
             elif opcode == op_store_imm_ind_u64:
                 store_addr = w_a + v_x
@@ -1056,10 +1056,10 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(store_addr, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
 
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -1079,7 +1079,7 @@ def invoke_native(
             if opcode == op_load_imm_jump:
                 reg[r_a] = v_x
                 skip_len = v_y  # Jump with offset
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_eq_imm:
                 branch_result = branch_jit(pc, v_y, w_a == v_x, inst_pos_keys)
@@ -1089,7 +1089,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a == v_x:
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_ne_imm:
                 branch_result = branch_jit(pc, v_y, w_a != v_x, inst_pos_keys)
@@ -1099,7 +1099,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a != v_x:
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_lt_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a < v_x, inst_pos_keys)
@@ -1109,7 +1109,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a < v_x:
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_le_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a <= v_x, inst_pos_keys)
@@ -1119,7 +1119,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a <= v_x:
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_ge_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a >= v_x, inst_pos_keys)
@@ -1129,7 +1129,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a >= v_x:
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_gt_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a > v_x, inst_pos_keys)
@@ -1139,7 +1139,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a > v_x:
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_lt_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -1149,7 +1149,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8):
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_le_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -1159,7 +1159,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8):
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_ge_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -1169,7 +1169,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8):
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_gt_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), inst_pos_keys)
@@ -1179,10 +1179,10 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8):
                     skip_len = v_y
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -1195,7 +1195,7 @@ def invoke_native(
 
             if opcode == op_move_reg:
                 reg[r_d] = reg[r_a]
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, mem=section_arrays)
 
             elif opcode == op_sbrk:
                 size = reg[r_a]
@@ -1209,7 +1209,7 @@ def invoke_native(
                 if new_heap_ptr != U64(0):
                     heap_info[0] = new_heap_ptr
                 
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, mem=section_arrays)
 
             elif opcode == op_count_set_bits_64:
                 # TODO: helper function: bit counting (np.bitwise_count not available in numba)
@@ -1219,7 +1219,7 @@ def invoke_native(
                     count += val & 1
                     val >>= 1
                 reg[r_d] = count
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_count_set_bits_32:
                 # TODO: helper function: bit counting (np.bitwise_count not available in numba)
@@ -1229,45 +1229,45 @@ def invoke_native(
                     count += val & 1
                     val >>= 1
                 reg[r_d] = count
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_leading_zero_bits_64:
                 reg[r_d] = count_leading_zeroes_jit(reg[r_a])
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_leading_zero_bits_32:
                 reg[r_d] = count_leading_zeroes_jit(reg[r_a] % (2**32), 32)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_trailing_zero_bits_64:
                 reg[r_d] = count_trailing_zeroes_jit(reg[r_a])
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_trailing_zero_bits_32:
                 reg[r_d] = count_trailing_zeroes_jit(reg[r_a] % (2**32), 32)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_sign_extend_8:
                 #todo: reg[r_d] = pvm_X_jit(reg[r_a], U8(1))
                 reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(reg[r_a] % (2**8), 1), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_sign_extend_16:
                 #todo: reg[r_d] = pvm_X_jit(reg[r_a], U8(2))
                 reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(reg[r_a] % (2**16), 2), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_zero_extend_16:
                 #reg[r_d] = reg[r_a] & U64(0xFFFF)
                 reg[r_d] = reg[r_a] % (2**16)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_reverse_bytes:
                 reg[r_d] = reverse_bytes_jit(reg[r_a])
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -1290,7 +1290,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a % (2**8))+" w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a % (2**8))+" w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_store_ind_u16:
                 store_addr = w_b + v_x
@@ -1298,7 +1298,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a % (2**16))+" w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a % (2**16))+" w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_store_ind_u32:
                 store_addr = w_b + v_x
@@ -1306,7 +1306,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a % (2**32))+" w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a % (2**32))+" w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_store_ind_u64:
                 store_addr = w_b + v_x
@@ -1314,7 +1314,7 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: "+ str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_load_ind_u8:
                 load_addr = w_b + v_x
@@ -1324,7 +1324,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_load_ind_i8:
                 load_addr = w_b + v_x
@@ -1334,7 +1334,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 1), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_load_ind_u16:
                 load_addr = w_b + v_x
@@ -1344,7 +1344,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_load_ind_i16:
                 load_addr = w_b + v_x
@@ -1354,7 +1354,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 2), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_load_ind_u32:
                 load_addr = w_b + v_x
@@ -1364,7 +1364,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_load_ind_i32:
                 load_addr = w_b + v_x
@@ -1374,7 +1374,7 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 4), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_load_ind_u64:
                 load_addr = w_b + v_x
@@ -1384,137 +1384,137 @@ def invoke_native(
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_add_imm_32:
                 reg[r_a] = pvm_X_jit((w_b + v_x) % (2 ** 32), np.uint8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_and_imm:
                 reg[r_a] = w_b & v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_xor_imm:
                 reg[r_a] = w_b ^ v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_or_imm:
                 reg[r_a] = w_b | v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_mul_imm_32:
                 reg[r_a] = pvm_X_jit((w_b * v_x) % (2 ** 32), np.uint8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_set_lt_u_imm:
                 reg[r_a] = U64(1) if w_b < v_x else U64(0)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_set_lt_s_imm:
                 reg[r_a] = U64(1) if pvm_Z_jit(w_b, 8) < pvm_Z_jit(v_x, 8) else U64(0)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_l_imm_32:
                 reg[r_a] = pvm_X_jit((w_b * (2**(v_x % 32))) % (2**32), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_r_imm_32:
                 #TODO!!!!!!!!!!?
                 reg[r_a] = pvm_X_jit(U32(w_b) >> U32(U32(v_x) & U32(31)), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shar_r_imm_32:
                 reg[r_a] = pvm_Z_inv_jit(I32(pvm_Z_jit(U32(w_b), 4)) >> I64(U32(v_x) & U32(31)), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_neg_add_imm_32:
                 reg[r_a] = pvm_X_jit((v_x + 2**32 - w_b) % (2**32), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_set_gt_u_imm:
                 reg[r_a] = U64(1) if w_b > v_x else U64(0)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_set_gt_s_imm:
                 reg[r_a] = U64(1) if pvm_Z_jit(w_b, 8) > pvm_Z_jit(v_x, 8) else U64(0)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_l_imm_alt_32:
                 reg[r_a] = pvm_X_jit((v_x * (2**(w_b % 32))) % (2**32), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_r_imm_alt_32:
                 reg[r_a] = pvm_X_jit(U32(v_x) >> U32(U32(w_b) & U32(31)), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shar_r_imm_alt_32:
                 reg[r_a] = pvm_Z_inv_jit(I32(pvm_Z_jit(U32(v_x), 4)) >> I64(U32(w_b) & U32(31)), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_cmov_iz_imm:
                 if w_b == 0:
                     reg[r_a] = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_cmov_nz_imm:
                 if w_b != 0:
                     reg[r_a] = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_add_imm_64:
                 reg[r_a] = w_b + v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_mul_imm_64:
                 reg[r_a] = w_b * v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_l_imm_64:
                 reg[r_a] = pvm_X_jit(w_b * (2**(v_x % 64)), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_r_imm_64:
                 reg[r_a] = w_b >> U64(v_x & U64(63))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shar_r_imm_64:
                 reg[r_a] = pvm_Z_inv_jit(I64(pvm_Z_jit(w_b, 8)) >> I64(U64(v_x) & U64(63)), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_neg_add_imm_64:
                 reg[r_a] = U64(v_x) + U64(-w_b)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_l_imm_alt_64:
                 reg[r_a] = v_x * (2**(w_b % 64))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_r_imm_alt_64:
                 reg[r_a] = v_x >> U64(w_b & U64(63))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shar_r_imm_alt_64:
                 reg[r_a] = pvm_Z_inv_jit(I64(pvm_Z_jit(v_x, 8)) >> I64(U64(w_b) & U64(63)), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_rot_r_64_imm:
                 reg[r_a] = rori64_jit(w_b, v_x)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_rot_r_64_imm_alt:
                 reg[r_a] = rori64_jit(v_x, w_b)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_rot_r_32_imm:
                 reg[r_a] = pvm_X_jit(rori32_jit(U32(w_b), U32(v_x)), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_rot_r_32_imm_alt:
                 reg[r_a] = pvm_X_jit(rori32_jit(U32(v_x), U32(w_b)), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -1538,7 +1538,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a == w_b:
                     skip_len = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_ne:
                 branch_result = branch_jit(pc, v_x, w_a != w_b, inst_pos_keys)
@@ -1548,7 +1548,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a != w_b:
                     skip_len = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_lt_u:
                 branch_result = branch_jit(pc, v_x, w_a < w_b, inst_pos_keys)
@@ -1558,7 +1558,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a < w_b:
                     skip_len = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_lt_s:
                 branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8), inst_pos_keys)
@@ -1568,7 +1568,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8):
                     skip_len = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_ge_u:
                 branch_result = branch_jit(pc, v_x, w_a >= w_b, inst_pos_keys)
@@ -1578,7 +1578,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a >= w_b:
                     skip_len = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_ge_s:
                 branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8), inst_pos_keys)
@@ -1588,7 +1588,7 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8):
                     skip_len = v_x
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             else:
                 # Invalid opcode
@@ -1623,9 +1623,9 @@ def invoke_native(
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_DJUMP)
                 else:
                     skip_len = djump_result
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context="skip_len: " + str(skip_len), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context="skip_len: " + str(skip_len), mem=section_arrays)
             else:
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                            pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                            exit_value, exit_value_out, ERROR_PANIC_TRAP)
@@ -1642,23 +1642,23 @@ def invoke_native(
             
             if opcode == op_add_32:
                 reg[r_d] = pvm_X_jit((w_a + w_b) % (2**32), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_sub_32:
                 reg[r_d] = pvm_X_jit((w_a + 2**32 - (w_b % 2**32)) % (2**32), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_32:
                 reg[r_d] = pvm_X_jit((w_a * w_b) % (2**32), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_div_u_32:
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_X_jit(U32(w_a) // U32(w_b), U8(4))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_div_s_32:
                 a_signed = I32(pvm_Z_jit(w_a % (2**32), 4))
@@ -1666,21 +1666,21 @@ def invoke_native(
 
                 if b_signed == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 elif a_signed == I32(-2**31) and b_signed == I32(-1):
                     reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(I64(a_signed), I64(b_signed)), U8(8))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rem_u_32:
                 if (w_b % (2**32)) == 0:
                     reg[r_d] = pvm_X_jit(w_a % (2**32), U8(4))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_X_jit((w_a % (2**32)) % (w_b % (2**32)), U8(4))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rem_s_32:
                 a_signed = pvm_Z_jit(w_a % (2**32), 4)
@@ -1688,178 +1688,178 @@ def invoke_native(
 
                 if b_signed == 0:
                     reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 elif a_signed == I64(-2**31) and b_signed == I64(-1):
                     reg[r_d] = U64(0)
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_Z_inv_jit(pvm_smod_jit(a_signed, b_signed), U8(8))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shlo_l_32:
                 reg[r_d] = pvm_X_jit((w_a * (2**(w_b % 32))) % (2**32), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shlo_r_32:
                 reg[r_d] = pvm_X_jit(U32(w_a) >> U32(U32(w_b) & U32(31)), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shar_r_32:
                 reg[r_d] = pvm_Z_inv_jit(I32(pvm_Z_jit(U32(w_a), 4)) >> I64(U32(w_b) & U32(31)), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_add_64:
                 reg[r_d] = w_a + w_b
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_sub_64:
                 reg[r_d] = U64(w_a) + U64(-w_b)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_64:
                 reg[r_d] = w_a * w_b
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_div_u_64:
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = w_a // w_b
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_div_s_64:
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 elif pvm_Z_jit(w_a, 8) == I64(-9223372036854775808) and pvm_Z_jit(w_b, 8) == I64(-1):
                     reg[r_d] = w_a  # Overflow case
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(pvm_Z_jit(w_a, 8), pvm_Z_jit(w_b, 8)), U8(8))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rem_u_64:
                 if w_b == 0:
                     reg[r_d] = w_a
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = w_a % w_b
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rem_s_64:
                 a_signed = pvm_Z_jit(w_a, 8)
                 b_signed = pvm_Z_jit(w_b, 8)
                 if b_signed == 0:
                     reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 elif a_signed == I64(-9223372036854775808) and b_signed == I64(-1):
                     reg[r_d] = U64(0)
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_Z_inv_jit(pvm_smod_jit(a_signed, b_signed), U8(8))
-                    logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shlo_l_64:
                 reg[r_d] = w_a * (2**(w_b % 64))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shlo_r_64:
                 reg[r_d] = w_a >> U64(w_b & U64(63))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shar_r_64:
                 reg[r_d] = pvm_Z_inv_jit(I64(pvm_Z_jit(w_a, 8)) >> I64(U64(w_b) & U64(63)), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_and:
                 reg[r_d] = w_a & w_b
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_xor:
                 reg[r_d] = w_a ^ w_b
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_or:
                 reg[r_d] = w_a | w_b
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_s_s:
                 hi, lo = imul64wide(I64(w_a), I64(w_b))
                 reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_u_u:
                 hi, lo = umul64wide(w_a, w_b)
                 reg[r_d] = hi
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_s_u:
                 hi, lo = smul_u64wide(I64(w_a), w_b)
                 reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_set_lt_u:
                 reg[r_d] = U64(1) if w_a < w_b else U64(0)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_set_lt_s:
                 reg[r_d] = U64(1) if pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8) else U64(0)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_cmov_iz:
                 if w_b == 0:
                     reg[r_d] = w_a
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_cmov_nz:
                 if w_b != 0:
                     reg[r_d] = w_a
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rot_l_64:
                 reg[r_d] = roli64_jit(w_a, w_b % 64)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rot_l_32:
                 reg[r_d] = pvm_X_jit(roli32_jit(U32(w_a), U32(w_b % 32)), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rot_r_64:
                 reg[r_d] = rori64_jit(w_a, w_b % 64)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rot_r_32:
                 reg[r_d] = pvm_X_jit(rori32_jit(U32(w_a), U32(w_b % 32)), U8(4))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_and_inv:
                 reg[r_d] = w_a & U64(~w_b)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_or_inv:
                 reg[r_d] = w_a | U64(~w_b)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_xnor:
                 reg[r_d] = U64(~(w_a ^ w_b))
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_max:
                 reg[r_d] = w_a if pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8) else w_b
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_max_u:
                 reg[r_d] = w_a if w_a >= w_b else w_b
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_min:
                 reg[r_d] = w_a if pvm_Z_jit(w_a, 8) <= pvm_Z_jit(w_b, 8) else w_b
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_min_u:
                 reg[r_d] = w_a if w_a <= w_b else w_b
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             else:
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
@@ -1983,12 +1983,12 @@ class PVMInterpreter(PVMInterpreterBase):
         gas_out = np.array([0], dtype=np.int64)
         inst_nr_out = np.array([0], dtype=np.uint32)
 
-        opcode_names = None
-        #Note: comment out to disable logging:
         opcode_names = Dict.empty(
             key_type=types.int64,
             value_type=types.unicode_type,
         )
+        #TODO: check if logger class was provided, and if so:
+        #Note: comment out to disable logging:
         for _k, _v in OpcodeNames.items():
             opcode_names[int(_k)] = _v
 

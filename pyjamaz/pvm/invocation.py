@@ -5,6 +5,7 @@ from typing import List, Optional, Type
 import numpy as np
 import numpy.typing as npt
 
+import settings
 from pyjamaz.models.common import Preimage
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants_new import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
@@ -189,8 +190,7 @@ class PVMInvocation:
                 context=self.invocation_context
             )
 
-        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDunaLog)
-        #self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDebugLog)
+        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=settings.PVM_DEBUGGER)
 
         output = self.pvm_invoke_host_call(
             instruction_counter=start_offset,

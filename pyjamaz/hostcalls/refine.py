@@ -3,6 +3,7 @@ from typing import List
 from jamcodec.base import JamBytes
 from jamcodec.types import U64
 
+import settings
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
 from pyjamaz.models.state import ServicesState
@@ -339,8 +340,7 @@ def hc_invoke(
         """
         Invokes general PVM function (Ψ) on an inner PVM
         """
-        #pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=None)
-        pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=PVMDebugLog)
+        pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=settings.PVM_DEBUGGER)
         pvm.invoke(
             m_e.inner_pvm_lookup[n].program_counter,
             gas
