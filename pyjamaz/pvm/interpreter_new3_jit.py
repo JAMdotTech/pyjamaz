@@ -628,7 +628,7 @@ def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
         return I32(-2)
         
     jump_idx = a // PVM_DYNAMIC_ALIGNMENT_FACTOR - 1
-    if 0 > jump_idx >= len(jump_table):
+    if jump_idx < 0 or jump_idx >= len(jump_table):
         return I32(-2)
         
     target_pc = jump_table[jump_idx]
