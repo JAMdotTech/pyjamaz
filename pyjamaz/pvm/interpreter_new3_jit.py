@@ -269,20 +269,30 @@ def pvm_Z_jit(a: U64, n: U64) -> I64:
         return I64(val)
 
 
-#TODO: max_bits u8 maken?
 @njit
 def count_leading_zeroes_jit(value: U64, max_bits=64):
-    """JIT-compiled count leading zeroes."""
-    value = value & ((1 << max_bits) - 1)
-    if value == 0:
-        return max_bits
+    """JIT-friendly count-leading-zeroes with explicit 64-bit masking and shifts.
+    Matches Python implementation for max_bits in {32,64}.
+    """
+    mb = U64(max_bits)
+    # Build mask and starting test bit using 64-bit arithmetic
+    if mb >= U64(64):
+        mask = U64(0xFFFFFFFFFFFFFFFF)
+        test_bit = U64(1) << U64(63)
+        maxb = 64
+    else:
+        mask = (U64(1) << mb) - U64(1)
+        test_bit = U64(1) << (mb - U64(1))
+        maxb = int(mb)
+
+    val = U64(value) & mask
+    if val == U64(0):
+        return maxb
 
     count = 0
-    test_bit = 1 << (max_bits - 1)
-
-    while (value & test_bit) == 0 and count < max_bits:
+    while (val & test_bit) == U64(0) and count < maxb:
         count += 1
-        test_bit >>= 1
+        test_bit = test_bit >> U64(1)
 
     return count
 
