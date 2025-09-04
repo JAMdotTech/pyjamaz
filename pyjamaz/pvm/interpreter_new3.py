@@ -458,14 +458,6 @@ class PVMInterpreter:
             else:
                 self.skip_len = b
 
-            print("111111111111111111")
-            print("pc:",self.pc)
-            print("found:",inst_pos in self.inst_pos)
-            print("offset:",b)
-            print("condition:",C)
-            print("target_pc",b)
-            print("111111111111111111")
-
 
     def reset(self, program: PVMProgram):
         self.pc = U32(0)
