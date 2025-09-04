@@ -195,12 +195,12 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
             # Timeslot
             timeslot = Timeslot(InMemoryStorage(), BlockContext(), AppContext())
-            timeslot_output = timeslot.state_transition(header=block.header)
+            timeslot_output = await timeslot.state_transition(header=block.header)
             post_state_timeslot = timeslot_output.post_state
 
             # Entropy
             entropy = Entropy(InMemoryStorage(), BlockContext(), AppContext())
-            entropy_output = entropy.state_transition(
+            entropy_output = await entropy.state_transition(
                 header=block.header,
                 pre_state_timeslot=pre_state.timeslot,
                 pre_state_entropy=pre_state.entropy
@@ -209,7 +209,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
             # Validator Pool
             validator_pool = ValidatorPool(InMemoryStorage(), BlockContext(), AppContext())
-            validator_pool_output = validator_pool.state_transition(
+            validator_pool_output = await validator_pool.state_transition(
                 header=block.header,
                 pre_state_timeslot=pre_state.timeslot,
                 pre_state_validator_pool=pre_state.validator_pool,
@@ -219,7 +219,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
             # Validator Archive
             validator_archive = ValidatorArchive(InMemoryStorage(), BlockContext(), AppContext())
-            validator_archive_output = validator_archive.state_transition(
+            validator_archive_output = await validator_archive.state_transition(
                 header=block.header,
                 pre_state_timeslot=pre_state.timeslot,
                 pre_state_validator_pool=pre_state.validator_pool,
@@ -229,7 +229,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
             # Safrole
             safrole = Safrole(InMemoryStorage(), BlockContext(), AppContext(), self.config.ring_data)
-            output = safrole.state_transition(
+            output = await safrole.state_transition(
                 header=block.header,
                 extrinsic_tickets=block.extrinsic.tickets,
                 pre_state_timeslot=pre_state.timeslot,

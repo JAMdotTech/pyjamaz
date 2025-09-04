@@ -117,7 +117,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
             disputes = Disputes(InMemoryStorage(), BlockContext(), AppContext())
 
             # Input validation
-            disputes.validate_extrinsic_disputes(
+            await disputes.validate_extrinsic_disputes(
                 extrinsic_disputes=block.extrinsic.disputes,
                 pre_state_timeslot=pre_state.timeslot,
                 pre_state_validator_pool=pre_state.validator_pool,
@@ -125,7 +125,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
             )
 
             # STF
-            output = disputes.state_transition(
+            output = await disputes.state_transition(
                 extrinsic_disputes=block.extrinsic.disputes,
                 pre_state_disputes=pre_state.disputes
             )

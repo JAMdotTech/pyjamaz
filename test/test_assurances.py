@@ -41,7 +41,7 @@ class TestAssurances(unittest.TestCase):
             return json.load(f)
 
     @parameterized.expand(get_test_vector_files(file_filter=''))
-    def test_vector(self, name, test_file):
+    async def test_vector(self, name, test_file):
 
         test_vector = self.load_test_vector_data(test_file)
 
@@ -66,19 +66,19 @@ class TestAssurances(unittest.TestCase):
         assurances = Assurances(self.storage_engine, block_context, app_context)
         try:
 
-            assurances.validate_after_disputes(
+            await assurances.validate_after_disputes(
                 extrinsic_assurances=extrinsic_assurances,
                 pre_state_validator_pool=pre_state_validator_pool,
                 header=header,
             )
 
-            intermediate_output = assurances.state_transition_after_assurances(
+            intermediate_output = await assurances.state_transition_after_assurances(
                 extrinsic_assurances=extrinsic_assurances,
                 intermediate_state_assurances_after_disputes=pre_state_assurances,
                 header=header
             )
 
-            output = assurances.state_transition_after_guarantees(
+            output = await assurances.state_transition_after_guarantees(
                 extrinsic_guarantees=[],
                 intermediate_state_assurances_after_assurances=intermediate_output.intermediate_state_after_assurances,
                 post_state_timeslot=post_state_timeslot,

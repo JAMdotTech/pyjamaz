@@ -1,5 +1,7 @@
 import bisect
 import logging
+from concurrent.futures import as_completed
+from concurrent.futures.thread import ThreadPoolExecutor
 from copy import deepcopy, copy
 from typing import List, Union, Optional, Set
 
@@ -15,7 +17,7 @@ from pyjamaz.hostcalls.invocation import pvm_invoke_on_transfer
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
-from pyjamaz.settings import SOLO_MODE
+from pyjamaz.settings import SOLO_MODE, USE_THREAD_POOL, THREAD_POOL_MAX_WORKERS
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine, Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
@@ -46,7 +48,7 @@ from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates, format_h
 class Timeslot(StateComponent):
     component_id = 11
 
-    def state_transition(
+    async def state_transition(
             self,
             header: Header
     ) -> TimeslotOutput:
@@ -80,7 +82,7 @@ class Timeslot(StateComponent):
 class Entropy(StateComponent):
     component_id = 6
 
-    def state_transition(
+    async def state_transition(
             self,
             header: Header,
             pre_state_timeslot: TimeslotState,
@@ -169,7 +171,7 @@ class ValidatorQueue(StateComponent):
 class ValidatorPool(StateComponent):
     component_id = 8
 
-    def state_transition(
+    async def state_transition(
             self,
             header: Header,
             pre_state_timeslot: TimeslotState,
@@ -212,7 +214,7 @@ class ValidatorPool(StateComponent):
 class ValidatorArchive(StateComponent):
     component_id = 9
 
-    def state_transition(
+    async def state_transition(
             self,
             header: Header,
             pre_state_timeslot: TimeslotState,
@@ -286,7 +288,7 @@ class Safrole(StateComponent):
 
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
-    def state_transition(
+    async def state_transition(
             self,
             header: Header,
             extrinsic_tickets: List[TicketEnvelope],
@@ -339,7 +341,7 @@ class Safrole(StateComponent):
                 # Don't accept tickets after TICKET_SUBMISSION_END_SLOT:
                 raise StateTransitionError(SafroleErrorCode.unexpected_ticket)
 
-        input_tickets = []
+        input_tickets = [None] * len(extrinsic_tickets)
 
         if len(extrinsic_tickets) > 0:
 
@@ -349,17 +351,43 @@ class Safrole(StateComponent):
 
             ring_public_keys = [v.bandersnatch for v in self.post_state_safrole.validators]
 
-            # Validate extrinsic
-            for idx, ticket_data in enumerate(extrinsic_tickets):
+            if USE_THREAD_POOL:
 
-                ticket = self.create_ticket_body(ticket_data, ring_public_keys, post_state_entropy.entropy[2])
+                logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
 
-                # Check if ticket already exists
-                if ticket in self.post_state_safrole.ticket_accumulator:
-                    # GP-0.7.0-eq:6.33
-                    raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
-                else:
-                    input_tickets.append(ticket)
+                with ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS) as tp:
+                    futs = {
+                        tp.submit(
+                            self.create_ticket_body,
+                            ticket_data,
+                            ring_public_keys,
+                            post_state_entropy.entropy[2]
+                        ): idx
+                        for idx, ticket_data in enumerate(extrinsic_tickets)
+                    }
+
+                    for fut in as_completed(futs):
+                        ticket = fut.result()
+                        idx = futs[fut]
+
+                        # Check if ticket already exists
+                        if ticket in self.post_state_safrole.ticket_accumulator:
+                            # GP-0.7.0-eq:6.33
+                            raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
+                        else:
+                            input_tickets[idx] = ticket
+            else:
+                # Validate extrinsic
+                for idx, ticket_data in enumerate(extrinsic_tickets):
+
+                    ticket = self.create_ticket_body(ticket_data, ring_public_keys, post_state_entropy.entropy[2])
+
+                    # Check if ticket already exists
+                    if ticket in self.post_state_safrole.ticket_accumulator:
+                        # GP-0.7.0-eq:6.33
+                        raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
+                    else:
+                        input_tickets[idx] = ticket
 
             # Check if tickets are in order: GP-0.7.0-eq:6.32
             if not self.tickets_in_order(input_tickets):
@@ -505,7 +533,7 @@ class AuthorizerQueues(StateComponent):
 class AuthorizerPools(StateComponent):
     component_id = 1
 
-    def state_transition(
+    async def state_transition(
             self,
             header: Header,
             extrinsic_guarantees: List[Guarantee],
@@ -564,7 +592,7 @@ class AuthorizerPools(StateComponent):
 class RecentHistory(StateComponent):
     component_id = 3
 
-    def state_transition_intermediate(
+    async def state_transition_intermediate(
             self,
             header: Header,
             pre_state_recent_history: RecentHistoryState
@@ -594,7 +622,7 @@ class RecentHistory(StateComponent):
             intermediate_state=intermediate_state_recent_history
         )
 
-    def state_transition(
+    async def state_transition(
             self,
             header: Header,
             extrinsic_guarantees: List[Guarantee],
@@ -679,7 +707,7 @@ class RecentHistory(StateComponent):
 class Assurances(StateComponent):
     component_id = 10
 
-    def state_transition_after_disputes(
+    async def state_transition_after_disputes(
             self,
             extrinsic_disputes: ExtrinsicDisputes,
             pre_state_assurances: AssurancesState
@@ -706,7 +734,7 @@ class Assurances(StateComponent):
             intermediate_state_after_disputes=intermediate_state_assurances_after_disputes
         )
 
-    def validate_after_disputes(
+    async def validate_after_disputes(
             self,
             extrinsic_assurances: List[Assurance],
             pre_state_validator_pool: ValidatorPoolState,
@@ -746,7 +774,7 @@ class Assurances(StateComponent):
                 raise StateTransitionError(AssurancesErrorCode.bad_signature)
 
 
-    def state_transition_after_assurances(
+    async def state_transition_after_assurances(
             self,
             extrinsic_assurances: List[Assurance],
             intermediate_state_assurances_after_disputes: AssurancesState,
@@ -845,7 +873,7 @@ class Assurances(StateComponent):
         data = b"jam_available" + blake2b_256_hash(assurance.anchor + assurance.bitfield_bytes)
         return ed_verify(bytes(assurance.signature), data, validator.ed25519)
 
-    def validate_guarantees(
+    async def validate_guarantees(
             self,
             extrinsic_guarantees: List[Guarantee],
             pre_services_state: ServicesState,
@@ -1099,7 +1127,7 @@ class Assurances(StateComponent):
 
         return False
 
-    def state_transition_after_guarantees(
+    async def state_transition_after_guarantees(
             self,
             extrinsic_guarantees: List[Guarantee],
             intermediate_state_assurances_after_assurances: AssurancesState,
@@ -1254,7 +1282,7 @@ class PrivilegedServices(StateComponent):
 class Disputes(StateComponent):
     component_id = 5
 
-    def state_transition(
+    async def state_transition(
             self,
             extrinsic_disputes: ExtrinsicDisputes,
             pre_state_disputes: DisputesState
@@ -1546,7 +1574,7 @@ class Disputes(StateComponent):
             raise StateTransitionError(DisputesErrorCode.not_enough_culprits)
 
     @classmethod
-    def validate_extrinsic_disputes(
+    async def validate_extrinsic_disputes(
             cls,
             extrinsic_disputes: ExtrinsicDisputes,
             pre_state_timeslot: TimeslotState,
@@ -1585,7 +1613,7 @@ class Disputes(StateComponent):
 class Statistics(StateComponent):
     component_id = 13
 
-    def state_transition(
+    async def state_transition(
             self,
             extrinsic_guarantees: List[Guarantee],
             extrinsic_preimages: List[Preimage],
@@ -1723,7 +1751,7 @@ class Statistics(StateComponent):
 class Services(StateComponent):
     component_id = 255
 
-    def validate_extrinsic_preimages(
+    async def validate_extrinsic_preimages(
             self,
             extrinsic_preimages: List[Preimage],
             pre_state_services: ServicesState,
@@ -1788,7 +1816,7 @@ class Services(StateComponent):
             sorted_preimage(preimages[i]) <= sorted_preimage(preimages[i + 1]) for i in range(len(preimages) - 1)
         )
 
-    def state_transition_after_preimages(
+    async def state_transition_after_preimages(
             self,
             extrinsic_preimages: List[Preimage],
             intermediate_state_after_transfers: ServicesState,
@@ -1833,7 +1861,7 @@ class Services(StateComponent):
             post_state=intermediate_state_after_transfers
         )
 
-    def state_transition_accumulation(
+    async def state_transition_accumulation(
             self,
             accumulatable_work_reports: List[WorkReport],
             pre_state_privileged_services: PrivilegedServicesState,
@@ -1887,7 +1915,7 @@ class Services(StateComponent):
         logging.debug(f'ORDERED ACCUMULATION: W^*={[w.package_spec.hash.hex() for w in accumulatable_work_reports]}')
 
         # GP-0.7.0-eq:12.24
-        output = full_sequential_accumulation(
+        output = await full_sequential_accumulation(
             gas_limit=gas_limit,
             work_reports=accumulatable_work_reports,
             accumulation_state=accumulation_state,
@@ -1918,7 +1946,7 @@ class Services(StateComponent):
             accumulation_gas_utilized=output.accumulation_gas_utilized
         )
 
-    def state_transition_transfers(
+    async def state_transition_transfers(
             self,
             intermediate_state_after_accumulation: ServicesState,
             post_state_timeslot: TimeslotState,
@@ -2075,7 +2103,7 @@ class Services(StateComponent):
 class AccumulationQueue(StateComponent):
     component_id = 14
 
-    def state_transition(
+    async def state_transition(
             self,
             queued_work_reports: List[AccumulationQueueWorkPackage],
             pre_state_accumulation_queue: AccumulationQueueState,
@@ -2133,7 +2161,7 @@ class AccumulationQueue(StateComponent):
 class AccumulationHistory(StateComponent):
     component_id = 15
 
-    def state_transition(
+    async def state_transition(
             self,
             accumulatable_work_reports: List[WorkReport],
             pre_state_accumulation_history: AccumulationHistoryState,

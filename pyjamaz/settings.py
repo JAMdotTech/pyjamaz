@@ -8,6 +8,9 @@ STORAGE_ENGINE = 'rocksdb' # memory | rocksdb | leveldb
 
 DEBUG_PROGRAM_OVERRIDE = {}
 
+USE_THREAD_POOL = False
+THREAD_POOL_MAX_WORKERS = None # None=use default of min(32, (os.process_cpu_count() or 1) + 4)
+
 try:
     from pyjamaz.local_settings import *
 except ImportError:

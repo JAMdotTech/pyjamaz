@@ -44,7 +44,7 @@ class TestAuthorizations(unittest.TestCase):
             return json.load(f)
 
     @parameterized.expand(get_test_vector_files(file_filter=''))
-    def test_vector(self, name, test_file):
+    async def test_vector(self, name, test_file):
 
         test_vector = self.load_test_vector_data(test_file)
 
@@ -84,7 +84,7 @@ class TestAuthorizations(unittest.TestCase):
         authorizer_pools = AuthorizerPools(self.storage_engine, self.block_context, self.app_context)
         try:
 
-            output = authorizer_pools.state_transition(
+            output = await authorizer_pools.state_transition(
                 header=header,
                 extrinsic_guarantees=extrinsic_guarantees,
                 pre_state_authorizer_pools=pre_authorizer_pools,

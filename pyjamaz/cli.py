@@ -328,13 +328,13 @@ async def timeslot_ticker(app: PyjamazApp):
             header = Header.default()
             header.timeslot = timeslot
 
-            entropy_output = app.components.entropy.state_transition(
+            entropy_output = await app.components.entropy.state_transition(
                 header=header,
                 pre_state_timeslot=app.state.timeslot,
                 pre_state_entropy=app.state.entropy
             )
 
-            safrole_output = app.components.safrole.state_transition(
+            safrole_output = await app.components.safrole.state_transition(
                 header=header,
                 pre_state_timeslot=app.state.timeslot,
                 pre_state_safrole=app.state.safrole,

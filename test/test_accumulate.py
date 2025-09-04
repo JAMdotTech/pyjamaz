@@ -56,7 +56,7 @@ class TestAccumulate(unittest.TestCase):
             return json.load(f)
 
     @parameterized.expand(get_test_vector_files(file_filter=''))
-    def test_vector(self, name, test_file):
+    async def test_vector(self, name, test_file):
 
         test_vector = self.load_test_vector_data(test_file)
 
@@ -168,7 +168,7 @@ class TestAccumulate(unittest.TestCase):
 
         services = Services(self.storage_engine, self.block_context, self.app_context)
 
-        accumulation_output = services.state_transition_accumulation(
+        accumulation_output = await services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_privileged_services=pre_privileged_services,
             post_state_timeslot=post_state_timeslot,
@@ -178,7 +178,7 @@ class TestAccumulate(unittest.TestCase):
             post_state_entropy=post_entropy,
         )
 
-        transfer_output = services.state_transition_transfers(
+        transfer_output = await services.state_transition_transfers(
             intermediate_state_after_accumulation=accumulation_output.intermediate_state_after_accumulation,
             post_state_timeslot=post_state_timeslot,
             deferred_transfers=accumulation_output.deferred_transfers,
@@ -186,14 +186,14 @@ class TestAccumulate(unittest.TestCase):
         )
 
         accumulation_history = AccumulationHistory(self.storage_engine, self.block_context, self.app_context)
-        history_output = accumulation_history.state_transition(
+        history_output = await accumulation_history.state_transition(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_accumulation_history=pre_accumulation_history,
             nr_work_results_accumulated=accumulation_output.nr_work_results_accumulated
         )
 
         accumulation_queue = AccumulationQueue(self.storage_engine, self.block_context, self.app_context)
-        queue_output = accumulation_queue.state_transition(
+        queue_output = await accumulation_queue.state_transition(
             queued_work_reports=self.block_context.queued_work_reports,
             pre_state_accumulation_queue=pre_accumulation_queue,
             post_state_accumulation_history=history_output.post_state,

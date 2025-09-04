@@ -35,7 +35,7 @@ class BlockValidation:
     def current_timeslot() -> int:
         return int(time.time() - COMMON_ERA) // SLOT_PERIOD
 
-    def validate_header(self,
+    async def validate_header(self,
                         header: Header,
                         pre_state_timeslot: TimeslotState,
                         post_entropy: EntropyState,

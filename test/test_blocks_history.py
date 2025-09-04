@@ -42,7 +42,7 @@ class TestBlockHistory(unittest.TestCase):
             return json.load(f)
 
     @parameterized.expand(get_test_vector_files(file_filter=''))
-    def test_vector(self, name, test_file):
+    async def test_vector(self, name, test_file):
 
         test_vector = self.load_test_vector_data(test_file)
 
@@ -100,7 +100,7 @@ class TestBlockHistory(unittest.TestCase):
 
         blocks_history = RecentHistory(self.storage_engine, self.block_context, self.app_context)
 
-        intermediate_state_recent_history = blocks_history.state_transition_intermediate(
+        intermediate_state_recent_history = await blocks_history.state_transition_intermediate(
             header=header,
             pre_state_recent_history=pre_state
         ).intermediate_state

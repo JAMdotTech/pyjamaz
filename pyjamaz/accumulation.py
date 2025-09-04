@@ -1,16 +1,19 @@
+import logging
 import typing
+from concurrent.futures import as_completed
+from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import List, Set, Dict
 
 from pyjamaz.graypaper_constants import CORE_COUNT
 
-from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
     BeefyCommitmentMap, TimeslotState, EntropyState
 
 from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
+from pyjamaz.settings import THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL
 from pyjamaz.utils import substitute_if_nothing, sum_dict_values
 
 if typing.TYPE_CHECKING:
@@ -144,7 +147,7 @@ class FullAccumulationOutput:
     accumulation_gas_utilized: Dict[int, int]
 
 
-def full_sequential_accumulation(
+async def full_sequential_accumulation(
         gas_limit: int,
         work_reports: List[WorkReport],
         accumulation_state: AccumulationStateComponents,
@@ -188,7 +191,7 @@ def full_sequential_accumulation(
             accumulation_gas_utilized={}
         )
 
-    output = parallel_accumulation(
+    output = await parallel_accumulation(
         accumulation_state=accumulation_state,
         work_reports=work_reports[:i],
         auto_accumulate_services=auto_accumulate_services,
@@ -196,7 +199,7 @@ def full_sequential_accumulation(
         post_state_entropy=post_state_entropy
     )
 
-    second_output = full_sequential_accumulation(
+    second_output = await full_sequential_accumulation(
         gas_limit=gas_limit - sum([u for u in output.accumulation_gas_utilized.values()]),
         work_reports=work_reports[i:],
         accumulation_state=output.accumulation_state,
@@ -223,7 +226,7 @@ def full_sequential_accumulation(
     )
 
 
-def parallel_accumulation(
+async def parallel_accumulation(
         accumulation_state: AccumulationStateComponents,
         work_reports: List[WorkReport],
         auto_accumulate_services: Dict[int, int],
@@ -245,7 +248,6 @@ def parallel_accumulation(
     ParallelAccumulationOutput
     """
     # s
-    # TODO figure out if and how parallelization works, see matrix discussion Gavin https://matrix.to/#/!ddsEwXlCWnreEGuqXZ%3Apolkadot.io/%249iDmcU0V81515JjJMtEwsOvODWVj85gfzM0Zd_zAB3Q
     service_ids = list(
         dict.fromkeys([r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()))
     )
@@ -257,78 +259,94 @@ def parallel_accumulation(
     # t
     deferred_transfers = []
 
+    logging.debug(f'Services to accumulate: {service_ids}')
 
-    # TODO parallelize
-    # async def process_service_accumulation():
-    #
-    # tasks = [
-    #     single_step_accumulation("A", service_id),
-    #     single_step_accumulation("B", 'c'),
-    #     single_step_accumulation("C", 'x'),
-    # ]
-    #
-    # for task in asyncio.as_completed(tasks):
-    #     result = await task
-    #     print("Processed:", result)
+    outputs = []
 
-    # Process services
-    for service_id in service_ids:
+    if USE_THREAD_POOL:
 
-        output = single_step_accumulation(
-            accumulation_state=accumulation_state,
-            post_state_timeslot=post_state_timeslot,
-            post_state_entropy=post_state_entropy,
-            work_reports=work_reports,
-            auto_accumulate_services=auto_accumulate_services,
-            service_id=service_id
-        )
+        logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
 
-        # Update gas usage
-        accumulation_gas_utilized[service_id] = output.gas_used
+        with ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS) as tp:
+            futs = {
+                tp.submit(
+                    single_step_accumulation,
+                    accumulation_state=accumulation_state,
+                    post_state_timeslot=post_state_timeslot,
+                    post_state_entropy=post_state_entropy,
+                    work_reports=work_reports,
+                    auto_accumulate_services=auto_accumulate_services,
+                    service_id=service_id,
+                ): service_id
+                for service_id in service_ids
+            }
 
-        # Update transfers
-        deferred_transfers += output.deferred_transfers
+            for fut in as_completed(futs):
+                output = fut.result()
+                service_id = futs[fut]
+                outputs.append((service_id, output))
+    else:
+        # Process services
+        for service_id in service_ids:
 
-        # Process provided pre-images
-        for s, i in output.preimages:
-            availability = output.state_context.services.retrieve_preimage_availability(s, blake2b_256_hash(i), len(i))
-            if availability == []:
-                output.state_context.services.store_preimage_availability(
-                    s, blake2b_256_hash(i), len(i), [post_state_timeslot.number]
-                )
-                output.state_context.services.store_preimage(s, i)
+            output = single_step_accumulation(
+                accumulation_state=accumulation_state,
+                post_state_timeslot=post_state_timeslot,
+                post_state_entropy=post_state_entropy,
+                work_reports=work_reports,
+                auto_accumulate_services=auto_accumulate_services,
+                service_id=service_id
+            )
 
-        # Update services state with output
-        accumulation_state.services.services.update(output.state_context.services.services)
+            outputs.append((service_id, output))
 
-        if output.accumulation_output is not None:
-            beefy_commitment_map.update({service_id: output.accumulation_output})
+    for service_id, output in outputs:
+            # Update gas usage
+            accumulation_gas_utilized[service_id] = output.gas_used
 
-        # TODO Needs review
-        if service_id == accumulation_state.privileged_services.manager:
-            # Process privilege services (m', a*, v*, z')
-            accumulation_state.privileged_services.manager = output.state_context.privileged_services.manager # m'
-            accumulation_state.privileged_services.assigners = output.state_context.privileged_services.assigners # a*
-            accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator # v*
-            accumulation_state.privileged_services.always_accumulators = output.state_context.privileged_services.always_accumulators # z'
+            # Update transfers
+            deferred_transfers += output.deferred_transfers
 
-        # Process assigners (a')
-        for c in range(CORE_COUNT):
-            if service_id == accumulation_state.privileged_services.assigners[c]:
-                accumulation_state.privileged_services.assigners[c] = output.state_context.privileged_services.assigners[c]
+            # Process provided pre-images
+            for s, i in output.preimages:
+                availability = output.state_context.services.retrieve_preimage_availability(s, blake2b_256_hash(i), len(i))
+                if availability == []:
+                    output.state_context.services.store_preimage_availability(
+                        s, blake2b_256_hash(i), len(i), [post_state_timeslot.number]
+                    )
+                    output.state_context.services.store_preimage(s, i)
 
-        # Process delegator (v')
-        if service_id == accumulation_state.privileged_services.delegator:
-            accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator  # v'
+            # Update services state with output
+            accumulation_state.services.services.update(output.state_context.services.services)
 
-        # Process validator queue (i')
-        if service_id == accumulation_state.privileged_services.delegator:
-            accumulation_state.validator_queue = output.state_context.validator_queue
+            if output.accumulation_output is not None:
+                beefy_commitment_map.update({service_id: output.accumulation_output})
 
-        # Process authorizer queue (q')
-        for c in range(CORE_COUNT):
-            if service_id == accumulation_state.privileged_services.assigners[c]:
-                accumulation_state.authorizer_queues = output.state_context.authorizer_queues
+            # TODO Needs review
+            if service_id == accumulation_state.privileged_services.manager:
+                # Process privilege services (m', a*, v*, z')
+                accumulation_state.privileged_services.manager = output.state_context.privileged_services.manager # m'
+                accumulation_state.privileged_services.assigners = output.state_context.privileged_services.assigners # a*
+                accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator # v*
+                accumulation_state.privileged_services.always_accumulators = output.state_context.privileged_services.always_accumulators # z'
+
+            # Process assigners (a')
+            for c in range(CORE_COUNT):
+                if service_id == accumulation_state.privileged_services.assigners[c]:
+                    accumulation_state.privileged_services.assigners[c] = output.state_context.privileged_services.assigners[c]
+
+            # Process delegator (v')
+            if service_id == accumulation_state.privileged_services.delegator:
+                accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator  # v'
+
+            # Process validator queue (i')
+            if service_id == accumulation_state.privileged_services.delegator:
+                accumulation_state.validator_queue = output.state_context.validator_queue
+
+            # Process authorizer queue (q')
+            for c in range(CORE_COUNT):
+                if service_id == accumulation_state.privileged_services.assigners[c]:
+                    accumulation_state.authorizer_queues = output.state_context.authorizer_queues
 
     return ParallelAccumulationOutput(
         accumulation_state=accumulation_state,
@@ -336,7 +354,6 @@ def parallel_accumulation(
         accumulation_commitment=BeefyCommitmentMap(beefy_commitment_map=beefy_commitment_map),
         accumulation_gas_utilized=accumulation_gas_utilized
     )
-
 
 def single_step_accumulation(
         accumulation_state: AccumulationStateComponents,

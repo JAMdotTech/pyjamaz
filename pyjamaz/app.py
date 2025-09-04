@@ -319,7 +319,7 @@ class PyjamazApp:
         pre_state_services.set_storage_transaction(transaction)
 
         # Validate quality of dispute extrinsic data
-        self.components.disputes.validate_extrinsic_disputes(
+        await self.components.disputes.validate_extrinsic_disputes(
             extrinsic_disputes=block.extrinsic.disputes,
             pre_state_timeslot=pre_state_timeslot,
             pre_state_validator_pool=pre_state_validator_pool,
@@ -327,20 +327,20 @@ class PyjamazApp:
         )
 
         # Validate quality of preimage extrinsic data
-        self.components.services.validate_extrinsic_preimages(
+        await self.components.services.validate_extrinsic_preimages(
             extrinsic_preimages=block.extrinsic.preimages,
             pre_state_services=pre_state_services
         )
 
         # Validate quality of assurance extrinsic data
-        self.components.assurances.validate_after_disputes(
+        await self.components.assurances.validate_after_disputes(
             extrinsic_assurances=block.extrinsic.assurances,
             pre_state_validator_pool=pre_state_validator_pool,
             header=block.header
         )
 
         # Validator Pool STF Block Data | GP-0.5.0-eq:4.10
-        validator_pool_output = self.components.validator_pool.state_transition(
+        validator_pool_output = await self.components.validator_pool.state_transition(
             header=block.header,
             pre_state_timeslot=pre_state_timeslot,
             pre_state_validator_pool=pre_state_validator_pool,
@@ -351,37 +351,37 @@ class PyjamazApp:
         block.header.set_author_bandersnatch_key(post_state_validator_pool=validator_pool_output.post_state)
 
         # Timeslot STF Block Data | GP-0.5.0-eq:4.5
-        timeslot_output = self.components.timeslot.state_transition(
+        timeslot_output = await self.components.timeslot.state_transition(
             header=block.header
         )
 
         # RecentHistoryIntermediate STF Block Data | GP-0.5.0-eq:4.6
-        recent_history_intermediate_output = self.components.recent_history.state_transition_intermediate(
+        recent_history_intermediate_output = await self.components.recent_history.state_transition_intermediate(
             header=block.header,
             pre_state_recent_history=pre_state_recent_history
         )
 
         # Entropy STF Block Data | GP-0.5.0-eq:4.9
-        entropy_output = self.components.entropy.state_transition(
+        entropy_output = await self.components.entropy.state_transition(
             header=block.header,
             pre_state_timeslot=pre_state_timeslot,
             pre_state_entropy=pre_state_entropy
         )
 
         # Disputes STF Block Data | GP-0.5.0-eq:4.12
-        disputes_output = self.components.disputes.state_transition(
+        disputes_output = await self.components.disputes.state_transition(
             extrinsic_disputes=block.extrinsic.disputes,
             pre_state_disputes=pre_state_disputes
         )
 
         # Assurances After Disputes STF Block Data | GP-0.5.0-eq:4.13
-        assurances_after_disputes_output = self.components.assurances.state_transition_after_disputes(
+        assurances_after_disputes_output = await self.components.assurances.state_transition_after_disputes(
             extrinsic_disputes=block.extrinsic.disputes,
             pre_state_assurances=pre_state_assurances
         )
 
         # Validator Archive STF Block Data | GP-0.5.0-eq:4.11
-        validator_archive_output = self.components.validator_archive.state_transition(
+        validator_archive_output = await self.components.validator_archive.state_transition(
             header=block.header,
             pre_state_timeslot=pre_state_timeslot,
             pre_state_validator_archive=pre_state_validator_archive,
@@ -389,7 +389,7 @@ class PyjamazApp:
         )
 
         # Safrole STF Block Data | GP-0.5.0-eq:4.8
-        safrole_output = self.components.safrole.state_transition(
+        safrole_output = await self.components.safrole.state_transition(
             header=block.header,
             pre_state_timeslot=pre_state_timeslot,
             extrinsic_tickets=block.extrinsic.tickets,
@@ -403,7 +403,7 @@ class PyjamazApp:
         # Validate quality of header data
 
         if not produce:
-            block_validation.validate_header(
+            await block_validation.validate_header(
                 header=block.header,
                 pre_state_timeslot=pre_state_timeslot,
                 post_entropy=entropy_output.post_state,
@@ -414,7 +414,7 @@ class PyjamazApp:
 
         # Entropy STF Block Data | GP-0.5.0-eq:4.9
         # TODO second time is necessary because author bandersnatch key is known after
-        entropy_output = self.components.entropy.state_transition(
+        entropy_output = await self.components.entropy.state_transition(
             header=block.header,
             pre_state_timeslot=pre_state_timeslot,
             pre_state_entropy=pre_state_entropy
@@ -425,13 +425,13 @@ class PyjamazApp:
             block.header.tickets_marker = safrole_output.tickets_mark
             block.header.offenders_marker = disputes_output.offenders_mark
 
-            block.header.seal = self.generate_block_seal(
+            block.header.seal = await self.generate_block_seal(
                 block.header, safrole_output.post_state, entropy_output.post_state
             )
 
 
         # Assurances After Assurances STF Block Data | GP-0.5.0-eq:4.14
-        assurances_after_assurances_output = self.components.assurances.state_transition_after_assurances(
+        assurances_after_assurances_output = await self.components.assurances.state_transition_after_assurances(
             extrinsic_assurances=block.extrinsic.assurances,
             intermediate_state_assurances_after_disputes=assurances_after_disputes_output.intermediate_state_after_disputes,
             header=block.header,
@@ -456,7 +456,7 @@ class PyjamazApp:
         )
 
         # Validate quality of guarantees extrinsic data
-        self.components.assurances.validate_guarantees(
+        await self.components.assurances.validate_guarantees(
             extrinsic_guarantees=block.extrinsic.guarantees,
             pre_services_state=pre_state_services,
             intermediate_state_recent_history=recent_history_intermediate_output.intermediate_state,
@@ -472,7 +472,7 @@ class PyjamazApp:
         )
 
         # Assurances After Guarantees STF Block Data | GP-0.5.0-eq:4.15
-        assurances_output = self.components.assurances.state_transition_after_guarantees(
+        assurances_output = await self.components.assurances.state_transition_after_guarantees(
             extrinsic_guarantees=block.extrinsic.guarantees,
             intermediate_state_assurances_after_assurances=assurances_after_assurances_output.intermediate_state_after_assurances,
             pre_state_validator_pool=pre_state_validator_pool,
@@ -503,7 +503,7 @@ class PyjamazApp:
             logging.info(f'📥 Accumulatable work-reports: {nr_acc_reports}')
 
         # Services Accumulation STF Block Data | GP-0.5.0-eq:4.18
-        services_after_accumulation_output = self.components.services.state_transition_accumulation(
+        services_after_accumulation_output = await self.components.services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_privileged_services=pre_state_privileged_services,
             pre_state_services=pre_state_services,
@@ -519,7 +519,7 @@ class PyjamazApp:
             nr_work_results_accumulated=services_after_accumulation_output.nr_work_results_accumulated,
         )
 
-        services_after_transfers_output = self.components.services.state_transition_transfers(
+        services_after_transfers_output = await self.components.services.state_transition_transfers(
             intermediate_state_after_accumulation=services_after_accumulation_output.intermediate_state_after_accumulation,
             post_state_timeslot=timeslot_output.post_state,
             deferred_transfers=services_after_accumulation_output.deferred_transfers,
@@ -530,14 +530,14 @@ class PyjamazApp:
         self.block_context.deferred_transfer_statistics = services_after_transfers_output.deferred_transfer_statistics
 
         # Services After Preimages STF Block Data | GP-0.5.0-eq:??
-        services_after_preimages_output = self.components.services.state_transition_after_preimages(
+        services_after_preimages_output = await self.components.services.state_transition_after_preimages(
             extrinsic_preimages=block.extrinsic.preimages,
             intermediate_state_after_transfers=services_after_transfers_output.intermediate_state_after_transfers,
             post_state_timeslot=timeslot_output.post_state
         )
 
         # Statistics STF Block Data | GP-0.5.0-eq:4.20
-        statistics_output = self.components.statistics.state_transition(
+        statistics_output = await self.components.statistics.state_transition(
             extrinsic_guarantees=block.extrinsic.guarantees,
             extrinsic_preimages=block.extrinsic.preimages,
             extrinsic_assurances=block.extrinsic.assurances,
@@ -550,7 +550,7 @@ class PyjamazApp:
         )
 
         # AuthorizerPools STF Block Data | GP-0.5.4-eq:4.19
-        authorizer_pools_output = self.components.authorizer_pools.state_transition(
+        authorizer_pools_output = await self.components.authorizer_pools.state_transition(
            header=block.header,
            extrinsic_guarantees=block.extrinsic.guarantees,
            post_state_authorizer_queues=services_after_accumulation_output.post_state_authorizer_queues,
@@ -558,7 +558,7 @@ class PyjamazApp:
         )
 
         # RecentHistory STF Block Data | GP-0.5.0-eq:4.17
-        recent_history_output = self.components.recent_history.state_transition(
+        recent_history_output = await self.components.recent_history.state_transition(
            header=block.header,
            extrinsic_guarantees=block.extrinsic.guarantees,
            intermediate_state_recent_history=recent_history_intermediate_output.intermediate_state,
@@ -566,14 +566,14 @@ class PyjamazApp:
         )
 
         # Accumulation History STF | GP-0.6.1-eq:???
-        accumulation_history_output = self.components.accumulation_history.state_transition(
+        accumulation_history_output = await self.components.accumulation_history.state_transition(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_accumulation_history=pre_state_accumulation_history,
             nr_work_results_accumulated=services_after_accumulation_output.nr_work_results_accumulated
         )
 
         # Accumulation Queue STF | GP-0.6.1-eq:???
-        accumulation_queue_output = self.components.accumulation_queue.state_transition(
+        accumulation_queue_output = await self.components.accumulation_queue.state_transition(
             queued_work_reports=self.block_context.queued_work_reports,
             pre_state_accumulation_queue=pre_state_accumulation_queue,
             post_state_accumulation_history=accumulation_history_output.post_state,
@@ -746,7 +746,7 @@ class PyjamazApp:
         else:
             raise PyjamazAppError("No valid sealing policy in current state")
 
-    def generate_block_seal(self, header: Header, safrole_state: SafroleState, entropy_state: EntropyState) -> bytes:
+    async def generate_block_seal(self, header: Header, safrole_state: SafroleState, entropy_state: EntropyState) -> bytes:
         """
         GP-0.5.4-eq:6.15,6.16 (bold_H_s) | Generate block seal
 

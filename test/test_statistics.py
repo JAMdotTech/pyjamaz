@@ -42,7 +42,7 @@ class TestStatistics(unittest.TestCase):
             return json.load(f)
 
     @parameterized.expand(get_test_vector_files(file_filter=''))
-    def test_vector(self, name, test_file):
+    async def test_vector(self, name, test_file):
 
         test_vector = self.load_test_vector_data(test_file)
 
@@ -97,7 +97,7 @@ class TestStatistics(unittest.TestCase):
                     post_state_validator_pool.validators[signature.validator_index].ed25519
                 )
 
-        output = statistics.state_transition(
+        output = await statistics.state_transition(
             extrinsic_guarantees=extrinsic.guarantees,
             extrinsic_preimages=extrinsic.preimages,
             extrinsic_assurances=extrinsic.assurances,
