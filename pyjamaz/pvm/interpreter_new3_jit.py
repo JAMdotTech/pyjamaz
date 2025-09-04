@@ -153,7 +153,7 @@ def roli32_jit(x: U32, shift_amount: U32) -> U32:
     return U32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-@njit
+@njit("int64(int64, int64)")
 def pvm_smod_jit(a: I64, b: I64) -> I64:
     """
     JIT-compiled signed modulo operation.
