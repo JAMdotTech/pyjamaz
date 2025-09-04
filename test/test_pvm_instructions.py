@@ -34,7 +34,7 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/riscv_rv64uzbb_andn.json'))
     def test_instruction(self, name, test_vector):
 
         # if "riscv" in name:

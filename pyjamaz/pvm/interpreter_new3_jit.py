@@ -609,7 +609,7 @@ def branch_jit(pc: U32, offset: I64, condition: bool, inst_pos_keys) -> I32:
             if inst_pos_keys[i] == target_pc:
                 found = True
                 break
-        
+
         if not found:
             return I32(-1)  # Invalid branch - panic
         
@@ -1824,11 +1824,11 @@ def invoke_native(
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_and_inv:
-                reg[r_d] = U64(~(w_a & w_b))
+                reg[r_d] = w_a & U64(~w_b)
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_or_inv:
-                reg[r_d] = U64(~(w_a | w_b))
+                reg[r_d] = w_a | U64(~w_b)
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_xnor:
