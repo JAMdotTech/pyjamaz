@@ -8,6 +8,37 @@ from pyjamaz.pvm.constants_new import OpcodeNames
 from pyjamaz.pvm.types_new import PVMMemory, PVMLogger
 
 
+
+def _fmix64(x: np.uint64) -> np.uint64:
+    """Finalization mix (from MurmurHash3)"""
+    x ^= x >> np.uint64(33)
+    x *= np.uint64(0xff51afd7ed558ccd)
+    x ^= x >> np.uint64(33)
+    x *= np.uint64(0xc4ceb9fe1a85ec53)
+    x ^= x >> np.uint64(33)
+    return x
+
+
+def hash_memory_segment(section_array) -> np.uint64:
+    """
+    Hash a memory segment with FNV-1a 64-bit, then fmix.
+    section_array: uint8[::1] NumPy array (1-D, C-contiguous).
+    """
+    n = len(section_array)
+    if n == 0:
+        return np.uint64(0)
+
+    h = np.uint64(1469598103934665603)        # FNV-1a offset basis (64-bit)
+    prime = np.uint64(1099511628211)          # FNV-1a prime (64-bit)
+
+    # Process all bytes (rely on 64-bit wraparound; no modulo)
+    for i in range(n):
+        h ^= np.uint64(section_array[i])
+        h *= prime
+
+    return _fmix64(h)
+
+
 class PVMDebugLog(PVMLogger):
 
     def __init__(self, pvm, log_opcode_calls=True, log_opcode_calls_if_zero=False):
@@ -205,9 +236,47 @@ class PVMDebugLog(PVMLogger):
         # #     "log_opcode_calls": True,
         # #     "log_opcode_calls_if_zero": False,
         # # }
-        print("inst=", self._pvm.inst_nr, "op=", OpcodeNames[self._pvm.opcode], "pc=", self._pvm.pc, "gas=", self._pvm.gas,
-              "r1=", reg1, "r2=", reg2, "r3=", reg3,
-              "imm1=", imm1, "imm2=", imm2, "off1=", off1, "off2=", off2, context)
+        mem = self._pvm.mem_sections
+        mem_info = ""
+        if mem is not None and len(mem) >= 2 and mem[1] is not None:
+            heap_hash = hash_memory_segment(mem[1])
+            mem_info += f"heap_hash:{heap_hash}"
+        if mem is not None and len(mem) >= 3 and mem[2] is not None:
+            stack_hash = hash_memory_segment(mem[2])
+            mem_info += f" stack_hash:{stack_hash}"
+
+        # print("inst=", self._pvm.inst_nr, "op=", OpcodeNames[self._pvm.opcode], "pc=", self._pvm.pc, "gas=", self._pvm.gas,
+        #       "r1=", reg1, "r2=", reg2, "r3=", reg3,
+        #       "imm1=", imm1, "imm2=", imm2, "off1=", off1, "off2=", off2, context, mem_info)
+
+        name_str = OpcodeNames[self._pvm.opcode]
+        name_pad = 22 - len(name_str)
+        if name_pad > 0:
+            name_str = name_str + (" " * name_pad)
+
+        regs = [int(x) for x in self._pvm.get_registers()]
+        regs_str = ""
+        for i in range(len(regs)):
+            s = str(regs[i])
+            pad = 21 - len(s)
+            if pad > 0:
+                regs_str += (" " * pad) + s
+            else:
+                regs_str += s
+            if i != len(regs) - 1:
+                regs_str += " "
+
+        # Fixed width for inst_nr and pc (4 chars each, right-aligned)
+        inst_str = str(self._pvm.inst_nr)
+        if len(inst_str) < 4:
+            inst_str = (" " * (4 - len(inst_str))) + inst_str
+
+        pc_str = str(self._pvm.pc)
+        if len(pc_str) < 4:
+            pc_str = (" " * (4 - len(pc_str))) + pc_str
+
+        print(inst_str, pc_str, name_str, regs_str, mem_info)
+
 
     def hc_log(self, msg, data):
         pass
