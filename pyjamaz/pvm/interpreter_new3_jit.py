@@ -519,6 +519,48 @@ def sync_state_and_return(reg, registers_out, status, status_out, pc, pc_out,
     return error_code
 
 
+
+@njit
+def _fmix64_jit(x: U64) -> U64:
+    """Finalization mix (from MurmurHash3), good avalanche; JIT-safe."""
+    x ^= x >> U64(33)
+    x *= U64(0xff51afd7ed558ccd)
+    x ^= x >> U64(33)
+    x *= U64(0xc4ceb9fe1a85ec53)
+    x ^= x >> U64(33)
+    return x
+
+
+@njit
+def hash_memory_segment(section_array) -> U64:
+    """
+    Hash the ENTIRE memory segment (all bytes) with FNV-1a 64-bit, then fmix.
+    section_array: uint8[::1] NumPy array (1-D, C-contiguous).
+    """
+    n = len(section_array)
+    if n == 0:
+        return U64(0)
+
+    h = U64(1469598103934665603)        # FNV-1a offset basis (64-bit)
+    prime = U64(1099511628211)          # FNV-1a prime (64-bit)
+
+    # Process all bytes (rely on 64-bit wraparound; no modulo)
+    for i in range(n):
+        h ^= U64(section_array[i])
+        h *= prime
+
+    return _fmix64_jit(h)
+
+
+@njit
+def get_memory_hash(section_arrays, seg_idx: I32):
+    """Compute a 64-bit hash for the given memory segment (entire buffer)."""
+    segment_hash = U64(0)
+    if seg_idx >= 0 and seg_idx < len(section_arrays):
+        segment_hash = hash_memory_segment(section_arrays[seg_idx])
+    return segment_hash
+
+
 @njit
 def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64, 
             acl_dict, mem_writable: I64) -> U64:
@@ -605,15 +647,23 @@ def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
 
 
 @njit
-def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=""):
+def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context="", mem=None):
     """
     JIT-compatible logging function for instruction execution tracing.
     Matches the format used in the normal interpreter for consistency.
     """
     name = opcode_names.get(np.int64(opcode), "UNKNOWN")
+    
+    # Add memory hash information if available
+    mem_info = ""
+    if mem is not None and len(mem) >= 2:
+        heap_hash = hash_memory_segment(mem[1])
+        stack_hash = hash_memory_segment(mem[2])
+        mem_info = f" heap_hash:{heap_hash} stack_hash:{stack_hash}"
+    
     print("inst=",inst_nr, "op=",name, "pc=",pc, "gas=",gas,
           "r1=",reg1, "r2=",reg2, "r3=",reg3,
-          "imm1=",imm1, "imm2=",imm2, "off1=",off1, "off2=",off2, context)
+          "imm1=",imm1, "imm2=",imm2, "off1=",off1, "off2=",off2, context, mem_info)
 
 
 @njit
@@ -684,6 +734,10 @@ def invoke_native(
         opcode = code[pc]
         inst_type = opcode_scheme[opcode]
         skip_len = inst_arg_len[inst_index] + 1
+        
+        # Calculate memory hashes for debugging (heap=index 1, stack=index 2)
+        #heap_hash, stack_hash = get_memory_hashes(section_arrays, I32(1), I32(2))
+        #mem_hash_tuple = (heap_hash, stack_hash)
         
         #GP-0.6.7-section:A.5.1
         if inst_type == inst_none:
