@@ -27,7 +27,7 @@ from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, StateDump
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
-from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION
+from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION, STORAGE_ENGINE
 from pyjamaz.storage import InMemoryStorage, RocksDBStorage
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.transport.cert import generate_cert, write_cert
@@ -110,7 +110,7 @@ def wrap_produced_block_fs(app: PyjamazApp, traces_dir, fs_protocol: FSProtocol)
 
 async def initialize_app(
         read_state=True,
-        memory_storage=False,
+        storage_engine='memory',
         keys=None,
         common_era=None,
         custom_db_path=None,
@@ -124,10 +124,15 @@ async def initialize_app(
 
     # Initiate storage engine
     try:
-        if memory_storage:
+        logging.debug(f'Selected storage engine: {storage_engine}')
+
+        if storage_engine == 'memory':
             storage_engine = InMemoryStorage()
-        else:
+
+        elif storage_engine == 'rocksdb':
             storage_engine = RocksDBStorage.create_from_file(custom_db_path or default_db_path)
+        else:
+            raise ValueError(f'Unsupported storage engine: {storage_engine}')
 
     except IOError as e:
         logging.error(f'Could not initialize storage engine: {str(e)}')
@@ -216,6 +221,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             custom_db_path=custom_db_path,
             record_traces=record_traces,
             fuzzer_socket_path=fuzzer_socket_path if fuzzer else None,
+            storage_engine=STORAGE_ENGINE
         )
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
@@ -464,7 +470,7 @@ async def init(
         shutil.rmtree(db_path)  # Delete the directory if it exists
         click.echo(f"The database at '{db_path}' was deleted successfully.")
 
-    app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
+    app = await initialize_app(read_state=False, custom_db_path=custom_db_path, storage_engine=STORAGE_ENGINE)
 
     # Load chainspec
     with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
@@ -500,14 +506,10 @@ async def fuzzer():
 
 @main.command('traces', help='Run trace files in specified folder')
 @click.argument('traces_dir', type=click.Path(exists=True))
-@click.option('--db-path', 'custom_db_path', type=click.Path())
-@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--skip-block-validation', is_flag=True, help="Skip block validation before import")
-@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys", default='0x0000000000000000000000000000000000000000000000000000000000000000', show_default=True)
-@click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def replay_traces(
-        traces_dir, custom_db_path, force_overwrite, skip_block_validation, seed, chainspec, verbose
+        traces_dir, skip_block_validation, verbose
 ):
 
     log_level = logging.DEBUG if verbose else logging.INFO
@@ -517,44 +519,7 @@ async def replay_traces(
     if settings.SOLO_MODE:
         raise BadParameter("settings.SOLO_MODE should be False when running traces")
 
-    db_path = custom_db_path or default_db_path
-
-    if seed is None:
-        raise MissingParameter("--seed parameter is required")
-    elif not seed.startswith("0x") or len(seed) != 66:
-        raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
-
-    # Flush database and import genesis state
-    if os.path.isdir(db_path):
-        if not force_overwrite:
-            click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
-        shutil.rmtree(db_path)  # Delete the directory if it exists
-        logging.info(f"The database at '{db_path}' was deleted successfully.")
-
-    os.makedirs(db_path, exist_ok=True)
-    if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
-        await init_certificate(db_path, seed)
-
-    app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
-
-    if chainspec:
-        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
-            genesis_state = StateDump.from_jam_bytes(JamBytes(fp.read()))
-            for k, v, name, metadata in genesis_state.keyvals:
-                app.state_db.put(bytes(k), bytes(v))
-
-            app.state = app.retrieve_jam_state()
-            await app.update_state_trie()
-
-            assert app.state_trie_root == genesis_state.state_root
-            logging.info(f'🎬 Genesis successfully saved (state root: {format_hash(app.state_trie_root)})')
-
-        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
-            genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
-
-            app.block_context.ancestor_headers.append(genesis_block.header)
-
-            logging.info(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
+    app = await initialize_app(read_state=False, custom_db_path=None, storage_engine='memory')
 
     traces_folder = Path(traces_dir)
 
@@ -695,43 +660,31 @@ async def fuzzer_traces(traces_dir, socket_path, verbose):
 
 
 @fuzzer.command('target', help='Start Fuzzer target over UNIX socket.')
-@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys", default='0x0000000000000000000000000000000000000000000000000000000000000000', show_default=True)
 @click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
-@click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
-@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
+@click.option('--db-path', 'db_path', type=click.Path(), default=None, show_default=True, help="[deprecated]")
+@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database [deprecated]")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def fuzzer_target(
-        custom_db_path, force_overwrite, seed, socket_path, verbose
+        db_path, force_overwrite, socket_path, verbose
 ):
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
-    if custom_db_path:
-        force_overwrite = True
+    if not db_path:
+        storage_engine = 'memory'
+    else:
+        storage_engine = 'rocksdb'
+
+        # Create database
+        if os.path.isdir(db_path):
+            shutil.rmtree(db_path)  # Delete the directory if it exists
+            logging.debug(f"The database at '{db_path}' was deleted successfully.")
 
     # Safety checks
     if settings.SOLO_MODE:
         logging.warning('settings.SOLO_MODE is enabled')
 
-    db_path = custom_db_path or default_db_path
-
-    if seed is None:
-        raise MissingParameter("--seed parameter is required")
-    elif not seed.startswith("0x") or len(seed) != 66:
-        raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
-
-    # Flush database and import genesis state
-    if os.path.isdir(db_path):
-        if not force_overwrite:
-            click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
-        shutil.rmtree(db_path)  # Delete the directory if it exists
-        logging.debug(f"The database at '{db_path}' was deleted successfully.")
-
-    os.makedirs(db_path, exist_ok=True)
-    if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
-        await init_certificate(db_path, seed)
-
-    app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
+    app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine)
 
     try:
         srv = TargetServer(socket_path, app)

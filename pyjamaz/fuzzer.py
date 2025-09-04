@@ -176,12 +176,12 @@ class TargetServer:
         elif req.get_state is not None:
 
             return FuzzerMessage(
-                state=list(self.app.state_db)
+                state=list(self.app.state_db.items())
             )
         elif req.set_state is not None:
 
             # Flush DB
-            for key, _ in self.app.state_db:
+            for key, _ in self.app.state_db.items():
                 self.app.state_db.delete(key)
 
             logging.debug(f"State DB flushed")

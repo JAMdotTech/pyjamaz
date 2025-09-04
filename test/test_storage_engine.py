@@ -5,7 +5,7 @@ from os import path, makedirs
 from pyjamaz.models.state import TimeslotState
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Timeslot
-from pyjamaz.storage import RocksDBStorage, InMemoryStorage
+from pyjamaz.storage import RocksDBStorage, InMemoryStorage, TransactionRolledBack
 
 
 class TestRocksDBStorage(unittest.TestCase):
@@ -16,6 +16,14 @@ class TestRocksDBStorage(unittest.TestCase):
         makedirs(db_path, exist_ok=True)
         shutil.rmtree(db_path)  # Clear DB
         cls.storage = RocksDBStorage.create_from_file(db_path)
+
+    def setUp(self):
+        # Flush DB
+        for key, _ in self.storage.namespace(b'state').items():
+            self.storage.delete(key)
+
+        for key, _ in self.storage.namespace(b'block').items():
+            self.storage.delete(key)
 
     async def test_state_storage(self):
 
@@ -51,6 +59,21 @@ class TestRocksDBStorage(unittest.TestCase):
         all_items = state_db.items()
 
         self.assertEqual(len(all_items), 3)
+
+    def test_transaction(self):
+        tx_db = self.storage.namespace(b'tx')
+
+        tx_db.put(b'test', b'initial')
+
+        try:
+
+            with tx_db.transaction() as tx:
+                tx.put(b'test', b'changed')
+                raise ValueError("Should rollback")
+        except TransactionRolledBack:
+            pass
+
+        self.assertEqual(b'initial', tx_db.get(b'test'))
 
 
 
