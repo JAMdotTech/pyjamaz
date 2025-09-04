@@ -405,7 +405,9 @@ def find_memory_section_jit(addr: U64, section_starts, section_ends) -> I32:
 @njit
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays, acl_dict) -> I32:
-    """Write directly to section_arrays[i] without flattening."""
+    """
+    Returns status:I32 where status==0 on success, -1 on fault.
+    """
     idx = I32(-1)
     for i in range(len(section_starts)):
         if section_starts[i] <= addr <= section_ends[i]:
@@ -415,8 +417,8 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
         return I32(-1)
 
     page_nr = int(addr // PVM_PAGE_SIZE)
-    if page_nr in acl_dict and acl_dict[page_nr] < MEM_WRITABLE:
-        return I32(-1)  # Not writable
+    if acl_dict is not None and (page_nr not in acl_dict or acl_dict[page_nr] < MEM_WRITABLE):
+        return I32(-1)
 
     start = U64(section_starts[idx])
     off = addr - start
@@ -460,49 +462,50 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
 
 @njit
 def mem_read_jit(addr: U64, bytes_to_read: U8,
-                 section_starts, section_ends, section_arrays, acl_dict) -> U64:
-    """Read directly from section_arrays[i] without flattening."""
+                 section_starts, section_ends, section_arrays, acl_dict):
+    """
+    Returns (status:I32, value:U64) where status==0 on success, -1 on fault.
+    """
     idx = I32(-1)
     for i in range(len(section_starts)):
         if section_starts[i] <= addr <= section_ends[i]:
             idx = I32(i)
             break
     if idx < 0:
-        return U64(0xFFFFFFFFFFFFFFFF)  # Error marker
+        return I32(-1), U64(0)
 
     page_nr = int(addr // PVM_PAGE_SIZE)
-    if page_nr in acl_dict and acl_dict[page_nr] == MEM_INACCESSIBLE:
-        return U64(0xFFFFFFFFFFFFFFFF)  # Not accessible
+    if acl_dict is not None and (page_nr not in acl_dict or acl_dict[page_nr] == MEM_INACCESSIBLE):
+        return I32(-1), U64(0)
 
     start = U64(section_starts[idx])
     off = addr - start
 
     a = section_arrays[idx]  # uint8[::1] array
     if off + U64(bytes_to_read) > U64(len(a)):
-        return U64(0xFFFFFFFFFFFFFFFF)
+        return I32(-1), U64(0)
     base = int(off)
 
     if bytes_to_read == U8(1):
-        return U64(a[base])
+        return I32(0), U64(a[base])
     elif bytes_to_read == U8(2):
-        return (U64(a[base]) |
-                (U64(a[base + 1]) << U64(8)))
+        return I32(0), (U64(a[base]) | (U64(a[base + 1]) << U64(8)))
     elif bytes_to_read == U8(4):
-        return (U64(a[base]) |
-                (U64(a[base + 1]) << U64(8)) |
-                (U64(a[base + 2]) << U64(16)) |
-                (U64(a[base + 3]) << U64(24)))
+        return I32(0), (U64(a[base]) |
+                        (U64(a[base + 1]) << U64(8)) |
+                        (U64(a[base + 2]) << U64(16)) |
+                        (U64(a[base + 3]) << U64(24)))
     elif bytes_to_read == U8(8):
-        return (U64(a[base]) |
-                (U64(a[base + 1]) << U64(8)) |
-                (U64(a[base + 2]) << U64(16)) |
-                (U64(a[base + 3]) << U64(24)) |
-                (U64(a[base + 4]) << U64(32)) |
-                (U64(a[base + 5]) << U64(40)) |
-                (U64(a[base + 6]) << U64(48)) |
-                (U64(a[base + 7]) << U64(56)))
+        return I32(0), (U64(a[base]) |
+                        (U64(a[base + 1]) << U64(8)) |
+                        (U64(a[base + 2]) << U64(16)) |
+                        (U64(a[base + 3]) << U64(24)) |
+                        (U64(a[base + 4]) << U64(32)) |
+                        (U64(a[base + 5]) << U64(40)) |
+                        (U64(a[base + 6]) << U64(48)) |
+                        (U64(a[base + 7]) << U64(56)))
     else:
-        return U64(0xFFFFFFFFFFFFFFFF)
+        return I32(-1), U64(0)
 
 
 @njit
@@ -826,25 +829,33 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(v_x, U8(1),mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging:
+                    __s1, __v1 = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                    log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v1), mem=section_arrays)
             elif opcode == op_store_imm_u16:
                 if mem_write_jit(v_x, v_y % (2**16), U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y, context="u'_vx: " + str(mem_read_jit(v_x, U8(2),mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging:
+                    __s2, __v2 = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                    log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v2), mem=section_arrays)
             elif opcode == op_store_imm_u32:
                 if mem_write_jit(v_x, v_y % (2**32), U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y,context="u'_vx: " + str(mem_read_jit(v_x, U8(4),mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging:
+                    __s4, __v4 = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                    log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v4), mem=section_arrays)
             elif opcode == op_store_imm_u64:
                 if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y,context="u'_vx: " + str(mem_read_jit(v_x, U8(8),mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging:
+                    __s8, __v8 = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                    log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v8), mem=section_arrays)
             else:
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
@@ -891,8 +902,8 @@ def invoke_native(
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_u8:
-                loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -900,8 +911,8 @@ def invoke_native(
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_i8:
-                loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -909,16 +920,16 @@ def invoke_native(
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_u16:
-                loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
 
             elif opcode == op_load_i16:
-                loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -926,8 +937,8 @@ def invoke_native(
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_u32:
-                loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -935,8 +946,8 @@ def invoke_native(
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_i32:
-                loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -944,8 +955,8 @@ def invoke_native(
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
             elif opcode == op_load_u64:
-                loaded_value = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -957,28 +968,36 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="u'_vx: " + str(mem_read_jit(v_x, U8(1),mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging:
+                    _rs1, _rv1 = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                    log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="u'_vx: " + str(_rv1), mem=section_arrays)
 
             elif opcode == op_store_u16:
                 if mem_write_jit(v_x, reg[r_a] % (2**16), U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="u'_vx: " + str(mem_read_jit(v_x, U8(2),mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging:
+                    _rs2, _rv2 = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                    log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="u'_vx: " + str(_rv2), mem=section_arrays)
 
             elif opcode == op_store_u32:
                 if mem_write_jit(v_x, reg[r_a] % (2**32), U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="u'_vx: " + str(mem_read_jit(v_x, U8(4),mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging:
+                    _rs4, _rv4 = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                    log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="u'_vx: " + str(_rv4), mem=section_arrays)
 
             elif opcode == op_store_u64:
                 if mem_write_jit(v_x, reg[r_a], U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
-                logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="u'_vx: " + str(mem_read_jit(v_x, U8(8),mem_section_starts, mem_section_ends, section_arrays, acl_dict)), mem=section_arrays)
+                if logging:
+                    _rs8, _rv8 = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                    log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, context="u'_vx: " + str(_rv8), mem=section_arrays)
 
             else:
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode", mem=section_arrays)
@@ -1289,8 +1308,8 @@ def invoke_native(
 
             elif opcode == op_load_ind_u8:
                 load_addr = w_b + v_x
-                loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -1299,8 +1318,8 @@ def invoke_native(
 
             elif opcode == op_load_ind_i8:
                 load_addr = w_b + v_x
-                loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -1309,8 +1328,8 @@ def invoke_native(
 
             elif opcode == op_load_ind_u16:
                 load_addr = w_b + v_x
-                loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -1319,8 +1338,8 @@ def invoke_native(
 
             elif opcode == op_load_ind_i16:
                 load_addr = w_b + v_x
-                loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -1329,8 +1348,8 @@ def invoke_native(
 
             elif opcode == op_load_ind_u32:
                 load_addr = w_b + v_x
-                loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -1339,8 +1358,8 @@ def invoke_native(
 
             elif opcode == op_load_ind_i32:
                 load_addr = w_b + v_x
-                loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -1349,8 +1368,8 @@ def invoke_native(
 
             elif opcode == op_load_ind_u64:
                 load_addr = w_b + v_x
-                loaded_value = mem_read_jit(load_addr, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
-                if loaded_value == U64(0xFFFFFFFFFFFFFFFF):
+                status_read, loaded_value = mem_read_jit(load_addr, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict)
+                if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_MEMORY_FAULT)
