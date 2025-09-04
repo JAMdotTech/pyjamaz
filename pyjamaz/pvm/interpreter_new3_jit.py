@@ -176,7 +176,7 @@ def pvm_smod_jit(a: I64, b: I64) -> I64:
             return -((-a) % (-b))
 
 
-@njit
+@njit("int64(int64, int64)")
 def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
     """
     JIT-compiled truncated division (rounds toward zero).
@@ -1661,7 +1661,7 @@ def invoke_native(
                     reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
                     logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
-                    reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(a_signed, b_signed), U8(8))
+                    reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(I64(a_signed), I64(b_signed)), U8(8))
                     logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rem_u_32:
