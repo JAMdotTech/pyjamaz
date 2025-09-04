@@ -1058,8 +1058,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a == v_x:
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_ne_imm:
@@ -1068,8 +1068,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a != v_x:
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_lt_u_imm:
@@ -1078,8 +1078,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a < v_x:
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_le_u_imm:
@@ -1088,8 +1088,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a <= v_x:
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_ge_u_imm:
@@ -1098,8 +1098,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a >= v_x:
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_gt_u_imm:
@@ -1108,8 +1108,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a > v_x:
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_lt_s_imm:
@@ -1118,8 +1118,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8):
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_le_s_imm:
@@ -1128,8 +1128,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8):
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_ge_s_imm:
@@ -1138,8 +1138,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8):
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             elif opcode == op_branch_gt_s_imm:
@@ -1148,8 +1148,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8):
+                    skip_len = v_y
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y, mem=section_arrays)
 
             else:
@@ -1507,8 +1507,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a == w_b:
+                    skip_len = v_x
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_ne:
@@ -1517,8 +1517,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a != w_b:
+                    skip_len = v_x
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_lt_u:
@@ -1527,8 +1527,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a < w_b:
+                    skip_len = v_x
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_lt_s:
@@ -1537,8 +1537,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8):
+                    skip_len = v_x
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_ge_u:
@@ -1547,8 +1547,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif w_a >= w_b:
+                    skip_len = v_x
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_ge_s:
@@ -1557,8 +1557,8 @@ def invoke_native(
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
-                elif branch_result > I32(0):
-                    skip_len = branch_result
+                elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8):
+                    skip_len = v_x
                 logging and log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x, context="skip_len: " + str(skip_len), mem=section_arrays)
 
             else:
