@@ -4,11 +4,8 @@ from typing import Any, Optional, Union
 
 import numpy as np
 
-from pyjamaz.pvm.exceptions import PVMMemoryError
 
 # TODO configurable during bootstrap
-PVM_MIN_HEAP_SIZE = 0 #1_000_000*2    #TODO: necesary? seems like a good idea to prevent lots of small mallocs, but then again, maybe not :S
-PVM_MAX_HEAP_SIZE = 1_000_000*10    #TODO: find out what it should be...
 PVM_PAGE_SIZE = 2**12 #ZP
 PVM_INIT_ZONE_SIZE = 2**16 #ZZ
 PVM_INPUT_DATA_SIZE = 2**24 #ZI

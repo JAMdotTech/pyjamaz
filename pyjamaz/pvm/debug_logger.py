@@ -182,6 +182,11 @@ class PVMDebugLog(PVMLogger):
         logging.debug(f"{msg} {reg_msg}")
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
+        if self._pvm.inst_nr > 39567:
+            exit()
+        if self._pvm.inst_nr < 39503:
+            return
+
         #     ctx = {"reg": self._pvm.get_registers()}
         #     if context: ctx = ctx | context
         #

@@ -14,8 +14,8 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger, Bytes
 
-from pyjamaz.pvm.constants_new import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, PVM_MAX_HEAP_SIZE, \
-    PVM_MIN_HEAP_SIZE
+import settings
+from pyjamaz.pvm.constants_new import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
 
@@ -120,8 +120,8 @@ class MemorySection:
         if not contents:
             contents = []
 
-        if size > PVM_MAX_HEAP_SIZE:
-            raise PVMMemoryError(f"Memory size too large: {size} > {PVM_MAX_HEAP_SIZE}")
+        if size > settings.PVM_MAX_HEAP_SIZE:
+            raise PVMMemoryError(f"Memory size too large: {size} > {settings.PVM_MAX_HEAP_SIZE}")
 
         self.acl = acl
         self.address:int = address
@@ -632,7 +632,7 @@ class PVMProgram(Serializable):
         )
 
         # If PVM_MIN_HEP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
-        heap_mem_size = max(PVMMemory.page_size(PVM_MIN_HEAP_SIZE), PVMMemory.page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
+        heap_mem_size = max(PVMMemory.page_size(settings.PVM_MIN_HEAP_SIZE), PVMMemory.page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
             size=heap_mem_size,

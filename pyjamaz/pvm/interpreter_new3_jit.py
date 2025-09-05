@@ -424,10 +424,12 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
             idx = I32(i)
             break
     if idx < 0:
+        print("mem: not_found")
         return I32(-1)
 
     page_nr = int(addr // PVM_PAGE_SIZE)
     if acl_dict is not None and (page_nr not in acl_dict or acl_dict[page_nr] < MEM_WRITABLE):
+        print("mem: acl not writable")
         return I32(-1)
 
     start = U64(section_starts[idx])
@@ -435,6 +437,7 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
 
     a = section_arrays[idx]  # uint8[::1]
     if off + U64(bytes_to_write) > U64(len(a)):
+        print("mem: overflow section")
         return I32(-1)
 
     # Mask value for <8 byte writes
@@ -665,6 +668,9 @@ def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3
     JIT-compatible logging function for instruction execution tracing.
     Matches the format used in the normal interpreter for consistency.
     """
+    if inst_nr < 39503:
+        return
+
     name = opcode_names.get(np.int64(opcode), "UNKNOWN")
     
     mem_info = ""
@@ -1301,6 +1307,11 @@ def invoke_native(
 
             elif opcode == op_store_ind_u32:
                 store_addr = w_b + v_x
+                if inst_nr == 39566:
+                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    print(w_b, v_x)
+                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+
                 if mem_write_jit(store_addr, w_a % (2**32), U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1988,7 +1999,6 @@ class PVMInterpreter(PVMInterpreterBase):
             for _k, _v in OpcodeNames.items():
                 opcode_names[int(_k)] = _v
 
-
         # Call JIT-compiled function
         error_code = invoke_native(
             self.pc, self.gas, self.inst_nr,
@@ -2012,7 +2022,7 @@ class PVMInterpreter(PVMInterpreterBase):
         self.exit_value = exit_value_out[0]
         self.pc = pc_out[0]
         self.gas = gas_out[0]
-        self.inst_nr += inst_nr_out[0]
+        self.inst_nr = inst_nr_out[0]
 
         # Handle errors
         if error_code == ERROR_PANIC_TRAP:
@@ -2050,5 +2060,4 @@ class PVMInterpreter(PVMInterpreterBase):
         # print("self.exit_value", self.exit_value)
         # print("self.pc", self.pc)
         # print("self.gas", self.gas)
-        # print("self.inst_nr", self.inst_nr)
         # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
