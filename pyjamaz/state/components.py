@@ -3,7 +3,7 @@ import logging
 from copy import deepcopy, copy
 from typing import List, Union, Optional, Set
 
-from bandersnatch_vrfs import ring_vrf_verify, ring_commitment, ietf_vrf_verify
+from bandersnatch_vrfs import RingContext, ietf_vrf_verify
 from ed25519_zebra import ed_verify
 
 import pyjamaz.graypaper_constants as gp_const
@@ -278,9 +278,8 @@ class Safrole(StateComponent):
 
         try:
             logging.debug(f'Validating ticket in STF with entropy {entropy.hex()}')
-            ring_vrf_output = ring_vrf_verify(
-                self.ring_data, ring_public_keys, vrf_input_data, aux_data, bytes(ticket_data.signature)
-            )
+            ring_vrf_output = ring_context.ring_vrf_verify(vrf_input_data, aux_data, bytes(ticket_data.signature))
+
         except ValueError as e:
             raise StateTransitionError(SafroleErrorCode.bad_ticket_proof)
 
@@ -349,10 +348,12 @@ class Safrole(StateComponent):
 
             ring_public_keys = [v.bandersnatch for v in self.post_state_safrole.validators]
 
+            ring_context = RingContext(self.ring_data, ring_public_keys)
+
             # Validate extrinsic
             for idx, ticket_data in enumerate(extrinsic_tickets):
 
-                ticket = self.create_ticket_body(ticket_data, ring_public_keys, post_state_entropy.entropy[2])
+                ticket = self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
 
                 # Check if ticket already exists
                 if ticket in self.post_state_safrole.ticket_accumulator:
@@ -436,9 +437,8 @@ class Safrole(StateComponent):
                 logging.debug(f"New Slot Sealer Series with tickets")
 
             # Update ring commitment using O(); GP-0.7.0-eq:6.13
-            self.post_state_safrole.ring_commitment = ring_commitment(
-                self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators]
-            )
+            ring_context = RingContext(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
+            self.post_state_safrole.ring_commitment = ring_context.commitment
 
         # Add tickets to ticket accumulator, sort and limit: GP-0.7.0-eq:6.34,6.35
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
