@@ -68,12 +68,12 @@ MEM_WRITABLE = 2
 PVM_PAGE_SIZE = 4096
 
 # Exit reasons (matching ExitReason enum)
-EXIT_RESUME = 0
-EXIT_HALT = 1
-EXIT_PANIC = 2
-EXIT_HOST_HALT = 3
-EXIT_PAGE_FAULT = 4
-
+EXIT_RESUME = 0         #GP:     ▸: continue PVM
+EXIT_HALT = 1           #GP-A.2: ∎: regular halt: halt
+EXIT_PANIC = 2          #GP-A.2: ☇: unexpected program termination: panic
+OUT_OF_GAS = 3          #GP-A.2: ∞: out-of-gas
+EXIT_PAGE_FAULT = 4     #GP-A.2: F: page-fault
+EXIT_HOST_HALT = 5      #GP-A.2: h: host-call
 
 U8 = np.uint8
 U16 = np.uint16
@@ -755,9 +755,8 @@ def invoke_native(
                 inst_index = inst_pos_vals[i]
                 break
 
+        #TODO: deze check ook backporten??? en gebruik die helper functie!
         if inst_index < 0:
-            # Can't find instruction - need to return with next_pc for Python to handle
-            # Python will validate and handle the invalid PC appropriately
             for i in range(len(reg)):
                 registers_out[i] = reg[i]
             status_out[0] = status
@@ -1987,10 +1986,9 @@ class PVMInterpreter(PVMInterpreterBase):
             key_type=types.int64,
             value_type=types.unicode_type,
         )
-        #TODO: check if logger class was provided, and if so:
-        #Note: comment out to disable logging:
-        for _k, _v in OpcodeNames.items():
-            opcode_names[int(_k)] = _v
+        if self.log:
+            for _k, _v in OpcodeNames.items():
+                opcode_names[int(_k)] = _v
 
 
         # Call JIT-compiled function
@@ -2010,12 +2008,11 @@ class PVMInterpreter(PVMInterpreterBase):
         )
 
         # Update state from outputs
+        old_pc = self.pc
         self.reg[:] = registers_out
         self.status = status_out[0]
         self.exit_value = exit_value_out[0]
-        old_pc = self.pc
         self.pc = pc_out[0]
-
         self.gas = gas_out[0]
         self.inst_nr += inst_nr_out[0]
 
@@ -2048,3 +2045,12 @@ class PVMInterpreter(PVMInterpreterBase):
             # Update original ACL with any new entries from sbrk
             for page_nr in acl_dict:
                 self.mem_acl[int(page_nr)] = int(acl_dict[page_nr])
+
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("self.reg", self.reg)
+        # print("self.status", self.status)
+        # print("self.exit_value", self.exit_value)
+        # print("self.pc", self.pc)
+        # print("self.gas", self.gas)
+        # print("self.inst_nr", self.inst_nr)
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")

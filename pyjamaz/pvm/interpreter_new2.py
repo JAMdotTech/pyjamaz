@@ -517,7 +517,7 @@ class PVMInterpreter:
 
     def next_instruction(self):
         inst_index = self.inst_pos[self.pc]
-        self.skip_len = self.inst_arg_len[inst_index] + 1
+        return self.inst_arg_len[inst_index] + 1
 
     def invoke(
         self,

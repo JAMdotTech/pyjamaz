@@ -22,7 +22,7 @@ def hc_log(
         logger: PVMLogger):
     """
     """
-    logger.pvm_regs("LOG")
+    logger and logger.pvm_regs("LOG")
 
     level = registers[7]
     log_level = LEVELS.get(level, None)
@@ -34,5 +34,5 @@ def hc_log(
 
     message = memory.read_bytes(registers[10], registers[11]).decode("utf-8")
 
-    logger.hc_debug(log_level[0], log_level[1], None, service_id, target, message)
+    logger and logger.hc_debug(log_level[0], log_level[1], None, service_id, target, message)
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)

@@ -36,7 +36,7 @@ def hc_gas(
     ----------
     None
     """
-    logger.hc_regs(f"GAS", "general")
+    logger and logger.hc_regs(f"GAS", "general")
     invocation_output.gas_limit -= 10
 
     gas_value = invocation_output.gas_limit
@@ -79,7 +79,7 @@ def hc_lookup(
     ----------
     None
     """
-    logger.hc_regs(f"LOOKUP", "general")
+    logger and logger.hc_regs(f"LOOKUP", "general")
     invocation_output.gas_limit -= 10
 
     service_account_id = registers[7]
@@ -113,16 +113,16 @@ def hc_lookup(
 
     if preimage_hash_unreadable is True or preimage_writable is False:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("LOOKUP PANIC", f"s={service_account_id} h={preimage_hash} len(v)=none")
+        logger and logger.hc_log("LOOKUP PANIC", f"s={service_account_id} h={preimage_hash} len(v)=none")
     elif preimage_bytes is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
-        logger.hc_log("LOOKUP NONE", f"s={service_account_id} h={preimage_hash} len(v)=none")
+        logger and logger.hc_log("LOOKUP NONE", f"s={service_account_id} h={preimage_hash} len(v)=none")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(preimage_bytes)
         invocation_output.memory.write_bytes(o, preimage_bytes[f:f + l])
-        logger.hc_log("LOOKUP OK",
+        logger and logger.hc_log("LOOKUP OK",
                            f"s={service_account_id} h={preimage_hash} len(v)={len(preimage_bytes)} write_bytes({o},{o + l})")
 
 def hc_read(
@@ -152,7 +152,7 @@ def hc_read(
     ----------
     None
     """
-    logger.hc_regs(f"READ", "general")
+    logger and logger.hc_regs(f"READ", "general")
     invocation_output.gas_limit -= 10
 
     # gp: s*
@@ -195,16 +195,16 @@ def hc_read(
 
     if storage_item_mem_error or not mem_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key}")
+        logger and logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key}")
     elif storage_item is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
-        logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key}")
+        logger and logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(storage_item)
         invocation_output.memory.write_bytes(o, storage_item[f:f + l])
-        logger.hc_log("READ OK",
+        logger and logger.hc_log("READ OK",
                            f"s={new_service_id} k={storage_key.hex()} (len(storage_item)) write_bytes({o}, {o + l})")
 
 
@@ -235,7 +235,7 @@ def hc_write(
     ----------
     None
     """
-    logger.hc_regs(f"WRITE", "general")
+    logger and logger.hc_regs(f"WRITE", "general")
     invocation_output.gas_limit -= 10
 
     k_o = registers[7]  # offset to read storage_item_key from memory
@@ -274,11 +274,11 @@ def hc_write(
 
     if storage_key_mem_error or service_storage_item_mem_error:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("WRITE PANIC", f"l={l}  s={service_id} mu_k={k}")
+        logger and logger.hc_log("WRITE PANIC", f"l={l}  s={service_id} mu_k={k}")
     elif service_account.threshold_balance > service_account.balance:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.FULL.value
-        logger.hc_log("WRITE FULL", f"l={l}  s={service_id} mu_k={k.hex()}")
+        logger and logger.hc_log("WRITE FULL", f"l={l}  s={service_id} mu_k={k.hex()}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = l
@@ -288,7 +288,7 @@ def hc_write(
                 service_account_id=service_id,
                 storage_item_hash=k
             )
-            logger.hc_log("WRITE DELETE", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
+            logger and logger.hc_log("WRITE DELETE", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
 
             # Update storage footprint
             if l != HostCallResult.NONE.value:
@@ -306,17 +306,17 @@ def hc_write(
             if len(si) == 0:
                 # TODO: mark dirty? maybe register changes
                 service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
-                logger.hc_log("WRITE NONE",
+                logger and logger.hc_log("WRITE NONE",
                                    f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
                 # TODO: mark dirty? maybe register changes
                 service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
-                logger.hc_log("WRITE OK",
+                logger and logger.hc_log("WRITE OK",
                                    f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
 
         services.store_service_account(service_id, service_account)
 
-        logger.hc_log("WRITE storage",f"a_o={service_account.footprint_storage_bytes} a_i={service_account.footprint_storage_items}")
+        logger and logger.hc_log("WRITE storage",f"a_o={service_account.footprint_storage_bytes} a_i={service_account.footprint_storage_items}")
 
 
 def hc_info(
@@ -346,7 +346,7 @@ def hc_info(
     ----------
     None
     """
-    logger.hc_regs(f"INFO", "general")
+    logger and logger.hc_regs(f"INFO", "general")
     invocation_output.gas_limit -= 10
 
     #state = ctx_in.invocation_context.context.state_context
@@ -389,15 +389,15 @@ def hc_info(
 
     if mem_write_error:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("INFO PANIC", f"s={service_id}")
+        logger and logger.hc_log("INFO PANIC", f"s={service_id}")
     elif service_account_bytes is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
-        logger.hc_log("INFO NONE", f"s={service_id} bytes=none")
+        logger and logger.hc_log("INFO NONE", f"s={service_id} bytes=none")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(service_account_bytes)
-        logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
+        logger and logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
 
 
 def hc_fetch(
@@ -441,7 +441,7 @@ def hc_fetch(
     None
     """
 
-    logger.hc_regs(f"FETCH", "general")
+    logger and logger.hc_regs(f"FETCH", "general")
     invocation_output.gas_limit -= 10
 
     w7 = registers[7]
@@ -554,7 +554,7 @@ def hc_fetch(
 def hc_not_found(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
-    logger.hc_regs(f"NOT_FOUND", "general")
+    logger and logger.hc_regs(f"NOT_FOUND", "general")
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
     invocation_output.gas_limit -= 10
     invocation_output.registers[7] = HostCallResult.WHAT.value

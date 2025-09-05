@@ -781,7 +781,7 @@ class PVMInterpreter:
 
     def next_instruction(self):
         inst_index = self.inst_pos[self.pc]
-        self.skip_len = self.inst_arg_len[inst_index] + 1
+        return self.inst_arg_len[inst_index] + 1
 
 
     def invoke(
@@ -791,6 +791,7 @@ class PVMInterpreter:
     ):
         self.pc = pc
         self.gas = gas
+        self.skip_len = 0
 
         if self.log:
             self.log.pvm_counters()
@@ -1612,6 +1613,14 @@ class PVMInterpreter:
                 #logging.error(panic_error)
                 self.status = ExitReason.panic.value
                 break
-            finally:
-                #self.mem._pvm_invoke_nr += 1
-                self._sync_memory()
+
+        #self.mem._pvm_invoke_nr += 1
+        self._sync_memory()
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # print("self.reg", self.reg)
+        # print("self.status", self.status)
+        # print("self.exit_value", self.exit_value)
+        # print("self.pc", self.pc)
+        # print("self.gas", self.gas)
+        # print("self.inst_nr", self.inst_nr)
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
