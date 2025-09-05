@@ -128,21 +128,6 @@ def pvm_smod(a: int, b: int) -> int:
         else:
             return -((-a) % (-b))
 
-
-def riscv_div(x: int, y: int) -> int:
-    """
-    Integer division operation optimized using floor division operator.
-
-    Returns x // y (quotient of x divided by y).
-
-    Note:
-        There is a known quirk of NumPy's type‐conversion logic on certain builds or platforms.
-        The int() conversions ensure numpy types are handled correctly.
-    """
-    # Direct floor division - most efficient for integer inputs
-    return int(x) // int(y)
-
-
 def pvm_rtz_div(a: int, b: int) -> int:
     """
     Truncated division (rounds toward zero).
@@ -1175,15 +1160,12 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == op_shlo_r_imm_32:
-                        self.reg[r_a] = pvm_X(riscv_div((w_b % 2 ** 32), (2 ** (v_x % 32))), 4)
+                        self.reg[r_a] = pvm_X((w_b % 2 ** 32) // (2 ** (v_x % 32)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == op_shar_r_imm_32:
                         self.reg[r_a] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(w_b % 2 ** 32, 4),
-                                (2 ** (v_x % 32))
-                            ),
+                            pvm_Z(w_b % 2 ** 32, 4) // (2 ** (v_x % 32)),
                             8
                         )
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
@@ -1204,15 +1186,12 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_alt_32:
-                        self.reg[r_a] = pvm_X(riscv_div(v_x % 2 ** 32, (2 ** (w_b % 32))), 4)
+                        self.reg[r_a] = pvm_X(v_x % 2 ** 32 // (2 ** (w_b % 32)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_alt_32:
                         self.reg[r_a] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(v_x % 2 ** 32, 4),
-                                2 ** (w_b % 32)
-                            ),
+                            pvm_Z(v_x % 2 ** 32, 4) // 2 ** (w_b % 32),
                             8
                         )
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
@@ -1239,15 +1218,12 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_64:
-                        self.reg[r_a] = pvm_X(riscv_div(w_b, np.uint64(2 ** (v_x % 64))), 8)
+                        self.reg[r_a] = pvm_X(w_b // np.uint64(2 ** (v_x % 64)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_64:
                         self.reg[r_a] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(w_b, 8),
-                                2 ** (v_x % 64)
-                            ),
+                            pvm_Z(w_b, 8) // 2 ** (v_x % 64),
                             8
                         )
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
@@ -1261,14 +1237,12 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_alt_64:
-                        self.reg[r_a] = riscv_div(v_x, np.uint64(2 ** (w_b % 64)))
+                        self.reg[r_a] = v_x // np.uint64(2 ** (w_b % 64))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_alt_64:
                         self.reg[r_a] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(v_x, 8),
-                                2 ** (w_b % 64)),
+                            pvm_Z(v_x, 8) // 2 ** (w_b % 64),
                             8
                         )
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
@@ -1377,7 +1351,7 @@ class PVMInterpreter:
                         if self.reg[r_b] == 0:
                             self.reg[r_d] = 2**64 - 1
                         else:
-                            self.reg[r_d] = pvm_X(riscv_div(w_a % 2**32, w_b % 2**32), 4)
+                            self.reg[r_d] = pvm_X(w_a % 2**32 // w_b % 2**32, 4)
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
@@ -1420,15 +1394,12 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shlo_r_32:
-                        self.reg[r_d] = pvm_X(riscv_div(w_a % 2 ** 32, 2 ** (w_b % 32)), 4)
+                        self.reg[r_d] = pvm_X(w_a % 2 ** 32 // 2 ** (w_b % 32), 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shar_r_32:
                         self.reg[r_d] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(w_a % 2 ** 32, 4),
-                                2 ** (w_b % 32)
-                            ),
+                            pvm_Z(w_a % 2 ** 32, 4) // 2 ** (w_b % 32),
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
@@ -1449,7 +1420,7 @@ class PVMInterpreter:
                         if w_b == 0:
                             self.reg[r_d] = 2 ** 64 - 1
                         else:
-                            self.reg[r_d] = riscv_div(w_a, w_b)
+                            self.reg[r_d] = w_a // w_b
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_div_s_64:
@@ -1492,16 +1463,13 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shlo_r_64:
-                        self.reg[r_d] = riscv_div(w_a, 2 ** (w_b % 64))
+                        self.reg[r_d] = w_a // 2 ** (w_b % 64)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shar_r_64:
                         #self.reg[r_d] = pvm_Z_inv(I64(pvm_Z(w_a, 8)) >> I64(U64(w_b) & U64(63)), 8)
                         self.reg[r_d] = pvm_Z_inv(
-                            riscv_div(
-                                pvm_Z(w_a, 8),
-                                2 ** (w_b % 64)
-                            ),
+                            pvm_Z(w_a, 8) // 2 ** (w_b % 64),
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
@@ -1520,19 +1488,19 @@ class PVMInterpreter:
 
                     elif opcode == op_mul_upper_s_s:
                         self.reg[r_d] = pvm_Z_inv(
-                            riscv_div((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)), 2 ** 64),
+                            (pvm_Z(w_a, 8) * pvm_Z(w_b, 8)) // 2 ** 64,
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_mul_upper_u_u:
-                        self.reg[r_d] = riscv_div(int(w_a) * int(w_b), 2 ** 64)
+                        self.reg[r_d] = int(w_a) * int(w_b) // 2 ** 64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
 
                     elif opcode == op_mul_upper_s_u:
                         self.reg[r_d] = pvm_Z_inv(
-                            riscv_div(pvm_Z(w_a, 8) * int(w_b), 2 ** 64),
+                            (pvm_Z(w_a, 8) * int(w_b)) // 2 ** 64,
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
