@@ -268,7 +268,7 @@ class Safrole(StateComponent):
         self.ring_data = ring_data
         self.post_state_safrole = None
 
-    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes) -> TicketBody:
+    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_context: RingContext, entropy: bytes) -> TicketBody:
         if ticket_data.attempt >= gp_const.TICKET_ENTRIES:
             raise StateTransitionError(SafroleErrorCode.bad_ticket_attempt)
 
