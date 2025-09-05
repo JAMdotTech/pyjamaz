@@ -49,21 +49,6 @@ from .constants import (
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
-U8 = np.uint8
-U16 = np.uint16
-U32 = np.uint32
-U64 = np.uint64
-I8 = np.int8
-I16 = np.int16
-I32 = np.int32
-I64 = np.int64
-
-
-import struct
-
-import numpy as np
-import numpy.typing as npt
-
 
 def rori64(x, shift_amount):
     return ((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
@@ -367,14 +352,14 @@ class PVMInterpreter:
 
     def __init__(self, program: PVMProgram, logger_cls=None):
         self.name = program.name
-        self.reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
-        self.inst_nr:U32 = U32(0)
-        self.pc:U32 = U32(0)
+        self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
+        self.inst_nr:np.uint32 = np.uint32(0)
+        self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
         self.skip_len: int = 0
-        self.gas:I64 = I64(0)
-        self.code:npt.NDArray[U8] = np.array(1, dtype=U8)
-        self.code_size: U64 = U64(0)
+        self.gas:np.int64 = np.int64(0)
+        self.code:npt.NDArray[np.uint8] = np.array(1, dtype=np.uint8)
+        self.code_size: np.uint64 = np.uint64(0)
         self.jump_table = []
 
         self.inst_bitmask: List[bool] = []
@@ -452,17 +437,17 @@ class PVMInterpreter:
 
 
     def reset(self, program: PVMProgram):
-        self.pc = U32(0)
-        self.gas = I64(0)
+        self.pc = np.uint32(0)
+        self.gas = np.int64(0)
 
         self.name = program.name
-        self.code:npt.NDArray[U8] = np.array(program.code.code, dtype=U8)
-        self.code_size: U64 = U64(len(self.code))
+        self.code:npt.NDArray[np.uint8] = np.array(program.code.code, dtype=np.uint8)
+        self.code_size: np.uint64 = np.uint64(len(self.code))
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
 
         for idx, val in enumerate(program.registers):
-            self.reg[idx] = U64(val)
+            self.reg[idx] = np.uint64(val)
 
         self.status = ExitReason.resume.value
 
@@ -510,7 +495,6 @@ class PVMInterpreter:
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
 
-
     def get_exit_condition(self) -> ExitCondition:
         exit_value = None
         exit_reason = self.status
@@ -531,7 +515,6 @@ class PVMInterpreter:
 
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
-
     def next_instruction(self):
         inst_index = self.inst_pos[self.pc]
         self.skip_len = self.inst_arg_len[inst_index] + 1
@@ -543,7 +526,6 @@ class PVMInterpreter:
     ):
         self.pc = pc
         self.gas = gas
-        self.skip_len = 0
 
         if self.log:
             self.log.pvm_counters()
@@ -1013,7 +995,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_64:
-                        self.reg[r_a] = pvm_X(riscv_div(w_b, U64(2 ** (v_x % 64))), 8)
+                        self.reg[r_a] = pvm_X(riscv_div(w_b, np.uint64(2 ** (v_x % 64))), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_64:
@@ -1056,11 +1038,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_rot_r_32_imm:
-                        self.reg[r_a] = pvm_X(rori32(U32(w_b), U32(v_x)), 4)
+                        self.reg[r_a] = pvm_X(rori32(np.uint32(w_b), np.uint32(v_x)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_rot_r_32_imm_alt:
-                        self.reg[r_a] = pvm_X(rori32(U32(v_x), U32(w_b)), 4)
+                        self.reg[r_a] = pvm_X(rori32(np.uint32(v_x), np.uint32(w_b)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     else:
@@ -1156,8 +1138,8 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_div_s_32:
-                        a = pvm_Z(w_a % 2 ** 32, 4)
-                        b = pvm_Z(w_b % 2 ** 32, 4)
+                        a = np.int32(pvm_Z(w_a % 2 ** 32, 4))
+                        b = np.int32(pvm_Z(w_b % 2 ** 32, 4))
 
                         if b == 0:
                             self.reg[r_d] = 2**64-1
@@ -1334,7 +1316,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rot_l_32:
-                        self.reg[r_d] = pvm_X(roli32(U32(w_a), w_b % 32), 4)
+                        self.reg[r_d] = pvm_X(roli32(np.uint32(w_a), w_b % 32), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rot_r_64:
@@ -1342,7 +1324,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rot_r_32:
-                        self.reg[r_d] = pvm_X(rori32(U32(w_a), w_b % 32), 4)
+                        self.reg[r_d] = pvm_X(rori32(np.uint32(w_a), w_b % 32), 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_and_inv:
