@@ -4,7 +4,7 @@ import numpy.typing as npt
 from typing import List, Dict
 
 from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
-from .types import PVMProgram, PVMMemory, PVMMemoryMode
+from .types import PVMProgram, PVMMemory
 
 from .utils import (
     pvm_Z,
@@ -20,10 +20,13 @@ from .utils import (
     pvm_rtz_div,
     roli32,
     roli64,
+    #read_uint,
 )
 
 from .constants import (
+    Opcode as op,
     OpcodeScheme,
+    InstructionType,
     ExitReason,
     MemOps,
     OpcodeNames,
@@ -63,100 +66,43 @@ from .constants import (
     inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg
 )
 
-from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
+from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
-U8 = np.uint8
-U16 = np.uint16
-U32 = np.uint32
-U64 = np.uint64
-I8 = np.int8
-I16 = np.int16
-I32 = np.int32
-I64 = np.int64
+def read_uint(code, addr32, len8):
+    if len8 == 0:
+        return 0 & 0xFF
 
-#
-# def read_uint(code: npt.NDArray[U8], addr32:U32, len8:U8) -> U64:
-#     if len8 == 0:
-#         return 0 & 0xFF
-#
-#     if len8 == 1:
-#         return int(code[addr32] & 0xFF)
-#
-#     if len8 == 2:
-#         return (int(code[addr32+0]) & 0xFF) | ((int(code[addr32+1]) & 0xFF) << 8)
-#
-#     if len8 == 3:
-#         return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16)
-#
-#     if len8 == 4:
-#         return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24)
-#
-#     if len8 ==8:
-#         return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8)  | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24) | ((int(code[addr32 + 4]) & 0xFF) << 32) | ((int(code[addr32 + 5]) & 0xFF) << 40) | ((int(code[addr32 + 6]) & 0xFF) << 48) | ((int(code[addr32 + 7]) & 0xFF) << 56)
-#
-#     raise Exception("read_uint: unsupported length")
+    if len8 == 1:
+        return int(code[addr32] & 0xFF)
 
-def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
-    if l == 0:
-        return 0
-    elif l == 1:
-        return np.uint64(source[addr + 0]) % 2**8
-    elif l == 2:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        return np.uint64((byte1 << 8) + byte0) % 2**16
-    elif l == 3:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        return np.uint64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
-    elif l == 4:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        byte3 = np.uint32(source[addr + 3])
-        return np.uint64(
-            (byte3 << 24) +
-            (byte2 << 16) +
-            (byte1 << 8) +
-            byte0
-        ) % 2**32
-    elif l == 8:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        byte3 = np.uint32(source[addr + 3])
-        byte4 = np.uint64(source[addr + 4])
-        byte5 = np.uint64(source[addr + 5])
-        byte6 = np.uint64(source[addr + 6])
-        byte7 = np.uint64(source[addr + 7])
-        return np.uint64(
-            (byte7 << 56) +
-            (byte6 << 48) +
-            (byte5 << 40) +
-            (byte4 << 32) +
-            (byte3 << 24) +
-            (byte2 << 16) +
-            (byte1 << 8) +
-            byte0
-        )
-    else:
-        raise UIntValueError(f"Invalid uint length: {l}")
+    if len8 == 2:
+        return (int(code[addr32+0]) & 0xFF) | ((int(code[addr32+1]) & 0xFF) << 8)
+
+    if len8 == 3:
+        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16)
+
+    if len8 == 4:
+        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24)
+
+    if len8 ==8:
+        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8)  | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24) | ((int(code[addr32 + 4]) & 0xFF) << 32) | ((int(code[addr32 + 5]) & 0xFF) << 40) | ((int(code[addr32 + 6]) & 0xFF) << 48) | ((int(code[addr32 + 7]) & 0xFF) << 56)
+
+    raise Exception("read_uint: unsupported length")
 
 
 class PVMInterpreter:
 
     def __init__(self, program: PVMProgram, logger_cls=None):
         self.name = program.name
-        self.reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
-        self.inst_nr:U32 = U32(0)
-        self.pc:U32 = U32(0)
+        self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
+        self.inst_nr:np.uint32 = np.uint32(0)
+        self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
         self.skip_len: int = 0
-        self.gas:I64 = I64(0)
-        self.code:npt.NDArray[U8] = np.array(1, dtype=U8)
-        self.code_size: U64 = U64(0)
+        self.gas:np.int64 = np.int64(0)
+        self.code:npt.NDArray[np.uint8] = np.array(1, dtype=np.uint8)
+        self.code_size: np.uint64 = np.uint64(0)
         self.jump_table = []
 
         self.inst_bitmask: List[bool] = []
@@ -166,29 +112,6 @@ class PVMInterpreter:
         self.mem:PVMMemory = None
         self.status:int = ExitReason.resume.value
         self.exit_value:int = None
-
-        # Initialize memory operation lookups
-        self._init_mem_ops_lookup()
-
-        # Initialize memory sections storage
-        self.mem_sections = []
-        self.mem_section_starts = np.array([], dtype=U32)
-        self.mem_section_ends = np.array([], dtype=U32)
-        self.mem_section_size = np.array([], dtype=U32)
-        """
-        TODO: for jit version, use from numba.typed import Dict and copy back after invoke
-        d = Dict.empty(
-            key_type=types.int64,
-            value_type=types.int64,
-        )
-        """
-        self.mem_acl: Dict[int, int] = {}
-
-        self._mem_addr: int = -1
-
-        self.mem_inaccesible = PVMMemoryMode.inaccesible
-        self.mem_readable = PVMMemoryMode.readable
-        self.mem_writable = PVMMemoryMode.writable
 
         self.log = None
 
@@ -257,20 +180,17 @@ class PVMInterpreter:
 
 
     def reset(self, program: PVMProgram):
-        self.pc = U32(0)
-        self.gas = I64(0)
+        self.pc = np.uint32(0)
+        self.gas = np.int64(0)
 
         self.name = program.name
-        self.code:npt.NDArray[U8] = np.array(program.code.code, dtype=U8)
-        self.code_size: U64 = U64(len(self.code))
+        self.code:npt.NDArray[np.uint8] = np.array(program.code.code, dtype=np.uint8)
+        self.code_size: np.uint64 = np.uint64(len(self.code))
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
 
-        # Initialize memory sections from the PVMMemory object (just reference where possible)
-        self._link_memory(program.memory)
-
         for idx, val in enumerate(program.registers):
-            self.reg[idx] = U64(val)
+            self.reg[idx] = np.uint64(val)
 
         self.status = ExitReason.resume.value
 
@@ -279,222 +199,30 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
 
-
     #TODO: registers_as_int
     def get_registers(self):
         return [int(x) for x in self.reg]
 
-
-    def _init_mem_ops_lookup(self):
-        """Initialize memory operation lookups as numpy arrays for fast access"""
-        # Create lookup arrays for memory operations
-        self.mem_ops_bytes = np.zeros(256, dtype=U8)
-        self.mem_ops_read = np.zeros(256, dtype=np.bool_)
-        self.mem_ops_write = np.zeros(256, dtype=np.bool_)
-
-        # Populate the lookup arrays from MemOps
-        for opcode, ops in MemOps.items():
-            self.mem_ops_bytes[opcode] = ops["bytes"]
-            self.mem_ops_read[opcode] = ops["read"]
-            self.mem_ops_write[opcode] = ops["write"]
-
-
-    def _link_memory(self, memory):
-        """Initialize memory sections as numpy arrays"""
-        # Store memory sections as numpy arrays with their boundaries
-        mem_section_starts = []
-        mem_section_ends = []  # This will use paged_tail, not size
-        mem_section_size = []
-
-        # Access the actual memory sections (rom, heap, stack, args)
-        for section in [memory._rom, memory._heap, memory._stack, memory._args]:
-            if section:
-                self.mem_sections.append(section.contents)
-                mem_section_starts.append(section.address)
-                mem_section_ends.append(section.paged_tail)
-                mem_section_size.append(section.size)
-            else:
-                self.mem_sections.append(None)
-                mem_section_starts.append(0)
-                mem_section_ends.append(0)
-                mem_section_size.append(0)
-
-        self.mem_section_starts = np.array(mem_section_starts, dtype=U32)
-        self.mem_section_ends = np.array(mem_section_ends, dtype=U32)
-        self.mem_section_size = np.array(mem_section_size, dtype=U32)
-        self.mem_acl = memory._acl #TODO: pure ref for now, use from numba.typed import Dict for jit version
-
-
-    def _sync_memory(self):
-        """Sync memory state back to original PVMMemory and MemorySection objects after execution"""
-        if self.mem_sections and self.mem_section_starts[1]:
-            self.mem._heap.contents = self.mem_sections[1]
-            self.mem._heap.size = len(self.mem_sections[1])
-            self.mem._heap.paged_tail = self.mem_section_ends[1]
-            self.mem._acl = self.mem_acl
-            self.mem._mem_addr = self._mem_addr
-
-
-    def _sbrk(self, size):
-        heap = self.mem_sections[1]
-
-        #logging.critical(f"SBRK: {heap.size}")
-        if size == 0:
-            return self.mem_section_ends[1]
-
-        current_heap_ptr = self.mem_section_ends[1]
-        new_heap_ptr = current_heap_ptr + size
-        if new_heap_ptr >= self.mem_section_starts[2]:
-            return 0
-
-        next_page_boundary = PVMMemory.page_size(current_heap_ptr)
-        #logging.critical(f"{new_heap_ptr} > {next_page_boundary}")
-
-        if new_heap_ptr > next_page_boundary:
-            new_heap_end = PVMMemory.page_size(new_heap_ptr)
-            growth = new_heap_end - next_page_boundary
-
-            # Only grow when we exceed pre-allocated heap mem
-            if new_heap_end - self.mem_section_starts[1] > len(heap):
-                heap = np.concatenate((heap, np.zeros(growth, dtype=U8)))
-                self.mem_sections[1] = heap
-                #logging.critical(f"EXTENDING HEAP: {heap.size}")
-
-            # Create ACL of new pages
-            next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
-            pages = growth // PVM_PAGE_SIZE + 1
-            for page_nr in range(pages):
-                self.mem_acl[next_page_nr + page_nr] = self.mem_writable
-
-            #logging.critical(f"????: {heap.size} - {pages} - {next_page_nr}")
-
-        self.mem_section_ends[1] = new_heap_ptr
-        return new_heap_ptr
-
-
-    def find_memory_section(self, addr):
-        """Find which memory section an address belongs to"""
-        addr = addr % (2**32)  # Wrap address to q32-bit
-
-        # Only check for invalid addresses if not found in any section
-        # GP-0.6.2-eq:A.7 - addresses below 2^16 are invalid
-        if addr < 2**16:
-            raise PanicError("Invalid memory access")
-
-        # TODO: unroll and sort on most accessed memory segments first!
-        # Find the section containing this address
-        # Note: using <= for upper bound (not <) to match original implementation
-        for i in range(len(self.mem_sections)):
-            if self.mem_section_starts[i] <= addr <= self.mem_section_ends[i]:
-                return i
-
-        return -1  # Not found
-
-
     def mem_write(self, opcode, addr, value):
-        """Write to memory based on opcode"""
-        #TODO: necessary?
-        if not self.mem_ops_write[opcode]:
-            raise Exception(f"Opcode {opcode} is not a valid memory write operation")
+        if opcode not in MemOps:
+            raise Exception(f"Invalid memory operation: {opcode}")
 
-        bytes_to_write = int(self.mem_ops_bytes[opcode])
-        #addr = addr % (2 ** 32)  #TODO: necessary?
+        if not MemOps[opcode]["write"]:
+            raise Exception(f"Not a valid memory write operation: {opcode}")
 
-        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
-        self._mem_addr = addr
+        bytes_to_write = MemOps[opcode]["bytes"]
+        self.mem.write_int(addr % self.mem.SIZE, value, bytes_to_write)
 
-        # Find the memory section
-        section_idx = self.find_memory_section(addr)
-        if section_idx == -1:
-            raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
-
-        # Check if writable using page-based ACL (if available)
-        if self.mem_acl is not None:
-            page_nr = addr // PVM_PAGE_SIZE
-            if page_nr not in self.mem_acl or self.mem_acl[page_nr] < self.mem_writable:
-                raise PVMMemoryError(f"Memory at address {addr} is not writable")
-
-        section = self.mem_sections[section_idx]
-        section_offset = addr - self.mem_section_starts[section_idx]
-
-        # Check bounds against the actual section size (not paged_tail)
-        # The section might be larger than paged_tail if it has been extended
-        if section_offset + bytes_to_write > len(section):
-            raise PVMMemoryError(f"Memory write at {addr} would overflow section")
-
-        # Apply modulus for values less than 8 bytes
-        if bytes_to_write < 8:
-            value = value % (2 ** (bytes_to_write * 8))
-        # Write bytes in little-endian order
-        if bytes_to_write == 1:
-            section[section_offset] = value & 0xFF
-        elif bytes_to_write == 2:
-            section[section_offset] =value & 0xFF
-            section[section_offset + 1] =(value >> 8) & 0xFF
-        elif bytes_to_write == 4:
-            section[section_offset] = value & 0xFF
-            section[section_offset + 1] = (value >> 8) & 0xFF
-            section[section_offset + 2] = (value >> 16) & 0xFF
-            section[section_offset + 3] = (value >> 24) & 0xFF
-        elif bytes_to_write == 8:
-            section[section_offset] = value & 0xFF
-            section[section_offset + 1] = (value >> 8) & 0xFF
-            section[section_offset + 2] = (value >> 16) & 0xFF
-            section[section_offset + 3] = (value >> 24) & 0xFF
-            section[section_offset + 4] = (value >> 32) & 0xFF
-            section[section_offset + 5] = (value >> 40) & 0xFF
-            section[section_offset + 6] = (value >> 48) & 0xFF
-            section[section_offset + 7] = (value >> 56) & 0xFF
-        else:
-            raise PVMMemoryError(f"Invalid write length: {bytes_to_write}")
-
-
-    def _mem_read_int(self, addr: int, bytes_to_read: int):
-        section_idx = self.find_memory_section(addr)
-        if section_idx == -1:
-            raise PVMMemoryError(f"mem_read_int: Memory address {addr} not found in any section")
-
-        section = self.mem_sections[section_idx]
-        section_offset = addr - self.mem_section_starts[section_idx]
-
-        # Check bounds against the actual section size
-        if section_offset + bytes_to_read > len(section):
-            raise PVMMemoryError(f"mem_read_int: Memory read at {addr} would overflow section")
-
-        return read_uint(section, section_offset, bytes_to_read)
 
     def mem_read(self, opcode, addr):
-        """Read from memory based on opcode"""
-        # TODO: necessary?
-        if not self.mem_ops_read[opcode]:
-            raise Exception(f"Opcode {opcode} is not a valid memory read operation")
+        if opcode not in MemOps:
+            raise Exception(f"Invalid memory operation: {opcode}")
 
-        bytes_to_read = self.mem_ops_bytes[opcode]
-        #addr = addr % (2 ** 32)  # TODO: necessary?
+        if not MemOps[opcode]["read"]:
+            raise Exception(f"Not a valid memory read operation: {opcode}")
 
-        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
-        self._mem_addr = addr
-
-        # TODO: zet ook huidig section en skip als we direct zien dat we al de juiste section hebben!!!!!!
-        # Find the memory section
-        section_idx = self.find_memory_section(addr)
-        if section_idx == -1:
-            raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
-
-        # Check if readable using page-based ACL (if available)
-        if self.mem and self.mem_acl is not None:
-            page_nr = addr // PVM_PAGE_SIZE
-            if page_nr not in self.mem_acl or self.mem_acl[page_nr] == self.mem_inaccesible:
-                raise PVMMemoryError(f"Memory at address {addr} is not accessible")
-
-        section = self.mem_sections[section_idx]
-        section_offset = addr - self.mem_section_starts[section_idx]
-
-        # Check bounds against the actual section size
-        if section_offset + bytes_to_read > len(section):
-            raise PVMMemoryError(f"Memory read at {addr} would overflow section")
-
-        return read_uint(section, section_offset, bytes_to_read)
+        bytes_to_read = MemOps[opcode]["bytes"]
+        return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
 
 
     #GP-0.6.7-section:A.15
@@ -509,7 +237,6 @@ class PVMInterpreter:
             raise PanicError(f"Invalid djump operation: a={a}")
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
-
 
     def get_exit_condition(self) -> ExitCondition:
         exit_value = None
@@ -531,7 +258,6 @@ class PVMInterpreter:
 
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
-
     def next_instruction(self):
         inst_index = self.inst_pos[self.pc]
         self.skip_len = self.inst_arg_len[inst_index] + 1
@@ -543,29 +269,27 @@ class PVMInterpreter:
     ):
         self.pc = pc
         self.gas = gas
-        self.skip_len = 0
 
         if self.log:
             self.log.pvm_counters()
             self.log.pvm_header()
 
-        # GP-0.6.7-section:A.4 Single-Step State Transition
-        while self.status == ExitReason.resume.value and self.gas > 0:
+        # GP-0.7.0-section:A.1 Single-Step State Transition
+        while self.status == ExitReason.resume.value:
+
+            if self.gas <= 0:
+                self.status = ExitReason.out_of_gas.value
+                self.exit_value = None
+                break
 
             self.gas -= 1
-            self.pc = self.pc + self.skip_len
+            self.pc = int(self.pc) + self.skip_len
             self.inst_nr += 1
 
             if self.pc >= self.code_size:
                 self.status = ExitReason.panic.value
                 self.exit_value = None
                 break
-
-            # Check if PC is valid
-            # if self.pc not in self.inst_pos:
-            #     # Invalid PC - this is a panic condition
-            #     self.status = ExitReason.panic.value
-            #     raise PanicError(f"Invalid PC: {self.pc} is not an instruction boundary")
 
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
@@ -620,16 +344,16 @@ class PVMInterpreter:
 
                     if opcode == op_store_imm_u8:
                         self.mem_write(opcode, v_x, v_y % 2 ** 8)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 1)})
+                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 1)})
                     elif opcode == op_store_imm_u16:
                         self.mem_write(opcode, v_x, v_y % 2 ** 16)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 2)})
+                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 2)})
                     elif opcode == op_store_imm_u32:
                         self.mem_write(opcode, v_x, v_y % 2 ** 32)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 4)})
+                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 4)})
                     elif opcode == op_store_imm_u64:
                         self.mem_write(opcode, v_x, v_y)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 8)})
+                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 8)})
                     else:
                         raise InvalidOpcode(f"Invalid imm_imm opcode: {opcode} for instruction type {inst_type}")
 
@@ -690,19 +414,19 @@ class PVMInterpreter:
 
                     elif opcode == op_store_u8:
                         self.mem_write(opcode, v_x, self.reg[r_a] % 2**8)
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 1)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 1)})
 
                     elif opcode == op_store_u16:
                         self.mem_write(opcode, v_x, self.reg[r_a] % 2**16)
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 2)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 2)})
 
                     elif opcode == op_store_u32:
                         self.mem_write(opcode, v_x, self.reg[r_a] % 2**32)
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 4)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 4)})
 
                     elif opcode == op_store_u64:
                         self.mem_write(opcode, v_x, self.reg[r_a])
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 8)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 8)})
 
                     else:
                         raise InvalidOpcode(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
@@ -722,19 +446,19 @@ class PVMInterpreter:
 
                     if opcode == op_store_imm_ind_u8:
                         self.mem_write(opcode, w_a + v_x, v_y % 2**8)
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 1)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 1)})
 
                     elif opcode == op_store_imm_ind_u16:
                         self.mem_write(opcode, w_a + v_x, v_y % 2**16)
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 2)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 2)})
 
                     elif opcode == op_store_imm_ind_u32:
                         self.mem_write(opcode, w_a + v_x, v_y % 2**32)
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 4)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 4)})
 
                     elif opcode == op_store_imm_ind_u64:
                         self.mem_write(opcode, w_a + v_x, v_y)
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 8)})
+                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 8)})
 
                     else:
                         raise InvalidOpcode(f"Invalid reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
@@ -813,7 +537,7 @@ class PVMInterpreter:
                     elif opcode == op_sbrk:
                         # Note: set break / set break pointer (extend heap memory)
                         # Update our cached memory bounds after heap extension
-                        self.reg[r_d] = self._sbrk(self.reg[r_a])
+                        self.reg[r_d] = self.mem.extend_heap(self.reg[r_a])
                         self.log and self.log(reg1=r_d, reg2=r_a)
 
                     elif opcode == op_count_set_bits_64:
@@ -821,7 +545,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_count_set_bits_32:
-                        self.reg[r_d] = np.bitwise_count(U32(self.reg[r_a]))
+                        self.reg[r_d] = np.bitwise_count((self.reg[r_a]))
                         self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_leading_zero_bits_64:
@@ -1014,7 +738,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_64:
-                        self.reg[r_a] = U64(w_b) >> U64(v_x & U64(63))
+                        self.reg[r_a] = pvm_X(riscv_div(w_b, np.uint64(2 ** (v_x % 64))), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_64:
@@ -1057,11 +781,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_rot_r_32_imm:
-                        self.reg[r_a] = pvm_X(rori32(U32(w_b), U32(v_x)), 4)
+                        self.reg[r_a] = pvm_X(rori32(np.uint32(w_b), np.uint32(v_x)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_rot_r_32_imm_alt:
-                        self.reg[r_a] = pvm_X(rori32(U32(v_x), U32(w_b)), 4)
+                        self.reg[r_a] = pvm_X(rori32(np.uint32(v_x), np.uint32(w_b)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     else:
@@ -1392,6 +1116,3 @@ class PVMInterpreter:
                 #logging.error(panic_error)
                 self.status = ExitReason.panic.value
                 break
-
-        #self.mem._pvm_invoke_nr += 1
-        self._sync_memory()
