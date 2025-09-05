@@ -710,7 +710,7 @@ def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3
 
 @njit
 def invoke_native(
-        pc_start, gas_start,
+        pc_start, gas_start, inst_start,
         code, code_size,
         inst_pos_keys, inst_pos_vals, inst_arg_len,
         opcode_scheme, jump_table,
@@ -734,7 +734,7 @@ def invoke_native(
     status = EXIT_RESUME
     exit_value = I64(0)
     skip_len = 0
-    inst_nr = U32(0)
+    inst_nr = U32(inst_start)
 
     # Copy registers
     reg = registers_in.copy()
@@ -1973,8 +1973,6 @@ class PVMInterpreter(PVMInterpreterBase):
             MEM_WRITABLE  # writable permission value
         ], dtype=np.uint64)
 
-        # TODO: kan dit efficienter / buiten de loop??
-        # Prepare output arrays
         registers_out = np.zeros(13, dtype=np.uint64)
         status_out = np.array([0], dtype=np.int32)
         exit_value_out = np.array([0], dtype=np.int64)
@@ -1993,7 +1991,7 @@ class PVMInterpreter(PVMInterpreterBase):
 
         # Call JIT-compiled function
         error_code = invoke_native(
-            self.pc, self.gas,
+            self.pc, self.gas, self.inst_nr,
             self.code, self.code_size,
             self.inst_pos_keys, self.inst_pos_vals, self.inst_arg_len_array,
             self.opcode_scheme_array, jump_table_array,
