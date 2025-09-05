@@ -75,27 +75,74 @@ I16 = np.int16
 I32 = np.int32
 I64 = np.int64
 
+#
+# def read_uint(code: npt.NDArray[U8], addr32:U32, len8:U8) -> U64:
+#     if len8 == 0:
+#         return 0 & 0xFF
+#
+#     if len8 == 1:
+#         return int(code[addr32] & 0xFF)
+#
+#     if len8 == 2:
+#         return (int(code[addr32+0]) & 0xFF) | ((int(code[addr32+1]) & 0xFF) << 8)
+#
+#     if len8 == 3:
+#         return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16)
+#
+#     if len8 == 4:
+#         return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24)
+#
+#     if len8 ==8:
+#         return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8)  | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24) | ((int(code[addr32 + 4]) & 0xFF) << 32) | ((int(code[addr32 + 5]) & 0xFF) << 40) | ((int(code[addr32 + 6]) & 0xFF) << 48) | ((int(code[addr32 + 7]) & 0xFF) << 56)
+#
+#     raise Exception("read_uint: unsupported length")
 
-def read_uint(code: npt.NDArray[U8], addr32:U32, len8:U8) -> U64:
-    if len8 == 0:
+def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
+    if l == 0:
         return 0
-
-    if len8 == 1:
-        return code[addr32]
-
-    if len8 == 2:
-        return int.from_bytes(code[addr32:addr32+2], "little")
-
-    if len8 == 3:
-        return int.from_bytes(code[addr32:addr32+3], "little")
-
-    if len8 == 4:
-        return int.from_bytes(code[addr32:addr32+4], "little")
-
-    if len8 ==8:
-        return int.from_bytes(code[addr32:addr32+8], "little")
-
-    raise Exception("read_uint: unsupported length")
+    elif l == 1:
+        return np.uint64(source[addr + 0]) % 2**8
+    elif l == 2:
+        byte0 = np.uint8(source[addr + 0])
+        byte1 = np.uint16(source[addr + 1])
+        return np.uint64((byte1 << 8) + byte0) % 2**16
+    elif l == 3:
+        byte0 = np.uint8(source[addr + 0])
+        byte1 = np.uint16(source[addr + 1])
+        byte2 = np.uint32(source[addr + 2])
+        return np.uint64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
+    elif l == 4:
+        byte0 = np.uint8(source[addr + 0])
+        byte1 = np.uint16(source[addr + 1])
+        byte2 = np.uint32(source[addr + 2])
+        byte3 = np.uint32(source[addr + 3])
+        return np.uint64(
+            (byte3 << 24) +
+            (byte2 << 16) +
+            (byte1 << 8) +
+            byte0
+        ) % 2**32
+    elif l == 8:
+        byte0 = np.uint8(source[addr + 0])
+        byte1 = np.uint16(source[addr + 1])
+        byte2 = np.uint32(source[addr + 2])
+        byte3 = np.uint32(source[addr + 3])
+        byte4 = np.uint64(source[addr + 4])
+        byte5 = np.uint64(source[addr + 5])
+        byte6 = np.uint64(source[addr + 6])
+        byte7 = np.uint64(source[addr + 7])
+        return np.uint64(
+            (byte7 << 56) +
+            (byte6 << 48) +
+            (byte5 << 40) +
+            (byte4 << 32) +
+            (byte3 << 24) +
+            (byte2 << 16) +
+            (byte1 << 8) +
+            byte0
+        )
+    else:
+        raise UIntValueError(f"Invalid uint length: {l}")
 
 
 class PVMInterpreter:
@@ -414,28 +461,7 @@ class PVMInterpreter:
         if section_offset + bytes_to_read > len(section):
             raise PVMMemoryError(f"mem_read_int: Memory read at {addr} would overflow section")
 
-        # Read bytes in little-endian order
-        if bytes_to_read == 1:
-            return section[section_offset] & 0xFF
-        elif bytes_to_read == 2:
-            return (section[section_offset] & 0xFF) | ((section[section_offset + 1] & 0xFF) << 8)
-        elif bytes_to_read == 4:
-            return ((section[section_offset] & 0xFF) |
-                    ((section[section_offset + 1] & 0xFF) << 8) |
-                    ((section[section_offset + 2] & 0xFF) << 16) |
-                    ((section[section_offset + 3] & 0xFF) << 24))
-        elif bytes_to_read == 8:
-            return ((section[section_offset]) |
-                    ((section[section_offset + 1] & 0xFF) << 8) |
-                    ((section[section_offset + 2] & 0xFF) << 16) |
-                    ((section[section_offset + 3] & 0xFF) << 24) |
-                    ((section[section_offset + 4] & 0xFF) << 32) |
-                    ((section[section_offset + 5] & 0xFF) << 40) |
-                    ((section[section_offset + 6] & 0xFF) << 48) |
-                    ((section[section_offset + 7] & 0xFF) << 56))
-        else:
-            return -1
-
+        return read_uint(section, section_offset, bytes_to_read)
 
     def mem_read(self, opcode, addr):
         """Read from memory based on opcode"""
@@ -468,17 +494,7 @@ class PVMInterpreter:
         if section_offset + bytes_to_read > len(section):
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
 
-        # Read bytes in little-endian order
-        if bytes_to_read == 1:
-            return int.from_bytes(section[section_offset], "little")
-        elif bytes_to_read == 2:
-            return int.from_bytes(section[section_offset:section_offset+2], "little")
-        elif bytes_to_read == 4:
-            return int.from_bytes(section[section_offset:section_offset + 4], "little")
-        elif bytes_to_read == 8:
-            return int.from_bytes(section[section_offset:section_offset + 8], "little")
-        else:
-            raise PVMMemoryError(f"Invalid read length: {bytes_to_read}")
+        return read_uint(section, section_offset, bytes_to_read)
 
 
     #GP-0.6.7-section:A.15
