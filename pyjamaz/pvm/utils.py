@@ -1,12 +1,6 @@
-import struct
-
 import numpy as np
-import numpy.typing as npt
-
-from pyjamaz.pvm.exceptions import UIntValueError
 
 
-# rori -> (x >> shift_amount)∣(x << (NRBITS−shift_amount))
 def rori64(x, shift_amount):
     return ((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
@@ -281,3 +275,25 @@ def pvm_Z_inv(a: int, n: np.uint8) -> np.uint64:
     if a >= 0:
         return np.uint64(a & mask)
     return np.uint64((a + (1 << shift)) & mask)
+
+
+def read_uint(code, addr32, len8):
+    if len8 == 0:
+        return 0 & 0xFF
+
+    if len8 == 1:
+        return int(code[addr32] & 0xFF)
+
+    if len8 == 2:
+        return (int(code[addr32+0]) & 0xFF) | ((int(code[addr32+1]) & 0xFF) << 8)
+
+    if len8 == 3:
+        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16)
+
+    if len8 == 4:
+        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24)
+
+    if len8 ==8:
+        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8)  | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24) | ((int(code[addr32 + 4]) & 0xFF) << 32) | ((int(code[addr32 + 5]) & 0xFF) << 40) | ((int(code[addr32 + 6]) & 0xFF) << 48) | ((int(code[addr32 + 7]) & 0xFF) << 56)
+
+    raise Exception("read_uint: unsupported length")
