@@ -85,7 +85,7 @@ I32 = np.int32
 I64 = np.int64
 
 
-@njit
+@njit#(inline="always", cache=True)
 def umul64wide(a: U64, b: U64):
     """Unsigned 64x64 -> (hi, lo) as uint64s."""
     mask32 = U64(0xFFFFFFFF)
@@ -105,7 +105,7 @@ def umul64wide(a: U64, b: U64):
     return U64(hi), U64(lo)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def imul64wide(a: I64, b: I64):
     """Signed 64x64 -> (hi, lo) representing 128-bit two's-complement product."""
     ua = U64(a)   # reinterpret
@@ -119,7 +119,7 @@ def imul64wide(a: I64, b: I64):
     return U64(hi), U64(lo)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def smul_u64wide(a: I64, b: U64):
     """Signed * Unsigned -> (hi, lo), two's-complement."""
     ua = U64(a)
@@ -129,30 +129,31 @@ def smul_u64wide(a: I64, b: U64):
     return U64(hi), U64(lo)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def rori64_jit(x: U64, shift_amount: U64) -> U64:
     """JIT-compiled rotate right for 64-bit integers."""
     return U64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def roli64_jit(x: U64, shift_amount: U64) -> U64:
     """JIT-compiled rotate left for 64-bit integers."""
     return U64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def rori32_jit(x: U32, shift_amount: U32) -> U32:
     """JIT-compiled rotate right for 32-bit integers."""
     return U32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def roli32_jit(x: U32, shift_amount: U32) -> U32:
     """JIT-compiled rotate left for 32-bit integers."""
     return U32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 
+#@njit("int64(int64, int64)", inline="always", cache=True)
 @njit("int64(int64, int64)")
 def pvm_smod_jit(a: I64, b: I64) -> I64:
     """
@@ -176,6 +177,7 @@ def pvm_smod_jit(a: I64, b: I64) -> I64:
             return -((-a) % (-b))
 
 
+#@njit("int64(int64, int64)", inline="always", cache=True)
 @njit("int64(int64, int64)")
 def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
     """
@@ -193,7 +195,7 @@ def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
             return (-a) // (-b)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def pvm_X_jit(x: U64, n: U64) -> U64:
     """JIT-compiled sign extension."""
     #TODO: cast nodig?
@@ -241,7 +243,7 @@ def pvm_X_jit(x: U64, n: U64) -> U64:
         return U64(x)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def pvm_Z_jit(a: U64, n: U64) -> I64:
     """JIT-friendly unsigned->signed conversion for n bytes (1..8).
     Returns I64 with proper two's-complement sign extension without Python big-ints.
@@ -269,7 +271,7 @@ def pvm_Z_jit(a: U64, n: U64) -> I64:
         return I64(val)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def count_leading_zeroes_jit(value: U64, max_bits=64):
     """JIT-friendly count-leading-zeroes with explicit 64-bit masking and shifts.
     Matches Python implementation for max_bits in {32,64}.
@@ -297,8 +299,7 @@ def count_leading_zeroes_jit(value: U64, max_bits=64):
     return count
 
 
-#TODO: max_bits u8 maken?
-@njit
+@njit#(inline="always", cache=True)
 def count_trailing_zeroes_jit(value: U64, max_bits=64):
     """JIT-compiled count trailing zeroes."""
     if value == 0:
@@ -312,7 +313,7 @@ def count_trailing_zeroes_jit(value: U64, max_bits=64):
     return count
 
 
-@njit
+@njit#(inline="always", cache=True)
 def reverse_bytes_jit(x: U64) -> U64:
     """JIT-compiled reverse bytes."""
     result = U64(0)
@@ -322,7 +323,7 @@ def reverse_bytes_jit(x: U64) -> U64:
     return result
 
 
-@njit
+@njit#(inline="always", cache=True)
 def read_uint_jit(code: npt.NDArray[U8], addr:U32, length:U8) -> U64:
     addr32 = U32(addr)      # wrap to 32-bit address space
     len8   = U8(length)
@@ -368,7 +369,7 @@ def read_uint_jit(code: npt.NDArray[U8], addr:U32, length:U8) -> U64:
     raise Exception("read_uint: unsupported length")
 
 
-@njit
+@njit#(inline="always", cache=True)
 def riscv_div_jit(a: I64, b: I64) -> I64:
     """JIT-compiled RISC-V division.""" 
     if b == 0:
@@ -376,7 +377,7 @@ def riscv_div_jit(a: I64, b: I64) -> I64:
     return a // b
 
 
-@njit
+@njit#(inline="always", cache=True)
 def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
     """
     JIT-compiled transform signed to unsigned.
@@ -403,7 +404,7 @@ def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
         return U64((a + (1 << shift)) & mask)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def find_memory_section_jit(addr: U64, section_starts, section_ends) -> I32:
     """JIT-compiled find memory section."""
     for i in range(len(section_starts)):
@@ -412,7 +413,7 @@ def find_memory_section_jit(addr: U64, section_starts, section_ends) -> I32:
     return I32(-1)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays, acl_dict) -> I32:
     """
@@ -424,12 +425,10 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
             idx = I32(i)
             break
     if idx < 0:
-        print("mem: not_found")
         return I32(-1)
 
     page_nr = int(addr // PVM_PAGE_SIZE)
     if acl_dict is not None and (page_nr not in acl_dict or acl_dict[page_nr] < MEM_WRITABLE):
-        print("mem: acl not writable")
         return I32(-1)
 
     start = U64(section_starts[idx])
@@ -437,7 +436,6 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
 
     a = section_arrays[idx]  # uint8[::1]
     if off + U64(bytes_to_write) > U64(len(a)):
-        print("mem: overflow section")
         return I32(-1)
 
     # Mask value for <8 byte writes
@@ -473,7 +471,7 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     return I32(0)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def mem_read_jit(addr: U64, bytes_to_read: U8,
                  section_starts, section_ends, section_arrays, acl_dict):
     """
@@ -521,7 +519,7 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
         return I32(-1), U64(0)
 
 
-@njit
+@njit#(cache=True)
 def sync_state_and_return(reg, registers_out, status, status_out, pc, pc_out, 
                          gas, gas_out, inst_nr, inst_nr_out, exit_value, exit_value_out, error_code):
     """Helper function to sync state and return error code - reduces code duplication."""
@@ -536,7 +534,7 @@ def sync_state_and_return(reg, registers_out, status, status_out, pc, pc_out,
 
 
 
-@njit
+@njit#(inline="always", cache=True)
 def _fmix64_jit(x: U64) -> U64:
     """Finalization mix (from MurmurHash3), good avalanche; JIT-safe."""
     x ^= x >> U64(33)
@@ -547,7 +545,7 @@ def _fmix64_jit(x: U64) -> U64:
     return x
 
 
-@njit
+@njit#(inline="always", cache=True)
 def hash_memory_segment(section_array) -> U64:
     """
     Hash the ENTIRE memory segment (all bytes) with FNV-1a 64-bit, then fmix.
@@ -568,7 +566,7 @@ def hash_memory_segment(section_array) -> U64:
     return _fmix64_jit(h)
 
 
-@njit
+@njit#(inline="always", cache=True)
 def get_memory_hash(section_arrays, seg_idx: I32):
     """Compute a 64-bit hash for the given memory segment (entire buffer)."""
     segment_hash = U64(0)
@@ -577,7 +575,7 @@ def get_memory_hash(section_arrays, seg_idx: I32):
     return segment_hash
 
 
-@njit
+@njit#(inline="always", cache=True)
 def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64, 
             acl_dict, mem_writable: I64) -> U64:
     """JIT implementation of sbrk heap allocation."""
@@ -611,7 +609,7 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
     return new_heap_ptr
 
 
-@njit
+@njit#(inline="always", cache=True)
 def branch_jit(pc: U32, offset: I64, condition: bool, inst_pos_keys) -> I32:
     """JIT implementation of branch with validation."""
     if condition:
@@ -631,7 +629,7 @@ def branch_jit(pc: U32, offset: I64, condition: bool, inst_pos_keys) -> I32:
         return I32(0)  # No branch - continue
 
 
-@njit
+@njit#(inline="always", cache=True)
 def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
     """JIT implementation of djump with validation."""
     halt_value = U32(2**32 - 2**16)
@@ -662,15 +660,12 @@ def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
     return I32(target_pc - pc)  # Valid skip_len
 
 
-@njit
+@njit#(cache=True)
 def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context="", mem=None):
     """
     JIT-compatible logging function for instruction execution tracing.
     Matches the format used in the normal interpreter for consistency.
     """
-    if inst_nr < 39503:
-        return
-
     name = opcode_names.get(np.int64(opcode), "UNKNOWN")
     
     mem_info = ""
@@ -714,7 +709,7 @@ def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3
 
     print(inst_str, pc_str, name_str, regs_str, mem_info)
 
-@njit
+@njit(cache=True)
 def invoke_native(
         pc_start, gas_start, inst_start,
         code, code_size,
@@ -1213,6 +1208,7 @@ def invoke_native(
                 
                 if new_heap_ptr != U64(0):
                     heap_info[0] = new_heap_ptr
+                    mem_section_ends[1] = new_heap_ptr
                 
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, mem=section_arrays)
 
@@ -1307,11 +1303,6 @@ def invoke_native(
 
             elif opcode == op_store_ind_u32:
                 store_addr = w_b + v_x
-                if inst_nr == 39566:
-                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    print(w_b, v_x)
-                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-
                 if mem_write_jit(store_addr, w_a % (2**32), U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -2054,10 +2045,4 @@ class PVMInterpreter(PVMInterpreterBase):
             for page_nr in acl_dict:
                 self.mem_acl[int(page_nr)] = int(acl_dict[page_nr])
 
-        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        # print("self.reg", self.reg)
-        # print("self.status", self.status)
-        # print("self.exit_value", self.exit_value)
-        # print("self.pc", self.pc)
-        # print("self.gas", self.gas)
-        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        self._sync_memory()

@@ -609,14 +609,12 @@ class PVMInterpreter:
         # Find the memory section
         section_idx = self.find_memory_section(addr)
         if section_idx == -1:
-            print("mem: not_found")
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
 
         # Check if writable using page-based ACL (if available)
         if self.mem_acl is not None:
             page_nr = addr // PVM_PAGE_SIZE
             if page_nr not in self.mem_acl or self.mem_acl[page_nr] < self.mem_writable:
-                print("mem: acl not writable")
                 raise PVMMemoryError(f"Memory at address {addr} is not writable")
 
         section = self.mem_sections[section_idx]
@@ -625,7 +623,6 @@ class PVMInterpreter:
         # Check bounds against the actual section size (not paged_tail)
         # The section might be larger than paged_tail if it has been extended
         if section_offset + bytes_to_write > len(section):
-            print("mem: overflow section")
             raise PVMMemoryError(f"Memory write at {addr} would overflow section")
 
         # Apply modulus for values less than 8 bytes
@@ -1133,10 +1130,6 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**16, "w_b": w_b})
 
                     elif opcode == op_store_ind_u32:
-                        if self.inst_nr == 39566:
-                            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                            print(w_b + v_x, w_a % 2**32)
-                            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                         self.mem_write(opcode, w_b + v_x, w_a % 2**32)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**32, "w_b": w_b})
 
@@ -1623,11 +1616,3 @@ class PVMInterpreter:
 
         #self.mem._pvm_invoke_nr += 1
         self._sync_memory()
-        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        # print("self.reg", self.reg)
-        # print("self.status", self.status)
-        # print("self.exit_value", self.exit_value)
-        # print("self.pc", self.pc)
-        # print("self.gas", self.gas)
-        # print("self.inst_nr", self.inst_nr)
-        # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
