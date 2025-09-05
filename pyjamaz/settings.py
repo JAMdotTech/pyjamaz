@@ -10,7 +10,7 @@ DEBUG_PROGRAM_OVERRIDE = {}
 
 
 PVM_DEBUGGER = None
-PVM_MIN_HEAP_SIZE = 1_000_000
+PVM_MIN_HEAP_SIZE = 0
 PVM_MAX_HEAP_SIZE = 1_000_000*10    #TODO: find out what it should be...
 
 

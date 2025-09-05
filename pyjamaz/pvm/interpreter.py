@@ -368,9 +368,13 @@ class PVMInterpreter:
         self._mem_addr: int = -1
 
         self.ROM_ADDR = 0xFFFFFFFF
+        self.ROM_END = -1
         self.HEAP_ADDR = 0xFFFFFFFF
+        self.HEAP_END = -1
         self.STACK_ADDR = 0xFFFFFFFF
+        self.STACK_END = -1
         self.ARG_ADDR = 0xFFFFFFFF
+        self.ARG_END = -1
 
         self.mem_inaccesible = PVMMemoryMode.inaccesible.value
         self.mem_readable = PVMMemoryMode.readable.value
@@ -495,10 +499,19 @@ class PVMInterpreter:
         for idx, section in enumerate([memory._rom, memory._heap, memory._stack, memory._args]):
 
             if section:
-                if idx == 0: self.ROM_ADDR = int(section.address)
-                if idx == 1: self.HEAP_ADDR = int(section.address)
-                if idx == 2: self.STACK_ADDR = int(section.address)
-                if idx == 3: self.ARG_ADDR = int(section.address)
+                if idx == 0:
+                    self.ROM_ADDR = int(section.address)
+                    self.ROM_END = int(section.paged_tail)
+                if idx == 1:
+                    self.HEAP_ADDR = int(section.address)
+                    self.HEAP_END = int(section.paged_tail)
+                if idx == 2:
+                    self.STACK_ADDR = int(section.address)
+                    self.STACK_END = int(section.paged_tail)
+                if idx == 3:
+                    self.ARG_ADDR = int(section.address)
+                    self.ARG_END = int(section.paged_tail)
+
 
                 self.mem_sections.append(section.contents)
                 mem_section_starts.append(section.address)
@@ -561,6 +574,7 @@ class PVMInterpreter:
             #logging.critical(f"????: {heap.size} - {pages} - {next_page_nr}")
 
         self.mem_section_ends[1] = new_heap_ptr
+        self.HEAP_END = new_heap_ptr
         return new_heap_ptr
 
 
@@ -577,12 +591,13 @@ class PVMInterpreter:
         self._mem_addr = addr
 
         # Find the memory section
-        #section_idx = self.find_memory_section(addr)
-        section_idx = -1
-        section_idx += int(max(0, min(addr // self.ROM_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
+        section_idx = 0
+        section_idx = (self.ROM_ADDR <= addr <= self.ROM_END) and 1 or section_idx
+        section_idx = (self.HEAP_ADDR <= addr <= self.HEAP_END) and 2 or section_idx
+        section_idx = (self.STACK_ADDR <= addr <= self.STACK_END) and 3 or section_idx
+        section_idx = (self.ARG_ADDR <= addr <= self.ARG_END) and 4 or section_idx
+        section_idx -= 1
+
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
 
@@ -626,12 +641,12 @@ class PVMInterpreter:
 
 
     def _mem_read_int(self, addr: int, bytes_to_read: int):
-        #section_idx = self.find_memory_section(addr)
-        section_idx = -1
-        section_idx += int(max(0, min(addr // self.ROM_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
+        section_idx = 0
+        section_idx = (self.ROM_ADDR <= addr <= self.ROM_END) and 1 or section_idx
+        section_idx = (self.HEAP_ADDR <= addr <= self.HEAP_END) and 2 or section_idx
+        section_idx = (self.STACK_ADDR <= addr <= self.STACK_END) and 3 or section_idx
+        section_idx = (self.ARG_ADDR <= addr <= self.ARG_END) and 4 or section_idx
+        section_idx -= 1
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read_int: Memory address {addr} not found in any section")
@@ -658,14 +673,13 @@ class PVMInterpreter:
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
-        # TODO: zet ook huidig section en skip als we direct zien dat we al de juiste section hebben!!!!!!
         # Find the memory section
-        #section_idx = self.find_memory_section(addr)
-        section_idx = -1
-        section_idx += int(max(0, min(addr // self.ROM_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
+        section_idx = 0
+        section_idx = (self.ROM_ADDR <= addr <= self.ROM_END) and 1 or section_idx
+        section_idx = (self.HEAP_ADDR <= addr <= self.HEAP_END) and 2 or section_idx
+        section_idx = (self.STACK_ADDR <= addr <= self.STACK_END) and 3 or section_idx
+        section_idx = (self.ARG_ADDR <= addr <= self.ARG_END) and 4 or section_idx
+        section_idx -= 1
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
@@ -897,7 +911,7 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_imm_imm:  # InstructionType.reg_imm_imm
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = min(12, self.code[self.pc + 1] % 16)
-                    w_a = self.reg[r_a]
+                    w_a = int(self.reg[r_a])
 
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
                     l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
@@ -929,7 +943,7 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_imm_offset:  # InstructionType.reg_imm_offset
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = min(12, self.code[self.pc + 1] % 16)
-                    w_a = self.reg[r_a]
+                    w_a = int(self.reg[r_a])
 
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
                     l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
@@ -1053,8 +1067,8 @@ class PVMInterpreter:
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     r_b = min(12, self.code[self.pc + 1] // 16)
 
-                    w_a = self.reg[r_a]
-                    w_b = self.reg[r_b]
+                    w_a = int(self.reg[r_a])
+                    w_b = int(self.reg[r_b])
 
                     l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
                     v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
@@ -1182,7 +1196,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_add_imm_64:
-                        self.reg[r_a] = (w_b + v_x) #% 2**64
+                        self.reg[r_a] = (w_b + v_x) % 2**64
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_mul_imm_64:
@@ -1209,7 +1223,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_l_imm_alt_64:
-                        self.reg[r_a] = (v_x * 2**(w_b % 64)) #% 2**64
+                        self.reg[r_a] = (v_x * 2**(w_b % 64)) % 2**64
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_alt_64:
@@ -1246,8 +1260,8 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_reg_offset:  # InstructionType.reg_reg_offset
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     r_b = min(12, self.code[self.pc + 1] // 16)
-                    w_a = self.reg[r_a]
-                    w_b = self.reg[r_b]
+                    w_a = int(self.reg[r_a])
+                    w_b = int(self.reg[r_b])
 
                     l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
                     v_x = pvm_Z(read_uint(self.code, self.pc + 2, l_x), l_x)
@@ -1286,7 +1300,7 @@ class PVMInterpreter:
                     r_b = self.code[self.pc + 1] // 16
 
                     #w_a = self.reg[r_a]
-                    w_b = self.reg[r_b]
+                    w_b = int(self.reg[r_b])
 
                     l_x = int(min(4, self.code[self.pc + 2] % 8))
                     v_x = pvm_X(read_uint(self.code, self.pc + 3, l_x), l_x)
@@ -1308,8 +1322,8 @@ class PVMInterpreter:
                     r_b = min(12, self.code[self.pc + 1] // 16)
                     r_d = min(12, self.code[self.pc + 2])
 
-                    w_a = self.reg[r_a]
-                    w_b = self.reg[r_b]
+                    w_a = int(self.reg[r_a])
+                    w_b = int(self.reg[r_b])
 
                     if opcode == op_add_32:
                         self.reg[r_d] = pvm_X((w_a + w_b) % 2**32, 4)
@@ -1443,11 +1457,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shar_r_64:
-                        #self.reg[r_d] = pvm_Z_inv(I64(pvm_Z(w_a, 8)) >> I64(U64(w_b) & U64(63)), 8)
-                        self.reg[r_d] = pvm_Z_inv(
-                            pvm_Z(w_a, 8) // 2 ** (w_b % 64),
-                            8
-                        )
+                        self.reg[r_d] = pvm_Z_inv(np.int64(pvm_Z(w_a, 8)) >> np.int64(np.uint64(w_b) & np.uint64(63)), 8)
+                        # self.reg[r_d] = pvm_Z_inv(
+                        #     pvm_Z(w_a, 8) // 2 ** (w_b % 64),
+                        #     8
+                        # )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_and:
