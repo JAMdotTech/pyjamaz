@@ -480,11 +480,33 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
 
-
     #TODO: registers_as_int
     def get_registers(self):
         return [int(x) for x in self.reg]
 
+    # def mem_write(self, opcode, addr, value):
+    #     if opcode not in MemOps:
+    #         raise Exception(f"Invalid memory operation: {opcode}")
+    #
+    #     if not MemOps[opcode]["write"]:
+    #         raise Exception(f"Not a valid memory write operation: {opcode}")
+    #
+    #     bytes_to_write = MemOps[opcode]["bytes"]
+    #     self.mem.write_int(addr % self.mem.SIZE, value, bytes_to_write)
+    #
+    #
+    # def mem_read(self, opcode, addr):
+    #     if opcode not in MemOps:
+    #         raise Exception(f"Invalid memory operation: {opcode}")
+    #
+    #     if not MemOps[opcode]["read"]:
+    #         raise Exception(f"Not a valid memory read operation: {opcode}")
+    #
+    #     bytes_to_read = MemOps[opcode]["bytes"]
+    #     return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
+    #
+    # def _mem_read_int(self, addr: int, bytes_to_read: int):
+    #     return self.mem.read_int(addr, bytes_to_read)
 
     def _init_mem_ops_lookup(self):
         """Initialize memory operation lookups as numpy arrays for fast access"""
@@ -564,7 +586,7 @@ class PVMInterpreter:
 
             # Only grow when we exceed pre-allocated heap mem
             if new_heap_end - self.mem_section_starts[1] > len(heap):
-                heap = np.concatenate((heap, np.zeros(growth, dtype=U8)))
+                heap = np.concatenate((heap, np.zeros(growth, dtype=np.uint8)))
                 self.mem_sections[1] = heap
                 #logging.critical(f"EXTENDING HEAP: {heap.size}")
 
@@ -715,7 +737,6 @@ class PVMInterpreter:
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
 
-
     def get_exit_condition(self) -> ExitCondition:
         exit_value = None
         exit_reason = self.status
@@ -736,11 +757,9 @@ class PVMInterpreter:
 
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
-
     def next_instruction(self):
         inst_index = self.inst_pos[self.pc]
         self.skip_len = self.inst_arg_len[inst_index] + 1
-
 
     def invoke(
         self,
@@ -749,7 +768,7 @@ class PVMInterpreter:
     ):
         self.pc = pc
         self.gas = gas
-        self.skip_len = 0
+        #self.skip_len = 0
 
         if self.log:
             self.log.pvm_counters()
