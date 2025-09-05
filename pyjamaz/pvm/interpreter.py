@@ -367,10 +367,10 @@ class PVMInterpreter:
 
         self._mem_addr: int = -1
 
-        self.ROM_ADDR = 0
-        self.HEAP_ADDR = 0
-        self.STACK_ADDR = 0
-        self.ARG_ADDR = 0
+        self.ROM_ADDR = 0xFFFFFFFF
+        self.HEAP_ADDR = 0xFFFFFFFF
+        self.STACK_ADDR = 0xFFFFFFFF
+        self.ARG_ADDR = 0xFFFFFFFF
 
         self.mem_inaccesible = PVMMemoryMode.inaccesible.value
         self.mem_readable = PVMMemoryMode.readable.value
@@ -469,29 +469,6 @@ class PVMInterpreter:
     def get_registers(self):
         return [int(x) for x in self.reg]
 
-    # def mem_write(self, opcode, addr, value):
-    #     if opcode not in MemOps:
-    #         raise Exception(f"Invalid memory operation: {opcode}")
-    #
-    #     if not MemOps[opcode]["write"]:
-    #         raise Exception(f"Not a valid memory write operation: {opcode}")
-    #
-    #     bytes_to_write = MemOps[opcode]["bytes"]
-    #     self.mem.write_int(addr % self.mem.SIZE, value, bytes_to_write)
-    #
-    #
-    # def mem_read(self, opcode, addr):
-    #     if opcode not in MemOps:
-    #         raise Exception(f"Invalid memory operation: {opcode}")
-    #
-    #     if not MemOps[opcode]["read"]:
-    #         raise Exception(f"Not a valid memory read operation: {opcode}")
-    #
-    #     bytes_to_read = MemOps[opcode]["bytes"]
-    #     return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
-    #
-    # def _mem_read_int(self, addr: int, bytes_to_read: int):
-    #     return self.mem.read_int(addr, bytes_to_read)
 
     def _init_mem_ops_lookup(self):
         """Initialize memory operation lookups as numpy arrays for fast access"""
@@ -606,7 +583,7 @@ class PVMInterpreter:
         section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
         section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
         section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
-        if section_idx == -1:
+        if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
 
         # Check if writable using page-based ACL (if available)
@@ -656,7 +633,7 @@ class PVMInterpreter:
         section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
         section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
 
-        if section_idx == -1:
+        if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read_int: Memory address {addr} not found in any section")
 
         section = self.mem_sections[section_idx]
@@ -690,7 +667,7 @@ class PVMInterpreter:
         section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
         section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
 
-        if section_idx == -1:
+        if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
 
         # Check if readable using page-based ACL (if available)
@@ -1023,7 +1000,6 @@ class PVMInterpreter:
                         # Note: set break / set break pointer (extend heap memory)
                         # Update our cached memory bounds after heap extension
                         self.reg[r_d] = self._sbrk(self.reg[r_a])
-                        #self.reg[r_d] = self.mem.extend_heap(self.reg[r_a])
                         self.log and self.log(reg1=r_d, reg2=r_a)
 
                     elif opcode == op_count_set_bits_64:
