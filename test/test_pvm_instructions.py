@@ -9,6 +9,7 @@ import numpy as np
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
+from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, OpcodeNames
 from pyjamaz.pvm.debug_logger import PVMDebugLog
@@ -87,8 +88,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
                     mem[offset + idx] = np.uint8(byt)
 
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
-        pvm = PVMInterpreter(pvm_program)
-        #pvm = PVMInterpreter(pvm_program, logger_cls=PVMDebugLog)#, log_ctx=log_ctx) # Note: uncomment to enable debug logging
+        pvm = PVMInterpreter(pvm_program, logger_cls=settings.PVM_DEBUGGER)
         pvm.invoke(
             test_vector["initial-pc"],
             test_vector["initial-gas"]
