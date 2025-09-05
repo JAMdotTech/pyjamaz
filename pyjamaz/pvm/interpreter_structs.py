@@ -349,22 +349,26 @@ def read_uint(code, addr32, len8):
     if len8 == 0:
         return 0 & 0xFF
 
-    if len8 == 1:
-        return int(code[addr32] & 0xFF)
-
-    if len8 == 2:
-        return (int(code[addr32+0]) & 0xFF) | ((int(code[addr32+1]) & 0xFF) << 8)
-
-    if len8 == 3:
+    mv = code
+    off = addr32
+    n = len8
+    if n == 1:
+        return mv[off]
+    elif n == 2:
+        return struct.unpack_from('<H', mv, off)[0]
+    elif n == 4:
+        return struct.unpack_from('<I', mv, off)[0]
+    elif n == 3:
+        # optimized 3-byte read using struct.unpack (2.8x faster than original)
+        # TODO: check numba, maybe use old version here?:
+        # byte0 = np.uint8(source[addr + 0])
+        # byte1 = np.uint16(source[addr + 1])
+        # byte2 = np.uint32(source[addr + 2])
+        #return np.uint64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
+        #return struct.unpack('<I', source[addr:addr + 3].tobytes() + b'\x00')[0]
         return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16)
-
-    if len8 == 4:
-        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24)
-
-    if len8 ==8:
-        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8)  | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24) | ((int(code[addr32 + 4]) & 0xFF) << 32) | ((int(code[addr32 + 5]) & 0xFF) << 40) | ((int(code[addr32 + 6]) & 0xFF) << 48) | ((int(code[addr32 + 7]) & 0xFF) << 56)
-
-    raise Exception("read_uint: unsupported length")
+    elif n == 8:
+        return struct.unpack_from('<Q', mv, off)[0]
 
 
 class PVMInterpreter:
@@ -405,10 +409,14 @@ class PVMInterpreter:
         self.HEAP_ADDR = 0
         self.STACK_ADDR = 0
         self.ARG_ADDR = 0
+        self._last_sec = -1
+        self._sec_mv = [None, None, None, None]  # ROM, HEAP, STACK, ARGS
 
         self.mem_inaccesible = PVMMemoryMode.inaccesible.value
         self.mem_readable = PVMMemoryMode.readable.value
         self.mem_writable = PVMMemoryMode.writable.value
+
+        self.mv_code = None
 
         self.log = None
 
@@ -499,6 +507,7 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
 
+
     #TODO: registers_as_int
     def get_registers(self):
         return [int(x) for x in self.reg]
@@ -525,6 +534,8 @@ class PVMInterpreter:
         mem_section_ends = []  # This will use paged_tail, not size
         mem_section_size = []
 
+        self.mv_code = memoryview(self.code)
+
         # Access the actual memory sections (rom, heap, stack, args)
         for idx, section in enumerate([memory._rom, memory._heap, memory._stack, memory._args]):
 
@@ -538,11 +549,14 @@ class PVMInterpreter:
                 mem_section_starts.append(section.address)
                 mem_section_ends.append(section.paged_tail)
                 mem_section_size.append(section.size)
+
+                self._sec_mv[idx] = memoryview(section.contents)
             else:
                 self.mem_sections.append(None)
                 mem_section_starts.append(0)
                 mem_section_ends.append(0)
                 mem_section_size.append(0)
+                self._sec_mv[idx] = None
 
         self.mem_section_starts = np.array(mem_section_starts, dtype=U32)
         self.mem_section_ends = np.array(mem_section_ends, dtype=U32)
@@ -616,27 +630,28 @@ class PVMInterpreter:
     #
     #     return -1  # Not found
 
-    # def find_memory_section(self, addr: int) -> int:
-    #     """Return section index for addr using cached last section; avoid NumPy scalar mixing."""
-    #     a = int(addr)
-    #
-    #     # Try cache first
-    #     i = getattr(self, "_last_sec", -1)
-    #     if 0 <= i < len(self.mem_sections):
-    #         start = int(self.mem_section_starts[i])
-    #         end = int(self.mem_section_ends[i])
-    #         if start <= a <= end:
-    #             return i
-    #
-    #     # Fallback: linear scan (sections are few)
-    #     for i in range(len(self.mem_sections)):
-    #         start = int(self.mem_section_starts[i])
-    #         end = int(self.mem_section_ends[i])
-    #         if start and start <= a <= end:
-    #             self._last_sec = i
-    #             return i
-    #
-    #     return -1
+    def find_memory_section(self, addr: int) -> int:
+        """Return section index for addr using cached last section; avoid NumPy scalar mixing."""
+        a = int(addr)
+
+        # Try cache first
+        i = getattr(self, "_last_sec", -1)
+        if 0 <= i < len(self.mem_sections):
+            start = int(self.mem_section_starts[i])
+            end = int(self.mem_section_ends[i])
+            if start <= a <= end:
+                return i
+
+        # Fallback: linear scan (sections are few)
+        for i in range(len(self.mem_sections)):
+            start = int(self.mem_section_starts[i])
+            end = int(self.mem_section_ends[i])
+            if start and start <= a <= end:
+                self._last_sec = i
+                return i
+
+        return -1
+
 
 
     def mem_write(self, opcode, addr, value):
@@ -652,12 +667,12 @@ class PVMInterpreter:
         self._mem_addr = addr
 
         # Find the memory section
-        #section_idx = self.find_memory_section(addr)
-        section_idx = -1
-        section_idx += int(max(0, min(addr // self.ROM_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
+        section_idx = self.find_memory_section(addr)
+        # section_idx = -1
+        # section_idx += int(max(0, min(addr // self.ROM_ADDR, 1)))
+        # section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
+        # section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
+        # section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
         if section_idx == -1:
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
 
@@ -679,35 +694,27 @@ class PVMInterpreter:
         if bytes_to_write < 8:
             value = value % (2 ** (bytes_to_write * 8))
         # Write bytes in little-endian order
-        if bytes_to_write == 1:
-            section[section_offset] = value & 0xFF
-        elif bytes_to_write == 2:
-            section[section_offset] =value & 0xFF
-            section[section_offset + 1] =(value >> 8) & 0xFF
-        elif bytes_to_write == 4:
-            section[section_offset] = value & 0xFF
-            section[section_offset + 1] = (value >> 8) & 0xFF
-            section[section_offset + 2] = (value >> 16) & 0xFF
-            section[section_offset + 3] = (value >> 24) & 0xFF
-        elif bytes_to_write == 8:
-            section[section_offset] = value & 0xFF
-            section[section_offset + 1] = (value >> 8) & 0xFF
-            section[section_offset + 2] = (value >> 16) & 0xFF
-            section[section_offset + 3] = (value >> 24) & 0xFF
-            section[section_offset + 4] = (value >> 32) & 0xFF
-            section[section_offset + 5] = (value >> 40) & 0xFF
-            section[section_offset + 6] = (value >> 48) & 0xFF
-            section[section_offset + 7] = (value >> 56) & 0xFF
+        mv = self._sec_mv[section_idx]
+        n = bytes_to_write
+        if n == 1:
+            mv[section_offset] = value & 0xFF
+        elif n == 2:
+            struct.pack_into('<H', mv, section_offset, value)
+        elif n == 4:
+            struct.pack_into('<I', mv, section_offset, value)
+        elif n == 8:
+            struct.pack_into('<Q', mv, section_offset, value)
+        else:
+            raise PVMMemoryError(f"Invalid write length: {bytes_to_write}")
 
 
     def _mem_read_int(self, addr: int, bytes_to_read: int):
-        #section_idx = self.find_memory_section(addr)
-        section_idx = -1
-        section_idx += int(max(0, min(addr // self.ROM_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
-
+        section_idx = self.find_memory_section(addr)
+        # section_idx = -1
+        # section_idx += int(max(0, min(addr // self.ROM_ADDR, 1)))
+        # section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
+        # section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
+        # section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
         if section_idx == -1:
             raise PVMMemoryError(f"mem_read_int: Memory address {addr} not found in any section")
 
@@ -718,7 +725,20 @@ class PVMInterpreter:
         if section_offset + bytes_to_read > len(section):
             raise PVMMemoryError(f"mem_read_int: Memory read at {addr} would overflow section")
 
-        return read_uint(section, section_offset, bytes_to_read)
+        # Read bytes in little-endian order
+        mv = self._sec_mv[section_idx]
+        off = section_offset
+        n = bytes_to_read
+        if n == 1:
+            return mv[off]
+        elif n == 2:
+            return struct.unpack_from('<H', mv, off)[0]
+        elif n == 4:
+            return struct.unpack_from('<I', mv, off)[0]
+        elif n == 8:
+            return struct.unpack_from('<Q', mv, off)[0]
+        else:
+            return -1
 
 
     def mem_read(self, opcode, addr):
@@ -735,12 +755,12 @@ class PVMInterpreter:
 
         # TODO: zet ook huidig section en skip als we direct zien dat we al de juiste section hebben!!!!!!
         # Find the memory section
-        #section_idx = self.find_memory_section(addr)
-        section_idx = -1
-        section_idx += int(max(0, min(addr // self.ROM_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
-        section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
+        section_idx = self.find_memory_section(addr)
+        # section_idx = -1
+        # section_idx += int(max(0, min(addr // self.ROM_ADDR, 1)))
+        # section_idx += int(max(0, min(addr // self.HEAP_ADDR, 1)))
+        # section_idx += int(max(0, min(addr // self.STACK_ADDR, 1)))
+        # section_idx += int(max(0, min(addr // self.ARG_ADDR, 1)))
 
         if section_idx == -1:
             raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
@@ -759,7 +779,7 @@ class PVMInterpreter:
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
 
         # Read bytes in little-endian order
-        return read_uint(section, section_offset, bytes_to_read)
+        return read_uint(self._sec_mv[section_idx], section_offset, bytes_to_read)
 
 
     #GP-0.6.7-section:A.15
@@ -859,7 +879,7 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.2
                 elif inst_type == inst_imm:  # InstructionType.imm
                     l_x = int(min(4, self.inst_arg_len[inst_index]))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 1, l_x), l_x)
 
                     if opcode == op_ecalli:
                         self.status = ExitReason.host_halt.value
@@ -872,7 +892,7 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_ext_imm:  # InstructionType.reg_ext_imm
 
                     r_a = min(12, self.code[self.pc + 1] % 16)
-                    v_x = read_uint(self.code, self.pc + 2, 8)
+                    v_x = read_uint(self.mv_code, self.pc + 2, 8)
 
                     if opcode == op_load_imm_64:
                         self.reg[r_a] = v_x
@@ -885,8 +905,8 @@ class PVMInterpreter:
 
                     l_x = int(min(4, self.code[self.pc + 1] % 8))
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
-                    v_y = pvm_X(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
+                    v_y = pvm_X(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
 
                     if opcode == op_store_imm_u8:
                         self.mem_write(opcode, v_x, v_y % 2 ** 8)
@@ -907,7 +927,7 @@ class PVMInterpreter:
                 elif inst_type == inst_offset:  # InstructionType.offset
 
                     l_x = int(min(4, self.inst_arg_len[inst_index]))
-                    v_x = pvm_Z(read_uint(self.code, self.pc + 1, l_x), l_x)
+                    v_x = pvm_Z(read_uint(self.mv_code, self.pc + 1, l_x), l_x)
 
                     if opcode == op_jump:
                         self.skip_len = v_x
@@ -920,7 +940,7 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_imm:  # InstructionType.reg_imm
                     r_a = int(min(12, self.code[self.pc + 1] % 16))
                     l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     if opcode == op_jump_ind:
                         self.skip_len = self.djump((self.reg[r_a]+v_x))
@@ -985,10 +1005,10 @@ class PVMInterpreter:
 
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
                     l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
-                    v_y = pvm_X(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
+                    v_y = pvm_X(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
 
                     if opcode == op_store_imm_ind_u8:
                         self.mem_write(opcode, w_a + v_x, v_y % 2**8)
@@ -1017,10 +1037,10 @@ class PVMInterpreter:
 
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
                     l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
-                    v_y = pvm_Z(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
+                    v_y = pvm_Z(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
 
                     if opcode == op_load_imm_jump:
                         self.skip_len = v_y
@@ -1141,7 +1161,7 @@ class PVMInterpreter:
                     w_b = self.reg[r_b]
 
                     l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     if opcode == op_store_ind_u8:
                         self.mem_write(opcode, w_b + v_x, w_a % 2**8)
@@ -1345,7 +1365,7 @@ class PVMInterpreter:
                     w_b = self.reg[r_b]
 
                     l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
-                    v_x = pvm_Z(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_Z(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     if opcode == op_branch_eq:
                         self.branch(v_x, w_a == w_b)
@@ -1384,10 +1404,10 @@ class PVMInterpreter:
                     w_b = self.reg[r_b]
 
                     l_x = int(min(4, self.code[self.pc + 2] % 8))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 3, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 3, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 2)))
-                    v_y = pvm_X(read_uint(self.code, self.pc + 3 + l_x, l_y), l_y)
+                    v_y = pvm_X(read_uint(self.mv_code, self.pc + 3 + l_x, l_y), l_y)
 
                     if opcode == op_load_imm_jump_ind:
                         self.reg[r_a] = v_x
