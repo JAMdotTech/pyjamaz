@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List, Optional
 
-from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify, vrf_output
+from bandersnatch_vrfs import RingContext, vrf_output
 
 from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
     EPOCH_TIMESLOTS
@@ -25,7 +25,7 @@ class BlockExtrinsicAccumulator:
         self.preimage_queue: List[Preimage] = []
         self.ring_data = ring_data
 
-    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes) -> TicketBody:
+    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_context: RingContext, entropy: bytes) -> TicketBody:
         if ticket_data.attempt >= TICKET_ENTRIES:
             raise ValueError(SafroleErrorCode.bad_ticket_attempt)
 
@@ -35,16 +35,16 @@ class BlockExtrinsicAccumulator:
 
         try:
             logging.debug(f'Validating ticket with entropy {entropy.hex()}')
-            ring_vrf_output = ring_vrf_verify(
-                self.ring_data, ring_public_keys, vrf_input_data, aux_data, bytes(ticket_data.signature)
-            )
+            ring_vrf_output = ring_context.ring_vrf_verify(vrf_input_data, aux_data, bytes(ticket_data.signature))
+
         except ValueError as e:
             raise ValueError(SafroleErrorCode.bad_ticket_proof)
 
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
     def add_ticket(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes):
-        ticket_body = self.create_ticket_body(ticket_data, ring_public_keys, entropy)
+        ring_context = RingContext(self.ring_data, ring_public_keys)
+        ticket_body = self.create_ticket_body(ticket_data, ring_context, entropy)
         self.tickets_queue[ticket_body.id] = ticket_data
 
     def can_add_own_ticket(self, timeslot: int) -> bool:
@@ -63,10 +63,10 @@ class BlockExtrinsicAccumulator:
         vrf_input_data = vrf_input_ticket_seal(entropy, attempt)
         aux_data = b''
 
-        signature = ring_vrf_sign(
-            self.ring_data, ring_public_keys, keypair.private_key, author_index,
-            vrf_input_data, aux_data
-        )
+        # TODO re-use ring_context (M2)
+        ring_context = RingContext(self.ring_data, ring_public_keys)
+
+        signature = ring_context.ring_vrf_sign(author_index, keypair.private_key, vrf_input_data, aux_data)
 
         ticket = TicketEnvelope(
             attempt=attempt,
