@@ -14,7 +14,7 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger, Bytes
 
-import settings
+from pyjamaz import settings
 from pyjamaz.pvm.constants_new import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE

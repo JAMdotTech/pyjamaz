@@ -13,7 +13,7 @@ PVM_DEBUGGER = None
 #TODO: opesie loca_serttings???
 PVM_MIN_HEAP_SIZE = 2_000_000
 PVM_MAX_HEAP_SIZE = 1_000_000*10    #TODO: find out what it should be...
-from pvm.debug_logger import PVMDebugLog
+from pyjamaz.pvm.debug_logger import PVMDebugLog
 PVM_DEBUGGER = None
 #PVM_DEBUGGER = PVMDebugLog
 

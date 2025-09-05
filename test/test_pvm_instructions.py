@@ -9,7 +9,7 @@ import numpy as np
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
-import settings
+from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants_new import ExitReason, OpcodeNames
 from pyjamaz.pvm.debug_logger import PVMDebugLog
