@@ -58,6 +58,19 @@ def roli64(x, shift_amount):
     return ((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
 
+MASK32 = 0xFFFFFFFF
+MASK64 = 0xFFFFFFFFFFFFFFFF
+
+def rotl32(x, s):
+    s &= 31
+    x &= MASK32
+    return ((x << s) | (x >> (32 - s))) & MASK32
+
+def rotr32(x, s):
+    s &= 31
+    x &= MASK32
+    return ((x >> s) | (x << (32 - s))) & MASK32
+
 def rori32(x, shift_amount):
     return ((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF
 
@@ -1236,10 +1249,12 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_alt_64:
-                        self.reg[r_a] = pvm_Z_inv(
-                            pvm_Z(v_x, 8) // 2 ** (w_b % 64),
-                            8
-                        )
+                        signed_val = int(pvm_Z(v_x, 8))
+                        shift_amount = int(w_b & 63)
+                        shifted = signed_val >> shift_amount
+                        if shifted < 0:
+                            shifted = shifted + (1 << 64)
+                        self.reg[r_a] = shifted & MASK64
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_rot_r_64_imm:
@@ -1327,247 +1342,244 @@ class PVMInterpreter:
                     r_b = min(12, self.code[self.pc + 1] // 16)
                     r_d = min(12, self.code[self.pc + 2])
 
-                    w_a = self.reg[r_a]
-                    w_b = self.reg[r_b]
+                    a = int(self.reg[r_a])
+                    b = int(self.reg[r_b])
 
                     if opcode == op_add_32:
-                        self.reg[r_d] = pvm_X((w_a + w_b) % 2**32, 4)
+                        self.reg[r_d] = pvm_X((a + b) & MASK32, 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_sub_32:
-                        self.reg[r_d] = pvm_X((w_a + 2**32 - (w_b % 2**32)) % 2**32, 4)
+                        self.reg[r_d] = pvm_X((a + (1 << 32) - (b & MASK32)) & MASK32, 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_mul_32:
-                        self.reg[r_d] = pvm_X((w_a * w_b) % 2**32, 4)
+                        self.reg[r_d] = pvm_X((a * b) & MASK32, 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_div_u_32:
-                        if self.reg[r_b] == 0:
-                            self.reg[r_d] = 2**64 - 1
+                        if b == 0:
+                            self.reg[r_d] = (1 << 64) - 1
                         else:
-                            self.reg[r_d] = pvm_X(w_a % 2**32 // w_b % 2**32, 4)
+                            self.reg[r_d] = pvm_X((a & MASK32) // (b & MASK32), 4)
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_div_s_32:
-                        a = pvm_Z(w_a % 2 ** 32, 4)
-                        b = pvm_Z(w_b % 2 ** 32, 4)
+                        a_s32 = pvm_Z(a & MASK32, 4)
+                        b_s32 = pvm_Z(b & MASK32, 4)
 
-                        if b == 0:
-                            self.reg[r_d] = 2**64-1
-                        elif a == -2**31 and b == -1:
-                            self.reg[r_d] = pvm_Z_inv(a, 8)
+                        if b_s32 == 0:
+                            self.reg[r_d] = (1 << 64) - 1
+                        elif a_s32 == -(1 << 31) and b_s32 == -1:
+                            self.reg[r_d] = pvm_Z_inv(a_s32, 8)
                         else:
-                            self.reg[r_d] = pvm_Z_inv(pvm_rtz_div(a, b), 8)
+                            self.reg[r_d] = pvm_Z_inv(pvm_rtz_div(a_s32, b_s32), 8)
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rem_u_32:
-                        if w_b % 2**32 == 0:
-                            self.reg[r_d] = pvm_X(w_a % 2**32, 4)
+                        if (b & MASK32) == 0:
+                            self.reg[r_d] = pvm_X(a & MASK32, 4)
                         else:
-                            self.reg[r_d] = pvm_X((w_a % 2**32) % (w_b % 2**32), 4)
+                            self.reg[r_d] = pvm_X((a & MASK32) % (b & MASK32), 4)
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rem_s_32:
-                        a = pvm_Z(w_a % 2**32, 4)
-                        b = pvm_Z(w_b % 2**32, 4)
+                        a_s32 = pvm_Z(a & MASK32, 4)
+                        b_s32 = pvm_Z(b & MASK32, 4)
 
-                        if b == 0:
-                            self.reg[r_d] = pvm_Z_inv(a, 8)
-                        elif a == -2**31 and b == -1:
+                        if b_s32 == 0:
+                            self.reg[r_d] = pvm_Z_inv(a_s32, 8)
+                        elif a_s32 == -(1 << 31) and b_s32 == -1:
                             self.reg[r_d] = 0
                         else:
-                            self.reg[r_d] = pvm_Z_inv(pvm_smod(a, b), 8)
+                            self.reg[r_d] = pvm_Z_inv(pvm_smod(a_s32, b_s32), 8)
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shlo_l_32:
-                        self.reg[r_d] = pvm_X((w_a * 2**(w_b % 32)) % 2**32, 4)
+                        self.reg[r_d] = pvm_X((a << (b & 31)) & MASK32, 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shlo_r_32:
-                        self.reg[r_d] = pvm_X(w_a % 2 ** 32 // 2 ** (w_b % 32), 4)
+                        self.reg[r_d] = pvm_X((a & MASK32) >> (b & 31), 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shar_r_32:
-                        # self.reg[r_d] = pvm_Z_inv(
-                        #     pvm_Z(np.uint32(w_a), 4) // int(2 ** w_b),
-                        #     8
-                        # )
-                        self.reg[r_d] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(w_a), 4)) >> np.int64(np.uint32(w_b) & np.uint32(31)), 8)
+                        val_32 = a & MASK32
+                        if val_32 >= (1 << 31):
+                            val_32 = val_32 - (1 << 32)  # Convert to signed
+                        result = val_32 >> (b & 31)
+                        if result < 0:
+                            result = result + (1 << 64)
+                        self.reg[r_d] = pvm_Z_inv(result, 8)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_add_64:
-                        self.reg[r_d] = (w_a + w_b) #% 2**64
+                        self.reg[r_d] = (a + b) & MASK64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_sub_64:
-                        self.reg[r_d] = (int(w_a) + 2 ** 64 - int(w_b)) % 2 ** 64
+                        self.reg[r_d] = (a + (1 << 64) - b) & MASK64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_mul_64:
-                        self.reg[r_d] = (w_a * w_b) #% 2**64
+                        self.reg[r_d] = (a * b) & MASK64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_div_u_64:
-                        if w_b == 0:
-                            self.reg[r_d] = 2 ** 64 - 1
+                        if b == 0:
+                            self.reg[r_d] = (1 << 64) - 1
                         else:
-                            self.reg[r_d] = w_a // w_b
+                            self.reg[r_d] = a // b
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_div_s_64:
-                        if w_b == 0:
-                            self.reg[r_d] = 2 ** 64 - 1
-                        elif pvm_Z(w_a, 8) == -2 ** 63 and pvm_Z(w_b, 8) == -1:
-                            self.reg[r_d] = w_a
+                        if b == 0:
+                            self.reg[r_d] = (1 << 64) - 1
+                        elif pvm_Z(a, 8) == -(1 << 63) and pvm_Z(b, 8) == -1:
+                            self.reg[r_d] = a
                         else:
                             self.reg[r_d] = pvm_Z_inv(
                                 pvm_rtz_div(
-                                    pvm_Z(w_a, 8),
-                                    pvm_Z(w_b, 8)
+                                    pvm_Z(a, 8),
+                                    pvm_Z(b, 8)
                                 ),
                                 8
                             )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rem_u_64:
-                        if w_b == 0:
-                            self.reg[r_d] = w_a
+                        if b == 0:
+                            self.reg[r_d] = a
                         else:
-                            self.reg[r_d] = w_a % w_b
+                            self.reg[r_d] = a % b
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rem_s_64:
-                        a = pvm_Z(w_a, 8)
-                        b = pvm_Z(w_b, 8)
+                        a_s64 = pvm_Z(a, 8)
+                        b_s64 = pvm_Z(b, 8)
 
-                        if w_b == 0:
-                            self.reg[r_d] = w_a
-                        elif a == -2**63 and b == -1:
+                        if b == 0:
+                            self.reg[r_d] = a
+                        elif a_s64 == -(1 << 63) and b_s64 == -1:
                             self.reg[r_d] = 0
                         else:
-                            self.reg[r_d] = pvm_Z_inv(pvm_smod(a, b), 8)
+                            self.reg[r_d] = pvm_Z_inv(pvm_smod(a_s64, b_s64), 8)
 
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shlo_l_64:
-                        self.reg[r_d] = (w_a * 2**(w_b % 64)) #% 2**64
+                        self.reg[r_d] = (a << (b & 63)) & MASK64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shlo_r_64:
-                        self.reg[r_d] = w_a // 2 ** (w_b % 64)
+                        self.reg[r_d] = a >> (b & 63)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shar_r_64:
-                        self.reg[r_d] = pvm_Z_inv(np.int64(pvm_Z(w_a, 8)) >> np.int64(np.uint64(w_b) & np.uint64(63)), 8)
-                        # self.reg[r_d] = pvm_Z_inv(
-                        #     pvm_Z(w_a, 8) // 2 ** (w_b % 64),
-                        #     8
-                        # )
+                        self.reg[r_d] = pvm_Z_inv(int(np.int64(pvm_Z(a, 8))) >> (b & 63), 8)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_and:
-                        self.reg[r_d] = self.reg[r_a] & self.reg[r_b]
+                        self.reg[r_d] = a & b
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_xor:
-                        self.reg[r_d] = self.reg[r_a] ^ self.reg[r_b]
+                        self.reg[r_d] = a ^ b
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_or:
-                        self.reg[r_d] = self.reg[r_a] | self.reg[r_b]
+                        self.reg[r_d] = a | b
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_mul_upper_s_s:
                         self.reg[r_d] = pvm_Z_inv(
-                            (pvm_Z(w_a, 8) * pvm_Z(w_b, 8)) // 2 ** 64,
+                            (pvm_Z(a, 8) * pvm_Z(b, 8)) >> 64,
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_mul_upper_u_u:
-                        self.reg[r_d] = int(w_a) * int(w_b) // 2 ** 64
+                        self.reg[r_d] = (a * b) >> 64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
 
                     elif opcode == op_mul_upper_s_u:
                         self.reg[r_d] = pvm_Z_inv(
-                            (pvm_Z(w_a, 8) * int(w_b)) // 2 ** 64,
+                            (pvm_Z(a, 8) * b) >> 64,
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_set_lt_u:
-                        self.reg[r_d] = np.uint64(w_a < w_b)
+                        self.reg[r_d] = int(a < b)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_set_lt_s:
-                        self.reg[r_d] = pvm_Z(w_a, 8) < pvm_Z(w_b, 8)
+                        self.reg[r_d] = int(pvm_Z(a, 8) < pvm_Z(b, 8))
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_cmov_iz:
-                        if w_b == 0:
-                            self.reg[r_d] = w_a
+                        if b == 0:
+                            self.reg[r_d] = a
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_cmov_nz:
-                        if w_b != 0:
-                            self.reg[r_d] = w_a
+                        if b != 0:
+                            self.reg[r_d] = a
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rot_l_64:
-                        self.reg[r_d] = roli64(w_a, w_b % 64)
+                        self.reg[r_d] = roli64(a, b & 63)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rot_l_32:
-                        self.reg[r_d] = pvm_X(roli32(w_a, w_b % 32), 4)
+                        self.reg[r_d] = pvm_X(rotl32(a, b), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rot_r_64:
-                        self.reg[r_d] = rori64(w_a, w_b % 64)
+                        self.reg[r_d] = rori64(a, b & 63)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_rot_r_32:
-                        self.reg[r_d] = pvm_X(rori32(w_a, w_b % 32), 4)
+                        self.reg[r_d] = pvm_X(rotr32(a, b), 4)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_and_inv:
-                        self.reg[r_d] = w_a & ~w_b
+                        self.reg[r_d] = a & (~b & MASK64)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_or_inv:
-                        self.reg[r_d] = w_a | ~w_b
+                        self.reg[r_d] = a | (~b & MASK64)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_xnor:
-                        self.reg[r_d] = np.uint64(~(w_a ^ w_b))
+                        self.reg[r_d] = ~(a ^ b) & MASK64
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_max:
-                        #TODO: should probably just cast to U64 <-> I64 ??
                         self.reg[r_d] = pvm_Z_inv(
-                            max(pvm_Z(w_a, 8), pvm_Z(w_b, 8)),
+                            max(pvm_Z(a, 8), pvm_Z(b, 8)),
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_max_u:
-                        self.reg[r_d] = max(w_a,  w_b)
+                        self.reg[r_d] = max(a, b)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_min:
                         self.reg[r_d] = pvm_Z_inv(
-                            min(pvm_Z(w_a, 8), pvm_Z(w_b, 8)),
+                            min(pvm_Z(a, 8), pvm_Z(b, 8)),
                             8
                         )
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_min_u:
-                        self.reg[r_d] = min(w_a,  w_b)
+                        self.reg[r_d] = min(a, b)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     else:
