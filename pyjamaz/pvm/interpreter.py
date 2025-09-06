@@ -8,7 +8,6 @@ from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
 from .types import PVMProgram, PVMMemory, PVMMemoryMode
 
 from .constants import (
-    OpcodeScheme,
     ExitReason,
     MemOps,
     OpcodeNames,
@@ -51,18 +50,17 @@ from .constants import (
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
-def rori64(x, shift_amount):
-    x = int(x)
-    shift_amount = int(shift_amount) & 63
-    return ((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
+# Numpy aliasses
+U8 = np.uint8
+U16 = np.uint16
+U32 = np.uint32
+U64 = np.uint64
+I8 = np.int8
+I16 = np.int16
+I32 = np.int32
+I64 = np.int64
 
-
-def roli64(x, shift_amount):
-    x = int(x)
-    shift_amount = int(shift_amount) & 63
-    return ((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
-
-
+# Python coercing helpers (should refactor to coresponding numpy types for native)
 MASK8 = (1 << 8) - 1
 MASK16 = (1 << 16) - 1
 MASK32 = (1 << 32) - 1
@@ -108,6 +106,20 @@ def s64(x: int) -> int:
     x &= MASK64
     return x - (1 << 64) if x & SIGN64 else x
 
+
+# Pvm helper functions:
+def rori64(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 63
+    return ((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
+
+
+def roli64(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 63
+    return ((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
+
+
 def rotl32(x, s):
     s = int(s) & 31
     x = int(x) & MASK32
@@ -141,8 +153,7 @@ def reverse_bytes(x):
         Optimized using Python's built-in bytes operations.
         Provides ~4x speedup over bitwise operations.
     """
-    x = int(x)
-    return int.from_bytes(x.to_bytes(8, 'big'), 'little')
+    return struct.unpack('<Q', struct.pack('>Q', x))[0]
 
 
 def count_trailing_zeroes(value, max_bits=64):
@@ -194,6 +205,7 @@ def pvm_smod(a: int, b: int) -> int:
         else:
             return -((-a) % (-b))
 
+
 def pvm_rtz_div(a: int, b: int) -> int:
     """
     Truncated division (rounds toward zero).
@@ -206,9 +218,6 @@ def pvm_rtz_div(a: int, b: int) -> int:
         Provides ~1.4x speedup while maintaining exact correctness for all integer values.
         This approach avoids floating point precision issues with very large integers.
     """
-    a = int(a)
-    b = int(b)
-
     if a >= 0:
         if b > 0:
             return a // b
@@ -221,16 +230,12 @@ def pvm_rtz_div(a: int, b: int) -> int:
             return (-a) // (-b)
 
 
-def pvm_X(x: np.uint64, n: np.uint8) -> np.uint64:
+def pvm_X(x: int, n: int) -> int:
     """
     Sign extend a number to two's complement form for value X and number of bytes n
 
     Optimized version using bit operations.
     """
-    # Convert to Python int to handle all numpy types
-    x = int(x)
-    n = int(n)
-
     # Optimized sign extension for each n
     if n == 1:
         masked = x & 0xFF
@@ -289,92 +294,26 @@ def pvm_X(x: np.uint64, n: np.uint8) -> np.uint64:
         return x
 
 
-# Precomputed lookup tables for common n values (1, 2, 4, 8)
-_PVM_Z_BOUNDARY = {
-    1: 1 << 7,  # 2^7 = 128
-    2: 1 << 15,  # 2^15 = 32768
-    4: 1 << 31,  # 2^31
-    8: 1 << 63  # 2^63
-}
-
-_PVM_Z_MAX_VALUE = {
-    1: 1 << 8,  # 2^8 = 256
-    2: 1 << 16,  # 2^16 = 65536
-    4: 1 << 32,  # 2^32
-    8: 18446744073709551616  # 2^64 (explicitly set as Python int)
-}
-
-_PVM_Z_MASK = {
-    1: 0xFF,  # 8 bits
-    2: 0xFFFF,  # 16 bits
-    4: 0xFFFFFFFF,  # 32 bits
-    8: 0xFFFFFFFFFFFFFFFF  # 64 bits
-}
-
-
-def pvm_Z(a: int, n: np.uint8) -> int:
+def pvm_Z(a: int, n: int) -> int:
     """
-    Transform an unsigned number into a signed number using the MSB
-
-    Note:
-        Optimized using lookup tables for common cases (n=1,2,4,8)
-        and bitwise operations for better performance.
+    Interpret the low n bytes of `a` as a signed two's-complement integer.
     """
-    n = int(n)
+    if n <= 0:
+        return 0
     a = int(a)
-
-    # fast path for common cases
-    if n in _PVM_Z_BOUNDARY:
-        boundary = _PVM_Z_BOUNDARY[n]
-        if a < boundary:
-            return int(a)
-        # for large values, use numpy's casting which handles wraparound
-        if n == 8:
-            # For n=8, directly cast uint64 to int64 (reinterprets bits), then to python int
-            return int(np.int64(np.uint64(a)))
-        elif n == 4:
-            # for n=4, similar handling for 32-bit values
-            result = a - _PVM_Z_MAX_VALUE[n]
-            return int(np.int32(result))
-        else:
-            return int(a - _PVM_Z_MAX_VALUE[n])
-
-    # fallback for other values of n
-    shift = (n << 3) - 1  # n * 8 - 1
-    boundary = 1 << shift
-    if a < boundary:
-        return int(a)
-    return int(a - (1 << (shift + 1)))
+    bits = n * 8
+    mask = (1 << bits) - 1
+    sign = 1 << (bits - 1)
+    u = a & mask
+    return (u ^ sign) - sign
 
 
-def pvm_Z_inv(a: int, n: np.uint8) -> np.uint64:
-    """
-    Transform a signed number to an unsigned number
-
-    Note:
-        Optimized using bitwise operations and lookup tables for better performance.
-    """
-    n = int(n)
-
-    # fast path for common cases
-    if n in _PVM_Z_MASK:
-        if a >= 0:
-            # For n=8 and large positive values, handle specially
-            if n == 8 and a > 2 ** 63:
-                return np.uint64(a)
-            return np.uint64(a) & _PVM_Z_MASK[n]
-        # For negative numbers, handle n=8 specially to avoid overflow
-        if n == 8:
-            # For n=8, use numpy casting which handles wraparound correctly
-            return np.uint64(np.int64(a))
-        return np.uint64((a + _PVM_Z_MAX_VALUE[n]) & _PVM_Z_MASK[n])
-
-    # ffallback for other values of n
-    shift = n << 3  # n * 8
-    mask = (1 << shift) - 1
-    if a >= 0:
-        return np.uint64(a & mask)
-    return np.uint64((a + (1 << shift)) & mask)
+def pvm_Z_inv(a: int, n: int) -> int:
+    if n <= 0:
+        return 0
+    bits = n * 8
+    mask = (1 << bits) - 1
+    return u64(a) & mask
 
 
 def read_uint(mem, addr, n):
@@ -401,14 +340,14 @@ class PVMInterpreter:
 
     def __init__(self, program: PVMProgram, logger_cls=None):
         self.name = program.name
-        self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
-        self.inst_nr:np.uint32 = np.uint32(0)
-        self.pc:np.uint32 = np.uint32(0)
+        self.reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
+        self.inst_nr:U32 = U32(0)
+        self.pc:U32 = U32(0)
         self.opcode:int = 0
         self.skip_len: int = 0
-        self.gas:np.int64 = np.int64(0)
-        self.code:npt.NDArray[np.uint8] = np.array(1, dtype=np.uint8)
-        self.code_size: np.uint64 = np.uint64(0)
+        self.gas:I64 = I64(0)
+        self.code:npt.NDArray[U8] = np.array(1, dtype=U8)
+        self.code_size: U64 = U64(0)
         self.jump_table = []
 
         self.inst_bitmask: List[bool] = []
@@ -424,9 +363,9 @@ class PVMInterpreter:
 
         # Initialize memory sections storage
         self.mem_sections = []
-        self.mem_section_starts = np.array([], dtype=np.uint32)
-        self.mem_section_ends = np.array([], dtype=np.uint32)
-        self.mem_section_size = np.array([], dtype=np.uint32)
+        self.mem_section_starts = np.array([], dtype=U32)
+        self.mem_section_ends = np.array([], dtype=U32)
+        self.mem_section_size = np.array([], dtype=U32)
         self.mem_acl: Dict[int, int] = {}
 
         self._mem_addr: int = -1
@@ -514,12 +453,12 @@ class PVMInterpreter:
 
 
     def reset(self, program: PVMProgram):
-        self.pc = np.uint32(0)
-        self.gas = np.int64(0)
+        self.pc = U32(0)
+        self.gas = I64(0)
 
         self.name = program.name
-        self.code:npt.NDArray[np.uint8] = np.array(program.code.code, dtype=np.uint8)
-        self.code_size: np.uint64 = np.uint64(len(self.code))
+        self.code:npt.NDArray[U8] = np.array(program.code.code, dtype=U8)
+        self.code_size: U64 = U64(len(self.code))
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
 
@@ -527,7 +466,7 @@ class PVMInterpreter:
         self._link_memory(program.memory)
 
         for idx, val in enumerate(program.registers):
-            self.reg[idx] = np.uint64(val)
+            self.reg[idx] = U64(val)
 
         self.status = ExitReason.resume.value
 
@@ -544,7 +483,7 @@ class PVMInterpreter:
     def _init_mem_ops_lookup(self):
         """Initialize memory operation lookups as numpy arrays for fast access"""
         # Create lookup arrays for memory operations
-        self.mem_ops_bytes = np.zeros(256, dtype=np.uint8)
+        self.mem_ops_bytes = np.zeros(256, dtype=U8)
         self.mem_ops_read = np.zeros(256, dtype=np.bool_)
         self.mem_ops_write = np.zeros(256, dtype=np.bool_)
 
@@ -594,9 +533,9 @@ class PVMInterpreter:
                 mem_section_size.append(0)
                 self._sec_mv[idx] = None
 
-        self.mem_section_starts = np.array(mem_section_starts, dtype=np.uint32)
-        self.mem_section_ends = np.array(mem_section_ends, dtype=np.uint32)
-        self.mem_section_size = np.array(mem_section_size, dtype=np.uint32)
+        self.mem_section_starts = np.array(mem_section_starts, dtype=U32)
+        self.mem_section_ends = np.array(mem_section_ends, dtype=U32)
+        self.mem_section_size = np.array(mem_section_size, dtype=U32)
         self.mem_acl = memory._acl #TODO: pure ref for now, use from numba.typed import Dict for jit version
 
 
@@ -632,7 +571,7 @@ class PVMInterpreter:
 
             # Only grow when we exceed pre-allocated heap mem
             if new_heap_end - self.mem_section_starts[1] > len(heap):
-                heap = np.concatenate((heap, np.zeros(growth, dtype=np.uint8)))
+                heap = np.concatenate((heap, np.zeros(growth, dtype=U8)))
                 self.mem_sections[1] = heap
                 self._sec_mv[1] = memoryview(self.mem_sections[1])
                 #logging.critical(f"EXTENDING HEAP: {heap.size}")
