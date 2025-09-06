@@ -911,7 +911,7 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_imm_imm:  # InstructionType.reg_imm_imm
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = min(12, self.code[self.pc + 1] % 16)
-                    w_a = int(self.reg[r_a])
+                    w_a = self.reg[r_a]
 
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
                     l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
@@ -943,7 +943,7 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_imm_offset:  # InstructionType.reg_imm_offset
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
                     r_a = min(12, self.code[self.pc + 1] % 16)
-                    w_a = int(self.reg[r_a])
+                    w_a = self.reg[r_a]
 
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
                     l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
@@ -1067,8 +1067,8 @@ class PVMInterpreter:
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     r_b = min(12, self.code[self.pc + 1] // 16)
 
-                    w_a = int(self.reg[r_a])
-                    w_b = int(self.reg[r_b])
+                    w_a = self.reg[r_a]
+                    w_b = self.reg[r_b]
 
                     l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
                     v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
@@ -1180,11 +1180,16 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_alt_32:
-                        self.reg[r_a] = pvm_Z_inv(
-                            pvm_Z(v_x % 2 ** 32, 4) // 2 ** (w_b % 32),
-                            8
-                        )
+                        #self.reg[r_a] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(v_x), 4)) >> np.int64(np.uint32(w_b) & np.uint32(31)), 8)
+                        #self.reg[r_a] = pvm_Z_inv(int(pvm_Z(v_x % 2 ** 32, 4)) // int(2 ** (w_b % 32)),8)
+                        # shift = int(w_b) & 31
+                        # num = int(pvm_Z(v_x & 0xFFFFFFFF, 4))
+                        # den = 1 << shift
+                        # self.reg[r_a] = pvm_Z_inv(num // den, 8)
+                        shift = int(w_b) & 31
+                        self.reg[r_a] = pvm_Z_inv(int(pvm_Z(v_x & 0xFFFFFFFF, 4)) >> shift, 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
+
                     elif opcode == op_cmov_iz_imm:
                         if w_b == 0:
                             self.reg[r_a] = v_x
@@ -1196,7 +1201,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_add_imm_64:
-                        self.reg[r_a] = (w_b + v_x) % 2**64
+                        self.reg[r_a] = (w_b + v_x)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_mul_imm_64:
@@ -1223,7 +1228,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_l_imm_alt_64:
-                        self.reg[r_a] = (v_x * 2**(w_b % 64)) % 2**64
+                        self.reg[r_a] = np.uint64((v_x * 2**(w_b % 64)))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_alt_64:
@@ -1260,8 +1265,8 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_reg_offset:  # InstructionType.reg_reg_offset
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     r_b = min(12, self.code[self.pc + 1] // 16)
-                    w_a = int(self.reg[r_a])
-                    w_b = int(self.reg[r_b])
+                    w_a = self.reg[r_a]
+                    w_b = self.reg[r_b]
 
                     l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
                     v_x = pvm_Z(read_uint(self.code, self.pc + 2, l_x), l_x)
@@ -1300,7 +1305,7 @@ class PVMInterpreter:
                     r_b = self.code[self.pc + 1] // 16
 
                     #w_a = self.reg[r_a]
-                    w_b = int(self.reg[r_b])
+                    w_b = self.reg[r_b]
 
                     l_x = int(min(4, self.code[self.pc + 2] % 8))
                     v_x = pvm_X(read_uint(self.code, self.pc + 3, l_x), l_x)
@@ -1322,8 +1327,8 @@ class PVMInterpreter:
                     r_b = min(12, self.code[self.pc + 1] // 16)
                     r_d = min(12, self.code[self.pc + 2])
 
-                    w_a = int(self.reg[r_a])
-                    w_b = int(self.reg[r_b])
+                    w_a = self.reg[r_a]
+                    w_b = self.reg[r_b]
 
                     if opcode == op_add_32:
                         self.reg[r_d] = pvm_X((w_a + w_b) % 2**32, 4)
@@ -1388,10 +1393,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shar_r_32:
-                        self.reg[r_d] = pvm_Z_inv(
-                            pvm_Z(w_a % 2 ** 32, 4) // 2 ** (w_b % 32),
-                            8
-                        )
+                        # self.reg[r_d] = pvm_Z_inv(
+                        #     pvm_Z(np.uint32(w_a), 4) // int(2 ** w_b),
+                        #     8
+                        # )
+                        self.reg[r_d] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(w_a), 4)) >> np.int64(np.uint32(w_b) & np.uint32(31)), 8)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_add_64:
