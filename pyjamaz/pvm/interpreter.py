@@ -1193,12 +1193,6 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_alt_32:
-                        #self.reg[r_a] = pvm_Z_inv(np.int32(pvm_Z(np.uint32(v_x), 4)) >> np.int64(np.uint32(w_b) & np.uint32(31)), 8)
-                        #self.reg[r_a] = pvm_Z_inv(int(pvm_Z(v_x % 2 ** 32, 4)) // int(2 ** (w_b % 32)),8)
-                        # shift = int(w_b) & 31
-                        # num = int(pvm_Z(v_x & 0xFFFFFFFF, 4))
-                        # den = 1 << shift
-                        # self.reg[r_a] = pvm_Z_inv(num // den, 8)
                         shift = int(w_b) & 31
                         self.reg[r_a] = pvm_Z_inv(int(pvm_Z(v_x & 0xFFFFFFFF, 4)) >> shift, 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
@@ -1480,7 +1474,9 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_shar_r_64:
-                        self.reg[r_d] = pvm_Z_inv(int(np.int64(pvm_Z(a, 8))) >> (b & 63), 8)
+                        signed_val = pvm_Z(a, 8)
+                        shifted = signed_val >> (b & 63)
+                        self.reg[r_d] = pvm_Z_inv(shifted, 8)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_and:
