@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
+import struct
 from typing import List, Dict
 
 from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
@@ -358,24 +359,22 @@ def pvm_Z_inv(a: int, n: np.uint8) -> np.uint64:
     return np.uint64((a + (1 << shift)) & mask)
 
 
-def read_uint(code, addr32, len8):
-    if len8 == 0:
+def read_uint(mem, addr, n):
+    if n == 0:
         return 0 & 0xFF
-
-    if len8 == 1:
-        return int(code[addr32] & 0xFF)
-
-    if len8 == 2:
-        return (int(code[addr32+0]) & 0xFF) | ((int(code[addr32+1]) & 0xFF) << 8)
-
-    if len8 == 3:
-        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16)
-
-    if len8 == 4:
-        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24)
-
-    if len8 ==8:
-        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8)  | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24) | ((int(code[addr32 + 4]) & 0xFF) << 32) | ((int(code[addr32 + 5]) & 0xFF) << 40) | ((int(code[addr32 + 6]) & 0xFF) << 48) | ((int(code[addr32 + 7]) & 0xFF) << 56)
+    if n == 1:
+        return mem[addr]
+    elif n == 2:
+        return struct.unpack_from('<H', mem, addr)[0]
+    elif n == 4:
+        return struct.unpack_from('<I', mem, addr)[0]
+    elif n == 8:
+        return struct.unpack_from('<Q', mem, addr)[0]
+    elif n == 3:
+        # lo = struct.unpack_from('<H', mem, addr)[0]
+        # hi = struct.unpack_from('<B', mem, addr + 2)[0]
+        # return lo | (hi << 16)
+        return struct.unpack_from('<I', mem, addr)[0] & 0x00FFFFFF
 
     raise Exception("read_uint: unsupported length")
 
@@ -426,6 +425,9 @@ class PVMInterpreter:
         self.mem_inaccesible = PVMMemoryMode.inaccesible.value
         self.mem_readable = PVMMemoryMode.readable.value
         self.mem_writable = PVMMemoryMode.writable.value
+
+        self.mv_code = None
+        self._sec_mv = [None, None, None, None]
 
         self.log = None
 
@@ -542,6 +544,8 @@ class PVMInterpreter:
         mem_section_ends = []  # This will use paged_tail, not size
         mem_section_size = []
 
+        self.mv_code = memoryview(self.code)
+
         # Access the actual memory sections (rom, heap, stack, args)
         for idx, section in enumerate([memory._rom, memory._heap, memory._stack, memory._args]):
 
@@ -564,11 +568,13 @@ class PVMInterpreter:
                 mem_section_starts.append(section.address)
                 mem_section_ends.append(section.paged_tail)
                 mem_section_size.append(section.size)
+                self._sec_mv[idx] = memoryview(section.contents)
             else:
                 self.mem_sections.append(None)
                 mem_section_starts.append(0)
                 mem_section_ends.append(0)
                 mem_section_size.append(0)
+                self._sec_mv[idx] = None
 
         self.mem_section_starts = np.array(mem_section_starts, dtype=np.uint32)
         self.mem_section_ends = np.array(mem_section_ends, dtype=np.uint32)
@@ -610,6 +616,7 @@ class PVMInterpreter:
             if new_heap_end - self.mem_section_starts[1] > len(heap):
                 heap = np.concatenate((heap, np.zeros(growth, dtype=np.uint8)))
                 self.mem_sections[1] = heap
+                self._sec_mv[1] = memoryview(self.mem_sections[1])
                 #logging.critical(f"EXTENDING HEAP: {heap.size}")
 
             # Create ACL of new pages
@@ -666,25 +673,18 @@ class PVMInterpreter:
         if bytes_to_write < 8:
             value = value % (2 ** (bytes_to_write * 8))
         # Write bytes in little-endian order
-        if bytes_to_write == 1:
-            section[section_offset] = value & 0xFF
-        elif bytes_to_write == 2:
-            section[section_offset] =value & 0xFF
-            section[section_offset + 1] =(value >> 8) & 0xFF
-        elif bytes_to_write == 4:
-            section[section_offset] = value & 0xFF
-            section[section_offset + 1] = (value >> 8) & 0xFF
-            section[section_offset + 2] = (value >> 16) & 0xFF
-            section[section_offset + 3] = (value >> 24) & 0xFF
-        elif bytes_to_write == 8:
-            section[section_offset] = value & 0xFF
-            section[section_offset + 1] = (value >> 8) & 0xFF
-            section[section_offset + 2] = (value >> 16) & 0xFF
-            section[section_offset + 3] = (value >> 24) & 0xFF
-            section[section_offset + 4] = (value >> 32) & 0xFF
-            section[section_offset + 5] = (value >> 40) & 0xFF
-            section[section_offset + 6] = (value >> 48) & 0xFF
-            section[section_offset + 7] = (value >> 56) & 0xFF
+        mv = self._sec_mv[section_idx]
+        n = bytes_to_write
+        if n == 1:
+            mv[section_offset] = value & 0xFF
+        elif n == 2:
+            struct.pack_into('<H', mv, section_offset, value)
+        elif n == 4:
+            struct.pack_into('<I', mv, section_offset, value)
+        elif n == 8:
+            struct.pack_into('<Q', mv, section_offset, value)
+        else:
+            raise PVMMemoryError(f"Invalid write length: {bytes_to_write}")
 
 
     def _mem_read_int(self, addr: int, bytes_to_read: int):
@@ -745,7 +745,8 @@ class PVMInterpreter:
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
 
         # Read bytes in little-endian order
-        return read_uint(section, section_offset, bytes_to_read)
+        return read_uint(self._sec_mv[section_idx], section_offset, bytes_to_read)
+
 
     #GP-0.6.7-section:A.15
     def djump(self, a: int):
@@ -759,6 +760,7 @@ class PVMInterpreter:
             raise PanicError(f"Invalid djump operation: a={a}")
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
+
 
     def get_exit_condition(self) -> ExitCondition:
         exit_value = None
@@ -779,6 +781,7 @@ class PVMInterpreter:
             exit_value = b''
 
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
+
 
     def next_instruction(self):
         inst_index = self.inst_pos[self.pc]
@@ -836,7 +839,7 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.2
                 elif inst_type == inst_imm:  # InstructionType.imm
                     l_x = int(min(4, self.inst_arg_len[inst_index]))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 1, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 1, l_x), l_x)
 
                     if opcode == op_ecalli:
                         self.status = ExitReason.host_halt.value
@@ -849,7 +852,7 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_ext_imm:  # InstructionType.reg_ext_imm
 
                     r_a = min(12, self.code[self.pc + 1] % 16)
-                    v_x = read_uint(self.code, self.pc + 2, 8)
+                    v_x = read_uint(self.mv_code, self.pc + 2, 8)
 
                     if opcode == op_load_imm_64:
                         self.reg[r_a] = v_x
@@ -862,8 +865,8 @@ class PVMInterpreter:
 
                     l_x = int(min(4, self.code[self.pc + 1] % 8))
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
-                    v_y = pvm_X(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
+                    v_y = pvm_X(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
 
                     if opcode == op_store_imm_u8:
                         self.mem_write(opcode, v_x, v_y % 2 ** 8)
@@ -884,7 +887,7 @@ class PVMInterpreter:
                 elif inst_type == inst_offset:  # InstructionType.offset
 
                     l_x = int(min(4, self.inst_arg_len[inst_index]))
-                    v_x = pvm_Z(read_uint(self.code, self.pc + 1, l_x), l_x)
+                    v_x = pvm_Z(read_uint(self.mv_code, self.pc + 1, l_x), l_x)
 
                     if opcode == op_jump:
                         self.skip_len = v_x
@@ -897,7 +900,7 @@ class PVMInterpreter:
                 elif inst_type == inst_reg_imm:  # InstructionType.reg_imm
                     r_a = min(12, self.code[self.pc + 1] % 16)
                     l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     if opcode == op_jump_ind:
                         self.skip_len = self.djump((self.reg[r_a]+v_x))
@@ -962,10 +965,10 @@ class PVMInterpreter:
 
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
                     l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
-                    v_y = pvm_X(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
+                    v_y = pvm_X(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
 
                     if opcode == op_store_imm_ind_u8:
                         self.mem_write(opcode, w_a + v_x, u8(v_y))
@@ -994,10 +997,10 @@ class PVMInterpreter:
 
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
                     l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
-                    v_y = pvm_Z(read_uint(self.code, self.pc + 2 + l_x, l_y), l_y)
+                    v_y = pvm_Z(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
 
                     if opcode == op_load_imm_jump:
                         self.skip_len = v_y
@@ -1118,7 +1121,7 @@ class PVMInterpreter:
                     w_b = self.reg[r_b]
 
                     l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     if opcode == op_store_ind_u8:
                         self.mem_write(opcode, w_b + v_x, u8(w_a))
@@ -1312,7 +1315,7 @@ class PVMInterpreter:
                     w_b = self.reg[r_b]
 
                     l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
-                    v_x = pvm_Z(read_uint(self.code, self.pc + 2, l_x), l_x)
+                    v_x = pvm_Z(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     if opcode == op_branch_eq:
                         self.branch(v_x, w_a == w_b)
@@ -1351,10 +1354,10 @@ class PVMInterpreter:
                     w_b = self.reg[r_b]
 
                     l_x = int(min(4, self.code[self.pc + 2] % 8))
-                    v_x = pvm_X(read_uint(self.code, self.pc + 3, l_x), l_x)
+                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 3, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 2)))
-                    v_y = pvm_X(read_uint(self.code, self.pc + 3 + l_x, l_y), l_y)
+                    v_y = pvm_X(read_uint(self.mv_code, self.pc + 3 + l_x, l_y), l_y)
 
                     if opcode == op_load_imm_jump_ind:
                         self.reg[r_a] = v_x

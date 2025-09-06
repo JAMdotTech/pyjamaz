@@ -33,7 +33,7 @@ def hc_historical_lookup(
     --------------------------
     haal preimage op adv serviceaccount, timeslot en preimagehash en schrijf (deels?) deze weg in memory
     """
-    logger.hc_regs(f"HISTORICAL_LOOKUP", "refine")
+    logger and logger.hc_regs(f"HISTORICAL_LOOKUP", "refine")
     invocation_output.gas_limit -= 10
 
     try:
@@ -96,7 +96,7 @@ def hc_export(
     --------------------------
     Leest een stuk geheugen uit en plaatst voegt dit toe aan e (export segments)
     """
-    logger.hc_regs(f"EXPORT", "refine")
+    logger and logger.hc_regs(f"EXPORT", "refine")
 
     p = registers[7]
     z = min(registers[8], EC_SEGMENT_SIZE)
@@ -129,7 +129,7 @@ def hc_machine(
     --------------------------
     Initializeerd een nieuwe PVM instance
     """
-    logger.hc_regs(f"MACHINE", "refine")
+    logger and logger.hc_regs(f"MACHINE", "refine")
 
     p_o = registers[7]
     p_z = registers[8]
@@ -189,7 +189,7 @@ def hc_peek(
     --------------------------
     Leest een stuk geheugen uit een inner PVM instance
     """
-    logger.hc_regs(f"PEEK", "refine")
+    logger and logger.hc_regs(f"PEEK", "refine")
 
     n = registers[7]
     o = registers[8]
@@ -225,7 +225,7 @@ def hc_poke(
     --------------------------
     Plaatst een stuk geheugen in een inner PVM instance
     """
-    logger.hc_regs(f"POKE", "refine")
+    logger and logger.hc_regs(f"POKE", "refine")
 
     n = registers[7]
     s = registers[8]
@@ -264,7 +264,7 @@ def hc_pages(
     --------------------------
     Alloceert een stuk geheugfen van een inner PVM instance
     """
-    logger.hc_regs(f"PAGES", "refine")
+    logger and logger.hc_regs(f"PAGES", "refine")
 
     n = registers[7]
     p = registers[8]
@@ -314,7 +314,7 @@ def hc_invoke(
     regs: The initial register values of the inner PVM.
     Returns the outcome of the invocation, together with any remaining gas, and the final register values.
     """
-    logger.hc_regs(f"INVOKE", "refine")
+    logger and logger.hc_regs(f"INVOKE", "refine")
 
     n = registers[7]
     o = registers[8]
@@ -403,7 +403,7 @@ def hc_expunge(
     --------------------------
     Verwijderd een inner PVM
     """
-    logger.hc_regs(f"EXPUNGE", "refine")
+    logger and logger.hc_regs(f"EXPUNGE", "refine")
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
