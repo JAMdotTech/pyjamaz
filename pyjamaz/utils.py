@@ -1,11 +1,16 @@
+import inspect
 import itertools
+import logging
+import time
 from base64 import b32encode
+from functools import wraps
 from math import floor
 from typing import List, Optional
 
 from pyjamaz.graypaper_constants import CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, ROTATION_PERIOD_CORE
 
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.settings import DEBUG
 
 
 def reorder_list_outside_in(items: list) -> list:
@@ -185,3 +190,44 @@ def ed25519_pubkey_from_peer_id(peer_id: str) -> bytes:
 
 def sum_dict_values(d1: dict, d2: dict) -> dict:
     return {k: d1.get(k, 0) + d2.get(k, 0) for k in set(d1) | set(d2)}
+
+
+def log_execution_time(func):
+    if not DEBUG:
+        return func
+
+    @wraps(func)
+    def _name(*args):
+        func_name = func.__name__
+        if args:
+            first = args[0]
+
+            if isinstance(first, type):
+                class_name = first.__name__
+                return f"{class_name}.{func_name}"
+
+            if hasattr(first, "__class__"):
+                class_name = first.__class__.__name__
+                return f"{class_name}.{func_name}"
+        return func_name
+
+    if inspect.iscoroutinefunction(func):
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            start_time = time.perf_counter()
+            result = await func(*args, **kwargs)
+            end_time = time.perf_counter()
+            execution_time = end_time - start_time
+            logging.info(f"⏱️ {_name(*args)} executed in {execution_time:.6f} seconds")
+            return result
+        return async_wrapper
+    else:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.perf_counter()
+            result = func(*args, **kwargs)
+            end_time = time.perf_counter()
+            execution_time = end_time - start_time
+            logging.info(f"⏱️ {_name(*args)} executed in {execution_time:.6f} seconds")
+            return result
+        return wrapper
