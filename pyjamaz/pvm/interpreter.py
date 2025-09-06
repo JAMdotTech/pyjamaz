@@ -1568,11 +1568,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_set_lt_u:
-                        self.reg[r_d] = int(a < b)
+                        self.reg[r_d] = u64(a < b)
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_set_lt_s:
-                        self.reg[r_d] = int(pvm_Z(a, 8) < pvm_Z(b, 8))
+                        self.reg[r_d] = u64(pvm_Z(a, 8) < pvm_Z(b, 8))
                         self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                     elif opcode == op_cmov_iz:
