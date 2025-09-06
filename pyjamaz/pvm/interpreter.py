@@ -52,10 +52,14 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
 def rori64(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 63
     return ((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
 
 def roli64(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 63
     return ((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
 
@@ -69,48 +73,60 @@ SIGN32 = 1 << 31
 SIGN64 = 1 << 63
 
 def u8(x: int) -> int:
+    x = int(x)
     return x & MASK8
 
 def s8(x: int) -> int:
+    x = int(x)
     x &= MASK8
     return x - (1 << 8) if x & SIGN8 else x
 
 def u16(x: int) -> int:
+    x = int(x)
     return x & MASK16
 
 def s16(x: int) -> int:
+    x = int(x)
     x &= MASK16
     return x - (1 << 16) if x & SIGN16 else x
 
 def u32(x: int) -> int:
+    x = int(x)
     return x & MASK32
 
 def s32(x: int) -> int:
+    x = int(x)
     x &= MASK32
     return x - (1 << 32) if x & SIGN32 else x
 
 def u64(x: int) -> int:
+    x = int(x)
     return x & MASK64
 
 def s64(x: int) -> int:
+    x = int(x)
     x &= MASK64
     return x - (1 << 64) if x & SIGN64 else x
 
 def rotl32(x, s):
-    s &= 31
-    x &= MASK32
+    s = int(s) & 31
+    x = int(x) & MASK32
     return ((x << s) | (x >> (32 - s))) & MASK32
 
 def rotr32(x, s):
-    s &= 31
-    x &= MASK32
+    s = int(s) & 31
+    x = int(x) & MASK32
     return ((x >> s) | (x << (32 - s))) & MASK32
 
 def rori32(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 31
     return ((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF
 
 
 def roli32(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 31
     return ((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF
 
 
@@ -133,6 +149,7 @@ def count_trailing_zeroes(value, max_bits=64):
     # https://stackoverflow.com/a/63552117
     # https://github.com/numpy/numpy/issues/16325
     # alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
+    value = int(value)
     if value == 0:
         return max_bits
     return int(value & -value).bit_length() - 1
@@ -142,6 +159,7 @@ def count_leading_zeroes(value, max_bits=64):
     # https://stackoverflow.com/a/71888844
     # https://github.com/numpy/numpy/issues/16325
     # alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
+    value = int(value)
     value &= (1 << max_bits) - 1  # truncate; treat negatives as 2's compliment
     if value == 0:
         return max_bits
@@ -371,10 +389,10 @@ def read_uint(mem, addr, n):
     elif n == 8:
         return struct.unpack_from('<Q', mem, addr)[0]
     elif n == 3:
-        # lo = struct.unpack_from('<H', mem, addr)[0]
-        # hi = struct.unpack_from('<B', mem, addr + 2)[0]
-        # return lo | (hi << 16)
-        return struct.unpack_from('<I', mem, addr)[0] & 0x00FFFFFF
+        # Safely read 3 bytes without requiring 4-byte availability
+        lo = struct.unpack_from('<H', mem, addr)[0]
+        hi = struct.unpack_from('<B', mem, addr + 2)[0]
+        return lo | (hi << 16)
 
     raise Exception("read_uint: unsupported length")
 
@@ -639,6 +657,7 @@ class PVMInterpreter:
             raise Exception(f"Opcode {opcode} is not a valid memory write operation")
 
         bytes_to_write = int(self.mem_ops_bytes[opcode])
+        addr = int(addr)
         #addr = addr % (2 ** 32)  #TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -714,7 +733,8 @@ class PVMInterpreter:
         if not self.mem_ops_read[opcode]:
             raise Exception(f"Opcode {opcode} is not a valid memory read operation")
 
-        bytes_to_read = self.mem_ops_bytes[opcode]
+        bytes_to_read = int(self.mem_ops_bytes[opcode])
+        addr = int(addr)
         #addr = addr % (2 ** 32)  # TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -903,7 +923,7 @@ class PVMInterpreter:
                     v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     if opcode == op_jump_ind:
-                        self.skip_len = self.djump((self.reg[r_a]+v_x))
+                        self.skip_len = self.djump(int(self.reg[r_a]) + int(v_x))
                         self.log and self.log(reg1=r_a, imm1=v_x, context={"skip_len": self.skip_len})
 
                     elif opcode == op_load_imm:
@@ -971,19 +991,19 @@ class PVMInterpreter:
                     v_y = pvm_X(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
 
                     if opcode == op_store_imm_ind_u8:
-                        self.mem_write(opcode, w_a + v_x, u8(v_y))
+                        self.mem_write(opcode, u32(int(w_a) + int(v_x)), u8(v_y))
                         self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 1)})
 
                     elif opcode == op_store_imm_ind_u16:
-                        self.mem_write(opcode, w_a + v_x, u16(v_y))
+                        self.mem_write(opcode, u32(int(w_a) + int(v_x)), u16(v_y))
                         self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 2)})
 
                     elif opcode == op_store_imm_ind_u32:
-                        self.mem_write(opcode, w_a + v_x, u32(v_y))
+                        self.mem_write(opcode, u32(int(w_a) + int(v_x)), u32(v_y))
                         self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 4)})
 
                     elif opcode == op_store_imm_ind_u64:
-                        self.mem_write(opcode, w_a + v_x, v_y)
+                        self.mem_write(opcode, u32(int(w_a) + int(v_x)), v_y)
                         self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 8)})
 
                     else:
@@ -1124,51 +1144,51 @@ class PVMInterpreter:
                     v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     if opcode == op_store_ind_u8:
-                        self.mem_write(opcode, w_b + v_x, u8(w_a))
+                        self.mem_write(opcode, u32(int(w_b) + int(v_x)), u8(w_a))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": u8(w_a), "w_b": w_b})
 
                     elif opcode == op_store_ind_u16:
-                        self.mem_write(opcode, w_b + v_x, u16(w_a))
+                        self.mem_write(opcode, u32(int(w_b) + int(v_x)), u16(w_a))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": u16(w_a), "w_b": w_b})
 
                     elif opcode == op_store_ind_u32:
-                        self.mem_write(opcode, w_b + v_x, u32(w_a))
+                        self.mem_write(opcode, u32(int(w_b) + int(v_x)), u32(w_a))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": u32(w_a), "w_b": w_b})
 
                     elif opcode == op_store_ind_u64:
-                        self.mem_write(opcode, w_b + v_x, w_a)
+                        self.mem_write(opcode, u32(int(w_b) + int(v_x)), w_a)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                     elif opcode == op_load_ind_u8:
-                        self.reg[r_a] = self.mem_read(opcode, w_b + v_x)
+                        self.reg[r_a] = self.mem_read(opcode, u32(int(w_b) + int(v_x)))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                     elif opcode == op_load_ind_i8:
-                        self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, w_b + v_x), 1), 8)
+                        self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, u32(int(w_b) + int(v_x))), 1), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                     elif opcode == op_load_ind_u16:
-                        self.reg[r_a] = self.mem_read(opcode, w_b + v_x)
+                        self.reg[r_a] = self.mem_read(opcode, u32(int(w_b) + int(v_x)))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                     elif opcode == op_load_ind_i16:
-                        self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, w_b + v_x), 2), 8)
+                        self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, u32(int(w_b) + int(v_x))), 2), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                     elif opcode == op_load_ind_u32:
-                        self.reg[r_a] = self.mem_read(opcode, w_b + v_x)
+                        self.reg[r_a] = self.mem_read(opcode, u32(int(w_b) + int(v_x)))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                     elif opcode == op_load_ind_i32:
-                        self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, w_b + v_x), 4), 8)
+                        self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, u32(int(w_b) + int(v_x))), 4), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                     elif opcode == op_load_ind_u64:
-                        self.reg[r_a] = self.mem_read(opcode, w_b + v_x)
+                        self.reg[r_a] = self.mem_read(opcode, u32(int(w_b) + int(v_x)))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                     elif opcode == op_add_imm_32:
-                        self.reg[r_a] = pvm_X(u32(w_b + v_x), 4)
+                        self.reg[r_a] = pvm_X(u32(int(w_b) + int(v_x)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == op_and_imm:
@@ -1184,7 +1204,7 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == op_mul_imm_32:
-                        self.reg[r_a] = pvm_X(u32(w_b * v_x), 4)
+                        self.reg[r_a] = pvm_X(u32(int(w_b) * int(v_x)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == op_set_lt_u_imm:
@@ -1196,21 +1216,21 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == op_shlo_l_imm_32:
-                        self.reg[r_a] = pvm_X(u32(w_b << (v_x & 31)), 4)
+                        self.reg[r_a] = pvm_X(u32(int(w_b) << (int(v_x) & 31)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == op_shlo_r_imm_32:
-                        self.reg[r_a] = pvm_X(u32(w_b) >> (v_x & 31), 4)
+                        self.reg[r_a] = pvm_X(u32(int(w_b)) >> (int(v_x) & 31), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                     elif opcode == op_shar_r_imm_32:
                         self.reg[r_a] = pvm_Z_inv(
-                            pvm_Z(w_b & MASK32, 4) >> (v_x & 31),
+                            pvm_Z(int(w_b) & MASK32, 4) >> (int(v_x) & 31),
                             8
                         )
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
                     elif opcode == op_neg_add_imm_32:
-                        self.reg[r_a] = pvm_X(u32(v_x + (1 << 32) - w_b), 4)
+                        self.reg[r_a] = pvm_X(u32(int(v_x) + (1 << 32) - int(w_b)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_set_gt_u_imm:
@@ -1222,11 +1242,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_l_imm_alt_32:
-                        self.reg[r_a] = pvm_X(u32(v_x << (w_b & 31)), 4)
+                        self.reg[r_a] = pvm_X(u32(int(v_x) << (int(w_b) & 31)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_alt_32:
-                        self.reg[r_a] = pvm_X(u32(v_x) >> (w_b & 31), 4)
+                        self.reg[r_a] = pvm_X(u32(int(v_x)) >> (int(w_b) & 31), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_alt_32:
@@ -1245,24 +1265,24 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_add_imm_64:
-                        self.reg[r_a] = (w_b + v_x)
+                        self.reg[r_a] = u64(int(w_b) + int(v_x))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_mul_imm_64:
-                        self.reg[r_a] = u64(w_b * v_x)
+                        self.reg[r_a] = u64(int(w_b) * int(v_x))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_l_imm_64:
-                        self.reg[r_a] = pvm_X((w_b << (v_x & 63)), 8)
+                        self.reg[r_a] = pvm_X((int(w_b) << (int(v_x) & 63)), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_64:
-                        self.reg[r_a] = pvm_X(w_b >> (v_x & 63), 8)
+                        self.reg[r_a] = pvm_X(int(w_b) >> (int(v_x) & 63), 8)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_64:
                         self.reg[r_a] = pvm_Z_inv(
-                            pvm_Z(w_b, 8) >> (v_x & 63),
+                            pvm_Z(int(w_b), 8) >> (int(v_x) & 63),
                             8
                         )
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
@@ -1272,11 +1292,11 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_l_imm_alt_64:
-                        self.reg[r_a] = (v_x << (w_b & 63)) & MASK64
+                        self.reg[r_a] = (int(v_x) << (int(w_b) & 63)) & MASK64
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shlo_r_imm_alt_64:
-                        self.reg[r_a] = v_x >> (w_b & 63)
+                        self.reg[r_a] = int(v_x) >> (int(w_b) & 63)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_shar_r_imm_alt_64:
@@ -1289,19 +1309,19 @@ class PVMInterpreter:
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_rot_r_64_imm:
-                        self.reg[r_a] = rori64(w_b, v_x)
+                        self.reg[r_a] = rori64(int(w_b), int(v_x))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_rot_r_64_imm_alt:
-                        self.reg[r_a] = rori64(v_x, w_b)
+                        self.reg[r_a] = rori64(int(v_x), int(w_b))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_rot_r_32_imm:
-                        self.reg[r_a] = pvm_X(rori32(w_b, v_x), 4)
+                        self.reg[r_a] = pvm_X(rori32(int(w_b), int(v_x)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     elif opcode == op_rot_r_32_imm_alt:
-                        self.reg[r_a] = pvm_X(rori32(v_x, w_b), 4)
+                        self.reg[r_a] = pvm_X(rori32(int(v_x), int(w_b)), 4)
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                     else:
@@ -1361,7 +1381,7 @@ class PVMInterpreter:
 
                     if opcode == op_load_imm_jump_ind:
                         self.reg[r_a] = v_x
-                        self.skip_len = self.djump(u32((w_b) + (v_y)))
+                        self.skip_len = self.djump(u32(int(w_b) + int(v_y)))
                         self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context={"skip_len": self.skip_len})
                     else:
                         raise InvalidOpcode(f"Invalid reg_reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
