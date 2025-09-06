@@ -606,7 +606,7 @@ class PVMInterpreter:
         if self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
         elif self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
         elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
-        else: section_idx = 3
+        elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
@@ -647,7 +647,7 @@ class PVMInterpreter:
         if self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
         elif self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
         elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
-        else: section_idx = 3
+        elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read_int: Memory address {addr} not found in any section")
@@ -679,7 +679,7 @@ class PVMInterpreter:
         if self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
         elif self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
         elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
-        else: section_idx = 3
+        elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")

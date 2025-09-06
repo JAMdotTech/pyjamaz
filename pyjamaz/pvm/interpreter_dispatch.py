@@ -336,6 +336,247 @@ def read_uint(mem, addr, n):
     raise Exception("read_uint: unsupported length")
 
 
+def _op_invalid(vm):
+    raise InvalidOpcode(f"Invalid opcode: {vm.opcode}")
+
+def _op_trap(vm):
+    vm.log and vm.log()
+    raise PanicError("trap")
+
+
+def _op_fallthrough(vm):
+    vm.log and vm.log()
+    return
+
+
+def _op_ecalli(vm):
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, vm.inst_arg_len[inst_index]))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 1, l_x), l_x)
+    vm.status = ExitReason.host_halt.value
+    vm.exit_value = v_x
+    vm.log and vm.log(imm1=v_x)
+
+
+def _op_load_imm_64(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    v_x = read_uint(vm.mv_code, vm.pc + 2, 8)
+    vm.reg[r_a] = v_x
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
+
+
+def _op_jump(vm):
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, vm.inst_arg_len[inst_index]))
+    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 1, l_x), l_x)
+    vm.skip_len = v_x
+    vm.log and vm.log(off1=v_x, context={"skip_len": v_x})
+
+
+def _op_jump_ind(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.skip_len = vm.djump(u32(int(vm.reg[r_a]) + int(v_x)))
+    vm.log and vm.log(reg1=r_a, imm1=v_x, context={"skip_len": vm.skip_len})
+
+
+def _op_load_imm(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.reg[r_a] = v_x
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
+
+
+def _op_load_u8(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.reg[r_a] = vm.mem_read(op_load_u8, v_x)
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
+
+
+def _op_load_i8(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.reg[r_a] = pvm_X(vm.mem_read(op_load_i8, v_x), 1)
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
+
+
+def _op_load_u16(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.reg[r_a] = vm.mem_read(op_load_u16, v_x)
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
+
+
+def _op_load_i16(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.reg[r_a] = pvm_X(vm.mem_read(op_load_i16, v_x), 2)
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
+
+
+def _op_load_u32(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.reg[r_a] = vm.mem_read(op_load_u32, v_x)
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
+
+
+def _op_load_i32(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.reg[r_a] = pvm_X(vm.mem_read(op_load_i32, v_x), 4)
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
+
+
+def _op_load_u64(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.reg[r_a] = vm.mem_read(op_load_u64, v_x)
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
+
+
+def _op_store_u8(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.mem_write(op_store_u8, v_x, u8(vm.reg[r_a]))
+    vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 1)})
+
+
+def _op_store_u16(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.mem_write(op_store_u16, v_x, u16(vm.reg[r_a]))
+    vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 2)})
+
+
+def _op_store_u32(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.mem_write(op_store_u32, v_x, u32(vm.reg[r_a]))
+    vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 4)})
+
+
+def _op_store_u64(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    vm.mem_write(op_store_u64, v_x, vm.reg[r_a])
+    vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 8)})
+
+
+def _op_store_imm_u8(vm):
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, vm.code[vm.pc + 1] % 8))
+    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 1)))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    vm.mem_write(op_store_imm_u8, v_x, v_y % 2 ** 8)
+    vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 1)})
+
+
+def _op_store_imm_u16(vm):
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, vm.code[vm.pc + 1] % 8))
+    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 1)))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    vm.mem_write(op_store_imm_u16, v_x, v_y % 2 ** 16)
+    vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 2)})
+
+
+def _op_store_imm_u32(vm):
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, vm.code[vm.pc + 1] % 8))
+    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 1)))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    vm.mem_write(op_store_imm_u32, v_x, u32(v_y))
+    vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 4)})
+
+
+def _op_store_imm_u64(vm):
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, vm.code[vm.pc + 1] % 8))
+    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 1)))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    vm.mem_write(op_store_imm_u64, v_x, v_y)
+    vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 8)})
+
+
+def _op_add_64(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    r_b = min(12, vm.code[vm.pc + 1] // 16)
+    r_d = min(12, vm.code[vm.pc + 2])
+    a = int(vm.reg[r_a])
+    b = int(vm.reg[r_b])
+    vm.reg[r_d] = u64(a + b)
+    vm.log and vm.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": vm.reg[r_d]})
+
+
+def _op_load_imm_jump_ind(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    r_b = vm.code[vm.pc + 1] // 16
+    w_b = vm.reg[r_b]
+    l_x = int(min(4, vm.code[vm.pc + 2] % 8))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 3, l_x), l_x)
+    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 2)))
+    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 3 + l_x, l_y), l_y)
+    vm.reg[r_a] = v_x
+    vm.skip_len = vm.djump(u32(int(w_b) + int(v_y)))
+    vm.log and vm.log(reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context={"skip_len": vm.skip_len})
+
+
+def _build_handlers():
+    H = [u8(0)] * 256
+    # None
+    H[op_trap] = _op_trap
+    H[op_fallthrough] = _op_fallthrough
+    # imm
+    H[op_ecalli] = _op_ecalli
+    # reg_ext_imm
+    H[op_load_imm_64] = _op_load_imm_64
+    # offset
+    H[op_jump] = _op_jump
+    # reg_imm
+    H[op_jump_ind] = _op_jump_ind
+    H[op_load_imm] = _op_load_imm
+    H[op_load_u8] = _op_load_u8
+    H[op_load_i8] = _op_load_i8
+    H[op_load_u16] = _op_load_u16
+    H[op_load_i16] = _op_load_i16
+    H[op_load_u32] = _op_load_u32
+    H[op_load_i32] = _op_load_i32
+    H[op_load_u64] = _op_load_u64
+    H[op_store_u8] = _op_store_u8
+    H[op_store_u16] = _op_store_u16
+    H[op_store_u32] = _op_store_u32
+    H[op_store_u64] = _op_store_u64
+    # imm_imm
+    H[op_store_imm_u8] = _op_store_imm_u8
+    H[op_store_imm_u16] = _op_store_imm_u16
+    H[op_store_imm_u32] = _op_store_imm_u32
+    H[op_store_imm_u64] = _op_store_imm_u64
+    # reg_reg_reg
+    H[op_add_64] = _op_add_64
+    # reg_reg_imm_imm
+    H[op_load_imm_jump_ind] = _op_load_imm_jump_ind
+    return H
+
+
 class PVMInterpreter:
 
     def __init__(self, program: PVMProgram, logger_cls=None):
@@ -389,6 +630,7 @@ class PVMInterpreter:
         self.log = None
 
         self.reset(program)
+        self.handlers = _build_handlers()
 
         if logger_cls:
             self.program = program
@@ -606,7 +848,7 @@ class PVMInterpreter:
         if self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
         elif self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
         elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
-        else: section_idx = 3
+        elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
@@ -647,7 +889,7 @@ class PVMInterpreter:
         if self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
         elif self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
         elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
-        else: section_idx = 3
+        elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read_int: Memory address {addr} not found in any section")
@@ -679,7 +921,7 @@ class PVMInterpreter:
         if self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
         elif self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
         elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
-        else: section_idx = 3
+        elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
@@ -772,8 +1014,20 @@ class PVMInterpreter:
 
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
-            inst_type = typezzz[opcode] #OpcodeScheme[opcode].value
+            #inst_type = typezzz[opcode] #OpcodeScheme[opcode].value
             self.skip_len = self.inst_arg_len[inst_index] + 1
+
+            # Fast opcode dispatch to handlers; fallback to ladder for un-migrated ones
+            try:
+                self.handlers[opcode](self)
+                continue
+            except PVMMemoryError:
+                self.status = ExitReason.page_fault.value
+                self.exit_value = self._mem_addr
+                break
+            except PanicError:
+                self.status = ExitReason.panic.value
+                break
 
             try:
                 #GP-0.6.7-section:A.5.1
