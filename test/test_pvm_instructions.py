@@ -35,7 +35,7 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/inst_shift_arithmetic_right_imm_alt_32.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
     def test_instruction(self, name, test_vector):
 
         # Set NumPy to ignore overflow warnings
