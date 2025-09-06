@@ -923,7 +923,7 @@ class PVMInterpreter:
                     v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     if opcode == op_jump_ind:
-                        self.skip_len = self.djump(int(self.reg[r_a]) + int(v_x))
+                        self.skip_len = self.djump(u32(int(self.reg[r_a]) + int(v_x)))
                         self.log and self.log(reg1=r_a, imm1=v_x, context={"skip_len": self.skip_len})
 
                     elif opcode == op_load_imm:
