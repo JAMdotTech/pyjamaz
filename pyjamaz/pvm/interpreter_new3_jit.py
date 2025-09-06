@@ -1986,9 +1986,9 @@ class PVMInterpreter(PVMInterpreterBase):
             key_type=types.int64,
             value_type=types.unicode_type,
         )
-        if self.log:
-            for _k, _v in OpcodeNames.items():
-                opcode_names[int(_k)] = _v
+        #if self.log:
+        for _k, _v in OpcodeNames.items():
+            opcode_names[int(_k)] = _v
 
         # Call JIT-compiled function
         error_code = invoke_native(
@@ -2033,6 +2033,8 @@ class PVMInterpreter(PVMInterpreterBase):
             # Other errors cause panic
             self.status = ExitReason.panic.value
 
+        # if self.status not in (ExitReason.resume.value, ExitReason.halt.value, ExitReason.host_halt.value):
+        #     print(111111111)
         # Memory sections are automatically updated via zero-copy views
         
         # Update heap end pointer if it was modified by sbrk
