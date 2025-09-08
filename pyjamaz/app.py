@@ -36,7 +36,7 @@ from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Ti
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, SafroleState, EntropyState
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
-from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash
+from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time
 from pyjamaz.validation import BlockValidation
 
 T = TypeVar('T')
@@ -192,7 +192,7 @@ class PyjamazApp:
 
         return ancestor_headers
 
-
+    @log_execution_time
     def retrieve_jam_state(self) -> JamState:
         jam_state = JamState(
             timeslot=self.components.timeslot.retrieve_state(),
@@ -236,8 +236,7 @@ class PyjamazApp:
         await self.components.accumulation_history.store_state(state.accumulation_history, transaction)
         await self.components.recent_accumulation_output.store_state(state.recent_accumulation_outputs, transaction)
 
-
-
+    @log_execution_time
     async def update_state_trie(self):
         """
         Updated the Patricia state trie.
@@ -264,6 +263,7 @@ class PyjamazApp:
 
         return self.state.timeslot.number // EPOCH_TIMESLOTS != slotnumber // EPOCH_TIMESLOTS
 
+    @log_execution_time
     async def state_transition(self, block: 'Block', transaction: Transaction, produce=False) -> 'STFOutput':
         """
         GP-0.6.4-eq:4.1 (Υ, σ') | Block Level State Transition Function for the JAM state.
@@ -625,6 +625,7 @@ class PyjamazApp:
             offenders_mark=disputes_output.offenders_mark
         )
 
+    @log_execution_time
     async def process_block(self, block: Block):
         # Update Patricia Trie
         await self.update_state_trie()
@@ -638,6 +639,7 @@ class PyjamazApp:
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))  # TODO: placeholder for now, move when implemented
         await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
 
+    @log_execution_time
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
 
         with self.state_db.transaction() as transaction:
