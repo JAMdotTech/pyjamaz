@@ -20,12 +20,12 @@ def _op_sbrk(vm):
 
 def _op_count_set_bits_64(vm):
     r_d, r_a, w_a = _fetch_reg_reg(vm)
-    vm.reg[r_d] = int(w_a).bit_count()
+    vm.reg[r_d] = w_a.bit_count()
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 def _op_count_set_bits_32(vm):
     r_d, r_a, w_a = _fetch_reg_reg(vm)
-    vm.reg[r_d] = int(w_a).bit_count()
+    vm.reg[r_d] = w_a.bit_count()
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 def _op_leading_zero_bits_64(vm):

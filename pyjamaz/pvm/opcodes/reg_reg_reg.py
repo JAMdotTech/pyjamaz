@@ -6,8 +6,8 @@ def _fetch_reg_reg_reg(vm):
     r_a = min(12, vm.mv_code[vm.pc + 1] % 16)
     r_b = min(12, vm.mv_code[vm.pc + 1] // 16)
     r_d = min(12, vm.mv_code[vm.pc + 2])
-    a = int(vm.reg[r_a])
-    b = int(vm.reg[r_b])
+    a = vm.reg[r_a]
+    b = vm.reg[r_b]
     return r_a, r_b, r_d, a, b
 
 

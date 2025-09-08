@@ -12,7 +12,7 @@ def _fetch_reg_imm(vm):
 
 def _op_jump_ind(vm):
     r_a, v_x = _fetch_reg_imm(vm)
-    vm.skip_len = vm.djump(u32(int(vm.reg[r_a]) + int(v_x)))
+    vm.skip_len = vm.djump(u32(vm.reg[r_a] + v_x))
     vm.log and vm.log(reg1=r_a, imm1=v_x, context={"skip_len": vm.skip_len})
 
 def _op_load_imm(vm):
