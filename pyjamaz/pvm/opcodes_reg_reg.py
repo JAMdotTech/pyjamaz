@@ -1,4 +1,4 @@
-from pvm.defs import count_leading_zeroes, count_trailing_zeroes, pvm_Z_inv, pvm_Z, u16, u8, reverse_bytes
+from pyjamaz.pvm.defs import count_leading_zeroes, count_trailing_zeroes, pvm_Z_inv, pvm_Z, u16, u8, reverse_bytes
 
 
 def _fetch_reg_reg(vm):

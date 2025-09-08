@@ -1,4 +1,4 @@
-from pvm.defs import pvm_X, read_uint, u32
+from pyjamaz.pvm.defs import pvm_X, read_uint, u32
 
 
 def _fetch_reg_reg_imm_imm(vm):

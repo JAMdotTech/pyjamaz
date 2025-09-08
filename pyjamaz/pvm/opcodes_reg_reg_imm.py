@@ -1,6 +1,6 @@
-from pvm.constants import op_store_ind_u8, op_store_ind_u16, op_store_ind_u32, op_store_ind_u64, op_load_ind_u8, \
+from pyjamaz.pvm.constants import op_store_ind_u8, op_store_ind_u16, op_store_ind_u32, op_store_ind_u64, op_load_ind_u8, \
     op_load_ind_i8, op_load_ind_u16, op_load_ind_i16, op_load_ind_u32, op_load_ind_i32, op_load_ind_u64
-from pvm.defs import pvm_X, read_uint, u32, u8, u16, pvm_Z_inv, pvm_Z, MASK32, u64, MASK64, rori64, rori32
+from pyjamaz.pvm.defs import pvm_X, read_uint, u32, u8, u16, pvm_Z_inv, pvm_Z, MASK32, u64, MASK64, rori64, rori32
 
 
 def _fetch_reg_reg_imm(vm):

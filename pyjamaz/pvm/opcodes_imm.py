@@ -1,5 +1,5 @@
-from pvm.constants import ExitReason
-from pvm.defs import pvm_X, read_uint
+from pyjamaz.pvm.constants import ExitReason
+from pyjamaz.pvm.defs import pvm_X, read_uint
 
 
 def _fetch_imm(vm):

@@ -1,4 +1,4 @@
-from pvm.defs import u64, pvm_X, u32, pvm_Z, pvm_Z_inv, pvm_rtz_div, MASK32, pvm_smod, roli64, rotl32, rori64, rotr32, \
+from pyjamaz.pvm.defs import u64, pvm_X, u32, pvm_Z, pvm_Z_inv, pvm_rtz_div, MASK32, pvm_smod, roli64, rotl32, rori64, rotr32, \
     MASK64
 
 

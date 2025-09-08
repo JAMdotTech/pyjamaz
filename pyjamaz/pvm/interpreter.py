@@ -3,12 +3,12 @@ import numpy.typing as npt
 
 from typing import List, Dict
 
-from .defs import U64, U32, I64, U8, read_uint, write_uint
-from .exceptions import PVMMemoryError, PanicError
-from .opcodes import _opcode_lut
-from .types import PVMProgram, PVMMemory, PVMMemoryMode
+from pyjamaz.pvm.defs import U64, U32, I64, U8, read_uint, write_uint
+from pyjamaz.pvm.exceptions import PVMMemoryError, PanicError
+from pyjamaz.pvm.opcodes import _opcode_lut
+from pyjamaz.pvm.types import PVMProgram, PVMMemory, PVMMemoryMode
 
-from .constants import (
+from pyjamaz.pvm.constants import (
     ExitReason,
     MemOps,
     OpcodeNames,

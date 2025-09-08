@@ -1,4 +1,4 @@
-from pvm.exceptions import InvalidOpcode, PanicError
+from pyjamaz.pvm.exceptions import InvalidOpcode, PanicError
 
 
 def _op_invalid(vm):

@@ -1,4 +1,4 @@
-from .constants import (
+from pyjamaz.pvm.constants import (
     op_trap, op_fallthrough, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
     op_store_imm_u32, op_store_imm_u64, op_jump, op_jump_ind, op_load_imm, op_load_u8,
     op_load_i8, op_load_u16, op_load_i16, op_load_u32, op_load_i32, op_load_u64,
@@ -29,22 +29,22 @@ from .constants import (
     op_max_u, op_min, op_min_u,
 )
 
-from .opcodes_imm import _op_ecalli
-from .opcodes_imm_imm import _op_store_imm_u8, _op_store_imm_u16, _op_store_imm_u32, _op_store_imm_u64
-from .opcodes_none import _op_fallthrough, _op_invalid, _op_trap
-from .opcodes_offset import _op_jump
-from .opcodes_reg_ext_imm import _op_load_imm_64
-from .opcodes_reg_imm import _op_jump_ind, _op_load_imm, _op_load_u8, _op_load_i8, _op_load_u16, _op_load_i16, \
+from pyjamaz.pvm.opcodes_imm import _op_ecalli
+from pyjamaz.pvm.opcodes_imm_imm import _op_store_imm_u8, _op_store_imm_u16, _op_store_imm_u32, _op_store_imm_u64
+from pyjamaz.pvm.opcodes_none import _op_fallthrough, _op_invalid, _op_trap
+from pyjamaz.pvm.opcodes_offset import _op_jump
+from pyjamaz.pvm.opcodes_reg_ext_imm import _op_load_imm_64
+from pyjamaz.pvm.opcodes_reg_imm import _op_jump_ind, _op_load_imm, _op_load_u8, _op_load_i8, _op_load_u16, _op_load_i16, \
     _op_load_u32, _op_load_i32, _op_load_u64, _op_store_u8, _op_store_u16, _op_store_u32, _op_store_u64
-from .opcodes_reg_imm_imm import _op_store_imm_ind_u8, _op_store_imm_ind_u16, _op_store_imm_ind_u32, \
+from pyjamaz.pvm.opcodes_reg_imm_imm import _op_store_imm_ind_u8, _op_store_imm_ind_u16, _op_store_imm_ind_u32, \
     _op_store_imm_ind_u64
-from .opcodes_reg_imm_offset import _op_load_imm_jump, _op_branch_eq_imm, _op_branch_ne_imm, _op_branch_lt_u_imm, \
+from pyjamaz.pvm.opcodes_reg_imm_offset import _op_load_imm_jump, _op_branch_eq_imm, _op_branch_ne_imm, _op_branch_lt_u_imm, \
     _op_branch_le_u_imm, _op_branch_ge_u_imm, _op_branch_gt_u_imm, _op_branch_lt_s_imm, _op_branch_le_s_imm, \
     _op_branch_ge_s_imm, _op_branch_gt_s_imm
-from .opcodes_reg_reg import _op_move_reg, _op_sbrk, _op_count_set_bits_64, _op_count_set_bits_32, \
+from pyjamaz.pvm.opcodes_reg_reg import _op_move_reg, _op_sbrk, _op_count_set_bits_64, _op_count_set_bits_32, \
     _op_leading_zero_bits_64, _op_leading_zero_bits_32, _op_trailing_zero_bits_64, _op_trailing_zero_bits_32, \
     _op_sign_extend_8, _op_sign_extend_16, _op_zero_extend_16, _op_reverse_bytes
-from .opcodes_reg_reg_imm import _op_store_ind_u8, _op_store_ind_u16, _op_store_ind_u32, _op_store_ind_u64, \
+from pyjamaz.pvm.opcodes_reg_reg_imm import _op_store_ind_u8, _op_store_ind_u16, _op_store_ind_u32, _op_store_ind_u64, \
     _op_load_ind_u8, _op_load_ind_i8, _op_load_ind_u16, _op_load_ind_i16, _op_load_ind_u32, _op_load_ind_i32, \
     _op_load_ind_u64, _op_add_imm_32, _op_and_imm, _op_xor_imm, _op_or_imm, _op_mul_imm_32, _op_set_lt_u_imm, \
     _op_set_lt_s_imm, _op_shlo_l_imm_32, _op_shlo_r_imm_32, _op_shar_r_imm_32, _op_neg_add_imm_32, _op_set_gt_u_imm, \
@@ -52,10 +52,10 @@ from .opcodes_reg_reg_imm import _op_store_ind_u8, _op_store_ind_u16, _op_store_
     _op_cmov_nz_imm, _op_add_imm_64, _op_mul_imm_64, _op_shlo_l_imm_64, _op_shlo_r_imm_64, _op_shar_r_imm_64, \
     _op_neg_add_imm_64, _op_shlo_l_imm_alt_64, _op_shlo_r_imm_alt_64, _op_shar_r_imm_alt_64, _op_rot_r_64_imm, \
     _op_rot_r_64_imm_alt, _op_rot_r_32_imm, _op_rot_r_32_imm_alt
-from .opcodes_reg_reg_imm_imm import _op_load_imm_jump_ind
-from .opcodes_reg_reg_offset import _op_branch_eq, _op_branch_ne, _op_branch_lt_u, _op_branch_lt_s, _op_branch_ge_u, \
+from pyjamaz.pvm.opcodes_reg_reg_imm_imm import _op_load_imm_jump_ind
+from pyjamaz.pvm.opcodes_reg_reg_offset import _op_branch_eq, _op_branch_ne, _op_branch_lt_u, _op_branch_lt_s, _op_branch_ge_u, \
     _op_branch_ge_s
-from .opcodes_reg_reg_reg import _op_add_64, _op_add_32, _op_sub_32, _op_mul_32, _op_div_u_32, _op_div_s_32, \
+from pyjamaz.pvm.opcodes_reg_reg_reg import _op_add_64, _op_add_32, _op_sub_32, _op_mul_32, _op_div_u_32, _op_div_s_32, \
     _op_rem_u_32, _op_rem_s_32, _op_shlo_l_32, _op_shlo_r_32, _op_shar_r_32, _op_sub_64, _op_mul_64, _op_div_u_64, \
     _op_div_s_64, _op_rem_u_64, _op_rem_s_64, _op_shlo_l_64, _op_shlo_r_64, _op_shar_r_64, _op_and, _op_xor, _op_or, \
     _op_mul_upper_s_s, _op_mul_upper_u_u, _op_mul_upper_s_u, _op_set_lt_u, _op_set_lt_s, _op_cmov_iz, _op_cmov_nz, \

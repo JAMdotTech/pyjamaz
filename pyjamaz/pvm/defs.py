@@ -2,7 +2,7 @@ import struct
 
 import numpy as np
 
-from pvm.exceptions import PVMMemoryError
+from pyjamaz.pvm.exceptions import PVMMemoryError
 
 # Numpy aliasses
 U8 = np.uint8
