@@ -8,6 +8,7 @@ from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS
 from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
+from pyjamaz import settings
 from pyjamaz.utils import format_hash
 
 
@@ -61,8 +62,12 @@ class BlockValidation:
                 f"Parent hash {header.parent.hex()} does not has valid ancestor"
             )
 
-        # GP-0.5.4-eq:5.7
-        if header.timeslot <= parent_header.timeslot or header.timeslot > self.current_timeslot():
+        # GP-0.7.0-eq:5.7
+        if header.timeslot <= parent_header.timeslot:
+            raise BlockValidationError(BlockValidationErrorCode.bad_slot)
+
+        # GP-0.7.0-eq:5.7
+        if settings.TIMESLOT_WALL_CLOCK_CHECK and header.timeslot > self.current_timeslot():
             raise BlockValidationError(BlockValidationErrorCode.bad_slot)
 
         if header.parent_state_root != self.block_context.state_root:
