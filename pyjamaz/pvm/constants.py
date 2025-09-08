@@ -633,6 +633,7 @@ OpcodeNames = {
     op.min_u.value: "min_u"
 }
 
+#TODO: construct these in opcodes.py! and have them mapped against corresponding enum.value!!!
 
 inst_none = 0
 inst_imm = 1

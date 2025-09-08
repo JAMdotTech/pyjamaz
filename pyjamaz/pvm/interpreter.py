@@ -786,7 +786,7 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.3
                 elif inst_type == inst_reg_ext_imm:  # InstructionType.reg_ext_imm
 
-                    r_a = min(12, self.code[self.pc + 1] % 16)
+                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
                     v_x = read_uint(self.mv_code, self.pc + 2, 8)
 
                     if opcode == op_load_imm_64:
@@ -798,7 +798,7 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.4
                 elif inst_type == inst_imm_imm:  # InstructionType.imm_imm
 
-                    l_x = int(min(4, self.code[self.pc + 1] % 8))
+                    l_x = int(min(4, self.mv_code[self.pc + 1] % 8))
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
                     v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
                     v_y = pvm_X(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
@@ -833,7 +833,7 @@ class PVMInterpreter:
 
                 #GP-0.6.7-section:A.5.6
                 elif inst_type == inst_reg_imm:  # InstructionType.reg_imm
-                    r_a = min(12, self.code[self.pc + 1] % 16)
+                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
                     l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
                     v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
@@ -895,11 +895,11 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.7
                 elif inst_type == inst_reg_imm_imm:  # InstructionType.reg_imm_imm
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
-                    r_a = min(12, self.code[self.pc + 1] % 16)
+                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
                     w_a = self.reg[r_a]
 
                     # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
-                    l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
+                    l_x = int(min(4, (self.mv_code[self.pc + 1] // 16) % 8))
                     v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
@@ -927,11 +927,11 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.8
                 elif inst_type == inst_reg_imm_offset:  # InstructionType.reg_imm_offset
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
-                    r_a = min(12, self.code[self.pc + 1] % 16)
+                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
                     w_a = self.reg[r_a]
 
                     # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
-                    l_x = int(min(4, (self.code[self.pc + 1] // 16) % 8))
+                    l_x = int(min(4, (self.mv_code[self.pc + 1] // 16) % 8))
                     v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
@@ -988,8 +988,8 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.9
                 elif inst_type == inst_reg_reg:  # InstructionType.reg_reg
 
-                    r_d = min(12, self.code[self.pc + 1] % 16)
-                    r_a = min(12, self.code[self.pc + 1] // 16)
+                    r_d = min(12, self.mv_code[self.pc + 1] % 16)
+                    r_a = min(12, self.mv_code[self.pc + 1] // 16)
 
                     if opcode == op_move_reg:
                         self.reg[r_d] = self.reg[r_a]
@@ -1048,8 +1048,8 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.10
                 elif inst_type == inst_reg_reg_imm:  # InstructionType.reg_reg_imm
 
-                    r_a = min(12, self.code[self.pc + 1] % 16)
-                    r_b = min(12, self.code[self.pc + 1] // 16)
+                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
+                    r_b = min(12, self.mv_code[self.pc + 1] // 16)
 
                     w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
@@ -1243,8 +1243,8 @@ class PVMInterpreter:
 
                 #GP-0.6.7-section:A.5.11
                 elif inst_type == inst_reg_reg_offset:  # InstructionType.reg_reg_offset
-                    r_a = min(12, self.code[self.pc + 1] % 16)
-                    r_b = min(12, self.code[self.pc + 1] // 16)
+                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
+                    r_b = min(12, self.mv_code[self.pc + 1] // 16)
                     w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
 
@@ -1281,13 +1281,13 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.12
                 elif inst_type == inst_reg_reg_imm_imm:  # InstructionType.reg_reg_imm_imm
                     # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
-                    r_a = min(12, self.code[self.pc + 1] % 16)
-                    r_b = self.code[self.pc + 1] // 16
+                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
+                    r_b = self.mv_code[self.pc + 1] // 16
 
                     #w_a = self.reg[r_a]
                     w_b = self.reg[r_b]
 
-                    l_x = int(min(4, self.code[self.pc + 2] % 8))
+                    l_x = int(min(4, self.mv_code[self.pc + 2] % 8))
                     v_x = pvm_X(read_uint(self.mv_code, self.pc + 3, l_x), l_x)
 
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 2)))
@@ -1303,9 +1303,9 @@ class PVMInterpreter:
                 #GP-0.6.7-section:A.5.13
                 elif inst_type == inst_reg_reg_reg:  # InstructionType.reg_reg_reg
 
-                    r_a = min(12, self.code[self.pc + 1] % 16)
-                    r_b = min(12, self.code[self.pc + 1] // 16)
-                    r_d = min(12, self.code[self.pc + 2])
+                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
+                    r_b = min(12, self.mv_code[self.pc + 1] // 16)
+                    r_d = min(12, self.mv_code[self.pc + 2])
 
                     a = int(self.reg[r_a])
                     b = int(self.reg[r_b])

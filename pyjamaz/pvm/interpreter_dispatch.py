@@ -334,8 +334,131 @@ def read_uint(mem, addr, n):
     raise Exception("read_uint: unsupported length")
 
 
+# ---- Fetch helpers ----
+
+def _fetch_imm(vm):
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, vm.inst_arg_len[inst_index]))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 1, l_x), l_x)
+    return v_x
+
+
+def _fetch_reg_ext_imm(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    v_x = read_uint(vm.mv_code, vm.pc + 2, 8)
+    return r_a, v_x
+
+
+def _fetch_imm_imm(vm):
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, vm.mv_code[vm.pc + 1] % 8))
+    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 1)))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    return v_x, v_y
+
+
+def _fetch_offset(vm):
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, vm.inst_arg_len[inst_index]))
+    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 1, l_x), l_x)
+    return v_x
+
+
+def _fetch_reg_imm(vm):
+    r_a = min(12, vm.mv_code[vm.pc + 1] % 16)
+    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    return r_a, v_x
+
+
+def _fetch_reg_imm_imm(vm):
+    r_a = min(12, vm.mv_code[vm.pc + 1] % 16)
+    w_a = vm.reg[r_a]
+    l_x = int(min(4, (vm.mv_code[vm.pc + 1] // 16) % 8))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
+    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    return r_a, w_a, v_x, v_y
+
+
+def _fetch_reg_imm_offset(vm):
+    r_a = min(12, vm.mv_code[vm.pc + 1] % 16)
+    w_a = vm.reg[r_a]
+    l_x = int(min(4, (vm.mv_code[vm.pc + 1] // 16) % 8))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
+    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    return r_a, w_a, v_x, v_y
+
+
+def _fetch_reg_reg(vm):
+    """Fetch priors for inst_reg_reg per legacy interpreter.
+
+    Layout byte1: low nibble = r_d (destination), high nibble = r_a (source)
+    """
+    r_d = min(12, vm.code[vm.pc + 1] % 16)
+    r_a = min(12, vm.code[vm.pc + 1] // 16)
+    w_a = vm.reg[r_a]
+    return r_d, r_a, w_a
+
+
+def _fetch_reg_reg_imm(vm):
+    r_a = min(12, vm.code[vm.pc + 1] % 16)
+    r_b = min(12, vm.code[vm.pc + 1] // 16)
+    w_a = vm.reg[r_a]
+    w_b = vm.reg[r_b]
+    inst_index = vm.inst_pos[vm.pc]
+    l_x = int(min(4, max(0, vm.inst_arg_len[inst_index] - 1)))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    return r_a, r_b, w_a, w_b, v_x
+
+
+def _fetch_reg_reg_offset(vm):
+    """Fetch priors for inst_reg_reg_offset per legacy interpreter.
+
+    Layout byte1: low nibble = r_a, high nibble = r_b
+    Offset v_x follows as signed immediate of length l_x determined by inst_arg_len.
+    """
+    inst_index = vm.inst_pos[vm.pc]
+    r_a = min(12, vm.mv_code[vm.pc + 1] % 16)
+    r_b = min(12, vm.mv_code[vm.pc + 1] // 16)
+    w_a = vm.reg[r_a]
+    w_b = vm.reg[r_b]
+    l_x = min(4, max(0, vm.inst_arg_len[inst_index] - 1))
+    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    return r_a, r_b, w_a, w_b, v_x
+
+
+def _fetch_reg_reg_imm_imm(vm):
+    """Fetch priors for inst_reg_reg_imm_imm per legacy interpreter.
+
+    Layout byte1: low nibble = r_a (dest), high nibble = r_b (source B)
+    byte2 low 3 bits encode l_x (0..4), then v_x at pc+3, then v_y after v_x.
+    """
+    inst_index = vm.inst_pos[vm.pc]
+    r_a = min(12, vm.mv_code[vm.pc + 1] % 16)
+    r_b = min(12, vm.mv_code[vm.pc + 1] // 16)
+    w_b = vm.reg[r_b]
+    l_x = int(min(4, vm.mv_code[vm.pc + 2] % 8))
+    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 3, l_x), l_x)
+    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 2)))
+    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 3 + l_x, l_y), l_y)
+    return r_a, r_b, w_b, v_x, v_y
+
+
+def _fetch_reg_reg_reg(vm):
+    r_a = min(12, vm.mv_code[vm.pc + 1] % 16)
+    r_b = min(12, vm.mv_code[vm.pc + 1] // 16)
+    r_d = min(12, vm.mv_code[vm.pc + 2])
+    a = int(vm.reg[r_a])
+    b = int(vm.reg[r_b])
+    return r_a, r_b, r_d, a, b
+
+
 def _op_invalid(vm):
     raise InvalidOpcode(f"Invalid opcode: {vm.opcode}")
+
 
 def _op_trap(vm):
     vm.log and vm.log()
@@ -348,41 +471,32 @@ def _op_fallthrough(vm):
 
 
 def _op_ecalli(vm):
-    inst_index = vm.inst_pos[vm.pc]
-    l_x = int(min(4, vm.inst_arg_len[inst_index]))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 1, l_x), l_x)
+    v_x = _fetch_imm(vm)
     vm.status = ExitReason.host_halt.value
     vm.exit_value = v_x
     vm.log and vm.log(imm1=v_x)
 
 
 def _op_load_imm_64(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    v_x = read_uint(vm.mv_code, vm.pc + 2, 8)
+    r_a, v_x = _fetch_reg_ext_imm(vm)
     vm.reg[r_a] = v_x
     vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 
 def _op_jump(vm):
-    inst_index = vm.inst_pos[vm.pc]
-    l_x = int(min(4, vm.inst_arg_len[inst_index]))
-    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 1, l_x), l_x)
+    v_x = _fetch_offset(vm)
     vm.skip_len = v_x
     vm.log and vm.log(off1=v_x, context={"skip_len": v_x})
 
 
 def _op_jump_ind(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.skip_len = vm.djump(u32(int(vm.reg[r_a]) + int(v_x)))
     vm.log and vm.log(reg1=r_a, imm1=v_x, context={"skip_len": vm.skip_len})
 
 
 def _op_load_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.reg[r_a] = v_x
     vm.log and vm.log(reg1=r_a, imm1=v_x)
 
@@ -390,13 +504,7 @@ def _op_load_imm(vm):
 # ---- reg_imm_offset (load_imm_jump + conditional branches with immediate) ----
 
 def _op_load_imm_jump(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    # length encoded in the upper nibble (bits 4-6), per legacy interpreter
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     # Parity with legacy: set skip_len directly and then write reg
     vm.skip_len = v_y
     vm.reg[r_a] = v_x
@@ -404,111 +512,61 @@ def _op_load_imm_jump(vm):
 
 
 def _op_branch_eq_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, w_a == v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
 
 def _op_branch_ne_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, w_a != v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
 
 def _op_branch_lt_u_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, w_a < v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
 
 def _op_branch_le_u_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, w_a <= v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
 
 def _op_branch_ge_u_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, w_a >= v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
 
 def _op_branch_gt_u_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, w_a > v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
 
 def _op_branch_lt_s_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, pvm_Z(w_a, 8) < pvm_Z(v_x, 8))
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
 
 def _op_branch_le_s_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, pvm_Z(w_a, 8) <= pvm_Z(v_x, 8))
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
 
 def _op_branch_ge_s_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, pvm_Z(w_a, 8) >= pvm_Z(v_x, 8))
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
 
 def _op_branch_gt_s_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    r_a, w_a, v_x, v_y = _fetch_reg_imm_offset(vm)
     vm.branch(v_y, pvm_Z(w_a, 8) > pvm_Z(v_x, 8))
     vm.log and vm.log(reg1=r_a, imm1=v_x, off1=v_y)
 
@@ -516,83 +574,42 @@ def _op_branch_gt_s_imm(vm):
 # ---- reg_reg_offset (branches with two registers) ----
 
 def _op_branch_eq(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    r_b = min(12, vm.code[vm.pc + 1] // 16)
-    w_a = vm.reg[r_a]
-    w_b = vm.reg[r_b]
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, r_b, w_a, w_b, v_x = _fetch_reg_reg_offset(vm)
     vm.branch(v_x, w_a == w_b)
     vm.log and vm.log(reg1=r_a, reg2=r_b, off1=v_x)
 
 
 def _op_branch_ne(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    r_b = min(12, vm.code[vm.pc + 1] // 16)
-    w_a = vm.reg[r_a]
-    w_b = vm.reg[r_b]
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, r_b, w_a, w_b, v_x = _fetch_reg_reg_offset(vm)
     vm.branch(v_x, w_a != w_b)
     vm.log and vm.log(reg1=r_a, reg2=r_b, off1=v_x)
 
 
 def _op_branch_lt_u(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    r_b = min(12, vm.code[vm.pc + 1] // 16)
-    w_a = vm.reg[r_a]
-    w_b = vm.reg[r_b]
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, r_b, w_a, w_b, v_x = _fetch_reg_reg_offset(vm)
     vm.branch(v_x, w_a < w_b)
     vm.log and vm.log(reg1=r_a, reg2=r_b, off1=v_x)
 
 
 def _op_branch_lt_s(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    r_b = min(12, vm.code[vm.pc + 1] // 16)
-    w_a = vm.reg[r_a]
-    w_b = vm.reg[r_b]
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, r_b, w_a, w_b, v_x = _fetch_reg_reg_offset(vm)
     vm.branch(v_x, pvm_Z(w_a, 8) < pvm_Z(w_b, 8))
     vm.log and vm.log(reg1=r_a, reg2=r_b, off1=v_x)
 
 
 def _op_branch_ge_u(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    r_b = min(12, vm.code[vm.pc + 1] // 16)
-    w_a = vm.reg[r_a]
-    w_b = vm.reg[r_b]
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, r_b, w_a, w_b, v_x = _fetch_reg_reg_offset(vm)
     vm.branch(v_x, w_a >= w_b)
     vm.log and vm.log(reg1=r_a, reg2=r_b, off1=v_x)
 
 
 def _op_branch_ge_s(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    r_b = min(12, vm.code[vm.pc + 1] // 16)
-    w_a = vm.reg[r_a]
-    w_b = vm.reg[r_b]
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, r_b, w_a, w_b, v_x = _fetch_reg_reg_offset(vm)
     vm.branch(v_x, pvm_Z(w_a, 8) >= pvm_Z(w_b, 8))
     vm.log and vm.log(reg1=r_a, reg2=r_b, off1=v_x)
 
 
 # ---- reg_reg_imm (loads/stores indirect, 32/64-bit immediates, cmovs, rotates) ----
-
-def _fetch_reg_reg_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    r_b = min(12, vm.code[vm.pc + 1] // 16)
-    w_a = vm.reg[r_a]
-    w_b = vm.reg[r_b]
-    inst_index = vm.inst_pos[vm.pc]
-    l_x = int(min(4, max(0, vm.inst_arg_len[inst_index] - 1)))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    return r_a, r_b, w_a, w_b, v_x
-
 
 def _op_store_ind_u8(vm):
     r_a, r_b, w_a, w_b, v_x = _fetch_reg_reg_imm(vm)
@@ -855,15 +872,6 @@ def _op_rot_r_32_imm_alt(vm):
 
 
 # ---- reg_reg_reg (binary ALU ops and shifts/rotates) ----
-
-def _fetch_reg_reg_reg(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    r_b = min(12, vm.code[vm.pc + 1] // 16)
-    r_d = min(12, vm.code[vm.pc + 2])
-    a = int(vm.reg[r_a])
-    b = int(vm.reg[r_b])
-    return r_a, r_b, r_d, a, b
-
 
 def _op_add_32(vm):
     r_a, r_b, r_d, a, b = _fetch_reg_reg_reg(vm)
@@ -1154,89 +1162,67 @@ def _op_min_u(vm):
 
 
 def _op_load_u8(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.reg[r_a] = vm.mem_read(op_load_u8, v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 
 def _op_load_i8(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.reg[r_a] = pvm_X(vm.mem_read(op_load_i8, v_x), 1)
     vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 
 def _op_load_u16(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.reg[r_a] = vm.mem_read(op_load_u16, v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 
 def _op_load_i16(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.reg[r_a] = pvm_X(vm.mem_read(op_load_i16, v_x), 2)
     vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 
 def _op_load_u32(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.reg[r_a] = vm.mem_read(op_load_u32, v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 
 def _op_load_i32(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.reg[r_a] = pvm_X(vm.mem_read(op_load_i32, v_x), 4)
     vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 
 def _op_load_u64(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.reg[r_a] = vm.mem_read(op_load_u64, v_x)
     vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 
 def _op_store_u8(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.mem_write(op_store_u8, v_x, u8(vm.reg[r_a]))
     vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 1)})
 
 
 def _op_store_u16(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.mem_write(op_store_u16, v_x, u16(vm.reg[r_a]))
     vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 2)})
 
 
 def _op_store_u32(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.mem_write(op_store_u32, v_x, u32(vm.reg[r_a]))
     vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 4)})
 
 
 def _op_store_u64(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
+    r_a, v_x = _fetch_reg_imm(vm)
     vm.mem_write(op_store_u64, v_x, vm.reg[r_a])
     vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 8)})
 
@@ -1244,140 +1230,102 @@ def _op_store_u64(vm):
 # ---- reg_reg operations ----
 
 def _op_move_reg(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = vm.reg[r_a]
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = w_a
     vm.log and vm.log(reg1=r_d, reg2=r_a)
 
 
 def _op_sbrk(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = vm._sbrk(vm.reg[r_a])
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = vm._sbrk(w_a)
     vm.log and vm.log(reg1=r_d, reg2=r_a)
 
 
 def _op_count_set_bits_64(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = int(vm.reg[r_a]).bit_count()
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = int(w_a).bit_count()
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_count_set_bits_32(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = pvm_X(u32(int(vm.reg[r_a])).bit_count(), 4)
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = pvm_X(u32(int(w_a)).bit_count(), 4)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_leading_zero_bits_64(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = count_leading_zeroes(vm.reg[r_a], 64)
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = count_leading_zeroes(w_a, 64)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_leading_zero_bits_32(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = pvm_X(count_leading_zeroes(vm.reg[r_a], 32) - 32, 4)
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = pvm_X(count_leading_zeroes(w_a, 32) - 32, 4)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_trailing_zero_bits_64(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = count_trailing_zeroes(vm.reg[r_a], 64)
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = count_trailing_zeroes(w_a, 64)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_trailing_zero_bits_32(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = count_trailing_zeroes(u32(vm.reg[r_a]), 32)
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = count_trailing_zeroes(u32(w_a), 32)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_sign_extend_8(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = pvm_Z_inv(pvm_Z(u8(vm.reg[r_a]), 1), 8)
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = pvm_Z_inv(pvm_Z(u8(w_a), 1), 8)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_sign_extend_16(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = pvm_Z_inv(pvm_Z(u16(vm.reg[r_a]), 2), 8)
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = pvm_Z_inv(pvm_Z(u16(w_a), 2), 8)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_zero_extend_16(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = u16(vm.reg[r_a])
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = u16(w_a)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_reverse_bytes(vm):
-    r_d = min(12, vm.code[vm.pc + 1] % 16)
-    r_a = min(12, vm.code[vm.pc + 1] // 16)
-    vm.reg[r_d] = reverse_bytes(vm.reg[r_a])
+    r_d, r_a, w_a = _fetch_reg_reg(vm)
+    vm.reg[r_d] = reverse_bytes(w_a)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
 def _op_store_imm_u8(vm):
-    inst_index = vm.inst_pos[vm.pc]
-    l_x = int(min(4, vm.code[vm.pc + 1] % 8))
-    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 1)))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    v_x, v_y = _fetch_imm_imm(vm)
     vm.mem_write(op_store_imm_u8, v_x, v_y % 2 ** 8)
     vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 1)})
 
 
 def _op_store_imm_u16(vm):
-    inst_index = vm.inst_pos[vm.pc]
-    l_x = int(min(4, vm.code[vm.pc + 1] % 8))
-    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 1)))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    v_x, v_y = _fetch_imm_imm(vm)
     vm.mem_write(op_store_imm_u16, v_x, v_y % 2 ** 16)
     vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 2)})
 
 
 def _op_store_imm_u32(vm):
-    inst_index = vm.inst_pos[vm.pc]
-    l_x = int(min(4, vm.code[vm.pc + 1] % 8))
-    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 1)))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    v_x, v_y = _fetch_imm_imm(vm)
     vm.mem_write(op_store_imm_u32, v_x, u32(v_y))
     vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 4)})
 
 
 def _op_store_imm_u64(vm):
-    inst_index = vm.inst_pos[vm.pc]
-    l_x = int(min(4, vm.code[vm.pc + 1] % 8))
-    l_y = int(min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 1)))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
+    v_x, v_y = _fetch_imm_imm(vm)
     vm.mem_write(op_store_imm_u64, v_x, v_y)
     vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 8)})
 
 
 # ---- reg_imm_imm: store_imm_ind_u{8,16,32,64} ----
-
-def _fetch_reg_imm_imm(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    w_a = vm.reg[r_a]
-    l_x = int(min(4, (vm.code[vm.pc + 1] // 16) % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1)))
-    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
-    return r_a, w_a, v_x, v_y
-
 
 def _op_store_imm_ind_u8(vm):
     r_a, w_a, v_x, v_y = _fetch_reg_imm_imm(vm)
@@ -1418,13 +1366,7 @@ def _op_add_64(vm):
 
 
 def _op_load_imm_jump_ind(vm):
-    r_a = min(12, vm.code[vm.pc + 1] % 16)
-    r_b = vm.code[vm.pc + 1] // 16
-    w_b = vm.reg[r_b]
-    l_x = int(min(4, vm.code[vm.pc + 2] % 8))
-    v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 3, l_x), l_x)
-    l_y = int(min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 2)))
-    v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 3 + l_x, l_y), l_y)
+    r_a, r_b, w_b, v_x, v_y = _fetch_reg_reg_imm_imm(vm)
     vm.reg[r_a] = v_x
     vm.skip_len = vm.djump(u32(int(w_b) + int(v_y)))
     vm.log and vm.log(reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context={"skip_len": vm.skip_len})
