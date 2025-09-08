@@ -1261,7 +1261,7 @@ def _op_leading_zero_bits_64(vm):
 
 def _op_leading_zero_bits_32(vm):
     r_d, r_a, w_a = _fetch_reg_reg(vm)
-    vm.reg[r_d] = pvm_X(count_leading_zeroes(w_a, 32) - 32, 4)
+    vm.reg[r_d] = count_leading_zeroes(w_a, 32)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
@@ -1273,7 +1273,7 @@ def _op_trailing_zero_bits_64(vm):
 
 def _op_trailing_zero_bits_32(vm):
     r_d, r_a, w_a = _fetch_reg_reg(vm)
-    vm.reg[r_d] = count_trailing_zeroes(u32(w_a), 32)
+    vm.reg[r_d] = count_trailing_zeroes(w_a, 32)
     vm.log and vm.log(reg1=r_d, reg2=r_a, context={"w'_d": vm.reg[r_d]})
 
 
