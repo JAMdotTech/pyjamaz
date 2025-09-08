@@ -633,7 +633,6 @@ OpcodeNames = {
     op.min_u.value: "min_u"
 }
 
-#TODO: construct these in opcodes.py! and have them mapped against corresponding enum.value!!!
 
 inst_none = 0
 inst_imm = 1
@@ -652,6 +651,7 @@ inst_reg_reg_reg = 12
 typezzz = [0] * 231
 for k,v in OpcodeScheme.items():
     typezzz[int(k)] = int(v.value)
+
 
 inst_none = 0
 inst_imm = 1

@@ -1,10 +1,11 @@
 import numpy as np
 import numpy.typing as npt
 
-import struct
 from typing import List, Dict
 
-from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
+from .defs import U64, U32, I64, U8, read_uint, write_uint
+from .exceptions import PVMMemoryError, PanicError
+from .opcodes import _opcode_lut
 from .types import PVMProgram, PVMMemory, PVMMemoryMode
 
 from .constants import (
@@ -12,324 +13,11 @@ from .constants import (
     MemOps,
     OpcodeNames,
     ExitCondition,
-
-    op_trap, op_fallthrough, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
-    op_store_imm_u32, op_store_imm_u64, op_jump, op_jump_ind, op_load_imm, op_load_u8,
-    op_load_i8, op_load_u16, op_load_i16, op_load_u32, op_load_i32, op_load_u64,
-    op_store_u8, op_store_u16, op_store_u32, op_store_u64, op_store_imm_ind_u8,
-    op_store_imm_ind_u16, op_store_imm_ind_u32, op_store_imm_ind_u64, op_load_imm_jump,
-    op_branch_eq_imm, op_branch_ne_imm, op_branch_lt_u_imm, op_branch_le_u_imm,
-    op_branch_ge_u_imm, op_branch_gt_u_imm, op_branch_lt_s_imm, op_branch_le_s_imm,
-    op_branch_ge_s_imm, op_branch_gt_s_imm, op_move_reg, op_sbrk, op_count_set_bits_64,
-    op_count_set_bits_32, op_leading_zero_bits_64, op_leading_zero_bits_32,
-    op_trailing_zero_bits_64, op_trailing_zero_bits_32, op_sign_extend_8, op_sign_extend_16,
-    op_zero_extend_16, op_reverse_bytes, op_store_ind_u8, op_store_ind_u16,
-    op_store_ind_u32, op_store_ind_u64, op_load_ind_u8, op_load_ind_i8, op_load_ind_u16,
-    op_load_ind_i16, op_load_ind_u32, op_load_ind_i32, op_load_ind_u64, op_add_imm_32,
-    op_and_imm, op_xor_imm, op_or_imm, op_mul_imm_32, op_set_lt_u_imm, op_set_lt_s_imm,
-    op_shlo_l_imm_32, op_shlo_r_imm_32, op_shar_r_imm_32, op_neg_add_imm_32,
-    op_set_gt_u_imm, op_set_gt_s_imm, op_shlo_l_imm_alt_32, op_shlo_r_imm_alt_32,
-    op_shar_r_imm_alt_32, op_cmov_iz_imm, op_cmov_nz_imm, op_add_imm_64, op_mul_imm_64,
-    op_shlo_l_imm_64, op_shlo_r_imm_64, op_shar_r_imm_64, op_neg_add_imm_64,
-    op_shlo_l_imm_alt_64, op_shlo_r_imm_alt_64, op_shar_r_imm_alt_64, op_rot_r_64_imm,
-    op_rot_r_64_imm_alt, op_rot_r_32_imm, op_rot_r_32_imm_alt, op_branch_eq, op_branch_ne,
-    op_branch_lt_u, op_branch_lt_s, op_branch_ge_u, op_branch_ge_s, op_load_imm_jump_ind,
-    op_add_32, op_sub_32, op_mul_32, op_div_u_32, op_div_s_32, op_rem_u_32, op_rem_s_32,
-    op_shlo_l_32, op_shlo_r_32, op_shar_r_32, op_add_64, op_sub_64, op_mul_64,
-    op_div_u_64, op_div_s_64, op_rem_u_64, op_rem_s_64, op_shlo_l_64, op_shlo_r_64,
-    op_shar_r_64, op_and, op_xor, op_or, op_mul_upper_s_s, op_mul_upper_u_u,
-    op_mul_upper_s_u, op_set_lt_u, op_set_lt_s, op_cmov_iz, op_cmov_nz, op_rot_l_64,
-    op_rot_l_32, op_rot_r_64, op_rot_r_32, op_and_inv, op_or_inv, op_xnor, op_max,
-    op_max_u, op_min, op_min_u,
-
-    inst_none, inst_imm, inst_reg_ext_imm, inst_imm_imm, inst_offset, inst_reg_imm,
-    inst_reg_imm_imm, inst_reg_imm_offset, inst_reg_reg, inst_reg_reg_imm,
-    inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg, typezzz, PVM_PAGE_SIZE
+    PVM_PAGE_SIZE,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
-
-# Numpy aliasses:
-
-U8 = np.uint8
-U16 = np.uint16
-U32 = np.uint32
-U64 = np.uint64
-I8 = np.int8
-I16 = np.int16
-I32 = np.int32
-I64 = np.int64
-
-# Python coercing helpers (should refactor to coresponding numpy types for native):
-
-MASK8 = (1 << 8) - 1
-MASK16 = (1 << 16) - 1
-MASK32 = (1 << 32) - 1
-MASK64 = (1 << 64) - 1
-SIGN8 = 1 << 7
-SIGN16 = 1 << 15
-SIGN32 = 1 << 31
-SIGN64 = 1 << 63
-
-def u8(x: int) -> int:
-    x = int(x)
-    return x & MASK8
-
-def s8(x: int) -> int:
-    x = int(x)
-    x &= MASK8
-    return x - (1 << 8) if x & SIGN8 else x
-
-def u16(x: int) -> int:
-    x = int(x)
-    return x & MASK16
-
-def s16(x: int) -> int:
-    x = int(x)
-    x &= MASK16
-    return x - (1 << 16) if x & SIGN16 else x
-
-def u32(x: int) -> int:
-    x = int(x)
-    return x & MASK32
-
-def s32(x: int) -> int:
-    x = int(x)
-    x &= MASK32
-    return x - (1 << 32) if x & SIGN32 else x
-
-def u64(x: int) -> int:
-    x = int(x)
-    return x & MASK64
-
-def s64(x: int) -> int:
-    x = int(x)
-    x &= MASK64
-    return x - (1 << 64) if x & SIGN64 else x
-
-
-# Pvm helper functions:
-
-def rori64(x, shift_amount):
-    x = int(x)
-    shift_amount = int(shift_amount) & 63
-    return ((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
-
-
-def roli64(x, shift_amount):
-    x = int(x)
-    shift_amount = int(shift_amount) & 63
-    return ((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
-
-
-def rotl32(x, s):
-    s = int(s) & 31
-    x = int(x) & MASK32
-    return ((x << s) | (x >> (32 - s))) & MASK32
-
-def rotr32(x, s):
-    s = int(s) & 31
-    x = int(x) & MASK32
-    return ((x >> s) | (x << (32 - s))) & MASK32
-
-def rori32(x, shift_amount):
-    x = int(x)
-    shift_amount = int(shift_amount) & 31
-    return ((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF
-
-def roli32(x, shift_amount):
-    x = int(x)
-    shift_amount = int(shift_amount) & 31
-    return ((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF
-
-def reverse_bytes(x):
-    """
-    Reverse the byte order of a 64-bit integer (endianness swap).
-
-    Converts between big-endian and little-endian representations.
-    Example: 0x0123456789ABCDEF -> 0xEFCDAB8967452301
-
-    Note:
-        Optimized using Python's built-in bytes operations.
-        Provides ~4x speedup over bitwise operations.
-    """
-    return struct.unpack('<Q', struct.pack('>Q', x))[0]
-
-def count_trailing_zeroes(value, max_bits=64):
-    # https://stackoverflow.com/a/63552117
-    # https://github.com/numpy/numpy/issues/16325
-    # alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    value = int(value)
-    if value == 0:
-        return max_bits
-    return int(value & -value).bit_length() - 1
-
-def count_leading_zeroes(value, max_bits=64):
-    # https://stackoverflow.com/a/71888844
-    # https://github.com/numpy/numpy/issues/16325
-    # alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    value = int(value)
-    value &= (1 << max_bits) - 1  # truncate; treat negatives as 2's compliment
-    if value == 0:
-        return max_bits
-    significant_bits = len(bin(value)) - 2  # has "0b" prefix
-    return max_bits - significant_bits
-
-def pvm_smod(a: int, b: int) -> int:
-    """
-    Signed modulo operation optimized using conditional branching
-    to avoid function call overhead.
-
-    Returns a % b with sign of a preserved.
-    Special case: if b == 0, returns a.
-
-    Note:
-        Optimized using conditional branching instead of abs() and sign functions
-        for ~18% performance improvement.
-    """
-    if b == 0:
-        return a
-
-    # Use conditional branching to avoid abs() function calls
-    if a >= 0:
-        if b >= 0:
-            return a % b
-        else:
-            return a % (-b)
-    else:
-        if b >= 0:
-            return -((-a) % b)
-        else:
-            return -((-a) % (-b))
-
-def pvm_rtz_div(a: int, b: int) -> int:
-    """
-    Truncated division (rounds toward zero).
-
-    Returns the quotient of a/b rounded toward zero.
-
-    Note:
-        Optimized using conditional branching to avoid abs() and divmod() overhead.
-        Provides ~1.4x speedup while maintaining exact correctness for all integer values.
-        This approach avoids floating point precision issues with very large integers.
-    """
-    if a >= 0:
-        if b > 0:
-            return a // b
-        else:
-            return -(a // (-b))
-    else:
-        if b > 0:
-            return -((-a) // b)
-        else:
-            return (-a) // (-b)
-
-
-def pvm_X(x: int, n: int) -> int:
-    """
-    Sign extend a number to two's complement form for value X and number of bytes n
-
-    Optimized version using bit operations.
-    """
-    # Optimized sign extension for each n
-    if n == 1:
-        masked = x & 0xFF
-        if masked & 0x80:  # Check sign bit
-            return masked | 0xFFFFFFFFFFFFFF00
-        return masked
-    elif n == 2:
-        masked = x & 0xFFFF
-        if masked & 0x8000:  # Check sign bit
-            return masked | 0xFFFFFFFFFFFF0000
-        return masked
-    elif n == 3:
-        masked = x & 0xFFFFFF
-        # Check if sign bit (bit 23) is set
-        if masked & 0x800000:
-            # Negative - sign extend to 64 bits
-            return masked | 0xFFFFFFFFFF000000
-        else:
-            # Positive
-            return masked
-    elif n == 4:
-        masked = x & 0xFFFFFFFF
-        if masked & 0x80000000:  # Check sign bit
-            return masked | 0xFFFFFFFF00000000
-        return masked
-    elif n == 5:
-        masked = x & 0xFFFFFFFFFF
-        # Check if sign bit (bit 39) is set
-        if masked & 0x8000000000:
-            # Negative - sign extend to 64 bits
-            return masked | 0xFFFFFF0000000000
-        else:
-            # Positive
-            return masked
-    elif n == 6:
-        masked = x & 0xFFFFFFFFFFFF
-        # Check if sign bit (bit 47) is set
-        if masked & 0x800000000000:
-            # Negative - sign extend to 64 bits
-            return masked | 0xFFFF000000000000
-        else:
-            # Positive
-            return masked
-    elif n == 7:
-        masked = x & 0xFFFFFFFFFFFFFF
-        # Check if sign bit (bit 55) is set
-        if masked & 0x80000000000000:
-            # Negative - sign extend to 64 bits
-            return masked | 0xFF00000000000000
-        else:
-            # Positive
-            return masked
-    elif n == 8:
-        return x & 0xFFFFFFFFFFFFFFFF
-    else:
-        return x
-
-
-def pvm_Z(a: int, n: int) -> int:
-    """
-    Interpret the low n bytes of `a` as a signed two's-complement integer.
-    """
-    if n <= 0:
-        return 0
-    a = int(a)
-    bits = n * 8
-    mask = (1 << bits) - 1
-    sign = 1 << (bits - 1)
-    u = a & mask
-    return (u ^ sign) - sign
-
-
-def pvm_Z_inv(a: int, n: int) -> int:
-    if n <= 0:
-        return 0
-    bits = n * 8
-    mask = (1 << bits) - 1
-    return u64(a) & mask
-
-
-def read_uint(mem, addr, n):
-    if n == 0:
-        return 0 & 0xFF
-    if n == 1:
-        return mem[addr]
-    elif n == 2:
-        return struct.unpack_from('<H', mem, addr)[0]
-    elif n == 4:
-        return struct.unpack_from('<I', mem, addr)[0]
-    elif n == 8:
-        return struct.unpack_from('<Q', mem, addr)[0]
-    elif n == 3:
-        # Safely read 3 bytes without requiring 4-byte availability
-        lo = struct.unpack_from('<H', mem, addr)[0]
-        hi = struct.unpack_from('<B', mem, addr + 2)[0]
-        return lo | (hi << 16)
-
-    raise Exception("read_uint: unsupported length")
 
 
 class PVMInterpreter:
@@ -345,21 +33,25 @@ class PVMInterpreter:
         self.code:npt.NDArray[U8] = np.array(1, dtype=U8)
         self.code_size: U64 = U64(0)
         self.jump_table = []
-        self.mem:PVMMemory = None
 
         self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
 
+        self.mem:PVMMemory = None
         self.status:int = ExitReason.resume.value
         self.exit_value:int = None
 
+        # Initialize memory sections storage
         self._init_mem_ops_lookup()
+
+        # Initialize memory sections storage
         self.mem_sections = []
         self.mem_section_starts = np.array([], dtype=U32)
         self.mem_section_ends = np.array([], dtype=U32)
         self.mem_section_size = np.array([], dtype=U32)
         self.mem_acl: Dict[int, int] = {}
+
         self._mem_addr: int = -1
 
         self.ROM_ADDR = 0xFFFFFFFF
@@ -376,11 +68,12 @@ class PVMInterpreter:
         self.mem_writable = PVMMemoryMode.writable.value
 
         self.mv_code = None
-        self.mv_sections = [None, None, None, None]
+        self._sec_mv = [None, None, None, None]
 
         self.log = None
 
         self.reset(program)
+        self.opcodes = _opcode_lut()
 
         if logger_cls:
             self.program = program
@@ -438,6 +131,7 @@ class PVMInterpreter:
         if C:
             inst_pos = self.pc + b
             if inst_pos not in self.inst_pos:
+                #self.status = ExitCondition.panic.value
                 raise PanicError(f"Invalid branch instruction: C={C} b={b} inst_pos={inst_pos}")
             else:
                 self.skip_len = b
@@ -453,8 +147,7 @@ class PVMInterpreter:
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
 
-        # Initialize memory sections from the PVMMemory object
-        # (reference/point to the underlying numpy arrays, and set bookkeeping variables)
+        # Initialize memory sections from the PVMMemory object (just reference where possible)
         self._link_memory(program.memory)
 
         for idx, val in enumerate(program.registers):
@@ -465,9 +158,11 @@ class PVMInterpreter:
         self.inst_bitmask: List[bool] = program.code.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
+
         self.create_instruction_lookup()
 
-    #TODO: refactor to regs_to_int
+
+    #TODO: registers_as_int
     def get_registers(self):
         return [int(x) for x in self.reg]
 
@@ -487,7 +182,8 @@ class PVMInterpreter:
 
 
     def _link_memory(self, memory):
-        # Store memory sections as numpy array pointers and their boundaries
+        """Initialize memory sections as numpy arrays"""
+        # Store memory sections as numpy arrays with their boundaries
         mem_section_starts = []
         mem_section_ends = []  # This will use paged_tail, not size
         mem_section_size = []
@@ -516,13 +212,13 @@ class PVMInterpreter:
                 mem_section_starts.append(section.address)
                 mem_section_ends.append(section.paged_tail)
                 mem_section_size.append(section.size)
-                self.mv_sections[idx] = memoryview(section.contents)
+                self._sec_mv[idx] = memoryview(section.contents)
             else:
                 self.mem_sections.append(None)
                 mem_section_starts.append(0)
                 mem_section_ends.append(0)
                 mem_section_size.append(0)
-                self.mv_sections[idx] = None
+                self._sec_mv[idx] = None
 
         self.mem_section_starts = np.array(mem_section_starts, dtype=U32)
         self.mem_section_ends = np.array(mem_section_ends, dtype=U32)
@@ -562,7 +258,7 @@ class PVMInterpreter:
             if new_heap_end - self.mem_section_starts[1] > len(heap):
                 heap = np.concatenate((heap, np.zeros(growth, dtype=U8)))
                 self.mem_sections[1] = heap
-                self.mv_sections[1] = memoryview(self.mem_sections[1])
+                self._sec_mv[1] = memoryview(self.mem_sections[1])
 
             # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
@@ -594,7 +290,7 @@ class PVMInterpreter:
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
 
-        # Check if writable using page-based ACL (if its set)
+        # Check if writable using page-based ACL (if available)
         if self.mem_acl is not None:
             page_nr = addr // PVM_PAGE_SIZE
             if page_nr not in self.mem_acl or self.mem_acl[page_nr] < self.mem_writable:
@@ -613,18 +309,7 @@ class PVMInterpreter:
             value = value % (2 ** (bytes_to_write * 8))
 
         # Write bytes in little-endian order
-        mv = self.mv_sections[section_idx]
-        n = bytes_to_write
-        if n == 1:
-            mv[section_offset] = value & 0xFF
-        elif n == 2:
-            struct.pack_into('<H', mv, section_offset, value)
-        elif n == 4:
-            struct.pack_into('<I', mv, section_offset, value)
-        elif n == 8:
-            struct.pack_into('<Q', mv, section_offset, value)
-        else:
-            raise PVMMemoryError(f"Invalid write length: {bytes_to_write}")
+        return write_uint(self._sec_mv[section_idx], section_offset, bytes_to_write, value)
 
 
     def _mem_read_int(self, addr: int, bytes_to_read: int):
@@ -680,7 +365,7 @@ class PVMInterpreter:
         if section_offset + bytes_to_read > len(section):
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
 
-        return read_uint(self.mv_sections[section_idx], section_offset, bytes_to_read)
+        return read_uint(self._sec_mv[section_idx], section_offset, bytes_to_read)
 
 
     #GP-0.6.7-section:A.15
@@ -754,817 +439,18 @@ class PVMInterpreter:
 
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
-            inst_type = typezzz[opcode] #OpcodeScheme[opcode].value
             self.skip_len = self.inst_arg_len[inst_index] + 1
 
             try:
-                #GP-0.6.7-section:A.5.1
-                if inst_type == inst_none:  # InstructionType.none
-                    if opcode == op_trap:
-                        self.log and self.log()
-                        #self.status = ExitCondition.panic.value
-                        raise PanicError(f"trap")
-                    elif opcode == op_fallthrough:
-                        self.log and self.log()
-                        pass
-                    else:
-                        raise InvalidOpcode(f"Invalid noargs opcode: {opcode} for instruction type {inst_type}")
-
-
-                #GP-0.6.7-section:A.5.2
-                elif inst_type == inst_imm:  # InstructionType.imm
-                    l_x = int(min(4, self.inst_arg_len[inst_index]))
-                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 1, l_x), l_x)
-
-                    if opcode == op_ecalli:
-                        self.status = ExitReason.host_halt.value
-                        self.exit_value = v_x
-                        self.log and self.log(imm1=v_x)
-                    else:
-                        raise InvalidOpcode(f"Invalid imm opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.3
-                elif inst_type == inst_reg_ext_imm:  # InstructionType.reg_ext_imm
-
-                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
-                    v_x = read_uint(self.mv_code, self.pc + 2, 8)
-
-                    if opcode == op_load_imm_64:
-                        self.reg[r_a] = v_x
-                        self.log and self.log(reg1=r_a, imm1=v_x)
-                    else:
-                        raise InvalidOpcode(f"Invalid reg_ext_imm opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.4
-                elif inst_type == inst_imm_imm:  # InstructionType.imm_imm
-
-                    l_x = int(min(4, self.mv_code[self.pc + 1] % 8))
-                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
-                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
-                    v_y = pvm_X(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
-
-                    if opcode == op_store_imm_u8:
-                        self.mem_write(opcode, v_x, v_y % 2 ** 8)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 1)})
-                    elif opcode == op_store_imm_u16:
-                        self.mem_write(opcode, v_x, v_y % 2 ** 16)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 2)})
-                    elif opcode == op_store_imm_u32:
-                        self.mem_write(opcode, v_x, u32(v_y))
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 4)})
-                    elif opcode == op_store_imm_u64:
-                        self.mem_write(opcode, v_x, v_y)
-                        self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(v_x, 8)})
-                    else:
-                        raise InvalidOpcode(f"Invalid imm_imm opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.5
-                elif inst_type == inst_offset:  # InstructionType.offset
-
-                    l_x = int(min(4, self.inst_arg_len[inst_index]))
-                    v_x = pvm_Z(read_uint(self.mv_code, self.pc + 1, l_x), l_x)
-
-                    if opcode == op_jump:
-                        self.skip_len = v_x
-                        self.log and self.log(off1=v_x, context={"skip_len":v_x})
-                    else:
-                        raise InvalidOpcode(f"Invalid offset opcode: {opcode} for instruction type {inst_type}")
-
-
-                #GP-0.6.7-section:A.5.6
-                elif inst_type == inst_reg_imm:  # InstructionType.reg_imm
-                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
-                    l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
-                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
-
-                    if opcode == op_jump_ind:
-                        self.skip_len = self.djump(u32(int(self.reg[r_a]) + int(v_x)))
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"skip_len": self.skip_len})
-
-                    elif opcode == op_load_imm:
-                        self.reg[r_a] = v_x
-                        self.log and self.log(reg1=r_a, imm1=v_x)
-
-                    elif opcode == op_load_u8:
-                        self.reg[r_a] = self.mem_read(opcode, v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x)
-
-                    elif opcode == op_load_i8:
-                        self.reg[r_a] = pvm_X(self.mem_read(opcode, v_x), 1)
-                        self.log and self.log(reg1=r_a, imm1=v_x)
-
-                    elif opcode == op_load_u16:
-                        self.reg[r_a] = self.mem_read(opcode, v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x)
-
-                    elif opcode == op_load_i16:
-                        self.reg[r_a] = pvm_X(self.mem_read(opcode, v_x), 2)
-                        self.log and self.log(reg1=r_a, imm1=v_x)
-
-                    elif opcode == op_load_u32:
-                        self.reg[r_a] = self.mem_read(opcode, v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x)
-
-                    elif opcode == op_load_i32:
-                        self.reg[r_a] = pvm_X(self.mem_read(opcode, v_x), 4)
-                        self.log and self.log(reg1=r_a, imm1=v_x)
-
-                    elif opcode == op_load_u64:
-                        self.reg[r_a] = self.mem_read(opcode, v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x)
-
-                    elif opcode == op_store_u8:
-                        self.mem_write(opcode, v_x, u8(self.reg[r_a]))
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 1)})
-
-                    elif opcode == op_store_u16:
-                        self.mem_write(opcode, v_x, u16(self.reg[r_a]))
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 2)})
-
-                    elif opcode == op_store_u32:
-                        self.mem_write(opcode, v_x, u32(self.reg[r_a]))
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 4)})
-
-                    elif opcode == op_store_u64:
-                        self.mem_write(opcode, v_x, self.reg[r_a])
-                        self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self._mem_read_int(v_x, 8)})
-
-                    else:
-                        raise InvalidOpcode(f"Invalid reg_imm opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.7
-                elif inst_type == inst_reg_imm_imm:  # InstructionType.reg_imm_imm
-                    # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
-                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
-                    w_a = self.reg[r_a]
-
-                    # Next we read l_x (max 4 bytes) from our rom into v_x as a uint(8,16 or 32), we always convert this to a uint32
-                    l_x = int(min(4, (self.mv_code[self.pc + 1] // 16) % 8))
-                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
-
-                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
-                    v_y = pvm_X(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
-
-                    if opcode == op_store_imm_ind_u8:
-                        self.mem_write(opcode, u32(int(w_a) + int(v_x)), u8(v_y))
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 1)})
-
-                    elif opcode == op_store_imm_ind_u16:
-                        self.mem_write(opcode, u32(int(w_a) + int(v_x)), u16(v_y))
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 2)})
-
-                    elif opcode == op_store_imm_ind_u32:
-                        self.mem_write(opcode, u32(int(w_a) + int(v_x)), u32(v_y))
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 4)})
-
-                    elif opcode == op_store_imm_ind_u64:
-                        self.mem_write(opcode, u32(int(w_a) + int(v_x)), v_y)
-                        self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self._mem_read_int(w_a + v_x, 8)})
-
-                    else:
-                        raise InvalidOpcode(f"Invalid reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.8
-                elif inst_type == inst_reg_imm_offset:  # InstructionType.reg_imm_offset
-                    # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
-                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
-                    w_a = self.reg[r_a]
-
-                    # The other 4 bits from this byte are reserved for the length of our uint (uint8,16 or 32)
-                    l_x = int(min(4, (self.mv_code[self.pc + 1] // 16) % 8))
-                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
-
-                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
-                    v_y = pvm_Z(read_uint(self.mv_code, self.pc + 2 + l_x, l_y), l_y)
-
-                    if opcode == op_load_imm_jump:
-                        self.skip_len = v_y
-                        self.reg[r_a] = v_x
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_eq_imm:
-                        self.branch(v_y, w_a == v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_ne_imm:
-                        self.branch(v_y, w_a != v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_lt_u_imm:
-                        self.branch(v_y, w_a < v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_le_u_imm:
-                        self.branch(v_y, w_a <= v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_ge_u_imm:
-                        self.branch(v_y, w_a >= v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_gt_u_imm:
-                        self.branch(v_y, w_a > v_x)
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_lt_s_imm:
-                        self.branch(v_y, pvm_Z(w_a, 8) < pvm_Z(v_x, 8))
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_le_s_imm:
-                        self.branch(v_y, pvm_Z(w_a, 8) <= pvm_Z(v_x, 8))
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_ge_s_imm:
-                        self.branch(v_y, pvm_Z(w_a, 8) >= pvm_Z(v_x, 8))
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    elif opcode == op_branch_gt_s_imm:
-                        self.branch(v_y, pvm_Z(w_a, 8) > pvm_Z(v_x, 8))
-                        self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
-
-                    else:
-                        raise InvalidOpcode(f"Invalid reg_imm_offset opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.9
-                elif inst_type == inst_reg_reg:  # InstructionType.reg_reg
-
-                    r_d = min(12, self.mv_code[self.pc + 1] % 16)
-                    r_a = min(12, self.mv_code[self.pc + 1] // 16)
-
-                    if opcode == op_move_reg:
-                        self.reg[r_d] = self.reg[r_a]
-                        self.log and self.log(reg1=r_d, reg2=r_a)
-
-                    elif opcode == op_sbrk:
-                        # Note: set break / set break pointer (extend heap memory)
-                        self.reg[r_d] = self._sbrk(self.reg[r_a])
-                        self.log and self.log(reg1=r_d, reg2=r_a)
-
-                    elif opcode == op_count_set_bits_64:
-                        self.reg[r_d] = np.bitwise_count(self.reg[r_a])
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_count_set_bits_32:
-                        self.reg[r_d] = np.bitwise_count(self.reg[r_a])
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_leading_zero_bits_64:
-                        #self.reg[r_d] = count_leading_zeroes(reverse_bits_64(self.reg[r_a]))
-                        self.reg[r_d] = count_leading_zeroes(self.reg[r_a], 64)
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_leading_zero_bits_32:
-                        #self.reg[r_d] = count_leading_zeroes(U32(reverse_bits_32(self.reg[r_a])), 32)
-                        self.reg[r_d] = count_leading_zeroes(self.reg[r_a], 32)
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_trailing_zero_bits_64:
-                        self.reg[r_d] = count_trailing_zeroes(self.reg[r_a], 64)
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_trailing_zero_bits_32:
-                        self.reg[r_d] = count_trailing_zeroes(self.reg[r_a], 32)
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_sign_extend_8:
-                        self.reg[r_d] = pvm_Z_inv(pvm_Z(u8(self.reg[r_a]), 1), 8)
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_sign_extend_16:
-                        self.reg[r_d] = pvm_Z_inv(pvm_Z(u16(self.reg[r_a]), 2), 8)
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_zero_extend_16:
-                        self.reg[r_d] = u16(self.reg[r_a])
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_reverse_bytes:
-                        self.reg[r_d] = reverse_bytes(self.reg[r_a])
-                        self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
-
-                    else:
-                        raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.10
-                elif inst_type == inst_reg_reg_imm:  # InstructionType.reg_reg_imm
-
-                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
-                    r_b = min(12, self.mv_code[self.pc + 1] // 16)
-
-                    w_a = self.reg[r_a]
-                    w_b = self.reg[r_b]
-
-                    l_x = int(min(4, max(0, self.inst_arg_len[inst_index] - 1)))
-                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
-
-                    if opcode == op_store_ind_u8:
-                        self.mem_write(opcode, u32(int(w_b) + int(v_x)), u8(w_a))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": u8(w_a), "w_b": w_b})
-
-                    elif opcode == op_store_ind_u16:
-                        self.mem_write(opcode, u32(int(w_b) + int(v_x)), u16(w_a))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": u16(w_a), "w_b": w_b})
-
-                    elif opcode == op_store_ind_u32:
-                        self.mem_write(opcode, u32(int(w_b) + int(v_x)), u32(w_a))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": u32(w_a), "w_b": w_b})
-
-                    elif opcode == op_store_ind_u64:
-                        self.mem_write(opcode, u32(int(w_b) + int(v_x)), w_a)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
-
-                    elif opcode == op_load_ind_u8:
-                        self.reg[r_a] = self.mem_read(opcode, u32(int(w_b) + int(v_x)))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
-
-                    elif opcode == op_load_ind_i8:
-                        self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, u32(int(w_b) + int(v_x))), 1), 8)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
-
-                    elif opcode == op_load_ind_u16:
-                        self.reg[r_a] = self.mem_read(opcode, u32(int(w_b) + int(v_x)))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
-
-                    elif opcode == op_load_ind_i16:
-                        self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, u32(int(w_b) + int(v_x))), 2), 8)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
-
-                    elif opcode == op_load_ind_u32:
-                        self.reg[r_a] = self.mem_read(opcode, u32(int(w_b) + int(v_x)))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
-
-                    elif opcode == op_load_ind_i32:
-                        self.reg[r_a] = pvm_Z_inv(pvm_Z(self.mem_read(opcode, u32(int(w_b) + int(v_x))), 4), 8)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
-
-                    elif opcode == op_load_ind_u64:
-                        self.reg[r_a] = self.mem_read(opcode, u32(int(w_b) + int(v_x)))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
-
-                    elif opcode == op_add_imm_32:
-                        self.reg[r_a] = pvm_X(u32(int(w_b) + int(v_x)), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
-
-                    elif opcode == op_and_imm:
-                        self.reg[r_a] = w_b & v_x
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
-
-                    elif opcode == op_xor_imm:
-                        self.reg[r_a] = w_b ^ v_x
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
-
-                    elif opcode == op_or_imm:
-                        self.reg[r_a] = w_b | v_x
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
-
-                    elif opcode == op_mul_imm_32:
-                        self.reg[r_a] = pvm_X(u32(int(w_b) * int(v_x)), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
-
-                    elif opcode == op_set_lt_u_imm:
-                        self.reg[r_a] = w_b < v_x and 1 or 0
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
-
-                    elif opcode == op_set_lt_s_imm:
-                        self.reg[r_a] = pvm_Z(w_b, 8) < pvm_Z(v_x, 8) and 1 or 0
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
-
-                    elif opcode == op_shlo_l_imm_32:
-                        self.reg[r_a] = pvm_X(u32(int(w_b) << (int(v_x) & 31)), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
-
-                    elif opcode == op_shlo_r_imm_32:
-                        self.reg[r_a] = pvm_X(u32(int(w_b)) >> (int(v_x) & 31), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
-
-                    elif opcode == op_shar_r_imm_32:
-                        self.reg[r_a] = pvm_Z_inv(
-                            pvm_Z(int(w_b) & MASK32, 4) >> (int(v_x) & 31),
-                            8
-                        )
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-                    elif opcode == op_neg_add_imm_32:
-                        self.reg[r_a] = pvm_X(u32(int(v_x) + (1 << 32) - int(w_b)), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_set_gt_u_imm:
-                        self.reg[r_a] = w_b > v_x and 1 or 0
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_set_gt_s_imm:
-                        self.reg[r_a] = pvm_Z(w_b, 8) > pvm_Z(v_x, 8) and 1 or 0
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_shlo_l_imm_alt_32:
-                        self.reg[r_a] = pvm_X(u32(int(v_x) << (int(w_b) & 31)), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_shlo_r_imm_alt_32:
-                        self.reg[r_a] = pvm_X(u32(int(v_x)) >> (int(w_b) & 31), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_shar_r_imm_alt_32:
-                        shift = int(w_b) & 31
-                        self.reg[r_a] = pvm_Z_inv(pvm_Z(v_x & 0xFFFFFFFF, 4) >> shift, 8)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_cmov_iz_imm:
-                        if w_b == 0:
-                            self.reg[r_a] = v_x
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_cmov_nz_imm:
-                        if w_b != 0:
-                            self.reg[r_a] = v_x
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_add_imm_64:
-                        self.reg[r_a] = u64(int(w_b) + int(v_x))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_mul_imm_64:
-                        self.reg[r_a] = u64(int(w_b) * int(v_x))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_shlo_l_imm_64:
-                        self.reg[r_a] = pvm_X((int(w_b) << (int(v_x) & 63)), 8)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_shlo_r_imm_64:
-                        self.reg[r_a] = pvm_X(int(w_b) >> (int(v_x) & 63), 8)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_shar_r_imm_64:
-                        self.reg[r_a] = pvm_Z_inv(
-                            pvm_Z(int(w_b), 8) >> (int(v_x) & 63),
-                            8
-                        )
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_neg_add_imm_64:
-                        self.reg[r_a] = ((v_x + (1 << 64) - int(w_b)) & MASK64)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_shlo_l_imm_alt_64:
-                        self.reg[r_a] = (int(v_x) << (int(w_b) & 63)) & MASK64
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_shlo_r_imm_alt_64:
-                        self.reg[r_a] = int(v_x) >> (int(w_b) & 63)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_shar_r_imm_alt_64:
-                        signed_val = pvm_Z(v_x, 8)
-                        shift_amount = int(w_b & 63)
-                        shifted = signed_val >> shift_amount
-                        if shifted < 0:
-                            shifted = shifted + (1 << 64)
-                        self.reg[r_a] = shifted & MASK64
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_rot_r_64_imm:
-                        self.reg[r_a] = rori64(int(w_b), int(v_x))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_rot_r_64_imm_alt:
-                        self.reg[r_a] = rori64(int(v_x), int(w_b))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_rot_r_32_imm:
-                        self.reg[r_a] = pvm_X(rori32(int(w_b), int(v_x)), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    elif opcode == op_rot_r_32_imm_alt:
-                        self.reg[r_a] = pvm_X(rori32(int(v_x), int(w_b)), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
-
-                    else:
-                        raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.11
-                elif inst_type == inst_reg_reg_offset:  # InstructionType.reg_reg_offset
-                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
-                    r_b = min(12, self.mv_code[self.pc + 1] // 16)
-                    w_a = self.reg[r_a]
-                    w_b = self.reg[r_b]
-
-                    l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
-                    v_x = pvm_Z(read_uint(self.mv_code, self.pc + 2, l_x), l_x)
-
-                    if opcode == op_branch_eq:
-                        self.branch(v_x, w_a == w_b)
-                        self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
-
-                    elif opcode == op_branch_ne:
-                        self.branch(v_x, w_a != w_b)
-                        self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
-
-                    elif opcode == op_branch_lt_u:
-                        self.branch(v_x, w_a < w_b)
-                        self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
-
-                    elif opcode == op_branch_lt_s:
-                        self.branch(v_x, pvm_Z(w_a, 8) < pvm_Z(w_b, 8))
-                        self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
-
-                    elif opcode == op_branch_ge_u:
-                        self.branch(v_x, w_a >= w_b)
-                        self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
-
-                    elif opcode == op_branch_ge_s:
-                        self.branch(v_x, pvm_Z(w_a, 8) >= pvm_Z(w_b, 8))
-                        self.log and self.log(reg1=r_a, reg2=r_b, off1=v_x)
-
-                    else:
-                        raise InvalidOpcode(f"Invalid reg_reg opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.12
-                elif inst_type == inst_reg_reg_imm_imm:  # InstructionType.reg_reg_imm_imm
-                    # For the first byte after the opcode, the 1st 4 bits are reserved for register address to read w_a into
-                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
-                    r_b = self.mv_code[self.pc + 1] // 16
-
-                    #w_a = self.reg[r_a]
-                    w_b = self.reg[r_b]
-
-                    l_x = int(min(4, self.mv_code[self.pc + 2] % 8))
-                    v_x = pvm_X(read_uint(self.mv_code, self.pc + 3, l_x), l_x)
-
-                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 2)))
-                    v_y = pvm_X(read_uint(self.mv_code, self.pc + 3 + l_x, l_y), l_y)
-
-                    if opcode == op_load_imm_jump_ind:
-                        self.reg[r_a] = v_x
-                        self.skip_len = self.djump(u32(int(w_b) + int(v_y)))
-                        self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context={"skip_len": self.skip_len})
-                    else:
-                        raise InvalidOpcode(f"Invalid reg_reg_imm_imm opcode: {opcode} for instruction type {inst_type}")
-
-                #GP-0.6.7-section:A.5.13
-                elif inst_type == inst_reg_reg_reg:  # InstructionType.reg_reg_reg
-
-                    r_a = min(12, self.mv_code[self.pc + 1] % 16)
-                    r_b = min(12, self.mv_code[self.pc + 1] // 16)
-                    r_d = min(12, self.mv_code[self.pc + 2])
-
-                    a = int(self.reg[r_a])
-                    b = int(self.reg[r_b])
-
-                    if opcode == op_add_32:
-                        self.reg[r_d] = pvm_X(u32(a + b), 4)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_sub_32:
-                        self.reg[r_d] = pvm_X(u32(a + (1 << 32) - u32(b)), 4)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_mul_32:
-                        self.reg[r_d] = pvm_X(u32(a * b), 4)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_div_u_32:
-                        if b == 0:
-                            self.reg[r_d] = (1 << 64) - 1
-                        else:
-                            self.reg[r_d] = pvm_X(u32(a) // u32(b), 4)
-
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_div_s_32:
-                        a_s32 = pvm_Z(u32(a), 4)
-                        b_s32 = pvm_Z(u32(b), 4)
-
-                        if b_s32 == 0:
-                            self.reg[r_d] = (1 << 64) - 1
-                        elif a_s32 == -(1 << 31) and b_s32 == -1:
-                            self.reg[r_d] = pvm_Z_inv(a_s32, 8)
-                        else:
-                            self.reg[r_d] = pvm_Z_inv(pvm_rtz_div(a_s32, b_s32), 8)
-
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_rem_u_32:
-                        if (b & MASK32) == 0:
-                            self.reg[r_d] = pvm_X(a & MASK32, 4)
-                        else:
-                            self.reg[r_d] = pvm_X((a & MASK32) % (b & MASK32), 4)
-
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_rem_s_32:
-                        a_s32 = pvm_Z(u32(a), 4)
-                        b_s32 = pvm_Z(u32(b), 4)
-
-                        if b_s32 == 0:
-                            self.reg[r_d] = pvm_Z_inv(a_s32, 8)
-                        elif a_s32 == -(1 << 31) and b_s32 == -1:
-                            self.reg[r_d] = 0
-                        else:
-                            self.reg[r_d] = pvm_Z_inv(pvm_smod(a_s32, b_s32), 8)
-
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_shlo_l_32:
-                        self.reg[r_d] = pvm_X((a << (b & 31)) & MASK32, 4)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_shlo_r_32:
-                        self.reg[r_d] = pvm_X((a & MASK32) >> (b & 31), 4)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_shar_r_32:
-                        val_32 = a & MASK32
-                        if val_32 >= (1 << 31):
-                            val_32 = val_32 - (1 << 32)  # Convert to signed
-                        result = val_32 >> (b & 31)
-                        if result < 0:
-                            result = result + (1 << 64)
-                        self.reg[r_d] = pvm_Z_inv(result, 8)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_add_64:
-                        self.reg[r_d] = u64(a + b)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_sub_64:
-                        self.reg[r_d] = u64(a + (1 << 64) - b)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_mul_64:
-                        self.reg[r_d] = u64(a * b)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_div_u_64:
-                        if b == 0:
-                            self.reg[r_d] = (1 << 64) - 1
-                        else:
-                            self.reg[r_d] = a // b
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_div_s_64:
-                        if b == 0:
-                            self.reg[r_d] = (1 << 64) - 1
-                        elif pvm_Z(a, 8) == -(1 << 63) and pvm_Z(b, 8) == -1:
-                            self.reg[r_d] = a
-                        else:
-                            self.reg[r_d] = pvm_Z_inv(
-                                pvm_rtz_div(
-                                    pvm_Z(a, 8),
-                                    pvm_Z(b, 8)
-                                ),
-                                8
-                            )
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_rem_u_64:
-                        if b == 0:
-                            self.reg[r_d] = a
-                        else:
-                            self.reg[r_d] = a % b
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_rem_s_64:
-                        a_s64 = pvm_Z(a, 8)
-                        b_s64 = pvm_Z(b, 8)
-
-                        if b == 0:
-                            self.reg[r_d] = a
-                        elif a_s64 == -(1 << 63) and b_s64 == -1:
-                            self.reg[r_d] = 0
-                        else:
-                            self.reg[r_d] = pvm_Z_inv(pvm_smod(a_s64, b_s64), 8)
-
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_shlo_l_64:
-                        self.reg[r_d] = u64(a << (b & 63))
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_shlo_r_64:
-                        self.reg[r_d] = a >> (b & 63)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_shar_r_64:
-                        signed_val = pvm_Z(a, 8)
-                        shifted = signed_val >> (b & 63)
-                        self.reg[r_d] = pvm_Z_inv(shifted, 8)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_and:
-                        self.reg[r_d] = a & b
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_xor:
-                        self.reg[r_d] = a ^ b
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_or:
-                        self.reg[r_d] = a | b
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_mul_upper_s_s:
-                        self.reg[r_d] = pvm_Z_inv(
-                            (pvm_Z(a, 8) * pvm_Z(b, 8)) >> 64,
-                            8
-                        )
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_mul_upper_u_u:
-                        self.reg[r_d] = (a * b) >> 64
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-
-                    elif opcode == op_mul_upper_s_u:
-                        self.reg[r_d] = pvm_Z_inv(
-                            (pvm_Z(a, 8) * b) >> 64,
-                            8
-                        )
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_set_lt_u:
-                        self.reg[r_d] = u64(a < b)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_set_lt_s:
-                        self.reg[r_d] = u64(pvm_Z(a, 8) < pvm_Z(b, 8))
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_cmov_iz:
-                        if b == 0:
-                            self.reg[r_d] = a
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_cmov_nz:
-                        if b != 0:
-                            self.reg[r_d] = a
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_rot_l_64:
-                        self.reg[r_d] = roli64(a, b & 63)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_rot_l_32:
-                        self.reg[r_d] = pvm_X(rotl32(a, b), 4)
-                        self.log and self.log(reg1=r_a, reg2=r_b, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_rot_r_64:
-                        self.reg[r_d] = rori64(a, b & 63)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_rot_r_32:
-                        self.reg[r_d] = pvm_X(rotr32(a, b), 4)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_and_inv:
-                        self.reg[r_d] = a & u64(~b)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_or_inv:
-                        self.reg[r_d] = a | u64(~b)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_xnor:
-                        self.reg[r_d] = ~(a ^ b) & MASK64
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_max:
-                        self.reg[r_d] = pvm_Z_inv(
-                            max(pvm_Z(a, 8), pvm_Z(b, 8)),
-                            8
-                        )
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_max_u:
-                        self.reg[r_d] = max(a, b)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_min:
-                        self.reg[r_d] = pvm_Z_inv(
-                            min(pvm_Z(a, 8), pvm_Z(b, 8)),
-                            8
-                        )
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    elif opcode == op_min_u:
-                        self.reg[r_d] = min(a, b)
-                        self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
-
-                    else:
-                        raise InvalidOpcode(f"Invalid reg_reg_reg opcode: {opcode} for instruction type {inst_type}")
-                else:
-                    raise InvalidOpcode(f"Invalid instruction type: {inst_type}")
-
-            except PVMMemoryError as mem_error:
-                #logging.error("PVMMemoryError")
-                #logging.error(mem_error)
+                self.opcodes[opcode](self)
+            except PVMMemoryError:
                 self.status = ExitReason.page_fault.value
                 self.exit_value = self._mem_addr
                 break
-
-            except PanicError as panic_error:
-                #logging.error("PanicError")
-                #logging.error(panic_error)
+            except PanicError:
                 self.status = ExitReason.panic.value
                 break
+            except Exception as eee:
+                print(eee)
 
         self._sync_memory()

@@ -1,19 +1,99 @@
+import struct
+
 import numpy as np
 
+from pvm.exceptions import PVMMemoryError
 
+# Numpy aliasses
+U8 = np.uint8
+U16 = np.uint16
+U32 = np.uint32
+U64 = np.uint64
+I8 = np.int8
+I16 = np.int16
+I32 = np.int32
+I64 = np.int64
+
+# Python coercing helpers (should refactor to coresponding numpy types for native)
+MASK8 = (1 << 8) - 1
+MASK16 = (1 << 16) - 1
+MASK32 = (1 << 32) - 1
+MASK64 = (1 << 64) - 1
+SIGN8 = 1 << 7
+SIGN16 = 1 << 15
+SIGN32 = 1 << 31
+SIGN64 = 1 << 63
+
+
+def u8(x: int) -> int:
+    x = int(x)
+    return x & MASK8
+
+def s8(x: int) -> int:
+    x = int(x)
+    x &= MASK8
+    return x - (1 << 8) if x & SIGN8 else x
+
+def u16(x: int) -> int:
+    x = int(x)
+    return x & MASK16
+
+def s16(x: int) -> int:
+    x = int(x)
+    x &= MASK16
+    return x - (1 << 16) if x & SIGN16 else x
+
+def u32(x: int) -> int:
+    x = int(x)
+    return x & MASK32
+
+def s32(x: int) -> int:
+    x = int(x)
+    x &= MASK32
+    return x - (1 << 32) if x & SIGN32 else x
+
+def u64(x: int) -> int:
+    x = int(x)
+    return x & MASK64
+
+def s64(x: int) -> int:
+    x = int(x)
+    x &= MASK64
+    return x - (1 << 64) if x & SIGN64 else x
+
+
+# Pvm helper functions:
 def rori64(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 63
     return ((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
 
 def roli64(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 63
     return ((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
 
+def rotl32(x, s):
+    s = int(s) & 31
+    x = int(x) & MASK32
+    return ((x << s) | (x >> (32 - s))) & MASK32
+
+def rotr32(x, s):
+    s = int(s) & 31
+    x = int(x) & MASK32
+    return ((x >> s) | (x << (32 - s))) & MASK32
+
 def rori32(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 31
     return ((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF
 
 
 def roli32(x, shift_amount):
+    x = int(x)
+    shift_amount = int(shift_amount) & 31
     return ((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF
 
 
@@ -28,14 +108,14 @@ def reverse_bytes(x):
         Optimized using Python's built-in bytes operations.
         Provides ~4x speedup over bitwise operations.
     """
-    x = int(x)
-    return int.from_bytes(x.to_bytes(8, 'big'), 'little')
+    return struct.unpack('<Q', struct.pack('>Q', x))[0]
 
 
 def count_trailing_zeroes(value, max_bits=64):
     # https://stackoverflow.com/a/63552117
     # https://github.com/numpy/numpy/issues/16325
     # alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
+    value = int(value)
     if value == 0:
         return max_bits
     return int(value & -value).bit_length() - 1
@@ -45,6 +125,7 @@ def count_leading_zeroes(value, max_bits=64):
     # https://stackoverflow.com/a/71888844
     # https://github.com/numpy/numpy/issues/16325
     # alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
+    value = int(value)
     value &= (1 << max_bits) - 1  # truncate; treat negatives as 2's compliment
     if value == 0:
         return max_bits
@@ -80,20 +161,6 @@ def pvm_smod(a: int, b: int) -> int:
             return -((-a) % (-b))
 
 
-def riscv_div(x: int, y: int) -> int:
-    """
-    Integer division operation optimized using floor division operator.
-
-    Returns x // y (quotient of x divided by y).
-
-    Note:
-        There is a known quirk of NumPy's type‐conversion logic on certain builds or platforms.
-        The int() conversions ensure numpy types are handled correctly.
-    """
-    # Direct floor division - most efficient for integer inputs
-    return int(x) // int(y)
-
-
 def pvm_rtz_div(a: int, b: int) -> int:
     """
     Truncated division (rounds toward zero).
@@ -106,9 +173,6 @@ def pvm_rtz_div(a: int, b: int) -> int:
         Provides ~1.4x speedup while maintaining exact correctness for all integer values.
         This approach avoids floating point precision issues with very large integers.
     """
-    a = int(a)
-    b = int(b)
-
     if a >= 0:
         if b > 0:
             return a // b
@@ -121,16 +185,12 @@ def pvm_rtz_div(a: int, b: int) -> int:
             return (-a) // (-b)
 
 
-def pvm_X(x: np.uint64, n: np.uint8) -> np.uint64:
+def pvm_X(x: int, n: int) -> int:
     """
     Sign extend a number to two's complement form for value X and number of bytes n
 
     Optimized version using bit operations.
     """
-    # Convert to Python int to handle all numpy types
-    x = int(x)
-    n = int(n)
-
     # Optimized sign extension for each n
     if n == 1:
         masked = x & 0xFF
@@ -189,111 +249,56 @@ def pvm_X(x: np.uint64, n: np.uint8) -> np.uint64:
         return x
 
 
-# Precomputed lookup tables for common n values (1, 2, 4, 8)
-_PVM_Z_BOUNDARY = {
-    1: 1 << 7,  # 2^7 = 128
-    2: 1 << 15,  # 2^15 = 32768
-    4: 1 << 31,  # 2^31
-    8: 1 << 63  # 2^63
-}
-
-_PVM_Z_MAX_VALUE = {
-    1: 1 << 8,  # 2^8 = 256
-    2: 1 << 16,  # 2^16 = 65536
-    4: 1 << 32,  # 2^32
-    8: 18446744073709551616  # 2^64 (explicitly set as Python int)
-}
-
-_PVM_Z_MASK = {
-    1: 0xFF,  # 8 bits
-    2: 0xFFFF,  # 16 bits
-    4: 0xFFFFFFFF,  # 32 bits
-    8: 0xFFFFFFFFFFFFFFFF  # 64 bits
-}
-
-
-def pvm_Z(a: int, n: np.uint8) -> int:
+def pvm_Z(a: int, n: int) -> int:
     """
-    Transform an unsigned number into a signed number using the MSB
-
-    Note:
-        Optimized using lookup tables for common cases (n=1,2,4,8)
-        and bitwise operations for better performance.
+    Interpret the low n bytes of `a` as a signed two's-complement integer.
     """
-    n = int(n)
+    if n <= 0:
+        return 0
     a = int(a)
-
-    # fast path for common cases
-    if n in _PVM_Z_BOUNDARY:
-        boundary = _PVM_Z_BOUNDARY[n]
-        if a < boundary:
-            return int(a)
-        # for large values, use numpy's casting which handles wraparound
-        if n == 8:
-            # For n=8, directly cast uint64 to int64 (reinterprets bits), then to python int
-            return int(np.int64(np.uint64(a)))
-        elif n == 4:
-            # for n=4, similar handling for 32-bit values
-            result = a - _PVM_Z_MAX_VALUE[n]
-            return int(np.int32(result))
-        else:
-            return int(a - _PVM_Z_MAX_VALUE[n])
-
-    # fallback for other values of n
-    shift = (n << 3) - 1  # n * 8 - 1
-    boundary = 1 << shift
-    if a < boundary:
-        return int(a)
-    return int(a - (1 << (shift + 1)))
+    bits = n * 8
+    mask = (1 << bits) - 1
+    sign = 1 << (bits - 1)
+    u = a & mask
+    return (u ^ sign) - sign
 
 
-def pvm_Z_inv(a: int, n: np.uint8) -> np.uint64:
-    """
-    Transform a signed number to an unsigned number
-
-    Note:
-        Optimized using bitwise operations and lookup tables for better performance.
-    """
-    n = int(n)
-
-    # fast path for common cases
-    if n in _PVM_Z_MASK:
-        if a >= 0:
-            # For n=8 and large positive values, handle specially
-            if n == 8 and a > 2 ** 63:
-                return np.uint64(a)
-            return np.uint64(a) & _PVM_Z_MASK[n]
-        # For negative numbers, handle n=8 specially to avoid overflow
-        if n == 8:
-            # For n=8, use numpy casting which handles wraparound correctly
-            return np.uint64(np.int64(a))
-        return np.uint64((a + _PVM_Z_MAX_VALUE[n]) & _PVM_Z_MASK[n])
-
-    # ffallback for other values of n
-    shift = n << 3  # n * 8
-    mask = (1 << shift) - 1
-    if a >= 0:
-        return np.uint64(a & mask)
-    return np.uint64((a + (1 << shift)) & mask)
+def pvm_Z_inv(a: int, n: int) -> int:
+    if n <= 0:
+        return 0
+    bits = n * 8
+    mask = (1 << bits) - 1
+    return u64(a) & mask
 
 
-def read_uint(code, addr32, len8):
-    if len8 == 0:
+def read_uint(mem, addr, n):
+    if n == 0:
         return 0 & 0xFF
+    if n == 1:
+        return mem[addr]
+    elif n == 2:
+        return struct.unpack_from('<H', mem, addr)[0]
+    elif n == 4:
+        return struct.unpack_from('<I', mem, addr)[0]
+    elif n == 8:
+        return struct.unpack_from('<Q', mem, addr)[0]
+    elif n == 3:
+        # Safely read 3 bytes without requiring 4-byte availability
+        lo = struct.unpack_from('<H', mem, addr)[0]
+        hi = struct.unpack_from('<B', mem, addr + 2)[0]
+        return lo | (hi << 16)
 
-    if len8 == 1:
-        return int(code[addr32] & 0xFF)
+    raise PVMMemoryError("read_uint: unsupported length")
 
-    if len8 == 2:
-        return (int(code[addr32+0]) & 0xFF) | ((int(code[addr32+1]) & 0xFF) << 8)
 
-    if len8 == 3:
-        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16)
-
-    if len8 == 4:
-        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8) | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24)
-
-    if len8 ==8:
-        return (int(code[addr32 + 0]) & 0xFF) | ((int(code[addr32 + 1]) & 0xFF) << 8)  | ((int(code[addr32 + 2]) & 0xFF) << 16) | ((int(code[addr32 + 3]) & 0xFF) << 24) | ((int(code[addr32 + 4]) & 0xFF) << 32) | ((int(code[addr32 + 5]) & 0xFF) << 40) | ((int(code[addr32 + 6]) & 0xFF) << 48) | ((int(code[addr32 + 7]) & 0xFF) << 56)
-
-    raise Exception("read_uint: unsupported length")
+def write_uint(mem, addr, n, value):
+    if n == 1:
+        mem[addr] = value & 0xFF
+    elif n == 2:
+        struct.pack_into('<H', mem, addr, value)
+    elif n == 4:
+        struct.pack_into('<I', mem, addr, value)
+    elif n == 8:
+        struct.pack_into('<Q', mem, addr, value)
+    else:
+        raise PVMMemoryError(f"Invalid write length: {n}")

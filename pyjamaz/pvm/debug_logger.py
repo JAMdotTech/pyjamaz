@@ -236,14 +236,18 @@ class PVMDebugLog(PVMLogger):
         # #     "log_opcode_calls": True,
         # #     "log_opcode_calls_if_zero": False,
         # # }
-        mem = self._pvm.mem_sections
         mem_info = ""
-        if mem is not None and len(mem) >= 2 and mem[1] is not None:
-            heap_hash = hash_memory_segment(mem[1])
-            mem_info += f"heap_hash:{heap_hash}"
-        if mem is not None and len(mem) >= 3 and mem[2] is not None:
-            stack_hash = hash_memory_segment(mem[2])
-            mem_info += f" stack_hash:{stack_hash}"
+        if hasattr(self._pvm, "mem_sections"):
+            mem = self._pvm.mem_sections
+            if mem is not None and len(mem) >= 2 and mem[1] is not None:
+                heap_hash = hash_memory_segment(mem[1])
+                mem_info += f"heap_hash:{heap_hash}"
+            if mem is not None and len(mem) >= 3 and mem[2] is not None:
+                stack_hash = hash_memory_segment(mem[2])
+                mem_info += f" stack_hash:{stack_hash}"
+        elif hasattr(self._pvm, "mem"):
+            #TODO
+            pass
 
         # print("inst=", self._pvm.inst_nr, "op=", OpcodeNames[self._pvm.opcode], "pc=", self._pvm.pc, "gas=", self._pvm.gas,
         #       "r1=", reg1, "r2=", reg2, "r3=", reg3,
