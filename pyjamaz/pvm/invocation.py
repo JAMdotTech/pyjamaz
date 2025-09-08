@@ -190,7 +190,6 @@ class PVMInvocation:
                 context=self.invocation_context
             )
 
-        #self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDunaLog)
         self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=settings.PVM_DEBUGGER)
 
         output = self.pvm_invoke_host_call(

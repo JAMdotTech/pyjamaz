@@ -8,12 +8,12 @@ from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_
 from pyjamaz.models.state import ServicesState
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
-from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.pvm.types import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram, PVMCode
 from pyjamaz.hostcalls.constants import HostCallResult, InnerPVMResult
 from pyjamaz.hostcalls.models import RefineInvocationContext, IntegratedPVM
+from settings import PVM_DEBUGGER
 
 
 def hc_historical_lookup(
@@ -339,8 +339,7 @@ def hc_invoke(
         """
         Invokes general PVM function (Ψ) on an inner PVM
         """
-        #pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=None)
-        pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=PVMDebugLog)
+        pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=PVM_DEBUGGER)
         pvm.invoke(
             m_e.inner_pvm_lookup[n].program_counter,
             gas

@@ -1,18 +1,7 @@
 import struct
 
-import numpy as np
-
 from pyjamaz.pvm.exceptions import PVMMemoryError
 
-# Numpy aliasses
-U8 = np.uint8
-U16 = np.uint16
-U32 = np.uint32
-U64 = np.uint64
-I8 = np.int8
-I16 = np.int16
-I32 = np.int32
-I64 = np.int64
 
 # Python coercing helpers (should refactor to coresponding numpy types for native)
 MASK8 = (1 << 8) - 1
@@ -26,73 +15,61 @@ SIGN64 = 1 << 63
 
 
 def u8(x: int) -> int:
-    x = int(x)
     return x & MASK8
 
-def s8(x: int) -> int:
-    x = int(x)
+def i8(x: int) -> int:
     x &= MASK8
     return x - (1 << 8) if x & SIGN8 else x
 
 def u16(x: int) -> int:
-    x = int(x)
     return x & MASK16
 
-def s16(x: int) -> int:
-    x = int(x)
+def i16(x: int) -> int:
     x &= MASK16
     return x - (1 << 16) if x & SIGN16 else x
 
 def u32(x: int) -> int:
-    x = int(x)
     return x & MASK32
 
-def s32(x: int) -> int:
-    x = int(x)
+def i32(x: int) -> int:
     x &= MASK32
     return x - (1 << 32) if x & SIGN32 else x
 
 def u64(x: int) -> int:
-    x = int(x)
     return x & MASK64
 
-def s64(x: int) -> int:
-    x = int(x)
+def i64(x: int) -> int:
     x &= MASK64
     return x - (1 << 64) if x & SIGN64 else x
 
 
 # Pvm helper functions:
 def rori64(x, shift_amount):
-    x = int(x)
     shift_amount = int(shift_amount) & 63
     return ((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
 
 def roli64(x, shift_amount):
-    x = int(x)
     shift_amount = int(shift_amount) & 63
     return ((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
 
 def rotl32(x, s):
-    s = int(s) & 31
-    x = int(x) & MASK32
+    s = s & 31
+    x = x & MASK32
     return ((x << s) | (x >> (32 - s))) & MASK32
 
 def rotr32(x, s):
-    s = int(s) & 31
-    x = int(x) & MASK32
+    s = s & 31
+    x = x & MASK32
     return ((x >> s) | (x << (32 - s))) & MASK32
 
 def rori32(x, shift_amount):
-    x = int(x)
     shift_amount = int(shift_amount) & 31
     return ((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF
 
 
 def roli32(x, shift_amount):
-    x = int(x)
     shift_amount = int(shift_amount) & 31
     return ((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF
 
@@ -115,7 +92,6 @@ def count_trailing_zeroes(value, max_bits=64):
     # https://stackoverflow.com/a/63552117
     # https://github.com/numpy/numpy/issues/16325
     # alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    value = int(value)
     if value == 0:
         return max_bits
     return int(value & -value).bit_length() - 1
@@ -125,7 +101,6 @@ def count_leading_zeroes(value, max_bits=64):
     # https://stackoverflow.com/a/71888844
     # https://github.com/numpy/numpy/issues/16325
     # alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    value = int(value)
     value &= (1 << max_bits) - 1  # truncate; treat negatives as 2's compliment
     if value == 0:
         return max_bits
@@ -255,7 +230,6 @@ def pvm_Z(a: int, n: int) -> int:
     """
     if n <= 0:
         return 0
-    a = int(a)
     bits = n * 8
     mask = (1 << bits) - 1
     sign = 1 << (bits - 1)
