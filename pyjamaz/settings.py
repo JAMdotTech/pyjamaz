@@ -6,6 +6,9 @@ DEBUG = False
 SOLO_MODE = False
 STORAGE_ENGINE = 'rocksdb' # memory | rocksdb | leveldb
 
+# GP relaxation flags
+SKIP_TIMESLOT_WALL_CLOCK_CHECK = False
+
 DEBUG_PROGRAM_OVERRIDE = {}
 
 try:

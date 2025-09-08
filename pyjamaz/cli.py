@@ -686,6 +686,9 @@ async def fuzzer_target(
     if settings.SOLO_MODE:
         logging.warning('settings.SOLO_MODE is enabled')
 
+    # Set GP relaxation flags
+    settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
+
     app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine)
 
     try:
