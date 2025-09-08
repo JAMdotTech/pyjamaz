@@ -66,7 +66,7 @@ class PVMInterpreter:
         self.mem_writable = PVMMemoryMode.writable.value
 
         self.mv_code = None
-        self._sec_mv = [None, None, None, None]
+        self.mv_sections = [None, None, None, None]
 
         self.log = None
 
@@ -206,13 +206,13 @@ class PVMInterpreter:
                 mem_section_starts.append(section.address)
                 mem_section_ends.append(section.paged_tail)
                 mem_section_size.append(section.size)
-                self._sec_mv[idx] = memoryview(section.contents)
+                self.mv_sections[idx] = memoryview(section.contents)
             else:
                 self.mem_sections.append(None)
                 mem_section_starts.append(0)
                 mem_section_ends.append(0)
                 mem_section_size.append(0)
-                self._sec_mv[idx] = None
+                self.mv_sections[idx] = None
 
         self.mem_section_starts = mem_section_starts
         self.mem_section_ends = mem_section_ends
@@ -355,7 +355,7 @@ class PVMInterpreter:
         if section_offset + bytes_to_read > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
 
-        return read_uint(self._sec_mv[section_idx], section_offset, bytes_to_read)
+        return read_uint(self.mv_sections[section_idx], section_offset, bytes_to_read)
 
 
     #GP-0.6.7-section:A.15

@@ -11,7 +11,7 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger, Bytes
 
-from .defs import u8, u64, u16, u32
+from .defs import u8, u64, u16, u32, read_uint, write_uint
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE, PVM_MAX_HEAP_SIZE, PVM_MIN_HEAP_SIZE
@@ -134,94 +134,22 @@ class MemorySection:
         return self.address <= addr < self.address + self.size
 
     def read_int(self, section_addr: int, length: int) -> int:
-        if section_addr + length > self.size:
+        if section_addr + length > (self.paged_tail - self.address):  # len(section):
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        if length == 0:
-            return u64(0)
-
-        elif length == 1:
-            return u64(self.contents[section_addr + 0]) % 2 ** 8
-
-        elif length == 2:
-            byte0 = u8(self.contents[section_addr + 0])
-            byte1 = u16(self.contents[section_addr + 1])
-            return u64((byte1 << 8) + byte0) % 2 ** 16
-
-        elif length == 3:
-            byte0 = u8(self.contents[section_addr + 0])
-            byte1 = u16(self.contents[section_addr + 1])
-            byte2 = u32(self.contents[section_addr + 2])
-            return u64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
-
-        elif length == 4:
-            byte0 = u8(self.contents[section_addr + 0])
-            byte1 = u16(self.contents[section_addr + 1])
-            byte2 = u32(self.contents[section_addr + 2])
-            byte3 = u32(self.contents[section_addr + 3])
-            return u64(
-                (byte3 << 24) +
-                (byte2 << 16) +
-                (byte1 << 8) +
-                byte0
-            ) % 2 ** 32
-
-        elif length == 8:
-            byte0 = u8(self.contents[section_addr + 0])
-            byte1 = u16(self.contents[section_addr + 1])
-            byte2 = u32(self.contents[section_addr + 2])
-            byte3 = u32(self.contents[section_addr + 3])
-            byte4 = u64(self.contents[section_addr + 4])
-            byte5 = u64(self.contents[section_addr + 5])
-            byte6 = u64(self.contents[section_addr + 6])
-            byte7 = u64(self.contents[section_addr + 7])
-            return u64(
-                (byte7 << 56) +
-                (byte6 << 48) +
-                (byte5 << 40) +
-                (byte4 << 32) +
-                (byte3 << 24) +
-                (byte2 << 16) +
-                (byte1 << 8) +
-                byte0
-            )
-        else:
-            raise UIntValueError(f"Invalid uint length: {length}")
+        return read_uint(self.contents, section_addr, length)
 
     def write_int(self, section_addr: int, value: int, length: int):
 
-        if section_addr + length > self.size:
+        #if section_addr + length > self.size:
+        if section_addr + length > (self.paged_tail - self.address):  # len(section):
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        # Note: GP applies a modulus over the value to write denoted by their bit length
-        if length < 8:
-            value = value % (2 ** (length * 8))
-
-        if length == 1:
-            self.contents[section_addr + 0] = u8(value & 0xFF)
-        elif length == 2:
-            self.contents[section_addr + 0] = u8(value & 0x00FF)
-            self.contents[section_addr + 1] = u8((value & 0xFF00) >> 8)
-        elif length == 4:
-            self.contents[section_addr + 0] = u8(value & 0x000000FF)
-            self.contents[section_addr + 1] = u8((value & 0x0000FF00) >> 8)
-            self.contents[section_addr + 2] = u8((value & 0x00FF0000) >> 16)
-            self.contents[section_addr + 3] = u8((value & 0xFF000000) >> 24)
-        elif length == 8:
-            self.contents[section_addr + 0] = u8(value & 0x00000000000000FF)
-            self.contents[section_addr + 1] = u8((value & 0x000000000000FF00) >> 8)
-            self.contents[section_addr + 2] = u8((value & 0x0000000000FF0000) >> 16)
-            self.contents[section_addr + 3] = u8((value & 0x00000000FF000000) >> 24)
-            self.contents[section_addr + 4] = u8((value & 0x000000FF00000000) >> 32)
-            self.contents[section_addr + 5] = u8((value & 0x0000FF0000000000) >> 40)
-            self.contents[section_addr + 6] = u8((value & 0x00FF000000000000) >> 48)
-            self.contents[section_addr + 7] = u8((value & 0xFF00000000000000) >> 56)
-        else:
-            raise UIntValueError(f"Invalid uint length: {length}")
+        return write_uint(self.contents, section_addr, length, value)
 
 
 @dataclass
