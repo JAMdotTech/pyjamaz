@@ -67,7 +67,7 @@ class BlockValidation:
             raise BlockValidationError(BlockValidationErrorCode.bad_slot)
 
         # GP-0.7.0-eq:5.7
-        if settings.TIMESLOT_WALL_CLOCK_CHECK and header.timeslot > self.current_timeslot():
+        if not settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK and header.timeslot > self.current_timeslot():
             raise BlockValidationError(BlockValidationErrorCode.bad_slot)
 
         if header.parent_state_root != self.block_context.state_root:
