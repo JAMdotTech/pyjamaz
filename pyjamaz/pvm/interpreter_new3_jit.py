@@ -1986,9 +1986,9 @@ class PVMInterpreter(PVMInterpreterBase):
             key_type=types.int64,
             value_type=types.unicode_type,
         )
-        #if self.log:
-        for _k, _v in OpcodeNames.items():
-            opcode_names[int(_k)] = _v
+        if self.log:
+            for _k, _v in OpcodeNames.items():
+                opcode_names[int(_k)] = _v
 
         # Call JIT-compiled function
         error_code = invoke_native(
