@@ -1,62 +1,41 @@
 import asyncio
 import logging
-import traceback
-from asyncio import CancelledError
-from datetime import datetime, timezone
 import json
 import os
-import shutil
 from pathlib import Path
-from typing import List, Tuple
+
+import argparse
 
 import anyio
-import ipaddress
 import time
 from os import path
 
 import asyncclick as click
-from asyncclick import BadParameter, MissingParameter
 
 from jamcodec.base import JamBytes
 
-from cli import initialize_app, process_state_diff
+from pyjamaz.cli import initialize_app, process_state_diff
 from pyjamaz import settings
 
-from pyjamaz.app import PyjamazApp, AppConfig, Keys
-from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.fuzzer import TargetServer, FuzzerSession, FuzzerMessage, SetStateMessage
-from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace, StateDump
-from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
-from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION, STORAGE_ENGINE
-from pyjamaz.storage import InMemoryStorage, RocksDBStorage
-from pyjamaz.models.block import Block, Header, Extrinsic
-from pyjamaz.transport.cert import generate_cert, write_cert
-from pyjamaz.transport.protocol_fs import FSProtocol
-from pyjamaz.transport.protocol_jamnp_s import JAMNPS
-
-from pyjamaz.transport.pubsub import PubSub, PubSubSignal
-from pyjamaz.utils import format_hash, quic_peer_id
+from pyjamaz.models.app import Trace
+from pyjamaz.models.block import Header
+from pyjamaz.utils import format_hash
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
 
 
-async def main():
+async def main(traces_dir:str):
     log_level = logging.DEBUG
     setup_logging(log_level)
 
     # Safety checks
     if settings.SOLO_MODE:
-        raise BadParameter("settings.SOLO_MODE should be False when running traces")
+        raise Exception("settings.SOLO_MODE should be False when running traces")
 
     app = await initialize_app(read_state=False, custom_db_path=None, storage_engine='memory')
 
-    traces_dir="/Users/matthijsblaas/dev/traces2"
-    #traces_dir="/Users/matthijsblaas/dev/jam-test-vectors/traces/storage_light"
-    traces_dir="/Users/matthijsblaas/dev/jam-test-vectors/traces/storage"
     traces_folder = Path(traces_dir)
 
     traces_files = await anyio.to_thread.run_sync(
@@ -144,5 +123,12 @@ async def main():
     logging.info(f'Traces finished in {time.time() - start_time} seconds')
 
 
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("traces_dir", help="path to traces to run")
+    args = parser.parse_args()
+    if not args.traces_dir:
+        raise Exception("Please provide path to traces to run")
+
+    asyncio.run(main(traces_dir=args.traces_dir))

@@ -98,6 +98,7 @@ class PVMInterpreter:
         # Note: In the exceptional case we only have 1 instruction (trap or fallthrough), we add it manually and be done
         if len(inst_bitmask) == 1:
             self.inst_arg_len.append(0)
+            self.mv_inst_arg_len = memoryview(self.inst_arg_len)
             return
 
         # Parse instruction bitmask and create a opcode offset and instruction length lookup
