@@ -2103,7 +2103,8 @@ class Services(StateComponent):
                 state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimage_availability_update":
                 # TODO async blocking exception??
-                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
                 state.store_preimage_availability(
                     service_account_id=mut[1],
                     preimage_hash=mut[2],

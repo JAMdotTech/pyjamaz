@@ -521,6 +521,9 @@ async def replay_traces(
     if settings.SOLO_MODE:
         raise BadParameter("settings.SOLO_MODE should be False when running traces")
 
+    # Set GP relaxation flags
+    settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
+
     app = await initialize_app(read_state=False, custom_db_path=None, storage_engine='memory', pubsub=False)
 
     traces_folder = Path(traces_dir)
