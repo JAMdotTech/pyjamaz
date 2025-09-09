@@ -125,7 +125,7 @@ class MemorySection:
         self.size: int = PVMMemory.page_size(size)
         self.contents = bytearray(self.size)
         self.update(0, contents)
-        self.paged_tail = address + len(contents)
+        self.paged_tail = address + PVMMemory.page_size(len(contents))
 
     def update(self, idx, _bytes):
         self.contents[idx: idx + len(_bytes)] = _bytes

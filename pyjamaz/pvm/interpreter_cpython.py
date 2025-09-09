@@ -256,8 +256,8 @@ class PVMInterpreter:
 
             # Only grow when we exceed pre-allocated heap mem
             if new_heap_end - self.mem_section_starts[1] > cur_size:
-                #heap = heap.extend(b"\x00" * growth) #np.concatenate((heap, np.zeros(growth, dtype=U8)))
-                new_size = cur_size + size
+                # Calculate the total new size based on page boundaries
+                new_size = cur_size + growth
                 new_buf = bytearray(new_size)
                 new_buf[:cur_size] = heap
                 self.mem_sections[1] = new_buf
