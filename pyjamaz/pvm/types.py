@@ -125,7 +125,7 @@ class MemorySection:
         self.size: int = PVMMemory.page_size(size)
         self.contents = bytearray(self.size)
         self.update(0, contents)
-        self.paged_tail = PVMMemory.page_size(len(contents) + address)
+        self.paged_tail = address + len(contents)
 
     def update(self, idx, _bytes):
         self.contents[idx: idx + len(_bytes)] = _bytes
@@ -548,8 +548,8 @@ class PVMProgram(Serializable):
             acl=PVMMemoryMode.readable
         )
 
-        # If PVM_MIN_HEP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
-        heap_mem_size = max(PVMMemory.page_size(PVM_MIN_HEAP_SIZE), PVMMemory.page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
+        # If PVM_MIN_HEAP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
+        heap_mem_size = max(PVMMemory.page_size(PVM_MIN_HEAP_SIZE), PVMMemory.page_size(len(heap_contents) + heap_mem_pages * PVM_PAGE_SIZE))
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
             size=heap_mem_size,
