@@ -143,7 +143,6 @@ class MemorySection:
 
     def write_int(self, section_addr: int, value: int, length: int):
 
-        #if section_addr + length > self.size:
         if section_addr + length > (self.paged_tail - self.address):  # len(section):
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
@@ -415,12 +414,9 @@ class PVMMemory:
         next_page_boundary = PVMMemory.page_size(current_heap_ptr)
         if new_heap_ptr > next_page_boundary:
             growth = PVMMemory.page_size(new_heap_ptr) - next_page_boundary
-            # self._heap.contents.extend(b"\x00" * growth)
-            # self._heap.size = len(self._heap.contents)
-            cur_size = len(self._heap.contents)
-            new_size = cur_size + size
-            new_buf = bytearray(new_size)
-            new_buf[:cur_size] = self._heap.contents
+            # Extend the heap contents to accommodate the growth
+            self._heap.contents.extend(b"\x00" * growth)
+            self._heap.size = len(self._heap.contents)
 
             # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
