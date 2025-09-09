@@ -6,7 +6,7 @@ def _fetch_reg_imm_offset(vm):
     w_a = vm.reg[r_a]
     l_x = min(4, (vm.mv_code[vm.pc + 1] // 16) % 8)
     v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
-    l_y = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1))
+    l_y = min(4, max(0, vm.mv_inst_arg_len[vm.inst_pos[vm.pc]] - l_x - 1))
     v_y = pvm_Z(read_uint(vm.mv_code, vm.pc + 2 + l_x, l_y), l_y)
     return r_a, w_a, v_x, v_y
 

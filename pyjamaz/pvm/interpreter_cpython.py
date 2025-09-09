@@ -1,4 +1,4 @@
-import struct
+from array import array
 from typing import List, Dict
 
 from pyjamaz.pvm.defs import read_uint, write_uint, u64, u32, i64, u8
@@ -35,6 +35,7 @@ class PVMInterpreter:
         self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
+        self.mv_inst_arg_len: memoryview = None
 
         self.mem:PVMMemory = None
         self.status:int = ExitReason.resume.value
@@ -88,7 +89,7 @@ class PVMInterpreter:
         Create lookups for byte_pos -> instruction_nr and instruction_nr->instruction_length
         """
         self.inst_pos = {0: 0}
-        self.inst_arg_len = []
+        self.inst_arg_len = array("B")
 
         inst_nr = 0
         inst_bitmask = self.inst_bitmask
@@ -120,6 +121,8 @@ class PVMInterpreter:
             self.inst_arg_len.append(inst_args)
             inst_nr += 1
             self.inst_pos[inst_bitmask_idx - 1] = inst_nr
+
+        self.mv_inst_arg_len = memoryview(self.inst_arg_len)
 
 
     def branch(self, b:int, C:bool):
@@ -156,6 +159,7 @@ class PVMInterpreter:
         self.inst_bitmask: List[bool] = program.code.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
+        self.mv_inst_arg_len = None
 
         self.create_instruction_lookup()
 
@@ -399,7 +403,7 @@ class PVMInterpreter:
 
     def next_instruction(self):
         inst_index = self.inst_pos[self.pc]
-        self.skip_len = self.inst_arg_len[inst_index] + 1
+        self.skip_len = self.mv_inst_arg_len[inst_index] + 1
 
 
     def invoke(
@@ -434,21 +438,16 @@ class PVMInterpreter:
 
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
-            self.skip_len = self.inst_arg_len[inst_index] + 1
+            self.skip_len = self.mv_inst_arg_len[inst_index] + 1
 
             try:
                 self.opcodes[opcode](self)
             except PVMMemoryError:
-                #print(traceback.format_exc())
                 self.status = ExitReason.page_fault.value
                 self.exit_value = self._mem_addr
                 break
             except PanicError:
-                #print(traceback.format_exc())
                 self.status = ExitReason.panic.value
                 break
-            # except Exception as eee:
-            #     #print(traceback.format_exc())
-            #     print(eee)
 
         self._sync_memory()

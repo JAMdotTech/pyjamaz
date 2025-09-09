@@ -8,7 +8,7 @@ def _fetch_reg_reg_imm_imm(vm):
     w_b = vm.reg[r_b]
     l_x = min(4, vm.mv_code[vm.pc + 2] % 8)
     v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 3, l_x), l_x)
-    l_y = min(4, max(0, vm.inst_arg_len[inst_index] - l_x - 2))
+    l_y = min(4, max(0, vm.mv_inst_arg_len[inst_index] - l_x - 2))
     v_y = pvm_X(read_uint(vm.mv_code, vm.pc + 3 + l_x, l_y), l_y)
     return r_a, r_b, w_b, v_x, v_y
 

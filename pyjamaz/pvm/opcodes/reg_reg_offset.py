@@ -7,7 +7,7 @@ def _fetch_reg_reg_offset(vm):
     r_b = min(12, vm.mv_code[vm.pc + 1] // 16)
     w_a = vm.reg[r_a]
     w_b = vm.reg[r_b]
-    l_x = min(4, max(0, vm.inst_arg_len[inst_index] - 1))
+    l_x = min(4, max(0, vm.mv_inst_arg_len[inst_index] - 1))
     v_x = pvm_Z(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
     return r_a, r_b, w_a, w_b, v_x
 

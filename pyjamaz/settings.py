@@ -13,6 +13,7 @@ DEBUG_PROGRAM_OVERRIDE = {}
 
 
 PVM_DEBUGGER = None
+PVM_INTERPRETER = "cpython"
 PVM_MIN_HEAP_SIZE = 0
 PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
 

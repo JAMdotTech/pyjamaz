@@ -5,7 +5,7 @@ from pyjamaz.pvm.defs import pvm_X, read_uint, u32, u8, u16
 
 def _fetch_reg_imm(vm):
     r_a = min(12, vm.mv_code[vm.pc + 1] % 16)
-    l_x = min(4, max(0, vm.inst_arg_len[vm.inst_pos[vm.pc]] - 1))
+    l_x = min(4, max(0, vm.mv_inst_arg_len[vm.inst_pos[vm.pc]] - 1))
     v_x = pvm_X(read_uint(vm.mv_code, vm.pc + 2, l_x), l_x)
     return r_a, v_x
 
