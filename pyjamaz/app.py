@@ -408,10 +408,10 @@ class PyjamazApp:
         if not produce:
             block_validation.validate_header(
                 header=block.header,
-                pre_state_timeslot=pre_state_timeslot,
                 post_entropy=entropy_output.post_state,
                 post_validator_pool=validator_pool_output.post_state,
-                post_safrole=safrole_output.post_state,
+                safrole_output=safrole_output,
+                disputes_output=disputes_output,
                 extrinsic=block.extrinsic
             )
 
