@@ -86,7 +86,7 @@ def wrap_cli_import_block(traces_dir):
 
         except Exception as e:
             # Rollback state
-            logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
+            logging.error(f'Import failed for #{block.header.timeslot} -> {e}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state = self.retrieve_jam_state()
 
@@ -115,7 +115,7 @@ async def initialize_app(
         common_era=None,
         custom_db_path=None,
         record_traces=None,
-        fuzzer_socket_path=None
+        pubsub=True
 ) -> PyjamazApp:
 
     # Load SRS
@@ -152,8 +152,10 @@ async def initialize_app(
     )
 
     app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
-    app.pubsub = PubSub()
-    app.app_context.pubsub = app.pubsub
+
+    if pubsub:
+        app.pubsub = PubSub()
+        app.app_context.pubsub = app.pubsub
 
     if read_state:
         await app.initialize()
@@ -220,7 +222,6 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             keys=Keys.from_seed(bytes.fromhex(seed[2:])),
             custom_db_path=custom_db_path,
             record_traces=record_traces,
-            fuzzer_socket_path=fuzzer_socket_path if fuzzer else None,
             storage_engine=STORAGE_ENGINE
         )
     except StateKeyNoResult:
@@ -362,7 +363,8 @@ async def timeslot_ticker(app: PyjamazApp):
 
                 block = await app.produce_block(timeslot, safrole_state, entropy_state)
 
-                await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+                if app.pubsub:
+                    await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
 
                 logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
@@ -519,7 +521,7 @@ async def replay_traces(
     if settings.SOLO_MODE:
         raise BadParameter("settings.SOLO_MODE should be False when running traces")
 
-    app = await initialize_app(read_state=False, custom_db_path=None, storage_engine='memory')
+    app = await initialize_app(read_state=False, custom_db_path=None, storage_engine='memory', pubsub=False)
 
     traces_folder = Path(traces_dir)
 
@@ -689,7 +691,7 @@ async def fuzzer_target(
     # Set GP relaxation flags
     settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
 
-    app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine)
+    app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine, pubsub=False)
 
     try:
         srv = TargetServer(socket_path, app)

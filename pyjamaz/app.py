@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import TypeVar, Optional, List, Callable, Dict
 
-from bandersnatch_vrfs import ietf_vrf_sign
+from bandersnatch_vrfs import ietf_vrf_sign, RingContext
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
@@ -36,7 +36,7 @@ from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Ti
 from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, SafroleState, EntropyState
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
-from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash
+from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time
 from pyjamaz.validation import BlockValidation
 
 T = TypeVar('T')
@@ -192,7 +192,7 @@ class PyjamazApp:
 
         return ancestor_headers
 
-
+    @log_execution_time
     def retrieve_jam_state(self) -> JamState:
         jam_state = JamState(
             timeslot=self.components.timeslot.retrieve_state(),
@@ -217,27 +217,29 @@ class PyjamazApp:
         jam_state.services.set_storage_engine(self.state_db)
         return jam_state
 
-    async def store_jam_state(self, state: JamState, transaction: Optional[Transaction] = None):
-        await self.components.timeslot.store_state(state.timeslot, transaction)
-        await self.components.recent_history.store_state(state.recent_history, transaction)
-        await self.components.entropy.store_state(state.entropy, transaction)
-        await self.components.disputes.store_state(state.disputes, transaction)
-        await self.components.assurances.store_state(state.assurances, transaction)
-        await self.components.validator_archive.store_state(state.validator_archive, transaction)
-        await self.components.validator_queue.store_state(state.validator_queue, transaction)
-        await self.components.validator_pool.store_state(state.validator_pool, transaction)
-        await self.components.safrole.store_state(state.safrole, transaction)
-        await self.components.statistics.store_state(state.statistics, transaction)
-        #await self.components.services.store_state(state.services, transaction)
-        await self.components.authorizer_queues.store_state(state.authorizer_queues, transaction)
-        await self.components.privileged_services.store_state(state.privileged_services, transaction)
-        await self.components.authorizer_pools.store_state(state.authorizer_pools, transaction)
-        await self.components.accumulation_queue.store_state(state.accumulation_queue, transaction)
-        await self.components.accumulation_history.store_state(state.accumulation_history, transaction)
-        await self.components.recent_accumulation_output.store_state(state.recent_accumulation_outputs, transaction)
+    @log_execution_time
+    async def store_jam_state(self, transaction: Optional[Transaction] = None):
+        await self.components.timeslot.store_state(self.state.timeslot, transaction)
+        await self.components.entropy.store_state(self.state.entropy, transaction)
+        await self.components.disputes.store_state(self.state.disputes, transaction)
+        await self.components.validator_pool.store_state(self.state.validator_pool, transaction)
+        await self.components.validator_archive.store_state(self.state.validator_archive, transaction)
+        await self.components.safrole.store_state(self.state.safrole, transaction)
+        await self.components.assurances.store_state(self.state.assurances, transaction)
+        await self.components.statistics.store_state(self.state.statistics, transaction)
+        await self.components.services.store_state(self.state.services, transaction)
+        await self.components.recent_history.store_state(self.state.recent_history, transaction)
+        await self.components.authorizer_pools.store_state(self.state.authorizer_pools, transaction)
+        await self.components.authorizer_queues.store_state(self.state.authorizer_queues, transaction)
+        await self.components.accumulation_queue.store_state(self.state.accumulation_queue, transaction)
+        await self.components.accumulation_history.store_state(self.state.accumulation_history, transaction)
+        await self.components.validator_queue.store_state(self.state.validator_queue, transaction)
+        await self.components.privileged_services.store_state(self.state.privileged_services, transaction)
+        await self.components.recent_accumulation_output.store_state(
+            self.state.recent_accumulation_outputs, transaction
+            )
 
-
-
+    @log_execution_time
     async def update_state_trie(self):
         """
         Updated the Patricia state trie.
@@ -264,6 +266,7 @@ class PyjamazApp:
 
         return self.state.timeslot.number // EPOCH_TIMESLOTS != slotnumber // EPOCH_TIMESLOTS
 
+    @log_execution_time
     async def state_transition(self, block: 'Block', transaction: Transaction, produce=False) -> 'STFOutput':
         """
         GP-0.6.4-eq:4.1 (Υ, σ') | Block Level State Transition Function for the JAM state.
@@ -405,10 +408,10 @@ class PyjamazApp:
         if not produce:
             block_validation.validate_header(
                 header=block.header,
-                pre_state_timeslot=pre_state_timeslot,
                 post_entropy=entropy_output.post_state,
                 post_validator_pool=validator_pool_output.post_state,
-                post_safrole=safrole_output.post_state,
+                safrole_output=safrole_output,
+                disputes_output=disputes_output,
                 extrinsic=block.extrinsic
             )
 
@@ -601,23 +604,7 @@ class PyjamazApp:
         self.state.recent_accumulation_outputs = services_after_accumulation_output.beefy_commitment_map
 
         # TODO only set local memory self.state not write to DB if not finalized
-        await self.components.timeslot.store_state(self.state.timeslot, transaction)
-        await self.components.entropy.store_state(self.state.entropy, transaction)
-        await self.components.disputes.store_state(self.state.disputes, transaction)
-        await self.components.validator_pool.store_state(self.state.validator_pool, transaction)
-        await self.components.validator_archive.store_state(self.state.validator_archive, transaction)
-        await self.components.safrole.store_state(self.state.safrole, transaction)
-        await self.components.assurances.store_state(self.state.assurances, transaction)
-        await self.components.statistics.store_state(self.state.statistics, transaction)
-        await self.components.services.store_state(self.state.services, transaction)
-        await self.components.recent_history.store_state(self.state.recent_history, transaction)
-        await self.components.authorizer_pools.store_state(self.state.authorizer_pools, transaction)
-        await self.components.authorizer_queues.store_state(self.state.authorizer_queues, transaction)
-        await self.components.accumulation_queue.store_state(self.state.accumulation_queue, transaction)
-        await self.components.accumulation_history.store_state(self.state.accumulation_history, transaction)
-        await self.components.validator_queue.store_state(self.state.validator_queue, transaction)
-        await self.components.privileged_services.store_state(self.state.privileged_services, transaction)
-        await self.components.recent_accumulation_output.store_state(self.state.recent_accumulation_outputs, transaction)
+        await self.store_jam_state(transaction)
 
         return STFOutput(
             epoch_mark=safrole_output.epoch_mark,
@@ -625,6 +612,7 @@ class PyjamazApp:
             offenders_mark=disputes_output.offenders_mark
         )
 
+    @log_execution_time
     async def process_block(self, block: Block):
         # Update Patricia Trie
         await self.update_state_trie()
@@ -634,10 +622,12 @@ class PyjamazApp:
 
         await self.store_block(block)
 
-        await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.BEST_BLOCK, data=block))
-        await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))  # TODO: placeholder for now, move when implemented
-        await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
+        if self.pubsub:
+            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.BEST_BLOCK, data=block))
+            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))  # TODO: placeholder for now, move when implemented
+            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
 
+    @log_execution_time
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
 
         with self.state_db.transaction() as transaction:
@@ -863,17 +853,18 @@ class PyjamazApp:
             if not SOLO_MODE and self.block_extrinsic.can_add_own_ticket(timeslot):
 
                 ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
+                ring_context = RingContext(self.config.ring_data, ring_public_keys)
 
                 self.block_extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
                 self.block_extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
                 self.block_extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
         extrinsic = Extrinsic(

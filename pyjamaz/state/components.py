@@ -1,5 +1,7 @@
 import bisect
 import logging
+from concurrent.futures import as_completed
+from concurrent.futures.thread import ThreadPoolExecutor
 from copy import deepcopy, copy
 from typing import List, Union, Optional, Set
 
@@ -15,7 +17,7 @@ from pyjamaz.hostcalls.invocation import pvm_invoke_on_transfer
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
-from pyjamaz.settings import SOLO_MODE
+from pyjamaz.settings import SOLO_MODE, USE_THREAD_POOL, THREAD_POOL_MAX_WORKERS
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import StorageEngine, Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
@@ -40,12 +42,13 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
     AccumulationQueueWorkPackage, DeferredTransfer, ServiceActivityRecord
 from pyjamaz.transport.pubsub import PubSubSignal
-from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates, format_hash
+from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates, format_hash, log_execution_time
 
 
 class Timeslot(StateComponent):
     component_id = 11
 
+    @log_execution_time
     def state_transition(
             self,
             header: Header
@@ -80,6 +83,7 @@ class Timeslot(StateComponent):
 class Entropy(StateComponent):
     component_id = 6
 
+    @log_execution_time
     def state_transition(
             self,
             header: Header,
@@ -125,6 +129,7 @@ class Entropy(StateComponent):
         value = self.retrieve()
         return EntropyState.from_jam_bytes(JamBytes(value))
 
+    @log_execution_time
     def entropy_output(self, header: Header) -> bytes:
         """
         GP-0.7.0-eq:G.5
@@ -169,6 +174,7 @@ class ValidatorQueue(StateComponent):
 class ValidatorPool(StateComponent):
     component_id = 8
 
+    @log_execution_time
     def state_transition(
             self,
             header: Header,
@@ -212,6 +218,7 @@ class ValidatorPool(StateComponent):
 class ValidatorArchive(StateComponent):
     component_id = 9
 
+    @log_execution_time
     def state_transition(
             self,
             header: Header,
@@ -268,6 +275,7 @@ class Safrole(StateComponent):
         self.ring_data = ring_data
         self.post_state_safrole = None
 
+    @log_execution_time
     def create_ticket_body(self, ticket_data: TicketEnvelope, ring_context: RingContext, entropy: bytes) -> TicketBody:
         if ticket_data.attempt >= gp_const.TICKET_ENTRIES:
             raise StateTransitionError(SafroleErrorCode.bad_ticket_attempt)
@@ -285,6 +293,7 @@ class Safrole(StateComponent):
 
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
+    @log_execution_time
     def state_transition(
             self,
             header: Header,
@@ -338,7 +347,7 @@ class Safrole(StateComponent):
                 # Don't accept tickets after TICKET_SUBMISSION_END_SLOT:
                 raise StateTransitionError(SafroleErrorCode.unexpected_ticket)
 
-        input_tickets = []
+        input_tickets = [None] * len(extrinsic_tickets)
 
         if len(extrinsic_tickets) > 0:
 
@@ -350,17 +359,43 @@ class Safrole(StateComponent):
 
             ring_context = RingContext(self.ring_data, ring_public_keys)
 
-            # Validate extrinsic
-            for idx, ticket_data in enumerate(extrinsic_tickets):
+            if USE_THREAD_POOL:
 
-                ticket = self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
+                logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
 
-                # Check if ticket already exists
-                if ticket in self.post_state_safrole.ticket_accumulator:
-                    # GP-0.7.0-eq:6.33
-                    raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
-                else:
-                    input_tickets.append(ticket)
+                with ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS) as tp:
+                    futs = {
+                        tp.submit(
+                            self.create_ticket_body,
+                            ticket_data,
+                            ring_context,
+                            post_state_entropy.entropy[2]
+                        ): idx
+                        for idx, ticket_data in enumerate(extrinsic_tickets)
+                    }
+
+                    for fut in as_completed(futs):
+                        ticket = fut.result()
+                        idx = futs[fut]
+
+                        # Check if ticket already exists
+                        if ticket in self.post_state_safrole.ticket_accumulator:
+                            # GP-0.7.0-eq:6.33
+                            raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
+                        else:
+                            input_tickets[idx] = ticket
+            else:
+                # Validate extrinsic
+                for idx, ticket_data in enumerate(extrinsic_tickets):
+
+                    ticket = self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
+
+                    # Check if ticket already exists
+                    if ticket in self.post_state_safrole.ticket_accumulator:
+                        # GP-0.7.0-eq:6.33
+                        raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
+                    else:
+                        input_tickets[idx] = ticket
 
             # Check if tickets are in order: GP-0.7.0-eq:6.32
             if not self.tickets_in_order(input_tickets):
@@ -505,6 +540,7 @@ class AuthorizerQueues(StateComponent):
 class AuthorizerPools(StateComponent):
     component_id = 1
 
+    @log_execution_time
     def state_transition(
             self,
             header: Header,
@@ -564,6 +600,7 @@ class AuthorizerPools(StateComponent):
 class RecentHistory(StateComponent):
     component_id = 3
 
+    @log_execution_time
     def state_transition_intermediate(
             self,
             header: Header,
@@ -594,6 +631,7 @@ class RecentHistory(StateComponent):
             intermediate_state=intermediate_state_recent_history
         )
 
+    @log_execution_time
     def state_transition(
             self,
             header: Header,
@@ -679,6 +717,7 @@ class RecentHistory(StateComponent):
 class Assurances(StateComponent):
     component_id = 10
 
+    @log_execution_time
     def state_transition_after_disputes(
             self,
             extrinsic_disputes: ExtrinsicDisputes,
@@ -745,7 +784,7 @@ class Assurances(StateComponent):
             if not self.has_valid_signature(assurance, validator):
                 raise StateTransitionError(AssurancesErrorCode.bad_signature)
 
-
+    @log_execution_time
     def state_transition_after_assurances(
             self,
             extrinsic_assurances: List[Assurance],
@@ -1099,6 +1138,7 @@ class Assurances(StateComponent):
 
         return False
 
+    @log_execution_time
     def state_transition_after_guarantees(
             self,
             extrinsic_guarantees: List[Guarantee],
@@ -1254,6 +1294,7 @@ class PrivilegedServices(StateComponent):
 class Disputes(StateComponent):
     component_id = 5
 
+    @log_execution_time
     def state_transition(
             self,
             extrinsic_disputes: ExtrinsicDisputes,
@@ -1585,6 +1626,7 @@ class Disputes(StateComponent):
 class Statistics(StateComponent):
     component_id = 13
 
+    @log_execution_time
     def state_transition(
             self,
             extrinsic_guarantees: List[Guarantee],
@@ -1788,6 +1830,7 @@ class Services(StateComponent):
             sorted_preimage(preimages[i]) <= sorted_preimage(preimages[i + 1]) for i in range(len(preimages) - 1)
         )
 
+    @log_execution_time
     def state_transition_after_preimages(
             self,
             extrinsic_preimages: List[Preimage],
@@ -1833,6 +1876,7 @@ class Services(StateComponent):
             post_state=intermediate_state_after_transfers
         )
 
+    @log_execution_time
     def state_transition_accumulation(
             self,
             accumulatable_work_reports: List[WorkReport],
@@ -1918,6 +1962,7 @@ class Services(StateComponent):
             accumulation_gas_utilized=output.accumulation_gas_utilized
         )
 
+    @log_execution_time
     def state_transition_transfers(
             self,
             intermediate_state_after_accumulation: ServicesState,
@@ -2042,15 +2087,17 @@ class Services(StateComponent):
                 state.delete_storage_item(mut[1], mut[2], commit=True)
             elif mut[0] == "storage_items_update":
                 # TODO async blocking exception??
-                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
                 state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
             elif mut[0] == "preimages_delete":
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage(mut[1], mut[2], commit=True)
             elif mut[0] == "preimages_update":
                 # TODO async blocking exception??
-                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
                 state.store_preimage(mut[1], mut[3], commit=True)
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
             elif mut[0] == "preimage_availability_delete":
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
@@ -2068,13 +2115,15 @@ class Services(StateComponent):
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_service_account(mut[1], commit=True)
             elif mut[0] == "service_account_update":
-                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
                 state.store_service_account(mut[1], mut[2], commit=True)
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
 
 
 class AccumulationQueue(StateComponent):
     component_id = 14
 
+    @log_execution_time
     def state_transition(
             self,
             queued_work_reports: List[AccumulationQueueWorkPackage],
@@ -2133,6 +2182,7 @@ class AccumulationQueue(StateComponent):
 class AccumulationHistory(StateComponent):
     component_id = 15
 
+    @log_execution_time
     def state_transition(
             self,
             accumulatable_work_reports: List[WorkReport],
@@ -2175,6 +2225,7 @@ class AccumulationHistory(StateComponent):
 class RecentAccumulationLog(StateComponent):
     component_id = 16
 
+    @log_execution_time
     def state_transition(
             self
     ) -> None:

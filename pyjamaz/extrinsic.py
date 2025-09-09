@@ -51,7 +51,7 @@ class BlockExtrinsicAccumulator:
         return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT
 
     def add_own_ticket(
-            self, ring_public_keys: List[bytes], entropy: bytes, keypair: BandersnatchKeypair, author_index: int
+            self, ring_context: RingContext, entropy: bytes, keypair: BandersnatchKeypair, author_index: int
     ):
 
         if len(self.tickets_queue) > TICKET_ENTRIES:
@@ -62,9 +62,6 @@ class BlockExtrinsicAccumulator:
         # GP-0.3.8-eq:75
         vrf_input_data = vrf_input_ticket_seal(entropy, attempt)
         aux_data = b''
-
-        # TODO re-use ring_context (M2)
-        ring_context = RingContext(self.ring_data, ring_public_keys)
 
         signature = ring_context.ring_vrf_sign(author_index, keypair.private_key, vrf_input_data, aux_data)
 
