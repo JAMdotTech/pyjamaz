@@ -670,6 +670,8 @@ async def fuzzer_target(
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
+    db_path = None
+
     if not db_path:
         storage_engine = 'memory'
     else:
@@ -683,6 +685,9 @@ async def fuzzer_target(
     # Safety checks
     if settings.SOLO_MODE:
         logging.warning('settings.SOLO_MODE is enabled')
+
+    # Set GP relaxation flags
+    settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
 
     app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine)
 
@@ -706,7 +711,7 @@ async def setup_fuzzer_session(app: PyjamazApp, fuzzer_socket_path: str):
     initial_block = app.retrieve_block(app.state.timeslot.number)
 
     request = FuzzerMessage(
-        set_state=SetStateMessage(state=list(app.state_db), header=initial_block.header),
+        set_state=SetStateMessage(state=list(app.state_db.items()), header=initial_block.header),
     )
     response = await fuzzer_session.send_request(request)
 
