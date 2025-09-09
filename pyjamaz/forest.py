@@ -55,7 +55,8 @@ async def main():
     app = await initialize_app(read_state=False, custom_db_path=None, storage_engine='memory')
 
     traces_dir="/Users/matthijsblaas/dev/traces2"
-    traces_dir="/Users/matthijsblaas/dev/jam-test-vectors/traces/storage_light"
+    #traces_dir="/Users/matthijsblaas/dev/jam-test-vectors/traces/storage_light"
+    #traces_dir="/Users/matthijsblaas/dev/jam-test-vectors/traces/storage"
     traces_folder = Path(traces_dir)
 
     traces_files = await anyio.to_thread.run_sync(

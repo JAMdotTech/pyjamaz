@@ -417,6 +417,10 @@ class PVMMemory:
             growth = PVMMemory.page_size(new_heap_ptr) - next_page_boundary
             # self._heap.contents.extend(b"\x00" * growth)
             # self._heap.size = len(self._heap.contents)
+            cur_size = len(self._heap.contents)
+            new_size = cur_size + size
+            new_buf = bytearray(new_size)
+            new_buf[:cur_size] = self._heap.contents
 
             # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
@@ -426,6 +430,7 @@ class PVMMemory:
 
         self._heap.paged_tail = new_heap_ptr
         return self._heap.paged_tail
+
 
     def zero(self, page_idx: int, nr_pages: int, acl: PVMMemoryMode):
         mem_addr = page_idx * PVM_PAGE_SIZE

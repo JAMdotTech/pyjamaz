@@ -232,7 +232,8 @@ class PVMInterpreter:
 
 
     def _sbrk(self, size):
-        #heap = self.mem_sections[1]
+        heap = self.mem_sections[1]
+        cur_size = len(heap)
 
         if size == 0:
             return self.mem_section_ends[1]
@@ -249,10 +250,13 @@ class PVMInterpreter:
             growth = new_heap_end - next_page_boundary
 
             # Only grow when we exceed pre-allocated heap mem
-            # if new_heap_end - self.mem_section_starts[1] > len(heap):
-            #     heap = heap.extend(b"\x00" * growth) #np.concatenate((heap, np.zeros(growth, dtype=U8)))
-            #     self.mem_sections[1] = heap
-            #     self._sec_mv[1] = memoryview(self.mem_sections[1])
+            if new_heap_end - self.mem_section_starts[1] > cur_size:
+                #heap = heap.extend(b"\x00" * growth) #np.concatenate((heap, np.zeros(growth, dtype=U8)))
+                new_size = cur_size + size
+                new_buf = bytearray(new_size)
+                new_buf[:cur_size] = heap
+                self.mem_sections[1] = new_buf
+                self.mv_sections[1] = memoryview(self.mem_sections[1])
 
             # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
