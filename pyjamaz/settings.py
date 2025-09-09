@@ -1,10 +1,13 @@
 TEST_SUITE = 'tiny' # tiny or full
 GP_VERSION = '0.7.0'
-APP_VERSION = '0.1.8'
+APP_VERSION = '0.1.9'
 
 DEBUG = False
 SOLO_MODE = False
 STORAGE_ENGINE = 'rocksdb' # memory | rocksdb | leveldb
+
+# GP relaxation flags
+SKIP_TIMESLOT_WALL_CLOCK_CHECK = False
 
 DEBUG_PROGRAM_OVERRIDE = {}
 

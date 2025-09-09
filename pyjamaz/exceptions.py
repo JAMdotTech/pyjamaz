@@ -25,6 +25,9 @@ class BlockValidationErrorCode(Serializable, enum.Enum):
     invalid_author_key = 1
     invalid_seal_key = 2
     bad_slot = 3
+    bad_ticket_marker_data = 4
+    bad_epoch_marker_data = 5
+    bad_offender_marker_data = 6
 
 
 class BlockValidationError(PyjamazAppError):

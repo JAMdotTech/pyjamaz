@@ -86,7 +86,7 @@ def wrap_cli_import_block(traces_dir):
 
         except Exception as e:
             # Rollback state
-            logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
+            logging.error(f'Import failed for #{block.header.timeslot} -> {e}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state = self.retrieve_jam_state()
 
@@ -685,6 +685,9 @@ async def fuzzer_target(
     # Safety checks
     if settings.SOLO_MODE:
         logging.warning('settings.SOLO_MODE is enabled')
+
+    # Set GP relaxation flags
+    settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
 
     app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine)
 
