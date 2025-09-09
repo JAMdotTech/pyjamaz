@@ -1,16 +1,13 @@
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Type
+from typing import List, Optional
 
 import numpy as np
 import numpy.typing as npt
 
-import settings
-from pyjamaz.models.common import Preimage
+from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
-from pyjamaz.pvm.debug_logger import PVMDebugLog
-from pyjamaz.pvm.duna_logger import PVMDunaLog
 from pyjamaz.pvm.types import PVMProgram, PVMMemory
 
 

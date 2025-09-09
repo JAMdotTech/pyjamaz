@@ -38,9 +38,6 @@ class TestPolkaVMInstructions(unittest.TestCase):
     @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
     def test_instruction(self, name, test_vector):
 
-        # Set NumPy to ignore overflow warnings
-        np.seterr(over='ignore')
-
         pvm_code = PVMCode.from_jam_bytes(
             JamBytes(bytes(test_vector["program"]))
         )

@@ -1,4 +1,4 @@
-import settings
+from pyjamaz import settings
 
 if settings.PVM_INTERPRETER == "PVM_GP":
     from .interpreter_gp import PVMInterpreter

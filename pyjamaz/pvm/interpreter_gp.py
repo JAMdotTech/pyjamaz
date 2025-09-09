@@ -275,6 +275,8 @@ class PVMInterpreter:
                 if opcode_name not in self.log.log_opcodes:
                     self.log.log_opcodes[opcode_name] = 0
 
+        np.seterr(over='ignore')
+
 
     def create_instruction_lookup(self):
         """
