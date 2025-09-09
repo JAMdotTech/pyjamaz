@@ -129,6 +129,7 @@ class Entropy(StateComponent):
         value = self.retrieve()
         return EntropyState.from_jam_bytes(JamBytes(value))
 
+    @log_execution_time
     def entropy_output(self, header: Header) -> bytes:
         """
         GP-0.7.0-eq:G.5
@@ -2086,15 +2087,17 @@ class Services(StateComponent):
                 state.delete_storage_item(mut[1], mut[2], commit=True)
             elif mut[0] == "storage_items_update":
                 # TODO async blocking exception??
-                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
                 state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
             elif mut[0] == "preimages_delete":
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage(mut[1], mut[2], commit=True)
             elif mut[0] == "preimages_update":
                 # TODO async blocking exception??
-                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
                 state.store_preimage(mut[1], mut[3], commit=True)
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
             elif mut[0] == "preimage_availability_delete":
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
@@ -2112,8 +2115,9 @@ class Services(StateComponent):
                 # TODO: self.app_context.pubsub.publish()
                 state.delete_service_account(mut[1], commit=True)
             elif mut[0] == "service_account_update":
-                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
                 state.store_service_account(mut[1], mut[2], commit=True)
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
 
 
 class AccumulationQueue(StateComponent):

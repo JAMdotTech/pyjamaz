@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import TypeVar, Optional, List, Callable, Dict
 
-from bandersnatch_vrfs import ietf_vrf_sign
+from bandersnatch_vrfs import ietf_vrf_sign, RingContext
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
@@ -853,17 +853,18 @@ class PyjamazApp:
             if not SOLO_MODE and self.block_extrinsic.can_add_own_ticket(timeslot):
 
                 ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
+                ring_context = RingContext(self.config.ring_data, ring_public_keys)
 
                 self.block_extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
                 self.block_extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
                 self.block_extrinsic.add_own_ticket(
-                    ring_public_keys, entropy, self.config.keys.bandersnatch, self.get_author_index()
+                    ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index()
                 )
 
         extrinsic = Extrinsic(

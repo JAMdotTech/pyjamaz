@@ -222,7 +222,6 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             keys=Keys.from_seed(bytes.fromhex(seed[2:])),
             custom_db_path=custom_db_path,
             record_traces=record_traces,
-            fuzzer_socket_path=fuzzer_socket_path if fuzzer else None,
             storage_engine=STORAGE_ENGINE
         )
     except StateKeyNoResult:
@@ -364,7 +363,8 @@ async def timeslot_ticker(app: PyjamazApp):
 
                 block = await app.produce_block(timeslot, safrole_state, entropy_state)
 
-                await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+                if app.pubsub:
+                    await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
 
                 logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
