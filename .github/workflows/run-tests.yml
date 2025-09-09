@@ -38,10 +38,10 @@ jobs:
         pip install pytest
         pytest
       env:
-        PVM_INTERPRETER="PVM_CPYTHON"
+        PVM_INTERPRETER: PVM_CPYTHON
     - name: Test with pytest for PVM GP
       run: |
         pip install pytest
         pytest
       env:
-        PVM_INTERPRETER="PVM_GP"
+        PVM_INTERPRETER: PVM_GP
