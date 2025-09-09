@@ -1,7 +1,7 @@
 import logging
 import time
 
-from pyjamaz.models.stf_output import SafroleErrorCode
+from pyjamaz.models.stf_output import SafroleOutput, DisputesOutput
 
 from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
 from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS, TICKET_ENTRIES
@@ -38,10 +38,10 @@ class BlockValidation:
 
     def validate_header(self,
                         header: Header,
-                        pre_state_timeslot: TimeslotState,
                         post_entropy: EntropyState,
                         post_validator_pool: ValidatorPoolState,
-                        post_safrole: SafroleState,
+                        safrole_output: SafroleOutput,
+                        disputes_output: DisputesOutput,
                         extrinsic: Extrinsic,
                         ):
 
@@ -49,11 +49,15 @@ class BlockValidation:
         if header.extrinsic_hash != extrinsic.generate_extrinsic_hash():
             raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
 
-        # Check ticket markers attempt
-        if header.tickets_marker:
-            for tickets_marker in header.tickets_marker:
-                if tickets_marker.attempt >= TICKET_ENTRIES:
-                    raise ValueError(SafroleErrorCode.bad_ticket_attempt)
+        # Check marker data
+        if header.tickets_marker and header.tickets_marker != safrole_output.tickets_mark:
+            raise ValueError(BlockValidationErrorCode.bad_ticket_marker_data)
+
+        if header.epoch_marker != safrole_output.epoch_mark:
+            raise ValueError(BlockValidationErrorCode.bad_epoch_marker_data)
+
+        if header.offenders_marker != disputes_output.offenders_mark:
+            raise ValueError(BlockValidationErrorCode.bad_offender_marker_data)
 
         parent_header = self.block_context.get_parent(header)
 
@@ -79,16 +83,16 @@ class BlockValidation:
         entropy = post_entropy.entropy[3]
         author_key = post_validator_pool.validators[header.author_index].bandersnatch
 
-        if post_safrole.slot_sealer_series.tickets is not None:
-            ticket = post_safrole.slot_sealer_series.tickets[header.timeslot % EPOCH_TIMESLOTS]
+        if safrole_output.post_state.slot_sealer_series.tickets is not None:
+            ticket = safrole_output.post_state.slot_sealer_series.tickets[header.timeslot % EPOCH_TIMESLOTS]
             logging.debug(
                 f'Validate ticket | Timeslot: {header.timeslot} | Ticket ID: {ticket.id.hex()} | Author: {author_key.hex()} | Entropy: {entropy.hex()} '
             )
             self.block_context.seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
 
-        elif post_safrole.slot_sealer_series.keys is not None:
+        elif safrole_output.post_state.slot_sealer_series.keys is not None:
             # Fallback method
-            sealer_key = post_safrole.slot_sealer_series.keys[header.timeslot % EPOCH_TIMESLOTS]
+            sealer_key = safrole_output.post_state.slot_sealer_series.keys[header.timeslot % EPOCH_TIMESLOTS]
 
             logging.debug(
                 f'Validate key | Timeslot: {header.timeslot} |  Author: {format_hash(sealer_key)} | Entropy: {format_hash(entropy)}'
