@@ -200,13 +200,15 @@ class TargetServer:
 
         elif req.import_block is not None:
 
-            # Add stub parent as ancestor
-            stub_parent = Header.default()
-            stub_parent.hash = req.import_block.header.parent
-            stub_parent.timeslot = req.import_block.header.timeslot - 1
-            self.app.block_context.ancestor_headers.append(stub_parent)
+            if len(self.app.block_context.ancestor_headers) == 1 and \
+                self.app.block_context.ancestor_headers[0].timeslot == 0:
+
+                # Convert stub header to valid parent
+                self.app.block_context.ancestor_headers[0].timeslot = req.import_block.header.timeslot - 1
+                self.app.block_context.ancestor_headers[0].hash = req.import_block.header.parent
 
             await self.app.import_block(req.import_block)
+
             logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.state_trie_root)}")
             return FuzzerMessage(state_root=self.app.state_trie_root)
 
