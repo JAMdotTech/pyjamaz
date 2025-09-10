@@ -51,7 +51,7 @@ class BlockValidation:
 
         # Check marker data
         if header.tickets_marker and header.tickets_marker != safrole_output.tickets_mark:
-            raise ValueError(BlockValidationErrorCode.bad_ticket_marker_data)
+            raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
 
         if header.epoch_marker != safrole_output.epoch_mark:
             raise ValueError(BlockValidationErrorCode.bad_epoch_marker_data)
