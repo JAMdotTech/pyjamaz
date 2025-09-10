@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field
+from typing import List, Tuple
 
 from jamcodec.mixins import Serializable
-from jamcodec.types import U8, String, U32
+from jamcodec.types import U8, String, Vec, Array, Bytes, Tuple as JamTuple, H256, Null
 
-from pyjamaz.transport.fuzzer.v0.types import Version
+from pyjamaz.models.block import Block
+from pyjamaz.transport.fuzzer.v0.types import Version, SetStateMessage
 
 
 class Features(Serializable):
@@ -61,3 +63,16 @@ class PeerInfoMessage(Serializable):
     jam_version: Version = field(metadata={'codec': Version.to_codec_def()})
     features: Features = field(metadata={'codec': Features.to_codec_def()})
     name: str = field(metadata={'codec': String})
+
+
+@dataclass
+class FuzzerMessage(Serializable):
+    peer_info: PeerInfoMessage = field(default=None, metadata={'codec': PeerInfoMessage.to_codec_def()})
+    import_block: Block = field(default=None, metadata={'codec': Block.to_codec_def()})
+    set_state: SetStateMessage = field(default=None, metadata={'codec': SetStateMessage.to_codec_def()})
+    get_state: bytes = field(default=None, metadata={'codec': H256})
+    state: List[Tuple[bytes, bytes]] = field(default=None, metadata={'codec': Vec(JamTuple(Array(U8, 31), Bytes))})
+    state_root: bytes = field(default=None, metadata={'codec': H256})
+    error: None = field(default=None, metadata={'codec': Null})
+
+    _codec_enum = True

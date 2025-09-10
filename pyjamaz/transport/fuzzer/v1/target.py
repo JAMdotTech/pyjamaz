@@ -1,5 +1,5 @@
 from pyjamaz.settings import APP_VERSION, GP_VERSION
-from pyjamaz.transport.fuzzer.v0.target import TargetServer as TargetServerV0
+from pyjamaz.transport.fuzzer.v0.target import FuzzerTarget as TargetServerV0
 from pyjamaz.transport.fuzzer.v0.types import FuzzerMessage, PeerInfoMessage, Version
 
 
@@ -17,7 +17,7 @@ def _handle_exception(exc):
     pass
 
 
-class TargetServer(TargetServerV0):
+class FuzzerTarget(TargetServerV0):
 
     def fuzzer_encode(self) -> bytes:
         pass

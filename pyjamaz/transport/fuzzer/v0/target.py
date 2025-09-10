@@ -5,25 +5,15 @@ import typing
 from typing import Optional
 
 from pyjamaz.settings import GP_VERSION, APP_VERSION
-from pyjamaz.models.block import Block, Header
-from pyjamaz.transport.fuzzer.v0.types import FuzzerMessage, PeerInfoMessage, Version, REQUEST_TIMEOUT
+from pyjamaz.transport.fuzzer.v0.types import FuzzerMessage, PeerInfoMessage, Version
 from pyjamaz.utils import format_hash
 
 if typing.TYPE_CHECKING:
     from pyjamaz.app import PyjamazApp
 
 
-def msg_handshake() -> FuzzerMessage:
-    return FuzzerMessage(
-        peer_info=PeerInfoMessage(
-            name="PyJAMaz",
-            app_version=Version.from_str(APP_VERSION),
-            jam_version=Version.from_str(GP_VERSION)
-        )
-    )
 
-
-class TargetServer:
+class FuzzerTarget:
 
     def __init__(self, path: str, app: 'PyjamazApp') -> None:
         self.path = path
@@ -35,6 +25,53 @@ class TargetServer:
         except FileNotFoundError:
             pass
         self.server: Optional[asyncio.AbstractServer] = None
+
+
+    def msg_handshake(self) -> FuzzerMessage:
+        return FuzzerMessage(
+            peer_info=PeerInfoMessage(
+                name="PyJAMaz",
+                app_version=Version.from_str(APP_VERSION),
+                jam_version=Version.from_str(GP_VERSION)
+            )
+        )
+
+    def msg_get_state(self) -> FuzzerMessage:
+        return FuzzerMessage(
+            state=list(self.app.state_db.items())
+        )
+
+    async def msg_set_state(self, req) -> FuzzerMessage:
+        # Flush DB
+        for key, _ in self.app.state_db.items():
+            self.app.state_db.delete(key)
+
+        logging.debug(f"State DB flushed")
+
+        # Update state from received set_state message
+        for k, v in req.set_state.state:
+            self.app.state_db.put(bytes(k), bytes(v))
+
+        logging.debug(f"Privided state DB keyvals inserted")
+
+        await self.app.initialize()
+        self.app.block_context.ancestor_headers = [req.set_state.header]
+
+        logging.info(f"💾 State set to {format_hash(self.app.state_trie_root)}")
+        return FuzzerMessage(state_root=self.app.state_trie_root)
+
+
+    async def msg_import_block(self, req):
+        if len(self.app.block_context.ancestor_headers) == 1 and \
+                self.app.block_context.ancestor_headers[0].timeslot == 0:
+            # Convert stub header to valid parent
+            self.app.block_context.ancestor_headers[0].timeslot = req.import_block.header.timeslot - 1
+            self.app.block_context.ancestor_headers[0].hash = req.import_block.header.parent
+
+        await self.app.import_block(req.import_block)
+
+        logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.state_trie_root)}")
+        return FuzzerMessage(state_root=self.app.state_trie_root)
 
 
     async def start(self) -> None:
@@ -54,7 +91,7 @@ class TargetServer:
         try:
             # Handshake: wait for their PeerInfo first.
             them = await FuzzerMessage.fuzzer_decode(reader)
-            ours = msg_handshake()
+            ours = self.msg_handshake()
 
             writer.write(ours.fuzzer_encode())
             await writer.drain()
@@ -100,97 +137,16 @@ class TargetServer:
         FuzzerMessage
         """
         if req.peer_info is not None:
-            return self._msg_handshake()
+            return self.msg_handshake()
 
         elif req.get_state is not None:
-
-            return FuzzerMessage(
-                state=list(self.app.state_db.items())
-            )
+            return self.msg_get_state()
 
         elif req.set_state is not None:
-
-            # Flush DB
-            for key, _ in self.app.state_db.items():
-                self.app.state_db.delete(key)
-
-            logging.debug(f"State DB flushed")
-
-            # Update state from received set_state message
-            for k, v in req.set_state.state:
-                self.app.state_db.put(bytes(k), bytes(v))
-
-            logging.debug(f"Privided state DB keyvals inserted")
-
-            await self.app.initialize()
-            self.app.block_context.ancestor_headers = [req.set_state.header]
-
-            logging.info(f"💾 State set to {format_hash(self.app.state_trie_root)}")
-            return FuzzerMessage(state_root=self.app.state_trie_root)
+            return await self.msg_set_state(req)
 
         elif req.import_block is not None:
-
-            # Add stub parent as ancestor
-            stub_parent = Header.default()
-            stub_parent.hash = req.import_block.header.parent
-            stub_parent.timeslot = req.import_block.header.timeslot - 1
-            self.app.block_context.ancestor_headers.append(stub_parent)
-
-            await self.app.import_block(req.import_block)
-            logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.state_trie_root)}")
-            return FuzzerMessage(state_root=self.app.state_trie_root)
+            return await self.msg_import_block(req)
 
         else:
             raise RuntimeError(f"Unknown incoming message {req.to_json()}")
-
-
-    class FuzzerSession:
-        def __init__(self, path: str, app: 'PyjamazApp') -> None:
-            self.path = path
-            self.app = app
-            self.reader: asyncio.StreamReader
-            self.writer: asyncio.StreamWriter
-
-        async def connect(self) -> None:
-            self.reader, self.writer = await asyncio.open_unix_connection(self.path)
-            await self._do_handshake()
-
-        async def _do_handshake(self) -> None:
-            # Send our PeerInfo first
-            jam_version = Version.from_str(GP_VERSION)
-            our_peerinfo = msg_handshake()
-
-            self.writer.write(our_peerinfo.fuzzer_encode())
-            await self.writer.drain()
-
-            # Await the target's PeerInfo.
-            try:
-                target_peerinfo = await asyncio.wait_for(FuzzerMessage.fuzzer_decode(self.reader), timeout=REQUEST_TIMEOUT)
-            except asyncio.TimeoutError:
-                raise RuntimeError("Target did not send PeerInfo in time")
-
-            if target_peerinfo.peer_info.jam_version != jam_version:
-                raise RuntimeError(
-                    f"Protocol version mismatch: ours={GP_VERSION}, theirs={target_peerinfo.peer_info.jam_version}"
-                )
-            logging.info(
-                f"[fuzzer] Connected to {target_peerinfo.peer_info.name} (v{target_peerinfo.peer_info.app_version})")
-
-        async def send_request(self, req: FuzzerMessage) -> FuzzerMessage:
-            """Send *req* and return the parsed response."""
-
-            # logging.debug(f"[fuzzer] Sending {req.to_json()}")
-            self.writer.write(req.fuzzer_encode())
-            await self.writer.drain()
-            try:
-                rsp = await asyncio.wait_for(FuzzerMessage.fuzzer_decode(self.reader), timeout=REQUEST_TIMEOUT)
-            except asyncio.TimeoutError:
-                raise RuntimeError(f"Target timed out when responding to {req.to_json()}")
-            # TODO message type sanity checks
-            # logging.debug(f"[fuzzer] Received {rsp.to_json()}")
-            return rsp
-
-        async def close(self) -> None:
-            self.writer.close()
-            await self.writer.wait_closed()
-            logging.info("[fuzzer] Session closed")

@@ -22,7 +22,9 @@ from pyjamaz import settings
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.fuzzer import TargetServer, FuzzerSession, FuzzerMessage, SetStateMessage
+from pyjamaz.transport.fuzzer.v0.types import FuzzerMessage, SetStateMessage
+from pyjamaz.transport.fuzzer.v0.target import FuzzerTarget
+from pyjamaz.transport.fuzzer.v0.session import FuzzerSession
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, StateDump
@@ -709,7 +711,7 @@ async def fuzzer_target(
     app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine, pubsub=False)
 
     try:
-        srv = TargetServer(socket_path, app)
+        srv = FuzzerTarget(socket_path, app)
         await srv.start()
     except (KeyboardInterrupt, CancelledError):
         logging.info("Stopping fuzzer...")
