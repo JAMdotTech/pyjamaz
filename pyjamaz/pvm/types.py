@@ -266,7 +266,7 @@ class PVMMemory:
             if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is not writable")
 
-        section_addr = (addr - section.address)  # % section.size #TODO: not sure if % necesarry?
+        section_addr = (addr - section.address)  #TODO: not sure if % paged_tail necesarry?
         self._section = section
         self._section_addr = section_addr
 
@@ -291,7 +291,7 @@ class PVMMemory:
             if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is inaccessible")
 
-        section_addr = (addr - section.address)  # % section.size  #TODO: not sure if % necesarry?
+        section_addr = (addr - section.address)  #  TODO: not sure if % paged_tail necesarry?
         self._section = section
         self._section_addr = section_addr
 

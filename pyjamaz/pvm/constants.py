@@ -646,9 +646,10 @@ inst_reg_reg_offset = 10
 inst_reg_reg_imm_imm = 11
 inst_reg_reg_reg = 12
 
-typezzz = [0] * 231
+
+opcode_type = [0] * 231
 for k,v in OpcodeScheme.items():
-    typezzz[int(k)] = int(v.value)
+    opcode_type[int(k)] = int(v.value)
 
 
 inst_none = 0

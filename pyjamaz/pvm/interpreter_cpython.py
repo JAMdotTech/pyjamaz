@@ -277,8 +277,6 @@ class PVMInterpreter:
     def mem_write(self, opcode, addr, value):
         """Write to memory based on opcode"""
         bytes_to_write = self.mem_ops_bytes[opcode]
-        #addr = int(addr)
-        #addr = addr % (2 ** 32)  #TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
@@ -338,8 +336,6 @@ class PVMInterpreter:
     def mem_read(self, opcode, addr):
         """Read from memory based on opcode"""
         bytes_to_read = self.mem_ops_bytes[opcode]
-        #addr = int(addr)
-        #addr = addr % (2 ** 32)  # TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
