@@ -9,6 +9,8 @@ from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
 #from .memory_debug import get_memory_hash
 from .types_new import PVMProgram, PVMMemory, PVMMemoryMode
 
+TREK GELIJK MET LAATSTE VERSIE VD OPTIMIZATION BRANCH!!!!!
+
 from .constants_new import (
     OpcodeScheme,
     ExitReason,
