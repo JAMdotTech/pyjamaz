@@ -51,7 +51,7 @@ def hc_bless(
     ----------
     None
     """
-    logger.hc_regs(f"BLESS", "accumulate")
+    logger and logger.hc_regs(f"BLESS", "accumulate")
 
     invocation_output.gas_limit -= 10
 
@@ -90,16 +90,16 @@ def hc_bless(
 
     if auto_accumulate_services is None or assigners is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
+        logger and logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
 
     elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
+        logger and logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
     elif not service_exists:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-        logger.hc_log("BLESS WHO", f"m={m} a={a} v={v}")
+        logger and logger.hc_log("BLESS WHO", f"m={m} a={a} v={v}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
@@ -111,7 +111,7 @@ def hc_bless(
         ps.delegator = v
         ps.always_accumulators = auto_accumulate_services
 
-        logger.hc_log("BLESS OK", f"m={m} a={a} v={v}")
+        logger and logger.hc_log("BLESS OK", f"m={m} a={a} v={v}")
 
 
 def hc_assign(
@@ -143,7 +143,7 @@ def hc_assign(
     ----------
     None
     """
-    logger.hc_regs(f"ASSIGN", "accumulate")
+    logger and logger.hc_regs(f"ASSIGN", "accumulate")
     invocation_output.gas_limit -= 10
 
     # Privileged services:
@@ -163,24 +163,24 @@ def hc_assign(
 
     if authorization_queue is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("ASSIGN PANIC", f"c={core_index}")
+        logger and logger.hc_log("ASSIGN PANIC", f"c={core_index}")
 
     elif core_index >= CORE_COUNT:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CORE.value
-        logger.hc_log("ASSIGN CORE", f"c={core_index}")
+        logger and logger.hc_log("ASSIGN CORE", f"c={core_index}")
 
     elif x.context.service_account_id != x.context.state_context.privileged_services.assigners[core_index]:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger.hc_log("BLESS HUH", f"X_s={x.context.service_account_id}")
+        logger and logger.hc_log("BLESS HUH", f"X_s={x.context.service_account_id}")
 
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
         # TODO: mark dirty? maybe register changes
         x.context.state_context.authorizer_queues.authorizer_queues[core_index] = authorization_queue
-        logger.hc_log("ASSIGN OK", f"c={core_index} o={o}")
+        logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o}")
 
 
 def hc_designate(
@@ -210,7 +210,7 @@ def hc_designate(
     ----------
     None
     """
-    logger.hc_regs(f"DESIGNATE", "accumulate")
+    logger and logger.hc_regs(f"DESIGNATE", "accumulate")
     invocation_output.gas_limit -= 10
 
     o = registers[7] # memory offset
@@ -229,19 +229,19 @@ def hc_designate(
 
     if validator_queue is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("DESIGNATE PANIC", f"o={o}")
+        logger and logger.hc_log("DESIGNATE PANIC", f"o={o}")
 
     elif x.context.service_account_id != x.context.state_context.privileged_services.delegator:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger.hc_log("DESIGNATE HUH", f"Xs={x.context.service_account_id}")
+        logger and logger.hc_log("DESIGNATE HUH", f"Xs={x.context.service_account_id}")
 
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
         # TODO: mark dirty? maybe register changes
         x.context.state_context.validator_queue.validators = validator_queue
-        logger.hc_log("DESIGNATE OK", f"o={o}")
+        logger and logger.hc_log("DESIGNATE OK", f"o={o}")
 
 
 def hc_checkpoint(
@@ -272,7 +272,7 @@ def hc_checkpoint(
     ----------
     None
     """
-    logger.hc_regs(f"CHECKPOINT", "accumulate")
+    logger and logger.hc_regs(f"CHECKPOINT", "accumulate")
     invocation_output.gas_limit -= 10
     invocation_output.registers[7] = invocation_output.gas_limit
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -303,7 +303,7 @@ def hc_new(
     ----------
     None
     """
-    logger.hc_regs(f"NEW", "accumulate")
+    logger and logger.hc_regs(f"NEW", "accumulate")
     invocation_output.gas_limit -= 10
 
     o = registers[7]  # offset to read service data from
@@ -350,12 +350,12 @@ def hc_new(
 
     if code_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("NEW PANIC", f"old_service={service_id}")
+        logger and logger.hc_log("NEW PANIC", f"old_service={service_id}")
 
     elif deducted_balance < service_account.threshold_balance:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
-        logger.hc_log("NEW CASH", f"old_service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
+        logger and logger.hc_log("NEW CASH", f"old_service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
 
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -370,7 +370,7 @@ def hc_new(
         # TODO inefficient; move to end, only once per service
         x.context.state_context.services.store_service_account(new_service_id, new_service_account)
         x.context.state_context.services.store_preimage_availability(new_service_id, code_hash, l, [])
-        logger.hc_log("NEW OK", f"old_service={service_id} code_hash={code_hash} code_len={l}")
+        logger and logger.hc_log("NEW OK", f"old_service={service_id} code_hash={code_hash} code_len={l}")
 
 
 def hc_upgrade(
@@ -403,7 +403,7 @@ def hc_upgrade(
     ----------
     None
     """
-    logger.hc_regs(f"UPGRADE", "accumulate")
+    logger and logger.hc_regs(f"UPGRADE", "accumulate")
     invocation_output.gas_limit -= 10
 
     o = registers[7]  # offset for service codehash
@@ -420,7 +420,7 @@ def hc_upgrade(
 
     if code_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("UPGRADE PANIC", "")
+        logger and logger.hc_log("UPGRADE PANIC", "")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
@@ -431,7 +431,7 @@ def hc_upgrade(
         service_account.gas_limit_on_transfer = m
         # TODO inefficient; move to end, only once per service
         x.context.state_context.services.store_service_account(service_id, service_account)
-        logger.hc_log("UPGRADE OK", f"code_hash={code_hash} ")
+        logger and logger.hc_log("UPGRADE OK", f"code_hash={code_hash} ")
 
 
 def hc_transfer(
@@ -466,7 +466,7 @@ def hc_transfer(
     ----------
     None
     """
-    logger.hc_regs(f"TRANSFER", "accumulate")
+    logger and logger.hc_regs(f"TRANSFER", "accumulate")
     gas_cost = 10 + registers[9]
     invocation_output.gas_limit -= gas_cost
 
@@ -502,15 +502,15 @@ def hc_transfer(
     elif dest_service_account is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-        logger.hc_log("TRANSFER WHO", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        logger and logger.hc_log("TRANSFER WHO", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
     elif g < dest_service_account.gas_limit_on_transfer:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.LOW.value
-        logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        logger and logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
     elif b < service_account.threshold_balance:   # insufficient funds
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
-        logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        logger and logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
@@ -520,7 +520,7 @@ def hc_transfer(
         x.context.deferred_transfers.append(transfer)
         # TODO inefficient; move to end, only once per service
         x.context.state_context.services.store_service_account(service_id, service_account)
-        logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
 
 
 def hc_eject(
@@ -556,7 +556,7 @@ def hc_eject(
     ----------
     None
     """
-    logger.hc_regs(f"EJECT", "accumulate")
+    logger and logger.hc_regs(f"EJECT", "accumulate")
     invocation_output.gas_limit -= 10
 
     d = registers[7]
@@ -590,17 +590,17 @@ def hc_eject(
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("EJECT PANIC", f"")
+        logger and logger.hc_log("EJECT PANIC", f"")
     elif eject_service_account is None or eject_service_account.code_hash != int(service_id).to_bytes(length=32, byteorder="little"):
         # Note: eject service grants eject by setting code_hash to current service_id
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-        logger.hc_log("EJECT WHO", f"")
+        logger and logger.hc_log("EJECT WHO", f"")
     elif eject_service_account.footprint_storage_items != 2 or preimage_availability is None:
         # Note: if this storage_account emptied and the preimage exists
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability}")
+        logger and logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability}")
     elif len(preimage_availability) == 2 and preimage_availability[1] < x.timeslot - PREIMAGE_EXPUNGE_TIMESLOTS:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
@@ -612,11 +612,11 @@ def hc_eject(
         state.services.delete_service_account(d)
         service_account.balance = updated_balance
         state.services.store_service_account(service_id, service_account) # TODO: meenemen in de finalize vd transactie
-        logger.hc_log("EJECT OK", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
+        logger and logger.hc_log("EJECT OK", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
+        logger and logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
 
 
 def hc_query(
@@ -648,7 +648,7 @@ def hc_query(
     ----------
     None
     """
-    logger.hc_regs(f"QUERY", "accumulate")
+    logger and logger.hc_regs(f"QUERY", "accumulate")
     invocation_output.gas_limit -= 10
 
     o = registers[7]    # memory offset
@@ -675,39 +675,39 @@ def hc_query(
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("QUERY PANIC", f"")
+        logger and logger.hc_log("QUERY PANIC", f"")
     elif preimage_availability is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
         invocation_output.registers[8] = 0
-        logger.hc_log("QUERY NONE", f"r7={registers[7]} (NONE) r8={registers[8]}")
+        logger and logger.hc_log("QUERY NONE", f"r7={registers[7]} (NONE) r8={registers[8]}")
     elif len(preimage_availability) == 0:
         # Note: Marked as requested
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = 0
         invocation_output.registers[8] = 0
-        logger.hc_log("QUERY 0", f"r7={registers[7]} r8={registers[8]}")
+        logger and logger.hc_log("QUERY 0", f"r7={registers[7]} r8={registers[8]}")
     elif len(preimage_availability) == 1:
         # Note: Marked as available
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = 1 + 2 ** 32 * preimage_availability[0]
         invocation_output.registers[8] = 0
-        logger.hc_log(f"QUERY 1", f"r7={registers[7]} r8={registers[8]}")
+        logger and logger.hc_log(f"QUERY 1", f"r7={registers[7]} r8={registers[8]}")
     elif len(preimage_availability) == 2:
         # Note: Marked as unavailable
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = 2 + 2 ** 32 * preimage_availability[0]
         invocation_output.registers[8] = preimage_availability[1]
-        logger.hc_log(f"QUERY 2", f"r7={registers[7]} r8={registers[8]}")
+        logger and logger.hc_log(f"QUERY 2", f"r7={registers[7]} r8={registers[8]}")
     elif len(preimage_availability) == 3:
         # Note: Marked as re-available
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = 3 + 2 ** 32 * preimage_availability[0]
         invocation_output.registers[8] = preimage_availability[1] + 2 ** 32 * preimage_availability[2]
-        logger.hc_log(f"QUERY 3", f"r7={registers[7]} r8={registers[8]}")
+        logger and logger.hc_log(f"QUERY 3", f"r7={registers[7]} r8={registers[8]}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("QUERY PANIC", f"")
+        logger and logger.hc_log("QUERY PANIC", f"")
 
 
 def hc_solicit(
@@ -740,7 +740,7 @@ def hc_solicit(
     ----------
     None
     """
-    logger.hc_regs(f"SOLICIT", "accumulate")
+    logger and logger.hc_regs(f"SOLICIT", "accumulate")
     invocation_output.gas_limit -= 10
 
     state = x.context.state_context
@@ -774,15 +774,15 @@ def hc_solicit(
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("SOLICIT PANIC", f"")
+        logger and logger.hc_log("SOLICIT PANIC", f"")
     elif preimage_availability is not None and len(preimage_availability) != 2:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger.hc_log("SOLICIT HUH", f"h={preimage_hash} newvalue={preimage_availability}")
+        logger and logger.hc_log("SOLICIT HUH", f"h={preimage_hash} newvalue={preimage_availability}")
     elif service_account.balance < service_account.threshold_balance:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.FULL.value
-        logger.hc_log("SOLICIT FULL", f"h={preimage_hash} newvalue={preimage_availability}")
+        logger and logger.hc_log("SOLICIT FULL", f"h={preimage_hash} newvalue={preimage_availability}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
@@ -807,7 +807,7 @@ def hc_solicit(
                 preimage_availability + [x.timeslot]
             )
 
-        logger.hc_log("SOLICIT OK", f"h={preimage_hash.hex()} newvalue={preimage_availability}")
+        logger and logger.hc_log("SOLICIT OK", f"h={preimage_hash.hex()} newvalue={preimage_availability}")
 
 
 def hc_forget(
@@ -841,7 +841,7 @@ def hc_forget(
     ----------
     None
     """
-    logger.hc_regs(f"FORGET", "accumulate")
+    logger and logger.hc_regs(f"FORGET", "accumulate")
     invocation_output.gas_limit -= 10
 
     o = registers[7]
@@ -900,15 +900,15 @@ def hc_forget(
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("FORGET PANIC", f"")
+        logger and logger.hc_log("FORGET PANIC", f"")
     elif preimage_updated is False:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger.hc_log("FORGET HUH", f"preimage_hash={preimage_hash.hex()}")
+        logger and logger.hc_log("FORGET HUH", f"preimage_hash={preimage_hash.hex()}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
-        logger.hc_log("FORGET OK", f"preimage_hash={preimage_hash.hex()}")
+        logger and logger.hc_log("FORGET OK", f"preimage_hash={preimage_hash.hex()}")
 
 
 def hc_yield(
@@ -940,7 +940,7 @@ def hc_yield(
     ----------
     None
     """
-    logger.hc_regs(f"YIELD", "accumulate")
+    logger and logger.hc_regs(f"YIELD", "accumulate")
     invocation_output.gas_limit -= 10
     o = registers[7]
 
@@ -952,12 +952,12 @@ def hc_yield(
 
     if invocation_data is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("YIELD PANIC", f"")
+        logger and logger.hc_log("YIELD PANIC", f"")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
         x.context.invocation_output = invocation_data
-        logger.hc_log("YIELD OK", f"invocation_data={invocation_data.hex()}")
+        logger and logger.hc_log("YIELD OK", f"invocation_data={invocation_data.hex()}")
 
 
 def hc_provide(
@@ -988,7 +988,7 @@ def hc_provide(
     None
     """
 
-    logger.hc_regs(f"PROVIDE", "accumulate")
+    logger and logger.hc_regs(f"PROVIDE", "accumulate")
     invocation_output.gas_limit -= 10
 
     preimage_address = registers[8] # GP: o
@@ -1025,22 +1025,22 @@ def hc_provide(
 
     if preimage_blob is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger.hc_log("PROVIDE PANIC", f"")
+        logger and logger.hc_log("PROVIDE PANIC", f"")
 
     elif service_account is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-        logger.hc_log("PROVIDE WHO", f"")
+        logger and logger.hc_log("PROVIDE WHO", f"")
 
     elif preimage_availability is not None and preimage_availability != []:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger.hc_log("PROVIDE HUH", f"")
+        logger and logger.hc_log("PROVIDE HUH", f"")
 
     elif (service_account_id, preimage_blob) in ctx_in.context.preimages:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger.hc_log("PROVIDE HUH", f"")
+        logger and logger.hc_log("PROVIDE HUH", f"")
 
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -1049,6 +1049,6 @@ def hc_provide(
         # Add preimage to invocation context
         ctx_in.context.preimages.append((service_account_id, preimage_blob))
 
-        logger.hc_log("PROVIDE OK", f"h={format_hash(blake2b_256_hash(preimage_blob))}")
+        logger and logger.hc_log("PROVIDE OK", f"h={format_hash(blake2b_256_hash(preimage_blob))}")
 
 

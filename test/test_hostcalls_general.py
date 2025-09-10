@@ -155,7 +155,7 @@ class TestHCGeneral(unittest.TestCase):
         for page_map in test_vector["initial-page-map"]:
             page = MemorySection(
                 address=page_map["address"],
-                length=page_map["length"],
+                size=page_map["length"],
                 acl=PVMMemoryMode.writable if page_map["is-writable"] else PVMMemoryMode.readable,
                 contents=[0] * page_map["length"]
             )
@@ -178,7 +178,7 @@ class TestHCGeneral(unittest.TestCase):
             combined_contents = [0] * total_size
             mem_heap = MemorySection(
                 address=min_addr,
-                length=total_size,
+                size=total_size,
                 acl=PVMMemoryMode.writable,  # Default to writable for combined heap
                 contents=combined_contents
             )
@@ -399,7 +399,7 @@ class TestHCGeneral(unittest.TestCase):
             page = invocation_output.memory.find_section(expected_mem["address"])
             mem_offset = expected_mem["address"] - page.address
             mem_len = len(expected_mem["contents"])
-            hc_mem = page.contents.tolist()[mem_offset:mem_offset + mem_len]
+            hc_mem = list(page.contents[mem_offset:mem_offset + mem_len])
             self.assertEqual(
                 expected_mem["contents"],
                 hc_mem,

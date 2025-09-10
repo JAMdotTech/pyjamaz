@@ -16,6 +16,13 @@ DEBUG_PROGRAM_OVERRIDE = {}
 USE_THREAD_POOL = True
 THREAD_POOL_MAX_WORKERS = os.cpu_count()
 
+PVM_DEBUGGER = None
+#PVM_INTERPRETER = "PVM_GP"
+PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "PVM_CPYTHON")
+PVM_MIN_HEAP_SIZE = 0
+PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
+
+
 try:
     from pyjamaz.local_settings import *
 except ImportError:

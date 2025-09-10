@@ -2,9 +2,6 @@ import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 
-import numpy as np
-import numpy.typing as npt
-
 from math import ceil
 from dataclasses import dataclass, field
 from typing import List, Union, Type, T, Optional, Dict
@@ -14,9 +11,10 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger, Bytes
 
+from .defs import u8, u64, u16, u32, read_uint, write_uint
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
-from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
+from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE, PVM_MAX_HEAP_SIZE, PVM_MIN_HEAP_SIZE
 
 
 class PVMLogger(ABC):
@@ -52,8 +50,8 @@ class PVMLogger(ABC):
 
 class PVMMemoryMode(Enum):
     inaccesible = 0
-    readable    = 1
-    writable    = 2
+    readable = 1
+    writable = 2
 
 
 @dataclass
@@ -110,127 +108,47 @@ class PVMCode(Serializable):
 @dataclass
 class MemorySection:
     acl: PVMMemoryMode  # Access list for Memory access (PVMMemoryMode; None=no acl, 0=inaccesible, 1=readable, 2==writable)
-    address: int    # The absolute memory address of this memory section
-    size: int # Note: The (theoretical) max size of this section
-    paged_tail: int # Note: the address of the last written index for this section
-    contents: npt.NDArray[np.uint8]
+    address: int  # The absolute memory address of this memory section
+    size: int  # Note: The (theoretical) max size of this section
+    paged_tail: int  # Note: the address of the last written index for this section
+    contents: bytearray
 
-    def __init__(self, address, length, contents, acl:PVMMemoryMode):
+    def __init__(self, address, size, contents, acl: PVMMemoryMode):
         if not contents:
             contents = []
 
-        self.acl = acl
-        self.address:int = address
-        self.size:int = length
-        #TODO!!!!!!!!!!!!!!!!! ode aan peter: make nicer!!!!!!
-        if self.size > 2**21:
-            raise Exception(f'Memory size too large: {self.size}')
+        # if size > PVM_MAX_HEAP_SIZE:
+        #     raise PVMMemoryError(f"Memory size too large: {size} > {PVM_MAX_HEAP_SIZE}")
 
-        self.contents: npt.NDArray[np.uint8] = np.zeros(self.size, dtype=np.uint8)
-        #self.tail = address
+        self.acl = acl
+        self.address: int = address
+        self.size: int = PVMMemory.page_size(size)
+        self.contents = bytearray(self.size)
         self.update(0, contents)
-        #self.paged_tail = address + self.size
-        self.paged_tail = PVMMemory.page_size(len(contents)+address)    #TODO: we might need to exclude address from, the paged_size calculation, rename paged_tail to a netter name, abs_section_tail somethingsoething
-        self.size = PVMMemory.page_size(len(contents))
+        self.paged_tail = address + PVMMemory.page_size(len(contents))
 
     def update(self, idx, _bytes):
-        # TODO: implement more efficiently
-        for c_idx, val in enumerate(_bytes):
-            self.contents[idx+c_idx] = np.uint8(val)
-        #self.tail += len(_bytes)
+        self.contents[idx: idx + len(_bytes)] = _bytes
 
     def contains(self, addr):
         return self.address <= addr < self.address + self.size
 
-    def read_int(self, section_addr: int, length: int) -> np.uint64:
-        if section_addr + length > self.size:
+    def read_int(self, section_addr: int, length: int) -> int:
+        if section_addr + length > (self.paged_tail - self.address):  # len(section):
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        if length == 0:
-            return np.uint64(0)
-
-        elif length == 1:
-            return np.uint64(self.contents[section_addr + 0]) % 2**8
-
-        elif length == 2:
-            byte0 = np.uint8(self.contents[section_addr + 0])
-            byte1 = np.uint16(self.contents[section_addr + 1])
-            return np.uint64((byte1 << 8) + byte0) % 2**16
-
-        elif length == 3:
-            byte0 = np.uint8(self.contents[section_addr + 0])
-            byte1 = np.uint16(self.contents[section_addr + 1])
-            byte2 = np.uint32(self.contents[section_addr + 2])
-            return np.uint64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
-
-        elif length == 4:
-            byte0 = np.uint8(self.contents[section_addr + 0])
-            byte1 = np.uint16(self.contents[section_addr + 1])
-            byte2 = np.uint32(self.contents[section_addr + 2])
-            byte3 = np.uint32(self.contents[section_addr + 3])
-            return np.uint64(
-                (byte3 << 24) +
-                (byte2 << 16) +
-                (byte1 << 8) +
-                byte0
-            ) % 2**32
-
-        elif length == 8:
-            byte0 = np.uint8(self.contents[section_addr + 0])
-            byte1 = np.uint16(self.contents[section_addr + 1])
-            byte2 = np.uint32(self.contents[section_addr + 2])
-            byte3 = np.uint32(self.contents[section_addr + 3])
-            byte4 = np.uint64(self.contents[section_addr + 4])
-            byte5 = np.uint64(self.contents[section_addr + 5])
-            byte6 = np.uint64(self.contents[section_addr + 6])
-            byte7 = np.uint64(self.contents[section_addr + 7])
-            return np.uint64(
-                (byte7 << 56) +
-                (byte6 << 48) +
-                (byte5 << 40) +
-                (byte4 << 32) +
-                (byte3 << 24) +
-                (byte2 << 16) +
-                (byte1 << 8) +
-                byte0
-            )
-        else:
-            raise UIntValueError(f"Invalid uint length: {length}")
+        return read_uint(self.contents, section_addr, length)
 
     def write_int(self, section_addr: int, value: int, length: int):
 
-        if section_addr + length > self.size:
+        if section_addr + length > (self.paged_tail - self.address):  # len(section):
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        # Note: GP applies a modulus over the value to write denoted by their bit length
-        if length < 8:
-            value = value % (2 ** (length*8))
-
-        if length == 1:
-            self.contents[section_addr + 0] = np.uint8(value & 0xFF)
-        elif length == 2:
-            self.contents[section_addr + 0] = np.uint8(value & 0x00FF)
-            self.contents[section_addr + 1] = np.uint8((value & 0xFF00) >> 8)
-        elif length == 4:
-            self.contents[section_addr + 0] = np.uint8(value & 0x000000FF)
-            self.contents[section_addr + 1] = np.uint8((value & 0x0000FF00) >> 8)
-            self.contents[section_addr + 2] = np.uint8((value & 0x00FF0000) >> 16)
-            self.contents[section_addr + 3] = np.uint8((value & 0xFF000000) >> 24)
-        elif length == 8:
-            self.contents[section_addr + 0] = np.uint8(value & 0x00000000000000FF)
-            self.contents[section_addr + 1] = np.uint8((value & 0x000000000000FF00) >> 8)
-            self.contents[section_addr + 2] = np.uint8((value & 0x0000000000FF0000) >> 16)
-            self.contents[section_addr + 3] = np.uint8((value & 0x00000000FF000000) >> 24)
-            self.contents[section_addr + 4] = np.uint8((value & 0x000000FF00000000) >> 32)
-            self.contents[section_addr + 5] = np.uint8((value & 0x0000FF0000000000) >> 40)
-            self.contents[section_addr + 6] = np.uint8((value & 0x00FF000000000000) >> 48)
-            self.contents[section_addr + 7] = np.uint8((value & 0xFF00000000000000) >> 56)
-        else:
-            raise UIntValueError(f"Invalid uint length: {length}")
+        return write_uint(self.contents, section_addr, length, value)
 
 
 @dataclass
@@ -244,34 +162,33 @@ class PVMMemory:
     _mem_addr: int
     _section: MemorySection
     _section_addr: int
-    _acl: Optional[Dict[int, int]] # TODO convert to PVMMemoryMode??
+    _acl: Optional[Dict[int, int]]
 
-    SIZE:int = 2**32
-
+    SIZE: int = 2 ** 32
 
     @classmethod
     def allocate(cls, rom_pages, heap_pages, stack_pages, arg_pages):
         _rom = MemorySection(
             address=PVM_INIT_ZONE_SIZE,
-            length=rom_pages * PVM_PAGE_SIZE,
+            size=rom_pages * PVM_PAGE_SIZE,
             contents=bytes(rom_pages * PVM_PAGE_SIZE),
             acl=PVMMemoryMode.readable
         )
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(_rom.size),
-            length=heap_pages * PVM_PAGE_SIZE,
+            size=heap_pages * PVM_PAGE_SIZE,
             contents=bytes(heap_pages * PVM_PAGE_SIZE),
             acl=PVMMemoryMode.writable
         )
         _stack = MemorySection(
             address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - stack_pages * PVM_PAGE_SIZE,
-            length=stack_pages * PVM_PAGE_SIZE,
+            size=stack_pages * PVM_PAGE_SIZE,
             contents=bytes(stack_pages * PVM_PAGE_SIZE),
             acl=PVMMemoryMode.writable,
         )
         _arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            length=arg_pages * PVM_PAGE_SIZE,
+            size=arg_pages * PVM_PAGE_SIZE,
             contents=bytes(arg_pages * PVM_PAGE_SIZE),
             acl=PVMMemoryMode.readable
         )
@@ -314,8 +231,8 @@ class PVMMemory:
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        #GP-0.6.2-eq:A.7
-        if addr < 2**16:
+        # GP-0.6.2-eq:A.7
+        if addr < 2 ** 16:
             msg = "Invalid memory access"
             logging.debug(msg)
             raise PanicError(msg)
@@ -349,7 +266,7 @@ class PVMMemory:
             if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is not writable")
 
-        section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
+        section_addr = (addr - section.address)  #TODO: not sure if % paged_tail necesarry?
         self._section = section
         self._section_addr = section_addr
 
@@ -374,7 +291,7 @@ class PVMMemory:
             if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is inaccessible")
 
-        section_addr = (addr - section.address) #% section.size  #TODO: not sure if % necesarry?
+        section_addr = (addr - section.address)  #  TODO: not sure if % paged_tail necesarry?
         self._section = section
         self._section_addr = section_addr
 
@@ -402,7 +319,7 @@ class PVMMemory:
             start_page = address // PVM_PAGE_SIZE
             end_address = address + length - 1
             end_page = end_address // PVM_PAGE_SIZE
-            
+
             for page_nr in range(start_page, end_page + 1):
                 if not page_nr in self._acl or self._acl[page_nr] < mode.value:
                     return False
@@ -429,7 +346,7 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
-        section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
+        section_addr = (address - section.address)  # % section.size  #TODO: not sure if % necesarry?
         section_bytes = (section.size - section_addr)
 
         if section_bytes < length:
@@ -439,12 +356,12 @@ class PVMMemory:
             start_page = address // PVM_PAGE_SIZE
             end_address = address + length - 1
             end_page = end_address // PVM_PAGE_SIZE
-            
+
             for page_nr in range(start_page, end_page + 1):
                 if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
                     raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not readable")
 
-        mem_bytes = bytes(section.contents[section_addr:section_addr+length])
+        mem_bytes = bytes(section.contents[section_addr:section_addr + length])
         if padding and len(mem_bytes) < padding:
             mem_bytes.ljust(padding, b'\0')
 
@@ -470,21 +387,21 @@ class PVMMemory:
             start_page = address // PVM_PAGE_SIZE
             end_address = address + len(content) - 1
             end_page = end_address // PVM_PAGE_SIZE
-            
+
             for page_nr in range(start_page, end_page + 1):
                 if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
                     raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not writable")
 
-        section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
+        section_addr = (address - section.address)  # % section.size  #TODO: not sure if % necesarry?
         section_bytes = (section.size - section_addr)
 
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
 
-        section.contents[section_addr:section_addr+len(content)] = np.frombuffer(content, dtype=np.uint8)
+        section.contents[section_addr:section_addr + len(content)] = content#np.frombuffer(content, dtype=np.uint8)
 
 
-    def extend_heap(self, size):
+    def _sbrk(self, size):
         # Note: sbrk opcode
         if size == 0:
             return self._heap.paged_tail
@@ -497,7 +414,8 @@ class PVMMemory:
         next_page_boundary = PVMMemory.page_size(current_heap_ptr)
         if new_heap_ptr > next_page_boundary:
             growth = PVMMemory.page_size(new_heap_ptr) - next_page_boundary
-            self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
+            # Extend the heap contents to accommodate the growth
+            self._heap.contents.extend(b"\x00" * growth)
             self._heap.size = len(self._heap.contents)
 
             # Create ACL of new pages
@@ -517,7 +435,7 @@ class PVMMemory:
             if not self._rom:
                 self._rom = MemorySection(
                     address=PVM_INIT_ZONE_SIZE,
-                    length=nr_pages*PVM_PAGE_SIZE,
+                    size=nr_pages * PVM_PAGE_SIZE,
                     contents=bytes(nr_pages*PVM_PAGE_SIZE),
                     acl=acl
                 )
@@ -528,7 +446,7 @@ class PVMMemory:
             if not self._heap:
                 self._heap = MemorySection(
                     address = (2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(self._rom.contents)),
-                    length = nr_pages * PVM_PAGE_SIZE,
+                    size=nr_pages * PVM_PAGE_SIZE,
                     contents = bytes(nr_pages*PVM_PAGE_SIZE),
                     acl=acl
                 )
@@ -539,7 +457,7 @@ class PVMMemory:
             if not self._stack:
                 self._stack = MemorySection(
                     address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - (nr_pages * PVM_PAGE_SIZE),
-                    length=nr_pages * PVM_PAGE_SIZE,
+                    size=nr_pages * PVM_PAGE_SIZE,
                     contents=bytes(nr_pages * PVM_PAGE_SIZE),
                     acl=acl
                 )
@@ -552,8 +470,9 @@ class PVMMemory:
         self.update_offsets()
         for page_nr in range(nr_pages):
             self._acl[page_idx + page_nr] = acl.value
-            for idx in range(PVM_PAGE_SIZE):
-                mem[addr + page_nr * PVM_PAGE_SIZE + idx] = 0
+            start = addr + page_nr * PVM_PAGE_SIZE
+            end = start + PVM_PAGE_SIZE
+            mem[start:end] = b"\x00" * PVM_PAGE_SIZE
 
 
     def void(self, page_idx: int, nr_pages: int, acl: PVMMemoryMode):
@@ -565,8 +484,9 @@ class PVMMemory:
 
         for page_nr in range(nr_pages):
             self._acl[page_idx + page_nr] = acl.value
-        for x in range(nr_pages * PVM_PAGE_SIZE):
-            section.contents[mem_addr-section.address + x] = 0
+        start = mem_addr - section.address
+        end = start + nr_pages * PVM_PAGE_SIZE
+        section.contents[start:end] = b"\x00" * (nr_pages * PVM_PAGE_SIZE)
 
     def has_inaccessible_acl(self, page_idx: int, nr_pages: int) -> bool:
         for page_nr in range(nr_pages):
@@ -581,7 +501,6 @@ class PVMMemory:
         GP-0.6.2-eq:A.38 (P)
         """
         return PVM_PAGE_SIZE * ceil(items / PVM_PAGE_SIZE)
-
 
     @staticmethod
     def zone_size(items: int) -> int:
@@ -608,6 +527,7 @@ class PVMProgram(Serializable):
     """
     GP-0.6.2-eq:A.40 | Initializing of memory pages
     """
+
     @staticmethod
     def init_memory(
             rom_contents: bytes,
@@ -619,35 +539,35 @@ class PVMProgram(Serializable):
 
         _rom = MemorySection(
             address=PVM_INIT_ZONE_SIZE,
-            length=PVMMemory.page_size(len(rom_contents)),
+            size=PVMMemory.page_size(len(rom_contents)),
             contents=rom_contents,
             acl=PVMMemoryMode.readable
         )
 
-        # TODO: add sanity check on heap_mem_size
+        # If PVM_MIN_HEAP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
+        heap_mem_size = max(PVMMemory.page_size(PVM_MIN_HEAP_SIZE), PVMMemory.page_size(len(heap_contents) + heap_mem_pages * PVM_PAGE_SIZE))
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
-            length=PVMMemory.page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE,
+            size=heap_mem_size,
             contents=heap_contents,
             acl=PVMMemoryMode.writable
         )
 
         _stack = MemorySection(
             address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
-            length=PVMMemory.page_size(stack_mem_size),
+            size=PVMMemory.page_size(stack_mem_size),
             contents=bytes(PVMMemory.page_size(stack_mem_size)),    #TODO: hoeft niet dubbel hier
             acl=PVMMemoryMode.writable
         )
 
         _arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            length=PVMMemory.page_size(len(argument_contents)),
+            size=PVMMemory.page_size(len(argument_contents)),
             contents=argument_contents,
             acl=PVMMemoryMode.readable
         )
 
         return PVMMemory(rom=_rom, heap=_heap, stack=_stack, arguments=_arguments)
-
 
     @staticmethod
     def init_registers(arguments: bytes) -> List[int]:

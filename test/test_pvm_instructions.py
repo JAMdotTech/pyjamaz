@@ -9,6 +9,7 @@ import numpy as np
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
+from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, OpcodeNames
 from pyjamaz.pvm.debug_logger import PVMDebugLog
@@ -37,9 +38,6 @@ class TestPolkaVMInstructions(unittest.TestCase):
     @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
     def test_instruction(self, name, test_vector):
 
-        # Set NumPy to ignore overflow warnings
-        np.seterr(over='ignore')
-
         pvm_code = PVMCode.from_jam_bytes(
             JamBytes(bytes(test_vector["program"]))
         )
@@ -52,7 +50,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
             for page_map in test_vector["initial-page-map"]:
                 page = MemorySection(
                     address=page_map["address"],
-                    length=page_map["length"],
+                    size=page_map["length"],
                     acl=PVMMemoryMode.writable if page_map["is-writable"] else PVMMemoryMode.readable,
                     contents=[0] * page_map["length"]
                 )
@@ -87,8 +85,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
                     mem[offset + idx] = np.uint8(byt)
 
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
-        pvm = PVMInterpreter(pvm_program)
-        #pvm = PVMInterpreter(pvm_program, logger_cls=PVMDebugLog)#, log_ctx=log_ctx) # Note: uncomment to enable debug logging
+        pvm = PVMInterpreter(pvm_program, settings.PVM_DEBUGGER)
         pvm.invoke(
             test_vector["initial-pc"],
             test_vector["initial-gas"]
@@ -103,7 +100,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
         }
 
         self.assertEqual(test_vector["expected-status"], ExitReasonMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
-        self.assertEqual(test_vector["expected-regs"], pvm.reg.tolist(), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg.tolist()}")
+        self.assertEqual(test_vector["expected-regs"], list(pvm.reg), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg}")
         self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
         # self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
         if test_vector["expected-memory"]:
@@ -111,7 +108,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
                 page = pvm_memory.find_section(expected_mem["address"])
                 mem_offset = expected_mem["address"] - page.address
                 mem_len = len(expected_mem["contents"])
-                pvm_mem = page.contents.tolist()[mem_offset:mem_offset + mem_len]
+                pvm_mem = list(page.contents[mem_offset:mem_offset + mem_len])
                 self.assertEqual(
                     expected_mem["contents"],
                     pvm_mem,
