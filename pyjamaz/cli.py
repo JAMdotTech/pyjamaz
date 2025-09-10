@@ -532,6 +532,8 @@ async def replay_traces(
         lambda: sorted({f for f in list(traces_folder.rglob("*.bin")) if f.name not in ['genesis.bin', 'report.bin']}),
     )
 
+    last_parent = None
+
     start_time = time.time()
 
     for nr, block_file in enumerate(traces_files, start=1):
@@ -544,23 +546,31 @@ async def replay_traces(
             # Skip genesis creation
             continue
 
-        # Update state from trace pre-state
-        for k, v in trace.pre_state.keyvals:
-            app.state_db.put(bytes(k), bytes(v))
+        if block_file.parent != last_parent:
 
-        app.state = app.retrieve_jam_state()
-        await app.update_state_trie()
+            # Flush DB
+            for key, _ in app.state_db.items():
+                app.state_db.delete(key)
 
-        if app.state_trie_root == trace.pre_state.state_root:
-            logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
-        else:
-            logging.error("State root of pre-state doesn't match")
+            # Update state from trace pre-state
+            for k, v in trace.pre_state.keyvals:
+                app.state_db.put(bytes(k), bytes(v))
 
-        # Add stub parent as ancestor
-        stub_parent = Header.default()
-        stub_parent.hash = trace.block.header.parent
-        stub_parent.timeslot = trace.block.header.timeslot - 1
-        app.block_context.ancestor_headers.append(stub_parent)
+            app.state = app.retrieve_jam_state()
+            await app.update_state_trie()
+
+            if app.state_trie_root == trace.pre_state.state_root:
+                logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
+            else:
+                logging.error("State root of pre-state doesn't match")
+
+            # Add stub parent as ancestor
+            stub_parent = Header.default()
+            stub_parent.hash = trace.block.header.parent
+            stub_parent.timeslot = trace.block.header.timeslot - 1
+            app.block_context.ancestor_headers.append(stub_parent)
+
+            last_parent = block_file.parent
 
         logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
 
@@ -603,10 +613,6 @@ async def replay_traces(
                     logging.info('✋ User aborted.')
                     break
 
-        # Flush DB
-        for key, _ in app.state_db.items():
-            app.state_db.delete(key)
-
     logging.info(f'Traces finished in {time.time() - start_time} seconds')
 
 @fuzzer.command('traces', help='Start Fuzzer target over UNIX socket.')
@@ -630,25 +636,31 @@ async def fuzzer_traces(traces_dir, socket_path, verbose):
 
     start_time = time.time()
 
+    last_parent = None
+
     for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
 
         with open(os.path.join(traces_dir, block_file), 'rb') as fp:
             trace = Trace.from_jam_bytes(JamBytes(fp.read()))
 
-        # Add stub parent as ancestor
-        stub_parent = Header.default()
+        if block_file.parent != last_parent:
 
-        request = FuzzerMessage(
-            set_state=SetStateMessage(state=trace.pre_state.keyvals, header=stub_parent),
-        )
-        response = await fuzzer_session.send_request(request)
+            # Add stub parent as ancestor
+            stub_parent = Header.default()
 
-        logging.info(f'💾 Fuzzer: Set state: {format_hash(response.state_root)}')
+            request = FuzzerMessage(
+                set_state=SetStateMessage(state=trace.pre_state.keyvals, header=stub_parent),
+            )
+            response = await fuzzer_session.send_request(request)
 
-        if response.state_root != trace.pre_state.state_root:
-            logging.error(f'Fuzzer state root mismatch: exp={format_hash(trace.pre_state.state_root)} got={format_hash(response.state_root)}')
-            exit(2)
+            logging.info(f'💾 Fuzzer: Set state: {format_hash(response.state_root)}')
+
+            if response.state_root != trace.pre_state.state_root:
+                logging.error(f'Fuzzer state root mismatch: exp={format_hash(trace.pre_state.state_root)} got={format_hash(response.state_root)}')
+                exit(2)
+
+            last_parent = block_file.parent
 
         request = FuzzerMessage(
             import_block=trace.block,
