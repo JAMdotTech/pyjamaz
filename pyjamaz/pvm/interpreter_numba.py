@@ -784,7 +784,7 @@ def invoke_native(
         # mem_hash_tuple = (heap_hash, stack_hash)
 
         # GP-0.6.7-section:A.5.1
-        if inst_type == inst_none:
+        if inst_type == inst_none:  # InstructionType.none
             if opcode == op_trap:
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
@@ -801,7 +801,7 @@ def invoke_native(
                                              exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.2
-        elif inst_type == inst_imm:
+        elif inst_type == inst_imm:  # InstructionType.imm
             l_x = min(4, inst_arg_len[inst_index])
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
@@ -818,7 +818,7 @@ def invoke_native(
                                              exit_value, exit_value_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.3
-        elif inst_type == inst_reg_ext_imm:
+        elif inst_type == inst_reg_ext_imm:  # InstructionType.reg_ext_imm
             r_a = min(12, code[pc + 1] % 16)
             v_x = read_uint_jit(code, pc + 2, 8)
 
@@ -840,8 +840,7 @@ def invoke_native(
             v_y = pvm_X_jit(read_uint_jit(code, pc + 2 + l_x, l_y), np.uint8(l_y))
 
             if opcode == op_store_imm_u8:
-                if mem_write_jit(v_x, v_y % (2 ** 8), U8(1), mem_section_starts, mem_section_ends, section_arrays,
-                                 acl_dict) < 0:
+                if mem_write_jit(v_x, v_y % (2 ** 8), U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                  exit_value, exit_value_out, ERROR_MEMORY_FAULT)
@@ -912,7 +911,7 @@ def invoke_native(
             v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
 
             if opcode == op_jump_ind:
-                jump_target = U32(reg[r_a] + v_x)
+                jump_target = U32(reg[r_a] + v_x) #!!!!!!!!!!!!!!mogegijk anders? 128bit wraparound?
                 djump_result = djump_jit(jump_target, jump_table, pc, inst_pos_keys)
                 if djump_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
@@ -1282,7 +1281,7 @@ def invoke_native(
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, mem=section_arrays)
 
             elif opcode == op_count_set_bits_64:
-                # TODO: helper function: bit counting (np.bitwise_count not available in numba)
+                # TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!helper function: bit counting (np.bitwise_count not available in numba)
                 val = reg[r_a]
                 count = U64(0)
                 for _ in range(64):
@@ -1293,7 +1292,7 @@ def invoke_native(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_count_set_bits_32:
-                # TODO: helper function: bit counting (np.bitwise_count not available in numba)
+                # TODO: !!!!!!!!!!!!!!!!!!!!helper function: bit counting (np.bitwise_count not available in numba)
                 val = U32(reg[r_a] % (2 ** 32))
                 count = U64(0)
                 for _ in range(32):
@@ -1304,7 +1303,7 @@ def invoke_native(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_leading_zero_bits_64:
-                reg[r_d] = count_leading_zeroes_jit(reg[r_a])
+                reg[r_d] = count_leading_zeroes_jit(reg[r_a], 64)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
@@ -1314,7 +1313,7 @@ def invoke_native(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_trailing_zero_bits_64:
-                reg[r_d] = count_trailing_zeroes_jit(reg[r_a])
+                reg[r_d] = count_trailing_zeroes_jit(reg[r_a], 64)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
@@ -1324,13 +1323,13 @@ def invoke_native(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_sign_extend_8:
-                # todo: reg[r_d] = pvm_X_jit(reg[r_a], U8(1))
+                # todo: !!!!!!!!!!!!!!!!!!!reg[r_d] = pvm_X_jit(reg[r_a], U8(1))
                 reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(reg[r_a] % (2 ** 8), 1), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_sign_extend_16:
-                # todo: reg[r_d] = pvm_X_jit(reg[r_a], U8(2))
+                # todo: !!!!!!!!!!!!!!!reg[r_d] = pvm_X_jit(reg[r_a], U8(2))
                 reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(reg[r_a] % (2 ** 16), 2), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
@@ -1490,6 +1489,7 @@ def invoke_native(
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_add_imm_32:
+                #TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = pvm_X_jit((w_b + v_x) % (2 ** 32), np.uint8(4))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_b: " + str(w_b), mem=section_arrays)
@@ -1510,6 +1510,7 @@ def invoke_native(
                                 context="w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_mul_imm_32:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = pvm_X_jit((w_b * v_x) % (2 ** 32), np.uint8(4))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_b: " + str(w_b), mem=section_arrays)
@@ -1593,31 +1594,37 @@ def invoke_native(
                                 context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_l_imm_64:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = pvm_X_jit(w_b * (2 ** (v_x % 64)), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_r_imm_64:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = w_b >> U64(v_x & U64(63))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shar_r_imm_64:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = pvm_Z_inv_jit(I64(pvm_Z_jit(w_b, 8)) >> I64(U64(v_x) & U64(63)), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_neg_add_imm_64:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = U64(v_x) + U64(-w_b)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_l_imm_alt_64:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = v_x * (2 ** (w_b % 64))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
 
             elif opcode == op_shlo_r_imm_alt_64:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = v_x >> U64(w_b & U64(63))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w'_a: " + str(reg[r_a]) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1789,11 +1796,13 @@ def invoke_native(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_sub_32:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_d] = pvm_X_jit((w_a + 2 ** 32 - (w_b % 2 ** 32)) % (2 ** 32), U8(4))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_32:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_d] = pvm_X_jit((w_a * w_b) % (2 ** 32), U8(4))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
@@ -1809,6 +1818,7 @@ def invoke_native(
                                     context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_div_s_32:
+                # TODO!!!!!!!!!!!!!!!!!!
                 a_signed = I32(pvm_Z_jit(w_a % (2 ** 32), 4))
                 b_signed = I32(pvm_Z_jit(w_b % (2 ** 32), 4))
 
@@ -1863,6 +1873,7 @@ def invoke_native(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shar_r_32:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_d] = pvm_Z_inv_jit(I32(pvm_Z_jit(U32(w_a), 4)) >> I64(U32(w_b) & U32(31)), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
@@ -1873,6 +1884,7 @@ def invoke_native(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_sub_64:
+                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_d] = U64(w_a) + U64(-w_b)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
@@ -1893,6 +1905,7 @@ def invoke_native(
                                     context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_div_s_64:
+                # TODO!!!!!!!!!!!!!!!!!!
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
                     if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d,
@@ -1963,18 +1976,21 @@ def invoke_native(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_s_s:
+                # TODO!!!!!!!!!!!!!!!!!!
                 hi, lo = imul64wide(I64(w_a), I64(w_b))
                 reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_u_u:
+                # TODO!!!!!!!!!!!!!!!!!!
                 hi, lo = umul64wide(w_a, w_b)
                 reg[r_d] = hi
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_s_u:
+                # TODO!!!!!!!!!!!!!!!!!!
                 hi, lo = smul_u64wide(I64(w_a), w_b)
                 reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_d, reg2=r_a, reg3=r_d,
