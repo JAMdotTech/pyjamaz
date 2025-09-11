@@ -36,6 +36,11 @@ class Version(Serializable):
 class SetStateMessage(Serializable):
     header: Header = field(metadata={'codec': Header.to_codec_def()})
     state: List[Tuple[bytes, bytes]] = field(metadata={'codec': Vec(JamTuple(Array(U8, 31), Bytes))})
+    ancestry: List[bytes] = field(metadata={'codec': Vec(H256)})
+
+    def __post_init__(self):
+        if len(self.ancestry) > 24:
+            raise ValueError(f'ancestry > 24')
 
 
 class Features():

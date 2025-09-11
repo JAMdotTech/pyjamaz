@@ -684,7 +684,7 @@ async def fuzzer_traces(traces_dir, socket_path, verbose):
             stub_parent = Header.default()
 
             request = FuzzerMessage(
-                set_state=SetStateMessage(state=trace.pre_state.keyvals, header=stub_parent),
+                set_state=SetStateMessage(state=trace.pre_state.keyvals, header=stub_parent, ancestry=[]),
             )
             response = await fuzzer_session.send_request(request)
 
