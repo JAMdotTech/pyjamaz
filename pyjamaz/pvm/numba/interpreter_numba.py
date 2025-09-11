@@ -669,6 +669,9 @@ def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3
     JIT-compatible logging function for instruction execution tracing.
     Matches the format used in the normal interpreter for consistency.
     """
+    if len(opcode_names) == 0:
+        return
+
     name = opcode_names.get(np.int64(opcode), "UNKNOWN")
 
     mem_info = ""
@@ -743,6 +746,15 @@ def invoke_native(
 
     # Copy registers
     reg = registers_in.copy()
+
+    # # #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # if int(pc_start) != 70450:
+    #     logging = Dict.empty(
+    #         key_type=types.int64,
+    #         value_type=types.unicode_type,
+    #     )
+    # else:
+    #     print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
     # Main execution loop
     while status == EXIT_RESUME and gas > 0:
@@ -1383,8 +1395,7 @@ def invoke_native(
 
             elif opcode == op_store_ind_u16:
                 store_addr = w_b + v_x
-                if mem_write_jit(store_addr, w_a % (2 ** 16), U8(2), mem_section_starts, mem_section_ends,
-                                 section_arrays, acl_dict) < 0:
+                if mem_write_jit(store_addr, w_a % (2 ** 16), U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                  exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
@@ -1393,8 +1404,7 @@ def invoke_native(
 
             elif opcode == op_store_ind_u32:
                 store_addr = w_b + v_x
-                if mem_write_jit(store_addr, w_a % (2 ** 32), U8(4), mem_section_starts, mem_section_ends,
-                                 section_arrays, acl_dict) < 0:
+                if mem_write_jit(store_addr, w_a % (2 ** 32), U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                  exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
@@ -2234,7 +2244,11 @@ class PVMInterpreter(PVMInterpreterBase):
         self.exit_value = exit_value_out[0]
         # Advance PC only when teher where no errors
         if error_code == ERROR_NONE:
-            self.pc = np.uint32(pc_out[0] + skip_len_out[0])
+            # Note: do not advance PC in case of a host-halt
+            if self.status == ExitReason.host_halt.value:
+                self.pc = np.uint32(pc_out[0])
+            else:
+                self.pc = np.uint32(pc_out[0] + skip_len_out[0])
         else:
             self.pc = np.uint32(pc_out[0])
         self.skip_len = int(skip_len_out[0])
