@@ -64,48 +64,6 @@ I16 = np.int16
 I32 = np.int32
 I64 = np.int64
 
-# --- 64x64 -> 128 helpers to ditch Pythons int() boxing
-
-def umul64wide(a: U64, b: U64):
-    """Unsigned 64x64 -> (hi, lo) as uint64s."""
-    mask32 = U64(0xFFFFFFFF)
-    a_lo = a & mask32
-    a_hi = a >> U64(32)
-    b_lo = b & mask32
-    b_hi = b >> U64(32)
-
-    ll = a_lo * b_lo              # 64-bit
-    lh = a_lo * b_hi
-    hl = a_hi * b_lo
-    hh = a_hi * b_hi
-
-    carry   = (ll >> U64(32)) + (lh & mask32) + (hl & mask32)
-    lo      = (ll & mask32) | ((carry & mask32) << U64(32))
-    hi      = hh + (lh >> U64(32)) + (hl >> U64(32)) + (carry >> U64(32))
-    return U64(hi), U64(lo)
-
-
-def imul64wide(a: I64, b: I64):
-    """Signed 64x64 -> (hi, lo) representing 128-bit two's-complement product."""
-    ua = U64(a)   # reinterpret
-    ub = U64(b)
-    hi, lo = umul64wide(ua, ub)
-    # Adjust high word for two's-complement signs (see Hacker's Delight)
-    if a < 0:
-        hi = U64(hi - ub)
-    if b < 0:
-        hi = U64(hi - ua)
-    return U64(hi), U64(lo)
-
-
-def smul_u64wide(a: I64, b: U64):
-    """Signed * Unsigned -> (hi, lo), two's-complement."""
-    ua = U64(a)
-    hi, lo = umul64wide(ua, b)
-    if a < 0:
-        hi = U64(hi - b)
-    return U64(hi), U64(lo)
-
 
 def rori64(x: U64, shift_amount: U64) -> U64:
     """JIT-compiled rotate right for 64-bit integers."""
