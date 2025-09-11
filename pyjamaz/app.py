@@ -14,7 +14,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import Vec, BitArray, U32
 
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError
+from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError, StateTransitionError
 from pyjamaz.extrinsic import BlockExtrinsicAccumulator, WorkpackageExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR

@@ -22,9 +22,7 @@ from pyjamaz import settings
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.transport.fuzzer.v0.types import FuzzerMessage, SetStateMessage
-from pyjamaz.transport.fuzzer.v0.target import FuzzerTarget
-from pyjamaz.transport.fuzzer.v0.session import FuzzerSession
+
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, StateDump
@@ -32,6 +30,7 @@ from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION, STORAGE_ENGINE
 from pyjamaz.storage import InMemoryStorage, RocksDBStorage
 from pyjamaz.models.block import Block, Header, Extrinsic
+from pyjamaz.transport.fuzzer import FuzzerMessage, SetStateMessage, FuzzerTarget, FuzzerSession
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
@@ -68,7 +67,7 @@ def ipv6_to_byte_array(ip_str:str) -> bytearray:
         raise ValueError(f"Invalid IP: {ip_str}")
 
 
-def wrap_cli_import_block(traces_dir):
+def import_block_cli(traces_dir):
     async def cli_import_block(self, block: Block, dry_run=False):
 
         if traces_dir:
@@ -95,6 +94,32 @@ def wrap_cli_import_block(traces_dir):
     return cli_import_block
 
 
+def import_block_fuzzer(traces_dir):
+    async def cli_import_block(self, block: Block, dry_run=False):
+
+        if traces_dir:
+            pre_state = await self.create_state_dump()
+
+        await self._import_block(block, dry_run=dry_run)
+
+        if traces_dir:
+            await self.store_trace(pre_state, block, traces_dir)
+
+        current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
+        current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
+
+        logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
+        logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+
+    return cli_import_block
+
+
+IMPORT_BLOCK_WRAPPERS = {
+    "import_block_cli": import_block_cli,
+    "import_block_fuzzer": import_block_fuzzer,
+}
+
+
 def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
     async def produced_block_jamnp(block: Block):
         await np_protocol.broadcast_block(block)
@@ -117,7 +142,8 @@ async def initialize_app(
         common_era=None,
         custom_db_path=None,
         record_traces=None,
-        pubsub=True
+        pubsub=True,
+        block_importer=None
 ) -> PyjamazApp:
 
     # Load SRS
@@ -153,7 +179,11 @@ async def initialize_app(
         create_traces=record_traces
     )
 
-    app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
+    if block_importer:
+        block_importer = IMPORT_BLOCK_WRAPPERS[block_importer]
+        app = PyjamazApp(config=config, import_block_callback=block_importer(record_traces))
+    else:
+        app = PyjamazApp(config=config)
 
     if pubsub:
         app.pubsub = PubSub()
@@ -188,7 +218,8 @@ async def main():
 @click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
 @click.option('--fuzzer', 'fuzzer', is_flag=True, help="Validate trace with fuzzer target")
 @click.option('--fuzzer-socket-path', 'fuzzer_socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
-async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path):
+@click.option('--block-importer', 'block_importer', help="Block import function wrapper", type=click.Choice(list(IMPORT_BLOCK_WRAPPERS.keys())),)
+async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path, block_importer):
     """PyJAMaz: Python JAM Client"""
 
     # Setup logging
@@ -224,7 +255,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             keys=Keys.from_seed(bytes.fromhex(seed[2:])),
             custom_db_path=custom_db_path,
             record_traces=record_traces,
-            storage_engine=STORAGE_ENGINE
+            storage_engine=STORAGE_ENGINE,
+            block_importer=block_importer
         )
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
@@ -669,10 +701,12 @@ async def fuzzer_traces(traces_dir, socket_path, verbose):
         )
         response = await fuzzer_session.send_request(request)
 
+        if response.error:
+            logging.info(f'🔍 JAM error')
         if response.state_root == trace.post_state.state_root:
             logging.info(f'✅ Imported block {format_hash(trace.block.header.hash)} successfully: State root matches ({format_hash(response.state_root)})')
         else:
-            logging.error(f'Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
+            logging.error(f'🚽Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
             exit(2)
 
     logging.info(f'Fuzzer session finished in {time.time() - start_time} seconds')
@@ -683,8 +717,9 @@ async def fuzzer_traces(traces_dir, socket_path, verbose):
 @click.option('--db-path', 'db_path', type=click.Path(), default=None, show_default=True, help="[deprecated]")
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database [deprecated]")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
+@click.option('--block-importer', 'block_importer', help="Block import function wrapper", type=click.Choice(list(IMPORT_BLOCK_WRAPPERS.keys())),)
 async def fuzzer_target(
-        db_path, force_overwrite, socket_path, verbose
+        db_path, force_overwrite, socket_path, verbose, block_importer
 ):
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
@@ -708,7 +743,7 @@ async def fuzzer_target(
     # Set GP relaxation flags
     settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
 
-    app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine, pubsub=False)
+    app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine, pubsub=False, block_importer=block_importer)
 
     try:
         srv = FuzzerTarget(socket_path, app)
