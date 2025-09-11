@@ -715,7 +715,7 @@ def log(opcode_names, inst_nr, opcode, pc, regs, gas, reg1=None, reg2=None, reg3
 
 @njit(cache=True)
 def invoke_native(
-        pc_start, gas_start, inst_start,
+        pc_start, gas_start, inst_start, initial_skip_len,
         code, code_size,
         inst_pos_keys, inst_pos_vals, inst_arg_len,
         opcode_scheme, jump_table,
@@ -738,7 +738,7 @@ def invoke_native(
     gas = I64(gas_start)
     status = EXIT_RESUME
     exit_value = I64(0)
-    skip_len = 0
+    skip_len = I64(initial_skip_len)
     inst_nr = U32(inst_start)
 
     # Copy registers
@@ -918,6 +918,7 @@ def invoke_native(
                 jump_target = U32(reg[r_a] + v_x) #!!!!!!!!!!!!!!mogegijk anders? 128bit wraparound?
                 djump_result = djump_jit(jump_target, jump_table, pc, inst_pos_keys)
                 if djump_result == I32(-1):
+                    skip_len = I64(0)
                     return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                  exit_value, exit_value_out, skip_len, skip_len_out, ERROR_NONE)
@@ -1767,6 +1768,7 @@ def invoke_native(
                 jump_target = (w_b + v_y) % (2 ** 32)
                 djump_result = djump_jit(U32(jump_target), jump_table, pc, inst_pos_keys)
                 if djump_result == I32(-1):
+                    skip_len = I64(0)
                     return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
                                                  exit_value, exit_value_out, skip_len, skip_len_out, ERROR_NONE)
@@ -2210,7 +2212,7 @@ class PVMInterpreter(PVMInterpreterBase):
 
         # Call JIT-compiled function
         error_code = invoke_native(
-            self.pc, self.gas, self.inst_nr,
+            self.pc, self.gas, self.inst_nr, int(self.skip_len),
             self.code, self.code_size,
             self.inst_pos_keys, self.inst_pos_vals, self.inst_arg_len_array,
             self.opcode_scheme_array, jump_table_array,
@@ -2229,7 +2231,8 @@ class PVMInterpreter(PVMInterpreterBase):
         self.reg[:] = registers_out
         self.status = status_out[0]
         self.exit_value = exit_value_out[0]
-        self.pc = np.uint32(pc_out[0] + skip_len_out[0])
+        self.pc = np.uint32(pc_out[0])
+        self.skip_len = int(skip_len_out[0])
         self.gas = gas_out[0]
         self.inst_nr = inst_nr_out[0]
 
