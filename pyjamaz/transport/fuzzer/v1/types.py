@@ -119,7 +119,7 @@ class FuzzerMessage(Serializable):
     get_state: bytes = field(default=None, metadata={'codec': H256})
     state: List[Tuple[bytes, bytes]] = field(default=None, metadata={'codec': Vec(JamTuple(Array(U8, 31), Bytes))})
     state_root: bytes = field(default=None, metadata={'codec': H256})
-    error: None = field(default=None, metadata={'codec': Null})
+    error: bool = field(default=None, metadata={'codec': Null})
 
     _codec_enum = True
 
