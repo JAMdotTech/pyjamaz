@@ -1,8 +1,8 @@
 """
 JIT-optimized PVM interpreter with Numba-compiled invoke_native function.
 """
-TODO: port de opcodes vd laatste versie van mb-pvm-pyd
-TODO: sort de if/else statements op frequentie dat een opcode voorkomt!
+#TODO: port de opcodes vd laatste versie van mb-pvm-pyd
+#TODO: sort de if/else statements op frequentie dat een opcode voorkomt!
 
 
 import numpy as np
@@ -12,9 +12,9 @@ from numba import njit, types
 from numba.typed import Dict, List
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
-from .interpreter_new3 import PVMInterpreter as PVMInterpreterBase
-from .types_new import PVMProgram
-from .constants_new import (
+from .interpreter_rpython import PVMInterpreter as PVMInterpreterBase
+from .types import PVMProgram
+from .constants import (
     ExitReason, OpcodeScheme, OpcodeNames,
 
     op_trap, op_fallthrough, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
@@ -2116,7 +2116,7 @@ class PVMInterpreter(PVMInterpreterBase):
         # Build opcode scheme array - use 255 as invalid
         self.opcode_scheme_array = np.full(256, 255, dtype=np.int32)
         for opcode, scheme in OpcodeScheme.items():
-            self.opcode_scheme_array[opcode] = scheme
+            self.opcode_scheme_array[opcode] = scheme.value
 
     def _prepare_memory_for_jit(self):
         """
@@ -2197,9 +2197,9 @@ class PVMInterpreter(PVMInterpreterBase):
             key_type=types.int64,
             value_type=types.unicode_type,
         )
-        # if self.log:
-        for _k, _v in OpcodeNames.items():
-            opcode_names[int(_k)] = _v
+        if self.log:
+            for _k, _v in OpcodeNames.items():
+                opcode_names[int(_k)] = _v
 
         # Call JIT-compiled function
         error_code = invoke_native(

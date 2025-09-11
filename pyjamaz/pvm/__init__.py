@@ -5,4 +5,5 @@
 # else:
 #     from .interpreter_cpython import PVMInterpreter
 
+#from .interpreter_rpython import PVMInterpreter
 from .interpreter_numba import PVMInterpreter

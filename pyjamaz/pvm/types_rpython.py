@@ -12,14 +12,14 @@ from typing import List, Union, Type, T, Optional, Dict
 from jamcodec.base import JamBytes, JamCodecType
 from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
-from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger, Bytes
+from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger, Bytes
 
+from pyjamaz.pvm.defs_rpython import read_uint, write_uint, U64, U32, U64, U8
 from pyjamaz import settings
-from pyjamaz.pvm.constants_new import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
+from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
 
-TODO: gelijk trekken met defs.py en maak wrappers voor arrays/bytes!!!!
 
 class PVMLogger(ABC):
 
@@ -62,20 +62,20 @@ class PVMMemoryMode(IntEnum):
 class PVMCode(Serializable):
     # GP-6.4:eq:A.2 (deblob)
     jump_table_entry_count: int = field(metadata={'codec': VarInt64})
-    jump_table_entry_size: int = field(metadata={'codec': U8})
+    jump_table_entry_size: int = field(metadata={'codec': JU8})
     code_length: int = field(metadata={'codec': VarInt64})
-    jump_table: List[int] = field(metadata={'codec': Array(U8, 0)})
-    code: bytes = field(metadata={'codec': Array(U8, 0)})
+    jump_table: List[int] = field(metadata={'codec': Array(JU8, 0)})
+    code: bytes = field(metadata={'codec': Array(JU8, 0)})
     opcode_bitmask: List[bool] = field(metadata={'codec': BitArray(0)})
 
     @classmethod
     def from_jam_bytes(cls, scale_bytes: JamBytes, strict_decoding=True) -> 'PVMCode':
         jump_table_entry_count = VarInt64.decode(scale_bytes)
-        jump_table_entry_size = U8.decode(scale_bytes)
+        jump_table_entry_size = JU8.decode(scale_bytes)
         code_length = VarInt64.decode(scale_bytes)
 
         jump_table = Array(UnsignedInteger(jump_table_entry_size * 8), jump_table_entry_count).decode(scale_bytes)
-        code = Array(U8, code_length).decode(scale_bytes)
+        code = Array(JU8, code_length).decode(scale_bytes)
         opcode_bitmask = BitArray(code_length, strict_decoding=strict_decoding).decode(scale_bytes)
 
         return cls(
@@ -93,7 +93,7 @@ class PVMCode(Serializable):
         codec_def.arguments['jump_table'] = Array(
             UnsignedInteger(self.jump_table_entry_size * 8), self.jump_table_entry_count
         )
-        codec_def.arguments['code'] = Array(U8, self.code_length)
+        codec_def.arguments['code'] = Array(JU8, self.code_length)
         codec_def.arguments['opcode_bitmask'] = BitArray(self.code_length)
 
         scale_type = codec_def.new()
@@ -129,7 +129,7 @@ class MemorySection:
         self.size:int = PVMMemory.page_size(size)
         self.contents: npt.NDArray[np.uint8] = np.zeros(self.size, dtype=np.uint8)
         self.update(0, contents)
-        self.paged_tail = PVMMemory.page_size(len(contents)+address)
+        self.paged_tail = address + PVMMemory.page_size(len(contents))
 
     def update(self, idx, _bytes):
         if _bytes:
@@ -145,94 +145,21 @@ class MemorySection:
         return self.address <= addr < self.address + self.size
 
     def read_int(self, section_addr: int, length: int) -> np.uint64:
-        if section_addr + length > self.size:
+        if section_addr + length > (self.paged_tail - self.address):  # len(section):
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        if length == 0:
-            return np.uint64(0)
-
-        elif length == 1:
-            return np.uint64(self.contents[section_addr + 0]) % 2**8
-
-        elif length == 2:
-            byte0 = np.uint8(self.contents[section_addr + 0])
-            byte1 = np.uint16(self.contents[section_addr + 1])
-            return np.uint64((byte1 << 8) + byte0) % 2**16
-
-        elif length == 3:
-            byte0 = np.uint8(self.contents[section_addr + 0])
-            byte1 = np.uint16(self.contents[section_addr + 1])
-            byte2 = np.uint32(self.contents[section_addr + 2])
-            return np.uint64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
-
-        elif length == 4:
-            byte0 = np.uint8(self.contents[section_addr + 0])
-            byte1 = np.uint16(self.contents[section_addr + 1])
-            byte2 = np.uint32(self.contents[section_addr + 2])
-            byte3 = np.uint32(self.contents[section_addr + 3])
-            return np.uint64(
-                (byte3 << 24) +
-                (byte2 << 16) +
-                (byte1 << 8) +
-                byte0
-            ) % 2**32
-
-        elif length == 8:
-            byte0 = np.uint8(self.contents[section_addr + 0])
-            byte1 = np.uint16(self.contents[section_addr + 1])
-            byte2 = np.uint32(self.contents[section_addr + 2])
-            byte3 = np.uint32(self.contents[section_addr + 3])
-            byte4 = np.uint64(self.contents[section_addr + 4])
-            byte5 = np.uint64(self.contents[section_addr + 5])
-            byte6 = np.uint64(self.contents[section_addr + 6])
-            byte7 = np.uint64(self.contents[section_addr + 7])
-            return np.uint64(
-                (byte7 << 56) +
-                (byte6 << 48) +
-                (byte5 << 40) +
-                (byte4 << 32) +
-                (byte3 << 24) +
-                (byte2 << 16) +
-                (byte1 << 8) +
-                byte0
-            )
-        else:
-            raise UIntValueError(f"Invalid uint length: {length}")
+        return read_uint(self.contents, section_addr, length)
 
     def write_int(self, section_addr: int, value: int, length: int):
 
-        if section_addr + length > self.size:
+        if section_addr + length > (self.paged_tail - self.address):  # len(section):
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        # Note: GP applies a modulus over the value to write denoted by their bit length
-        if length < 8:
-            value = value % (2 ** (length*8))
-
-        if length == 1:
-            self.contents[section_addr + 0] = np.uint8(value & 0xFF)
-        elif length == 2:
-            self.contents[section_addr + 0] = np.uint8(value & 0x00FF)
-            self.contents[section_addr + 1] = np.uint8((value & 0xFF00) >> 8)
-        elif length == 4:
-            self.contents[section_addr + 0] = np.uint8(value & 0x000000FF)
-            self.contents[section_addr + 1] = np.uint8((value & 0x0000FF00) >> 8)
-            self.contents[section_addr + 2] = np.uint8((value & 0x00FF0000) >> 16)
-            self.contents[section_addr + 3] = np.uint8((value & 0xFF000000) >> 24)
-        elif length == 8:
-            self.contents[section_addr + 0] = np.uint8(value & 0x00000000000000FF)
-            self.contents[section_addr + 1] = np.uint8((value & 0x000000000000FF00) >> 8)
-            self.contents[section_addr + 2] = np.uint8((value & 0x0000000000FF0000) >> 16)
-            self.contents[section_addr + 3] = np.uint8((value & 0x00000000FF000000) >> 24)
-            self.contents[section_addr + 4] = np.uint8((value & 0x000000FF00000000) >> 32)
-            self.contents[section_addr + 5] = np.uint8((value & 0x0000FF0000000000) >> 40)
-            self.contents[section_addr + 6] = np.uint8((value & 0x00FF000000000000) >> 48)
-            self.contents[section_addr + 7] = np.uint8((value & 0xFF00000000000000) >> 56)
-        else:
-            raise UIntValueError(f"Invalid uint length: {length}")
+        return write_uint(self.contents, section_addr, length, value)
 
 
 @dataclass
@@ -249,7 +176,6 @@ class PVMMemory:
     _acl: Optional[Dict[int, int]]
 
     SIZE:int = 2**32
-
 
     @classmethod
     def allocate(cls, rom_pages, heap_pages, stack_pages, arg_pages):
@@ -497,7 +423,6 @@ class PVMMemory:
             return 0
 
         next_page_boundary = PVMMemory.page_size(current_heap_ptr)
-        #logging.critical(f"{new_heap_ptr} > {next_page_boundary}")
         if new_heap_ptr > next_page_boundary:
             new_heap_end = PVMMemory.page_size(new_heap_ptr)
             growth = new_heap_end - next_page_boundary
@@ -511,8 +436,6 @@ class PVMMemory:
             pages = growth // PVM_PAGE_SIZE + 1
             for page_nr in range(pages):
                 self._acl[next_page_nr + page_nr] = PVMMemoryMode.writable
-
-            #logging.critical(f"????: {self._heap.size} - {pages} - {next_page_nr}")
 
         self._heap.paged_tail = new_heap_ptr
         return self._heap.paged_tail
@@ -616,6 +539,7 @@ class PVMProgram(Serializable):
     """
     GP-0.6.2-eq:A.40 | Initializing of memory pages
     """
+
     @staticmethod
     def init_memory(
             rom_contents: bytes,

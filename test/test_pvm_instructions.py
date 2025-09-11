@@ -13,7 +13,7 @@ from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, OpcodeNames
 from pyjamaz.pvm.debug_logger import PVMDebugLog
-from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
+from pyjamaz.pvm.types_rpython import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
 
 
 def load_test_vectors(directory):
