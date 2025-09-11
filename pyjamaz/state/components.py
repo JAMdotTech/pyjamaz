@@ -1754,7 +1754,7 @@ class Statistics(StateComponent):
         for validator_index, validator_data in enumerate(post_validator_pool.validators):
             if validator_data.ed25519 == ed25519_key:
                 return validator_index
-        raise ValueError("Bandersnatch key not found in validator pool")
+        raise StateTransitionError("Bandersnatch key not found in validator pool")
 
 
     def retrieve_state(self) -> StatisticsState:

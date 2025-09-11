@@ -54,10 +54,10 @@ class BlockValidation:
             raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
 
         if header.epoch_marker != safrole_output.epoch_mark:
-            raise ValueError(BlockValidationErrorCode.bad_epoch_marker_data)
+            raise BlockValidationError(BlockValidationErrorCode.bad_epoch_marker_data)
 
         if header.offenders_marker != disputes_output.offenders_mark:
-            raise ValueError(BlockValidationErrorCode.bad_offender_marker_data)
+            raise BlockValidationError(BlockValidationErrorCode.bad_offender_marker_data)
 
         parent_header = self.block_context.get_parent(header)
 

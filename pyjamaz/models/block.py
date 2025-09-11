@@ -55,11 +55,11 @@ class TicketEnvelope(Serializable):
     def __post_init__(self):
         # Validate that attempt is a valid U8 integer
         if not isinstance(self.attempt, int) or not (0 <= self.attempt <= 255):
-            raise ValueError("Attempt must be an integer between 0 and 255")
+            raise BlockValidationError("Attempt must be an integer between 0 and 255")
 
         # Validate that signature is a valid ByteArray784
         if not isinstance(self.signature, (bytes, bytearray)) or len(self.signature) != 784:
-            raise ValueError("Signature must be a bytes object of length 784")
+            raise BlockValidationError("Signature must be a bytes object of length 784")
 
     def generate_vrf_input(self, entropy: bytes) -> bytes:
         """
@@ -535,7 +535,7 @@ class Header(Serializable):
 
         """
         if self.author_index > len(post_state_validator_pool.validators):
-            raise ValueError("Invalid author index")
+            raise BlockValidationError("Invalid author index")
 
         setattr(self, '_author_bandersnatch_key', post_state_validator_pool.validators[self.author_index].bandersnatch)
 
