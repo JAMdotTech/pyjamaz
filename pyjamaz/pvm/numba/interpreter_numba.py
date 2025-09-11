@@ -766,9 +766,10 @@ def invoke_native(
                 registers_out[i] = reg[i]
             status_out[0] = status
             exit_value_out[0] = exit_value
-            pc_out[0] = next_pc  # Return the problematic next_pc for Python to handle
-            gas_out[0] = gas  # Return current gas
-            inst_nr_out[0] = inst_nr  # Return current inst_nr
+            pc_out[0] = next_pc
+            gas_out[0] = gas
+            inst_nr_out[0] = inst_nr
+            skip_len_out[0] = skip_len
             return ERROR_PANIC_TRAP
 
         # Now we know we can proceed, so update state
@@ -2231,7 +2232,11 @@ class PVMInterpreter(PVMInterpreterBase):
         self.reg[:] = registers_out
         self.status = status_out[0]
         self.exit_value = exit_value_out[0]
-        self.pc = np.uint32(pc_out[0])
+        # Advance PC only when teher where no errors
+        if error_code == ERROR_NONE:
+            self.pc = np.uint32(pc_out[0] + skip_len_out[0])
+        else:
+            self.pc = np.uint32(pc_out[0])
         self.skip_len = int(skip_len_out[0])
         self.gas = gas_out[0]
         self.inst_nr = inst_nr_out[0]
