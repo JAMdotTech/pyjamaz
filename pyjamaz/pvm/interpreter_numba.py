@@ -522,7 +522,8 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
 
 @njit  # (cache=True)
 def sync_state_and_return(reg, registers_out, status, status_out, pc, pc_out,
-                          gas, gas_out, inst_nr, inst_nr_out, exit_value, exit_value_out, error_code):
+                          gas, gas_out, inst_nr, inst_nr_out, exit_value, exit_value_out,
+                          skip_len, skip_len_out, error_code):
     """Helper function to sync state and return error code - reduces code duplication."""
     for i in range(len(reg)):
         registers_out[i] = reg[i]
@@ -531,6 +532,7 @@ def sync_state_and_return(reg, registers_out, status, status_out, pc, pc_out,
     gas_out[0] = gas
     inst_nr_out[0] = inst_nr
     exit_value_out[0] = exit_value
+    skip_len_out[0] = skip_len
     return error_code
 
 
@@ -723,7 +725,7 @@ def invoke_native(
         registers_in,
         logging,
         registers_out,
-        status_out, exit_value_out, pc_out, gas_out, inst_nr_out
+        status_out, exit_value_out, pc_out, gas_out, inst_nr_out, skip_len_out
 ):
     """
     JIT-compiled core interpreter loop.
@@ -788,8 +790,8 @@ def invoke_native(
             if opcode == op_trap:
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                             U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
             elif opcode == op_fallthrough:
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, mem=section_arrays)
                 pass
@@ -797,8 +799,8 @@ def invoke_native(
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode",
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                             U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.2
         elif inst_type == inst_imm:  # InstructionType.imm
@@ -806,19 +808,18 @@ def invoke_native(
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
             if opcode == op_ecalli:
-                # Set exit value and advance PC for next invoke (preserve Python semantics across calls)
+                # Set exit value; wrapper will advance PC using skip_len_out
                 exit_value = I64(v_x)
-                pc_after = U32(pc + skip_len)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_HOST_HALT, status_out,
-                                             pc_after, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_NONE)
+                                             pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_NONE)
             else:
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode",
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                             U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.3
         elif inst_type == inst_reg_ext_imm:  # InstructionType.reg_ext_imm
@@ -833,7 +834,7 @@ def invoke_native(
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.4
         elif inst_type == inst_imm_imm:
@@ -845,8 +846,8 @@ def invoke_native(
             if opcode == op_store_imm_u8:
                 if mem_write_jit(v_x, v_y % (2 ** 8), U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging:
                     __s1, __v1 = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -856,8 +857,8 @@ def invoke_native(
                 if mem_write_jit(v_x, v_y % (2 ** 16), U8(2), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging:
                     __s2, __v2 = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -867,8 +868,8 @@ def invoke_native(
                 if mem_write_jit(v_x, v_y % (2 ** 32), U8(4), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging:
                     __s4, __v4 = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -877,8 +878,8 @@ def invoke_native(
             elif opcode == op_store_imm_u64:
                 if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging:
                     __s8, __v8 = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -889,7 +890,7 @@ def invoke_native(
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.5
         elif inst_type == inst_offset:
@@ -905,7 +906,7 @@ def invoke_native(
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.6
         elif inst_type == inst_reg_imm:
@@ -918,12 +919,12 @@ def invoke_native(
                 djump_result = djump_jit(jump_target, jump_table, pc, inst_pos_keys)
                 if djump_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_NONE)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_NONE)
                 elif djump_result == I32(-2):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_DJUMP)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_DJUMP)
                 else:
                     skip_len = djump_result
                     if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x,
@@ -939,7 +940,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
@@ -949,7 +950,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(1))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
@@ -959,7 +960,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
 
             elif opcode == op_load_i16:
@@ -968,7 +969,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(2))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
@@ -978,7 +979,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
@@ -988,7 +989,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(4))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
@@ -998,7 +999,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, mem=section_arrays)
 
@@ -1007,7 +1008,7 @@ def invoke_native(
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging:
                     _rs1, _rv1 = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1019,7 +1020,7 @@ def invoke_native(
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging:
                     _rs2, _rv2 = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1031,7 +1032,7 @@ def invoke_native(
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging:
                     _rs4, _rv4 = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1043,7 +1044,7 @@ def invoke_native(
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging:
                     _rs8, _rv8 = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1055,7 +1056,7 @@ def invoke_native(
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.7
         elif inst_type == inst_reg_imm_imm:
@@ -1074,7 +1075,7 @@ def invoke_native(
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(1), mem_section_starts, mem_section_ends,
@@ -1086,7 +1087,7 @@ def invoke_native(
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(2), mem_section_starts, mem_section_ends,
@@ -1098,7 +1099,7 @@ def invoke_native(
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(4), mem_section_starts, mem_section_ends,
@@ -1110,7 +1111,7 @@ def invoke_native(
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(8), mem_section_starts, mem_section_ends,
@@ -1121,7 +1122,7 @@ def invoke_native(
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.8
         elif inst_type == inst_reg_imm_offset:
@@ -1145,8 +1146,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, w_a == v_x, inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a == v_x:
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1156,8 +1157,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, w_a != v_x, inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a != v_x:
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1167,8 +1168,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, w_a < v_x, inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a < v_x:
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1178,8 +1179,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, w_a <= v_x, inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a <= v_x:
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1189,8 +1190,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, w_a >= v_x, inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a >= v_x:
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1200,8 +1201,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, w_a > v_x, inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a > v_x:
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1211,8 +1212,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8):
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1222,8 +1223,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8):
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1233,8 +1234,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8):
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1244,8 +1245,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8):
                     skip_len = v_y
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1256,7 +1257,7 @@ def invoke_native(
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.9
         elif inst_type == inst_reg_reg:
@@ -1354,7 +1355,7 @@ def invoke_native(
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.10
         elif inst_type == inst_reg_reg_imm:
@@ -1374,7 +1375,7 @@ def invoke_native(
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a % (2 ** 8)) + " w_b: " + str(w_b), mem=section_arrays)
 
@@ -1384,7 +1385,7 @@ def invoke_native(
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a % (2 ** 16)) + " w_b: " + str(w_b), mem=section_arrays)
 
@@ -1394,7 +1395,7 @@ def invoke_native(
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a % (2 ** 32)) + " w_b: " + str(w_b), mem=section_arrays)
 
@@ -1404,7 +1405,7 @@ def invoke_native(
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
 
@@ -1415,7 +1416,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1427,7 +1428,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 1), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1439,7 +1440,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1451,7 +1452,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 2), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1463,7 +1464,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1475,7 +1476,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 4), U8(8))
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1487,7 +1488,7 @@ def invoke_native(
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, EXIT_PAGE_FAULT, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_MEMORY_FAULT)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_MEMORY_FAULT)
                 reg[r_a] = loaded_value
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1663,7 +1664,7 @@ def invoke_native(
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.11
         elif inst_type == inst_reg_reg_offset:
@@ -1680,8 +1681,8 @@ def invoke_native(
                 branch_result = branch_jit(pc, v_x, w_a == w_b, inst_pos_keys)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a == w_b:
                     skip_len = v_x
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1692,7 +1693,7 @@ def invoke_native(
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a != w_b:
                     skip_len = v_x
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1703,7 +1704,7 @@ def invoke_native(
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a < w_b:
                     skip_len = v_x
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1714,7 +1715,7 @@ def invoke_native(
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8):
                     skip_len = v_x
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1725,7 +1726,7 @@ def invoke_native(
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif w_a >= w_b:
                     skip_len = v_x
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1736,7 +1737,7 @@ def invoke_native(
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_BRANCH)
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_BRANCH)
                 elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8):
                     skip_len = v_x
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1746,7 +1747,7 @@ def invoke_native(
                 # Invalid opcode
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.12
         elif inst_type == inst_reg_reg_imm_imm:
@@ -1767,12 +1768,12 @@ def invoke_native(
                 djump_result = djump_jit(U32(jump_target), jump_table, pc, inst_pos_keys)
                 if djump_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_NONE)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_NONE)
                 elif djump_result == I32(-2):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
-                                                 U32(pc + skip_len), pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                                 exit_value, exit_value_out, ERROR_PANIC_INVALID_DJUMP)
+                                                 pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                                 exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_INVALID_DJUMP)
                 else:
                     skip_len = djump_result
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y,
@@ -1782,7 +1783,7 @@ def invoke_native(
                                 mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.13
         elif inst_type == inst_reg_reg_reg:
@@ -2080,16 +2081,17 @@ def invoke_native(
             else:
                 return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                              pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             exit_value, exit_value_out, ERROR_PANIC_TRAP)
+                                             exit_value, exit_value_out, skip_len, skip_len_out, ERROR_PANIC_TRAP)
 
     # Copy output state
     for i in range(len(reg)):
         registers_out[i] = reg[i]
     status_out[0] = status
     exit_value_out[0] = exit_value
-    pc_out[0] = pc + skip_len  # Return next PC
+    pc_out[0] = pc
     gas_out[0] = gas
     inst_nr_out[0] = inst_nr
+    skip_len_out[0] = skip_len
 
     return ERROR_NONE
 
@@ -2196,6 +2198,7 @@ class PVMInterpreter(PVMInterpreterBase):
         pc_out = np.array([0], dtype=np.uint32)
         gas_out = np.array([0], dtype=np.int64)
         inst_nr_out = np.array([0], dtype=np.uint32)
+        skip_len_out = np.array([0], dtype=np.int64)
 
         opcode_names = Dict.empty(
             key_type=types.int64,
@@ -2218,7 +2221,7 @@ class PVMInterpreter(PVMInterpreterBase):
             opcode_names,
             # Outputs
             registers_out, status_out, exit_value_out,
-            pc_out, gas_out, inst_nr_out
+            pc_out, gas_out, inst_nr_out, skip_len_out
         )
 
         # Update state from outputs
@@ -2226,7 +2229,7 @@ class PVMInterpreter(PVMInterpreterBase):
         self.reg[:] = registers_out
         self.status = status_out[0]
         self.exit_value = exit_value_out[0]
-        self.pc = pc_out[0]
+        self.pc = np.uint32(pc_out[0] + skip_len_out[0])
         self.gas = gas_out[0]
         self.inst_nr = inst_nr_out[0]
 
