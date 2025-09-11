@@ -1,6 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import IntEnum
+
+import numpy as np
+import numpy.typing as npt
 
 from math import ceil
 from dataclasses import dataclass, field
@@ -9,12 +12,13 @@ from typing import List, Union, Type, T, Optional, Dict
 from jamcodec.base import JamBytes, JamCodecType
 from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
-from jamcodec.types import VarInt64, Array, U8, BitArray, UnsignedInteger, Bytes
+from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger, Bytes
 
-from .defs import u8, u64, u16, u32, read_uint, write_uint
+from pyjamaz.pvm.defs_rpython import read_uint, write_uint, U64, U32, U64, U8
+from pyjamaz import settings
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
-from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE, PVM_MAX_HEAP_SIZE, PVM_MIN_HEAP_SIZE
+from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
 
 
 class PVMLogger(ABC):
@@ -48,30 +52,30 @@ class PVMLogger(ABC):
         pass
 
 
-class PVMMemoryMode(Enum):
+class PVMMemoryMode(IntEnum):
     inaccesible = 0
-    readable = 1
-    writable = 2
+    readable    = 1
+    writable    = 2
 
 
 @dataclass
 class PVMCode(Serializable):
     # GP-6.4:eq:A.2 (deblob)
     jump_table_entry_count: int = field(metadata={'codec': VarInt64})
-    jump_table_entry_size: int = field(metadata={'codec': U8})
+    jump_table_entry_size: int = field(metadata={'codec': JU8})
     code_length: int = field(metadata={'codec': VarInt64})
-    jump_table: List[int] = field(metadata={'codec': Array(U8, 0)})
-    code: bytes = field(metadata={'codec': Array(U8, 0)})
+    jump_table: List[int] = field(metadata={'codec': Array(JU8, 0)})
+    code: bytes = field(metadata={'codec': Array(JU8, 0)})
     opcode_bitmask: List[bool] = field(metadata={'codec': BitArray(0)})
 
     @classmethod
     def from_jam_bytes(cls, scale_bytes: JamBytes, strict_decoding=True) -> 'PVMCode':
         jump_table_entry_count = VarInt64.decode(scale_bytes)
-        jump_table_entry_size = U8.decode(scale_bytes)
+        jump_table_entry_size = JU8.decode(scale_bytes)
         code_length = VarInt64.decode(scale_bytes)
 
         jump_table = Array(UnsignedInteger(jump_table_entry_size * 8), jump_table_entry_count).decode(scale_bytes)
-        code = Array(U8, code_length).decode(scale_bytes)
+        code = Array(JU8, code_length).decode(scale_bytes)
         opcode_bitmask = BitArray(code_length, strict_decoding=strict_decoding).decode(scale_bytes)
 
         return cls(
@@ -89,7 +93,7 @@ class PVMCode(Serializable):
         codec_def.arguments['jump_table'] = Array(
             UnsignedInteger(self.jump_table_entry_size * 8), self.jump_table_entry_count
         )
-        codec_def.arguments['code'] = Array(U8, self.code_length)
+        codec_def.arguments['code'] = Array(JU8, self.code_length)
         codec_def.arguments['opcode_bitmask'] = BitArray(self.code_length)
 
         scale_type = codec_def.new()
@@ -108,32 +112,39 @@ class PVMCode(Serializable):
 @dataclass
 class MemorySection:
     acl: PVMMemoryMode  # Access list for Memory access (PVMMemoryMode; None=no acl, 0=inaccesible, 1=readable, 2==writable)
-    address: int  # The absolute memory address of this memory section
-    size: int  # Note: The (theoretical) max size of this section
-    paged_tail: int  # Note: the address of the last written index for this section
-    contents: bytearray
+    address: int    # The absolute memory address of this memory section
+    size: int # Note: The (theoretical) max size of this section
+    paged_tail: int # Note: the address of the last written index for this section
+    contents: npt.NDArray[np.uint8]
 
-    def __init__(self, address, size, contents, acl: PVMMemoryMode):
+    def __init__(self, address, size, contents, acl:PVMMemoryMode):
         if not contents:
             contents = []
 
-        # if size > PVM_MAX_HEAP_SIZE:
-        #     raise PVMMemoryError(f"Memory size too large: {size} > {PVM_MAX_HEAP_SIZE}")
+        if size > settings.PVM_MAX_HEAP_SIZE:
+            raise PVMMemoryError(f"Memory size too large: {size} > {settings.PVM_MAX_HEAP_SIZE}")
 
         self.acl = acl
-        self.address: int = address
-        self.size: int = PVMMemory.page_size(size)
-        self.contents = bytearray(self.size)
+        self.address:int = address
+        self.size:int = PVMMemory.page_size(size)
+        self.contents: npt.NDArray[np.uint8] = np.zeros(self.size, dtype=np.uint8)
         self.update(0, contents)
         self.paged_tail = address + PVMMemory.page_size(len(contents))
 
     def update(self, idx, _bytes):
-        self.contents[idx: idx + len(_bytes)] = _bytes
+        if _bytes:
+            length = len(_bytes)
+            if isinstance(_bytes, (list, tuple)):
+                self.contents[idx:idx+length] = np.array(_bytes, dtype=np.uint8)
+            elif isinstance(_bytes, np.ndarray):
+                self.contents[idx:idx+length] = _bytes.astype(np.uint8)
+            else:
+                self.contents[idx:idx+length] = np.frombuffer(bytes(_bytes), dtype=np.uint8)
 
     def contains(self, addr):
         return self.address <= addr < self.address + self.size
 
-    def read_int(self, section_addr: int, length: int) -> int:
+    def read_int(self, section_addr: int, length: int) -> np.uint64:
         if section_addr + length > (self.paged_tail - self.address):  # len(section):
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
@@ -164,7 +175,7 @@ class PVMMemory:
     _section_addr: int
     _acl: Optional[Dict[int, int]]
 
-    SIZE: int = 2 ** 32
+    SIZE:int = 2**32
 
     @classmethod
     def allocate(cls, rom_pages, heap_pages, stack_pages, arg_pages):
@@ -231,8 +242,8 @@ class PVMMemory:
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        # GP-0.6.2-eq:A.7
-        if addr < 2 ** 16:
+        #GP-0.6.2-eq:A.7
+        if addr < 2**16:
             msg = "Invalid memory access"
             logging.debug(msg)
             raise PanicError(msg)
@@ -263,10 +274,10 @@ class PVMMemory:
 
         if self._acl is not None:
             page_nr = addr // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
+            if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable:
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is not writable")
 
-        section_addr = (addr - section.address)  # % section.size #TODO: not sure if % necesarry?
+        section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
         self._section = section
         self._section_addr = section_addr
 
@@ -288,10 +299,10 @@ class PVMMemory:
 
         if self._acl is not None:
             page_nr = addr // PVM_PAGE_SIZE
-            if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
+            if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible:
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is inaccessible")
 
-        section_addr = (addr - section.address)  # % section.size  #TODO: not sure if % necesarry?
+        section_addr = (addr - section.address) #% section.size  #TODO: not sure if % necesarry?
         self._section = section
         self._section_addr = section_addr
 
@@ -321,7 +332,7 @@ class PVMMemory:
             end_page = end_address // PVM_PAGE_SIZE
 
             for page_nr in range(start_page, end_page + 1):
-                if not page_nr in self._acl or self._acl[page_nr] < mode.value:
+                if not page_nr in self._acl or self._acl[page_nr] < mode:
                     return False
 
         local_addr = address - section.address
@@ -346,7 +357,7 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
-        section_addr = (address - section.address)  # % section.size  #TODO: not sure if % necesarry?
+        section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
         section_bytes = (section.size - section_addr)
 
         if section_bytes < length:
@@ -358,10 +369,10 @@ class PVMMemory:
             end_page = end_address // PVM_PAGE_SIZE
 
             for page_nr in range(start_page, end_page + 1):
-                if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible.value:
+                if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible:
                     raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not readable")
 
-        mem_bytes = bytes(section.contents[section_addr:section_addr + length])
+        mem_bytes = bytes(section.contents[section_addr:section_addr+length])
         if padding and len(mem_bytes) < padding:
             mem_bytes.ljust(padding, b'\0')
 
@@ -389,16 +400,16 @@ class PVMMemory:
             end_page = end_address // PVM_PAGE_SIZE
 
             for page_nr in range(start_page, end_page + 1):
-                if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable.value:
+                if not page_nr in self._acl or self._acl[page_nr] < PVMMemoryMode.writable:
                     raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not writable")
 
-        section_addr = (address - section.address)  # % section.size  #TODO: not sure if % necesarry?
+        section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
         section_bytes = (section.size - section_addr)
 
         if section_bytes < len(content):
             raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
 
-        section.contents[section_addr:section_addr + len(content)] = content#np.frombuffer(content, dtype=np.uint8)
+        section.contents[section_addr:section_addr+len(content)] = np.frombuffer(content, dtype=np.uint8)
 
 
     def _sbrk(self, size):
@@ -413,16 +424,18 @@ class PVMMemory:
 
         next_page_boundary = PVMMemory.page_size(current_heap_ptr)
         if new_heap_ptr > next_page_boundary:
-            growth = PVMMemory.page_size(new_heap_ptr) - next_page_boundary
-            # Extend the heap contents to accommodate the growth
-            self._heap.contents.extend(b"\x00" * growth)
-            self._heap.size = len(self._heap.contents)
+            new_heap_end = PVMMemory.page_size(new_heap_ptr)
+            growth = new_heap_end - next_page_boundary
+
+            if new_heap_end - self._heap.address > len(self._heap.contents):
+                self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
+                self._heap.size = len(self._heap.contents)
 
             # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
             pages = growth // PVM_PAGE_SIZE + 1
             for page_nr in range(pages):
-                self._acl[next_page_nr + page_nr] = PVMMemoryMode.writable.value
+                self._acl[next_page_nr + page_nr] = PVMMemoryMode.writable
 
         self._heap.paged_tail = new_heap_ptr
         return self._heap.paged_tail
@@ -469,10 +482,9 @@ class PVMMemory:
 
         self.update_offsets()
         for page_nr in range(nr_pages):
-            self._acl[page_idx + page_nr] = acl.value
-            start = addr + page_nr * PVM_PAGE_SIZE
-            end = start + PVM_PAGE_SIZE
-            mem[start:end] = b"\x00" * PVM_PAGE_SIZE
+            self._acl[page_idx + page_nr] = acl
+            for idx in range(PVM_PAGE_SIZE):
+                mem[addr + page_nr * PVM_PAGE_SIZE + idx] = 0
 
 
     def void(self, page_idx: int, nr_pages: int, acl: PVMMemoryMode):
@@ -483,14 +495,13 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {mem_addr}")
 
         for page_nr in range(nr_pages):
-            self._acl[page_idx + page_nr] = acl.value
-        start = mem_addr - section.address
-        end = start + nr_pages * PVM_PAGE_SIZE
-        section.contents[start:end] = b"\x00" * (nr_pages * PVM_PAGE_SIZE)
+            self._acl[page_idx + page_nr] = acl
+        for x in range(nr_pages * PVM_PAGE_SIZE):
+            section.contents[mem_addr-section.address + x] = 0
 
     def has_inaccessible_acl(self, page_idx: int, nr_pages: int) -> bool:
         for page_nr in range(nr_pages):
-            if page_idx + page_nr not in self._acl or self._acl[page_idx + page_nr] == PVMMemoryMode.inaccesible.value:
+            if page_idx + page_nr not in self._acl or self._acl[page_idx + page_nr] == PVMMemoryMode.inaccesible:
                 return True
 
         return False
@@ -501,6 +512,7 @@ class PVMMemory:
         GP-0.6.2-eq:A.38 (P)
         """
         return PVM_PAGE_SIZE * ceil(items / PVM_PAGE_SIZE)
+
 
     @staticmethod
     def zone_size(items: int) -> int:
@@ -544,8 +556,8 @@ class PVMProgram(Serializable):
             acl=PVMMemoryMode.readable
         )
 
-        # If PVM_MIN_HEAP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
-        heap_mem_size = max(PVMMemory.page_size(PVM_MIN_HEAP_SIZE), PVMMemory.page_size(len(heap_contents) + heap_mem_pages * PVM_PAGE_SIZE))
+        # If PVM_MIN_HEP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
+        heap_mem_size = max(PVMMemory.page_size(settings.PVM_MIN_HEAP_SIZE), PVMMemory.page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
             size=heap_mem_size,
@@ -568,6 +580,7 @@ class PVMProgram(Serializable):
         )
 
         return PVMMemory(rom=_rom, heap=_heap, stack=_stack, arguments=_arguments)
+
 
     @staticmethod
     def init_registers(arguments: bytes) -> List[int]:

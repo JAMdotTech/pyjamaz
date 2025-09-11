@@ -806,10 +806,13 @@ def invoke_native(
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
 
             if opcode == op_ecalli:
+                # Set exit value and advance PC for next invoke (preserve Python semantics across calls)
+                exit_value = I64(v_x)
+                pc_after = U32(pc + skip_len)
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, imm1=v_x, mem=section_arrays)
                 return sync_state_and_return(reg, registers_out, EXIT_HOST_HALT, status_out,
-                                             pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
-                                             v_x, exit_value_out, ERROR_NONE)
+                                             pc_after, pc_out, gas, gas_out, inst_nr, inst_nr_out,
+                                             exit_value, exit_value_out, ERROR_NONE)
             else:
                 if logging: log(logging, inst_nr, opcode, pc, reg, gas, context="error: unknown opcode",
                                 mem=section_arrays)
@@ -1269,7 +1272,8 @@ def invoke_native(
                 size = reg[r_a]
                 current_heap_ptr = heap_info[0]
                 next_section_start = heap_info[1]
-                mem_writable_value = heap_info[2]
+                # Ensure signed type to match sbrk_jit signature and avoid Numba cast warning
+                mem_writable_value = I64(heap_info[2])
 
                 new_heap_ptr = sbrk_jit(size, current_heap_ptr, next_section_start, acl_dict, mem_writable_value)
                 reg[r_d] = new_heap_ptr
