@@ -9,8 +9,8 @@ from pyjamaz.models.common import WorkPackage, AccumulationOperand, WorkItem
 from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
-from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
+from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
+from pyjamaz.pvm import PVMMemoryMode, PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 
 

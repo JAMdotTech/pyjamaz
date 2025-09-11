@@ -12,9 +12,9 @@ from numba import njit, types
 from numba.typed import Dict, List
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
-from .interpreter_rpython import PVMInterpreter as PVMInterpreterBase
+from ..rpython.interpreter_rpython import PVMInterpreter as PVMInterpreterBase
 from .types import PVMProgram
-from .constants import (
+from ..constants import (
     ExitReason, OpcodeScheme, OpcodeNames,
 
     op_trap, op_fallthrough, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
@@ -2102,9 +2102,9 @@ class PVMInterpreter(PVMInterpreterBase):
     No fallback to Python interpreter.
     """
 
-    def __init__(self, program: PVMProgram, logger_cls=None):
+    def __init__(self, program: PVMProgram, logger=None):
         """Initialize the interpreter with a program."""
-        super().__init__(program, logger_cls)
+        super().__init__(program, logger)
         self._prepare_jit_data()
 
     def _prepare_jit_data(self):

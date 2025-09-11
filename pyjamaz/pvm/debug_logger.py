@@ -5,7 +5,7 @@ import numpy as np
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.pvm.constants import OpcodeNames
-from pyjamaz.pvm.types import PVMLogger
+from pyjamaz.pvm.invocation import PVMLogger
 
 
 

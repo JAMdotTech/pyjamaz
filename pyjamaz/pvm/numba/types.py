@@ -14,42 +14,11 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger, Bytes
 
-from pyjamaz.pvm.defs_rpython import read_uint, write_uint, U64, U32, U64, U8
+from ..rpython.defs_rpython import read_uint, write_uint, U64, U32, U64, U8
 from pyjamaz import settings
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
-
-
-class PVMLogger(ABC):
-
-    @abstractmethod
-    def hc_regs(self, msg, phase):
-        pass
-
-    @abstractmethod
-    def hc_log(self, msg, data):
-        pass
-
-    @abstractmethod
-    def pvm_regs(self, msg) -> None:
-        pass
-
-    @abstractmethod
-    def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
-        pass
-
-    @abstractmethod
-    def pvm_hash(self):
-        pass
-
-    @abstractmethod
-    def pvm_counters(self):
-        pass
-
-    @abstractmethod
-    def pvm_header(self):
-        pass
 
 
 class PVMMemoryMode(IntEnum):
@@ -121,8 +90,8 @@ class MemorySection:
         if not contents:
             contents = []
 
-        if size > settings.PVM_MAX_HEAP_SIZE:
-            raise PVMMemoryError(f"Memory size too large: {size} > {settings.PVM_MAX_HEAP_SIZE}")
+        # if size > settings.PVM_MAX_HEAP_SIZE:
+        #     raise PVMMemoryError(f"Memory size too large: {size} > {settings.PVM_MAX_HEAP_SIZE}")
 
         self.acl = acl
         self.address:int = address

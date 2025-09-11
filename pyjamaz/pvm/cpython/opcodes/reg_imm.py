@@ -1,6 +1,6 @@
 from pyjamaz.pvm.constants import op_load_u8, op_load_i8, op_load_u16, op_load_i16, op_load_u32, op_load_i32, op_load_u64, \
     op_store_u8, op_store_u16, op_store_u32, op_store_u64
-from pyjamaz.pvm.defs import pvm_X, read_uint, u32, u8, u16
+from ..defs import pvm_X, read_uint, u32, u8, u16
 
 
 def _fetch_reg_imm(vm):

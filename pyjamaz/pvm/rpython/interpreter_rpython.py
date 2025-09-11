@@ -1,15 +1,9 @@
-import logging
-
-import numpy as np
-import numpy.typing as npt
-
 from typing import List, Dict
 
-from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
+from ..exceptions import InvalidOpcode, PVMMemoryError, PanicError
 from .types_rpython import PVMProgram, PVMMemory, PVMMemoryMode
 
-from .constants import (
-    OpcodeScheme,
+from ..constants import (
     ExitReason,
     MemOps,
     OpcodeNames,
@@ -56,7 +50,7 @@ from .defs_rpython import * #U8, U16, U32, U64, I8, I16, I32, I64, read_uint, wr
 
 class PVMInterpreter:
 
-    def __init__(self, program: PVMProgram, logger_cls=None):
+    def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
         self.inst_nr:U32 = U32(0)
@@ -103,8 +97,10 @@ class PVMInterpreter:
 
         self.reset(program)
 
-        if logger_cls:
+        if logger:
             self.program = program
+            from ..debug_logger import PVMDebugLog
+            logger_cls = PVMDebugLog
             self.log = logger_cls(pvm=self)
             self.log._pvm = self
             self.log._pvm_id = self.name

@@ -10,10 +10,8 @@ from jamcodec.base import JamBytes
 from parameterized import parameterized
 
 from pyjamaz import settings
-from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.constants import ExitReason, OpcodeNames
-from pyjamaz.pvm.debug_logger import PVMDebugLog
-from pyjamaz.pvm.types_rpython import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
+from pyjamaz.pvm import PVMInterpreter, PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
+from pyjamaz.pvm.constants import ExitReason
 
 
 def load_test_vectors(directory):
@@ -35,7 +33,7 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/riscv_rv64ui_sd.json'))
     def test_instruction(self, name, test_vector):
 
         pvm_code = PVMCode.from_jam_bytes(

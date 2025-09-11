@@ -1,4 +1,4 @@
-from pyjamaz.pvm.defs import read_uint
+from ..defs import read_uint
 
 
 def _fetch_reg_ext_imm(vm):

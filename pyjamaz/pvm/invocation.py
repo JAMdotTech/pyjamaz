@@ -1,4 +1,5 @@
 import logging
+from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -6,9 +7,39 @@ import numpy as np
 import numpy.typing as npt
 
 from pyjamaz import settings
-from pyjamaz.pvm import PVMInterpreter
+from pyjamaz.pvm import PVMInterpreter,  PVMProgram, PVMMemory
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
-from pyjamaz.pvm.types import PVMProgram, PVMMemory
+
+
+class PVMLogger(ABC):
+
+    @abstractmethod
+    def hc_regs(self, msg, phase):
+        pass
+
+    @abstractmethod
+    def hc_log(self, msg, data):
+        pass
+
+    @abstractmethod
+    def pvm_regs(self, msg) -> None:
+        pass
+
+    @abstractmethod
+    def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
+        pass
+
+    @abstractmethod
+    def pvm_hash(self):
+        pass
+
+    @abstractmethod
+    def pvm_counters(self):
+        pass
+
+    @abstractmethod
+    def pvm_header(self):
+        pass
 
 
 class InvocationContext:
@@ -187,7 +218,7 @@ class PVMInvocation:
                 context=self.invocation_context
             )
 
-        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=settings.PVM_DEBUGGER)
+        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger=settings.PVM_DEBUGGER)
 
         output = self.pvm_invoke_host_call(
             instruction_counter=start_offset,

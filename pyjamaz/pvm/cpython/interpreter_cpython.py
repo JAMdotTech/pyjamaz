@@ -1,10 +1,10 @@
 from array import array
 from typing import List, Dict
 
-from pyjamaz.pvm.defs import read_uint, write_uint, u64, u32, i64, u8
 from pyjamaz.pvm.exceptions import PVMMemoryError, PanicError
-from pyjamaz.pvm.opcodes import _opcode_lut
-from pyjamaz.pvm.types import PVMProgram, PVMMemory, PVMMemoryMode
+from .defs import read_uint, write_uint, u64, u32, i64, u8
+from .opcodes import _opcode_lut
+from .types import PVMProgram, PVMMemory, PVMMemoryMode
 
 from pyjamaz.pvm.constants import (
     ExitReason,
@@ -17,10 +17,9 @@ from pyjamaz.pvm.constants import (
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
-
 class PVMInterpreter:
 
-    def __init__(self, program: PVMProgram, logger_cls=None):
+    def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.reg = [u64(0)] * 13
         self.inst_nr = u32(0)
@@ -74,7 +73,9 @@ class PVMInterpreter:
         self.reset(program)
         self.opcodes = _opcode_lut()
 
-        if logger_cls:
+        if logger:
+            from ..debug_logger import PVMDebugLog
+            logger_cls = PVMDebugLog
             self.program = program
             self.log = logger_cls(pvm=self)
             self.log._pvm = self

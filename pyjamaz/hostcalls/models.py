@@ -12,7 +12,7 @@ from pyjamaz.models.state import AccumulationStateComponents, DeferredTransfer, 
 
 from pyjamaz.pvm.constants import ExitCondition
 from pyjamaz.pvm.invocation import InvocationContext
-from pyjamaz.pvm.types import PVMCode, PVMMemory
+from pyjamaz.pvm import PVMCode, PVMMemory
 
 
 @dataclass

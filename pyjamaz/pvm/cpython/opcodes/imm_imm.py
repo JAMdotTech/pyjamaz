@@ -1,5 +1,5 @@
 from pyjamaz.pvm.constants import op_store_imm_u8, op_store_imm_u16, op_store_imm_u32, op_store_imm_u64
-from pyjamaz.pvm.defs import pvm_X, read_uint, u32
+from ..defs import pvm_X, read_uint, u32
 
 
 def _fetch_imm_imm(vm):

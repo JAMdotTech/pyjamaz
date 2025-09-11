@@ -18,6 +18,7 @@ from .constants import (
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 from pyjamaz.pvm.exceptions import UIntValueError
+from ..debug_logger import PVMDebugLog
 
 
 # rori -> (x >> shift_amount)∣(x << (NRBITS−shift_amount))
@@ -242,7 +243,7 @@ def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np
 
 class PVMInterpreter:
 
-    def __init__(self, program: PVMProgram, logger_cls=None):
+    def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
@@ -266,8 +267,10 @@ class PVMInterpreter:
 
         self.reset(program)
 
-        if logger_cls:
+        if logger:
             self.program = program
+            from ..debug_logger import PVMDebugLog
+            logger_cls = PVMDebugLog
             self.log = logger_cls(pvm=self)
             self.log._pvm = self
             self.log._pvm_id = self.name
