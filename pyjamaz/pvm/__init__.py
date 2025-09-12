@@ -14,7 +14,8 @@ elif settings.PVM_INTERPRETER == "NUMBA":
     from .numba.types import *
     from .numba.types import *
     from .numba.interpreter_numba import *
-    # Warm up JIT
+    # Warm up JIT; TODO: pvm unittests draaien? die triggeren alle fucties een keer en is snel
+    # TODO: log pvm variant en deze init time
     from .numba.interpreter_numba import invoke_native
     import numpy as np
     from numba.typed import List, Dict

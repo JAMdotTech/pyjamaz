@@ -625,18 +625,13 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
 
 
 @njit(cache=True)
-def branch_jit(pc: U32, offset: I64, condition: bool, inst_pos_keys) -> I32:
+def branch_jit(pc: U32, offset: I64, condition: bool, pc_to_inst_index) -> I32:
     """JIT implementation of branch with validation."""
     if condition:
         target_pc = pc + offset
-        # Check if target PC is valid
-        found = False
-        for i in range(len(inst_pos_keys)):
-            if inst_pos_keys[i] == target_pc:
-                found = True
-                break
-
-        if not found:
+        # Check if target PC is valid via dense map
+        tpi = int(target_pc)
+        if not (tpi >= 0 and tpi < len(pc_to_inst_index) and pc_to_inst_index[tpi] >= 0):
             return I32(-1)  # Invalid branch - panic
 
         return I32(offset)  # Valid branch
@@ -645,7 +640,7 @@ def branch_jit(pc: U32, offset: I64, condition: bool, inst_pos_keys) -> I32:
 
 
 @njit(cache=True)
-def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
+def djump_jit(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
     """JIT implementation of djump with validation."""
     halt_value = U32(2 ** 32 - 2 ** 16)
     if a == halt_value:
@@ -662,14 +657,9 @@ def djump_jit(a: U32, jump_table, pc: U32, inst_pos_keys) -> I32:
 
     target_pc = jump_table[jump_idx]
 
-    # Check if target_pc is in inst_pos_keys
-    found = False
-    for i in range(len(inst_pos_keys)):
-        if inst_pos_keys[i] == target_pc:
-            found = True
-            break
-
-    if not found:
+    # Validate target_pc via dense map
+    tpi = int(target_pc)
+    if not (tpi >= 0 and tpi < len(pc_to_inst_index) and pc_to_inst_index[tpi] >= 0):
         return I32(-2)
 
     return I32(target_pc - pc)  # Valid skip_len
@@ -960,7 +950,7 @@ def invoke_native(
 
             if opcode == op_jump_ind:
                 jump_target = U32(reg[r_a] + v_x) #!!!!!!!!!!!!!!mogegijk anders? 128bit wraparound?
-                djump_result = djump_jit(jump_target, jump_table, pc, inst_pos_keys)
+                djump_result = djump_jit(jump_target, jump_table, pc, pc_to_inst_index)
                 if djump_result == I32(-1):
                     skip_len = I64(0)
                     return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
@@ -1188,7 +1178,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_eq_imm:
-                branch_result = branch_jit(pc, v_y, w_a == v_x, inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, w_a == v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1199,7 +1189,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_ne_imm:
-                branch_result = branch_jit(pc, v_y, w_a != v_x, inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, w_a != v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1210,7 +1200,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_lt_u_imm:
-                branch_result = branch_jit(pc, v_y, w_a < v_x, inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, w_a < v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1221,7 +1211,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_le_u_imm:
-                branch_result = branch_jit(pc, v_y, w_a <= v_x, inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, w_a <= v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1232,7 +1222,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_ge_u_imm:
-                branch_result = branch_jit(pc, v_y, w_a >= v_x, inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, w_a >= v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1243,7 +1233,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_gt_u_imm:
-                branch_result = branch_jit(pc, v_y, w_a > v_x, inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, w_a > v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1254,7 +1244,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_lt_s_imm:
-                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1265,7 +1255,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_le_s_imm:
-                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1276,7 +1266,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_ge_s_imm:
-                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1287,7 +1277,7 @@ def invoke_native(
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_branch_gt_s_imm:
-                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), inst_pos_keys)
+                branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1725,7 +1715,7 @@ def invoke_native(
             v_x = pvm_Z_jit(read_uint_jit(code, pc + 2, l_x), U8(l_x))
 
             if opcode == op_branch_eq:
-                branch_result = branch_jit(pc, v_x, w_a == w_b, inst_pos_keys)
+                branch_result = branch_jit(pc, v_x, w_a == w_b, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1736,7 +1726,7 @@ def invoke_native(
                                 context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_ne:
-                branch_result = branch_jit(pc, v_x, w_a != w_b, inst_pos_keys)
+                branch_result = branch_jit(pc, v_x, w_a != w_b, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1747,7 +1737,7 @@ def invoke_native(
                                 context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_lt_u:
-                branch_result = branch_jit(pc, v_x, w_a < w_b, inst_pos_keys)
+                branch_result = branch_jit(pc, v_x, w_a < w_b, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1758,7 +1748,7 @@ def invoke_native(
                                 context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_lt_s:
-                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8), inst_pos_keys)
+                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1769,7 +1759,7 @@ def invoke_native(
                                 context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_ge_u:
-                branch_result = branch_jit(pc, v_x, w_a >= w_b, inst_pos_keys)
+                branch_result = branch_jit(pc, v_x, w_a >= w_b, pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1780,7 +1770,7 @@ def invoke_native(
                                 context="skip_len: " + str(skip_len), mem=section_arrays)
 
             elif opcode == op_branch_ge_s:
-                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8), inst_pos_keys)
+                branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
                     return sync_state_and_return(reg, registers_out, EXIT_PANIC, status_out,
                                                  pc, pc_out, gas, gas_out, inst_nr, inst_nr_out,
@@ -1812,7 +1802,7 @@ def invoke_native(
             if opcode == op_load_imm_jump_ind:
                 reg[r_a] = v_x
                 jump_target = (w_b + v_y) % (2 ** 32)
-                djump_result = djump_jit(U32(jump_target), jump_table, pc, inst_pos_keys)
+                djump_result = djump_jit(U32(jump_target), jump_table, pc, pc_to_inst_index)
                 if djump_result == I32(-1):
                     skip_len = I64(0)
                     return sync_state_and_return(reg, registers_out, EXIT_HALT, status_out,
