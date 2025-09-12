@@ -403,6 +403,19 @@ class Header(Serializable):
     def hash(self, value: bytes) -> None:
         setattr(self, '_hash', value)
 
+    @property
+    def slot_phase_index(self) -> int:
+        """
+        GP-0.7.0-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot.
+
+        Returns
+        -------
+        number: int
+            Phase index into the epoch of the timeslot.
+
+        """
+        return self.timeslot % EPOCH_TIMESLOTS
+
     def verify_ticket_seal(self, bandersnatch_key: bytes, ticket_body: TicketBody, entropy: bytes) -> bytes:
         return ietf_vrf_verify(
             bytes(bandersnatch_key),
