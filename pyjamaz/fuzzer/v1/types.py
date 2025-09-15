@@ -46,7 +46,7 @@ class SetStateMessage(Serializable):
 class Features():
     BLOCK_ANCESTRY: int = 1 << 0
     SIMPLE_FORKING: int = 1 << 1
-    EXTENSION: int      = 1 << 31
+    RESERVED: int      = 1 << 31
 
     def __init__(self, fork:bool=False, ancestry:bool=False):
         self._value = 0 & 0xFFFFFFFF
@@ -84,9 +84,6 @@ class FeaturesCodec(UnsignedInteger):
     def __init__(self):
         super().__init__(bits=32)
 
-    # def encode(self, value:Features):
-    #     return U32.encode(value._value)
-
     def decode(self, data: JamBytes):
         val = super().decode(data)
         instance = Features()
@@ -106,13 +103,12 @@ class FeaturesCodec(UnsignedInteger):
         return value._value
 
 
-
 @dataclass
 class PeerInfoMessage(Serializable):
     fuzz_version: int = field(metadata={'codec': U8})
-    app_version: Version = field(metadata={'codec': Version.to_codec_def()})
-    jam_version: Version = field(metadata={'codec': Version.to_codec_def()})
     features: Features = field(metadata={'codec': FeaturesCodec()})
+    jam_version: Version = field(metadata={'codec': Version.to_codec_def()})
+    app_version: Version = field(metadata={'codec': Version.to_codec_def()})
     name: str = field(metadata={'codec': String})
 
 
@@ -124,7 +120,7 @@ class FuzzerMessage(Serializable):
     get_state: bytes = field(default=None, metadata={'codec': H256})
     state: List[Tuple[bytes, bytes]] = field(default=None, metadata={'codec': Vec(JamTuple(Array(U8, 31), Bytes))})
     state_root: bytes = field(default=None, metadata={'codec': H256})
-    error: bool = field(default=None, metadata={'codec': Null})
+    error: str = field(default=None, metadata={'codec': String})
 
     _codec_enum = True
 

@@ -14,7 +14,8 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import Vec, BitArray, U32
 
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError, StateTransitionError
+from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError, StateTransitionError, \
+    BlockValidationError
 from pyjamaz.extrinsic import BlockExtrinsicAccumulator, WorkpackageExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
@@ -868,7 +869,7 @@ class PyjamazApp:
         for index, validator in enumerate(safrole_post_state.validators):
             if validator.bandersnatch == self.config.keys.bandersnatch.public_key:
                 return index
-        raise ValueError(f"Bandersnatch {self.config.keys.bandersnatch.public_key} not found in current validator set")
+        raise BlockValidationError(f"Bandersnatch {self.config.keys.bandersnatch.public_key} not found in current validator set")
 
     def get_validator_index(self) -> Optional[int]:
         """

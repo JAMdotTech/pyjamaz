@@ -89,7 +89,10 @@ class BlockValidation:
             logging.debug(
                 f'Validate ticket | Timeslot: {header.timeslot} | Ticket ID: {ticket.id.hex()} | Author: {author_key.hex()} | Entropy: {entropy.hex()} '
             )
-            self.block_context.seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
+            try:
+                self.block_context.seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
+            except ValueError:
+                raise BlockValidationError("Invalid seal key")
 
         elif safrole_output.post_state.slot_sealer_series.keys is not None:
             # Fallback method

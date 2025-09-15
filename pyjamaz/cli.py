@@ -25,12 +25,12 @@ from pyjamaz.exceptions import StateKeyNoResult
 
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace, StateDump
+from pyjamaz.models.app import Trace
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
-from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION, STORAGE_ENGINE
+from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE
 from pyjamaz.storage import InMemoryStorage, RocksDBStorage
 from pyjamaz.models.block import Block, Header, Extrinsic
-from pyjamaz.transport.fuzzer import FuzzerMessage, SetStateMessage, FuzzerTarget, FuzzerSession
+from pyjamaz.fuzzer import FuzzerMessage, SetStateMessage, FuzzerTarget, FuzzerSession
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
@@ -696,8 +696,8 @@ async def fuzzer_traces(traces_dir, socket_path, verbose):
         response = await fuzzer_session.send_request(request)
 
         if response.error:
-            logging.info(f'🔍 JAM error')
-        if response.state_root == trace.post_state.state_root:
+            logging.info(f'🔍 Target reported error')
+        elif response.state_root == trace.post_state.state_root:
             logging.info(f'✅ Imported block {format_hash(trace.block.header.hash)} successfully: State root matches ({format_hash(response.state_root)})')
         else:
             logging.error(f'🚽Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
