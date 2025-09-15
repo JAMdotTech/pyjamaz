@@ -4,17 +4,39 @@ JIT-optimized PVM interpreter with Numba-compiled invoke_native function.
 #TODO: port de opcodes vd laatste versie van mb-pvm-pyd
 #TODO: sort de if/else statements op frequentie dat een opcode voorkomt!
 
+import os
+
+from ...settings import PVM_AOT_CACHE
+
+# Set up Numba caching for persistent compilation
+_cache_dir = os.path.expanduser(PVM_AOT_CACHE)
+os.makedirs(_cache_dir, exist_ok=True)
+os.environ['NUMBA_CACHE_DIR'] = _cache_dir
+os.environ['NUMBA_CACHE'] = '1'
+os.environ['NUMBA_DISABLE_PERFORMANCE_WARNINGS'] = '1'
+os.environ['NUMBA_BOUNDSCHECK'] = '0'  # Disable bounds checking for speed
+os.environ['NUMBA_DISABLE_JIT'] = '0'  # Ensure JIT is enabled
+os.environ['NUMBA_OPT'] = '3'  # Maximum optimization level
+os.environ['NUMBA_EAGERNESS'] = '1'  # Compile all branches eagerly
+os.environ['NUMBA_NUM_THREADS'] = '1'  # Avoid parallel compilation issues
+os.environ['NUMBA_THREADING_LAYER'] = 'sequential'
+
 
 import numpy as np
 import numpy.typing as npt
 
-from numba import njit, types, objmode
+from numba import njit as _numba_njit, types, objmode
 import time as _pytime
 from numba.typed import Dict, List
+from .aot_loader import get_function  # Use AOT helpers when available
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 from ..rpython.interpreter_rpython import PVMInterpreter as PVMInterpreterBase
-from .types import PVMProgram
+from .pvm_types import PVMProgram
+
+# Force garbage collection before compilation
+import gc
+gc.collect()
 from ..constants import (
     ExitReason, OpcodeScheme, OpcodeNames,
 
@@ -85,6 +107,16 @@ I8 = np.int8
 I16 = np.int16
 I32 = np.int32
 I64 = np.int64
+
+# If AOT-only is requested, disable all JIT decorators by making them no-ops.
+_AOT_ONLY = os.environ.get('PVM_AOT_ONLY', '0') == '1'
+if _AOT_ONLY:
+    def njit(*args, **kwargs):  # no-op decorator in AOT-only mode
+        def _wrap(f):
+            return f
+        return _wrap
+else:
+    njit = _numba_njit
 
 # state_out constants for invoke_jit (int64 array)
 STATE_STATUS = 0
@@ -424,7 +456,18 @@ def find_memory_section_jit(addr: U64, section_starts, section_ends) -> I32:
     return I32(-1)
 
 
-@njit(cache=True)
+# Define explicit signature to prevent recompilation with different array types
+mem_write_sig = types.int32(
+    types.uint64,  # addr
+    types.uint64,  # value
+    types.uint8,   # bytes_to_write
+    types.Array(types.uint64, 1, 'C'),  # section_starts - force C-contiguous
+    types.Array(types.uint64, 1, 'C'),  # section_ends
+    types.ListType(types.Array(types.uint8, 1, 'C')),  # section_arrays
+    types.DictType(types.uint64, types.uint64)  # acl_dict
+)
+
+@njit(mem_write_sig, cache=True, nogil=True)
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays, acl_dict) -> I32:
     """
@@ -438,9 +481,12 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     if idx < 0:
         return I32(-1)
 
-    page_nr = int(addr // PVM_PAGE_SIZE)
-    if acl_dict is not None and (page_nr not in acl_dict or acl_dict[page_nr] < MEM_WRITABLE):
-        return I32(-1)
+    page_nr = U64(addr // PVM_PAGE_SIZE)
+    if acl_dict is not None:
+        if page_nr not in acl_dict:
+            return I32(-1)
+        if acl_dict[page_nr] < MEM_WRITABLE:
+            return I32(-1)
 
     start = U64(section_starts[idx])
     off = addr - start
@@ -482,7 +528,17 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     return I32(0)
 
 
-@njit(cache=True)
+# Define explicit signature for mem_read to avoid recompilation for differing container types
+mem_read_sig = types.Tuple((types.int32, types.uint64))(
+    types.uint64,  # addr
+    types.uint8,   # bytes_to_read
+    types.Array(types.uint64, 1, 'C'),  # section_starts
+    types.Array(types.uint64, 1, 'C'),  # section_ends
+    types.ListType(types.Array(types.uint8, 1, 'C')),  # section_arrays
+    types.DictType(types.uint64, types.uint64)  # acl_dict
+)
+
+@njit(mem_read_sig, cache=True)
 def mem_read_jit(addr: U64, bytes_to_read: U8,
                  section_starts, section_ends, section_arrays, acl_dict):
     """
@@ -496,9 +552,12 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
     if idx < 0:
         return I32(-1), U64(0)
 
-    page_nr = int(addr // PVM_PAGE_SIZE)
-    if acl_dict is not None and (page_nr not in acl_dict or acl_dict[page_nr] == MEM_INACCESSIBLE):
-        return I32(-1), U64(0)
+    page_nr = U64(addr // PVM_PAGE_SIZE)
+    if acl_dict is not None:
+        if page_nr not in acl_dict:
+            return I32(-1), U64(0)
+        if acl_dict[page_nr] == MEM_INACCESSIBLE:
+            return I32(-1), U64(0)
 
     start = U64(section_starts[idx])
     off = addr - start
@@ -635,10 +694,10 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
             pass
 
         # Create ACL of new pages
-        next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
+        next_page_nr = U64(current_heap_ptr // PVM_PAGE_SIZE)
         pages = growth // PVM_PAGE_SIZE + 1
         for page_nr in range(pages):
-            acl_dict[int(next_page_nr + page_nr)] = int(mem_writable)
+            acl_dict[U64(next_page_nr + U64(page_nr))] = U64(mem_writable)
 
     return new_heap_ptr, grew_flag
 
@@ -792,8 +851,38 @@ def log(
     print(inst_str, pc_str, name_str, dt_ms)
 
 
+# Bind to AOT-compiled helpers (safe subset) when available to avoid first-use JIT
+umul64wide = get_function('umul64wide', umul64wide)
+imul64wide = get_function('imul64wide', imul64wide)
+smul_u64wide = get_function('smul_u64wide', smul_u64wide)
+rori64_jit = get_function('rori64_jit', rori64_jit)
+roli64_jit = get_function('roli64_jit', roli64_jit)
+rori32_jit = get_function('rori32_jit', rori32_jit)
+roli32_jit = get_function('roli32_jit', roli32_jit)
+pvm_smod_jit = get_function('pvm_smod_jit', pvm_smod_jit)
+pvm_rtz_div_jit = get_function('pvm_rtz_div_jit', pvm_rtz_div_jit)
+pvm_X_jit = get_function('pvm_X_jit', pvm_X_jit)
+pvm_Z_jit = get_function('pvm_Z_jit', pvm_Z_jit)
+count_leading_zeroes_jit = get_function('count_leading_zeroes_jit', count_leading_zeroes_jit)
+count_trailing_zeroes_jit = get_function('count_trailing_zeroes_jit', count_trailing_zeroes_jit)
+reverse_bytes_jit = get_function('reverse_bytes_jit', reverse_bytes_jit)
+read_uint_jit = get_function('read_uint_jit', read_uint_jit)
+riscv_div_jit = get_function('riscv_div_jit', riscv_div_jit)
+pvm_Z_inv_jit = get_function('pvm_Z_inv_jit', pvm_Z_inv_jit)
+find_memory_section_jit = get_function('find_memory_section_jit', find_memory_section_jit)
+_fmix64_jit = get_function('_fmix64_jit', _fmix64_jit)
+hash_memory_segment = get_function('hash_memory_segment', hash_memory_segment)
+mem_write_jit = get_function('mem_write_jit', mem_write_jit)
+mem_read_jit = get_function('mem_read_jit', mem_read_jit)
+sbrk_jit = get_function('sbrk_jit', sbrk_jit)
+
+# Try to use AOT core loop if available; fall back to JIT only if allowed
+invoke_native = get_function('invoke_native', None)
+if _AOT_ONLY and invoke_native is None:
+    raise ImportError("PVM_AOT_ONLY=1 is set but AOT core 'invoke_native' is not available. Build AOT modules via build_aot.sh.")
+
 @njit(cache=True)
-def invoke_native(
+def invoke_native_jit(
         pc_start, gas_start, inst_start, initial_skip_len,
         code, code_size,
         inst_pos_keys, inst_pos_vals, inst_arg_len, pc_to_inst_index,
@@ -832,9 +921,9 @@ def invoke_native(
     #     )
     # else:
     #     print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    #TODO: adv logging, refactor logg naar lognes
-    logg = True
-    timing_enabled = True
+    # Enable logging only if mapping is provided; timing via env for opt-in
+    logg = logging is not None and len(logging) > 0
+    timing_enabled = os.environ.get('PVM_TIMERS', '0') == '1'
 
 
     # Main execution loop
@@ -947,7 +1036,7 @@ def invoke_native(
             v_y = pvm_X_jit(read_uint_jit(code, pc + 2 + l_x, l_y), np.uint8(l_y))
 
             if opcode == op_store_imm_u8:
-                if mem_write_jit(v_x, v_y % (2 ** 8), U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
+                if mem_write_jit(v_x, U64(v_y % (2 ** 8)), U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -957,7 +1046,7 @@ def invoke_native(
                     log(logging, local_state, reg, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v1),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
             elif opcode == op_store_imm_u16:
-                if mem_write_jit(v_x, v_y % (2 ** 16), U8(2), mem_section_starts, mem_section_ends, section_arrays,
+                if mem_write_jit(v_x, U64(v_y % (2 ** 16)), U8(2), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
@@ -968,7 +1057,7 @@ def invoke_native(
                     log(logging, local_state, reg, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v2),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
             elif opcode == op_store_imm_u32:
-                if mem_write_jit(v_x, v_y % (2 ** 32), U8(4), mem_section_starts, mem_section_ends, section_arrays,
+                if mem_write_jit(v_x, U64(v_y % (2 ** 32)), U8(4), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
@@ -979,7 +1068,7 @@ def invoke_native(
                     log(logging, local_state, reg, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v4),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
             elif opcode == op_store_imm_u64:
-                if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
+                if mem_write_jit(v_x, U64(v_y), U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1102,7 +1191,7 @@ def invoke_native(
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_u8:
-                if mem_write_jit(v_x, reg[r_a] % (2 ** 8), U8(1), mem_section_starts, mem_section_ends, section_arrays,
+                if mem_write_jit(v_x, U64(reg[r_a] % (2 ** 8)), U8(1), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1113,7 +1202,7 @@ def invoke_native(
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_u16:
-                if mem_write_jit(v_x, reg[r_a] % (2 ** 16), U8(2), mem_section_starts, mem_section_ends, section_arrays,
+                if mem_write_jit(v_x, U64(reg[r_a] % (2 ** 16)), U8(2), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1124,7 +1213,7 @@ def invoke_native(
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_u32:
-                if mem_write_jit(v_x, reg[r_a] % (2 ** 32), U8(4), mem_section_starts, mem_section_ends, section_arrays,
+                if mem_write_jit(v_x, U64(reg[r_a] % (2 ** 32)), U8(4), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1135,7 +1224,7 @@ def invoke_native(
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_u64:
-                if mem_write_jit(v_x, reg[r_a], U8(8), mem_section_starts, mem_section_ends, section_arrays,
+                if mem_write_jit(v_x, U64(reg[r_a]), U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1164,7 +1253,7 @@ def invoke_native(
 
             if opcode == op_store_imm_ind_u8:
                 store_addr = w_a + v_x
-                if mem_write_jit(store_addr, v_y % (2 ** 8), U8(1), mem_section_starts, mem_section_ends,
+                if mem_write_jit(store_addr, U64(v_y % (2 ** 8)), U8(1), mem_section_starts, mem_section_ends,
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1175,7 +1264,7 @@ def invoke_native(
 
             elif opcode == op_store_imm_ind_u16:
                 store_addr = w_a + v_x
-                if mem_write_jit(store_addr, v_y % (2 ** 16), U8(2), mem_section_starts, mem_section_ends,
+                if mem_write_jit(store_addr, U64(v_y % (2 ** 16)), U8(2), mem_section_starts, mem_section_ends,
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1186,7 +1275,7 @@ def invoke_native(
 
             elif opcode == op_store_imm_ind_u32:
                 store_addr = w_a + v_x
-                if mem_write_jit(store_addr, v_y % (2 ** 32), U8(4), mem_section_starts, mem_section_ends,
+                if mem_write_jit(store_addr, U64(v_y % (2 ** 32)), U8(4), mem_section_starts, mem_section_ends,
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1197,7 +1286,7 @@ def invoke_native(
 
             elif opcode == op_store_imm_ind_u64:
                 store_addr = w_a + v_x
-                if mem_write_jit(store_addr, v_y, U8(8), mem_section_starts, mem_section_ends, section_arrays,
+                if mem_write_jit(store_addr, U64(v_y), U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1452,7 +1541,7 @@ def invoke_native(
 
             if opcode == op_store_ind_u8:
                 store_addr = w_b + v_x
-                if mem_write_jit(store_addr, w_a % (2 ** 8), U8(1), mem_section_starts, mem_section_ends,
+                if mem_write_jit(store_addr, U64(w_a % (2 ** 8)), U8(1), mem_section_starts, mem_section_ends,
                                  section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1461,7 +1550,7 @@ def invoke_native(
 
             elif opcode == op_store_ind_u16:
                 store_addr = w_b + v_x
-                if mem_write_jit(store_addr, w_a % (2 ** 16), U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
+                if mem_write_jit(store_addr, U64(w_a % (2 ** 16)), U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
@@ -1469,7 +1558,7 @@ def invoke_native(
 
             elif opcode == op_store_ind_u32:
                 store_addr = w_b + v_x
-                if mem_write_jit(store_addr, w_a % (2 ** 32), U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
+                if mem_write_jit(store_addr, U64(w_a % (2 ** 32)), U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
@@ -1477,7 +1566,7 @@ def invoke_native(
 
             elif opcode == op_store_ind_u64:
                 store_addr = w_b + v_x
-                if mem_write_jit(store_addr, w_a, U8(8), mem_section_starts, mem_section_ends, section_arrays,
+                if mem_write_jit(store_addr, U64(w_a), U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -2200,7 +2289,7 @@ class PVMInterpreter(PVMInterpreterBase):
         Returns: section_starts, section_ends, section_arrays, acl_dict
         """
         if not self.mem_sections:
-            empty_acl = Dict.empty(key_type=types.int64, value_type=types.int64)
+            empty_acl = Dict.empty(key_type=types.uint64, value_type=types.uint64)
             return (np.array([], dtype=np.uint64),
                     np.array([], dtype=np.uint64),
                     List.empty_list(types.uint8[::1]),
@@ -2210,10 +2299,10 @@ class PVMInterpreter(PVMInterpreterBase):
         ends = []
         arrays = List.empty_list(types.uint8[::1])
 
-        acl_dict = Dict.empty(key_type=types.int64, value_type=types.int64)
+        acl_dict = Dict.empty(key_type=types.uint64, value_type=types.uint64)
         if self.mem_acl is not None:
             for page_nr, permission in self.mem_acl.items():
-                acl_dict[int(page_nr)] = int(permission)
+                acl_dict[np.uint64(page_nr)] = np.uint64(permission)
 
         for i, section in enumerate(self.mem_sections):
             if section is not None:
@@ -2276,6 +2365,22 @@ class PVMInterpreter(PVMInterpreterBase):
                 opcode_names[int(_k)] = _v
 
         # Call JIT-compiled function
+        # Dispatch to AOT or JIT core
+        # if invoke_native is None:
+        #     error_code = invoke_native_jit(
+        #         self.pc, self.gas, self.inst_nr, int(self.skip_len),
+        #         self.code, self.code_size,
+        #         self.inst_pos_keys, self.inst_pos_vals, self.inst_arg_len_array, self.pc_to_inst_index,
+        #         self.opcode_scheme_array, jump_table_array,
+        #         self.mem_ops_read, self.mem_ops_write, self.mem_ops_bytes,
+        #         mem_section_starts, mem_section_ends, section_arrays, acl_dict,
+        #         heap_info,
+        #         self.reg,
+        #         opcode_names,
+        #         # Outputs
+        #         registers_out, state_out, heap_grew_out
+        #     )
+        # else:
         error_code = invoke_native(
             self.pc, self.gas, self.inst_nr, int(self.skip_len),
             self.code, self.code_size,
@@ -2285,8 +2390,7 @@ class PVMInterpreter(PVMInterpreterBase):
             mem_section_starts, mem_section_ends, section_arrays, acl_dict,
             heap_info,
             self.reg,
-            opcode_names,
-            # Outputs
+            # Outputs (AOT signature has no logging)
             registers_out, state_out, heap_grew_out
         )
 

@@ -7,8 +7,7 @@ if settings.PVM_INTERPRETER == "CPYTHON":
     from .cpython.interpreter_cpython import *
 elif settings.PVM_INTERPRETER == "NUMBA":
     from .numba.defs import *
-    from .numba.types import *
-    from .numba.types import *
+    from .numba.pvm_types import *
     from .numba.interpreter_numba import *
 elif settings.PVM_INTERPRETER == "PVM_GP":
     from .gp import *
