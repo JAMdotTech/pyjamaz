@@ -27,8 +27,19 @@ default_db_path = path.join(data_dir, 'db')
 
 
 async def main(traces_dir:str):
-    log_level = logging.DEBUG
-    setup_logging(log_level)
+    log_level = logging.INFO
+    # Note: Add packages that need a different logging level here
+    log_package_overrides = {
+        "pyjamaz.transport": log_level,
+        "numba": logging.WARNING,
+        "numba.core": logging.WARNING
+    }
+    setup_logging(log_level, log_package_overrides)
+
+    # import os
+    # for k in ("NUMBA_DUMP_IR", "NUMBA_DUMP_BYTECODE", "NUMBA_DUMP_CFG", "NUMBA_DEBUG", "NUMBA_DEBUG_PRINTS"):
+    #     os.environ.pop(k, None)
+    # setup_logging(log_level)
 
     # Safety checks
     if settings.SOLO_MODE:
