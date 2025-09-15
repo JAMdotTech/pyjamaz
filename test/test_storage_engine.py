@@ -70,7 +70,7 @@ class TestRocksDBStorage(unittest.TestCase):
             with tx_db.transaction() as tx:
                 tx.put(b'test', b'changed')
                 raise ValueError("Should rollback")
-        except TransactionRolledBack:
+        except ValueError:
             pass
 
         self.assertEqual(b'initial', tx_db.get(b'test'))
