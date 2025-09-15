@@ -151,13 +151,15 @@ class Entropy(StateComponent):
             return bytes(32)
 
         logging.debug(f"Verifying entropy source signature: bs_key={format_hash(bytes(header.author_bandersnatch_key))} vrf_output={format_hash(self.block_context.seal_vrf_output)}")
-
-        return ietf_vrf_verify(
-            bytes(header.author_bandersnatch_key),
-            b"jam_entropy" + self.block_context.seal_vrf_output,
-            b'',
-            bytes(header.entropy_source)
-        )
+        try:
+            return ietf_vrf_verify(
+                bytes(header.author_bandersnatch_key),
+                b"jam_entropy" + self.block_context.seal_vrf_output,
+                b'',
+                bytes(header.entropy_source)
+            )
+        except ValueError:
+            raise BlockValidationError("Invalid entropy source signature")
 
 
 class ValidatorQueue(StateComponent):
@@ -1754,7 +1756,7 @@ class Statistics(StateComponent):
         for validator_index, validator_data in enumerate(post_validator_pool.validators):
             if validator_data.ed25519 == ed25519_key:
                 return validator_index
-        raise ValueError("Bandersnatch key not found in validator pool")
+        raise StateTransitionError("Bandersnatch key not found in validator pool")
 
 
     def retrieve_state(self) -> StatisticsState:

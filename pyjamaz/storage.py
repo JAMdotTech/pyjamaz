@@ -85,7 +85,7 @@ class InMemoryTransaction(Transaction):
                     self.storage_engine.put(key, value)
         else:
             # Discard changes
-            raise TransactionRolledBack(exc_val)
+            raise exc_val
 
 
 class InMemoryStorage(StorageEngine):
@@ -184,7 +184,7 @@ class RocksDBTransaction(Transaction):
         if exc_type is None:
             self.db.write(self.write_batch)
         else:
-            raise TransactionRolledBack(exc_val)
+            raise exc_val
 
 
 class RocksDBStorage(StorageEngine):
@@ -265,7 +265,7 @@ class LevelDBTransaction(Transaction):
         if exc_type is None:
             self.write_batch.write()
         else:
-            raise TransactionRolledBack(exc_val)
+            raise exc_val
 
 
 class LevelDBStorage(StorageEngine):

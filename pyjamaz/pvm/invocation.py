@@ -171,9 +171,6 @@ class PVMInvocation:
         GP-0.6.2-eq:A.42 (Ψ_M) | Marshalling invocation function
         """
 
-        if len(argument_data) > PVM_INPUT_DATA_SIZE:
-            raise ValueError(f'argument_data too long (> {PVM_INPUT_DATA_SIZE} bytes)')
-
         self.pvm_program = PVMProgram.from_serialized_bytes(
             serialized_program=serialized_program,
             argument_contents=argument_data,
