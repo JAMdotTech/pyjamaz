@@ -4,7 +4,8 @@ import time
 from pyjamaz.models.stf_output import SafroleOutput, DisputesOutput
 
 from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
-from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS, TICKET_ENTRIES
+from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS, TICKET_ENTRIES, \
+    TICKET_SUBMISSION_END_SLOT
 from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
@@ -50,7 +51,7 @@ class BlockValidation:
             raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
 
         # Check marker data
-        if header.tickets_marker and header.tickets_marker != safrole_output.tickets_mark:
+        if header.tickets_marker != safrole_output.tickets_mark and header.slot_phase_index == TICKET_SUBMISSION_END_SLOT:
             raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
 
         if header.epoch_marker != safrole_output.epoch_mark:

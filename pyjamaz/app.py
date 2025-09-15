@@ -96,6 +96,10 @@ class PyjamazApp:
         self.state: Optional[JamState] = None
         self.state_trie_root = bytes(32)
 
+        # TODO Temp for simple forking (see az-forking branch)
+        self.parent_state_items = []
+        self.parent_state_root = bytes(32)
+
         # Note:
         # For the import block function, we allow the option to provide a custom function (for example to augment with
         # traces or other debug info)
@@ -628,11 +632,41 @@ class PyjamazApp:
             await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
 
     @log_execution_time
+    async def check_simple_fork(self, header: Header):
+        # TODO TEMP for simple forking - Check if block is forked from parent
+
+        if header.parent_state_root == self.parent_state_root:
+            # Replace state database with parent state
+            for key, _ in self.state_db.items():
+                self.state_db.delete(key)
+
+            for key, value in self.parent_state_items:
+                self.state_db.put(key, value)
+
+            await self.initialize()
+
+            logging.info(f"🍴 Forked from state_root={format_hash(self.parent_state_root)}")
+
+            # Reset parent state
+            self.parent_state_root = bytes(32)
+            self.parent_state_items = []
+
+
+    async def create_simple_fork_snapshot(self):
+        # State transition succesful, create snapshot for parent
+        self.parent_state_items = self.state_db.items()
+        self.parent_state_root = self.state_trie_root
+
+    @log_execution_time
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
+
+        await self.check_simple_fork(block.header)
 
         with self.state_db.transaction() as transaction:
 
             output = await self.state_transition(block, transaction, produce=False)
+
+            await self.create_simple_fork_snapshot()
 
         await self.process_block(block)
 

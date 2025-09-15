@@ -597,9 +597,12 @@ async def replay_traces(
 
             last_parent = block_file.parent
 
-        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
+        logging.info(
+            f'⚙️ Processing block {trace.block.header.timeslot} (hash={format_hash(trace.block.header.hash)} parent={format_hash(trace.block.header.parent)} parent_state_root={format_hash(trace.block.header.parent_state_root)})'
+        )
 
         await app.import_block(trace.block, dry_run=skip_block_validation)
+
         # Update Patricia Trie
         await app.update_state_trie()
 
