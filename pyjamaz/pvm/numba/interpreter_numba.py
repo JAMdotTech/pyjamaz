@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 
 from numba import njit, types, objmode
-import time as _pytime
+#import time as _pytime
 from numba.typed import Dict, List
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -68,6 +68,7 @@ MEM_WRITABLE = 2
 
 # Page size constant
 PVM_PAGE_SIZE = 4096
+PVM_PAGE_SHIFT = 12  # 4096 = 2^12
 
 # Exit reasons (matching ExitReason enum)
 EXIT_RESUME = 0  # GP:     ▸: continue PVM
@@ -424,6 +425,149 @@ def find_memory_section_jit(addr: U64, section_starts, section_ends) -> I32:
     return I32(-1)
 
 
+@njit(cache=True, inline='always')
+def mem_write_cached_jit(addr: U64, value: U64, bytes_to_write: U8,
+                        section_starts, section_ends, section_arrays, acl_dict,
+                        last_write_idx: I32):
+    """
+    Cached version that tries last_write_idx first.
+    Returns (status, new_idx) where status==0 on success, -1 on fault.
+    """
+    idx = last_write_idx
+    
+    # Try cached index first
+    if idx >= 0 and idx < len(section_starts):
+        if section_starts[idx] <= addr <= section_ends[idx]:
+            # Cache hit! Skip search
+            pass
+        else:
+            # Cache miss, search
+            idx = I32(-1)
+            for i in range(len(section_starts)):
+                if section_starts[i] <= addr <= section_ends[i]:
+                    idx = I32(i)
+                    break
+    else:
+        # Invalid cache, search
+        idx = I32(-1)
+        for i in range(len(section_starts)):
+            if section_starts[i] <= addr <= section_ends[i]:
+                idx = I32(i)
+                break
+                
+    if idx < 0:
+        return I32(-1), idx
+
+    page_nr = U64(addr >> PVM_PAGE_SHIFT)
+    if acl_dict is not None:
+        if page_nr not in acl_dict:
+            return I32(-1), idx
+        if acl_dict[page_nr] < MEM_WRITABLE:
+            return I32(-1), idx
+
+    start = U64(section_starts[idx])
+    off = addr - start
+
+    a = section_arrays[idx]  # uint8[::1]
+    if off + U64(bytes_to_write) > U64(len(a)):
+        return I32(-1), idx
+    base = int(off)
+
+    if bytes_to_write == U8(1):
+        a[base] = U8(value & U64(0xFF))
+    elif bytes_to_write == U8(2):
+        a[base] = U8(value & U64(0xFF))
+        a[base + 1] = U8((value >> U64(8)) & U64(0xFF))
+    elif bytes_to_write == U8(4):
+        a[base] = U8(value & U64(0xFF))
+        a[base + 1] = U8((value >> U64(8)) & U64(0xFF))
+        a[base + 2] = U8((value >> U64(16)) & U64(0xFF))
+        a[base + 3] = U8((value >> U64(24)) & U64(0xFF))
+    elif bytes_to_write == U8(8):
+        a[base] = U8(value & U64(0xFF))
+        a[base + 1] = U8((value >> U64(8)) & U64(0xFF))
+        a[base + 2] = U8((value >> U64(16)) & U64(0xFF))
+        a[base + 3] = U8((value >> U64(24)) & U64(0xFF))
+        a[base + 4] = U8((value >> U64(32)) & U64(0xFF))
+        a[base + 5] = U8((value >> U64(40)) & U64(0xFF))
+        a[base + 6] = U8((value >> U64(48)) & U64(0xFF))
+        a[base + 7] = U8((value >> U64(56)) & U64(0xFF))
+    else:
+        return I32(-1), idx
+
+    return I32(0), idx
+
+
+@njit(cache=True, inline='always')
+def mem_read_cached_jit(addr: U64, bytes_to_read: U8,
+                       section_starts, section_ends, section_arrays, acl_dict,
+                       last_read_idx: I32):
+    """
+    Cached version that tries last_read_idx first.
+    Returns (status, value, new_idx) where status==0 on success, -1 on fault.
+    """
+    idx = last_read_idx
+    
+    # Try cached index first
+    if idx >= 0 and idx < len(section_starts):
+        if section_starts[idx] <= addr <= section_ends[idx]:
+            # Cache hit! Skip search
+            pass
+        else:
+            # Cache miss, search
+            idx = I32(-1)
+            for i in range(len(section_starts)):
+                if section_starts[i] <= addr <= section_ends[i]:
+                    idx = I32(i)
+                    break
+    else:
+        # Invalid cache, search
+        idx = I32(-1)
+        for i in range(len(section_starts)):
+            if section_starts[i] <= addr <= section_ends[i]:
+                idx = I32(i)
+                break
+                
+    if idx < 0:
+        return I32(-1), U64(0), idx
+
+    page_nr = U64(addr >> PVM_PAGE_SHIFT)
+    if acl_dict is not None:
+        if page_nr not in acl_dict:
+            return I32(-1), U64(0), idx
+        if acl_dict[page_nr] == MEM_INACCESSIBLE:
+            return I32(-1), U64(0), idx
+
+    start = U64(section_starts[idx])
+    off = addr - start
+
+    a = section_arrays[idx]  # uint8[::1] array
+    if off + U64(bytes_to_read) > U64(len(a)):
+        return I32(-1), U64(0), idx
+    base = int(off)
+
+    if bytes_to_read == U8(1):
+        return I32(0), U64(a[base]), idx
+    elif bytes_to_read == U8(2):
+        return I32(0), (U64(a[base]) | (U64(a[base + 1]) << U64(8))), idx
+    elif bytes_to_read == U8(4):
+        return I32(0), (U64(a[base]) |
+                        (U64(a[base + 1]) << U64(8)) |
+                        (U64(a[base + 2]) << U64(16)) |
+                        (U64(a[base + 3]) << U64(24))), idx
+    elif bytes_to_read == U8(8):
+        return I32(0), (U64(a[base]) |
+                        (U64(a[base + 1]) << U64(8)) |
+                        (U64(a[base + 2]) << U64(16)) |
+                        (U64(a[base + 3]) << U64(24)) |
+                        (U64(a[base + 4]) << U64(32)) |
+                        (U64(a[base + 5]) << U64(40)) |
+                        (U64(a[base + 6]) << U64(48)) |
+                        (U64(a[base + 7]) << U64(56))), idx
+    else:
+        return I32(-1), U64(0), idx
+
+
 @njit(cache=True)
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays, acl_dict) -> I32:
@@ -438,7 +582,7 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     if idx < 0:
         return I32(-1)
 
-    page_nr = int(addr // PVM_PAGE_SIZE)
+    page_nr = U64(addr >> PVM_PAGE_SHIFT)
     if acl_dict is not None and (page_nr not in acl_dict or acl_dict[page_nr] < MEM_WRITABLE):
         return I32(-1)
 
@@ -496,7 +640,7 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
     if idx < 0:
         return I32(-1), U64(0)
 
-    page_nr = int(addr // PVM_PAGE_SIZE)
+    page_nr = U64(addr >> PVM_PAGE_SHIFT)
     if acl_dict is not None and (page_nr not in acl_dict or acl_dict[page_nr] == MEM_INACCESSIBLE):
         return I32(-1), U64(0)
 
@@ -610,11 +754,11 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
         return U64(0), I32(0)  # Allocation failed - would overlap next section
 
     # Calculate page boundaries (match PVMMemory.page_size semantics: ceil to page size)
-    next_page_boundary = ((current_heap_ptr + PVM_PAGE_SIZE - 1) // PVM_PAGE_SIZE) * PVM_PAGE_SIZE
+    next_page_boundary = ((current_heap_ptr + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT) << PVM_PAGE_SHIFT
 
     grew_flag = I32(0)
     if new_heap_ptr > next_page_boundary:
-        new_heap_end = ((new_heap_ptr + PVM_PAGE_SIZE - 1) // PVM_PAGE_SIZE) * PVM_PAGE_SIZE
+        new_heap_end = ((new_heap_ptr + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT) << PVM_PAGE_SHIFT
         growth = new_heap_end - next_page_boundary
 
         # Grow underlying heap buffer when we exceed pre-allocated memory
@@ -635,8 +779,8 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
             pass
 
         # Create ACL of new pages
-        next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
-        pages = growth // PVM_PAGE_SIZE + 1
+        next_page_nr = current_heap_ptr >> PVM_PAGE_SHIFT
+        pages = (growth >> PVM_PAGE_SHIFT) + 1
         for page_nr in range(pages):
             acl_dict[int(next_page_nr + page_nr)] = int(mem_writable)
 
@@ -684,6 +828,112 @@ def djump_jit(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
     return I32(target_pc - pc)  # Valid skip_len
 
 
+# @njit(cache=True)
+# def log(
+#         opcode_names,
+#         local_state,
+#         regs,
+#         reg1=None,
+#         reg2=None,
+#         reg3=None,
+#         imm1=None,
+#         imm2=None,
+#         off1=None,
+#         off2=None,
+#         context="",
+#         mem=None,
+#         mem_starts=None,
+#         mem_ends=None):
+#
+#     inst_nr = int(local_state[0])
+#     opcode = int(local_state[1])
+#     pc = int(local_state[2])
+#     gas = int(local_state[3])
+#     start_time = float(local_state[4])
+#     """
+#     JIT-compatible logging function for instruction execution tracing.
+#     Matches the format used in the normal interpreter for consistency.
+#     """
+#     if len(opcode_names) == 0:
+#         return
+#
+#     #name = opcode_names.get(np.int64(opcode), "UNKNOWN")
+#     opcode_key = np.int64(opcode)
+#     if opcode_key in opcode_names:
+#         name = opcode_names[opcode_key]
+#     else:
+#         name = "UNKNOWN"
+#
+#     # mem_info = ""
+#     # if mem is not None and len(mem) >= 2:
+#     #     if mem_starts is not None and mem_ends is not None:
+#     #         # Compute effective lengths based on section bounds so hash reflects sbrk changes
+#     #         heap_len = int(mem_ends[1] - mem_starts[1])
+#     #         if heap_len < 0:
+#     #             heap_len = 0
+#     #         if heap_len > len(mem[1]):
+#     #             heap_len = len(mem[1])
+#     #         heap_hash = hash_memory_segment(mem[1][:heap_len])
+#     #     else:
+#     #         heap_hash = hash_memory_segment(mem[1])
+#     #     mem_info += f"heap_hash:{heap_hash}"
+#     # if mem is not None and len(mem) >= 3:
+#     #     if mem_starts is not None and mem_ends is not None:
+#     #         stack_len = int(mem_ends[2] - mem_starts[2])
+#     #         if stack_len < 0:
+#     #             stack_len = 0
+#     #         if stack_len > len(mem[2]):
+#     #             stack_len = len(mem[2])
+#     #         stack_hash = hash_memory_segment(mem[2][:stack_len])
+#     #     else:
+#     #         stack_hash = hash_memory_segment(mem[2])
+#     #     mem_info += f" stack_hash:{stack_hash}"
+#
+#     # print("inst=",inst_nr, "op=",name, "pc=",pc, "gas=",gas,
+#     #       "r1=",reg1, "r2=",reg2, "r3=",reg3,
+#     #       "imm1=",imm1, "imm2=",imm2, "off1=",off1, "off2=",off2, context, mem_info)
+#
+#     # Format opcode name with fixed width (22 chars)
+#     name_str = name
+#     name_pad = 22 - len(name_str)
+#     if name_pad > 0:
+#         name_str = name_str + (" " * name_pad)
+#
+#     # Format registers with fixed width (21 chars) for even spacing.
+#     # regs_str = ""
+#     # for i in range(len(regs)):
+#     #     s = str(regs[i])
+#     #     pad = 21 - len(s)
+#     #     if pad > 0:
+#     #         regs_str += (" " * pad) + s
+#     #     else:
+#     #         regs_str += s
+#     #     if i != len(regs) - 1:
+#     #         regs_str += " "
+#
+#     # Fixed width for inst_nr and pc (4 chars each, right-aligned)
+#     inst_str = str(inst_nr)
+#     if len(inst_str) < 4:
+#         inst_str = (" " * (4 - len(inst_str))) + inst_str
+#
+#     pc_str = str(pc)
+#     if len(pc_str) < 4:
+#         pc_str = (" " * (4 - len(pc_str))) + pc_str
+#
+#     # Compute elapsed time if start_time provided (debug; uses objmode)
+#     # if start_time > 0.0:
+#     #     with objmode(tnow='float64'):
+#     #         tnow = _pytime.perf_counter()
+#     #     dt_ms = (tnow - start_time) * 1000.0
+#     #     #print(inst_str, pc_str, name_str, regs_str, mem_info, dt_ms)
+#     #     print(inst_str, pc_str, name_str, dt_ms)
+#     # else:
+#     #     print(inst_str, pc_str, name_str, regs_str, mem_info)
+#
+#     with objmode(tnow='float64'):
+#         tnow = _pytime.perf_counter()
+#     dt_ms = (tnow - start_time) * 1000.0
+#     print(inst_str, pc_str, name_str, dt_ms)
 @njit(cache=True)
 def log(
         opcode_names,
@@ -700,96 +950,7 @@ def log(
         mem=None,
         mem_starts=None,
         mem_ends=None):
-
-    inst_nr = int(local_state[0])
-    opcode = int(local_state[1])
-    pc = int(local_state[2])
-    gas = int(local_state[3])
-    start_time = float(local_state[4])
-    """
-    JIT-compatible logging function for instruction execution tracing.
-    Matches the format used in the normal interpreter for consistency.
-    """
-    if len(opcode_names) == 0:
-        return
-
-    #name = opcode_names.get(np.int64(opcode), "UNKNOWN")
-    opcode_key = np.int64(opcode)
-    if opcode_key in opcode_names:
-        name = opcode_names[opcode_key]
-    else:
-        name = "UNKNOWN"
-
-    # mem_info = ""
-    # if mem is not None and len(mem) >= 2:
-    #     if mem_starts is not None and mem_ends is not None:
-    #         # Compute effective lengths based on section bounds so hash reflects sbrk changes
-    #         heap_len = int(mem_ends[1] - mem_starts[1])
-    #         if heap_len < 0:
-    #             heap_len = 0
-    #         if heap_len > len(mem[1]):
-    #             heap_len = len(mem[1])
-    #         heap_hash = hash_memory_segment(mem[1][:heap_len])
-    #     else:
-    #         heap_hash = hash_memory_segment(mem[1])
-    #     mem_info += f"heap_hash:{heap_hash}"
-    # if mem is not None and len(mem) >= 3:
-    #     if mem_starts is not None and mem_ends is not None:
-    #         stack_len = int(mem_ends[2] - mem_starts[2])
-    #         if stack_len < 0:
-    #             stack_len = 0
-    #         if stack_len > len(mem[2]):
-    #             stack_len = len(mem[2])
-    #         stack_hash = hash_memory_segment(mem[2][:stack_len])
-    #     else:
-    #         stack_hash = hash_memory_segment(mem[2])
-    #     mem_info += f" stack_hash:{stack_hash}"
-
-    # print("inst=",inst_nr, "op=",name, "pc=",pc, "gas=",gas,
-    #       "r1=",reg1, "r2=",reg2, "r3=",reg3,
-    #       "imm1=",imm1, "imm2=",imm2, "off1=",off1, "off2=",off2, context, mem_info)
-
-    # Format opcode name with fixed width (22 chars)
-    name_str = name
-    name_pad = 22 - len(name_str)
-    if name_pad > 0:
-        name_str = name_str + (" " * name_pad)
-
-    # Format registers with fixed width (21 chars) for even spacing.
-    # regs_str = ""
-    # for i in range(len(regs)):
-    #     s = str(regs[i])
-    #     pad = 21 - len(s)
-    #     if pad > 0:
-    #         regs_str += (" " * pad) + s
-    #     else:
-    #         regs_str += s
-    #     if i != len(regs) - 1:
-    #         regs_str += " "
-
-    # Fixed width for inst_nr and pc (4 chars each, right-aligned)
-    inst_str = str(inst_nr)
-    if len(inst_str) < 4:
-        inst_str = (" " * (4 - len(inst_str))) + inst_str
-
-    pc_str = str(pc)
-    if len(pc_str) < 4:
-        pc_str = (" " * (4 - len(pc_str))) + pc_str
-
-    # Compute elapsed time if start_time provided (debug; uses objmode)
-    # if start_time > 0.0:
-    #     with objmode(tnow='float64'):
-    #         tnow = _pytime.perf_counter()
-    #     dt_ms = (tnow - start_time) * 1000.0
-    #     #print(inst_str, pc_str, name_str, regs_str, mem_info, dt_ms)
-    #     print(inst_str, pc_str, name_str, dt_ms)
-    # else:
-    #     print(inst_str, pc_str, name_str, regs_str, mem_info)
-
-    with objmode(tnow='float64'):
-        tnow = _pytime.perf_counter()
-    dt_ms = (tnow - start_time) * 1000.0
-    print(inst_str, pc_str, name_str, dt_ms)
+    pass
 
 
 @njit(cache=True)
@@ -833,18 +994,24 @@ def invoke_native(
     # else:
     #     print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     #TODO: adv logging, refactor logg naar lognes
-    logg = True
-    timing_enabled = True
+    # logg = True
+    # timing_enabled = True
+    logg = False
+    timing_enabled = False
+    
+    # Memory section cache for faster lookups
+    last_read_idx = I32(-1)
+    last_write_idx = I32(-1)
 
 
     # Main execution loop
     while status == EXIT_RESUME and gas > 0:
         # Calculate next PC but don't update yet
         start_time = 0.0
-        if logg and timing_enabled:
-            with objmode(t0='float64'):
-                t0 = _pytime.perf_counter()
-            start_time = t0
+        # if logg and timing_enabled:
+        #     with objmode(t0='float64'):
+        #         t0 = _pytime.perf_counter()
+        #     start_time = t0
         next_pc = U32(pc + skip_len)
 
         if next_pc >= code_size:
