@@ -100,10 +100,15 @@ STATE_ERROR = 6
 
 
 # Set up Numba caching for persistent compilation
-_cache_dir = os.path.expanduser(".")
-os.makedirs(_cache_dir, exist_ok=True)
-os.environ['NUMBA_CACHE_DIR'] = _cache_dir
-os.environ['NUMBA_CACHE'] = '1'
+#PVM_AOT_CACHE: str = "./pyjamaz_numba_cache"
+#_cache_dir = os.path.expanduser("./pyjamaz_numba_cache")
+# _cache_dir = os.path.expanduser("/tmp/numba-cache/")
+# os.makedirs(_cache_dir, exist_ok=True)
+# os.environ['NUMBA_CACHE_DIR'] = _cache_dir
+#os.environ['NUMBA_CACHE'] = '1'
+NUMBA_CACHE = True
+#os.environ['NUMBA_CACHE_DIR'] = _cache_dir
+
 os.environ['NUMBA_DISABLE_PERFORMANCE_WARNINGS'] = '1'
 os.environ['NUMBA_BOUNDSCHECK'] = '0'  # Disable bounds checking for speed
 os.environ['NUMBA_DISABLE_JIT'] = '0'  # Ensure JIT is enabled
@@ -113,7 +118,7 @@ os.environ['NUMBA_NUM_THREADS'] = '1'  # Avoid parallel compilation issues
 os.environ['NUMBA_THREADING_LAYER'] = 'sequential'
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def umul64wide(a: U64, b: U64):
     """Unsigned 64x64 -> (hi, lo) as uint64s."""
     mask32 = U64(0xFFFFFFFF)
@@ -133,7 +138,7 @@ def umul64wide(a: U64, b: U64):
     return U64(hi), U64(lo)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def imul64wide(a: I64, b: I64):
     """Signed 64x64 -> (hi, lo) representing 128-bit two's-complement product."""
     ua = U64(a)  # reinterpret
@@ -147,7 +152,7 @@ def imul64wide(a: I64, b: I64):
     return U64(hi), U64(lo)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def smul_u64wide(a: I64, b: U64):
     """Signed * Unsigned -> (hi, lo), two's-complement."""
     ua = U64(a)
@@ -157,32 +162,32 @@ def smul_u64wide(a: I64, b: U64):
     return U64(hi), U64(lo)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def rori64_jit(x: U64, shift_amount: U64) -> U64:
     """JIT-compiled rotate right for 64-bit integers."""
     return U64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def roli64_jit(x: U64, shift_amount: U64) -> U64:
     """JIT-compiled rotate left for 64-bit integers."""
     return U64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def rori32_jit(x: U32, shift_amount: U32) -> U32:
     """JIT-compiled rotate right for 32-bit integers."""
     return U32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def roli32_jit(x: U32, shift_amount: U32) -> U32:
     """JIT-compiled rotate left for 32-bit integers."""
     return U32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-# @njit("int64(int64, int64)", inline="always", cache=True)
-@njit("int64(int64, int64)", cache=True)
+# @njit("int64(int64, int64)", inline="always", cache=NUMBA_CACHE)
+@njit("int64(int64, int64)", cache=NUMBA_CACHE)
 def pvm_smod_jit(a: I64, b: I64) -> I64:
     """
     JIT-compiled signed modulo operation.
@@ -205,8 +210,8 @@ def pvm_smod_jit(a: I64, b: I64) -> I64:
             return -((-a) % (-b))
 
 
-# @njit("int64(int64, int64)", inline="always", cache=True)
-@njit("int64(int64, int64)", cache=True)
+# @njit("int64(int64, int64)", inline="always", cache=NUMBA_CACHE)
+@njit("int64(int64, int64)", cache=NUMBA_CACHE)
 def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
     """
     JIT-compiled truncated division (rounds toward zero).
@@ -223,7 +228,7 @@ def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
             return (-a) // (-b)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def pvm_X_jit(x: U64, n: U64) -> U64:
     """JIT-compiled sign extension."""
     # TODO: cast nodig?
@@ -271,7 +276,7 @@ def pvm_X_jit(x: U64, n: U64) -> U64:
         return U64(x)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def pvm_Z_jit(a: U64, n: U64) -> I64:
     """JIT-friendly unsigned->signed conversion for n bytes (1..8).
     Returns I64 with proper two's-complement sign extension without Python big-ints.
@@ -299,7 +304,7 @@ def pvm_Z_jit(a: U64, n: U64) -> I64:
         return I64(val)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def count_leading_zeroes_jit(value: U64, max_bits=64):
     """JIT-friendly count-leading-zeroes with explicit 64-bit masking and shifts.
     Matches Python implementation for max_bits in {32,64}.
@@ -327,7 +332,7 @@ def count_leading_zeroes_jit(value: U64, max_bits=64):
     return count
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def count_trailing_zeroes_jit(value: U64, max_bits=64):
     """JIT-compiled count trailing zeroes."""
     if value == 0:
@@ -341,7 +346,7 @@ def count_trailing_zeroes_jit(value: U64, max_bits=64):
     return count
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def reverse_bytes_jit(x: U64) -> U64:
     """JIT-compiled reverse bytes."""
     result = U64(0)
@@ -351,7 +356,7 @@ def reverse_bytes_jit(x: U64) -> U64:
     return result
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
     addr32 = U32(addr)  # wrap to 32-bit address space
     len8 = U8(length)
@@ -397,7 +402,7 @@ def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
     raise Exception("read_uint: unsupported length")
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def riscv_div_jit(a: I64, b: I64) -> I64:
     """JIT-compiled RISC-V division."""
     if b == 0:
@@ -405,7 +410,7 @@ def riscv_div_jit(a: I64, b: I64) -> I64:
     return a // b
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
     """
     JIT-compiled transform signed to unsigned.
@@ -432,7 +437,7 @@ def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
         return U64((a + (1 << shift)) & mask)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def find_memory_section_jit(addr: U64, section_starts, section_ends) -> I32:
     """JIT-compiled find memory section."""
     for i in range(len(section_starts)):
@@ -441,7 +446,7 @@ def find_memory_section_jit(addr: U64, section_starts, section_ends) -> I32:
     return I32(-1)
 
 
-@njit(cache=True, inline='always')
+@njit(cache=NUMBA_CACHE, inline='always')
 def mem_write_cached_jit(addr: U64, value: U64, bytes_to_write: U8,
                         section_starts, section_ends, section_arrays, acl_dict,
                         last_write_idx: I32):
@@ -514,7 +519,7 @@ def mem_write_cached_jit(addr: U64, value: U64, bytes_to_write: U8,
     return I32(0), idx
 
 
-@njit(cache=True, inline='always')
+@njit(cache=NUMBA_CACHE, inline='always')
 def mem_read_cached_jit(addr: U64, bytes_to_read: U8,
                        section_starts, section_ends, section_arrays, acl_dict,
                        last_read_idx: I32):
@@ -584,7 +589,7 @@ def mem_read_cached_jit(addr: U64, bytes_to_read: U8,
         return I32(-1), U64(0), idx
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays, acl_dict) -> I32:
     """
@@ -642,7 +647,7 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     return I32(0)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def mem_read_jit(addr: U64, bytes_to_read: U8,
                  section_starts, section_ends, section_arrays, acl_dict):
     """
@@ -690,7 +695,7 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
         return I32(-1), U64(0)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def sync_state_and_return(
         reg:List[U64],
         registers_out:List[U64],
@@ -715,7 +720,7 @@ def sync_state_and_return(
     return error_code
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def _fmix64_jit(x: U64) -> U64:
     """Finalization mix (from MurmurHash3), good avalanche; JIT-safe."""
     x ^= x >> U64(33)
@@ -726,7 +731,7 @@ def _fmix64_jit(x: U64) -> U64:
     return x
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def hash_memory_segment(section_array) -> U64:
     """
     Hash the ENTIRE memory segment (all bytes) with FNV-1a 64-bit, then fmix.
@@ -747,7 +752,7 @@ def hash_memory_segment(section_array) -> U64:
     return _fmix64_jit(h)
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def get_memory_hash(section_arrays, seg_idx: I32):
     """Compute a 64-bit hash for the given memory segment (entire buffer)."""
     segment_hash = U64(0)
@@ -756,7 +761,7 @@ def get_memory_hash(section_arrays, seg_idx: I32):
     return segment_hash
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
              acl_dict, mem_writable: I64, section_arrays, section_starts) -> (U64, I32):
     """JIT implementation of sbrk heap allocation with optional heap growth.
@@ -803,7 +808,7 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
     return new_heap_ptr, grew_flag
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def branch_jit(pc: U32, offset: I64, condition: bool, pc_to_inst_index) -> I32:
     """JIT implementation of branch with validation."""
     if condition:
@@ -818,7 +823,7 @@ def branch_jit(pc: U32, offset: I64, condition: bool, pc_to_inst_index) -> I32:
         return I32(0)  # No branch - continue
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def djump_jit(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
     """JIT implementation of djump with validation."""
     halt_value = U32(2 ** 32 - 2 ** 16)
@@ -844,7 +849,7 @@ def djump_jit(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
     return I32(target_pc - pc)  # Valid skip_len
 
 
-# @njit(cache=True)
+# @njit(cache=NUMBA_CACHE)
 # def log(
 #         opcode_names,
 #         local_state,
@@ -950,7 +955,7 @@ def djump_jit(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
 #         tnow = _pytime.perf_counter()
 #     dt_ms = (tnow - start_time) * 1000.0
 #     print(inst_str, pc_str, name_str, dt_ms)
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def log(
         opcode_names,
         local_state,
@@ -969,7 +974,7 @@ def log(
     pass
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def invoke_native(
         pc_start, gas_start, inst_start, initial_skip_len,
         code, code_size,
