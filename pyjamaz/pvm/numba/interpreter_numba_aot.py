@@ -136,7 +136,7 @@ cc = CC('pvm_numba_aot')
 # Enable verbose output to see compilation progress
 cc.verbose = True
 
-#
+
 # from .interpreter_numba import (
 #     umul64wide_jit,
 #     imul64wide_jit,
@@ -163,33 +163,12 @@ cc.verbose = True
 #     djump_jit,
 #     invoke_native
 #     )
-
-
-
-@njit(cache=NUMBA_CACHE)
-def _umul64wide_impl(a: U64, b: U64) -> (U64, U64):
-    """Unsigned 64x64 -> (hi, lo) as uint64s."""
-    mask32 = U64(0xFFFFFFFF)
-    a_lo = a & mask32
-    a_hi = a >> U64(32)
-    b_lo = b & mask32
-    b_hi = b >> U64(32)
-
-    ll = a_lo * b_lo  # 64-bit
-    lh = a_lo * b_hi
-    hl = a_hi * b_lo
-    hh = a_hi * b_hi
-
-    carry = (ll >> U64(32)) + (lh & mask32) + (hl & mask32)
-    lo = (ll & mask32) | ((carry & mask32) << U64(32))
-    hi = hh + (lh >> U64(32)) + (hl >> U64(32)) + (carry >> U64(32))
-    return U64(hi), U64(lo)
-
+from .interpreter_numba import umul64wide_jit
 
 
 @cc.export('umul64wide', types.UniTuple(uint64, 2)(uint64, uint64))
 def umul64wide_aot(a: U64, b: U64) -> (U64, U64):
-    return _umul64wide_impl(a, b)
+    return umul64wide_jit(a, b)
 
 
 @cc.export('imul64wide', types.UniTuple(uint64, 2)(int64, int64))
@@ -197,7 +176,7 @@ def imul64wide_aot(a: I64, b: I64) -> (U64, U64):
     """Signed 64x64 -> (hi, lo) representing 128-bit two's-complement product."""
     ua = U64(a)  # reinterpret
     ub = U64(b)
-    hi, lo = _umul64wide_impl(ua, ub)
+    hi, lo = umul64wide_jit(ua, ub)
     # Adjust high word for two's-complement signs (see Hacker's Delight)
     if a < 0:
         hi = U64(hi - ub)
@@ -210,7 +189,7 @@ def imul64wide_aot(a: I64, b: I64) -> (U64, U64):
 def smul_u64wide_aot(a: I64, b: U64) -> (U64, U64):
     """Signed * Unsigned -> (hi, lo), two's-complement."""
     ua = U64(a)
-    hi, lo = _umul64wide_impl(ua, b)
+    hi, lo = umul64wide_jit(ua, b)
     if a < 0:
         hi = U64(hi - b)
     return U64(hi), U64(lo)
@@ -2204,21 +2183,21 @@ def invoke_native_aot(
 
             elif opcode == op_mul_upper_s_s:
                 # TODO!!!!!!!!!!!!!!!!!!
-                hi, lo = imul64wide_jit(I64(w_a), I64(w_b))
+                hi, lo = imul64wide_aot(I64(w_a), I64(w_b))
                 reg[r_d] = pvm_Z_inv_aot(I64(hi), U8(8))
                 if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_u_u:
                 # TODO!!!!!!!!!!!!!!!!!!
-                hi, lo = umul64wide_jit(w_a, w_b)
+                hi, lo = umul64wide_aot(w_a, w_b)
                 reg[r_d] = hi
                 if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_s_u:
                 # TODO!!!!!!!!!!!!!!!!!!
-                hi, lo = smul_u64wide_jit(I64(w_a), w_b)
+                hi, lo = smul_u64wide_aot(I64(w_a), w_b)
                 reg[r_d] = pvm_Z_inv_aot(I64(hi), U8(8))
                 if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
