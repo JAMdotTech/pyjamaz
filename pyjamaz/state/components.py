@@ -266,12 +266,11 @@ class Safrole(StateComponent):
 
     def __init__(
         self,
-        storage_engine: StorageEngine,
         block_context: BlockContext,
         app_context: AppContext,
         ring_data: bytes
     ):
-        super().__init__(storage_engine, block_context, app_context)
+        super().__init__(block_context, app_context)
         self.ring_data = ring_data
         self.post_state_safrole = None
 
@@ -1911,7 +1910,7 @@ class Services(StateComponent):
         # TODO: check GP-0.7.0-eq:4.16; needs attention and refactoring
 
         services = ServicesState(services=deepcopy(pre_state_services.services))
-        services.set_storage_engine(self.storage_engine)
+        services.set_storage_engine(self.app_context.state)
         services.set_storage_transaction(self.app_context.transaction)
 
         accumulation_state = AccumulationStateComponents(
@@ -1991,7 +1990,7 @@ class Services(StateComponent):
         intermediate_state_after_transfers = ServicesState(
             services=deepcopy(intermediate_state_after_accumulation.services)
         )
-        intermediate_state_after_transfers.set_storage_engine(self.storage_engine)
+        intermediate_state_after_transfers.set_storage_engine(self.app_context.transaction)
         intermediate_state_after_transfers.set_storage_transaction(self.app_context.transaction)
 
         deferred_transfer_statistics = {}

@@ -8,6 +8,7 @@ from pyjamaz.models.block import GuarantorAssignment, Header, AccumulationStatis
 from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMap, EntropyState, TimeslotState, \
     ValidatorPoolState, ValidatorArchiveState, AccumulationHistoryState, AccumulationQueueState
+from pyjamaz.state.base import HistoricalState
 
 from pyjamaz.storage import Transaction
 from pyjamaz.transport.pubsub import PubSub
@@ -18,7 +19,7 @@ from pyjamaz.utils import guarantor_permute, flatten_list
 class AppContext:
     transaction: Optional[Transaction] = None
     pubsub: Optional[PubSub] = None
-
+    state: Optional[HistoricalState] = None
 
 @dataclass
 class BlockContext:
@@ -34,8 +35,10 @@ class BlockContext:
     author_bandersnatch_key: Optional[bytes] = None
     # TODO GP ref?
     seal_vrf_output: bytes = bytes(32)
+
     # GP-0.7.0-eq:5.3 (bold_A)
     ancestor_headers: List[Header] = field(default_factory=list)
+
     # R
     available_work_reports: Optional[List[WorkReport]] = None
     # R!

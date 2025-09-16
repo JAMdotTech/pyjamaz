@@ -1,14 +1,6 @@
-import json
-import os
 from typing import Optional
 
 from jamcodec.base import JamBytes
-from jamcodec.types import Vec, Tuple, H256, Bytes
-
-try:
-    import plyvel
-except ImportError:
-    plyvel = None
 
 try:
     import rocksdict
@@ -56,7 +48,16 @@ class StorageEngine:
     def dump_to_jam_bytes(self) -> JamBytes:
         raise NotImplementedError
 
-    def items(self):
+    def as_list(self):
+        raise NotImplementedError
+
+    def as_dict(self) -> dict:
+        raise NotImplementedError
+
+    def close(self):
+        raise NotImplementedError
+
+    def destroy(self):
         raise NotImplementedError
 
 
@@ -114,53 +115,17 @@ class InMemoryStorage(StorageEngine):
     def namespace(self, prefix: bytes) -> 'InMemoryStorage':
         return InMemoryStorage(storage=self.storage, prefix=prefix + b'-')
 
-    def items(self):
-        prefixed_db = {k[len(self.prefix):]: v for k, v in self.storage.items() if k.startswith(self.prefix)}
-        return list(iter(prefixed_db.items()))
+    def as_list(self):
+        return [(k[len(self.prefix):], v) for k, v in self.storage.items() if k.startswith(self.prefix)]
 
+    def as_dict(self) -> dict:
+        return {k[len(self.prefix):]: v for k, v in self.storage.items() if k.startswith(self.prefix)}
 
-class JSONTransaction(Transaction):
-    def __init__(self, json_storage: 'JSONStorage'):
+    def close(self):
+        pass
 
-        self.json_storage = json_storage
-
-    def __enter__(self):
-        return self
-
-    def put(self, key: bytes, value: bytes):
-        self.json_storage.put(key, value)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return
-
-
-class JSONStorage(StorageEngine):
-
-    def __init__(self, json_file: str):
-        super().__init__()
-        self.json_file = json_file
-
-        if not os.path.exists(self.json_file):
-            # Create the file
-            with open(self.json_file, 'w') as file:
-                file.write("{}")
-
-        with open(self.json_file, 'r') as f:
-            storage = json.load(f)
-
-            self.storage = {bytes.fromhex(k[2:]): bytes.fromhex(v[2:]) for k, v in storage.items()}
-
-    def put(self, key: bytes, value: bytes):
-        self.storage[key] = value
-        with open(self.json_file, 'w') as f:
-            serialized_storage = {f'0x{k.hex()}': f'0x{v.hex()}' for k, v in self.storage.items()}
-            json.dump(serialized_storage, f, indent=2)
-
-    def get(self, key: bytes) -> bytes:
-        return self.storage.get(key)
-
-    def transaction(self) -> JSONTransaction:
-        return JSONTransaction(self)
+    def destroy(self):
+        self.storage = {}
 
 
 class RocksDBTransaction(Transaction):
@@ -189,9 +154,10 @@ class RocksDBTransaction(Transaction):
 
 class RocksDBStorage(StorageEngine):
 
-    def __init__(self, db, namespace: Optional[str] = None):
+    def __init__(self, db, db_path, namespace: Optional[str] = None):
         super().__init__()
         self.db = db
+        self.db_path = db_path
 
         if namespace is not None:
             self.column_family = db.get_column_family_handle(namespace)
@@ -199,7 +165,7 @@ class RocksDBStorage(StorageEngine):
             self.column_family = None
 
     @classmethod
-    def create_from_file(cls, db_file: str) -> 'RocksDBStorage':
+    def create_from_file(cls, db_path: str) -> 'RocksDBStorage':
         if rocksdict is None:
             raise ImportError('rocksdict not installed')
 
@@ -207,9 +173,9 @@ class RocksDBStorage(StorageEngine):
         opts.create_if_missing(True)
         opts.create_missing_column_families(True)
 
-        db = rocksdict.Rdict(db_file, opts)
+        db = rocksdict.Rdict(db_path, opts)
 
-        return cls(db=db)
+        return cls(db=db, db_path=db_path)
 
     def put(self, key: bytes, value: bytes):
         self.db[key] = value
@@ -222,6 +188,9 @@ class RocksDBStorage(StorageEngine):
 
     def close(self):
         self.db.close()
+
+    def destroy(self):
+        rocksdict.Rdict.destroy(self.db_path)
 
     def transaction(self) -> RocksDBTransaction:
         return RocksDBTransaction(self.db, self.column_family)
@@ -236,81 +205,10 @@ class RocksDBStorage(StorageEngine):
         except Exception:
             pass  # already exists
 
-        return RocksDBStorage(self.db.get_column_family(prefix), namespace=prefix)
+        return RocksDBStorage(self.db.get_column_family(prefix), self.db_path, namespace=prefix)
 
-    def items(self):
-        return list(self.db.items())
+    def as_list(self):
+        return self.as_dict().items()
 
-
-class LevelDBTransaction(Transaction):
-    def __init__(self, db):
-
-        if plyvel is None:
-            raise ImportError('plyvel not installed')
-
-        self.db = db
-        self.write_batch = None
-
-    def __enter__(self):
-        self.write_batch = self.db.write_batch(transaction=True)
-        return self
-
-    def put(self, key: bytes, value: bytes):
-        self.write_batch.put(key, value)
-
-    def delete(self, key: bytes):
-        self.write_batch.delete(key)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is None:
-            self.write_batch.write()
-        else:
-            raise TransactionRolledBack(exc_val)
-
-
-class LevelDBStorage(StorageEngine):
-
-    def __init__(self, db):
-        super().__init__()
-        self.db = db
-
-    @classmethod
-    def create_from_file(cls, db_file: str):
-        if plyvel is None:
-            raise ImportError('plyvel not installed')
-        db = plyvel.DB(db_file, create_if_missing=True)
-        return cls(db=db)
-
-    def put(self, key: bytes, value: bytes):
-        self.db.put(key, value)
-
-    def get(self, key: bytes) -> bytes:
-        return self.db.get(key)
-
-    def delete(self, key: bytes):
-        return self.db.delete(key)
-
-    def close(self):
-        self.db.close()
-
-    def transaction(self) -> LevelDBTransaction:
-        return LevelDBTransaction(self.db)
-
-    def namespace(self, prefix: bytes) -> 'LevelDBStorage':
-        return LevelDBStorage(db=self.db.prefixed_db(prefix + b'-'))
-
-    def dump_to_jam_bytes(self) -> JamBytes:
-        db_dump = [(k, v) for k, v in self.db]
-        genesis_data = Vec(Tuple(H256, Bytes)).new()
-        data = genesis_data.encode(db_dump)
-        value = genesis_data.decode(data)
-        return data
-
-    def restore_from_jam_bytes(self, data: JamBytes):
-        genesis_data = Vec(Tuple(H256, Bytes)).new()
-        genesis_data.decode(data)
-        for k, v in genesis_data:
-            self.put(bytes(k.value_object), bytes(v.value_object))
-
-    def items(self):
-        return list(self.db.__iter__())
+    def as_dict(self):
+        return dict(self.db)

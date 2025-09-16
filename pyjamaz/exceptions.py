@@ -28,6 +28,9 @@ class BlockValidationErrorCode(Serializable, enum.Enum):
     bad_ticket_marker_data = 4
     bad_epoch_marker_data = 5
     bad_offender_marker_data = 6
+    no_valid_ancestor = 7
+    state_root_mismatch = 8
+    historical_state_not_found = 9
 
 
 class BlockValidationError(PyjamazAppError):

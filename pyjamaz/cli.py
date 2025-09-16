@@ -88,6 +88,7 @@ def wrap_cli_import_block(traces_dir):
             # Rollback state
             logging.error(f'Import failed for #{block.header.timeslot} -> {e}; Rollback state')
             logging.debug(traceback.format_exc())
+            self.historical_state.rollback()
             self.state = self.retrieve_jam_state()
 
     return cli_import_block
@@ -549,63 +550,76 @@ async def replay_traces(
         if block_file.parent != last_parent:
 
             # Flush DB
-            for key, _ in app.state_db.items():
+            for key, _ in app.state_db.as_list():
                 app.state_db.delete(key)
+
+            # Clear pending changesets
+            app.historical_state.clear()
+
+            # Add stub parent as ancestor TODO still needed?
+            stub_parent = Header.default()
+            stub_parent.hash = trace.block.header.parent
+            stub_parent.timeslot = trace.block.header.timeslot - 1
+
+            app.historical_state.set_finalized_block_hash(stub_parent.hash)
 
             # Update state from trace pre-state
             for k, v in trace.pre_state.keyvals:
                 app.state_db.put(bytes(k), bytes(v))
 
-            app.state = app.retrieve_jam_state()
-            await app.update_state_trie()
 
-            if app.state_trie_root == trace.pre_state.state_root:
-                logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
+            await app.add_ancestor_header(stub_parent)
+            await app.store_block_header(stub_parent)
+
+            # Set finalized head
+            await app.store_finalized_head(trace.block.header.parent)
+            await app.store_block(trace.block)
+            await app.add_ancestor_header(trace.block.header)
+
+            await app.initialize(header=trace.block.header)
+
+            if app.state.state_root == trace.pre_state.state_root:
+                logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state.state_root)})')
             else:
                 logging.error("State root of pre-state doesn't match")
 
-            # Add stub parent as ancestor
-            stub_parent = Header.default()
-            stub_parent.hash = trace.block.header.parent
-            stub_parent.timeslot = trace.block.header.timeslot - 1
-            app.block_context.ancestor_headers.append(stub_parent)
-
             last_parent = block_file.parent
 
-        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
+        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash={format_hash(trace.block.header.hash)} parent={format_hash(trace.block.header.parent)} parent_state_root={format_hash(trace.block.header.parent_state_root)})')
 
         await app.import_block(trace.block, dry_run=skip_block_validation)
-        # Update Patricia Trie
-        await app.update_state_trie()
 
         logging.info(f'✅ Block {trace.block.header.timeslot} successfully imported.')
 
-        if app.state_trie_root == trace.post_state.state_root:
+        # state_root = app.historical_state.state_root()
+
+        if app.state.state_root == trace.post_state.state_root:
             logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
         else:
-            logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
+            logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state.state_root)}')
 
             # Diffing DBs
-            process_state_diff(list(app.state_db.items()), trace.post_state.keyvals)
+            process_state_diff(app.historical_state.as_list(), trace.post_state.keyvals)
 
-            state_dump_file = f'state_{block_file.name.replace(".bin", "")}.json'
 
-            with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
-                json.dump(app.state.to_json(), file, indent=2)
-            logging.info(f"Current state written to disk: {state_dump_file}")
-
-            # Update state from trace post-state
-            for k, v in trace.post_state.keyvals:
-                app.state_db.put(bytes(k), bytes(v))
-
-            app.state = app.retrieve_jam_state()
-            await app.update_state_trie()
-
-            state_dump_file = f'trace_post_{block_file.name.replace(".bin", "")}.json'
-
-            with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
-                json.dump(app.state.to_json(), file, indent=2)
-            logging.info(f"Trace post-state written to disk: {state_dump_file}")
+            # state_dump_file = f'state_{block_file.name.replace(".bin", "")}.json'
+            #
+            # with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
+            #     json.dump(app.state.to_json(), file, indent=2)
+            # logging.info(f"Current state written to disk: {state_dump_file}")
+            #
+            # # Update state from trace post-state
+            # for k, v in trace.post_state.keyvals:
+            #     app.state_db.put(bytes(k), bytes(v))
+            #
+            # app.state = app.retrieve_jam_state()
+            # # await app.update_state_trie()
+            #
+            # state_dump_file = f'trace_post_{block_file.name.replace(".bin", "")}.json'
+            #
+            # with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
+            #     json.dump(app.state.to_json(), file, indent=2)
+            # logging.info(f"Trace post-state written to disk: {state_dump_file}")
 
             if nr < len(traces_files):
                 response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
@@ -728,7 +742,7 @@ async def setup_fuzzer_session(app: PyjamazApp, fuzzer_socket_path: str):
     initial_block = app.retrieve_block(app.state.timeslot.number)
 
     request = FuzzerMessage(
-        set_state=SetStateMessage(state=list(app.state_db.items()), header=initial_block.header),
+        set_state=SetStateMessage(state=app.state_db.as_list(), header=initial_block.header),
     )
     response = await fuzzer_session.send_request(request)
 

@@ -12,20 +12,22 @@ from bandersnatch_vrfs import ietf_vrf_sign, RingContext
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
 from jamcodec.types import Vec, BitArray, U32
+from pyjamaz import settings
 
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError
+from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError, StateTransitionError, \
+    BlockValidationErrorCode, BlockValidationError
 from pyjamaz.extrinsic import BlockExtrinsicAccumulator, WorkpackageExtrinsicAccumulator
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.app import StateDump, Trace
 from pyjamaz.models.common import WorkPackage, WorkReport
 from pyjamaz.refine import work_result_computation
 from pyjamaz.settings import SOLO_MODE
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.models.context import AppContext, BlockContext
+from pyjamaz.state.base import HistoricalState
 from pyjamaz.storage import StorageEngine, Transaction
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
@@ -75,13 +77,15 @@ class PyjamazApp:
         self.import_queue: List[Block] = []
         self.pubsub:PubSub = None
 
+        self.historical_state = HistoricalState(storage_engine=self.state_db)
+
         self.block_context = BlockContext()
-        self.app_context = AppContext()
+
+        self.app_context = AppContext(state=self.historical_state)
 
         self.import_lock = asyncio.Lock()
 
         self.components = StateComponents(
-            storage_engine=self.state_db,
             config=self.config,
             block_context=self.block_context,
             app_context=self.app_context
@@ -94,7 +98,6 @@ class PyjamazApp:
         self.work_package_extrinsics = WorkpackageExtrinsicAccumulator()
 
         self.state: Optional[JamState] = None
-        self.state_trie_root = bytes(32)
 
         # Note:
         # For the import block function, we allow the option to provide a custom function (for example to augment with
@@ -165,30 +168,36 @@ class PyjamazApp:
             logging.debug(f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')
 
 
-    async def initialize(self):
-        logging.debug("Retrieving state..")
-        self.state = self.retrieve_jam_state()
-        logging.debug("Updating state trie..")
-        await self.update_state_trie()
-        logging.debug("Retrieving ancestor headers..")
-        self.block_context.ancestor_headers = self.retrieve_ancestor_headers()
+    async def initialize(self, header: Header):
 
-    def retrieve_ancestor_headers(self) -> List[Header]:
+        # Update working block hash
+        self.historical_state.set_block_hash(header.hash, header.parent)
+
+        logging.debug("Retrieving working state..")
+        # Check if parent and state root are matching current working state
+        if self.state is None or header.parent_state_root != self.state.state_root:
+            # update working state
+            logging.debug(
+                f"Updating working state to state_root={format_hash(header.parent_state_root)} to match block hash={format_hash(header.parent)}"
+                )
+            self.state = self.retrieve_jam_state()
+
+    def retrieve_ancestor_headers(self, block_hash: bytes) -> List[Header]:
         """
         GP-0.6.4-eq:5.3 | We only require implementations to store headers of ancestors which were authored in the
         previous (constant_L) = 24 hours of any block (bold_B) they wish to validate.
         """
         ancestor_headers = []
-        best_block_hash = self.retrieve_block_hash(self.state.timeslot.number)
-        if best_block_hash:
-            header = self.retrieve_block_header(best_block_hash)
-            ancestor_headers.append(header)
-            for i in range(MAXIMUM_AGE_LOOKUP_ANCHOR):
-                header = self.retrieve_block_header(header.parent)
-                if header:
-                    ancestor_headers.append(header)
-                else:
-                    break
+
+
+        header = self.retrieve_block_header(block_hash)
+        ancestor_headers.append(header)
+        for i in range(MAXIMUM_AGE_LOOKUP_ANCHOR):
+            header = self.retrieve_block_header(header.parent)
+            if header:
+                ancestor_headers.append(header)
+            else:
+                break
 
         return ancestor_headers
 
@@ -211,10 +220,12 @@ class PyjamazApp:
             statistics=self.components.statistics.retrieve_state(),
             accumulation_queue=self.components.accumulation_queue.retrieve_state(),
             accumulation_history=self.components.accumulation_history.retrieve_state(),
-            recent_accumulation_outputs = self.components.recent_accumulation_output.retrieve_state()
+            recent_accumulation_outputs = self.components.recent_accumulation_output.retrieve_state(),
+            block_hash=self.historical_state.block_hash,
+            state_root=self.historical_state.state_root(),
         )
         # Set storage engine for services
-        jam_state.services.set_storage_engine(self.state_db)
+        jam_state.services.set_storage_engine(self.historical_state)
         return jam_state
 
     @log_execution_time
@@ -247,8 +258,9 @@ class PyjamazApp:
         TODO create separate DB and only update affected branches for performance; now the whole state have to be
           in memory
         """
-        state_trie = PatriciaMerkleTrie(list(self.state_db.items()))
-        self.state_trie_root = state_trie.root()
+        # state_trie = PatriciaMerkleTrie(self.state_db.as_list())
+        # self.state_trie_root = state_trie.root()
+        raise DeprecationWarning()
 
     def is_epoch_change(self, slotnumber: int = None) -> bool:
         """
@@ -285,9 +297,29 @@ class PyjamazApp:
         STFOutput
         """
 
+        # Initial header checks
+
+        # GP-0.7.0-eq:5.7
+        if not settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK and block.header.timeslot > self.current_timeslot():
+            raise StateTransitionError(BlockValidationErrorCode.bad_slot)
+
+        #  GP-0.7.0-eq:5.4 | Check extrinsic hash
+        if block.header.extrinsic_hash != block.extrinsic.generate_extrinsic_hash():
+            raise StateTransitionError(BlockValidationErrorCode.extrinsic_hash_mismatch)
+
+        # Retrieve parent header TODO look in recent history after setting historical state
+        parent_header = self.block_context.get_parent(block.header)
+
+        if parent_header is None:
+            logging.debug(f"Parent hash {format_hash(block.header.parent)} does not has a valid ancestor")
+            raise StateTransitionError(BlockValidationErrorCode.bad_slot)
+
+        # GP-0.7.0-eq:5.7
+        if block.header.timeslot <= parent_header.timeslot:
+            raise StateTransitionError(BlockValidationErrorCode.bad_slot)
+
         # Reset block context
         self.block_context.reset()
-        self.block_context.state_root = self.state_trie_root
 
         if not produce:
             # todo refactor
@@ -298,6 +330,14 @@ class PyjamazApp:
 
         # Set up validation
         block_validation = BlockValidation(self.block_context)
+
+        await self.initialize(header=block.header)
+
+        if block.header.parent_state_root != self.state.state_root:
+            logging.debug(f"Parent state root {format_hash(block.header.parent_state_root)} does not match with working state {format_hash(self.state.state_root)}")
+            raise BlockValidationError(BlockValidationErrorCode.state_root_mismatch)
+
+        self.block_context.state_root = self.state.state_root
 
         # Set components pre-state
         pre_state_timeslot = self.state.timeslot
@@ -318,7 +358,7 @@ class PyjamazApp:
         pre_state_services = ServicesState(services={})
 
         # Set storage engine for services
-        pre_state_services.set_storage_engine(self.state_db) # TODO remove
+        pre_state_services.set_storage_engine(self.historical_state) # TODO remove
         pre_state_services.set_storage_transaction(transaction)
 
         # Validate quality of dispute extrinsic data
@@ -424,13 +464,25 @@ class PyjamazApp:
         )
 
         if produce:
+            # Create marker data
             block.header.epoch_marker = safrole_output.epoch_mark
             block.header.tickets_marker = safrole_output.tickets_mark
             block.header.offenders_marker = disputes_output.offenders_mark
 
+            # Create seal
             block.header.seal = self.generate_block_seal(
                 block.header, safrole_output.post_state, entropy_output.post_state
             )
+        else:
+            # Check marker data
+            if block.header.tickets_marker and block.header.tickets_marker != safrole_output.tickets_mark:
+                raise ValueError(BlockValidationErrorCode.bad_ticket_marker_data)
+
+            if block.header.epoch_marker != safrole_output.epoch_mark:
+                raise ValueError(BlockValidationErrorCode.bad_epoch_marker_data)
+
+            if block.header.offenders_marker != disputes_output.offenders_mark:
+                raise ValueError(BlockValidationErrorCode.bad_offender_marker_data)
 
 
         # Assurances After Assurances STF Block Data | GP-0.5.0-eq:4.14
@@ -606,6 +658,10 @@ class PyjamazApp:
         # TODO only set local memory self.state not write to DB if not finalized
         await self.store_jam_state(transaction)
 
+        self.historical_state.commit()
+
+        self.state.state_root = self.historical_state.state_root()
+
         return STFOutput(
             epoch_mark=safrole_output.epoch_mark,
             tickets_mark=safrole_output.tickets_mark,
@@ -613,12 +669,9 @@ class PyjamazApp:
         )
 
     @log_execution_time
-    async def process_block(self, block: Block):
-        # Update Patricia Trie
-        await self.update_state_trie()
+    async def add_ancestor_block(self, block: Block):
 
-        # Add header to ancestors
-        self.block_context.ancestor_headers.append(block.header)
+        await self.add_ancestor_header(block.header)
 
         await self.store_block(block)
 
@@ -628,13 +681,23 @@ class PyjamazApp:
             await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.state.statistics.to_jam_bytes().to_bytes())))
 
     @log_execution_time
+    async def add_ancestor_header(self, header: Header):
+
+        # Add header to ancestors
+        self.block_context.ancestor_headers.append(header)
+
+        # # Store historical state
+        # self.historical_state.set_block_hash(header.hash, header.parent)
+
+    @log_execution_time
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
+        # self.historical_state.set_block_hash(block.header.hash, block.header.parent)
 
-        with self.state_db.transaction() as transaction:
+        # with self.state_db.transaction() as transaction:
 
-            output = await self.state_transition(block, transaction, produce=False)
+        output = await self.state_transition(block, self.historical_state, produce=False)
 
-        await self.process_block(block)
+        await self.add_ancestor_block(block)
 
         return output
 
@@ -644,15 +707,19 @@ class PyjamazApp:
             b'block:' + block.header.timeslot.to_bytes(length=4, byteorder='little'), block.to_jam_bytes().to_bytes()
         )
 
+        await self.store_block_header(block.header)
+
+    async def store_block_header(self, header: Header):
+
         self.block_db.put(
-            b'block_header:' + block.header.hash, block.header.to_jam_bytes().to_bytes()
+            b'block_header:' + header.hash, header.to_jam_bytes().to_bytes()
         )
 
         self.block_db.put(
-            b'block_hash:' + block.header.timeslot.to_bytes(length=4, byteorder='little'), block.header.hash
+            b'block_hash:' + header.timeslot.to_bytes(length=4, byteorder='little'), header.hash
         )
         self.block_db.put(
-            b'block_number:' + block.header.hash, block.header.timeslot.to_bytes(length=4, byteorder='little')
+            b'block_number:' + header.hash, header.timeslot.to_bytes(length=4, byteorder='little')
         )
 
     def retrieve_block(self, timeslot: int) -> Optional[Block]:
@@ -671,6 +738,13 @@ class PyjamazApp:
         header_data = self.block_db.get(b'block_header:' + block_hash)
         if header_data is not None:
             return Header.from_jam_bytes(JamBytes(header_data))
+        return None
+
+    def retrieve_finalized_head(self) -> bytes:
+        return self.block_db.get(b'finalized_head')
+
+    async def store_finalized_head(self, block_hash: bytes):
+        return self.block_db.put(b'finalized_head', block_hash)
 
     def retrieve_block_hash(self, timeslot: int) -> Optional[bytes]:
         return self.block_db.get(b'block_hash:' + timeslot.to_bytes(length=4, byteorder='little'))
@@ -907,7 +981,7 @@ class PyjamazApp:
 
             await self.state_transition(block, transaction, produce=True)
 
-        await self.process_block(block)
+        await self.add_ancestor_block(block)
 
         logging.debug(f'New state root: {format_hash(self.state_trie_root)}')
 
@@ -1143,26 +1217,25 @@ class StateComponents:
 
     def __init__(
             self,
-            storage_engine: StorageEngine,
             config: AppConfig,
             block_context: BlockContext,
             app_context: AppContext
     ):
 
-        self.timeslot = Timeslot(storage_engine, block_context, app_context)
-        self.recent_history = RecentHistory(storage_engine, block_context, app_context)
-        self.entropy = Entropy(storage_engine, block_context, app_context)
-        self.disputes = Disputes(storage_engine, block_context, app_context)
-        self.assurances = Assurances(storage_engine, block_context, app_context)
-        self.validator_archive = ValidatorArchive(storage_engine, block_context, app_context)
-        self.validator_pool = ValidatorPool(storage_engine, block_context, app_context)
-        self.safrole = Safrole(storage_engine, block_context, app_context, config.ring_data)
-        self.validator_queue = ValidatorQueue(storage_engine, block_context, app_context)
-        self.statistics = Statistics(storage_engine, block_context, app_context)
-        self.services = Services(storage_engine, block_context, app_context)
-        self.authorizer_queues = AuthorizerQueues(storage_engine, block_context, app_context)
-        self.privileged_services = PrivilegedServices(storage_engine, block_context, app_context)
-        self.authorizer_pools = AuthorizerPools(storage_engine, block_context, app_context)
-        self.accumulation_queue = AccumulationQueue(storage_engine, block_context, app_context)
-        self.accumulation_history = AccumulationHistory(storage_engine, block_context, app_context)
-        self.recent_accumulation_output = RecentAccumulationLog(storage_engine, block_context, app_context)
+        self.timeslot = Timeslot(block_context, app_context)
+        self.recent_history = RecentHistory(block_context, app_context)
+        self.entropy = Entropy(block_context, app_context)
+        self.disputes = Disputes(block_context, app_context)
+        self.assurances = Assurances(block_context, app_context)
+        self.validator_archive = ValidatorArchive(block_context, app_context)
+        self.validator_pool = ValidatorPool(block_context, app_context)
+        self.safrole = Safrole(block_context, app_context, config.ring_data)
+        self.validator_queue = ValidatorQueue(block_context, app_context)
+        self.statistics = Statistics(block_context, app_context)
+        self.services = Services(block_context, app_context)
+        self.authorizer_queues = AuthorizerQueues(block_context, app_context)
+        self.privileged_services = PrivilegedServices(block_context, app_context)
+        self.authorizer_pools = AuthorizerPools(block_context, app_context)
+        self.accumulation_queue = AccumulationQueue(block_context, app_context)
+        self.accumulation_history = AccumulationHistory(block_context, app_context)
+        self.recent_accumulation_output = RecentAccumulationLog(block_context, app_context)

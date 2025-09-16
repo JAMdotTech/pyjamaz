@@ -19,10 +19,10 @@ class TestRocksDBStorage(unittest.TestCase):
 
     def setUp(self):
         # Flush DB
-        for key, _ in self.storage.namespace(b'state').items():
+        for key, _ in self.storage.namespace(b'state').as_list():
             self.storage.delete(key)
 
-        for key, _ in self.storage.namespace(b'block').items():
+        for key, _ in self.storage.namespace(b'block').as_list():
             self.storage.delete(key)
 
     async def test_state_storage(self):
@@ -56,7 +56,7 @@ class TestRocksDBStorage(unittest.TestCase):
         state_db.put(b'test3', b'state3')
         block_db.put(b'test4', b'state4')
 
-        all_items = state_db.items()
+        all_items = state_db.as_list()
 
         self.assertEqual(len(all_items), 3)
 

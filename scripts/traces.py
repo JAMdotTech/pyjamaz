@@ -89,7 +89,7 @@ async def main(traces_dir:str):
                 f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
 
             # Diffing DBs
-            process_state_diff(list(app.state_db.items()), trace.post_state.keyvals)
+            process_state_diff(list(app.state_db.as_list()), trace.post_state.keyvals)
 
             state_dump_file = f'state_{block_file.name.replace(".bin", "")}.json'
 
@@ -117,7 +117,7 @@ async def main(traces_dir:str):
                     break
 
         # Flush DB
-        for key, _ in app.state_db.items():
+        for key, _ in app.state_db.as_list():
             app.state_db.delete(key)
 
     logging.info(f'Traces finished in {time.time() - start_time} seconds')

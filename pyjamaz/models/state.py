@@ -566,7 +566,7 @@ class ServicesState(State, Serializable):
         -------
 
         """
-        if service_account_id not in self.services:
+        if service_account_id not in self.services or self.services[service_account_id] is None:
             self.services[service_account_id] = service_account
         else:
             self.services[service_account_id].update_from(service_account)
@@ -606,13 +606,10 @@ class ServicesState(State, Serializable):
 
             self.storage_transaction.delete(state_key)
 
-            del self.services[service_account_id]
+        if service_account_id in self.services:
+            self.services[service_account_id].marked_as_deleted = True
         else:
-
-            if service_account_id in self.services:
-                self.services[service_account_id].marked_as_deleted = True
-            else:
-                self.services[service_account_id] = None
+            self.services[service_account_id] = None
 
         logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
 
@@ -747,7 +744,7 @@ class ServicesState(State, Serializable):
             if self.storage_transaction is None:
                 raise ValueError('storage_transaction must be set before storing preimage data')
 
-            self.storage_engine.put(storage_key, preimage_blob)
+            self.storage_transaction.put(storage_key, preimage_blob)
 
         logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): sk={storage_key.hex()} commit={commit}')
 
@@ -1330,7 +1327,6 @@ class JamState(State, Serializable):
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
-    # TODO: add θ to state check eq:4.4
     safrole: SafroleState = field(metadata={'codec': SafroleState.to_codec_def()})
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
     entropy: EntropyState = field(metadata={'codec': EntropyState.to_codec_def()})
@@ -1346,6 +1342,8 @@ class JamState(State, Serializable):
     accumulation_queue: AccumulationQueueState = field(metadata={'codec': AccumulationQueueState.to_codec_def()})
     accumulation_history: AccumulationHistoryState = field(metadata={'codec': AccumulationHistoryState.to_codec_def()})
     recent_accumulation_outputs: BeefyCommitmentMap = field(metadata={'codec': BeefyCommitmentMap.to_codec_def()})
+    block_hash: Optional[bytes] = field(metadata={'codec': H256}, default=None)
+    state_root: Optional[bytes] = field(metadata={'codec': H256}, default=None)
 
     @classmethod
     def create_genesis_state(cls, validators: Optional[List[ValidatorData]] = None):

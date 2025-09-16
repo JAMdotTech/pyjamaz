@@ -36,6 +36,7 @@ class BlockValidation:
     def current_timeslot() -> int:
         return int(time.time() - COMMON_ERA) // SLOT_PERIOD
 
+    # TODO Separate into chunks to different StateComponents
     def validate_header(self,
                         header: Header,
                         post_entropy: EntropyState,
@@ -45,39 +46,7 @@ class BlockValidation:
                         extrinsic: Extrinsic,
                         ):
 
-        #  GP-0.5.4-eq:5.4 | Check extrinsic hash
-        if header.extrinsic_hash != extrinsic.generate_extrinsic_hash():
-            raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
 
-        # Check marker data
-        if header.tickets_marker and header.tickets_marker != safrole_output.tickets_mark:
-            raise ValueError(BlockValidationErrorCode.bad_ticket_marker_data)
-
-        if header.epoch_marker != safrole_output.epoch_mark:
-            raise ValueError(BlockValidationErrorCode.bad_epoch_marker_data)
-
-        if header.offenders_marker != disputes_output.offenders_mark:
-            raise ValueError(BlockValidationErrorCode.bad_offender_marker_data)
-
-        parent_header = self.block_context.get_parent(header)
-
-        if parent_header is None:
-            raise BlockValidationError(
-                f"Parent hash {header.parent.hex()} does not has valid ancestor"
-            )
-
-        # GP-0.7.0-eq:5.7
-        if header.timeslot <= parent_header.timeslot:
-            raise BlockValidationError(BlockValidationErrorCode.bad_slot)
-
-        # GP-0.7.0-eq:5.7
-        if not settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK and header.timeslot > self.current_timeslot():
-            raise BlockValidationError(BlockValidationErrorCode.bad_slot)
-
-        if header.parent_state_root != self.block_context.state_root:
-            raise BlockValidationError(
-                f"Parent state root {header.parent_state_root.hex()} does not match with  0x{self.block_context.state_root.hex()}"
-            )
 
         # Validate seal
         entropy = post_entropy.entropy[3]
