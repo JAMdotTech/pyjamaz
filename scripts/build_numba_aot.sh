@@ -4,22 +4,45 @@ echo "Building Numba AOT PVM interpreter (warm-up compile)"
 echo "====================================================="
 
 SCRIPT_DIR="$( cd -- "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
-NUMBA_DIR="${SCRIPT_DIR}/pyjamaz/pvm/numba/__pycache__"
+PKG_ROOT="${SCRIPT_DIR}/.."                 # .../pyjamaz
+SRC_DIR="${PKG_ROOT}/pyjamaz/pvm/numba"     # .../pyjamaz/pyjamaz/pvm/numba
 
 echo "Script dir: ${SCRIPT_DIR}"
-echo "Numba dir : ${NUMBA_DIR}"
+echo "Package  : ${PKG_ROOT}"
+echo "Source   : ${SRC_DIR}"
 
-if [ ! -d "${NUMBA_DIR}" ]; then
-  echo "✗ Numba directory not found at ${NUMBA_DIR}"
-  # Do not exit the terminal session; just return a non-zero code from the script
+if [ ! -d "${SRC_DIR}" ]; then
+  echo "✗ Source directory not found at ${SRC_DIR}"
   return 1 2>/dev/null || exit 1
 fi
 
 echo ""
 echo "Cleaning old builds/caches..."
-( cd "${NUMBA_DIR}" && rm -f *.so *.pyd *.dll interpreter_numba_aot*.c interpreter_numba_aot*.h ) || true
+# Be robust when sourced from zsh (no matches) by disabling globbing temporarily
+(
+  set -f
+  cd "${SRC_DIR}" 2>/dev/null && rm -f *.so *.pyd *.dll pvm_numba_aot*.c pvm_numba_aot*.h interpreter_numba_aot*.c interpreter_numba_aot*.h || true
+  set +f
+) || true
 
+
+echo ""
+echo "Activating virtualenv (if provided) and setting PYTHONPATH..."
+# Allow override via VENV_ACTIVATE env var; else use user-provided default
+VENV_ACTIVATE_DEFAULT="/Users/matthijsblaas/.venvs/pyjamaz/bin/activate"
+VENV_ACTIVATE_PATH="${VENV_ACTIVATE:-$VENV_ACTIVATE_DEFAULT}"
+if [ -f "$VENV_ACTIVATE_PATH" ]; then
+  # shellcheck source=/dev/null
+  . "$VENV_ACTIVATE_PATH"
+  echo "✓ Activated venv at $VENV_ACTIVATE_PATH"
+else
+  echo "⚠️  No venv found at $VENV_ACTIVATE_PATH (continuing with system python)"
+fi
+
+# Match user's instructions: run from ${PKG_ROOT} and set PYTHONPATH=.
+cd "${PKG_ROOT}" || exit 1
+export PYTHONPATH=.
+echo "PWD=$(pwd) PYTHONPATH=${PYTHONPATH}"
 
 echo ""
 echo "Warming up JIT cache via pyjamaz.pvm.numba.aot ..."
@@ -34,8 +57,9 @@ else
 fi
 
 echo ""
-echo "Cached files (if any):"
-ls -la "${NUMBA_DIR}/__pycache__" 2>/dev/null || echo "No __pycache__ found yet"
+echo "Cached/compiled files (if any):"
+ls -la "${SRC_DIR}" 2>/dev/null || true
+find "${PKG_ROOT}" -maxdepth 3 -type f \( -name 'pvm_numba_aot*.*' -o -name 'interpreter_numba_aot*.*' -o -name '*.so' -o -name '*.pyd' -o -name '*.dll' \) 2>/dev/null || true
 
 echo ""
 echo "Done."

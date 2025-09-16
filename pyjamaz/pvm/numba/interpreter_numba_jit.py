@@ -1,8 +1,7 @@
 """
-An optimized PVM interpreter using Numba to compile the PVM interpreter loop & functions.
+An optimized PVM interpreter using Numba JIT compiler for the main loop & functions.
 """
-import os
-
+#TODO: share met andere files/constants and types!!!
 #TODO: signatures toevoegen aan njit decorator
 #TODO: port de opcodes vd laatste versie van mb-pvm-pyd
 #TODO: sort de if/else statements op frequentie dat een opcode voorkomt!
@@ -14,6 +13,7 @@ import numpy.typing as npt
 
 from numba import njit, types, objmode
 from numba.typed import Dict, List
+
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 from ..rpython.interpreter_rpython import PVMInterpreter as PVMInterpreterBase
@@ -808,7 +808,7 @@ def invoke(
         _typed_logging = Dict.empty(key_type=types.int64, value_type=types.unicode_type)
         logging = _typed_logging
 
-    error_code = invoke_native(
+    error_code = invoke_native_jit(
         np.uint32(pc_start_u32),       # uint32
         np.int64(gas_start_i64),       # int64
         np.uint32(inst_start_u32),     # uint32
@@ -984,7 +984,7 @@ def log(
     int64[::1],      # state_out
     int32[::1],      # heap_grew_out
 ), cache=NUMBA_CACHE)
-def invoke_native(
+def invoke_native_jit(
         pc_start, gas_start, inst_start, initial_skip_len,
         code, code_size,
         inst_pos_keys, inst_pos_vals, inst_arg_len, pc_to_inst_index,
@@ -2492,7 +2492,7 @@ class PVMInterpreter(PVMInterpreterBase):
         mem_ops_bytes_int64 = np.asarray(self.mem_ops_bytes, dtype=np.int64, order='C')
 
         # Call JIT-compiled function
-        error_code = invoke_native(
+        error_code = invoke_native_jit(
             np.uint32(self.pc), np.int64(self.gas), np.uint32(self.inst_nr), np.uint32(int(self.skip_len)),
             self.code, np.uint32(self.code_size),
             self.inst_pos_keys, self.inst_pos_vals, self.inst_arg_len_array, self.pc_to_inst_index,

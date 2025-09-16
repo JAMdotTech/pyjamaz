@@ -1,155 +1,78 @@
-# import numpy as np
+# # Minimal AOT wrapper that relies on interpreter_numba_jit for implementations.
+# # Build with:  python -m pyjamaz.pvm.numba.interpreter_numba_aot2
+# # Produces:    interpreter_numba_aot2.* (shared object next to this file)
 #
 # from numba import types
-# from numba import uint8, uint32, int32, uint64, int64, boolean
-# from numba.typed import Dict, List
-# from numba import config as numba_config
+# from numba.pycc import CC
 #
-# u8_array_1d = types.Array(uint8, 1, 'C')
-# u8_array_list = types.ListType(u8_array_1d)
-# acl_dict_type = types.DictType(uint64, int32)
+# # ---- Export container ----
+# cc = CC('interpreter_numba_aot2')
 #
-# from .interpreter_numba import (
-#         umul64wide,
-#         imul64wide,
-#         smul_u64wide,
-#         rori64_jit,
-#         roli64_jit,
-#         rori32_jit,
-#         roli32_jit,
-#         pvm_smod_jit,
-#         pvm_rtz_div_jit,
-#         pvm_X_jit,
-#         pvm_Z_jit,
-#         count_leading_zeroes_jit,
-#         count_trailing_zeroes_jit,
-#         reverse_bytes_jit,
-#         riscv_div_jit,
-#         pvm_Z_inv_jit,
-#         read_uint_jit,
-#         mem_write_jit,
-#         mem_read_jit,
-#         sync_state_and_return,
-#         sbrk_jit,
-#         branch_jit,
-#         djump_jit,
-#         invoke_native
+# # ---- Type aliases ----
+# U8   = types.uint8
+# U32  = types.uint32
+# U64  = types.uint64
+# I32  = types.int32
+# I64  = types.int64
+#
+# U8_A1   = U8[::1]
+# U32_A1  = U32[::1]
+# U64_A1  = U64[::1]
+# I32_A1  = I32[::1]
+# I64_A1  = I64[::1]
+#
+# # Containers
+# U8_LIST        = types.ListType(U8_A1)                     # List[uint8[:]]
+# ACL_DICT_T     = types.DictType(U32, I32)                  # Dict[uint32 -> int32]
+# NAMES_DICT_T   = types.DictType(I64, types.unicode_type)   # Dict[int64  -> unicode]
+#
+# # ---- Import JIT implementations (the real logic lives here) ----
+# from .interpreter_numba_jit import (
+#     invoke_native_jit,
+# )
+#
+# # =========================
+# # Minimal required exports
+# # =========================
+#
+# # Export only the main entry point for the interpreter. The body delegates to the JIT function.
+# # Keep this signature EXACTLY in sync with your JIT signature.
+# @cc.export(
+#     'invoke_native',
+#     I32(                     # return: int32 error_code
+#         U32, I64, U32, U32,  # pc, gas, inst_nr, skip_len
+#         U8_A1, U32,          # code, code_size
+#         I32_A1, I32_A1, I32_A1, I32_A1, I32_A1, I32_A1,  # inst_pos_keys/vals, inst_arg_len, pc->inst, opcode_scheme, jump_table
+#         I64_A1, I64_A1, I64_A1,                          # mem_ops_read/write/bytes
+#         U64_A1, U64_A1,                                  # mem_section_starts/ends  (64-bit bounds)
+#         U8_LIST,                                          # section_arrays : List[uint8[:]]
+#         ACL_DICT_T,                                       # acl_dict      : Dict[uint32,int32]
+#         U64_A1, U64_A1,                                   # heap_info, registers_in
+#         NAMES_DICT_T,                                     # opcode_names  : Dict[int64, unicode]
+#         U64_A1, I64_A1, I32_A1                            # registers_out, state_out, heap_grew_out
+#     )
+# )
+# def invoke_native(
+#     pc, gas, inst_nr, skip_len,
+#     code, code_size,
+#     inst_pos_keys, inst_pos_vals, inst_arg_len_array, pc_to_inst_index, opcode_scheme_array, jump_table_array,
+#     mem_ops_read, mem_ops_write, mem_ops_bytes,
+#     mem_section_starts, mem_section_ends, section_arrays, acl_dict,
+#     heap_info, reg, opcode_names,
+#     registers_out, state_out, heap_grew_out
+# ):
+#     # Delegate to the JIT implementation. Ensure dtypes at the call-site match this signature.
+#     return invoke_native_jit(
+#         pc, gas, inst_nr, skip_len,
+#         code, code_size,
+#         inst_pos_keys, inst_pos_vals, inst_arg_len_array, pc_to_inst_index, opcode_scheme_array, jump_table_array,
+#         mem_ops_read, mem_ops_write, mem_ops_bytes,
+#         mem_section_starts, mem_section_ends, section_arrays, acl_dict,
+#         heap_info, reg, opcode_names,
+#         registers_out, state_out, heap_grew_out
 #     )
 #
 #
-# if not numba_config.DISABLE_JIT:
-#     umul64wide.compile(types.UniTuple(uint64, 2)(uint64, uint64))
-#     imul64wide.compile(types.UniTuple(uint64, 2)(int64, int64))
-#     smul_u64wide.compile(types.UniTuple(uint64, 2)(int64, uint64))
-#     rori64_jit.compile(uint64(uint64, uint64))
-#     roli64_jit.compile(uint64(uint64, uint64))
-#     rori32_jit.compile(uint32(uint32, uint32))
-#     roli32_jit.compile(uint32(uint32, uint32))
-#     pvm_smod_jit.compile(int64(int64, int64))
-#     pvm_rtz_div_jit.compile(int64(int64, int64))
-#     pvm_X_jit.compile(uint64(uint64, uint64))
-#     pvm_Z_jit.compile(int64(uint64, uint64))
-#     count_leading_zeroes_jit.compile(uint64(uint64, uint8))
-#     count_trailing_zeroes_jit.compile(uint64(uint64, uint8))
-#     reverse_bytes_jit.compile(uint64(uint64,))
-#     riscv_div_jit.compile(int64(int64, int64))
-#     pvm_Z_inv_jit.compile(uint64(int64, uint8))
-#     read_uint_jit.compile(uint64(uint8[::1], uint32, uint8))
-#
-#     mem_write_jit.compile(int32(
-#         uint64,   # addr
-#         uint64,         # value
-#         uint8,          # bytes_to_write
-#         uint32[::1],    # section_starts
-#         uint32[::1],    # section_ends
-#         u8_array_list,  # section_arrays
-#         acl_dict_type   # acl_dict
-#     ))
-#
-#     mem_read_jit.compile(types.Tuple((int32, uint64))(
-#         uint64,  # addr
-#         uint8,  # bytes_to_write
-#         uint32[::1],  # section_starts
-#         uint32[::1],  # section_ends
-#         u8_array_list,  # section_arrays
-#         acl_dict_type  # acl_dict
-#     ))
-#
-#     sync_state_and_return.compile(uint32(
-#         uint64[::1],   # reg
-#         uint64[::1],   # registers_out
-#         int64[::1],    # state_out
-#         int64,         # status
-#         int64,         # pc
-#         int64,         # gas
-#         int64,         # inst_nr
-#         int64,         # exit_value
-#         uint32,        # skip_len
-#         uint32,        # error_code
-#     ))
-#
-#     sbrk_jit.compile(types.Tuple((uint64, int32))(
-#         uint64,         # size
-#         uint64,         # current_heap_ptr
-#         uint64,         # next_section_start
-#         acl_dict_type,  # Dict[uint64 -> int32]
-#         int64,          # mem_writable
-#         u8_array_list,  # List[uint8[:]]
-#         uint32[::1],    # section_starts
-#     ))
-#
-#     branch_jit.compile(int32(
-#         uint32,       # pc
-#         int64,        # offset
-#         boolean,      # condition
-#         int32[::1],   # pc_to_inst_index
-#     ))
-#
-#     djump_jit.compile(int32(
-#         uint32,       # a
-#         uint32[::1],  # jump_table (PC targets)
-#         uint32,       # pc
-#         int32[::1],   # pc_to_inst_index (dense map)
-#     ))
-#
-#     invoke_native.compile(int32(
-#         # core state
-#         uint32,          # pc
-#         int64,           # gas
-#         uint32,          # inst_nr
-#         uint32,          # skip_len
-#
-#         # code + index structures
-#         uint8[::1],      # code
-#         uint32,          # code_size
-#         int32[::1],      # inst_pos_keys
-#         int32[::1],      # inst_pos_vals
-#         int32[::1],      # inst_arg_len_array
-#         int32[::1],      # pc_to_inst_index
-#         int32[::1],      # opcode_scheme_array (len 256)
-#         int32[::1],      # jump_table_array
-#
-#         # mem-op counters (pass as 1-D arrays so they can be updated in-place)
-#         int64[::1],      # mem_ops_read
-#         int64[::1],      # mem_ops_write
-#         int64[::1],      # mem_ops_bytes
-#
-#         # memory sections + ACL
-#         uint64[::1],     # mem_section_starts
-#         uint64[::1],     # mem_section_ends
-#         u8_array_list,   # section_arrays : List[uint8[:]]
-#         types.DictType(int64, int64),  # acl_dict
-#
-#         # heap + regs + names
-#         uint64[::1],     # heap_info (len 3)
-#         uint64[::1],     # reg (len 13)
-#         types.DictType(int64, types.unicode_type),  # opcode_names
-#
-#         # outputs
-#         uint64[::1],     # registers_out
-#         int64[::1],      # state_out
-#         int32[::1],      # heap_grew_out
-#     ))
-
-from .interpreter_numba_aot import cc
-cc.compile()
+# if __name__ == '__main__':
+#     # Build the extension module
+#     cc.compile()
