@@ -1,17 +1,18 @@
 """
-JIT-optimized PVM interpreter with Numba-compiled invoke_native function.
+An optimized PVM interpreter using Numba to compile the PVM interpreter loop & functions.
 """
 import os
 
+#TODO: signatures toevoegen aan njit decorator
 #TODO: port de opcodes vd laatste versie van mb-pvm-pyd
 #TODO: sort de if/else statements op frequentie dat een opcode voorkomt!
 
+#import time as _pytime
 
 import numpy as np
 import numpy.typing as npt
 
 from numba import njit, types, objmode
-#import time as _pytime
 from numba.typed import Dict, List
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -102,9 +103,9 @@ STATE_ERROR = 6
 # Set up Numba caching for persistent compilation
 #PVM_AOT_CACHE: str = "./pyjamaz_numba_cache"
 #_cache_dir = os.path.expanduser("./pyjamaz_numba_cache")
-# _cache_dir = os.path.expanduser("/tmp/numba-cache/")
-# os.makedirs(_cache_dir, exist_ok=True)
-# os.environ['NUMBA_CACHE_DIR'] = _cache_dir
+_cache_dir = os.path.expanduser("/tmp/numba-cache/")
+os.makedirs(_cache_dir, exist_ok=True)
+os.environ['NUMBA_CACHE_DIR'] = _cache_dir
 #os.environ['NUMBA_CACHE'] = '1'
 NUMBA_CACHE = True
 #os.environ['NUMBA_CACHE_DIR'] = _cache_dir
@@ -119,7 +120,7 @@ os.environ['NUMBA_THREADING_LAYER'] = 'sequential'
 
 
 @njit(cache=NUMBA_CACHE)
-def umul64wide(a: U64, b: U64):
+def umul64wide(a: U64, b: U64) -> (U64, U64):
     """Unsigned 64x64 -> (hi, lo) as uint64s."""
     mask32 = U64(0xFFFFFFFF)
     a_lo = a & mask32
@@ -139,7 +140,7 @@ def umul64wide(a: U64, b: U64):
 
 
 @njit(cache=NUMBA_CACHE)
-def imul64wide(a: I64, b: I64):
+def imul64wide(a: I64, b: I64) -> (U64, U64):
     """Signed 64x64 -> (hi, lo) representing 128-bit two's-complement product."""
     ua = U64(a)  # reinterpret
     ub = U64(b)
@@ -153,7 +154,7 @@ def imul64wide(a: I64, b: I64):
 
 
 @njit(cache=NUMBA_CACHE)
-def smul_u64wide(a: I64, b: U64):
+def smul_u64wide(a: I64, b: U64) -> (U64, U64):
     """Signed * Unsigned -> (hi, lo), two's-complement."""
     ua = U64(a)
     hi, lo = umul64wide(ua, b)
@@ -210,7 +211,6 @@ def pvm_smod_jit(a: I64, b: I64) -> I64:
             return -((-a) % (-b))
 
 
-# @njit("int64(int64, int64)", inline="always", cache=NUMBA_CACHE)
 @njit("int64(int64, int64)", cache=NUMBA_CACHE)
 def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
     """
@@ -305,7 +305,7 @@ def pvm_Z_jit(a: U64, n: U64) -> I64:
 
 
 @njit(cache=NUMBA_CACHE)
-def count_leading_zeroes_jit(value: U64, max_bits=64):
+def count_leading_zeroes_jit(value: U64, max_bits:U8) -> U64:
     """JIT-friendly count-leading-zeroes with explicit 64-bit masking and shifts.
     Matches Python implementation for max_bits in {32,64}.
     """
@@ -333,7 +333,7 @@ def count_leading_zeroes_jit(value: U64, max_bits=64):
 
 
 @njit(cache=NUMBA_CACHE)
-def count_trailing_zeroes_jit(value: U64, max_bits=64):
+def count_trailing_zeroes_jit(value: U64, max_bits: U8) -> U64:
     """JIT-compiled count trailing zeroes."""
     if value == 0:
         return max_bits
@@ -354,6 +354,41 @@ def reverse_bytes_jit(x: U64) -> U64:
         byte = U64((x >> U64(i * 8)) & U64(0xFF))
         result |= U64(byte << U64((7 - i) * 8))
     return result
+
+
+@njit(cache=NUMBA_CACHE)
+def riscv_div_jit(a: I64, b: I64) -> I64:
+    """JIT-compiled RISC-V division."""
+    if b == 0:
+        return -1
+    return a // b
+
+
+@njit(cache=NUMBA_CACHE)
+def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
+    """
+    JIT-compiled transform signed to unsigned.
+    """
+    if n == 1:
+        if a >= 0:
+            return U64(a & 0xFF)
+        return U64((a + (1 << 8)) & 0xFF)
+    elif n == 2:
+        if a >= 0:
+            return U64(a & 0xFFFF)
+        return U64((a + (1 << 16)) & 0xFFFF)
+    elif n == 4:
+        if a >= 0:
+            return U64(a & 0xFFFFFFFF)
+        return U64((a + I64(1 << 32)) & 0xFFFFFFFF)
+    elif n == 8:
+        return U64(a)
+    else:
+        shift = n << 3
+        mask = (1 << shift) - 1
+        if a >= 0:
+            return U64(a & mask)
+        return U64((a + (1 << shift)) & mask)
 
 
 @njit(cache=NUMBA_CACHE)
@@ -400,193 +435,6 @@ def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
                 (b7 << U64(56)))
 
     raise Exception("read_uint: unsupported length")
-
-
-@njit(cache=NUMBA_CACHE)
-def riscv_div_jit(a: I64, b: I64) -> I64:
-    """JIT-compiled RISC-V division."""
-    if b == 0:
-        return -1
-    return a // b
-
-
-@njit(cache=NUMBA_CACHE)
-def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
-    """
-    JIT-compiled transform signed to unsigned.
-    """
-    if n == 1:
-        if a >= 0:
-            return U64(a & 0xFF)
-        return U64((a + (1 << 8)) & 0xFF)
-    elif n == 2:
-        if a >= 0:
-            return U64(a & 0xFFFF)
-        return U64((a + (1 << 16)) & 0xFFFF)
-    elif n == 4:
-        if a >= 0:
-            return U64(a & 0xFFFFFFFF)
-        return U64((a + I64(1 << 32)) & 0xFFFFFFFF)
-    elif n == 8:
-        return U64(a)
-    else:
-        shift = n << 3
-        mask = (1 << shift) - 1
-        if a >= 0:
-            return U64(a & mask)
-        return U64((a + (1 << shift)) & mask)
-
-
-@njit(cache=NUMBA_CACHE)
-def find_memory_section_jit(addr: U64, section_starts, section_ends) -> I32:
-    """JIT-compiled find memory section."""
-    for i in range(len(section_starts)):
-        if section_starts[i] <= addr <= section_ends[i]:
-            return I32(i)
-    return I32(-1)
-
-
-@njit(cache=NUMBA_CACHE, inline='always')
-def mem_write_cached_jit(addr: U64, value: U64, bytes_to_write: U8,
-                        section_starts, section_ends, section_arrays, acl_dict,
-                        last_write_idx: I32):
-    """
-    Cached version that tries last_write_idx first.
-    Returns (status, new_idx) where status==0 on success, -1 on fault.
-    """
-    idx = last_write_idx
-    
-    # Try cached index first
-    if idx >= 0 and idx < len(section_starts):
-        if section_starts[idx] <= addr <= section_ends[idx]:
-            # Cache hit! Skip search
-            pass
-        else:
-            # Cache miss, search
-            idx = I32(-1)
-            for i in range(len(section_starts)):
-                if section_starts[i] <= addr <= section_ends[i]:
-                    idx = I32(i)
-                    break
-    else:
-        # Invalid cache, search
-        idx = I32(-1)
-        for i in range(len(section_starts)):
-            if section_starts[i] <= addr <= section_ends[i]:
-                idx = I32(i)
-                break
-                
-    if idx < 0:
-        return I32(-1), idx
-
-    page_nr = U64(addr >> PVM_PAGE_SHIFT)
-    if acl_dict is not None:
-        if page_nr not in acl_dict:
-            return I32(-1), idx
-        if acl_dict[page_nr] < MEM_WRITABLE:
-            return I32(-1), idx
-
-    start = U64(section_starts[idx])
-    off = addr - start
-
-    a = section_arrays[idx]  # uint8[::1]
-    if off + U64(bytes_to_write) > U64(len(a)):
-        return I32(-1), idx
-    base = int(off)
-
-    if bytes_to_write == U8(1):
-        a[base] = U8(value & U64(0xFF))
-    elif bytes_to_write == U8(2):
-        a[base] = U8(value & U64(0xFF))
-        a[base + 1] = U8((value >> U64(8)) & U64(0xFF))
-    elif bytes_to_write == U8(4):
-        a[base] = U8(value & U64(0xFF))
-        a[base + 1] = U8((value >> U64(8)) & U64(0xFF))
-        a[base + 2] = U8((value >> U64(16)) & U64(0xFF))
-        a[base + 3] = U8((value >> U64(24)) & U64(0xFF))
-    elif bytes_to_write == U8(8):
-        a[base] = U8(value & U64(0xFF))
-        a[base + 1] = U8((value >> U64(8)) & U64(0xFF))
-        a[base + 2] = U8((value >> U64(16)) & U64(0xFF))
-        a[base + 3] = U8((value >> U64(24)) & U64(0xFF))
-        a[base + 4] = U8((value >> U64(32)) & U64(0xFF))
-        a[base + 5] = U8((value >> U64(40)) & U64(0xFF))
-        a[base + 6] = U8((value >> U64(48)) & U64(0xFF))
-        a[base + 7] = U8((value >> U64(56)) & U64(0xFF))
-    else:
-        return I32(-1), idx
-
-    return I32(0), idx
-
-
-@njit(cache=NUMBA_CACHE, inline='always')
-def mem_read_cached_jit(addr: U64, bytes_to_read: U8,
-                       section_starts, section_ends, section_arrays, acl_dict,
-                       last_read_idx: I32):
-    """
-    Cached version that tries last_read_idx first.
-    Returns (status, value, new_idx) where status==0 on success, -1 on fault.
-    """
-    idx = last_read_idx
-    
-    # Try cached index first
-    if idx >= 0 and idx < len(section_starts):
-        if section_starts[idx] <= addr <= section_ends[idx]:
-            # Cache hit! Skip search
-            pass
-        else:
-            # Cache miss, search
-            idx = I32(-1)
-            for i in range(len(section_starts)):
-                if section_starts[i] <= addr <= section_ends[i]:
-                    idx = I32(i)
-                    break
-    else:
-        # Invalid cache, search
-        idx = I32(-1)
-        for i in range(len(section_starts)):
-            if section_starts[i] <= addr <= section_ends[i]:
-                idx = I32(i)
-                break
-                
-    if idx < 0:
-        return I32(-1), U64(0), idx
-
-    page_nr = U64(addr >> PVM_PAGE_SHIFT)
-    if acl_dict is not None:
-        if page_nr not in acl_dict:
-            return I32(-1), U64(0), idx
-        if acl_dict[page_nr] == MEM_INACCESSIBLE:
-            return I32(-1), U64(0), idx
-
-    start = U64(section_starts[idx])
-    off = addr - start
-
-    a = section_arrays[idx]  # uint8[::1] array
-    if off + U64(bytes_to_read) > U64(len(a)):
-        return I32(-1), U64(0), idx
-    base = int(off)
-
-    if bytes_to_read == U8(1):
-        return I32(0), U64(a[base]), idx
-    elif bytes_to_read == U8(2):
-        return I32(0), (U64(a[base]) | (U64(a[base + 1]) << U64(8))), idx
-    elif bytes_to_read == U8(4):
-        return I32(0), (U64(a[base]) |
-                        (U64(a[base + 1]) << U64(8)) |
-                        (U64(a[base + 2]) << U64(16)) |
-                        (U64(a[base + 3]) << U64(24))), idx
-    elif bytes_to_read == U8(8):
-        return I32(0), (U64(a[base]) |
-                        (U64(a[base + 1]) << U64(8)) |
-                        (U64(a[base + 2]) << U64(16)) |
-                        (U64(a[base + 3]) << U64(24)) |
-                        (U64(a[base + 4]) << U64(32)) |
-                        (U64(a[base + 5]) << U64(40)) |
-                        (U64(a[base + 6]) << U64(48)) |
-                        (U64(a[base + 7]) << U64(56))), idx
-    else:
-        return I32(-1), U64(0), idx
 
 
 @njit(cache=NUMBA_CACHE)
@@ -649,7 +497,7 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
 
 @njit(cache=NUMBA_CACHE)
 def mem_read_jit(addr: U64, bytes_to_read: U8,
-                 section_starts, section_ends, section_arrays, acl_dict):
+                 section_starts, section_ends, section_arrays, acl_dict) -> (I32, U64):
     """
     Returns (status:I32, value:U64) where status==0 on success, -1 on fault.
     """
@@ -1578,22 +1426,22 @@ def invoke_native(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_leading_zero_bits_64:
-                reg[r_d] = count_leading_zeroes_jit(reg[r_a], 64)
+                reg[r_d] = count_leading_zeroes_jit(reg[r_a], U8(64))
                 if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_leading_zero_bits_32:
-                reg[r_d] = count_leading_zeroes_jit(reg[r_a] % (2 ** 32), 32)
+                reg[r_d] = count_leading_zeroes_jit(reg[r_a] % (2 ** 32), U8(32))
                 if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_trailing_zero_bits_64:
-                reg[r_d] = count_trailing_zeroes_jit(reg[r_a], 64)
+                reg[r_d] = count_trailing_zeroes_jit(reg[r_a], U8(64))
                 if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_trailing_zero_bits_32:
-                reg[r_d] = count_trailing_zeroes_jit(reg[r_a] % (2 ** 32), 32)
+                reg[r_d] = count_trailing_zeroes_jit(reg[r_a] % (2 ** 32), U8(32))
                 if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 

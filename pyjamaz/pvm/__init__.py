@@ -19,8 +19,16 @@
 # from .cpython.defs import *
 # from .cpython.types import *
 # from .cpython.interpreter_cpython import *
+#
+# import os
+# os.environ.pop("NUMBA_DISABLE_JIT", None)
+#
+# from numba import config
+# config.DISABLE_JIT = False
+
 
 from .numba.defs import *
 from .numba.types import *
 from .numba.types import *
 from .numba.interpreter_numba import *
+from .numba.aot import *

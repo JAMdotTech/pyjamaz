@@ -17,11 +17,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY ./pyjamaz ./pyjamaz
 
 # Compile app and remove source code
-RUN python -m compileall -b ./pyjamaz && \
-    find ./pyjamaz -name "*.py" -type f -delete
+#RUN python -m compileall -b ./pyjamaz && \
+#    find ./pyjamaz -name "*.py" -type f -delete
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/app"
 
-ENTRYPOINT ["python", "pyjamaz/cli.pyc"]
+ENTRYPOINT ["python", "pyjamaz/cli.py"]

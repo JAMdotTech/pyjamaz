@@ -37,6 +37,10 @@ from pyjamaz.transport.protocol_jamnp_s import JAMNPS
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import format_hash, quic_peer_id
 
+
+from pyjamaz.pvm import *
+
+
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
 
