@@ -2486,13 +2486,18 @@ class PVMInterpreter(PVMInterpreterBase):
             for _k, _v in OpcodeNames.items():
                 opcode_names[int(_k)] = _v
 
+        # Convert mem_ops arrays to int64 for JIT compatibility
+        mem_ops_read_int64 = np.asarray(self.mem_ops_read, dtype=np.int64, order='C')
+        mem_ops_write_int64 = np.asarray(self.mem_ops_write, dtype=np.int64, order='C')
+        mem_ops_bytes_int64 = np.asarray(self.mem_ops_bytes, dtype=np.int64, order='C')
+
         # Call JIT-compiled function
         error_code = invoke_native(
-            self.pc, self.gas, self.inst_nr, int(self.skip_len),
-            self.code, self.code_size,
+            np.uint32(self.pc), np.int64(self.gas), np.uint32(self.inst_nr), np.uint32(int(self.skip_len)),
+            self.code, np.uint32(self.code_size),
             self.inst_pos_keys, self.inst_pos_vals, self.inst_arg_len_array, self.pc_to_inst_index,
             self.opcode_scheme_array, jump_table_array,
-            self.mem_ops_read, self.mem_ops_write, self.mem_ops_bytes,
+            mem_ops_read_int64, mem_ops_write_int64, mem_ops_bytes_int64,
             mem_section_starts, mem_section_ends, section_arrays, acl_dict,
             heap_info,
             self.reg,
