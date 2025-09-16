@@ -119,7 +119,20 @@ NUMBA_CACHE = True
 # os.environ['NUMBA_THREADING_LAYER'] = 'sequential'
 
 
-@njit(cache=NUMBA_CACHE)
+
+from numba import uint8, uint32, int32, uint64, int64, boolean
+
+# Fixed-width masks to avoid NumPy %/overflow warnings
+U64_MASK = U64(0xFFFFFFFFFFFFFFFF)
+U32_MASK = U64(0xFFFFFFFF)
+
+u8_array_1d = types.Array(uint8, 1, 'C')
+u8_array_list = types.ListType(u8_array_1d)
+# Keep page numbers 32-bit
+acl_dict_type = types.DictType(uint32, int32)
+
+
+@njit(types.UniTuple(uint64, 2)(uint64, uint64), cache=NUMBA_CACHE)
 def umul64wide_jit(a: U64, b: U64) -> (U64, U64):
     """Unsigned 64x64 -> (hi, lo) as uint64s."""
     mask32 = U64(0xFFFFFFFF)
@@ -139,7 +152,7 @@ def umul64wide_jit(a: U64, b: U64) -> (U64, U64):
     return U64(hi), U64(lo)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(types.UniTuple(uint64, 2)(int64, int64), cache=NUMBA_CACHE)
 def imul64wide_jit(a: I64, b: I64) -> (U64, U64):
     """Signed 64x64 -> (hi, lo) representing 128-bit two's-complement product."""
     ua = U64(a)  # reinterpret
@@ -153,7 +166,7 @@ def imul64wide_jit(a: I64, b: I64) -> (U64, U64):
     return U64(hi), U64(lo)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(types.UniTuple(uint64, 2)(int64, uint64), cache=NUMBA_CACHE)
 def smul_u64wide_jit(a: I64, b: U64) -> (U64, U64):
     """Signed * Unsigned -> (hi, lo), two's-complement."""
     ua = U64(a)
@@ -163,31 +176,31 @@ def smul_u64wide_jit(a: I64, b: U64) -> (U64, U64):
     return U64(hi), U64(lo)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
 def rori64_jit(x: U64, shift_amount: U64) -> U64:
     """JIT-compiled rotate right for 64-bit integers."""
     return U64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
 def roli64_jit(x: U64, shift_amount: U64) -> U64:
     """JIT-compiled rotate left for 64-bit integers."""
     return U64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint32(uint32, uint32), cache=NUMBA_CACHE)
 def rori32_jit(x: U32, shift_amount: U32) -> U32:
     """JIT-compiled rotate right for 32-bit integers."""
     return U32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint32(uint32, uint32), cache=NUMBA_CACHE)
 def roli32_jit(x: U32, shift_amount: U32) -> U32:
     """JIT-compiled rotate left for 32-bit integers."""
     return U32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(int64(int64, int64), cache=NUMBA_CACHE)
 def pvm_smod_jit(a: I64, b: I64) -> I64:
     """
     JIT-compiled signed modulo operation.
@@ -210,7 +223,7 @@ def pvm_smod_jit(a: I64, b: I64) -> I64:
             return -((-a) % (-b))
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(int64(int64, int64), cache=NUMBA_CACHE)
 def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
     """
     JIT-compiled truncated division (rounds toward zero).
@@ -227,7 +240,7 @@ def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
             return (-a) // (-b)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
 def pvm_X_jit(x: U64, n: U64) -> U64:
     """JIT-compiled sign extension."""
     # TODO: cast nodig?
@@ -275,7 +288,7 @@ def pvm_X_jit(x: U64, n: U64) -> U64:
         return U64(x)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(int64(uint64, uint64), cache=NUMBA_CACHE)
 def pvm_Z_jit(a: U64, n: U64) -> I64:
     """JIT-friendly unsigned->signed conversion for n bytes (1..8).
     Returns I64 with proper two's-complement sign extension without Python big-ints.
@@ -303,7 +316,7 @@ def pvm_Z_jit(a: U64, n: U64) -> I64:
         return I64(val)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint8), cache=NUMBA_CACHE)
 def count_leading_zeroes_jit(value: U64, max_bits:U8) -> U64:
     """JIT-friendly count-leading-zeroes with explicit 64-bit masking and shifts.
     Matches Python implementation for max_bits in {32,64}.
@@ -331,7 +344,7 @@ def count_leading_zeroes_jit(value: U64, max_bits:U8) -> U64:
     return count
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint8), cache=NUMBA_CACHE)
 def count_trailing_zeroes_jit(value: U64, max_bits: U8) -> U64:
     """JIT-compiled count trailing zeroes."""
     if value == 0:
@@ -345,7 +358,7 @@ def count_trailing_zeroes_jit(value: U64, max_bits: U8) -> U64:
     return count
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(uint64), cache=NUMBA_CACHE)
 def reverse_bytes_jit(x: U64) -> U64:
     """JIT-compiled reverse bytes."""
     result = U64(0)
@@ -355,7 +368,7 @@ def reverse_bytes_jit(x: U64) -> U64:
     return result
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(int64(int64, int64), cache=NUMBA_CACHE)
 def riscv_div_jit(a: I64, b: I64) -> I64:
     """JIT-compiled RISC-V division."""
     if b == 0:
@@ -363,7 +376,7 @@ def riscv_div_jit(a: I64, b: I64) -> I64:
     return a // b
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(int64, uint8), cache=NUMBA_CACHE)
 def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
     """
     JIT-compiled transform signed to unsigned.
@@ -390,7 +403,7 @@ def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
         return U64((a + (1 << shift)) & mask)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(uint8[::1], uint32, uint8), cache=NUMBA_CACHE)
 def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
     addr32 = U32(addr)  # wrap to 32-bit address space
     len8 = U8(length)
@@ -436,7 +449,15 @@ def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
     raise Exception("read_uint: unsupported length")
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(int32(
+    uint64,       # addr
+    uint64,       # value
+    uint8,        # bytes_to_write
+    uint32[::1],  # section_starts
+    uint32[::1],  # section_ends
+    u8_array_list,# section_arrays
+    acl_dict_type # acl_dict
+), cache=NUMBA_CACHE)
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays, acl_dict) -> I32:
     """
@@ -494,7 +515,14 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     return I32(0)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(types.Tuple((int32, uint64))(
+    uint64,       # addr
+    uint8,        # bytes_to_read
+    uint32[::1],  # section_starts
+    uint32[::1],  # section_ends
+    u8_array_list,# section_arrays
+    acl_dict_type # acl_dict
+), cache=NUMBA_CACHE)
 def mem_read_jit(addr: U64, bytes_to_read: U8,
                  section_starts, section_ends, section_arrays, acl_dict) -> (I32, U64):
     """
@@ -542,7 +570,18 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
         return I32(-1), U64(0)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint32(
+    uint64[::1],  # reg
+    uint64[::1],  # registers_out
+    int64[::1],   # state_out
+    int64,        # status
+    int64,        # pc
+    int64,        # gas
+    int64,        # inst_nr
+    int64,        # exit_value
+    uint32,       # skip_len
+    uint32        # error_code
+), cache=NUMBA_CACHE)
 def sync_state_and_return(
         reg:List[U64],
         registers_out:List[U64],
@@ -567,7 +606,7 @@ def sync_state_and_return(
     return error_code
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(uint64), cache=NUMBA_CACHE)
 def _fmix64_jit(x: U64) -> U64:
     """Finalization mix (from MurmurHash3), good avalanche; JIT-safe."""
     x ^= x >> U64(33)
@@ -578,7 +617,7 @@ def _fmix64_jit(x: U64) -> U64:
     return x
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(uint8[::1]), cache=NUMBA_CACHE)
 def hash_memory_segment(section_array) -> U64:
     """
     Hash the ENTIRE memory segment (all bytes) with FNV-1a 64-bit, then fmix.
@@ -599,7 +638,7 @@ def hash_memory_segment(section_array) -> U64:
     return _fmix64_jit(h)
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(uint64(u8_array_list, int32), cache=NUMBA_CACHE)
 def get_memory_hash(section_arrays, seg_idx: I32):
     """Compute a 64-bit hash for the given memory segment (entire buffer)."""
     segment_hash = U64(0)
@@ -608,7 +647,15 @@ def get_memory_hash(section_arrays, seg_idx: I32):
     return segment_hash
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(types.Tuple((uint64, int32))(
+    uint64,
+    uint64,
+    uint64,
+    acl_dict_type,
+    int64,
+    u8_array_list,
+    uint32[::1]
+), cache=NUMBA_CACHE)
 def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
              acl_dict, mem_writable: I64, section_arrays, section_starts) -> (U64, I32):
     """JIT implementation of sbrk heap allocation with optional heap growth.
@@ -655,7 +702,7 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
     return new_heap_ptr, grew_flag
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(int32(uint32, int64, boolean, int32[::1]), cache=NUMBA_CACHE)
 def branch_jit(pc: U32, offset: I64, condition: bool, pc_to_inst_index) -> I32:
     """JIT implementation of branch with validation."""
     if condition:
@@ -670,7 +717,7 @@ def branch_jit(pc: U32, offset: I64, condition: bool, pc_to_inst_index) -> I32:
         return I32(0)  # No branch - continue
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(int32(uint32, uint32[::1], uint32, int32[::1]), cache=NUMBA_CACHE)
 def djump_jit(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
     """JIT implementation of djump with validation."""
     halt_value = U32(2 ** 32 - 2 ** 16)
@@ -821,7 +868,38 @@ def log(
     pass
 
 
-@njit(cache=NUMBA_CACHE)
+@njit(int32(
+    uint32,          # pc
+    int64,           # gas
+    uint32,          # inst_nr
+    uint32,          # skip_len
+
+    uint8[::1],      # code
+    uint32,          # code_size
+    int32[::1],      # inst_pos_keys
+    int32[::1],      # inst_pos_vals
+    int32[::1],      # inst_arg_len_array
+    int32[::1],      # pc_to_inst_index
+    int32[::1],      # opcode_scheme_array (len 256)
+    int32[::1],      # jump_table_array
+
+    int64[::1],      # mem_ops_read
+    int64[::1],      # mem_ops_write
+    int64[::1],      # mem_ops_bytes
+
+    uint64[::1],     # mem_section_starts
+    uint64[::1],     # mem_section_ends
+    u8_array_list,   # section_arrays : List[uint8[:]]
+    acl_dict_type,   # acl_dict Dict[uint32->int32]
+
+    uint64[::1],     # heap_info (len 3)
+    uint64[::1],     # reg (len 13)
+    types.DictType(int64, types.unicode_type),  # opcode_names
+
+    uint64[::1],     # registers_out
+    int64[::1],      # state_out
+    int32[::1],      # heap_grew_out
+), cache=NUMBA_CACHE)
 def invoke_native(
         pc_start, gas_start, inst_start, initial_skip_len,
         code, code_size,
