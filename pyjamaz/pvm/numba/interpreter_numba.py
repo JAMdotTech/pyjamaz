@@ -2109,7 +2109,7 @@ def invoke_native(
                 wb32 = U64(w_b) & U32_MASK
                 if wb32 == 0:
                     reg[r_d] = pvm_X_jit(U32(U64(w_a) & U32_MASK), U8(4))
-                if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
+                    if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
                                     context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     wa32 = U64(w_a) & U32_MASK
@@ -2571,6 +2571,8 @@ class PVMInterpreter(PVMInterpreterBase):
         if hasattr(self, 'mem_acl') and self.mem_acl is not None:
             # Update original ACL with any new entries from sbrk
             for page_nr in acl_dict:
-                self.mem_acl[int(page_nr)] = int(acl_dict[page_nr])
+                # Ensure page_nr is uint32 to avoid type warning
+                page_nr_u32 = np.uint32(page_nr) if not isinstance(page_nr, np.uint32) else page_nr
+                self.mem_acl[int(page_nr)] = int(acl_dict[page_nr_u32])
 
         self._sync_memory()
