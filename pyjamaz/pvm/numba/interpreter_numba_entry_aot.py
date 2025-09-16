@@ -1,14 +1,7 @@
-# Minimal AOT builder that exports only the native entrypoint and delegates
-# implementation to the JIT module. This module name is distinct from any
-# Python class wrapper to avoid import shadowing by the compiled .so.
-#
-# Build with:  python -m pyjamaz.pvm.numba.interpreter_numba_entry_aot
-# Produces:    interpreter_numba_entry_aot.* next to this file
-
 from numba import types
 from numba.pycc import CC
 
-# Export container (distinct name to avoid clobbering Python modules)
+
 cc = CC('interpreter_numba_entry_aot')
 
 # ---- Type aliases ----
@@ -29,8 +22,9 @@ U8_LIST        = types.ListType(U8_A1)                     # List[uint8[:]]
 ACL_DICT_T     = types.DictType(U32, I32)                  # Dict[uint32 -> int32]
 NAMES_DICT_T   = types.DictType(I64, types.unicode_type)   # Dict[int64  -> unicode]
 
-# ---- Import JIT implementation (the real logic lives here) ----
+
 from .interpreter_numba_jit import invoke_native_jit
+
 
 @cc.export(
     'invoke_native',
