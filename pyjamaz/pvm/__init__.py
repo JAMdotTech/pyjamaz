@@ -29,6 +29,5 @@
 
 from .numba.defs import *
 from .numba.types import *
-# from .numba.interpreter_numba import *
-# from .numba.aot import *
-from .numba.interpreter_numba_aot import *
+from .numba.interpreter_numba import *
+#from .numba.interpreter_numba_aot import *

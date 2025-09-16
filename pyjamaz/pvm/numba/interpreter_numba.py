@@ -103,9 +103,9 @@ STATE_ERROR = 6
 # Set up Numba caching for persistent compilation
 #PVM_AOT_CACHE: str = "./pyjamaz_numba_cache"
 #_cache_dir = os.path.expanduser("./pyjamaz_numba_cache")
-_cache_dir = os.path.expanduser("/tmp/numba-cache/")
-os.makedirs(_cache_dir, exist_ok=True)
-os.environ['NUMBA_CACHE_DIR'] = _cache_dir
+#_cache_dir = os.path.expanduser("/tmp/numba-cache/")
+#os.makedirs(_cache_dir, exist_ok=True)
+#os.environ['NUMBA_CACHE_DIR'] = _cache_dir
 #os.environ['NUMBA_CACHE'] = '1'
 NUMBA_CACHE = True
 #os.environ['NUMBA_CACHE_DIR'] = _cache_dir
@@ -453,8 +453,8 @@ def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
     uint64,       # addr
     uint64,       # value
     uint8,        # bytes_to_write
-    uint32[::1],  # section_starts
-    uint32[::1],  # section_ends
+    uint64[::1],  # section_starts
+    uint64[::1],  # section_ends
     u8_array_list,# section_arrays
     acl_dict_type # acl_dict
 ), cache=NUMBA_CACHE)
@@ -471,7 +471,7 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     if idx < 0:
         return I32(-1)
 
-    page_nr = U64(addr >> PVM_PAGE_SHIFT)
+    page_nr = U32(U64(addr >> PVM_PAGE_SHIFT) & U32_MASK)
     if acl_dict is not None and (page_nr not in acl_dict or acl_dict[page_nr] < MEM_WRITABLE):
         return I32(-1)
 
@@ -518,8 +518,8 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
 @njit(types.Tuple((int32, uint64))(
     uint64,       # addr
     uint8,        # bytes_to_read
-    uint32[::1],  # section_starts
-    uint32[::1],  # section_ends
+    uint64[::1],  # section_starts
+    uint64[::1],  # section_ends
     u8_array_list,# section_arrays
     acl_dict_type # acl_dict
 ), cache=NUMBA_CACHE)
@@ -654,7 +654,7 @@ def get_memory_hash(section_arrays, seg_idx: I32):
     acl_dict_type,
     int64,
     u8_array_list,
-    uint32[::1]
+    uint64[::1]
 ), cache=NUMBA_CACHE)
 def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
              acl_dict, mem_writable: I64, section_arrays, section_starts) -> (U64, I32):
@@ -718,7 +718,7 @@ def branch_jit(pc: U32, offset: I64, condition: bool, pc_to_inst_index) -> I32:
         return I32(0)  # No branch - continue
 
 
-@njit(int32(uint32, uint32[::1], uint32, int32[::1]), cache=NUMBA_CACHE)
+@njit(int32(uint32, int32[::1], uint32, int32[::1]), cache=NUMBA_CACHE)
 def djump_jit(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
     """JIT implementation of djump with validation."""
     halt_value = U32((U32(0xFFFFFFFF) - U32(0xFFFF)) & U32_MASK)
@@ -734,7 +734,7 @@ def djump_jit(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
     if jump_idx < 0 or jump_idx >= len(jump_table):
         return I32(-2)
 
-    target_pc = jump_table[jump_idx]
+    target_pc = U32(jump_table[jump_idx])
 
     # Validate target_pc via dense map
     tpi = int(target_pc)
@@ -744,112 +744,105 @@ def djump_jit(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
     return I32(target_pc - pc)  # Valid skip_len
 
 
-# @njit(cache=NUMBA_CACHE)
-# def log(
-#         opcode_names,
-#         local_state,
-#         regs,
-#         reg1=None,
-#         reg2=None,
-#         reg3=None,
-#         imm1=None,
-#         imm2=None,
-#         off1=None,
-#         off2=None,
-#         context="",
-#         mem=None,
-#         mem_starts=None,
-#         mem_ends=None):
-#
-#     inst_nr = int(local_state[0])
-#     opcode = int(local_state[1])
-#     pc = int(local_state[2])
-#     gas = int(local_state[3])
-#     start_time = float(local_state[4])
-#     """
-#     JIT-compatible logging function for instruction execution tracing.
-#     Matches the format used in the normal interpreter for consistency.
-#     """
-#     if len(opcode_names) == 0:
-#         return
-#
-#     #name = opcode_names.get(np.int64(opcode), "UNKNOWN")
-#     opcode_key = np.int64(opcode)
-#     if opcode_key in opcode_names:
-#         name = opcode_names[opcode_key]
-#     else:
-#         name = "UNKNOWN"
-#
-#     # mem_info = ""
-#     # if mem is not None and len(mem) >= 2:
-#     #     if mem_starts is not None and mem_ends is not None:
-#     #         # Compute effective lengths based on section bounds so hash reflects sbrk changes
-#     #         heap_len = int(mem_ends[1] - mem_starts[1])
-#     #         if heap_len < 0:
-#     #             heap_len = 0
-#     #         if heap_len > len(mem[1]):
-#     #             heap_len = len(mem[1])
-#     #         heap_hash = hash_memory_segment(mem[1][:heap_len])
-#     #     else:
-#     #         heap_hash = hash_memory_segment(mem[1])
-#     #     mem_info += f"heap_hash:{heap_hash}"
-#     # if mem is not None and len(mem) >= 3:
-#     #     if mem_starts is not None and mem_ends is not None:
-#     #         stack_len = int(mem_ends[2] - mem_starts[2])
-#     #         if stack_len < 0:
-#     #             stack_len = 0
-#     #         if stack_len > len(mem[2]):
-#     #             stack_len = len(mem[2])
-#     #         stack_hash = hash_memory_segment(mem[2][:stack_len])
-#     #     else:
-#     #         stack_hash = hash_memory_segment(mem[2])
-#     #     mem_info += f" stack_hash:{stack_hash}"
-#
-#     # print("inst=",inst_nr, "op=",name, "pc=",pc, "gas=",gas,
-#     #       "r1=",reg1, "r2=",reg2, "r3=",reg3,
-#     #       "imm1=",imm1, "imm2=",imm2, "off1=",off1, "off2=",off2, context, mem_info)
-#
-#     # Format opcode name with fixed width (22 chars)
-#     name_str = name
-#     name_pad = 22 - len(name_str)
-#     if name_pad > 0:
-#         name_str = name_str + (" " * name_pad)
-#
-#     # Format registers with fixed width (21 chars) for even spacing.
-#     # regs_str = ""
-#     # for i in range(len(regs)):
-#     #     s = str(regs[i])
-#     #     pad = 21 - len(s)
-#     #     if pad > 0:
-#     #         regs_str += (" " * pad) + s
-#     #     else:
-#     #         regs_str += s
-#     #     if i != len(regs) - 1:
-#     #         regs_str += " "
-#
-#     # Fixed width for inst_nr and pc (4 chars each, right-aligned)
-#     inst_str = str(inst_nr)
-#     if len(inst_str) < 4:
-#         inst_str = (" " * (4 - len(inst_str))) + inst_str
-#
-#     pc_str = str(pc)
-#     if len(pc_str) < 4:
-#         pc_str = (" " * (4 - len(pc_str))) + pc_str
-#
-#     # Compute elapsed time if start_time provided (debug; uses objmode)
-#     # if start_time > 0.0:
-#     #     with objmode(tnow='float64'):
-#     #         tnow = _pytime.perf_counter()
-#     #     dt_ms = (tnow - start_time) * 1000.0
-#     #     #print(inst_str, pc_str, name_str, regs_str, mem_info, dt_ms)
-#     #     print(inst_str, pc_str, name_str, dt_ms)
-#     # else:
-#     #     print(inst_str, pc_str, name_str, regs_str, mem_info)
-#
-#     with objmode(tnow='float64'):
-#         tnow = _pytime.perf_counter()
-#     dt_ms = (tnow - start_time) * 1000.0
-#     print(inst_str, pc_str, name_str, dt_ms)
+# --- Python wrapper for invoke_native ---
+
+def invoke(
+    pc_start, gas_start, inst_start, initial_skip_len,
+    code, code_size,
+    inst_pos_keys, inst_pos_vals, inst_arg_len_array, pc_to_inst_index,
+    opcode_scheme_array, jump_table_array,
+    mem_ops_read, mem_ops_write, mem_ops_bytes,
+    mem_section_starts, mem_section_ends, section_arrays, acl_dict,
+    heap_info, registers_in, logging,
+    registers_out, state_out, heap_grew_out
+):
+    import numpy as np
+    from numba.typed import Dict
+    from numba import types
+
+    # Ensure argument dtypes exactly match invoke_native signature (force dtype)
+    pc_start_u32 = np.uint32(pc_start)
+    gas_start_i64 = np.int64(gas_start)
+    inst_start_u32 = np.uint32(inst_start)
+    initial_skip_len_u32 = np.uint32(initial_skip_len)
+    code_size_u32 = np.uint32(code_size)
+
+    # Ensure code is uint8[::1] C-contiguous
+    if not (isinstance(code, np.ndarray) and code.dtype == np.uint8 and code.flags['C_CONTIGUOUS']):
+        code = np.asarray(code, dtype=np.uint8, order='C')
+
+    # Dense index structures must be int32[::1] C-contiguous
+    if not (isinstance(inst_pos_keys, np.ndarray) and inst_pos_keys.dtype == np.int32 and inst_pos_keys.flags['C_CONTIGUOUS']):
+        inst_pos_keys = np.asarray(inst_pos_keys, dtype=np.int32, order='C')
+    if not (isinstance(inst_pos_vals, np.ndarray) and inst_pos_vals.dtype == np.int32 and inst_pos_vals.flags['C_CONTIGUOUS']):
+        inst_pos_vals = np.asarray(inst_pos_vals, dtype=np.int32, order='C')
+    if not (isinstance(inst_arg_len_array, np.ndarray) and inst_arg_len_array.dtype == np.int32 and inst_arg_len_array.flags['C_CONTIGUOUS']):
+        inst_arg_len_array = np.asarray(inst_arg_len_array, dtype=np.int32, order='C')
+    if not (isinstance(pc_to_inst_index, np.ndarray) and pc_to_inst_index.dtype == np.int32 and pc_to_inst_index.flags['C_CONTIGUOUS']):
+        pc_to_inst_index = np.asarray(pc_to_inst_index, dtype=np.int32, order='C')
+    if not (isinstance(opcode_scheme_array, np.ndarray) and opcode_scheme_array.dtype == np.int32 and opcode_scheme_array.flags['C_CONTIGUOUS']):
+        opcode_scheme_array = np.asarray(opcode_scheme_array, dtype=np.int32, order='C')
+    if not (isinstance(jump_table_array, np.ndarray) and jump_table_array.dtype == np.int32 and jump_table_array.flags['C_CONTIGUOUS']):
+        jump_table_array = np.asarray(jump_table_array, dtype=np.int32, order='C')
+
+    # mem_ops_* must be int64[::1] (force cast)
+    mem_ops_read  = np.asarray(mem_ops_read,  dtype=np.int64, order='C')
+    mem_ops_write = np.asarray(mem_ops_write, dtype=np.int64, order='C')
+    mem_ops_bytes = np.asarray(mem_ops_bytes, dtype=np.int64, order='C')
+
+    # section bounds must be uint64[::1]
+    mem_section_starts = np.asarray(mem_section_starts, dtype=np.uint64, order='C')
+    mem_section_ends   = np.asarray(mem_section_ends,   dtype=np.uint64, order='C')
+
+    # registers and heap_info must be uint64[::1]
+    registers_in = np.asarray(registers_in, dtype=np.uint64, order='C')
+    heap_info    = np.asarray(heap_info,    dtype=np.uint64, order='C')
+
+    # outputs: registers_out:uint64[::1], state_out:int64[::1], heap_grew_out:int32[::1]
+    registers_out = np.asarray(registers_out, dtype=np.uint64, order='C')
+    state_out     = np.asarray(state_out,     dtype=np.int64,  order='C')
+    heap_grew_out = np.asarray(heap_grew_out, dtype=np.int32,  order='C')
+
+    # Ensure logging dict is a typed Dict[int64, unicode]
+    if isinstance(logging, dict):
+        _typed_logging = Dict.empty(key_type=types.int64, value_type=types.unicode_type)
+        logging = _typed_logging
+
+    error_code = invoke_native(
+        np.uint32(pc_start_u32),       # uint32
+        np.int64(gas_start_i64),       # int64
+        np.uint32(inst_start_u32),     # uint32
+        np.uint32(initial_skip_len_u32),# uint32
+
+        code,                          # uint8[::1]
+        np.uint32(code_size_u32),      # uint32
+        inst_pos_keys,                 # int32[::1]
+        inst_pos_vals,                 # int32[::1]
+        inst_arg_len_array,            # int32[::1]
+        pc_to_inst_index,              # int32[::1]
+        opcode_scheme_array,           # int32[::1]
+        jump_table_array,              # int32[::1]
+
+        mem_ops_read,                  # int64[::1]
+        mem_ops_write,                 # int64[::1]
+        mem_ops_bytes,                 # int64[::1]
+
+        mem_section_starts,            # uint64[::1]
+        mem_section_ends,              # uint64[::1]
+        section_arrays,                # List[uint8[:]]
+        acl_dict,                      # Dict[uint32, int32]
+
+        heap_info,                     # uint64[::1]
+        registers_in,                  # uint64[::1]
+        logging,                       # Dict[int64, unicode]
+
+        registers_out,                 # uint64[::1]
+        state_out,                     # int64[::1]
+        heap_grew_out,                 # int32[::1]
+    )
+    return error_code
+
+
 @njit(cache=NUMBA_CACHE)
 def log(
         opcode_names,
@@ -866,7 +859,97 @@ def log(
         mem=None,
         mem_starts=None,
         mem_ends=None):
-    pass
+
+    inst_nr = int(local_state[0])
+    opcode = int(local_state[1])
+    pc = int(local_state[2])
+    gas = int(local_state[3])
+    start_time = float(local_state[4])
+    """
+    JIT-compatible logging function for instruction execution tracing.
+    Matches the format used in the normal interpreter for consistency.
+    """
+    if len(opcode_names) == 0:
+        return
+
+    #name = opcode_names.get(np.int64(opcode), "UNKNOWN")
+    opcode_key = np.int64(opcode)
+    if opcode_key in opcode_names:
+        name = opcode_names[opcode_key]
+    else:
+        name = "UNKNOWN"
+
+    mem_info = ""
+    # if mem is not None and len(mem) >= 2:
+    #     if mem_starts is not None and mem_ends is not None:
+    #         # Compute effective lengths based on section bounds so hash reflects sbrk changes
+    #         heap_len = int(mem_ends[1] - mem_starts[1])
+    #         if heap_len < 0:
+    #             heap_len = 0
+    #         if heap_len > len(mem[1]):
+    #             heap_len = len(mem[1])
+    #         heap_hash = hash_memory_segment(mem[1][:heap_len])
+    #     else:
+    #         heap_hash = hash_memory_segment(mem[1])
+    #     mem_info += f"heap_hash:{heap_hash}"
+    # if mem is not None and len(mem) >= 3:
+    #     if mem_starts is not None and mem_ends is not None:
+    #         stack_len = int(mem_ends[2] - mem_starts[2])
+    #         if stack_len < 0:
+    #             stack_len = 0
+    #         if stack_len > len(mem[2]):
+    #             stack_len = len(mem[2])
+    #         stack_hash = hash_memory_segment(mem[2][:stack_len])
+    #     else:
+    #         stack_hash = hash_memory_segment(mem[2])
+    #     mem_info += f" stack_hash:{stack_hash}"
+
+    # print("inst=",inst_nr, "op=",name, "pc=",pc, "gas=",gas,
+    #       "r1=",reg1, "r2=",reg2, "r3=",reg3,
+    #       "imm1=",imm1, "imm2=",imm2, "off1=",off1, "off2=",off2, context, mem_info)
+
+    # Format opcode name with fixed width (22 chars)
+    name_str = name
+    name_pad = 22 - len(name_str)
+    if name_pad > 0:
+        name_str = name_str + (" " * name_pad)
+
+    # Format registers with fixed width (21 chars) for even spacing.
+    regs_str = ""
+    for i in range(len(regs)):
+        s = str(regs[i])
+        pad = 21 - len(s)
+        if pad > 0:
+            regs_str += (" " * pad) + s
+        else:
+            regs_str += s
+        if i != len(regs) - 1:
+            regs_str += " "
+
+    # Fixed width for inst_nr and pc (4 chars each, right-aligned)
+    inst_str = str(inst_nr)
+    if len(inst_str) < 4:
+        inst_str = (" " * (4 - len(inst_str))) + inst_str
+
+    pc_str = str(pc)
+    if len(pc_str) < 4:
+        pc_str = (" " * (4 - len(pc_str))) + pc_str
+
+    # Compute elapsed time if start_time provided (debug; uses objmode)
+    # if start_time > 0.0:
+    #     with objmode(tnow='float64'):
+    #         tnow = _pytime.perf_counter()
+    #     dt_ms = (tnow - start_time) * 1000.0
+    #     #print(inst_str, pc_str, name_str, regs_str, mem_info, dt_ms)
+    #     print(inst_str, pc_str, name_str, dt_ms)
+    # else:
+    #     print(inst_str, pc_str, name_str, regs_str, mem_info)
+
+    # with objmode(tnow='float64'):
+    #     tnow = _pytime.perf_counter()
+    # dt_ms = (tnow - start_time) * 1000.0
+    # print(inst_str, pc_str, name_str, dt_ms)
+    print(inst_str, pc_str, name_str, regs_str, mem_info)
 
 
 @njit(int32(
@@ -2168,7 +2251,7 @@ def invoke_native(
 
             elif opcode == op_mul_upper_s_s:
                 # TODO!!!!!!!!!!!!!!!!!!
-                hi, lo = imul64wide_aot(I64(w_a), I64(w_b))
+                hi, lo = imul64wide_jit(I64(w_a), I64(w_b))
                 reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
                 if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
