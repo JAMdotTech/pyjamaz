@@ -1,65 +1,48 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -uo pipefail
 
-echo "Building Numba AOT PVM interpreter (warm-up compile)"
-echo "====================================================="
+echo "=============================================="
+echo " Building Numba AOT PVM interpreter           "
+echo "=============================================="
 
-SCRIPT_DIR="$( cd -- "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PKG_ROOT="${SCRIPT_DIR}/.."                 # .../pyjamaz
-SRC_DIR="${PKG_ROOT}/pyjamaz/pvm/numba"     # .../pyjamaz/pyjamaz/pvm/numba
-
-echo "Script dir: ${SCRIPT_DIR}"
-echo "Package  : ${PKG_ROOT}"
-echo "Source   : ${SRC_DIR}"
-
-if [ ! -d "${SRC_DIR}" ]; then
-  echo "✗ Source directory not found at ${SRC_DIR}"
-  return 1 2>/dev/null || exit 1
+# Enable verbose tracing when DEBUG=1 is set in the environment
+if [[ "${DEBUG:-0}" == "1" ]]; then
+  set -x
 fi
 
-echo ""
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/.."
+NUMBA_DIR="$SCRIPT_DIR/pyjamaz/pvm/numba"
+
+echo "Script dir: $SCRIPT_DIR"
+echo "Numba dir : $NUMBA_DIR"
+
+echo
 echo "Cleaning old builds/caches..."
-# Be robust when sourced from zsh (no matches) by disabling globbing temporarily
-(
-  set -f
-  cd "${SRC_DIR}" 2>/dev/null && rm -f *.so *.pyd *.dll pvm_numba_aot*.c pvm_numba_aot*.h interpreter_numba_aot*.c interpreter_numba_aot*.h || true
-  set +f
-) || true
+# Safe even if there are no matches (zsh-friendly)
+find "$NUMBA_DIR" -type f \( -name 'interpreter_numba_entry_aot*.so' -o -name 'interpreter_numba_entry_aot*.pyd' -o -name 'interpreter_numba_entry_aot*.dylib' -o -name 'interpreter_numba_entry_aot*.dll' -o -name 'interpreter_numba_entry_aot*.o' -o -name 'interpreter_numba_entry_aot*.c' \) -delete 2>/dev/null || true
+rm -rf "$NUMBA_DIR/__pycache__" 2>/dev/null || true
 
-
-echo ""
-echo "Activating virtualenv (if provided) and setting PYTHONPATH..."
-# Allow override via VENV_ACTIVATE env var; else use user-provided default
-VENV_ACTIVATE_DEFAULT="/Users/matthijsblaas/.venvs/pyjamaz/bin/activate"
-VENV_ACTIVATE_PATH="${VENV_ACTIVATE:-$VENV_ACTIVATE_DEFAULT}"
-if [ -f "$VENV_ACTIVATE_PATH" ]; then
-  # shellcheck source=/dev/null
-  . "$VENV_ACTIVATE_PATH"
-  echo "✓ Activated venv at $VENV_ACTIVATE_PATH"
+echo
+echo "Compiling interpreter_numba_entry_aot..."
+echo "Started at: $(date)"
+if python -m pyjamaz.pvm.numba.interpreter_numba_entry_aot; then
+  echo "✓ AOT build completed successfully"
 else
-  echo "⚠️  No venv found at $VENV_ACTIVATE_PATH (continuing with system python)"
+  echo "⚠️  AOT build failed (continuing shell session)"
+fi
+echo "Finished at: $(date)"
+
+echo
+echo "Listing built files..."
+found="$(find "$NUMBA_DIR" -maxdepth 1 -type f -name 'interpreter_numba_entry_aot*' -print)"
+if [ -n "$found" ]; then
+  ls -lh $found
+else
+  echo "No artifacts built yet"
 fi
 
-# Match user's instructions: run from ${PKG_ROOT} and set PYTHONPATH=.
-cd "${PKG_ROOT}" || exit 1
-export PYTHONPATH=.
-echo "PWD=$(pwd) PYTHONPATH=${PYTHONPATH}"
-
-echo ""
-echo "Warming up JIT cache via pyjamaz.pvm.numba.aot ..."
-python -m pyjamaz.pvm.numba.aot || true
-#python -c "import aot_build as m" || true
-AOT_RC=$?
-if [ $AOT_RC -eq 0 ]; then
-    echo "✓ AOT warm-up completed successfully"
-else
-    echo "⚠️  AOT warm-up failed with exit code $AOT_RC (continuing)"
-    :
+# Keep the terminal open if this is an interactive TTY
+if [ -t 1 ]; then
+  echo
+  read -r -p "Press ENTER to close this window..." _
 fi
-
-echo ""
-echo "Cached/compiled files (if any):"
-ls -la "${SRC_DIR}" 2>/dev/null || true
-find "${PKG_ROOT}" -maxdepth 3 -type f \( -name 'pvm_numba_aot*.*' -o -name 'interpreter_numba_aot*.*' -o -name '*.so' -o -name '*.pyd' -o -name '*.dll' \) 2>/dev/null || true
-
-echo ""
-echo "Done."

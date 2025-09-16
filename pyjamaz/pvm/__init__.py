@@ -29,5 +29,4 @@
 
 from .numba.defs import *
 from .numba.types import *
-#from .numba.interpreter_numba_jit import *
-from .numba.interpreter_numba_aot2 import PVMInterpreter
+from .numba.interpreter_numba_aot import PVMInterpreter
