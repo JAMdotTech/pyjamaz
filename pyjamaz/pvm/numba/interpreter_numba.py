@@ -1,6 +1,8 @@
 """
 JIT-optimized PVM interpreter with Numba-compiled invoke_native function.
 """
+import os
+
 #TODO: port de opcodes vd laatste versie van mb-pvm-pyd
 #TODO: sort de if/else statements op frequentie dat een opcode voorkomt!
 
@@ -95,6 +97,20 @@ STATE_INST_NR = 3
 STATE_EXIT_VALUE = 4
 STATE_SKIP_LEN = 5
 STATE_ERROR = 6
+
+
+# Set up Numba caching for persistent compilation
+_cache_dir = os.path.expanduser(".")
+os.makedirs(_cache_dir, exist_ok=True)
+os.environ['NUMBA_CACHE_DIR'] = _cache_dir
+os.environ['NUMBA_CACHE'] = '1'
+os.environ['NUMBA_DISABLE_PERFORMANCE_WARNINGS'] = '1'
+os.environ['NUMBA_BOUNDSCHECK'] = '0'  # Disable bounds checking for speed
+os.environ['NUMBA_DISABLE_JIT'] = '0'  # Ensure JIT is enabled
+os.environ['NUMBA_OPT'] = '3'  # Maximum optimization level
+os.environ['NUMBA_EAGERNESS'] = '1'  # Compile all branches eagerly
+os.environ['NUMBA_NUM_THREADS'] = '1'  # Avoid parallel compilation issues
+os.environ['NUMBA_THREADING_LAYER'] = 'sequential'
 
 
 @njit(cache=True)
