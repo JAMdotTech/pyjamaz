@@ -38,7 +38,13 @@ from .interpreter_numba import (
 
 
 if not numba_config.DISABLE_JIT:
-    # dummy inputs for invoke_native to trigger compilation
+
+    # define some dummy arguments to trigger compilation:
+
+    dummy_acl_dict_u64_i32 = Dict.empty(key_type=uint64, value_type=int32)
+    section_starts_u32 = np.zeros(1, dtype=np.uint32)
+    section_ends_u32 = np.zeros(1, dtype=np.uint32)
+
     dummy_pc = np.uint32(0)
     dummy_gas = np.int64(0)
     dummy_inst_nr = np.uint32(0)
@@ -70,6 +76,8 @@ if not numba_config.DISABLE_JIT:
     dummy_state_out = np.zeros(5, dtype=np.int64)
     dummy_heap_grew_out = np.zeros(1, dtype=np.int32)
 
+    # Ahem... hacky, but seems to work :S
+
     umul64wide._can_compile =True
     imul64wide._can_compile =True
     smul_u64wide._can_compile =True
@@ -95,6 +103,8 @@ if not numba_config.DISABLE_JIT:
     djump_jit._can_compile =True
     invoke_native._can_compile =True
 
+
+    # Now trigger compilation with explicit function signatures:
 
     umul64wide.compile(types.UniTuple(uint64, 2)(uint64, uint64))
     imul64wide.compile(types.UniTuple(uint64, 2)(int64, int64))
@@ -208,7 +218,10 @@ if not numba_config.DISABLE_JIT:
         int64[::1],      # state_out
         int32[::1],      # heap_grew_out
     ))
-    invoke_native(
+
+    # Call each function once, which triggesr compilation
+
+    _ = invoke_native(
         dummy_pc,
         dummy_gas,
         dummy_inst_nr,
@@ -235,5 +248,43 @@ if not numba_config.DISABLE_JIT:
         dummy_state_out,
         dummy_heap_grew_out,
     )
+
+    _ = umul64wide(np.uint64(1), np.uint64(2))
+    _ = imul64wide(np.int64(-3), np.int64(4))
+    _ = smul_u64wide(np.int64(-3), np.uint64(4))
+
+    _ = rori64_jit(np.uint64(0x0123456789ABCDEF), np.uint64(7))
+    _ = roli64_jit(np.uint64(0x0123456789ABCDEF), np.uint64(13))
+    _ = rori32_jit(np.uint32(0x89ABCDEF), np.uint32(7))
+    _ = roli32_jit(np.uint32(0x89ABCDEF), np.uint32(13))
+
+    _ = pvm_smod_jit(np.int64(-123), np.int64(7))
+    _ = pvm_rtz_div_jit(np.int64(1234), np.int64(7))
+    _ = pvm_X_jit(np.uint64(0xDEADBEEF), np.uint64(0xF00D))
+    _ = pvm_Z_jit(np.uint64(0xDEADBEEF), np.uint64(0xF00D))
+    _ = count_leading_zeroes_jit(np.uint64(0x10), np.uint8(64))
+    _ = count_trailing_zeroes_jit(np.uint64(0x1000), np.uint8(64))
+    _ = reverse_bytes_jit(np.uint64(0x0102030405060708))
+    _ = riscv_div_jit(np.int64(42), np.int64(5))
+    _ = pvm_Z_inv_jit(np.int64(-17), np.uint8(64))
+
+    _ = read_uint_jit(dummy_code, np.uint32(0), np.uint8(1))
+    _ = mem_write_jit(np.uint64(0), np.uint64(0xAA), np.uint8(1),
+                      section_starts_u32, section_ends_u32,
+                      dummy_section_arrays, dummy_acl_dict_u64_i32)
+    _ = mem_read_jit(np.uint64(0), np.uint8(1),
+                     section_starts_u32, section_ends_u32,
+                     dummy_section_arrays, dummy_acl_dict_u64_i32)
+
+    _ = sync_state_and_return(dummy_reg, dummy_registers_out, dummy_state_out,
+                              np.int64(0), np.int64(0), np.int64(0),
+                              np.int64(0), np.int64(0), np.uint32(0), np.uint32(0))
+
+    _ = sbrk_jit(np.uint64(0), np.uint64(0), np.uint64(0),
+                 dummy_acl_dict_u64_i32, np.int64(1),
+                 dummy_section_arrays, section_starts_u32)
+
+    _ = branch_jit(np.uint32(0), np.int64(4), True, dummy_pc_to_inst_index)
+    _ = djump_jit(np.uint32(0), np.zeros(1, dtype=np.uint32), np.uint32(0), dummy_pc_to_inst_index)
 
     print("COMPILLLEEEEEEEEDDD")
