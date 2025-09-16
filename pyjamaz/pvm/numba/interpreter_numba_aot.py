@@ -625,8 +625,8 @@ def sync_state_and_return_aot(
     return error_code
 
 
-@njit(cache=NUMBA_CACHE)
-def _fmix64_aot(x: U64) -> U64:
+@njit(uint64(uint64), cache=NUMBA_CACHE)
+def _fmix64_jit(x: U64) -> U64:
     """Finalization mix (from MurmurHash3), good avalanche; JIT-safe."""
     x ^= x >> U64(33)
     x *= U64(0xff51afd7ed558ccd)
@@ -636,8 +636,8 @@ def _fmix64_aot(x: U64) -> U64:
     return x
 
 
-@njit(cache=NUMBA_CACHE)
-def hash_memory_segment_aot(section_array) -> U64:
+@njit(uint64(uint8[::1]), cache=NUMBA_CACHE)
+def hash_memory_segment(section_array) -> U64:
     """
     Hash the ENTIRE memory segment (all bytes) with FNV-1a 64-bit, then fmix.
     section_array: uint8[::1] NumPy array (1-D, C-contiguous).
@@ -869,6 +869,7 @@ def djump_aot(a: U32, jump_table, pc: U32, pc_to_inst_index) -> I32:
 #         tnow = _pytime.perf_counter()
 #     dt_ms = (tnow - start_time) * 1000.0
 #     print(inst_str, pc_str, name_str, dt_ms)
+@njit(cache=NUMBA_CACHE)
 def log(
         opcode_names,
         local_state,
