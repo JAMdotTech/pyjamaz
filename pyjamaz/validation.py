@@ -4,7 +4,8 @@ import time
 from pyjamaz.models.stf_output import SafroleOutput, DisputesOutput
 
 from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
-from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS, TICKET_ENTRIES
+from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS, TICKET_ENTRIES, \
+    TICKET_SUBMISSION_END_SLOT
 from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
@@ -46,6 +47,19 @@ class BlockValidation:
                         extrinsic: Extrinsic,
                         ):
 
+        #  GP-0.5.4-eq:5.4 | Check extrinsic hash
+        if header.extrinsic_hash != extrinsic.generate_extrinsic_hash():
+            raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
+
+        # Check marker data
+        if header.tickets_marker != safrole_output.tickets_mark and header.slot_phase_index == TICKET_SUBMISSION_END_SLOT:
+            raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
+
+        if header.epoch_marker != safrole_output.epoch_mark:
+            raise BlockValidationError(BlockValidationErrorCode.bad_epoch_marker_data)
+
+        if header.offenders_marker != disputes_output.offenders_mark:
+            raise BlockValidationError(BlockValidationErrorCode.bad_offender_marker_data)
 
 
         # Validate seal
@@ -57,7 +71,10 @@ class BlockValidation:
             logging.debug(
                 f'Validate ticket | Timeslot: {header.timeslot} | Ticket ID: {ticket.id.hex()} | Author: {author_key.hex()} | Entropy: {entropy.hex()} '
             )
-            self.block_context.seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
+            try:
+                self.block_context.seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
+            except ValueError:
+                raise BlockValidationError("Invalid seal key")
 
         elif safrole_output.post_state.slot_sealer_series.keys is not None:
             # Fallback method

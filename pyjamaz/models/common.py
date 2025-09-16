@@ -8,6 +8,8 @@ import ipaddress
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String
+
+from pyjamaz.exceptions import BlockValidationError
 from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import WellBalancedMerkleTree
@@ -282,7 +284,7 @@ class WorkPackage(Serializable):
     def add_work_item(self, work_item: WorkItem) -> None:
         # Check contraints
         if sum([len(w.extrinsic) for w in self.items + [work_item]]) > MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE:
-            raise ValueError(f"Too many extrinsics in this work package (max {MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE})")
+            raise BlockValidationError(f"Too many extrinsics in this work package (max {MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE})")
         self.items.append(work_item)
 
 

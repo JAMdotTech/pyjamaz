@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Tuple, Union
 
 from jamcodec.base import JamBytes
 
-from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.exceptions import StateKeyNoResult, BlockValidationError
 from pyjamaz.hashing import keccak_256_hash, blake2b_256_hash
 
 from jamcodec.mixins import Serializable
@@ -99,7 +99,7 @@ class SlotSealerSeries(Serializable):
 
     def __post_init__(self):
         if self.tickets is None and self.keys is None:
-            raise ValueError("Either tickets or keys must be set")
+            raise BlockValidationError("Either tickets or keys must be set")
 
 
 @dataclass

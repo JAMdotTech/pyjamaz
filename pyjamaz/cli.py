@@ -22,14 +22,15 @@ from pyjamaz import settings
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.fuzzer import TargetServer, FuzzerSession, FuzzerMessage, SetStateMessage
+
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace, StateDump
+from pyjamaz.models.app import Trace
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
-from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION, STORAGE_ENGINE
+from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE
 from pyjamaz.storage import InMemoryStorage, RocksDBStorage
 from pyjamaz.models.block import Block, Header, Extrinsic
+from pyjamaz.fuzzer import FuzzerMessage, SetStateMessage, FuzzerTarget, FuzzerSession
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
@@ -66,7 +67,7 @@ def ipv6_to_byte_array(ip_str:str) -> bytearray:
         raise ValueError(f"Invalid IP: {ip_str}")
 
 
-def wrap_cli_import_block(traces_dir):
+def import_block_cli(traces_dir):
     async def cli_import_block(self, block: Block, dry_run=False):
 
         if traces_dir:
@@ -94,6 +95,26 @@ def wrap_cli_import_block(traces_dir):
     return cli_import_block
 
 
+def import_block_fuzzer(traces_dir):
+    async def cli_import_block(self, block: Block, dry_run=False):
+
+        if traces_dir:
+            pre_state = await self.create_state_dump()
+
+        await self._import_block(block, dry_run=dry_run)
+
+        if traces_dir:
+            await self.store_trace(pre_state, block, traces_dir)
+
+        current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
+        current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
+
+        logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
+        logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+
+    return cli_import_block
+
+
 def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
     async def produced_block_jamnp(block: Block):
         await np_protocol.broadcast_block(block)
@@ -116,7 +137,8 @@ async def initialize_app(
         common_era=None,
         custom_db_path=None,
         record_traces=None,
-        pubsub=True
+        pubsub=True,
+        block_importer=None
 ) -> PyjamazApp:
 
     # Load SRS
@@ -152,7 +174,10 @@ async def initialize_app(
         create_traces=record_traces
     )
 
-    app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
+    if block_importer:
+        app = PyjamazApp(config=config, import_block_callback=block_importer(record_traces))
+    else:
+        app = PyjamazApp(config=config, import_block_callback=import_block_cli(record_traces))
 
     if pubsub:
         app.pubsub = PubSub()
@@ -664,7 +689,7 @@ async def fuzzer_traces(traces_dir, socket_path, verbose):
             stub_parent = Header.default()
 
             request = FuzzerMessage(
-                set_state=SetStateMessage(state=trace.pre_state.keyvals, header=stub_parent),
+                set_state=SetStateMessage(state=trace.pre_state.keyvals, header=stub_parent, ancestry=[]),
             )
             response = await fuzzer_session.send_request(request)
 
@@ -681,10 +706,12 @@ async def fuzzer_traces(traces_dir, socket_path, verbose):
         )
         response = await fuzzer_session.send_request(request)
 
-        if response.state_root == trace.post_state.state_root:
+        if response.error:
+            logging.info(f'🔍 Target reported error')
+        elif response.state_root == trace.post_state.state_root:
             logging.info(f'✅ Imported block {format_hash(trace.block.header.hash)} successfully: State root matches ({format_hash(response.state_root)})')
         else:
-            logging.error(f'Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
+            logging.error(f'🚽Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
             exit(2)
 
     logging.info(f'Fuzzer session finished in {time.time() - start_time} seconds')
@@ -720,10 +747,10 @@ async def fuzzer_target(
     # Set GP relaxation flags
     settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
 
-    app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine, pubsub=False)
+    app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine, pubsub=False, block_importer=import_block_fuzzer)
 
     try:
-        srv = TargetServer(socket_path, app)
+        srv = FuzzerTarget(socket_path, app)
         await srv.start()
     except (KeyboardInterrupt, CancelledError):
         logging.info("Stopping fuzzer...")
