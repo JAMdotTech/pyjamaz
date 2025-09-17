@@ -55,11 +55,11 @@ class TicketEnvelope(Serializable):
     def __post_init__(self):
         # Validate that attempt is a valid U8 integer
         if not isinstance(self.attempt, int) or not (0 <= self.attempt <= 255):
-            raise ValueError("Attempt must be an integer between 0 and 255")
+            raise BlockValidationError("Attempt must be an integer between 0 and 255")
 
         # Validate that signature is a valid ByteArray784
         if not isinstance(self.signature, (bytes, bytearray)) or len(self.signature) != 784:
-            raise ValueError("Signature must be a bytes object of length 784")
+            raise BlockValidationError("Signature must be a bytes object of length 784")
 
     def generate_vrf_input(self, entropy: bytes) -> bytes:
         """
@@ -403,6 +403,19 @@ class Header(Serializable):
     def hash(self, value: bytes) -> None:
         setattr(self, '_hash', value)
 
+    @property
+    def slot_phase_index(self) -> int:
+        """
+        GP-0.7.0-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot.
+
+        Returns
+        -------
+        number: int
+            Phase index into the epoch of the timeslot.
+
+        """
+        return self.timeslot % EPOCH_TIMESLOTS
+
     def verify_ticket_seal(self, bandersnatch_key: bytes, ticket_body: TicketBody, entropy: bytes) -> bytes:
         return ietf_vrf_verify(
             bytes(bandersnatch_key),
@@ -535,7 +548,7 @@ class Header(Serializable):
 
         """
         if self.author_index > len(post_state_validator_pool.validators):
-            raise ValueError("Invalid author index")
+            raise BlockValidationError("Invalid author index")
 
         setattr(self, '_author_bandersnatch_key', post_state_validator_pool.validators[self.author_index].bandersnatch)
 

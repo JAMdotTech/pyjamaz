@@ -1,15 +1,13 @@
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Type
+from typing import List, Optional
 
 import numpy as np
 import numpy.typing as npt
 
-from pyjamaz.models.common import Preimage
+from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
-from pyjamaz.pvm.debug_logger import PVMDebugLog
-from pyjamaz.pvm.duna_logger import PVMDunaLog
 from pyjamaz.pvm.types import PVMProgram, PVMMemory
 
 
@@ -173,9 +171,6 @@ class PVMInvocation:
         GP-0.7.1-eq:A.44 (Ψ_M) | Marshalling invocation function
         """
 
-        if len(argument_data) > PVM_INPUT_DATA_SIZE:
-            raise ValueError(f'argument_data too long (> {PVM_INPUT_DATA_SIZE} bytes)')
-
         self.pvm_program = PVMProgram.from_serialized_bytes(
             serialized_program=serialized_program,
             argument_contents=argument_data,
@@ -189,8 +184,7 @@ class PVMInvocation:
                 context=self.invocation_context
             )
 
-        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDunaLog)
-        #self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDebugLog)
+        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=settings.PVM_DEBUGGER)
 
         output = self.pvm_invoke_host_call(
             instruction_counter=start_offset,

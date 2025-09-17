@@ -62,20 +62,30 @@ class StorageEngine:
 
 class InMemoryTransaction(Transaction):
     def __init__(self, storage_engine: 'InMemoryStorage'):
-
+        self.tx_storage = {}
         self.storage_engine = storage_engine
 
     def __enter__(self):
+        self.tx_storage = {}
         return self
 
     def put(self, key: bytes, value: bytes):
-        self.storage_engine.put(key, value)
+        self.tx_storage[key] = value
 
     def delete(self, key: bytes):
-        self.storage_engine.delete(key)
+        self.tx_storage[key] = None
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        return
+        if exc_type is None:
+            # Commit changes
+            for key, value in self.tx_storage.items():
+                if value is None:
+                    self.storage_engine.delete(key)
+                else:
+                    self.storage_engine.put(key, value)
+        else:
+            # Discard changes
+            raise exc_val
 
 
 class InMemoryStorage(StorageEngine):
@@ -174,7 +184,7 @@ class RocksDBTransaction(Transaction):
         if exc_type is None:
             self.db.write(self.write_batch)
         else:
-            raise TransactionRolledBack(exc_val)
+            raise exc_val
 
 
 class RocksDBStorage(StorageEngine):
@@ -255,7 +265,7 @@ class LevelDBTransaction(Transaction):
         if exc_type is None:
             self.write_batch.write()
         else:
-            raise TransactionRolledBack(exc_val)
+            raise exc_val
 
 
 class LevelDBStorage(StorageEngine):

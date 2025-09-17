@@ -5,7 +5,38 @@ import numpy as np
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.pvm.constants import OpcodeNames
-from pyjamaz.pvm.types import PVMMemory, PVMLogger
+from pyjamaz.pvm.types import PVMLogger
+
+
+
+def _fmix64(x: np.uint64) -> np.uint64:
+    """Finalization mix (from MurmurHash3)"""
+    x ^= x >> np.uint64(33)
+    x *= np.uint64(0xff51afd7ed558ccd)
+    x ^= x >> np.uint64(33)
+    x *= np.uint64(0xc4ceb9fe1a85ec53)
+    x ^= x >> np.uint64(33)
+    return x
+
+
+def hash_memory_segment(section_array) -> np.uint64:
+    """
+    Hash a memory segment with FNV-1a 64-bit, then fmix.
+    section_array: uint8[::1] NumPy array (1-D, C-contiguous).
+    """
+    n = len(section_array)
+    if n == 0:
+        return np.uint64(0)
+
+    h = np.uint64(1469598103934665603)        # FNV-1a offset basis (64-bit)
+    prime = np.uint64(1099511628211)          # FNV-1a prime (64-bit)
+
+    # Process all bytes (rely on 64-bit wraparound; no modulo)
+    for i in range(n):
+        h ^= np.uint64(section_array[i])
+        h *= prime
+
+    return _fmix64(h)
 
 
 class PVMDebugLog(PVMLogger):
@@ -151,60 +182,51 @@ class PVMDebugLog(PVMLogger):
         logging.debug(f"{msg} {reg_msg}")
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
-        ctx = {"reg": self._pvm.get_registers()}
-        if context: ctx = ctx | context
+        mem_info = ""
+        if hasattr(self._pvm, "mem_sections"):
+            mem = self._pvm.mem_sections
+            if mem is not None and len(mem) >= 2 and mem[1] is not None:
+                heap_hash = hash_memory_segment(mem[1])
+                mem_info += f"heap_hash:{heap_hash}"
+            if mem is not None and len(mem) >= 3 and mem[2] is not None:
+                stack_hash = hash_memory_segment(mem[2])
+                mem_info += f" stack_hash:{stack_hash}"
+        elif hasattr(self._pvm, "mem"):
+            mem = self._pvm.mem
+            if mem and mem._heap:
+                heap_hash = hash_memory_segment(mem._heap.contents)
+                mem_info += f"heap_hash:{heap_hash}"
+            if mem and mem._stack:
+                stack_hash = hash_memory_segment(mem._stack.contents)
+                mem_info += f" stack_hash:{stack_hash}"
 
-        reg1 = reg1 or ''
-        reg2 = reg2 or ''
-        reg3 = reg3 or ''
-        imm1 = imm1 or ''
-        imm2 = imm2 or ''
-        off1 = off1 or ''
-        off2 = off2 or ''
+        name_str = OpcodeNames[self._pvm.opcode]
+        name_pad = 22 - len(name_str)
+        if name_pad > 0:
+            name_str = name_str + (" " * name_pad)
 
-        opn = OpcodeNames[self._pvm.opcode]
-        r1 = " " * (8 - len(str(self._pvm.pc)))
-        r2 = " " * (22 - len(opn))
-        r3 = " " * (4 - len(str(reg1)))
-        r33 = " " * (3 - len(str(reg1)))
-        r4 = " " * (4 - len(str(reg2)))
-        r44 = " " * (3 - len(str(reg2)))
-        r5 = " " * (4 - len(str(reg3)))
-        r55 = " " * (3 - len(str(reg3)))
-        r6 = " " * (24 - len(str(imm1)))
-        r7 = " " * (24 - len(str(imm2)))
-        r8 = " " * (24 - len(str(off1)))
-        r9 = " " * (24 - len(str(off2)))
+        regs = [int(x) for x in self._pvm.get_registers()]
+        regs_str = ""
+        for i in range(len(regs)):
+            s = str(regs[i])
+            pad = 21 - len(s)
+            if pad > 0:
+                regs_str += (" " * pad) + s
+            else:
+                regs_str += s
+            if i != len(regs) - 1:
+                regs_str += " "
 
-        if opn not in self.log_opcodes:
-            raise Exception(f"Unknown opcode {opn}")
-        else:
-            self.log_opcodes[opn] += 1
+        # Fixed width for inst_nr and pc (4 chars each, right-aligned)
+        inst_str = str(self._pvm.inst_nr)
+        if len(inst_str) < 4:
+            inst_str = (" " * (4 - len(inst_str))) + inst_str
 
-        logging.debug(
-            f"{self._pvm.pc}{r1}"
-            f"{opn}{r2}"
-            f"{reg1 and ('ω' + str(reg1) + r33) or r3}"
-            f"{reg2 and ('ω' + str(reg2) + r44) or r4}"
-            f"{reg3 and ('ω' + str(reg3) + r55) or r5}"
-            f"{imm1 and (str(imm1) + r6) or r6}"
-            f"{imm2 and (str(imm2) + r7) or r7}"
-            f"{off1 and (str(off1) + r8) or r8}"
-            f"{off2 and (str(off2) + r9) or r9}"
-            f"{str(ctx)}"
-        )
+        pc_str = str(self._pvm.pc)
+        if len(pc_str) < 4:
+            pc_str = (" " * (4 - len(pc_str))) + pc_str
 
-    # Note: Basic debug logging
-    # log_ctx = {
-    #     "_pvm": None,
-    #     "log_state": log_state,
-    #     "log_header": log_header,
-    #     # "log_footer": log_footer,
-    #     "log_func": log_opcode,
-    #     "log_dict": {},
-    #     "log_opcode_calls": True,
-    #     "log_opcode_calls_if_zero": False,
-    # }
+        print(inst_str, pc_str, name_str, regs_str, mem_info)
 
 
     def hc_log(self, msg, data):
