@@ -1,6 +1,8 @@
 from numba import types
 from numba.pycc import CC
 
+#https://numba.readthedocs.io/en/stable/reference/aot-compilation.html
+#https://numba.readthedocs.io/en/stable/cuda/caching.html
 
 cc = CC('interpreter_numba_aot_ffi')
 

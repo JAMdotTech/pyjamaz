@@ -671,23 +671,19 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
         new_heap_end = ((new_heap_ptr + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT) << PVM_PAGE_SHIFT
         growth = new_heap_end - next_page_boundary
 
-        # Grow underlying heap buffer when we exceed pre-allocated memory
-        try:
-            heap_arr = section_arrays[1]
-            base_start = section_starts[1]
-            desired_len = int(new_heap_end - base_start)
-            cur_len = len(heap_arr)
-            if desired_len > cur_len:
-                new_arr = np.zeros(desired_len, dtype=U8)
-                # todo: can we do this more efficient?
-                for i in range(cur_len):
-                    new_arr[i] = heap_arr[i]
-                section_arrays[1] = new_arr
-                grew_flag = I32(1)
-                print("SBRK GREW: "+str(desired_len))
-        except Exception:
-            # ignore growth failure in JIT; wrapper may attempt to sync
-            pass
+        heap_arr = section_arrays[1]
+        base_start = section_starts[1]
+        desired_len = int(new_heap_end - base_start)
+        cur_len = len(heap_arr)
+
+        if desired_len > cur_len:
+            # Allocate new backing buffer and copy existing heap contents
+            new_arr = np.zeros(desired_len, dtype=U8)
+            if cur_len > 0:
+                new_arr[:cur_len] = heap_arr[:cur_len]
+            section_arrays[1] = new_arr
+            grew_flag = I32(1)
+            print("SBRK GREW: " + str(desired_len))
 
         # Create ACL of new pages
         next_page_nr = U32(U64(current_heap_ptr >> PVM_PAGE_SHIFT) & U32_MASK)
