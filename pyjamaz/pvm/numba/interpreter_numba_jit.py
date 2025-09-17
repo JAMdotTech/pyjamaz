@@ -6,14 +6,21 @@ An optimized PVM interpreter using Numba JIT compiler for the main loop & functi
 #TODO: port de opcodes vd laatste versie van mb-pvm-pyd
 #TODO: sort de if/else statements op frequentie dat een opcode voorkomt!
 
-#import time as _pytime
+import time as _pytime
+
+import math
+import sqlite3
+import sys
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
 
 from numba import njit, types, objmode
 from numba.typed import Dict, List
-from numba import uint8, uint32, int32, uint64, int64, boolean
+from numba import uint8, uint32, int32, uint64, int64, boolean, float64
+
 
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -125,6 +132,51 @@ U32_MASK = U64(0xFFFFFFFF)
 u8_array_1d = types.Array(uint8, 1, 'C')
 u8_array_list = types.ListType(u8_array_1d)
 acl_dict_type = types.DictType(uint32, int32)
+
+
+STATS_DB_FILENAME = "opcode_timing_stats.sqlite3"
+
+
+def _get_stats_db_path() -> Path:
+    return Path.cwd() / STATS_DB_FILENAME
+
+
+def _ensure_opcode_stats_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS opcode_timing_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            source TEXT NOT NULL,
+            total_iterations INTEGER NOT NULL,
+            total_time REAL NOT NULL,
+            avg_time_per_instr REAL NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS opcode_timing_samples (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id INTEGER NOT NULL,
+            opcode INTEGER NOT NULL,
+            opcode_name TEXT NOT NULL,
+            count INTEGER NOT NULL,
+            total_time REAL NOT NULL,
+            avg_time REAL NOT NULL,
+            mean_time REAL NOT NULL,
+            min_time REAL NOT NULL,
+            max_time REAL NOT NULL,
+            FOREIGN KEY(run_id) REFERENCES opcode_timing_runs(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    # Backfill schema for older databases lacking total_time column
+    info = conn.execute("PRAGMA table_info(opcode_timing_samples)").fetchall()
+    has_total_time = any(row[1] == 'total_time' for row in info)
+    if not has_total_time:
+        conn.execute("ALTER TABLE opcode_timing_samples ADD COLUMN total_time REAL NOT NULL DEFAULT 0.0")
 
 
 @njit(types.UniTuple(uint64, 2)(uint64, uint64), cache=NUMBA_CACHE)
@@ -601,6 +653,138 @@ def sync_state_and_return(
     return error_code
 
 
+@njit(cache=NUMBA_CACHE)
+def _finalize_iteration(
+        timing_enabled,
+        start_time,
+        opcode_index,
+        opcode_counts,
+        opcode_time_total,
+        opcode_time_min,
+        opcode_time_max,
+        total_iterations):
+    if opcode_index < 0:
+        return
+
+    opcode_counts[opcode_index] += 1
+
+    if timing_enabled and start_time > 0.0:
+        with objmode(tend='float64'):
+            tend = _pytime.perf_counter()
+        elapsed = tend - start_time
+        opcode_time_total[opcode_index] += elapsed
+        if elapsed < opcode_time_min[opcode_index]:
+            opcode_time_min[opcode_index] = elapsed
+        if elapsed > opcode_time_max[opcode_index]:
+            opcode_time_max[opcode_index] = elapsed
+
+    total_iterations[0] += 1
+
+
+@njit(cache=NUMBA_CACHE)
+def _store_opcode_stats(
+        opcode_counts,
+        opcode_time_total,
+        opcode_time_min,
+        opcode_time_max,
+        opcode_counts_out,
+        opcode_time_total_out,
+        opcode_time_min_out,
+        opcode_time_max_out):
+    for idx in range(len(opcode_counts_out)):
+        opcode_counts_out[idx] = opcode_counts[idx]
+    for idx in range(len(opcode_time_total_out)):
+        opcode_time_total_out[idx] = opcode_time_total[idx]
+        opcode_time_min_out[idx] = opcode_time_min[idx]
+        opcode_time_max_out[idx] = opcode_time_max[idx]
+
+
+@njit(uint32(
+    uint64[::1],  # reg
+    uint64[::1],  # registers_out
+    int64[::1],   # state_out
+    int64,        # status
+    int64,        # pc
+    int64,        # gas
+    int64,        # inst_nr
+    int64,        # exit_value
+    uint32,       # skip_len
+    uint32,       # error_code
+    boolean,      # timing_enabled
+    float64,      # start_time
+    int64,        # opcode_index
+    int64[::1],   # opcode_counts
+    float64[::1], # opcode_time_total
+    float64[::1], # opcode_time_min
+    float64[::1], # opcode_time_max
+    int64[::1],   # total_iterations
+    int64[::1],   # opcode_counts_out
+    float64[::1], # opcode_time_total_out
+    float64[::1], # opcode_time_min_out
+    float64[::1], # opcode_time_max_out
+    int64[::1]    # total_iterations_out
+), cache=NUMBA_CACHE)
+def return_with_stats(
+        reg,
+        registers_out,
+        state_out,
+        status,
+        pc,
+        gas,
+        inst_nr,
+        exit_value,
+        skip_len,
+        error_code,
+        timing_enabled,
+        start_time,
+        opcode_index,
+        opcode_counts,
+        opcode_time_total,
+        opcode_time_min,
+        opcode_time_max,
+        total_iterations,
+        opcode_counts_out,
+        opcode_time_total_out,
+        opcode_time_min_out,
+        opcode_time_max_out,
+        total_iterations_out):
+
+    _finalize_iteration(
+        timing_enabled,
+        start_time,
+        opcode_index,
+        opcode_counts,
+        opcode_time_total,
+        opcode_time_min,
+        opcode_time_max,
+        total_iterations
+    )
+    _store_opcode_stats(
+        opcode_counts,
+        opcode_time_total,
+        opcode_time_min,
+        opcode_time_max,
+        opcode_counts_out,
+        opcode_time_total_out,
+        opcode_time_min_out,
+        opcode_time_max_out
+    )
+    total_iterations_out[0] = total_iterations[0]
+
+    return sync_state_and_return(
+        reg,
+        registers_out,
+        state_out,
+        status,
+        pc,
+        gas,
+        inst_nr,
+        exit_value,
+        skip_len,
+        error_code
+    )
+
+
 @njit(uint64(uint64), cache=NUMBA_CACHE)
 def _fmix64_jit(x: U64) -> U64:
     """Finalization mix (from MurmurHash3), good avalanche; JIT-safe."""
@@ -684,7 +868,7 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
             new_arr[cur_len:reserve_len] = 0
             section_arrays[1] = new_arr
             grew_flag = I32(1)
-            print("SBRK GREW: " + str(desired_len), flush=True)
+            #print("SBRK GREW: " + str(desired_len))
 
         # Create ACL of new pages
         next_page_nr = U32(U64(current_heap_ptr >> PVM_PAGE_SHIFT) & U32_MASK)
@@ -796,10 +980,22 @@ def invoke(
     state_out     = np.asarray(state_out,     dtype=np.int64,  order='C')
     heap_grew_out = np.asarray(heap_grew_out, dtype=np.int32,  order='C')
 
-    # Ensure logging dict is a typed Dict[int64, unicode]
+    opcode_counts_out = np.zeros(256, dtype=np.int64)
+    opcode_time_total_out = np.zeros(256, dtype=np.float64)
+    opcode_time_min_out = np.full(256, np.inf, dtype=np.float64)
+    opcode_time_max_out = np.zeros(256, dtype=np.float64)
+    total_iterations_out = np.zeros(1, dtype=np.int64)
+
+    # Ensure logging dict is a typed Dict[int64, unicode] populated with opcode names
     if isinstance(logging, dict):
         _typed_logging = Dict.empty(key_type=types.int64, value_type=types.unicode_type)
+        for _opcode, _name in OpcodeNames.items():
+            _typed_logging[np.int64(_opcode)] = _name
         logging = _typed_logging
+    else:
+        if len(logging) == 0:
+            for _opcode, _name in OpcodeNames.items():
+                logging[np.int64(_opcode)] = _name
 
     error_code = invoke_native_jit(
         np.uint32(pc_start_u32),       # uint32
@@ -832,6 +1028,20 @@ def invoke(
         registers_out,                 # uint64[::1]
         state_out,                     # int64[::1]
         heap_grew_out,                 # int32[::1]
+        opcode_counts_out,             # int64[::1]
+        opcode_time_total_out,         # float64[::1]
+        opcode_time_min_out,           # float64[::1]
+        opcode_time_max_out,           # float64[::1]
+        total_iterations_out           # int64[::1]
+    )
+
+    _record_opcode_timing_summary(
+        "invoke_native",
+        total_iterations_out,
+        opcode_counts_out,
+        opcode_time_total_out,
+        opcode_time_min_out,
+        opcode_time_max_out
     )
     return error_code
 
@@ -942,6 +1152,94 @@ def log(
     print(inst_str, pc_str, name_str, regs_str, mem_info)
 
 
+def _record_opcode_timing_summary(
+        source: str,
+        total_iterations,
+        opcode_counts,
+        opcode_time_total,
+        opcode_time_min,
+        opcode_time_max) -> int:
+    total_iters = int(total_iterations[0]) if len(total_iterations) > 0 else 0
+    total_time = float(np.sum(opcode_time_total))
+    avg_time_per_instr = total_time / float(total_iters) if total_iters > 0 else 0.0
+
+    rows = []
+    for idx in range(len(opcode_counts)):
+        count = int(opcode_counts[idx])
+        if count <= 0:
+            continue
+
+        name = OpcodeNames.get(idx, f"opcode_{idx}")
+
+        total_op_time = float(opcode_time_total[idx])
+        avg_time = (total_op_time / float(total_iters)) if total_iters > 0 else 0.0
+        mean_time = total_op_time / float(count)
+        min_time = float(opcode_time_min[idx])
+        if math.isinf(min_time) or math.isnan(min_time):
+            min_time = 0.0
+        max_time = float(opcode_time_max[idx])
+
+        rows.append((
+            idx,
+            name,
+            count,
+            total_op_time,
+            float(avg_time),
+            float(mean_time),
+            float(min_time),
+            float(max_time),
+        ))
+
+    # Sort rows by hottest opcodes first (mean desc, then max desc, then opcode asc)
+    rows.sort(key=lambda item: (-item[5], -item[7], item[0]))
+
+    timestamp = datetime.utcnow().isoformat(timespec='microseconds')
+    source_label = source if source else 'unknown'
+
+    try:
+        db_path = _get_stats_db_path().resolve()
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.execute("PRAGMA foreign_keys = ON")
+            _ensure_opcode_stats_schema(conn)
+            cursor = conn.execute(
+                """
+                INSERT INTO opcode_timing_runs (created_at, source, total_iterations, total_time, avg_time_per_instr)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (timestamp, source_label, total_iters, float(total_time), float(avg_time_per_instr))
+            )
+            run_id = cursor.lastrowid
+
+            if rows:
+                conn.executemany(
+                    """
+                    INSERT INTO opcode_timing_samples
+                        (run_id, opcode, opcode_name, count, total_time, avg_time, mean_time, min_time, max_time)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        (
+                            run_id,
+                            int(opcode),
+                            str(name),
+                            int(count),
+                            float(total_time),
+                            float(avg_time),
+                            float(mean_time),
+                            float(min_time),
+                            float(max_time)
+                        )
+                        for opcode, name, count, total_time, avg_time, mean_time, min_time, max_time in rows
+                    ]
+                )
+            conn.commit()
+            return int(run_id)
+    except sqlite3.Error as exc:
+        print(f"[opcode_timing] failed to record stats: {exc}", file=sys.stderr)
+
+    return -1
+
 @njit(int32(
     uint32,          # pc
     int64,           # gas
@@ -973,6 +1271,11 @@ def log(
     uint64[::1],     # registers_out
     int64[::1],      # state_out
     int32[::1],      # heap_grew_out
+    int64[::1],      # opcode_counts_out
+    float64[::1],    # opcode_time_total_out
+    float64[::1],    # opcode_time_min_out
+    float64[::1],    # opcode_time_max_out
+    int64[::1],      # total_iterations_out
 ), cache=NUMBA_CACHE)
 def invoke_native_jit(
         pc_start, gas_start, inst_start, initial_skip_len,
@@ -986,7 +1289,12 @@ def invoke_native_jit(
         logging,
         registers_out,
         state_out,
-        heap_grew_out
+        heap_grew_out,
+        opcode_counts_out,
+        opcode_time_total_out,
+        opcode_time_min_out,
+        opcode_time_max_out,
+        total_iterations_out
 ):
     """
     JIT-compiled core interpreter loop.
@@ -1015,16 +1323,27 @@ def invoke_native_jit(
     # logg = True
     # timing_enabled = True
     logg = False
-    timing_enabled = False
+    timing_enabled = True
+
+    total_iterations = np.zeros(1, dtype=np.int64)
+    # Track aggregated timing statistics for each opcode index.
+    opcode_counts = np.zeros(256, dtype=np.int64)
+    opcode_time_total = np.zeros(256, dtype=np.float64)
+    opcode_time_min = np.empty(256, dtype=np.float64)
+    for i in range(256):
+        opcode_time_min[i] = np.inf
+    opcode_time_max = np.zeros(256, dtype=np.float64)
+    opcode_index = -1
 
     # Main execution loop
     while status == EXIT_RESUME and gas > 0:
         # Calculate next PC but don't update yet
         start_time = 0.0
-        # if logg and timing_enabled:
-        #     with objmode(t0='float64'):
-        #         t0 = _pytime.perf_counter()
-        #     start_time = t0
+        opcode_index = -1
+        if timing_enabled:
+            with objmode(t0='float64'):
+                t0 = _pytime.perf_counter()
+            start_time = t0
         next_pc = U32(pc + skip_len)
 
         if next_pc >= code_size:
@@ -1058,6 +1377,7 @@ def invoke_native_jit(
 
         # Fetch opcode and decode
         opcode = code[pc]
+        opcode_index = int(opcode)
         inst_type = opcode_scheme[opcode]
         skip_len = inst_arg_len[inst_index] + 1
         # Local state tuple for logging: (inst_nr, opcode, pc, gas, start_time)
@@ -1072,18 +1392,28 @@ def invoke_native_jit(
         if inst_type == inst_none:  # InstructionType.none
             if opcode == op_trap:
                 if logg: log(logging, local_state, reg, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC,
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC,
                                              pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
             elif opcode == op_fallthrough:
                 if logg: log(logging, local_state, reg, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
                 pass
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC,
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC,
                                              pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.2
         elif inst_type == inst_imm:  # InstructionType.imm
@@ -1094,15 +1424,25 @@ def invoke_native_jit(
                 # Set exit value; wrapper will advance PC using skip_len_out
                 exit_value = I64(v_x)
                 if logg: log(logging, local_state, reg, imm1=v_x, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_HOST_HALT,
+                return return_with_stats(reg, registers_out, state_out, EXIT_HOST_HALT,
                                              pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_NONE)
+                                             exit_value, skip_len, ERROR_NONE,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC,
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC,
                                              pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.3
         elif inst_type == inst_reg_ext_imm:  # InstructionType.reg_ext_imm
@@ -1115,9 +1455,14 @@ def invoke_native_jit(
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC,
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC,
                                              pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.4
         elif inst_type == inst_imm_imm:
@@ -1128,9 +1473,14 @@ def invoke_native_jit(
 
             if opcode == op_store_imm_u8:
                 if mem_write_jit(v_x, U64(v_y) & U64(0xFF), U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg:
                     __s1, __v1 = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1139,9 +1489,14 @@ def invoke_native_jit(
             elif opcode == op_store_imm_u16:
                 if mem_write_jit(v_x, U64(v_y) & U64(0xFFFF), U8(2), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg:
                     __s2, __v2 = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1150,9 +1505,14 @@ def invoke_native_jit(
             elif opcode == op_store_imm_u32:
                 if mem_write_jit(v_x, U64(v_y) & U32_MASK, U8(4), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg:
                     __s4, __v4 = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1160,9 +1520,14 @@ def invoke_native_jit(
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
             elif opcode == op_store_imm_u64:
                 if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg:
                     __s8, __v8 = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1171,9 +1536,14 @@ def invoke_native_jit(
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC,
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC,
                                              pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.5
         elif inst_type == inst_offset:
@@ -1187,9 +1557,14 @@ def invoke_native_jit(
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC,
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC,
                                              pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.6
         elif inst_type == inst_reg_imm:
@@ -1202,13 +1577,23 @@ def invoke_native_jit(
                 djump_result = djump_jit(jump_target, jump_table, pc, pc_to_inst_index)
                 if djump_result == I32(-1):
                     skip_len = I64(0)
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_HALT,
+                    return return_with_stats(reg, registers_out, state_out, EXIT_HALT,
                                                  pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_NONE)
+                                                 exit_value, skip_len, ERROR_NONE,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif djump_result == I32(-2):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC,
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC,
                                                  pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_DJUMP)
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_DJUMP,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 else:
                     skip_len = djump_result
                     if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x,
@@ -1222,9 +1607,14 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = loaded_value
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
@@ -1232,8 +1622,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(1))
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
@@ -1241,16 +1636,26 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = loaded_value
 
             elif opcode == op_load_i16:
                 status_read, loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(2))
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
@@ -1258,8 +1663,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = loaded_value
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
@@ -1267,8 +1677,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = pvm_X_jit(loaded_value, U8(4))
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
@@ -1276,16 +1691,26 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = loaded_value
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_u8:
                 if mem_write_jit(v_x, U64(reg[r_a]) & U64(0xFF), U8(1), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg:
                     _rs1, _rv1 = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1295,8 +1720,13 @@ def invoke_native_jit(
             elif opcode == op_store_u16:
                 if mem_write_jit(v_x, U64(reg[r_a]) & U64(0xFFFF), U8(2), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg:
                     _rs2, _rv2 = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1306,8 +1736,13 @@ def invoke_native_jit(
             elif opcode == op_store_u32:
                 if mem_write_jit(v_x, U64(reg[r_a]) & U32_MASK, U8(4), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg:
                     _rs4, _rv4 = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1317,8 +1752,13 @@ def invoke_native_jit(
             elif opcode == op_store_u64:
                 if mem_write_jit(v_x, reg[r_a], U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg:
                     _rs8, _rv8 = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                               acl_dict)
@@ -1328,8 +1768,13 @@ def invoke_native_jit(
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.7
         elif inst_type == inst_reg_imm_imm:
@@ -1346,8 +1791,13 @@ def invoke_native_jit(
                 store_addr = (U64(w_a) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, U64(v_y) & U64(0xFF), U8(1), mem_section_starts, mem_section_ends,
                                  section_arrays, acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(1), mem_section_starts, mem_section_ends,
@@ -1357,8 +1807,13 @@ def invoke_native_jit(
                 store_addr = (U64(w_a) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, U64(v_y) & U64(0xFFFF), U8(2), mem_section_starts, mem_section_ends,
                                  section_arrays, acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(2), mem_section_starts, mem_section_ends,
@@ -1368,8 +1823,13 @@ def invoke_native_jit(
                 store_addr = (U64(w_a) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, U64(v_y) & U32_MASK, U8(4), mem_section_starts, mem_section_ends,
                                  section_arrays, acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(4), mem_section_starts, mem_section_ends,
@@ -1379,8 +1839,13 @@ def invoke_native_jit(
                 store_addr = (U64(w_a) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, v_y, U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(8), mem_section_starts, mem_section_ends,
@@ -1389,8 +1854,13 @@ def invoke_native_jit(
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.8
         elif inst_type == inst_reg_imm_offset:
@@ -1413,8 +1883,13 @@ def invoke_native_jit(
             elif opcode == op_branch_eq_imm:
                 branch_result = branch_jit(pc, v_y, w_a == v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a == v_x:
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1423,8 +1898,13 @@ def invoke_native_jit(
             elif opcode == op_branch_ne_imm:
                 branch_result = branch_jit(pc, v_y, w_a != v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a != v_x:
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1433,8 +1913,13 @@ def invoke_native_jit(
             elif opcode == op_branch_lt_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a < v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a < v_x:
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1443,8 +1928,13 @@ def invoke_native_jit(
             elif opcode == op_branch_le_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a <= v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a <= v_x:
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1453,8 +1943,13 @@ def invoke_native_jit(
             elif opcode == op_branch_ge_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a >= v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a >= v_x:
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1463,8 +1958,13 @@ def invoke_native_jit(
             elif opcode == op_branch_gt_u_imm:
                 branch_result = branch_jit(pc, v_y, w_a > v_x, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a > v_x:
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1473,8 +1973,13 @@ def invoke_native_jit(
             elif opcode == op_branch_lt_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(v_x, 8):
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1483,8 +1988,13 @@ def invoke_native_jit(
             elif opcode == op_branch_le_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif pvm_Z_jit(w_a, 8) <= pvm_Z_jit(v_x, 8):
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1493,8 +2003,13 @@ def invoke_native_jit(
             elif opcode == op_branch_ge_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(v_x, 8):
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1503,8 +2018,13 @@ def invoke_native_jit(
             elif opcode == op_branch_gt_s_imm:
                 branch_result = branch_jit(pc, v_y, pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif pvm_Z_jit(w_a, 8) > pvm_Z_jit(v_x, 8):
                     skip_len = v_y
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, off1=v_y,
@@ -1513,9 +2033,14 @@ def invoke_native_jit(
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC,
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC,
                                              pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.9
         elif inst_type == inst_reg_reg:
@@ -1615,8 +2140,13 @@ def invoke_native_jit(
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.10
         elif inst_type == inst_reg_reg_imm:
@@ -1634,24 +2164,39 @@ def invoke_native_jit(
                 store_addr = (U64(w_b) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, U64(w_a) & U64(0xFF), U8(1), mem_section_starts, mem_section_ends,
                                  section_arrays, acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a % (2 ** 8)) + " w_b: " + str(w_b), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_ind_u16:
                 store_addr =(U64(w_b) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, U64(w_a) & U64(0xFFFF), U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(U64(w_a) & U64(0xFFFF)) + " w_b: " + str(w_b), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_ind_u32:
                 store_addr = (U64(w_b) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr,  U64(w_a) & U32_MASK, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(U64(w_a) & U32_MASK) + " w_b: " + str(w_b), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
@@ -1659,8 +2204,13 @@ def invoke_native_jit(
                 store_addr =  (U64(w_b) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, w_a, U8(8), mem_section_starts, mem_section_ends, section_arrays,
                                  acl_dict) < 0:
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
@@ -1669,8 +2219,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = loaded_value
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1680,8 +2235,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 1), U8(8))
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1691,8 +2251,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = loaded_value
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1702,8 +2267,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 2), U8(8))
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1713,8 +2283,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = loaded_value
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1724,8 +2299,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = pvm_Z_inv_jit(pvm_Z_jit(loaded_value, 4), U8(8))
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1735,8 +2315,13 @@ def invoke_native_jit(
                 status_read, loaded_value = mem_read_jit(load_addr, U8(8), mem_section_starts, mem_section_ends,
                                                          section_arrays, acl_dict)
                 if status_read != I32(0):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_MEMORY_FAULT)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_MEMORY_FAULT,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 reg[r_a] = loaded_value
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
                                 context="w_a: " + str(w_a) + " w_b: " + str(w_b), mem=section_arrays)
@@ -1917,8 +2502,13 @@ def invoke_native_jit(
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.11
         elif inst_type == inst_reg_reg_offset:
@@ -1934,8 +2524,13 @@ def invoke_native_jit(
             if opcode == op_branch_eq:
                 branch_result = branch_jit(pc, v_x, w_a == w_b, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a == w_b:
                     skip_len = v_x
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1944,8 +2539,13 @@ def invoke_native_jit(
             elif opcode == op_branch_ne:
                 branch_result = branch_jit(pc, v_x, w_a != w_b, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a != w_b:
                     skip_len = v_x
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1954,8 +2554,13 @@ def invoke_native_jit(
             elif opcode == op_branch_lt_u:
                 branch_result = branch_jit(pc, v_x, w_a < w_b, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a < w_b:
                     skip_len = v_x
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1964,8 +2569,13 @@ def invoke_native_jit(
             elif opcode == op_branch_lt_s:
                 branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8):
                     skip_len = v_x
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1974,8 +2584,13 @@ def invoke_native_jit(
             elif opcode == op_branch_ge_u:
                 branch_result = branch_jit(pc, v_x, w_a >= w_b, pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif w_a >= w_b:
                     skip_len = v_x
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1984,8 +2599,13 @@ def invoke_native_jit(
             elif opcode == op_branch_ge_s:
                 branch_result = branch_jit(pc, v_x, pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8), pc_to_inst_index)
                 if branch_result == I32(-1):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_BRANCH,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8):
                     skip_len = v_x
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, off1=v_x,
@@ -1993,8 +2613,13 @@ def invoke_native_jit(
 
             else:
                 # Invalid opcode
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.12
         elif inst_type == inst_reg_reg_imm_imm:
@@ -2015,11 +2640,21 @@ def invoke_native_jit(
                 djump_result = djump_jit(U32(jump_target), jump_table, pc, pc_to_inst_index)
                 if djump_result == I32(-1):
                     skip_len = I64(0)
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_HALT, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_NONE)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_HALT, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_NONE,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 elif djump_result == I32(-2):
-                    return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                                 exit_value, skip_len, ERROR_PANIC_INVALID_DJUMP)
+                    return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                                 exit_value, skip_len, ERROR_PANIC_INVALID_DJUMP,
+                                                 timing_enabled, start_time, opcode_index,
+                                                 opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                                 total_iterations,
+                                                 opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                                 total_iterations_out)
                 else:
                     skip_len = djump_result
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y,
@@ -2027,8 +2662,13 @@ def invoke_native_jit(
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
                                 mem=section_arrays)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
 
         # GP-0.6.7-section:A.5.13
         elif inst_type == inst_reg_reg_reg:
@@ -2331,8 +2971,25 @@ def invoke_native_jit(
                                 context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             else:
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                return return_with_stats(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
+                                             exit_value, skip_len, ERROR_PANIC_TRAP,
+                                             timing_enabled, start_time, opcode_index,
+                                             opcode_counts, opcode_time_total, opcode_time_min, opcode_time_max,
+                                             total_iterations,
+                                             opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+                                             total_iterations_out)
+
+        _finalize_iteration(
+            timing_enabled,
+            start_time,
+            opcode_index,
+            opcode_counts,
+            opcode_time_total,
+            opcode_time_min,
+            opcode_time_max,
+            total_iterations
+        )
+        opcode_index = -1
 
     # Copy output state
     for i in range(len(reg)):
@@ -2344,6 +3001,18 @@ def invoke_native_jit(
     state_out[STATE_EXIT_VALUE] = I64(exit_value)
     state_out[STATE_SKIP_LEN] = I64(skip_len)
     state_out[STATE_ERROR] = I64(ERROR_NONE)
+
+    _store_opcode_stats(
+        opcode_counts,
+        opcode_time_total,
+        opcode_time_min,
+        opcode_time_max,
+        opcode_counts_out,
+        opcode_time_total_out,
+        opcode_time_min_out,
+        opcode_time_max_out
+    )
+    total_iterations_out[0] = total_iterations[0]
 
     return ERROR_NONE
 
@@ -2358,6 +3027,7 @@ class PVMInterpreter(PVMInterpreterBase):
         """Initialize the interpreter with a program."""
         super().__init__(program, logger)
         self._prepare_jit_data()
+        self.last_opcode_timing_run_id = -1
 
     def _prepare_jit_data(self):
         """Prepare data structures for JIT compilation."""
@@ -2461,13 +3131,18 @@ class PVMInterpreter(PVMInterpreterBase):
         state_out = np.array([0, 0, 0, 0, 0, 0, 0], dtype=np.int64)
         heap_grew_out = np.array([0], dtype=np.int32)
 
+        opcode_counts_out = np.zeros(256, dtype=np.int64)
+        opcode_time_total_out = np.zeros(256, dtype=np.float64)
+        opcode_time_min_out = np.full(256, np.inf, dtype=np.float64)
+        opcode_time_max_out = np.zeros(256, dtype=np.float64)
+        total_iterations_out = np.zeros(1, dtype=np.int64)
+
         opcode_names = Dict.empty(
             key_type=types.int64,
             value_type=types.unicode_type,
         )
-        # if self.log:
-        #     for _k, _v in OpcodeNames.items():
-        #         opcode_names[int(_k)] = _v
+        for _opcode, _name in OpcodeNames.items():
+            opcode_names[np.int64(_opcode)] = _name
 
         # Convert mem_ops arrays to int64 for JIT compatibility
         mem_ops_read_int64 = np.asarray(self.mem_ops_read, dtype=np.int64, order='C')
@@ -2486,7 +3161,18 @@ class PVMInterpreter(PVMInterpreterBase):
             self.reg,
             opcode_names,
             # Outputs
-            registers_out, state_out, heap_grew_out
+            registers_out, state_out, heap_grew_out,
+            opcode_counts_out, opcode_time_total_out, opcode_time_min_out, opcode_time_max_out,
+            total_iterations_out
+        )
+
+        self.last_opcode_timing_run_id = _record_opcode_timing_summary(
+            "PVMInterpreter.invoke",
+            total_iterations_out,
+            opcode_counts_out,
+            opcode_time_total_out,
+            opcode_time_min_out,
+            opcode_time_max_out
         )
 
         # Update state from outputs

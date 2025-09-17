@@ -27,11 +27,11 @@
 # config.DISABLE_JIT = False
 
 
-# from .cpython.defs import *
-# from .cpython.types import *
-# from .cpython.interpreter_cpython import *
+from .cpython.defs import *
+from .cpython.types import *
+from .cpython.interpreter_cpython import *
 
-from .numba.defs import *
-from .numba.types import *
-#from .numba.interpreter_numba_aot import PVMInterpreter
-from .numba.interpreter_numba_jit import PVMInterpreter
+# from .numba.defs import *
+# from .numba.types import *
+# #from .numba.interpreter_numba_aot import PVMInterpreter
+# from .numba.interpreter_numba_jit import PVMInterpreter

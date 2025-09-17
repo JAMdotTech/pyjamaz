@@ -1,4 +1,5 @@
 import logging
+import time
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from typing import List, Optional
@@ -127,10 +128,12 @@ class PVMInvocation:
         while True:
 
             # invoke general PVM function (Ψ)
+            s1 = time.time()
             self.pvm.invoke(
                 instruction_counter,
                 gas_limit
             )
+            print("GENERAL INVOKE DURATION::::::::::::::::::::::: ", time.time()-s1)
 
             exit_condition = self.pvm.get_exit_condition()
 

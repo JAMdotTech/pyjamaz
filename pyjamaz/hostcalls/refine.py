@@ -1,3 +1,4 @@
+import time
 from typing import List
 
 from jamcodec.base import JamBytes
@@ -339,10 +340,12 @@ def hc_invoke(
         Invokes general PVM function (Ψ) on an inner PVM
         """
         pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=PVM_DEBUGGER)
+        s1 = time.time()
         pvm.invoke(
             m_e.inner_pvm_lookup[n].program_counter,
             gas
         )
+        print("REFINE INVOKE DURATION::::::::::::::::::::::: ", time.time() - s1)
         pvm_exit_condition = pvm.get_exit_condition()
 
     def update_inner_pvm(pc: int):
