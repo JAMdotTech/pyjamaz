@@ -252,8 +252,8 @@ class PVMInterpreter(PVMInterpreterBase):
         # Sync grown heap back from JIT's typed list (preferred) or extend locally
         try:
             if heap_grew_out[0] == 1 and section_arrays is not None:
-                # Replace Python-side heap buffer with the grown one from the JIT
-                self.mem_sections[1] = np.array(section_arrays[1], dtype=np.uint8)
+                # Reuse the same underlying buffer grown by the JIT (zero-copy)
+                self.mem_sections[1] = np.asarray(section_arrays[1], dtype=np.uint8)
             elif self.mem_sections and self.mem_sections[1] is not None:
                 current_len = len(self.mem_sections[1])
                 desired_len = int(self.mem_section_ends[1] - self.mem_section_starts[1])

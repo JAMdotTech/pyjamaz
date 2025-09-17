@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime
 
 import numpy as np
@@ -227,6 +228,10 @@ class PVMDebugLog(PVMLogger):
         pc_str = str(self._pvm.pc)
         if len(pc_str) < 4:
             pc_str = (" " * (4 - len(pc_str))) + pc_str
+
+        # tnow = time.time()
+        # dt_ms = (tnow - self._pvm.op_time)
+        # print(inst_str + " " + pc_str + " " + name_str + "" + str(dt_ms))
 
         print(inst_str, pc_str, name_str, regs_str, mem_info)
 

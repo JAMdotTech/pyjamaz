@@ -1,3 +1,5 @@
+import time
+
 from array import array
 from typing import List, Dict
 
@@ -69,6 +71,7 @@ class PVMInterpreter:
         self.mv_sections = [None, None, None, None]
 
         self.log = None
+        self.op_time = 0
 
         self.reset(program)
         self.opcodes = _opcode_lut()
@@ -430,6 +433,8 @@ class PVMInterpreter:
 
         # GP-0.7.0-section:A.1 Single-Step State Transition
         while self.status == ExitReason.resume.value:
+
+            self.op_time = time.time()
 
             if self.gas <= 0:
                 self.status = ExitReason.out_of_gas.value

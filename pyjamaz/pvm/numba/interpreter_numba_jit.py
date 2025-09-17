@@ -677,13 +677,14 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
         cur_len = len(heap_arr)
 
         if desired_len > cur_len:
-            # Allocate new backing buffer and copy existing heap contents
-            new_arr = np.zeros(desired_len, dtype=U8)
+            reserve_len = np.int64(desired_len)
+            new_arr = np.empty(reserve_len, dtype=U8)
             if cur_len > 0:
                 new_arr[:cur_len] = heap_arr[:cur_len]
+            new_arr[cur_len:reserve_len] = 0
             section_arrays[1] = new_arr
             grew_flag = I32(1)
-            print("SBRK GREW: " + str(desired_len))
+            print("SBRK GREW: " + str(desired_len), flush=True)
 
         # Create ACL of new pages
         next_page_nr = U32(U64(current_heap_ptr >> PVM_PAGE_SHIFT) & U32_MASK)
@@ -937,10 +938,7 @@ def log(
     # else:
     #     print(inst_str, pc_str, name_str, regs_str, mem_info)
 
-    # with objmode(tnow='float64'):
-    #     tnow = _pytime.perf_counter()
-    # dt_ms = (tnow - start_time) * 1000.0
-    # print(inst_str, pc_str, name_str, dt_ms)
+    #print(inst_str, pc_str, name_str, dt_ms)
     print(inst_str, pc_str, name_str, regs_str, mem_info)
 
 
@@ -1007,24 +1005,17 @@ def invoke_native_jit(
     # Copy registers
     reg = registers_in.copy()
 
-    # # # #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    # if int(pc_start) != 70450:
-    #     logging = Dict.empty(
-    #         key_type=types.int64,
-    #         value_type=types.unicode_type,
-    #     )
-    # else:
+    # #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # if logging:
     #     print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    #     return -1
+    # else:
+    #     print("LOGGING" + str(len(logging)))
     #TODO: adv logging, refactor logg naar lognes
     # logg = True
     # timing_enabled = True
     logg = False
     timing_enabled = False
-
-    # Memory section cache for faster lookups
-    last_read_idx = I32(-1)
-    last_write_idx = I32(-1)
-
 
     # Main execution loop
     while status == EXIT_RESUME and gas > 0:
@@ -2474,9 +2465,9 @@ class PVMInterpreter(PVMInterpreterBase):
             key_type=types.int64,
             value_type=types.unicode_type,
         )
-        if self.log:
-            for _k, _v in OpcodeNames.items():
-                opcode_names[int(_k)] = _v
+        # if self.log:
+        #     for _k, _v in OpcodeNames.items():
+        #         opcode_names[int(_k)] = _v
 
         # Convert mem_ops arrays to int64 for JIT compatibility
         mem_ops_read_int64 = np.asarray(self.mem_ops_read, dtype=np.int64, order='C')
@@ -2547,8 +2538,8 @@ class PVMInterpreter(PVMInterpreterBase):
         # Sync grown heap back from JIT's typed list (preferred) or extend locally
         try:
             if heap_grew_out[0] == 1 and section_arrays is not None:
-                # Replace Python-side heap buffer with the grown one from the JIT
-                self.mem_sections[1] = np.array(section_arrays[1], dtype=np.uint8)
+                # Reuse the same underlying buffer grown by the JIT (zero-copy)
+                self.mem_sections[1] = np.asarray(section_arrays[1], dtype=np.uint8)
             elif self.mem_sections and self.mem_sections[1] is not None:
                 current_len = len(self.mem_sections[1])
                 desired_len = int(self.mem_section_ends[1] - self.mem_section_starts[1])
