@@ -13,6 +13,7 @@ import numpy.typing as npt
 
 from numba import njit, types, objmode
 from numba.typed import Dict, List
+from numba import uint8, uint32, int32, uint64, int64, boolean
 
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -118,17 +119,11 @@ NUMBA_CACHE = True
 # os.environ['NUMBA_NUM_THREADS'] = '1'  # Avoid parallel compilation issues
 # os.environ['NUMBA_THREADING_LAYER'] = 'sequential'
 
-
-
-from numba import uint8, uint32, int32, uint64, int64, boolean
-
-# Fixed-width masks to avoid NumPy %/overflow warnings
 U64_MASK = U64(0xFFFFFFFFFFFFFFFF)
 U32_MASK = U64(0xFFFFFFFF)
 
 u8_array_1d = types.Array(uint8, 1, 'C')
 u8_array_list = types.ListType(u8_array_1d)
-# Keep page numbers 32-bit
 acl_dict_type = types.DictType(uint32, int32)
 
 
@@ -178,33 +173,32 @@ def smul_u64wide_jit(a: I64, b: U64) -> (U64, U64):
 
 @njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
 def rori64_jit(x: U64, shift_amount: U64) -> U64:
-    """JIT-compiled rotate right for 64-bit integers."""
+    """Rotate right for 64-bit integers."""
     return U64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
 @njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
 def roli64_jit(x: U64, shift_amount: U64) -> U64:
-    """JIT-compiled rotate left for 64-bit integers."""
+    """Rotate left for 64-bit integers."""
     return U64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
 @njit(uint32(uint32, uint32), cache=NUMBA_CACHE)
 def rori32_jit(x: U32, shift_amount: U32) -> U32:
-    """JIT-compiled rotate right for 32-bit integers."""
+    """Rotate right for 32-bit integers."""
     return U32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
 
 @njit(uint32(uint32, uint32), cache=NUMBA_CACHE)
 def roli32_jit(x: U32, shift_amount: U32) -> U32:
-    """JIT-compiled rotate left for 32-bit integers."""
+    """Rotate left for 32-bit integers."""
     return U32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 
 @njit(int64(int64, int64), cache=NUMBA_CACHE)
 def pvm_smod_jit(a: I64, b: I64) -> I64:
     """
-    JIT-compiled signed modulo operation.
-
+    Signed modulo operation.
     Returns a % b with sign of a preserved.
     Special case: if b == 0, returns a.
     """
@@ -226,7 +220,7 @@ def pvm_smod_jit(a: I64, b: I64) -> I64:
 @njit(int64(int64, int64), cache=NUMBA_CACHE)
 def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
     """
-    JIT-compiled truncated division (rounds toward zero).
+    Truncated division (rounds toward zero).
     """
     if a >= 0:
         if b > 0:
@@ -242,8 +236,7 @@ def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
 
 @njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
 def pvm_X_jit(x: U64, n: U64) -> U64:
-    """JIT-compiled sign extension."""
-    # TODO: cast nodig?
+    # TODO: remove cast
     x = U64(x)
     n = U64(n)
 
@@ -290,9 +283,11 @@ def pvm_X_jit(x: U64, n: U64) -> U64:
 
 @njit(int64(uint64, uint64), cache=NUMBA_CACHE)
 def pvm_Z_jit(a: U64, n: U64) -> I64:
-    """JIT-friendly unsigned->signed conversion for n bytes (1..8).
+    """
+    Unsigned->signed conversion for n bytes (1..8).
     Returns I64 with proper two's-complement sign extension without Python big-ints.
     """
+    #TODO: remove casts
     au = U64(a)
     nb = U64(n)
     width = nb << U64(3)  # bits = n * 8
@@ -318,7 +313,8 @@ def pvm_Z_jit(a: U64, n: U64) -> I64:
 
 @njit(uint64(uint64, uint8), cache=NUMBA_CACHE)
 def count_leading_zeroes_jit(value: U64, max_bits:U8) -> U64:
-    """JIT-friendly count-leading-zeroes with explicit 64-bit masking and shifts.
+    """
+    Count-leading-zeroes with explicit 64-bit masking and shifts.
     Matches Python implementation for max_bits in {32,64}.
     """
     mb = U64(max_bits)
@@ -346,7 +342,7 @@ def count_leading_zeroes_jit(value: U64, max_bits:U8) -> U64:
 
 @njit(uint64(uint64, uint8), cache=NUMBA_CACHE)
 def count_trailing_zeroes_jit(value: U64, max_bits: U8) -> U64:
-    """JIT-compiled count trailing zeroes."""
+    #TODO: optimize?
     if value == 0:
         return max_bits
 
@@ -360,7 +356,7 @@ def count_trailing_zeroes_jit(value: U64, max_bits: U8) -> U64:
 
 @njit(uint64(uint64), cache=NUMBA_CACHE)
 def reverse_bytes_jit(x: U64) -> U64:
-    """JIT-compiled reverse bytes."""
+    #TODO: optimize?
     result = U64(0)
     for i in range(8):
         byte = U64((x >> U64(i * 8)) & U64(0xFF))
@@ -370,16 +366,15 @@ def reverse_bytes_jit(x: U64) -> U64:
 
 @njit(int64(int64, int64), cache=NUMBA_CACHE)
 def riscv_div_jit(a: I64, b: I64) -> I64:
-    """JIT-compiled RISC-V division."""
     if b == 0:
-        return -1
+        return I64(-1)
     return a // b
 
 
 @njit(uint64(int64, uint8), cache=NUMBA_CACHE)
 def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
     """
-    JIT-compiled transform signed to unsigned.
+    Signed to unsigned.
     """
     if n == 1:
         if a >= 0:
@@ -689,6 +684,7 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
                     new_arr[i] = heap_arr[i]
                 section_arrays[1] = new_arr
                 grew_flag = I32(1)
+                print("SBRK GREW: "+str(desired_len))
         except Exception:
             # ignore growth failure in JIT; wrapper may attempt to sync
             pass

@@ -263,6 +263,7 @@ class PVMInterpreter:
                 new_buf[:cur_size] = heap
                 self.mem_sections[1] = new_buf
                 self.mv_sections[1] = memoryview(self.mem_sections[1])
+                print("SBRK GREW: " + str(new_size))
 
             # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE

@@ -2,7 +2,7 @@ from numba import types
 from numba.pycc import CC
 
 
-cc = CC('interpreter_numba_entry_aot')
+cc = CC('interpreter_numba_aot_ffi')
 
 # ---- Type aliases ----
 U8   = types.uint8
@@ -17,7 +17,6 @@ U64_A1  = U64[::1]
 I32_A1  = I32[::1]
 I64_A1  = I64[::1]
 
-# Containers
 U8_LIST        = types.ListType(U8_A1)                     # List[uint8[:]]
 ACL_DICT_T     = types.DictType(U32, I32)                  # Dict[uint32 -> int32]
 NAMES_DICT_T   = types.DictType(I64, types.unicode_type)   # Dict[int64  -> unicode]

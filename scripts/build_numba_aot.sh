@@ -19,13 +19,13 @@ echo "Numba dir : $NUMBA_DIR"
 echo
 echo "Cleaning old builds/caches..."
 # Safe even if there are no matches (zsh-friendly)
-find "$NUMBA_DIR" -type f \( -name 'interpreter_numba_entry_aot*.so' -o -name 'interpreter_numba_entry_aot*.pyd' -o -name 'interpreter_numba_entry_aot*.dylib' -o -name 'interpreter_numba_entry_aot*.dll' -o -name 'interpreter_numba_entry_aot*.o' -o -name 'interpreter_numba_entry_aot*.c' \) -delete 2>/dev/null || true
+find "$NUMBA_DIR" -type f \( -name 'interpreter_numba_aot_ffi*.so' -o -name 'interpreter_numba_aot_ffi*.pyd' -o -name 'interpreter_numba_aot_ffi*.dylib' -o -name 'interpreter_numba_aot_ffi*.dll' -o -name 'interpreter_numba_aot_ffi*.o' -o -name 'interpreter_numba_aot_ffi*.c' \) -delete 2>/dev/null || true
 rm -rf "$NUMBA_DIR/__pycache__" 2>/dev/null || true
 
 echo
-echo "Compiling interpreter_numba_entry_aot..."
+echo "Compiling interpreter_numba_aot_ffi..."
 echo "Started at: $(date)"
-if python -m pyjamaz.pvm.numba.interpreter_numba_entry_aot; then
+if python -m pyjamaz.pvm.numba.interpreter_numba_aot_ffi; then
   echo "✓ AOT build completed successfully"
 else
   echo "⚠️  AOT build failed (continuing shell session)"
@@ -34,7 +34,7 @@ echo "Finished at: $(date)"
 
 echo
 echo "Listing built files..."
-found="$(find "$NUMBA_DIR" -maxdepth 1 -type f -name 'interpreter_numba_entry_aot*' -print)"
+found="$(find "$NUMBA_DIR" -maxdepth 1 -type f -name 'interpreter_numba_aot_ffi*' -print)"
 if [ -n "$found" ]; then
   ls -lh $found
 else

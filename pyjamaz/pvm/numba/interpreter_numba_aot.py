@@ -1,9 +1,13 @@
+"""
+Ahead of Time compiled version of the JIT interpreter
+"""
+
 import numpy as np
 
 from numba import types
 from numba.typed import Dict, List
 
-from .interpreter_numba_entry_aot import invoke_native
+from .interpreter_numba_aot_ffi import invoke_native
 from .types import PVMProgram
 from ..rpython.interpreter_rpython import PVMInterpreter as PVMInterpreterBase
 
