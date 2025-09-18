@@ -21,6 +21,8 @@ from pyjamaz.pvm.exceptions import UIntValueError, PanicError, PVMMemoryError
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
 
 
+np.seterr(all='raise')
+
 class PVMMemoryMode(IntEnum):
     inaccesible = 0
     readable    = 1
@@ -316,37 +318,39 @@ class PVMMemory:
     def read_bytes(self, address: int, length: int, padding:int = None) -> bytes:
         """
         """
-        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
-        self._mem_addr = address
+        try:
+            # Always store the requested memory address so we can refer it after a PVMMemoryError fx
+            self._mem_addr = address
 
-        if length == 0:
-            return bytes()
+            if length == 0:
+                return bytes()
 
-        section = self.find_section(address)
-        if not section:
-            raise PVMMemoryError(f"MemorySection not found {address}")
+            section = self.find_section(address)
+            if not section:
+                raise PVMMemoryError(f"MemorySection not found {address}")
 
-        section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
-        section_bytes = (section.size - section_addr)
+            section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
+            section_bytes = (section.size - section_addr)
 
-        if section_bytes < length:
-            raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
+            if section_bytes < length:
+                raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
 
-        if self._acl is not None:
-            start_page = address // PVM_PAGE_SIZE
-            end_address = address + length - 1
-            end_page = end_address // PVM_PAGE_SIZE
+            if self._acl is not None:
+                start_page = address // PVM_PAGE_SIZE
+                end_address = address + length - 1
+                end_page = end_address // PVM_PAGE_SIZE
 
-            for page_nr in range(start_page, end_page + 1):
-                if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible:
-                    raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not readable")
+                for page_nr in range(start_page, end_page + 1):
+                    if not page_nr in self._acl or self._acl[page_nr] == PVMMemoryMode.inaccesible:
+                        raise PVMMemoryError(f"Page {page_nr} at address {page_nr * PVM_PAGE_SIZE} is not readable")
 
-        mem_bytes = bytes(section.contents[section_addr:section_addr+length])
-        if padding and len(mem_bytes) < padding:
-            mem_bytes.ljust(padding, b'\0')
+            mem_bytes = bytes(section.contents[section_addr:section_addr+length])
+            if padding and len(mem_bytes) < padding:
+                mem_bytes.ljust(padding, b'\0')
 
-        return mem_bytes
-
+            return mem_bytes
+        except:
+            print(111111)
 
     def write_bytes(self, address: int, content: bytes) -> None:
         """
