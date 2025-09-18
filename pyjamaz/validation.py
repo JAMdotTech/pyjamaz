@@ -37,21 +37,22 @@ class BlockValidation:
     def current_timeslot() -> int:
         return int(time.time() - COMMON_ERA) // SLOT_PERIOD
 
-    # TODO Separate into chunks to different StateComponents
-    def validate_header(self,
-                        header: Header,
-                        post_entropy: EntropyState,
-                        post_validator_pool: ValidatorPoolState,
-                        safrole_output: SafroleOutput,
-                        disputes_output: DisputesOutput,
-                        extrinsic: Extrinsic,
-                        ):
-
-        #  GP-0.5.4-eq:5.4 | Check extrinsic hash
-        if header.extrinsic_hash != extrinsic.generate_extrinsic_hash():
-            raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
+    def validate_header_after_safrole(self,
+      header: Header,
+      post_entropy: EntropyState,
+      post_validator_pool: ValidatorPoolState,
+      safrole_output: SafroleOutput,
+      disputes_output: DisputesOutput,
+      extrinsic: Extrinsic,
+    ):
 
         # Check marker data
+
+        # ticket marker *cannot* be set before TICKET_SUBMISSION_END_SLOT
+        if header.tickets_marker is not None and header.slot_phase_index < TICKET_SUBMISSION_END_SLOT:
+            raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
+
+        # Ticket marker *must* match at TICKET_SUBMISSION_END_SLOT
         if header.tickets_marker != safrole_output.tickets_mark and header.slot_phase_index == TICKET_SUBMISSION_END_SLOT:
             raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
 

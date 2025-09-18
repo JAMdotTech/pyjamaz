@@ -301,7 +301,7 @@ class PyjamazApp:
         STFOutput
         """
 
-        # Initial header checks
+        # Validate quality of header data (initial stage)
 
         # GP-0.7.0-eq:5.7
         if not settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK and block.header.timeslot > self.current_timeslot():
@@ -443,10 +443,10 @@ class PyjamazApp:
             post_state_disputes=disputes_output.post_state
         )
 
-        # Validate quality of header data
+        # Validate quality of header data (second stage)
 
         if not produce:
-            block_validation.validate_header(
+            block_validation.validate_header_after_safrole(
                 header=block.header,
                 post_entropy=entropy_output.post_state,
                 post_validator_pool=validator_pool_output.post_state,
@@ -476,17 +476,6 @@ class PyjamazApp:
 
             # Update block hash
             self.state_storage.update_temporary_block_hash(block.header.hash)
-
-        else:
-            # Check marker data
-            if block.header.tickets_marker and block.header.tickets_marker != safrole_output.tickets_mark:
-                raise ValueError(BlockValidationErrorCode.bad_ticket_marker_data)
-
-            if block.header.epoch_marker != safrole_output.epoch_mark:
-                raise ValueError(BlockValidationErrorCode.bad_epoch_marker_data)
-
-            if block.header.offenders_marker != disputes_output.offenders_mark:
-                raise ValueError(BlockValidationErrorCode.bad_offender_marker_data)
 
 
         # Assurances After Assurances STF Block Data | GP-0.5.0-eq:4.14

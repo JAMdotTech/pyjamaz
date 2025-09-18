@@ -48,7 +48,7 @@ class FuzzerTarget:
 
         logging.debug(f"Provided state DB keyvals inserted")
 
-        self.app.state_storage.set_finalized_header(req.set_state.header)
+        self.app.state_storage.set_finalized_header(req.initialize.header)
 
         await self.app.initialize(req.initialize.header)
 
@@ -80,7 +80,7 @@ class FuzzerTarget:
                 self.app.state_storage.parents[req.import_block.header.parent] = bytes(32)
 
             # Finalize parent
-            self.app.state_storage.finalize(req.import_block.header.parent)
+            # self.app.state_storage.finalize(req.import_block.header.parent)
 
             await self.app.import_block(req.import_block)
 
