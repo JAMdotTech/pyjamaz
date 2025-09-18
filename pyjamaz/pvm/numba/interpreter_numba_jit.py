@@ -2417,6 +2417,8 @@ class PVMInterpreter(PVMInterpreterBase):
                 end_addr = self.mem_section_ends[i]
                 buf = section
 
+                print("MEM: ", start_addr, end_addr, len(buf))
+
                 # Ensure C-contiguous
                 if not buf.flags.c_contiguous:
                     buf = np.ascontiguousarray(buf)
