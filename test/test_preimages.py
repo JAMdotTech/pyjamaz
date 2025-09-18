@@ -9,8 +9,9 @@ from parameterized import parameterized
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.context import AppContext, BlockContext
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Services
-from pyjamaz.storage import InMemoryStorage
+from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Preimage
 from pyjamaz.models.state import TimeslotState, ServicesState, ServiceAccount
 
@@ -30,9 +31,10 @@ class TestPreimages(unittest.TestCase):
 
 
     def setUp(self):
-        self.storage_engine = InMemoryStorage()
+        storage_engine = InMemoryStorageEngine()
         self.block_context = BlockContext()
-        self.app_context = AppContext(transaction=self.storage_engine.transaction())
+
+        self.app_context = AppContext(state_storage=StateStorage(storage_engine))
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -59,14 +61,13 @@ class TestPreimages(unittest.TestCase):
         # Prepare block context
         self.block_context.reset()
 
-        services = Services(self.storage_engine, self.block_context, self.app_context)
+        services = Services(self.block_context, self.app_context)
 
         pre_services = ServicesState(
             services={}
         )
 
-        pre_services.set_storage_engine(self.storage_engine)
-        pre_services.set_storage_transaction(self.app_context.transaction)
+        pre_services.set_state_storage(self.app_context.state_storage)
 
         # Store services and preimages in storage engine
         for s in test_vector["pre_state"]["accounts"]:

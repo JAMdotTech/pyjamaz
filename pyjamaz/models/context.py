@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, List, Dict
 
 from pyjamaz.accumulation import edit_queue, work_report_dependencies, work_report_mapping, priority_queue
@@ -8,17 +8,16 @@ from pyjamaz.models.block import GuarantorAssignment, Header, AccumulationStatis
 from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMap, EntropyState, TimeslotState, \
     ValidatorPoolState, ValidatorArchiveState, AccumulationHistoryState, AccumulationQueueState
+from pyjamaz.state.storage import StateStorage
 
-from pyjamaz.storage import Transaction
 from pyjamaz.transport.pubsub import PubSub
 from pyjamaz.utils import guarantor_permute, flatten_list
 
 
 @dataclass
 class AppContext:
-    transaction: Optional[Transaction] = None
     pubsub: Optional[PubSub] = None
-
+    state_storage: Optional[StateStorage] = None
 
 @dataclass
 class BlockContext:
@@ -34,8 +33,6 @@ class BlockContext:
     author_bandersnatch_key: Optional[bytes] = None
     # TODO GP ref?
     seal_vrf_output: bytes = bytes(32)
-    # GP-0.7.1-eq:5.3 (bold_A)
-    ancestor_headers: List[Header] = field(default_factory=list)
 
     # R
     available_work_reports: Optional[List[WorkReport]] = None
@@ -77,28 +74,6 @@ class BlockContext:
         self.accumulated_services = None
         self.accumulation_statistics = None
         self.deferred_transfer_statistics = None
-
-
-    def get_parent(self, header: Header) -> Optional[Header]:
-        """
-        GP-0.7.1-eq:5.3 (P)
-
-        Parameters
-        ----------
-        header
-
-        Returns
-        -------
-        Optional[Header]
-        """
-        if header.parent == bytes(32):
-            # H_0
-            return Header.default()
-
-        for ancestor in self.ancestor_headers:
-            if header.parent == ancestor.hash:
-                return ancestor
-        return None
 
     def set_guarantor_assignments(self,
                        post_entropy: EntropyState,

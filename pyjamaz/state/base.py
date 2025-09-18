@@ -7,7 +7,7 @@ from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound, StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
 
-from pyjamaz.storage import StorageEngine, Transaction
+from pyjamaz.storage import StorageEngine
 
 if typing.TYPE_CHECKING:
     from pyjamaz.models.state import State
@@ -130,9 +130,8 @@ class StateComponent:
 
     component_id: int
 
-    def __init__(self, storage_engine: StorageEngine, block_context: 'BlockContext', app_context: 'AppContext', **kwargs):
+    def __init__(self, block_context: 'BlockContext', app_context: 'AppContext', **kwargs):
 
-        self.storage_engine = storage_engine
         self.block_context = block_context
         self.app_context = app_context
 
@@ -149,20 +148,17 @@ class StateComponent:
             raise StateComponentNotFound(f"State component ID {self.component_id} not found")
 
     def retrieve(self):
-        result = self.storage_engine.get(self._state_key_constructor_component())
+        result = self.app_context.state_storage.get(self._state_key_constructor_component())
         if result is None:
             raise StateKeyNoResult(f"No result for state component {self.component_id}")
         return result
 
-    def store(self, data: bytes, transaction: Transaction = None):
-        if transaction is not None:
-            transaction.put(self._state_key_constructor_component(), data)
-        else:
-            self.storage_engine.put(self._state_key_constructor_component(), data)
+    def store(self, data: bytes):
+        self.app_context.state_storage.put(self._state_key_constructor_component(), data)
 
-    async def store_state(self, state: 'State', transaction: Optional[Transaction] = None):
+    async def store_state(self, state: 'State'):
         data = state.to_jam_bytes().to_bytes()
-        self.store(data, transaction)
+        self.store(data)
 
     def retrieve_state(self):
         raise NotImplementedError
@@ -244,5 +240,3 @@ class StorageMap(Mapping):
 
     def __len__(self):
         return len(self.cache)
-
-
