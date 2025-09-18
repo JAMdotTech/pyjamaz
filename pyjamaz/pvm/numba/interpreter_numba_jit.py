@@ -684,7 +684,7 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
             new_arr[cur_len:reserve_len] = 0
             section_arrays[1] = new_arr
             grew_flag = I32(1)
-            print("SBRK GREW: " + str(desired_len), flush=True)
+            print("SBRK GREW: " + str(desired_len))
 
         # Create ACL of new pages
         next_page_nr = U32(U64(current_heap_ptr >> PVM_PAGE_SHIFT) & U32_MASK)
@@ -2353,6 +2353,8 @@ class PVMInterpreter(PVMInterpreterBase):
     Pure JIT-optimized PVM interpreter using Numba compilation only.
     No fallback to Python interpreter.
     """
+    ttt = -1
+    tttt = 0
 
     def __init__(self, program: PVMProgram, logger=None):
         """Initialize the interpreter with a program."""
@@ -2536,19 +2538,16 @@ class PVMInterpreter(PVMInterpreterBase):
             self.mem_section_ends[1] = heap_info[0]
 
         # Sync grown heap back from JIT's typed list (preferred) or extend locally
-        try:
-            if heap_grew_out[0] == 1 and section_arrays is not None:
-                # Reuse the same underlying buffer grown by the JIT (zero-copy)
-                self.mem_sections[1] = np.asarray(section_arrays[1], dtype=np.uint8)
-            elif self.mem_sections and self.mem_sections[1] is not None:
-                current_len = len(self.mem_sections[1])
-                desired_len = int(self.mem_section_ends[1] - self.mem_section_starts[1])
-                if desired_len > current_len:
-                    growth = desired_len - current_len
-                    self.mem_sections[1] = np.concatenate((self.mem_sections[1], np.zeros(growth, dtype=np.uint8)))
-        except Exception:
-            # Non-fatal; logging parity may differ if extension fails
-            pass
+        if heap_grew_out[0] == 1 and section_arrays is not None:
+            # Reuse the same underlying buffer grown by the JIT (zero-copy)
+            self.mem_sections[1] = np.asarray(section_arrays[1], dtype=np.uint8)
+        elif self.mem_sections and self.mem_sections[1] is not None:
+            current_len = len(self.mem_sections[1])
+            desired_len = int(self.mem_section_ends[1] - self.mem_section_starts[1])
+            if desired_len > current_len:
+                growth = desired_len - current_len
+                self.mem_sections[1] = np.concatenate((self.mem_sections[1], np.zeros(growth, dtype=np.uint8)))
+                print("SBRK SYNC: " + str(growth))
 
         # Sync ACL changes back to original dict
         if hasattr(self, 'mem_acl') and self.mem_acl is not None:

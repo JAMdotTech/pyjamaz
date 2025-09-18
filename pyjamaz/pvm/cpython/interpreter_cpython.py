@@ -20,6 +20,8 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
 class PVMInterpreter:
+    ttt = 0
+    tttt = 0
 
     def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
@@ -419,13 +421,6 @@ class PVMInterpreter:
     ):
         self.pc = pc
         self.gas = gas
-
-        # # # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # self.ttt = False
-        # # #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # if pc == 70450:
-        #     self.ttt=True
-        #     print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
         if self.log:
             self.log.pvm_counters()
