@@ -11,8 +11,9 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import WorkReport
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Services, AccumulationHistory, AccumulationQueue
-from pyjamaz.storage import InMemoryStorage
+from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header
 from pyjamaz.models.state import TimeslotState, ServicesState, AccumulationHistoryState, EntropyState, \
     AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, AuthorizerQueuesState, \
@@ -40,9 +41,10 @@ class TestAccumulate(unittest.TestCase):
 
 
     def setUp(self):
-        self.storage_engine = InMemoryStorage()
+        storage_engine = InMemoryStorageEngine()
         self.block_context = BlockContext()
-        self.app_context = AppContext()
+
+        self.app_context = AppContext(state_storage=StateStorage(storage_engine))
 
         log_level = logging.DEBUG
         setup_logging(log_level)
@@ -103,7 +105,7 @@ class TestAccumulate(unittest.TestCase):
             } for s in test_vector["pre_state"]["accounts"]}}
         )
 
-        pre_services.set_storage_engine(self.storage_engine)
+        pre_services.set_state_storage(self.app_context.state_storage)
 
         pre_privileged_services = PrivilegedServicesState(
             manager=test_vector["pre_state"]["privileges"]["bless"],
@@ -166,7 +168,7 @@ class TestAccumulate(unittest.TestCase):
 
         # Run accumulation
 
-        services = Services(self.storage_engine, self.block_context, self.app_context)
+        services = Services(self.block_context, self.app_context)
 
         accumulation_output = services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
@@ -185,14 +187,14 @@ class TestAccumulate(unittest.TestCase):
             post_state_entropy=post_entropy,
         )
 
-        accumulation_history = AccumulationHistory(self.storage_engine, self.block_context, self.app_context)
+        accumulation_history = AccumulationHistory(self.block_context, self.app_context)
         history_output = accumulation_history.state_transition(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_accumulation_history=pre_accumulation_history,
             nr_work_results_accumulated=accumulation_output.nr_work_results_accumulated
         )
 
-        accumulation_queue = AccumulationQueue(self.storage_engine, self.block_context, self.app_context)
+        accumulation_queue = AccumulationQueue(self.block_context, self.app_context)
         queue_output = accumulation_queue.state_transition(
             queued_work_reports=self.block_context.queued_work_reports,
             pre_state_accumulation_queue=pre_accumulation_queue,

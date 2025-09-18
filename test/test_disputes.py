@@ -15,7 +15,7 @@ from pyjamaz.exceptions import PyjamazAppError
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Disputes
-from pyjamaz.storage import InMemoryStorage
+from pyjamaz.storage import InMemoryStorageEngine
 
 from pyjamaz.models.block import Header, Extrinsic, ExtrinsicDisputes, Block
 from pyjamaz.models.state import (DisputesState, AssurancesState, TimeslotState, ValidatorArchiveState,
@@ -56,7 +56,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
 
         cls.config = AppConfig(
             ring_data=cls.ring_data,
-            storage_engine=InMemoryStorage(),
+            storage_engine=InMemoryStorageEngine(),
             common_era=0
         )
 
@@ -114,7 +114,7 @@ class TestDisputes(unittest.IsolatedAsyncioTestCase):
 
         # Process block
         try:
-            disputes = Disputes(InMemoryStorage(), BlockContext(), AppContext())
+            disputes = Disputes(BlockContext(), AppContext())
 
             # Input validation
             disputes.validate_extrinsic_disputes(

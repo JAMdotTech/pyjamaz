@@ -83,7 +83,7 @@ class SubscriptionStatistics(WSubscription):
     def create_data(self, data: Any):
         return {
             "header_hash": list(self.app.get_best_header_hash()),
-            "slot": self.app.state.timeslot.number,
+            "slot": self.app.working_state.timeslot.number,
             "value": data
         }
 
@@ -100,7 +100,7 @@ class SubscriptionServiceAccount(WSubscription):
     def create_data(self, data: Any):
         return {
             "header_hash": list(self.app.get_best_header_hash()),
-            "slot": self.app.state.timeslot.number,
+            "slot": self.app.working_state.timeslot.number,
             "value": list(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
         }
 
@@ -118,7 +118,7 @@ class SubscriptionStorageItem(WSubscription):
     def create_data(self, data: Any):
         return {
             "header_hash": list(self.app.get_best_header_hash()),
-            "slot": self.app.state.timeslot.number,
+            "slot": self.app.working_state.timeslot.number,
             "value": list(data[self.DATA_SERVICE_BLOB])
         }
 
@@ -138,7 +138,7 @@ class SubscriptionPreimage(WSubscription):
         #return list(data[self.DATA_PREIMAGE_BLOB])
         return {
             "header_hash": list(self.app.get_best_header_hash()),
-            "slot": self.app.state.timeslot.number,
+            "slot": self.app.working_state.timeslot.number,
             "value": list(data[self.DATA_PREIMAGE_BLOB])
         }
 
@@ -164,7 +164,7 @@ class SubscriptionPreimageAvailability(WSubscription):
         #return list(data[self.DATA_PREIMAGE_BLOB])
         return {
             "header_hash": list(self.app.get_best_header_hash()),
-            "slot": self.app.state.timeslot.number,
+            "slot": self.app.working_state.timeslot.number,
             "value": list(data[self.DATA_PREIMAGE_BLOB])
         }
 
