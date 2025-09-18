@@ -12,7 +12,7 @@ from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorA
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
-from pyjamaz.state.base import StateStorage
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorageEngine
 

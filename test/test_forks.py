@@ -1,6 +1,6 @@
 import unittest
 
-from pyjamaz.state.base import StateStorage
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 
 

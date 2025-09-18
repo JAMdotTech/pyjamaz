@@ -7,7 +7,7 @@ from typing import Optional
 from parameterized import parameterized
 
 from pyjamaz.models.context import AppContext, BlockContext
-from pyjamaz.state.base import StateStorage
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import RecentHistory
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Guarantee

@@ -27,7 +27,7 @@ from pyjamaz.refine import work_result_computation
 from pyjamaz.settings import SOLO_MODE
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.models.context import AppContext, BlockContext
-from pyjamaz.state.base import StateStorage
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.storage import StorageEngine, Transaction
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \

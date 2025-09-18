@@ -8,7 +8,7 @@ from pyjamaz.models.block import GuarantorAssignment, Header, AccumulationStatis
 from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMap, EntropyState, TimeslotState, \
     ValidatorPoolState, ValidatorArchiveState, AccumulationHistoryState, AccumulationQueueState
-from pyjamaz.state.base import StateStorage
+from pyjamaz.state.storage import StateStorage
 
 from pyjamaz.storage import Transaction
 from pyjamaz.transport.pubsub import PubSub

@@ -19,7 +19,8 @@ from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBo
 from pyjamaz.pvm.invocation import InvocationContext
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
-    state_key_constructor_storage_item, state_key_constructor_preimage_availability, StateStorage
+    state_key_constructor_storage_item, state_key_constructor_preimage_availability
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.storage import StorageEngine, Transaction
 
 from pyjamaz.models.block import Assurance as ExtrinsicAssurance, Preimage

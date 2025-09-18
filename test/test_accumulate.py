@@ -11,7 +11,7 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.common import WorkReport
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
-from pyjamaz.state.base import StateStorage
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Services, AccumulationHistory, AccumulationQueue
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header

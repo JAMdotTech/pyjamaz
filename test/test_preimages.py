@@ -9,7 +9,7 @@ from parameterized import parameterized
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.context import AppContext, BlockContext
-from pyjamaz.state.base import StateStorage
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Services
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Preimage
