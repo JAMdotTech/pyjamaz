@@ -22,7 +22,31 @@ class StateStorage:
         self.change_sets: Dict[bytes, Dict[bytes, typing.Union[bytes, ItemStatus]]] = {}
         self.transaction: Dict[bytes, typing.Union[bytes, ItemStatus]] = {}
         self.parents: Dict[bytes, Optional[bytes]] = {}
+        # GP-0.7.0-eq:5.3 (A)
         self.ancestors: Dict[bytes, Header] = {}
+
+    def add_ancestor(self, header: Header):
+        self.ancestors[header.hash] = header
+        self.parents[header.hash] = header.parent
+
+    def get_parent(self, header: Header) -> Optional[Header]:
+        """
+        GP-0.7.0-eq:5.2 (P)
+
+        Parameters
+        ----------
+        header
+
+        Returns
+        -------
+        Optional[Header]
+        """
+
+        if header.parent == bytes(32):
+            # H_0
+            return Header.default()
+
+        return self.ancestors.get(header.parent, None)
 
     def set_header(self, header: Header):
         self.set_block_hash(header.hash, header.parent)
@@ -188,6 +212,7 @@ class StateStorage:
 
     def clear(self):
         self.change_sets = {}
+        self.ancestors = {}
         self.parents = {}
         self.block_hash = None
         self.transaction = {}

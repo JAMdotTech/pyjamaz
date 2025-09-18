@@ -260,11 +260,10 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
 
-    logging.debug("Retrieving ancestor headers..")
-    # finalized_head = app.retrieve_finalized_head()
-    # app.state_storage.set_finalized_block_hash(finalized_head)
-    # TODO merge block_context.ancestor_headers with state_storage.parents
-    app.block_context.ancestor_headers = app.retrieve_ancestor_headers(app.state_storage.finalized_block_hash)
+    logging.debug("Retrieving ancestor headers from DB..")
+
+    for header in app.retrieve_ancestor_headers(app.state_storage.finalized_block_hash):
+        app.state_storage.add_ancestor(header)
 
     app.network_bootstrap = network_bootstrap
     common_era_time = datetime.fromtimestamp(app.config.common_era, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -722,8 +721,10 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool):
         response = await fuzzer_session.send_request(request)
 
         if response.error:
-            logging.info(f'🔍 Target reported error')
-        elif response.state_root == trace.post_state.state_root:
+            logging.info(f'⚠️ Target reported error:  {response.error}')
+            response.state_root = trace.pre_state.state_root
+
+        if response.state_root == trace.post_state.state_root:
             logging.info(f'✅ Imported block {format_hash(trace.block.header.hash)} successfully: State root matches ({format_hash(response.state_root)})')
         else:
             logging.error(f'🚽Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')

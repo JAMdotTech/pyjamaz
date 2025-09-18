@@ -55,18 +55,13 @@ class FuzzerTarget:
         logging.debug(f"Privided state DB keyvals inserted")
 
         await self.app.initialize()
-        self.app.block_context.ancestor_headers = [req.set_state.header]
+        self.app.state_storage.add_ancestor(req.set_state.header)
 
         logging.info(f"💾 State set to {format_hash(self.app.working_state.state_root)}")
         return FuzzerMessage(state_root=self.app.working_state.state_root)
 
 
     async def msg_import_block(self, req):
-        if len(self.app.block_context.ancestor_headers) == 1 and \
-                self.app.block_context.ancestor_headers[0].timeslot == 0:
-            # Convert stub header to valid parent
-            self.app.block_context.ancestor_headers[0].timeslot = req.import_block.header.timeslot - 1
-            self.app.block_context.ancestor_headers[0].hash = req.import_block.header.parent
 
         await self.app.import_block(req.import_block)
 

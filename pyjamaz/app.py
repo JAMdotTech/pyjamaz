@@ -5,20 +5,20 @@ import os
 import time
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TypeVar, Optional, List, Callable, Dict
+from typing import TypeVar, Optional, List, Callable
 
 from bandersnatch_vrfs import ietf_vrf_sign, RingContext
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from jamcodec.types import Vec, BitArray, U32
+from jamcodec.types import Vec, BitArray
 from pyjamaz import settings
 
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.exceptions import PyjamazAppError, StateKeyNoResult, ProcessWorkpackageError, StateTransitionError, \
+from pyjamaz.exceptions import PyjamazAppError, ProcessWorkpackageError, StateTransitionError, \
     BlockValidationErrorCode, BlockValidationError
 from pyjamaz.extrinsic import BlockExtrinsicAccumulator, WorkpackageExtrinsicAccumulator
-from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, EPOCH_TIMESLOTS, \
+from pyjamaz.graypaper_constants import CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.app import StateDump, Trace
@@ -28,14 +28,14 @@ from pyjamaz.settings import SOLO_MODE
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
-from pyjamaz.storage import StorageEngine, Transaction
+from pyjamaz.storage import StorageEngine
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services, \
     AccumulationQueue, AccumulationHistory, RecentAccumulationLog
-from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, Guarantee, Credential, \
-    Assurance, Preimage
-from pyjamaz.models.state import JamState, ServicesState, AuthorizerQueuesState, SafroleState, EntropyState
+from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Guarantee, Credential, \
+    Assurance
+from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time
@@ -311,8 +311,8 @@ class PyjamazApp:
         if block.header.extrinsic_hash != block.extrinsic.generate_extrinsic_hash():
             raise StateTransitionError(BlockValidationErrorCode.extrinsic_hash_mismatch)
 
-        # Retrieve parent header TODO look in recent history after setting historical state
-        parent_header = self.block_context.get_parent(block.header)
+        # Retrieve parent header
+        parent_header = self.state_storage.get_parent(block.header)
 
         if parent_header is None:
             logging.debug(f"Parent hash {format_hash(block.header.parent)} does not has a valid ancestor")
@@ -676,7 +676,7 @@ class PyjamazApp:
     async def add_ancestor_header(self, header: Header):
         logging.debug(f"Addded ancestor_header: {format_hash(header.hash)}")
         # Add header to ancestors
-        self.block_context.ancestor_headers.append(header)
+        self.state_storage.add_ancestor(header)
 
     @log_execution_time
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
