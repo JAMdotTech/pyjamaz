@@ -8,6 +8,14 @@ An optimized PVM interpreter using Numba JIT compiler for the main loop & functi
 
 #import time as _pytime
 
+import ctypes
+import math
+import os
+import sqlite3
+import sys
+from datetime import datetime
+from pathlib import Path
+
 import numpy as np
 import numpy.typing as npt
 
@@ -125,6 +133,18 @@ U32_MASK = U64(0xFFFFFFFF)
 u8_array_1d = types.Array(uint8, 1, 'C')
 u8_array_list = types.ListType(u8_array_1d)
 acl_dict_type = types.DictType(uint32, int32)
+
+
+def _ensure_uint8_array(buffer) -> np.ndarray:
+    """Return a C-contiguous np.uint8 array view of the buffer without copying."""
+    if isinstance(buffer, np.ndarray) and buffer.dtype == np.uint8 and buffer.flags.c_contiguous:
+        return buffer
+
+    mv = memoryview(buffer)
+    ptr_type = ctypes.c_uint8 * mv.nbytes
+    ptr = ptr_type.from_buffer(mv)
+    arr = np.ctypeslib.as_array(ptr)
+    return arr
 
 
 @njit(types.UniTuple(uint64, 2)(uint64, uint64), cache=NUMBA_CACHE)
@@ -2360,6 +2380,11 @@ class PVMInterpreter(PVMInterpreterBase):
         """Initialize the interpreter with a program."""
         super().__init__(program, logger)
         self._prepare_jit_data()
+        self._jit_mem_cache_dirty = True
+        self._jit_section_starts_cache = None
+        self._jit_section_ends_cache = None
+        self._jit_section_arrays_cache = None
+        self._jit_acl_dict_cache = None
 
     def _prepare_jit_data(self):
         """Prepare data structures for JIT compilation."""
@@ -2392,15 +2417,18 @@ class PVMInterpreter(PVMInterpreterBase):
 
     def _prepare_memory_for_jit(self):
         """
-        Build JIT-ready section references
+        Build (or reuse) JIT-ready section references.
         Returns: section_starts, section_ends, section_arrays, acl_dict
         """
-        if not self.mem_sections:
-            empty_acl = Dict.empty(key_type=types.int64, value_type=types.int64)
-            return (np.array([], dtype=np.uint64),
-                    np.array([], dtype=np.uint64),
-                    List.empty_list(types.uint8[::1]),
-                    empty_acl)
+        if (not self._jit_mem_cache_dirty and
+                self._jit_section_arrays_cache is not None and
+                self._jit_section_starts_cache is not None and
+                self._jit_section_ends_cache is not None and
+                self._jit_acl_dict_cache is not None):
+            return (self._jit_section_starts_cache,
+                    self._jit_section_ends_cache,
+                    self._jit_section_arrays_cache,
+                    self._jit_acl_dict_cache)
 
         starts = []
         ends = []
@@ -2412,33 +2440,28 @@ class PVMInterpreter(PVMInterpreterBase):
                 acl_dict[np.uint32(page_nr)] = np.int32(permission)
 
         for i, section in enumerate(self.mem_sections):
-            if section is not None:
-                start_addr = self.mem_section_starts[i]
-                end_addr = self.mem_section_ends[i]
-                buf = section
+            if section is None:
+                continue
+            start_addr = self.mem_section_starts[i]
+            end_addr = self.mem_section_ends[i]
+            buf = _ensure_uint8_array(section)
+            # Keep Python-side reference updated so both views share storage
+            self.mem_sections[i] = buf
 
-                print("MEM: ", start_addr, end_addr, len(buf))
+            starts.append(np.uint64(start_addr))
+            ends.append(np.uint64(end_addr))
+            arrays.append(buf)
 
-                # Ensure C-contiguous
-                if not buf.flags.c_contiguous:
-                    buf = np.ascontiguousarray(buf)
+        self._jit_section_starts_cache = np.asarray(starts, dtype=np.uint64)
+        self._jit_section_ends_cache = np.asarray(ends, dtype=np.uint64)
+        self._jit_section_arrays_cache = arrays
+        self._jit_acl_dict_cache = acl_dict
+        self._jit_mem_cache_dirty = False
 
-                # Ensure uint8 1-D view for zero-copy
-                # if buf.dtype == np.uint8:
-                #     b8 = buf  # zero-copy
-                # else:
-                #     # Zero-copy view when possible
-                #     b8 = buf.view(np.uint8).reshape(-1)
-                #     if not b8.flags.c_contiguous:
-                #         b8 = np.ascontiguousarray(b8)  # fallback copy
-
-                starts.append(np.uint64(start_addr))
-                ends.append(np.uint64(end_addr))
-                arrays.append(buf)
-
-        section_starts = np.asarray(starts, dtype=np.uint64)
-        section_ends = np.asarray(ends, dtype=np.uint64)
-        return section_starts, section_ends, arrays, acl_dict
+        return (self._jit_section_starts_cache,
+                self._jit_section_ends_cache,
+                self._jit_section_arrays_cache,
+                self._jit_acl_dict_cache)
 
     def invoke(self, pc: int, gas: int):
         """
@@ -2454,8 +2477,9 @@ class PVMInterpreter(PVMInterpreterBase):
         mem_section_starts, mem_section_ends, section_arrays, acl_dict = self._prepare_memory_for_jit()
 
         # Prepare heap info (for sbrk)
+        current_heap_end = self.mem_section_ends[1] if len(self.mem_section_ends) > 1 else 0
         heap_info = np.array([
-            self.mem_section_ends[1] if len(self.mem_section_ends) > 1 else 0,  # current heap end
+            current_heap_end,  # current heap end
             self.mem_section_starts[2] if len(self.mem_section_starts) > 2 else 0xFFFFFFFF,  # next section start
             MEM_WRITABLE  # writable permission value
         ], dtype=np.uint64)
@@ -2541,22 +2565,22 @@ class PVMInterpreter(PVMInterpreterBase):
 
         # Sync grown heap back from JIT's typed list (preferred) or extend locally
         if heap_grew_out[0] == 1 and section_arrays is not None:
-            # Reuse the same underlying buffer grown by the JIT (zero-copy)
-            self.mem_sections[1] = np.asarray(section_arrays[1], dtype=np.uint8)
+            # Adopt the grown buffer from the JIT without copying
+            self.mem_sections[1] = section_arrays[1]
+            self._jit_mem_cache_dirty = True
         elif self.mem_sections and self.mem_sections[1] is not None:
             current_len = len(self.mem_sections[1])
             desired_len = int(self.mem_section_ends[1] - self.mem_section_starts[1])
             if desired_len > current_len:
                 growth = desired_len - current_len
                 self.mem_sections[1] = np.concatenate((self.mem_sections[1], np.zeros(growth, dtype=np.uint8)))
-                print("SBRK SYNC: " + str(growth))
+                self._jit_mem_cache_dirty = True
 
-        # Sync ACL changes back to original dict
-        if hasattr(self, 'mem_acl') and self.mem_acl is not None:
-            # Update original ACL with any new entries from sbrk
-            for page_nr in acl_dict:
-                # Ensure page_nr is uint32 to avoid type warning
-                page_nr_u32 = np.uint32(page_nr) if not isinstance(page_nr, np.uint32) else page_nr
-                self.mem_acl[int(page_nr)] = int(acl_dict[page_nr_u32])
+        new_heap_end = int(heap_info[0])
+        if hasattr(self, 'mem_acl') and self.mem_acl is not None and new_heap_end > current_heap_end:
+            start_page = current_heap_end >> PVM_PAGE_SHIFT
+            end_page = (new_heap_end + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT
+            for page in range(start_page, end_page):
+                self.mem_acl[page] = MEM_WRITABLE
 
         self._sync_memory()
