@@ -12,8 +12,9 @@ from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorA
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
+from pyjamaz.state.base import StateStorage
 from pyjamaz.state.components import Assurances
-from pyjamaz.storage import InMemoryStorage
+from pyjamaz.storage import InMemoryStorageEngine
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -37,9 +38,10 @@ class TestReports(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.storage_engine = InMemoryStorage()
+        storage_engine = InMemoryStorageEngine()
         cls.block_context = BlockContext()
-        cls.app_context = AppContext()
+
+        cls.app_context = AppContext(state_storage=StateStorage(storage_engine))
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -107,7 +109,7 @@ class TestReports(unittest.TestCase):
             } for s in test_vector["pre_state"]["accounts"]}}
         )
 
-        pre_services.set_storage_engine(self.storage_engine)
+        pre_services.set_state_storage(self.app_context.state_storage)
 
         intermediate_state_recent_history = RecentHistoryState.from_json(
             {
@@ -146,7 +148,7 @@ class TestReports(unittest.TestCase):
         )
 
 
-        assurances = Assurances(self.storage_engine, self.block_context, self.app_context)
+        assurances = Assurances(self.block_context, self.app_context)
         try:
             assurances.validate_guarantees(
                 extrinsic_guarantees=extrinsic_guarantees,

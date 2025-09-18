@@ -8,7 +8,7 @@ from pyjamaz.models.block import GuarantorAssignment, Header, AccumulationStatis
 from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMap, EntropyState, TimeslotState, \
     ValidatorPoolState, ValidatorArchiveState, AccumulationHistoryState, AccumulationQueueState
-from pyjamaz.state.base import HistoricalState
+from pyjamaz.state.base import StateStorage
 
 from pyjamaz.storage import Transaction
 from pyjamaz.transport.pubsub import PubSub
@@ -17,9 +17,8 @@ from pyjamaz.utils import guarantor_permute, flatten_list
 
 @dataclass
 class AppContext:
-    transaction: Optional[Transaction] = None
     pubsub: Optional[PubSub] = None
-    state: Optional[HistoricalState] = None
+    state_storage: Optional[StateStorage] = None
 
 @dataclass
 class BlockContext:

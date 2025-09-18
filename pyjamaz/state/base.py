@@ -11,8 +11,8 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.block import Header
 
-from pyjamaz.storage import StorageEngine, Transaction
-from pyjamaz.utils import format_hash
+from pyjamaz.storage import StorageEngine
+from pyjamaz.utils import format_hash, log_execution_time
 
 if typing.TYPE_CHECKING:
     from pyjamaz.models.state import State
@@ -153,20 +153,17 @@ class StateComponent:
             raise StateComponentNotFound(f"State component ID {self.component_id} not found")
 
     def retrieve(self):
-        result = self.app_context.state.get(self._state_key_constructor_component())
+        result = self.app_context.state_storage.get(self._state_key_constructor_component())
         if result is None:
             raise StateKeyNoResult(f"No result for state component {self.component_id}")
         return result
 
-    def store(self, data: bytes, transaction: Transaction = None):
-        # if transaction is not None:
-        #     transaction.put(self._state_key_constructor_component(), data)
-        # else:
-        self.app_context.state.put(self._state_key_constructor_component(), data)
+    def store(self, data: bytes):
+        self.app_context.state_storage.put(self._state_key_constructor_component(), data)
 
-    async def store_state(self, state: 'State', transaction: Optional[Transaction] = None):
+    async def store_state(self, state: 'State'):
         data = state.to_jam_bytes().to_bytes()
-        self.store(data, transaction)
+        self.store(data)
 
     def retrieve_state(self):
         raise NotImplementedError
@@ -254,7 +251,7 @@ class ItemStatus(Enum):
     deleted = 1
 
 
-class HistoricalState:
+class StateStorage:
 
     def __init__(self, storage_engine: StorageEngine):
         self.storage_engine = storage_engine
@@ -263,35 +260,45 @@ class HistoricalState:
         self.change_sets: Dict[bytes, Dict[bytes, typing.Union[bytes, ItemStatus]]] = {}
         self.transaction: Dict[bytes, typing.Union[bytes, ItemStatus]] = {}
         self.parents: Dict[bytes, Optional[bytes]] = {}
-        self.ancestors: List[Header] = []
+        self.ancestors: Dict[bytes, Header] = {}
 
     def set_header(self, header: Header):
         self.set_block_hash(header.hash, header.parent)
-        self.ancestors.append(header)
+        self.ancestors[header.hash] = header
 
     def set_finalized_header(self, header: Header):
         self.set_finalized_block_hash(header.hash)
-        self.ancestors.append(header)
+        self.ancestors[header.hash] = header
 
     def set_finalized_block_hash(self, block_hash: bytes):
         logging.debug(f"Setting finalized block hash {format_hash(block_hash)}")
         self.finalized_block_hash = block_hash
 
     def set_block_hash(self, block_hash: bytes, parent_hash: bytes):
-        if parent_hash not in self.parents and parent_hash != self.finalized_block_hash:
-            raise ValueError(f"Invalid parent hash {parent_hash}")
+        if parent_hash not in self.parents:
+            # Check for exceptions (0x00..00 is genesis)
+            if parent_hash not in (self.finalized_block_hash, bytes(32)):
+                raise ValueError(f"Invalid parent hash {format_hash(parent_hash)}")
 
         if len(self.transaction) > 0:
             raise ValueError(f"Pending transaction; commit or rollback first")
 
-        logging.debug(f"State set to block hash={format_hash(block_hash)} parent={format_hash(parent_hash)}")
+        logging.debug(f"StateStorage: State set to block hash={format_hash(block_hash)} parent={format_hash(parent_hash)}")
         self.block_hash = block_hash
         self.parents[block_hash] = parent_hash
 
         self.change_sets[block_hash] = {}
 
+    def set_temporary_block_hash(self, parent_hash: bytes):
+        self.set_block_hash(bytes(32), parent_hash)
+
+    def update_temporary_block_hash(self, block_hash: bytes):
+        self.parents[block_hash] = self.parents.pop(bytes(32))
+        self.change_sets[block_hash] = self.change_sets.pop(bytes(32))
+        self.block_hash = block_hash
 
     def clear_block_hash(self):
+        logging.debug(f"StateStorage: Clearing block hash; set to finalized state")
         self.block_hash = None
 
     def get(self, key: bytes, changeset_only=False) -> Optional[bytes]:
@@ -338,13 +345,17 @@ class HistoricalState:
         else:
             self.storage_engine.delete(key)
 
+    @log_execution_time
     def state_root(self) -> bytes:
         if len(self.transaction) > 0:
             raise ValueError(f"Pending transaction; commit or rollback first")
 
         state_trie = PatriciaMerkleTrie(self.as_list())
 
-        return state_trie.root()
+        state_root = state_trie.root()
+        logging.debug(f"StateStorage: Calculated state root {format_hash(state_root)}")
+
+        return state_root
 
     def as_dict(self) -> Dict[bytes, bytes]:
         if len(self.transaction) > 0:
@@ -371,7 +382,6 @@ class HistoricalState:
 
         return items
 
-
     def as_list(self) -> List[Tuple[bytes, bytes]]:
         items = self.as_dict()
 
@@ -382,27 +392,34 @@ class HistoricalState:
         if len(self.transaction) > 0:
             raise ValueError(f"Pending transaction; commit or rollback first")
 
+        if block_hash == self.finalized_block_hash:
+            return
+
         lookup_block_hash = block_hash
 
         # Process changeset modifications of current ancestors
         processed = []
 
-        while lookup_block_hash is not None:
+        with self.storage_engine.transaction() as tx:
 
-            if lookup_block_hash in self.change_sets:
+            while lookup_block_hash is not None:
 
-                for key, value in self.change_sets[lookup_block_hash].items():
-                    if key not in processed:
-                        if value is ItemStatus.deleted:
-                            self.storage_engine.delete(key)
-                        else:
-                            self.storage_engine.put(key, value)
-                        processed.append(key)
+                if lookup_block_hash in self.change_sets:
 
-                # Remove processed changeset
-                del self.change_sets[lookup_block_hash]
+                    for key, value in self.change_sets[lookup_block_hash].items():
+                        if key not in processed:
+                            if value is ItemStatus.deleted:
+                                tx.delete(key)
+                            else:
+                                tx.put(key, value)
+                            processed.append(key)
 
-            lookup_block_hash = self.parents.get(lookup_block_hash)
+                    # Remove processed changeset
+                    del self.change_sets[lookup_block_hash]
+                # Get and remove parent
+                lookup_block_hash = self.parents.pop(lookup_block_hash, None)
+                # Remove ancestor header
+                self.ancestors.pop(lookup_block_hash, None)
 
         self.finalized_block_hash = block_hash
         logging.debug(f"Finalized block hash={format_hash(block_hash)}")
@@ -415,12 +432,17 @@ class HistoricalState:
 
     def commit(self):
         if self.block_hash is not None:
+
+            if self.block_hash == bytes(32):
+                raise ValueError('Cannot commit temporary block hash')
+
             self.change_sets[self.block_hash] = self.transaction
-            logging.debug(f"Commit tx for {format_hash(self.block_hash)}")
+            logging.debug(f"StateStorage: Commit transaction for {format_hash(self.block_hash)}")
         self.transaction = {}
 
     def rollback(self):
         if self.block_hash is not None:
-            logging.debug(f"Rollback tx for {format_hash(self.block_hash)}")
+            self.change_sets.pop(self.block_hash)
+            logging.debug(f"StateStorage: Rollback transaction for {format_hash(self.block_hash)}")
         self.transaction = {}
 

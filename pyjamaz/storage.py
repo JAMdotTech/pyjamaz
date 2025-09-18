@@ -62,7 +62,7 @@ class StorageEngine:
 
 
 class InMemoryTransaction(Transaction):
-    def __init__(self, storage_engine: 'InMemoryStorage'):
+    def __init__(self, storage_engine: 'InMemoryStorageEngine'):
         self.tx_storage = {}
         self.storage_engine = storage_engine
 
@@ -89,7 +89,7 @@ class InMemoryTransaction(Transaction):
             raise exc_val
 
 
-class InMemoryStorage(StorageEngine):
+class InMemoryStorageEngine(StorageEngine):
 
     def __init__(self, storage: Optional[dict] = None, prefix: Optional[bytes] = None):
         super().__init__()
@@ -112,8 +112,8 @@ class InMemoryStorage(StorageEngine):
     def transaction(self) -> InMemoryTransaction:
         return InMemoryTransaction(self)
 
-    def namespace(self, prefix: bytes) -> 'InMemoryStorage':
-        return InMemoryStorage(storage=self.storage, prefix=prefix + b'-')
+    def namespace(self, prefix: bytes) -> 'InMemoryStorageEngine':
+        return InMemoryStorageEngine(storage=self.storage, prefix=prefix + b'-')
 
     def as_list(self):
         return [(k[len(self.prefix):], v) for k, v in self.storage.items() if k.startswith(self.prefix)]
@@ -152,7 +152,7 @@ class RocksDBTransaction(Transaction):
             raise exc_val
 
 
-class RocksDBStorage(StorageEngine):
+class RocksDBStorageEngine(StorageEngine):
 
     def __init__(self, db, db_path, namespace: Optional[str] = None):
         super().__init__()
@@ -165,7 +165,7 @@ class RocksDBStorage(StorageEngine):
             self.column_family = None
 
     @classmethod
-    def create_from_file(cls, db_path: str) -> 'RocksDBStorage':
+    def create_from_file(cls, db_path: str) -> 'RocksDBStorageEngine':
         if rocksdict is None:
             raise ImportError('rocksdict not installed')
 
@@ -195,7 +195,7 @@ class RocksDBStorage(StorageEngine):
     def transaction(self) -> RocksDBTransaction:
         return RocksDBTransaction(self.db, self.column_family)
 
-    def namespace(self, prefix: bytes) -> 'RocksDBStorage':
+    def namespace(self, prefix: bytes) -> 'RocksDBStorageEngine':
         # Create/open CFs for your namespaces
         prefix = prefix.decode('utf-8')
         try:
@@ -205,7 +205,7 @@ class RocksDBStorage(StorageEngine):
         except Exception:
             pass  # already exists
 
-        return RocksDBStorage(self.db.get_column_family(prefix), self.db_path, namespace=prefix)
+        return RocksDBStorageEngine(self.db.get_column_family(prefix), self.db_path, namespace=prefix)
 
     def as_list(self):
         return self.as_dict().items()

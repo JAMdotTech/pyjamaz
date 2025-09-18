@@ -19,7 +19,7 @@ from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Safrole, Entropy, ValidatorPool, ValidatorArchive, Timeslot
-from pyjamaz.storage import InMemoryStorage
+from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.common import ValidatorData, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, TicketEnvelope, EpochMark
@@ -115,7 +115,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
 
         cls.config = AppConfig(
             ring_data=cls.ring_data,
-            storage_engine=InMemoryStorage(),
+            storage_engine=InMemoryStorageEngine(),
             common_era=0
         )
 
@@ -194,12 +194,12 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
         try:
 
             # Timeslot
-            timeslot = Timeslot(InMemoryStorage(), BlockContext(), AppContext())
+            timeslot = Timeslot(BlockContext(), AppContext())
             timeslot_output = timeslot.state_transition(header=block.header)
             post_state_timeslot = timeslot_output.post_state
 
             # Entropy
-            entropy = Entropy(InMemoryStorage(), BlockContext(), AppContext())
+            entropy = Entropy(BlockContext(), AppContext())
             entropy_output = entropy.state_transition(
                 header=block.header,
                 pre_state_timeslot=pre_state.timeslot,
@@ -208,7 +208,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
             post_state_entropy = entropy_output.post_state
 
             # Validator Pool
-            validator_pool = ValidatorPool(InMemoryStorage(), BlockContext(), AppContext())
+            validator_pool = ValidatorPool(BlockContext(), AppContext())
             validator_pool_output = validator_pool.state_transition(
                 header=block.header,
                 pre_state_timeslot=pre_state.timeslot,
@@ -218,7 +218,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
             post_state_validator_pool = validator_pool_output.post_state
 
             # Validator Archive
-            validator_archive = ValidatorArchive(InMemoryStorage(), BlockContext(), AppContext())
+            validator_archive = ValidatorArchive(BlockContext(), AppContext())
             validator_archive_output = validator_archive.state_transition(
                 header=block.header,
                 pre_state_timeslot=pre_state.timeslot,
@@ -228,7 +228,7 @@ class TestSafroleVector(unittest.IsolatedAsyncioTestCase):
             post_state_validator_archive = validator_archive_output.post_state
 
             # Safrole
-            safrole = Safrole(InMemoryStorage(), BlockContext(), AppContext(), self.config.ring_data)
+            safrole = Safrole(BlockContext(), AppContext(), self.config.ring_data)
             output = safrole.state_transition(
                 header=block.header,
                 extrinsic_tickets=block.extrinsic.tickets,

@@ -57,8 +57,8 @@ class FuzzerTarget:
         await self.app.initialize()
         self.app.block_context.ancestor_headers = [req.set_state.header]
 
-        logging.info(f"💾 State set to {format_hash(self.app.state_trie_root)}")
-        return FuzzerMessage(state_root=self.app.state_trie_root)
+        logging.info(f"💾 State set to {format_hash(self.app.working_state.state_root)}")
+        return FuzzerMessage(state_root=self.app.working_state.state_root)
 
 
     async def msg_import_block(self, req):
@@ -70,8 +70,8 @@ class FuzzerTarget:
 
         await self.app.import_block(req.import_block)
 
-        logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.state_trie_root)}")
-        return FuzzerMessage(state_root=self.app.state_trie_root)
+        logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.working_state.state_root)}")
+        return FuzzerMessage(state_root=self.app.working_state.state_root)
 
 
     async def start(self) -> None:

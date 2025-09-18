@@ -1,7 +1,7 @@
 import unittest
 
-from pyjamaz.state.base import HistoricalState
-from pyjamaz.storage import InMemoryStorage, RocksDBStorage
+from pyjamaz.state.base import StateStorage
+from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 
 
 class TestForks(unittest.TestCase):
@@ -12,10 +12,10 @@ class TestForks(unittest.TestCase):
         self.storage.destroy()
 
     def setUp(self):
-        self.storage = InMemoryStorage()
+        self.storage = InMemoryStorageEngine()
         # self.storage = RocksDBStorage.create_from_file('/tmp/forks_db')
 
-        self.state = HistoricalState(self.storage)
+        self.state = StateStorage(self.storage)
         self.state.put(b'timeslot', b'0')
         self.state.put(b'nochange', b'test')
         self.state.set_finalized_block_hash(b'\x00' * 32)
@@ -210,10 +210,28 @@ class TestForks(unittest.TestCase):
 
         self.assertEqual(self.state.get_finalized(b'nochange'), b'4')
 
+    def test_invalid_finalize(self):
+        self.state.set_block_hash(b'\x01' * 32, b'\x00' * 32)
+        self.state.set_block_hash(b'\x02' * 32, b'\x01' * 32)
+        self.state.put(b'timeslot', b'1')
+        self.state.commit()
+
+        self.state.set_block_hash(b'\x03' * 32, b'\x01' * 32)
+        self.state.put(b'timeslot', b'1')
+        self.state.commit()
+
+        self.state.finalize(b'\x02' * 32)
+
+        with self.assertRaises(ValueError):
+            self.state.set_block_hash(b'\x04' * 32, b'\x01' * 32)
+
     def test_rollback(self):
+        self.state.set_block_hash(b'\x01' * 32, b'\x00' * 32)
+
         self.state.set_block_hash(b'\x01' * 32, b'\x00' * 32)
         self.state.put(b'timeslot', b'1')
         self.assertEqual(b'1', self.state.get(b'timeslot'))
+
         self.state.rollback()
         self.assertEqual(b'0', self.state.get(b'timeslot'))
 

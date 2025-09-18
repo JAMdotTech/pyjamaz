@@ -5,7 +5,7 @@ from os import path, makedirs
 from pyjamaz.models.state import TimeslotState
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Timeslot
-from pyjamaz.storage import RocksDBStorage, InMemoryStorage, TransactionRolledBack
+from pyjamaz.storage import RocksDBStorageEngine, InMemoryStorageEngine, TransactionRolledBack
 
 
 class TestRocksDBStorage(unittest.TestCase):
@@ -15,7 +15,7 @@ class TestRocksDBStorage(unittest.TestCase):
         db_path = path.join(path.dirname(path.abspath(__file__)), '..', 'data', 'testdb')
         makedirs(db_path, exist_ok=True)
         shutil.rmtree(db_path)  # Clear DB
-        cls.storage = RocksDBStorage.create_from_file(db_path)
+        cls.storage = RocksDBStorageEngine.create_from_file(db_path)
 
     def setUp(self):
         # Flush DB
@@ -81,7 +81,7 @@ class TestInMemoryStorage(TestRocksDBStorage):
 
     @classmethod
     def setUpClass(cls):
-        cls.storage = InMemoryStorage()
+        cls.storage = InMemoryStorageEngine()
 
 
 if __name__ == '__main__':

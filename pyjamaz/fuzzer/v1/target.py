@@ -31,13 +31,13 @@ class FuzzerTarget:
 
     def msg_get_state(self) -> FuzzerMessage:
         return FuzzerMessage(
-            state=list(self.app.state_db.items())
+            state=self.app.state_db.as_list()
         )
 
 
     async def msg_set_state(self, req) -> FuzzerMessage:
         # Flush DB
-        for key, _ in self.app.state_db.items():
+        for key, _ in self.app.state_db.as_list():
             self.app.state_db.delete(key)
 
         logging.debug(f"State DB flushed")
@@ -46,13 +46,16 @@ class FuzzerTarget:
         for k, v in req.set_state.state:
             self.app.state_db.put(bytes(k), bytes(v))
 
-        logging.debug(f"Privided state DB keyvals inserted")
+        logging.debug(f"Provided state DB keyvals inserted")
 
-        await self.app.initialize()
+        self.app.state_storage.set_finalized_header(req.set_state.header)
+
+        await self.app.initialize(req.set_state.header)
+
         self.app.block_context.ancestor_headers = [req.set_state.header]
 
-        logging.info(f"💾 State set to {format_hash(self.app.state_trie_root)}")
-        return FuzzerMessage(state_root=self.app.state_trie_root)
+        logging.info(f"💾 State set to {format_hash(self.app.working_state.state_root)}")
+        return FuzzerMessage(state_root=self.app.working_state.state_root)
 
 
     def msg_handshake(self) -> FuzzerMessage:
@@ -73,11 +76,16 @@ class FuzzerTarget:
                 # Convert stub header to valid parent
                 self.app.block_context.ancestor_headers[0].timeslot = req.import_block.header.timeslot - 1
                 self.app.block_context.ancestor_headers[0].hash = req.import_block.header.parent
+                # Convert in state storage as well TODO merge ancestors in block_context and state_storage?
+                self.app.state_storage.parents[req.import_block.header.parent] = bytes(32)
+
+            # Finalize parent
+            self.app.state_storage.finalize(req.import_block.header.parent)
 
             await self.app.import_block(req.import_block)
 
-            logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.state_trie_root)}")
-            return FuzzerMessage(state_root=self.app.state_trie_root)
+            logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.working_state.state_root)}")
+            return FuzzerMessage(state_root=self.app.working_state.state_root)
         except (StateTransitionError, BlockValidationError) as e:
             return FuzzerMessage(error=str(e))
 

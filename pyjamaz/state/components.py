@@ -1912,8 +1912,7 @@ class Services(StateComponent):
         # TODO: check GP-0.7.0-eq:4.16; needs attention and refactoring
 
         services = ServicesState(services=deepcopy(pre_state_services.services))
-        services.set_storage_engine(self.app_context.state)
-        services.set_storage_transaction(self.app_context.transaction)
+        services.set_state_storage(self.app_context.state_storage)
 
         accumulation_state = AccumulationStateComponents(
             services=services,
@@ -1992,8 +1991,7 @@ class Services(StateComponent):
         intermediate_state_after_transfers = ServicesState(
             services=deepcopy(intermediate_state_after_accumulation.services)
         )
-        intermediate_state_after_transfers.set_storage_engine(self.app_context.transaction)
-        intermediate_state_after_transfers.set_storage_transaction(self.app_context.transaction)
+        intermediate_state_after_transfers.set_state_storage(self.app_context.state_storage)
 
         deferred_transfer_statistics = {}
 

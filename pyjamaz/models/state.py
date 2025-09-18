@@ -19,7 +19,7 @@ from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBo
 from pyjamaz.pvm.invocation import InvocationContext
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
-    state_key_constructor_storage_item, state_key_constructor_preimage_availability
+    state_key_constructor_storage_item, state_key_constructor_preimage_availability, StateStorage
 from pyjamaz.storage import StorageEngine, Transaction
 
 from pyjamaz.models.block import Assurance as ExtrinsicAssurance, Preimage
@@ -508,25 +508,16 @@ class ServicesState(State, Serializable):
         new_obj.services = deepcopy(self.services, memo)
 
         # Set new storage engine
-        new_obj.set_storage_engine(self.storage_engine)
+        new_obj.set_state_storage(self.state_storage)
 
         return new_obj
 
-    # TODO replace with storage transaction
-    def set_storage_engine(self, storage_engine: StorageEngine):
-        setattr(self, '_storage_engine', storage_engine)
+    def set_state_storage(self, state: StateStorage):
+        setattr(self, '_state_storage', state)
 
     @property
-    def storage_engine(self) -> Optional[StorageEngine]:
-        return getattr(self, '_storage_engine', None)
-
-    # TODO refactor to setter
-    def set_storage_transaction(self, transaction: Transaction):
-        setattr(self, '_storage_transaction', transaction)
-
-    @property
-    def storage_transaction(self) -> Optional[Transaction]:
-        return getattr(self, '_storage_transaction', None)
+    def state_storage(self) -> Optional[StateStorage]:
+        return getattr(self, '_state_storage', None)
 
     def retrieve_service_account(
             self,
@@ -537,13 +528,13 @@ class ServicesState(State, Serializable):
         if service_account_id in self.services:
             service_account = self.services[service_account_id]
         else:
-            if self.storage_engine is None:
-                raise ValueError('storage engine must be set before retrieving preimage')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before retrieving preimage')
 
             storage_key = state_key_constructor_service_account(service_account_id)
             logging.debug(f'retrieve_service_account({service_account_id}): {storage_key.hex()}')
 
-            data = self.storage_engine.get(storage_key)
+            data = self.state_storage.get(storage_key)
             if data:
                 service_account = ServiceAccount.from_serialized_bytes(data)
 
@@ -575,12 +566,12 @@ class ServicesState(State, Serializable):
 
         if commit:
 
-            if self.storage_transaction is None:
-                raise ValueError('storage_transaction must be set before storing a service account')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before storing a service account')
 
             data = service_account.to_serialized_bytes()
 
-            self.storage_transaction.put(state_key, data)
+            self.state_storage.put(state_key, data)
 
         logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} f_i={service_account.footprint_storage_items} f_b={service_account.footprint_storage_bytes} commit={commit}')
 
@@ -601,10 +592,10 @@ class ServicesState(State, Serializable):
 
         if commit:
 
-            if self.storage_transaction is None:
-                raise ValueError('storage_transaction must be set before deleting service account data')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before deleting service account data')
 
-            self.storage_transaction.delete(state_key)
+            self.state_storage.delete(state_key)
 
         if service_account_id in self.services:
             self.services[service_account_id].marked_as_deleted = True
@@ -632,13 +623,13 @@ class ServicesState(State, Serializable):
         if service_account_id in self.services and preimage_hash in self.services[service_account_id].preimages:
             preimage = self.services[service_account_id].preimages[preimage_hash]
         else:
-            if self.storage_engine is None:
-                raise ValueError('storage engine must be set before retrieving preimage')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before retrieving preimage')
 
             storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
             logging.debug(f'retrieve_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
 
-            preimage = self.storage_engine.get(storage_key)
+            preimage = self.state_storage.get(storage_key)
 
         if preimage is None:
             raise StateKeyNoResult(f'Preimage not found for hash {preimage_hash}')
@@ -741,10 +732,10 @@ class ServicesState(State, Serializable):
 
         if commit:
 
-            if self.storage_transaction is None:
-                raise ValueError('storage_transaction must be set before storing preimage data')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before storing preimage data')
 
-            self.storage_transaction.put(storage_key, preimage_blob)
+            self.state_storage.put(storage_key, preimage_blob)
 
         logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): sk={storage_key.hex()} commit={commit}')
 
@@ -766,12 +757,12 @@ class ServicesState(State, Serializable):
         if service_account_id in self.services and (preimage_hash, preimage_length) in self.services[service_account_id].preimage_availability:
             preimage_availability = self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
         else:
-            if self.storage_engine is None:
-                raise ValueError('storage engine must be set before retrieving preimage availability')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before retrieving preimage availability')
 
             storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
-            data = self.storage_engine.get(storage_key)
+            data = self.state_storage.get(storage_key)
             if data:
                 availability = Vec(U32).new()
                 availability.decode(JamBytes(data))
@@ -802,14 +793,14 @@ class ServicesState(State, Serializable):
 
         if commit:
 
-            if self.storage_transaction is None:
-                raise ValueError('storage_transaction must be set before storing preimage availability data')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before storing preimage availability data')
 
             availability = Vec(U32).new()
             data = availability.encode(value)
 
 
-            self.storage_transaction.put(storage_key, data.to_bytes())
+            self.state_storage.put(storage_key, data.to_bytes())
 
         logging.debug(
             f'store_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={value} {storage_key.hex()}'
@@ -825,10 +816,10 @@ class ServicesState(State, Serializable):
 
         if commit:
 
-            if self.storage_transaction is None:
-                raise ValueError('storage_transaction must be set before deleting preimage availability data')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before deleting preimage availability data')
 
-            self.storage_transaction.delete(storage_key)
+            self.state_storage.delete(storage_key)
             self.services[service_account_id].preimages.pop(preimage_hash, None)
         else:
             self.services[service_account_id].preimages[preimage_hash] = None
@@ -849,10 +840,10 @@ class ServicesState(State, Serializable):
 
         if commit:
 
-            if self.storage_transaction is None:
-                raise ValueError('storage_transaction must be set before deleting preimage availability data')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before deleting preimage availability data')
 
-            self.storage_transaction.delete(storage_key)
+            self.state_storage.delete(storage_key)
             self.services[service_account_id].preimage_availability.pop((preimage_hash, preimage_length), None)
 
         else:
@@ -882,11 +873,11 @@ class ServicesState(State, Serializable):
         if service_account_id in self.services and storage_item_hash in self.services[service_account_id].storage_items:
             data = self.services[service_account_id].storage_items[storage_item_hash]
         else:
-            if self.storage_engine is None:
-                raise ValueError('storage engine must be set before retrieving storage items')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before retrieving storage items')
 
             storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
-            data = self.storage_engine.get(storage_key)
+            data = self.state_storage.get(storage_key)
 
         if data is None:
             raise StateKeyNoResult(
@@ -909,9 +900,9 @@ class ServicesState(State, Serializable):
         state_key = state_key_constructor_storage_item(service_account_id, storage_key)
 
         if commit:
-            if self.storage_transaction is None:
-                raise ValueError('storage_transaction must be set before storing storage items')
-            self.storage_transaction.put(state_key, value)
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before storing storage items')
+            self.state_storage.put(state_key, value)
 
         logging.debug(f'store_storage_item(s={service_account_id}, k={storage_key.hex()}): v={value.hex()} state_key={state_key.hex()} [commit={commit}]')
 
@@ -929,10 +920,10 @@ class ServicesState(State, Serializable):
 
         if commit:
 
-            if self.storage_transaction is None:
-                raise ValueError('storage_transaction must be set before deleting storage items')
+            if self.state_storage is None:
+                raise ValueError('state_storage must be set before deleting storage items')
 
-            self.storage_transaction.delete(storage_key)
+            self.state_storage.delete(storage_key)
 
             self.services[service_account_id].storage_items.pop(storage_item_hash, None)
 
