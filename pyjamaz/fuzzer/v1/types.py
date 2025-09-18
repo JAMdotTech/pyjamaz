@@ -6,7 +6,7 @@ from typing import List, Tuple
 from jamcodec.exceptions import ScaleDecodeException
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from jamcodec.types import U8, String, Vec, Array, Bytes, Tuple as JamTuple, H256, Null, UnsignedInteger
+from jamcodec.types import U8, String, Vec, Array, Bytes, Tuple as JamTuple, H256, Null, UnsignedInteger, U32
 
 from pyjamaz.models.block import Block, Header
 
@@ -33,17 +33,23 @@ class Version(Serializable):
 
 
 @dataclass
-class SetStateMessage(Serializable):
+class AncestryItem(Serializable):
+    slot: int = field(metadata={'codec': U32})
+    header_hash: bytes = field(metadata={'codec': H256})
+
+
+@dataclass
+class InitializeMessage(Serializable):
     header: Header = field(metadata={'codec': Header.to_codec_def()})
     state: List[Tuple[bytes, bytes]] = field(metadata={'codec': Vec(JamTuple(Array(U8, 31), Bytes))})
-    ancestry: List[bytes] = field(metadata={'codec': Vec(H256)})
+    ancestry: List[AncestryItem] = field(metadata={'codec': Vec(AncestryItem.to_codec_def())})
 
     def __post_init__(self):
         if len(self.ancestry) > 24:
             raise ValueError(f'ancestry > 24')
 
 
-class Features():
+class Features:
     BLOCK_ANCESTRY: int = 1 << 0
     SIMPLE_FORKING: int = 1 << 1
     RESERVED: int      = 1 << 31
@@ -115,12 +121,12 @@ class PeerInfoMessage(Serializable):
 @dataclass
 class FuzzerMessage(Serializable):
     peer_info: PeerInfoMessage = field(default=None, metadata={'codec': PeerInfoMessage.to_codec_def()})
+    initialize: InitializeMessage = field(default=None, metadata={'codec': InitializeMessage.to_codec_def()})
+    state_root: bytes = field(default=None, metadata={'codec': H256})
     import_block: Block = field(default=None, metadata={'codec': Block.to_codec_def()})
-    set_state: SetStateMessage = field(default=None, metadata={'codec': SetStateMessage.to_codec_def()})
     get_state: bytes = field(default=None, metadata={'codec': H256})
     state: List[Tuple[bytes, bytes]] = field(default=None, metadata={'codec': Vec(JamTuple(Array(U8, 31), Bytes))})
-    state_root: bytes = field(default=None, metadata={'codec': H256})
-    error: str = field(default=None, metadata={'codec': String})
+    error: str = field(default=None, metadata={'codec': {'id': 255, 'type': String}})
 
     _codec_enum = True
 

@@ -35,24 +35,24 @@ class FuzzerTarget:
         )
 
 
-    async def msg_set_state(self, req) -> FuzzerMessage:
+    async def msg_initialize(self, req: FuzzerMessage) -> FuzzerMessage:
         # Flush DB
         for key, _ in self.app.state_db.as_list():
             self.app.state_db.delete(key)
 
         logging.debug(f"State DB flushed")
 
-        # Update state from received set_state message
-        for k, v in req.set_state.state:
+        # Update state from received initialize message
+        for k, v in req.initialize.state:
             self.app.state_db.put(bytes(k), bytes(v))
 
         logging.debug(f"Provided state DB keyvals inserted")
 
         self.app.state_storage.set_finalized_header(req.set_state.header)
 
-        await self.app.initialize(req.set_state.header)
+        await self.app.initialize(req.initialize.header)
 
-        self.app.block_context.ancestor_headers = [req.set_state.header]
+        self.app.block_context.ancestor_headers = [req.initialize.header]
 
         logging.info(f"💾 State set to {format_hash(self.app.working_state.state_root)}")
         return FuzzerMessage(state_root=self.app.working_state.state_root)
@@ -69,7 +69,7 @@ class FuzzerTarget:
             )
         )
 
-    async def msg_import_block(self, req):
+    async def msg_import_block(self, req: FuzzerMessage):
         try:
             if len(self.app.block_context.ancestor_headers) == 1 and \
                 self.app.block_context.ancestor_headers[0].timeslot == 0:
@@ -158,8 +158,8 @@ class FuzzerTarget:
         elif req.get_state is not None:
             return self.msg_get_state()
 
-        elif req.set_state is not None:
-            return await self.msg_set_state(req)
+        elif req.initialize is not None:
+            return await self.msg_initialize(req)
 
         elif req.import_block is not None:
             return await self.msg_import_block(req)

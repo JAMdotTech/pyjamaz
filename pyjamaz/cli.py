@@ -30,7 +30,7 @@ from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE
 from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 from pyjamaz.models.block import Block, Header, Extrinsic
-from pyjamaz.fuzzer import FuzzerMessage, SetStateMessage, FuzzerTarget, FuzzerSession
+from pyjamaz.fuzzer import FuzzerMessage, InitializeMessage, FuzzerTarget, FuzzerSession, AncestryItem
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.protocol_fs import FSProtocol
 from pyjamaz.transport.protocol_jamnp_s import JAMNPS
@@ -669,7 +669,7 @@ async def replay_traces(
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-async def fuzzer_traces(traces_dir, socket_path, verbose):
+async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool):
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
@@ -697,10 +697,14 @@ async def fuzzer_traces(traces_dir, socket_path, verbose):
         if block_file.parent != last_parent:
 
             # Add stub parent as ancestor
-            stub_parent = Header.default()
+            genesis_header = Header.default()
 
             request = FuzzerMessage(
-                set_state=SetStateMessage(state=trace.pre_state.keyvals, header=stub_parent, ancestry=[]),
+                initialize=InitializeMessage(
+                    state=trace.pre_state.keyvals,
+                    header=genesis_header,
+                    ancestry=[AncestryItem(slot=genesis_header.timeslot, header_hash=genesis_header.hash)]
+                ),
             )
             response = await fuzzer_session.send_request(request)
 
@@ -780,7 +784,7 @@ async def setup_fuzzer_session(app: PyjamazApp, fuzzer_socket_path: str):
     initial_block = app.retrieve_block(app.working_state.timeslot.number)
 
     request = FuzzerMessage(
-        set_state=SetStateMessage(state=app.state_db.as_list(), header=initial_block.header),
+        set_state=InitializeMessage(state=list(app.state_db.as_list()), header=initial_block.header),
     )
     response = await fuzzer_session.send_request(request)
 
