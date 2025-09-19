@@ -15,6 +15,7 @@ from pyjamaz.pvm.constants import (
     OpcodeNames,
     ExitCondition,
     PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W,
+    ACL_READ_BIT, ACL_WRITE_BIT,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -50,10 +51,10 @@ class PVMInterpreter:
 
         # Initialize memory sections storage
         self.mem_sections = []
+        self.section_objs = []
         self.mem_section_starts = []
         self.mem_section_ends = []
         self.mem_section_size = []
-        self.mem_section_acl = []
 
         self._mem_addr: int = -1
 
@@ -213,14 +214,14 @@ class PVMInterpreter:
                     self.ARG_ADDR = int(section.address)
                     self.ARG_END = int(section.paged_tail)
 
-
+                self.section_objs.append(section)
                 self.mem_sections.append(section.contents)
-                self.mem_section_acl.append(section.acl_bitmap)
                 mem_section_starts.append(section.address)
                 mem_section_ends.append(section.paged_tail)
                 mem_section_size.append(section.size)
                 self.mv_sections[idx] = memoryview(section.contents)
             else:
+                self.section_objs.append(None)
                 self.mem_sections.append(None)
                 mem_section_starts.append(0)
                 mem_section_ends.append(0)
@@ -235,14 +236,20 @@ class PVMInterpreter:
     def _sync_memory(self):
         """Sync memory state back to original PVMMemory and MemorySection objects after execution"""
         if self.mem_sections and self.mem_section_starts[1]:
-            self.mem._heap.contents = self.mem_sections[1]
-            self.mem._heap.size = len(self.mem_sections[1])
-            self.mem._heap.paged_tail = self.mem_section_ends[1]
+            heap_section = self.section_objs[1]
+            if heap_section is not None:
+                heap_section.contents = self.mem_sections[1]
+                heap_section.size = len(self.mem_sections[1])
+                heap_section.paged_tail = self.mem_section_ends[1]
+            #self.mem._heap.contents = self.mem_sections[1]
+            #self.mem._heap.size = len(self.mem_sections[1])
+            #self.mem._heap.paged_tail = self.mem_section_ends[1]
             self.mem._mem_addr = self._mem_addr
             self._last_sec = -1
 
 
     def _sbrk(self, size):
+        heap_section = self.section_objs[1]
         heap = self.mem_sections[1]
         cur_size = len(heap)
 
@@ -267,16 +274,17 @@ class PVMInterpreter:
                 new_buf = bytearray(new_size)
                 new_buf[:cur_size] = heap
                 self.mem_sections[1] = new_buf
+                #heap_section.contents = new_buf
                 self.mv_sections[1] = memoryview(self.mem_sections[1])
                 print("SBRK GREW: " + str(new_size))
 
-            # Create ACL of new pages
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
             pages = growth // PVM_PAGE_SIZE + 1
-            for page_nr in range(pages):
-                self.mem_section_acl[1][next_page_nr + page_nr] = self.mem_writable #TODO:acl
+            heap_section.set_range_acl(next_page_nr, pages, MEM_W)
 
         self.mem_section_ends[1] = new_heap_ptr
+        #heap_section.size = len(self.mem_sections[1])
+        #heap_section.paged_tail = new_heap_ptr
         self.HEAP_END = new_heap_ptr
         return new_heap_ptr
 
@@ -300,14 +308,14 @@ class PVMInterpreter:
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
 
-        # Check if writable using page-based ACL (if available)
-        if self.mem_acl is not None:    #TODO:acl
-            page_nr = addr // PVM_PAGE_SIZE
-            if page_nr not in self.mem_acl or self.mem_acl[page_nr] < self.mem_writable:
-                raise PVMMemoryError(f"Memory at address {addr} is not writable")
-
+        section_obj = self.section_objs[section_idx]
         section = self.mem_sections[section_idx]
         section_offset = addr - self.mem_section_starts[section_idx]
+
+        start_page = section_offset // PVM_PAGE_SIZE
+        end_page = (section_offset + bytes_to_write - 1) // PVM_PAGE_SIZE
+        if not section_obj.check_acl(start_page, end_page - start_page + 1, ACL_WRITE_BIT):
+            raise PVMMemoryError(f"Memory at address {addr} is not writable")
 
         # Check bounds against the actual section size (not paged_tail)
         # The section might be larger than paged_tail if it has been extended
@@ -320,26 +328,6 @@ class PVMInterpreter:
 
         # Write bytes in little-endian order
         return write_uint(section, section_offset, bytes_to_write, value)
-
-
-    def _mem_read_int(self, addr: int, bytes_to_read: int):
-        section_idx = -1
-        if self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
-        elif self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
-        elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
-        elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
-
-        if section_idx == -1 or self.mem_sections[section_idx] is None:
-            raise PVMMemoryError(f"mem_read_int: Memory address {addr} not found in any section")
-
-        section = self.mem_sections[section_idx]
-        section_offset = addr - self.mem_section_starts[section_idx]
-
-        # Check bounds against the actual section size
-        if section_offset + bytes_to_read > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
-            raise PVMMemoryError(f"mem_read_int: Memory read at {addr} would overflow section")
-
-        return read_uint(section, section_offset, bytes_to_read)
 
 
     def mem_read(self, opcode, addr):
@@ -360,16 +348,17 @@ class PVMInterpreter:
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
 
-        if self.mem and self.mem_acl is not None:   #TODO:acl
-            page_nr = addr // PVM_PAGE_SIZE
-            if page_nr not in self.mem_acl or self.mem_acl[page_nr] == self.mem_inaccesible:
-                raise PVMMemoryError(f"Memory at address {addr} is not accessible")
-
+        section_obj = self.section_objs[section_idx]
         section = self.mem_sections[section_idx]
         section_offset = addr - self.mem_section_starts[section_idx]
 
         if section_offset + bytes_to_read > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
+
+        start_page = section_offset // PVM_PAGE_SIZE
+        end_page = (section_offset + bytes_to_read - 1) // PVM_PAGE_SIZE
+        if not section_obj.check_acl(start_page, end_page - start_page + 1, ACL_READ_BIT):
+            raise PVMMemoryError(f"Memory at address {addr} is not accessible")
 
         return read_uint(self.mv_sections[section_idx], section_offset, bytes_to_read)
 
