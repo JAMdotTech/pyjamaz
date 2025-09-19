@@ -54,7 +54,7 @@ class StateStorage:
 
     def set_finalized_header(self, header: Header):
         self.set_finalized_block_hash(header.hash)
-        self.ancestors[header.hash] = header
+        self.add_ancestor(header)
 
     def set_finalized_block_hash(self, block_hash: bytes):
         logging.debug(f"Setting finalized block hash {format_hash(block_hash)}")
@@ -215,6 +215,7 @@ class StateStorage:
         self.ancestors = {}
         self.parents = {}
         self.block_hash = None
+        self.finalized_block_hash = None
         self.transaction = {}
 
     def commit(self):

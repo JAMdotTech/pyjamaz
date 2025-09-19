@@ -183,7 +183,7 @@ class PyjamazApp:
                 self.state_storage.set_block_hash(header.hash, header.parent)
 
         # Check if parent and state root are matching current working state
-        if self.working_state is None or header.parent_state_root != self.working_state.state_root:
+        if self.working_state is None or header is None or header.parent_state_root != self.working_state.state_root:
             # update working state
             if header is None:
                 logging.debug(

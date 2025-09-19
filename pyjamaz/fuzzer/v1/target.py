@@ -49,6 +49,9 @@ class FuzzerTarget:
 
         logging.debug(f"Provided state DB keyvals inserted")
 
+        # Clear working state
+        self.app.working_state = None
+
         # Clear state storage
         self.app.state_storage.clear()
         self.app.state_storage.set_finalized_header(req.initialize.header)
@@ -66,11 +69,10 @@ class FuzzerTarget:
                 self.app.state_storage.add_ancestor(ancestor_header)
                 parent_hash = ancestor.header_hash
 
-        await self.app.initialize(req.initialize.header)
+        # Initialize working state to finalized
+        await self.app.initialize()
 
-        self.app.state_storage.add_ancestor(req.initialize.header)
-
-        logging.info(f"💾 State set to {format_hash(self.app.working_state.state_root)}")
+        logging.info(f"💾 Initialized state to {format_hash(self.app.working_state.state_root)}")
         return FuzzerMessage(state_root=self.app.working_state.state_root)
 
     def msg_handshake(self) -> FuzzerMessage:
@@ -86,24 +88,17 @@ class FuzzerTarget:
 
     async def msg_import_block(self, req: FuzzerMessage):
         try:
-            # Workaround for own fuzzer
-            if len(self.app.state_storage.ancestors) == 1:
-                ancestor = list(self.app.state_storage.ancestors.values())[0]
-                if ancestor.timeslot == 0:
-                    # Convert stub header to valid parent
-                    ancestor.hash = req.import_block.header.parent
-                    ancestor.timeslot = req.import_block.header.timeslot - 1
-                    self.app.state_storage.ancestors = {}
-                    self.app.state_storage.add_ancestor(ancestor)
 
-            # Finalize parent
-            # self.app.state_storage.finalize(req.import_block.header.parent)
+            # Finalize parent TODO figure out why state root deviates when not finalizing
+            self.app.state_storage.finalize(req.import_block.header.parent)
 
             await self.app.import_block(req.import_block)
 
             logging.info(f"✅ Block {format_hash(req.import_block.header.hash)} imported -> state root: {format_hash(self.app.working_state.state_root)}")
             return FuzzerMessage(state_root=self.app.working_state.state_root)
+
         except (StateTransitionError, BlockValidationError) as e:
+            logging.info(f"🛑 Block {format_hash(req.import_block.header.hash)} raised error -> {e}")
             return FuzzerMessage(error=str(e))
 
 
@@ -132,12 +127,12 @@ class FuzzerTarget:
                 f"[fuzzer] Handshake complete with {them.peer_info.name} (v{them.peer_info.app_version})"
             )
 
-            # Main request‑response loop
+            # Main request response loop
             while True:
                 try:
                     req = await FuzzerMessage.fuzzer_decode(reader)
                 except asyncio.IncompleteReadError:
-                    # EOF – fuzzer closed the connection cleanly
+                    # EOF - fuzzer closed the connection cleanly
                     break
                 except Exception as e:
                     logging.error(f"[fuzzer] Decode error: {e}; closing session")

@@ -25,7 +25,7 @@ from pyjamaz.exceptions import StateKeyNoResult
 
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace
+from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE
 from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
@@ -606,7 +606,7 @@ async def replay_traces(
                 app.state_db.delete(key)
 
             # Clear pending changesets
-            # app.historical_state.clear()
+            app.state_storage.clear()
 
             # Add stub parent as ancestor TODO still needed?
             stub_parent = Header.default()
@@ -690,27 +690,43 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool):
     for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
 
-        with open(os.path.join(traces_dir, block_file), 'rb') as fp:
-            trace = Trace.from_jam_bytes(JamBytes(fp.read()))
+
+        trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
 
         if block_file.parent != last_parent:
+            # Initialize
+            ancestry = []
 
-            # Add stub parent as ancestor
-            genesis_header = Header.default()
+            # Check for genesis.bin
+            genesis_file = block_file.parent / "genesis.bin"
+
+            if genesis_file.exists():
+                genesis = TraceGenesis.from_jam_bytes(JamBytes(genesis_file.read_bytes()))
+                state = genesis.state
+                init_header = genesis.header
+
+            else:
+                # Unknown genesis; add stub parent as ancestor
+                init_header = Header.default()
+                state = trace.pre_state
+                if trace.block.header.timeslot > 0:
+                    ancestry = [
+                        AncestryItem(slot=trace.block.header.timeslot - 1, header_hash=trace.block.header.parent)
+                    ]
 
             request = FuzzerMessage(
                 initialize=InitializeMessage(
-                    state=trace.pre_state.keyvals,
-                    header=genesis_header,
-                    ancestry=[AncestryItem(slot=genesis_header.timeslot, header_hash=genesis_header.hash)]
+                    state=state.keyvals,
+                    header=init_header,
+                    ancestry=ancestry
                 ),
             )
             response = await fuzzer_session.send_request(request)
 
             logging.info(f'💾 Fuzzer: Set state: {format_hash(response.state_root)}')
 
-            if response.state_root != trace.pre_state.state_root:
-                logging.error(f'Fuzzer state root mismatch: exp={format_hash(trace.pre_state.state_root)} got={format_hash(response.state_root)}')
+            if response.state_root != state.state_root:
+                logging.error(f'Fuzzer state root mismatch: exp={format_hash(state.state_root)} got={format_hash(response.state_root)}')
                 exit(2)
 
             last_parent = block_file.parent
@@ -721,7 +737,7 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool):
         response = await fuzzer_session.send_request(request)
 
         if response.error:
-            logging.info(f'⚠️ Target reported error:  {response.error}')
+            logging.info(f'🛑 Target reported error for {format_hash(trace.block.header.hash)}:  {response.error}')
             response.state_root = trace.pre_state.state_root
 
         if response.state_root == trace.post_state.state_root:
