@@ -9,6 +9,20 @@ PVM_PAGE_SIZE = 2**12 #ZP
 PVM_INIT_ZONE_SIZE = 2**16 #ZZ
 PVM_INPUT_DATA_SIZE = 2**24 #ZI
 
+
+MEM_I = 0  # inaccessible memory
+MEM_R = 1  # readable memory
+MEM_W = 2  # writable memory
+MEM_RW = 3  # explicit read/write memory (since we have that bit available anyway :)
+
+
+ACL_PAGES_PER_BITMAP = 32
+ACL_BITS_PER_PAGE = 2
+ACL_READ_BIT = 0b01
+ACL_WRITE_BIT = 0b10
+
+
+
 class ExitReason(Enum):
     resume:int          = 0 #GP:     ▸: continue PVM
     halt:int            = 1 #GP-A.2: ∎: regular halt: halt

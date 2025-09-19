@@ -4,16 +4,17 @@ from array import array
 from typing import List, Dict
 
 from pyjamaz.pvm.exceptions import PVMMemoryError, PanicError
+from pyjamaz.pvm.memory_section_abstract import page_size
+
 from .defs import read_uint, write_uint, u64, u32, i64, u8
 from .opcodes import _opcode_lut
-from .types import PVMProgram, PVMMemory, PVMMemoryMode
 
 from pyjamaz.pvm.constants import (
     ExitReason,
     MemOps,
     OpcodeNames,
     ExitCondition,
-    PVM_PAGE_SIZE,
+    PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -23,7 +24,7 @@ class PVMInterpreter:
     ttt = 0
     tttt = 0
 
-    def __init__(self, program: PVMProgram, logger=None):
+    def __init__(self, program: "PVMProgram", logger=None):
         self.name = program.name
         self.reg = [u64(0)] * 13
         self.inst_nr = u32(0)
@@ -40,7 +41,7 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
         self.mv_inst_arg_len: memoryview = None
 
-        self.mem:PVMMemory = None
+        self.mem:"PVMMemory" = None
         self.status:int = ExitReason.resume.value
         self.exit_value:int = None
 
@@ -52,7 +53,7 @@ class PVMInterpreter:
         self.mem_section_starts = []
         self.mem_section_ends = []
         self.mem_section_size = []
-        self.mem_acl: Dict[int, int] = {}
+        self.mem_section_acl = []
 
         self._mem_addr: int = -1
 
@@ -65,9 +66,9 @@ class PVMInterpreter:
         self.ARG_ADDR = 0xFFFFFFFF
         self.ARG_END = -1
 
-        self.mem_inaccesible = PVMMemoryMode.inaccesible.value
-        self.mem_readable = PVMMemoryMode.readable.value
-        self.mem_writable = PVMMemoryMode.writable.value
+        self.mem_inaccesible = MEM_I
+        self.mem_readable = MEM_R
+        self.mem_writable = MEM_W
 
         self.mv_code = None
         self.mv_sections = [None, None, None, None]
@@ -145,7 +146,7 @@ class PVMInterpreter:
                 self.skip_len = b
 
 
-    def reset(self, program: PVMProgram):
+    def reset(self, program: "PVMProgram"):
         self.pc = u32(0)
         self.gas = i64(0)
 
@@ -214,6 +215,7 @@ class PVMInterpreter:
 
 
                 self.mem_sections.append(section.contents)
+                self.mem_section_acl.append(section.acl_bitmap)
                 mem_section_starts.append(section.address)
                 mem_section_ends.append(section.paged_tail)
                 mem_section_size.append(section.size)
@@ -228,7 +230,6 @@ class PVMInterpreter:
         self.mem_section_starts = mem_section_starts
         self.mem_section_ends = mem_section_ends
         self.mem_section_size = mem_section_size
-        self.mem_acl = memory._acl #TODO: pure ref for now, use from numba.typed import Dict for jit version
 
 
     def _sync_memory(self):
@@ -237,7 +238,6 @@ class PVMInterpreter:
             self.mem._heap.contents = self.mem_sections[1]
             self.mem._heap.size = len(self.mem_sections[1])
             self.mem._heap.paged_tail = self.mem_section_ends[1]
-            self.mem._acl = self.mem_acl
             self.mem._mem_addr = self._mem_addr
             self._last_sec = -1
 
@@ -254,10 +254,10 @@ class PVMInterpreter:
         if new_heap_ptr >= self.mem_section_starts[2]:
             return 0
 
-        next_page_boundary = PVMMemory.page_size(current_heap_ptr)
+        next_page_boundary = page_size(current_heap_ptr)
 
         if new_heap_ptr > next_page_boundary:
-            new_heap_end = PVMMemory.page_size(new_heap_ptr)
+            new_heap_end = page_size(new_heap_ptr)
             growth = new_heap_end - next_page_boundary
 
             # Only grow when we exceed pre-allocated heap mem
@@ -274,7 +274,7 @@ class PVMInterpreter:
             next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
             pages = growth // PVM_PAGE_SIZE + 1
             for page_nr in range(pages):
-                self.mem_acl[next_page_nr + page_nr] = self.mem_writable
+                self.mem_section_acl[1][next_page_nr + page_nr] = self.mem_writable #TODO:acl
 
         self.mem_section_ends[1] = new_heap_ptr
         self.HEAP_END = new_heap_ptr
@@ -301,7 +301,7 @@ class PVMInterpreter:
             raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
 
         # Check if writable using page-based ACL (if available)
-        if self.mem_acl is not None:
+        if self.mem_acl is not None:    #TODO:acl
             page_nr = addr // PVM_PAGE_SIZE
             if page_nr not in self.mem_acl or self.mem_acl[page_nr] < self.mem_writable:
                 raise PVMMemoryError(f"Memory at address {addr} is not writable")
@@ -360,7 +360,7 @@ class PVMInterpreter:
         if section_idx == -1 or self.mem_sections[section_idx] is None:
             raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
 
-        if self.mem and self.mem_acl is not None:
+        if self.mem and self.mem_acl is not None:   #TODO:acl
             page_nr = addr // PVM_PAGE_SIZE
             if page_nr not in self.mem_acl or self.mem_acl[page_nr] == self.mem_inaccesible:
                 raise PVMMemoryError(f"Memory at address {addr} is not accessible")
