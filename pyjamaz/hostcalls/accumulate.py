@@ -11,10 +11,10 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import ValidatorData
 from pyjamaz.models.state import ServiceAccount, DeferredTransfer, ServicesState
 from pyjamaz.hostcalls.models import AccumulateInvocationContext
-from pyjamaz.pvm.constants import ExitCondition, ExitReason
+from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_R
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
-from pyjamaz.pvm import PVMMemoryMode, PVMMemory
+from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.utils import format_hash
 
@@ -64,7 +64,7 @@ def hc_bless(
     n = registers[11] # number of entries in the auto_accumulate_services dictionary to read
 
     assigners = None # GP: bold_a
-    if memory.is_accessible(a, 4 * CORE_COUNT, PVMMemoryMode.readable):
+    if memory.is_accessible(a, 4 * CORE_COUNT, MEM_R):
         try:
             assigners = []
             for idx in range(CORE_COUNT):
@@ -74,7 +74,7 @@ def hc_bless(
             assigners = None   # bold_a = ∇
 
     auto_accumulate_services = None #GP: bold_g
-    if memory.is_accessible(o, 12 * n, PVMMemoryMode.readable):
+    if memory.is_accessible(o, 12 * n, MEM_R):
         try:
             auto_accumulate_services = {}
             for idx in range(n):
@@ -150,7 +150,7 @@ def hc_assign(
     core_index = registers[7] # Core index to update (0..341)
     o = registers[8] # memory offset
 
-    if memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, PVMMemoryMode.readable):
+    if memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MEM_R):
         authorization_queue = [] #GP: bold_c
         try:
             for idx in range(MAXIMUM_AUTHORIZATION_QUEUE_ITEMS):
@@ -215,7 +215,7 @@ def hc_designate(
 
     o = registers[7] # memory offset
 
-    if memory.is_accessible(o, 336 * VALIDATOR_COUNT, PVMMemoryMode.readable):
+    if memory.is_accessible(o, 336 * VALIDATOR_COUNT, MEM_R):
         validator_queue = [] #GP: bold_v
         try:
             for idx in range(VALIDATOR_COUNT):
@@ -313,7 +313,7 @@ def hc_new(
     f = registers[11] # deposit_offset
 
     code_hash = None
-    if 0 < l < 2**32 and memory.is_accessible(o, 32, PVMMemoryMode.readable):
+    if 0 < l < 2**32 and memory.is_accessible(o, 32, MEM_R):
         try:
             code_hash = memory.read_bytes(o, 32)  # GP: c
         except PVMMemoryError:
@@ -945,7 +945,7 @@ def hc_yield(
     o = registers[7]
 
     # gp: h
-    if memory.is_accessible(o, 32, PVMMemoryMode.readable):
+    if memory.is_accessible(o, 32, MEM_R):
         invocation_data = memory.read_bytes(o, 32)
     else:
         invocation_data = None
@@ -1001,7 +1001,7 @@ def hc_provide(
         service_account_id = registers[7]
 
     # GP: i
-    if memory.is_accessible(preimage_address, preimage_length, PVMMemoryMode.readable):
+    if memory.is_accessible(preimage_address, preimage_length, MEM_R):
         preimage_blob = memory.read_bytes(preimage_address, preimage_length)
     else:
         preimage_blob = None

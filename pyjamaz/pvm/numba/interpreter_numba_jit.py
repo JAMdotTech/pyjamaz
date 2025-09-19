@@ -2621,10 +2621,6 @@ class PVMInterpreter(PVMInterpreterBase):
             # Other errors cause panic
             self.status = ExitReason.panic.value
 
-        # if self.status not in (ExitReason.resume.value, ExitReason.halt.value, ExitReason.host_halt.value):
-        #     print(111111111)
-        # Memory sections are automatically updated via zero-copy views
-
         # Update heap end pointer if it was modified by sbrk
         if len(self.mem_section_ends) > 1:
             self.mem_section_ends[1] = heap_info[0]

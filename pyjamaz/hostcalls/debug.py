@@ -3,7 +3,7 @@ from typing import List
 
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
-from pyjamaz.pvm import PVMMemory
+from pyjamaz.pvm.memory import PVMMemory
 
 
 LEVELS = {

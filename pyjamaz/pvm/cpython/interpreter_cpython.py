@@ -439,10 +439,6 @@ class PVMInterpreter:
             self.opcode = opcode = self.code[self.pc]
             self.skip_len = self.mv_inst_arg_len[inst_index] + 1
 
-            # if self.ttt and self.inst_nr > 5999:
-            #     exit()
-            #     #raise Exception("KAPPUH!!!!")
-
             try:
                 self.opcodes[opcode](self)
             except PVMMemoryError:

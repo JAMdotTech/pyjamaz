@@ -89,13 +89,13 @@ class TestPolkaVMInstructions(unittest.TestCase):
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
         pvm = PVMInterpreter(pvm_program, settings.PVM_DEBUGGER)
 
-        s1 = time.time()
-        i1 = pvm.inst_nr
+        #s1 = time.time()
+        #i1 = pvm.inst_nr
         pvm.invoke(
             test_vector["initial-pc"],
             test_vector["initial-gas"]
         )
-        print(f"{(time.time() - s1):.4f}\t\t{(pvm.inst_nr - i1)}")
+        #print(f"{(time.time() - s1):.4f}\t\t{(pvm.inst_nr - i1)}")
 
         # # Mapping specific for test vectors
         # ExitReasonMap = {

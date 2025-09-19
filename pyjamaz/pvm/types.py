@@ -13,7 +13,7 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger, Bytes
 
 from pyjamaz import settings
-from pyjamaz.pvm import MemorySection
+from pyjamaz.pvm import MemorySection, page_size
 from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
@@ -99,13 +99,13 @@ class PVMProgram(Serializable):
 
         _rom = MemorySection(
             address=PVM_INIT_ZONE_SIZE,
-            size=PVMMemory.page_size(len(rom_contents)),
+            size=page_size(len(rom_contents)),
             contents=rom_contents,
             acl=MEM_R
         )
 
         # If PVM_MIN_HEAP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
-        heap_mem_size = max(PVMMemory.page_size(settings.PVM_MIN_HEAP_SIZE), PVMMemory.page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
+        heap_mem_size = max(page_size(settings.PVM_MIN_HEAP_SIZE), page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
         _heap = MemorySection(
             address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
             size=heap_mem_size,
@@ -114,15 +114,15 @@ class PVMProgram(Serializable):
         )
 
         _stack = MemorySection(
-            address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - PVMMemory.page_size(stack_mem_size),
-            size=PVMMemory.page_size(stack_mem_size),
-            contents=bytes(PVMMemory.page_size(stack_mem_size)),    #TODO: hoeft niet dubbel hier
+            address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - page_size(stack_mem_size),
+            size=page_size(stack_mem_size),
+            contents=bytes(page_size(stack_mem_size)),    #TODO: hoeft niet dubbel hier
             acl=MEM_W
         )
 
         _arguments = MemorySection(
             address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            size=PVMMemory.page_size(len(argument_contents)),
+            size=page_size(len(argument_contents)),
             contents=argument_contents,
             acl=MEM_R
         )

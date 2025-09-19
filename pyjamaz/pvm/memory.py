@@ -5,8 +5,10 @@ from dataclasses import dataclass, field
 from typing import List, T, Optional
 
 from pyjamaz.pvm import MemorySection
-from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
+from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W, MEM_RW, \
+    ACL_READ_BIT, ACL_WRITE_BIT, MEM_I
 from pyjamaz.pvm.exceptions import PanicError, PVMMemoryError
+from pyjamaz.pvm.memory_section_abstract import acl_page_idx, acl_bitmap_idx
 
 
 @dataclass
