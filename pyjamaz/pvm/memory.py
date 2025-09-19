@@ -8,7 +8,7 @@ from pyjamaz.pvm import MemorySection
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W, MEM_RW, \
     ACL_READ_BIT, ACL_WRITE_BIT, MEM_I
 from pyjamaz.pvm.exceptions import PanicError, PVMMemoryError
-from pyjamaz.pvm.memory_section_abstract import acl_page_idx, acl_bitmap_idx
+from pyjamaz.pvm.memory_section_abstract import acl_page_idx, acl_bitmap_idx, set_range_acl, check_acl
 
 
 @dataclass
@@ -114,7 +114,7 @@ class PVMMemory:
         if section.acl is not None:
             start_page = (addr - section.address) // PVM_PAGE_SIZE
             end_page = (addr - section.address + length - 1) // PVM_PAGE_SIZE
-            if not section.check_acl(start_page, end_page - start_page + 1, ACL_WRITE_BIT):
+            if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, ACL_WRITE_BIT):
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is not writable")
 
         section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
@@ -140,7 +140,7 @@ class PVMMemory:
         if section.acl is not None:
             start_page = (addr - section.address) // PVM_PAGE_SIZE
             end_page = (addr - section.address + length - 1) // PVM_PAGE_SIZE
-            if not section.check_acl(start_page, end_page - start_page + 1, ACL_READ_BIT):
+            if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, ACL_READ_BIT):
                 raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is inaccessible")
 
         section_addr = (addr - section.address) #% section.size  #TODO: not sure if % necesarry?
@@ -175,7 +175,7 @@ class PVMMemory:
         else:
             required = ACL_WRITE_BIT
 
-        if not section.check_acl(start_page, end_page - start_page + 1, required):
+        if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, required):
             return False
 
         local_addr = address - section.address
@@ -209,7 +209,7 @@ class PVMMemory:
         if section.acl is not None:
             start_page = (address - section.address) // PVM_PAGE_SIZE
             end_page = (address - section.address + length - 1) // PVM_PAGE_SIZE
-            if not section.check_acl(start_page, end_page - start_page + 1, ACL_READ_BIT):
+            if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, ACL_READ_BIT):
                 raise PVMMemoryError(f"Page {start_page} at address {start_page * PVM_PAGE_SIZE} is not readable")
 
         mem_bytes = bytes(section.contents[section_addr:section_addr+length])
@@ -237,7 +237,7 @@ class PVMMemory:
         if section.acl is not None:
             start_page = (address - section.address) // PVM_PAGE_SIZE
             end_page = (address - section.address + len(content) - 1) // PVM_PAGE_SIZE
-            if not section.check_acl(start_page, end_page - start_page + 1, ACL_WRITE_BIT):
+            if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, ACL_WRITE_BIT):
                 raise PVMMemoryError(f"Page {start_page} at address {start_page * PVM_PAGE_SIZE} is not writable")
 
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
@@ -284,7 +284,7 @@ class PVMMemory:
 
         self.update_offsets()
         addr = page_idx * PVM_PAGE_SIZE - section.address
-        section.set_range_acl(addr // PVM_PAGE_SIZE, nr_pages, acl)
+        set_range_acl(section.acl_bitmap, addr // PVM_PAGE_SIZE, nr_pages, acl)
         section.contents[addr:addr + nr_pages * PVM_PAGE_SIZE] = 0 #TODO: pvm specific?
 
 
@@ -296,7 +296,7 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {mem_addr}")
 
         page_nr = (mem_addr - section.address) // PVM_PAGE_SIZE
-        section.set_range_acl(page_nr, nr_pages, acl)
+        set_range_acl(section.acl_bitmap, page_nr, nr_pages, acl)
         offset = mem_addr - section.address
         section.contents[offset:offset + nr_pages * PVM_PAGE_SIZE] = 0 #TODO: pvm specific?
 

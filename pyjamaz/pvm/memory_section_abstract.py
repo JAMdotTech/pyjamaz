@@ -39,6 +39,49 @@ def acl_page_idx(page: int) -> int:
     return (ACL_PAGES_PER_BITMAP - 1 - (page % ACL_PAGES_PER_BITMAP)) * ACL_BITS_PER_PAGE
 
 
+def set_page_acl(acl_bitmap, page_idx: int, acl: int) -> None:
+    bitmap_idx = acl_bitmap_idx(page_idx)
+    if bitmap_idx >= len(acl_bitmap):
+        new_len = bitmap_idx + 1
+        extended = np.zeros(new_len, dtype=np.uint64)
+        extended[:len(acl_bitmap)] = acl_bitmap
+        acl_bitmap = extended
+    shift = acl_page_idx(page_idx)
+    mask = np.uint64(0b11 << shift)
+    bits = np.uint64(acl_bits(acl) << shift)
+    acl_bitmap[bitmap_idx] = np.uint64((acl_bitmap[bitmap_idx] & ~mask) | bits)
+
+
+def set_range_acl(acl_bitmap, start_page: int, nr_pages: int, acl: int) -> None:
+    if nr_pages <= 0:
+        return
+    for page in range(start_page, start_page + nr_pages):
+        set_page_acl(acl_bitmap, page, acl)
+
+
+def check_acl(acl_bitmap, start_page: int, nr_pages: int, required_bits: int) -> bool:
+    if nr_pages <= 0:
+        return True
+
+    end_page = start_page + nr_pages
+    page = start_page
+
+    while page < end_page:
+        bitmap_idx = acl_bitmap_idx(page)
+        bitmap = int(acl_bitmap[bitmap_idx]) if bitmap_idx < len(acl_bitmap) else 0
+        bitmap_start = bitmap_idx * ACL_PAGES_PER_BITMAP
+        bitmap_end = bitmap_start + ACL_PAGES_PER_BITMAP
+        sub_end = min(end_page, bitmap_end)
+        while page < sub_end:
+            shift = acl_page_idx(page)
+            bits = (bitmap >> shift) & 0b11
+            if (bits & required_bits) != required_bits:
+                return False
+            page += 1
+
+    return True
+
+
 @dataclass
 class AbstractMemorySection:
     address: int    # The absolute memory address of this memory section
@@ -83,7 +126,7 @@ class AbstractMemorySection:
             nr_pages = paged_size // PVM_PAGE_SIZE
             acl_size = max(1, (nr_pages + ACL_PAGES_PER_BITMAP - 1) // ACL_PAGES_PER_BITMAP)
             self.acl_bitmap = np.zeros(acl_size, dtype=np.uint64)
-            self.set_range_acl(0, nr_pages, acl)
+            set_range_acl(self.acl_bitmap, 0, nr_pages, acl)
         else:
             nr_pages = paged_size // PVM_PAGE_SIZE
             self.acl_bitmap = np.zeros(max(1, (nr_pages + ACL_PAGES_PER_BITMAP - 1) // ACL_PAGES_PER_BITMAP), dtype=np.uint64)
@@ -107,43 +150,3 @@ class AbstractMemorySection:
             raise PVMMemoryError(msg)
 
         return self.write_uint(self.contents, section_addr, length, value)
-
-    def set_page_acl(self, page_idx: int, acl: int) -> None:
-        bitmap_idx = acl_bitmap_idx(page_idx)
-        if bitmap_idx >= len(self.acl_bitmap):
-            new_len = bitmap_idx + 1
-            extended = np.zeros(new_len, dtype=np.uint64)
-            extended[:len(self.acl_bitmap)] = self.acl_bitmap
-            self.acl_bitmap = extended
-        shift = acl_page_idx(page_idx)
-        mask = np.uint64(0b11 << shift)
-        bits = np.uint64(acl_bits(acl) << shift)
-        self.acl_bitmap[bitmap_idx] = np.uint64((self.acl_bitmap[bitmap_idx] & ~mask) | bits)
-
-    def set_range_acl(self, start_page: int, nr_pages: int, acl: int) -> None:
-        if nr_pages <= 0:
-            return
-        for page in range(start_page, start_page + nr_pages):
-            self.set_page_acl(page, acl)
-
-    def check_acl(self, start_page: int, nr_pages: int, required_bits: int) -> bool:
-        if nr_pages <= 0:
-            return True
-
-        end_page = start_page + nr_pages
-        page = start_page
-
-        while page < end_page:
-            bitmap_idx = acl_bitmap_idx(page)
-            bitmap = int(self.acl_bitmap[bitmap_idx]) if bitmap_idx < len(self.acl_bitmap) else 0
-            bitmap_start = bitmap_idx * ACL_PAGES_PER_BITMAP
-            bitmap_end = bitmap_start + ACL_PAGES_PER_BITMAP
-            sub_end = min(end_page, bitmap_end)
-            while page < sub_end:
-                shift = acl_page_idx(page)
-                bits = (bitmap >> shift) & 0b11
-                if (bits & required_bits) != required_bits:
-                    return False
-                page += 1
-
-        return True
