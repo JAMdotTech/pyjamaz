@@ -276,9 +276,9 @@ class PVMInterpreter:
                 self.mem_sections[1] = new_buf
                 #heap_section.contents = new_buf
                 self.mv_sections[1] = memoryview(self.mem_sections[1])
-                print("SBRK GREW: " + str(new_size))
+                #print("SBRK GREW: " + str(new_size))
 
-            next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
+            next_page_nr = (current_heap_ptr-self.mem_section_starts[1]) // PVM_PAGE_SIZE
             pages = growth // PVM_PAGE_SIZE + 1
             heap_section.set_range_acl(next_page_nr, pages, MEM_W)
 
@@ -349,7 +349,6 @@ class PVMInterpreter:
             raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
 
         section_obj = self.section_objs[section_idx]
-        section = self.mem_sections[section_idx]
         section_offset = addr - self.mem_section_starts[section_idx]
 
         if section_offset + bytes_to_read > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):

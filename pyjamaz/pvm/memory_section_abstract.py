@@ -48,6 +48,20 @@ class AbstractMemorySection:
     acl: Optional[np.uint64]  # Default Access Control for this section
     acl_bitmap: npt.NDArray[np.uint64]  # Bitmask for per page ACL control
 
+
+    def alloc_contents(self, _bytes):
+        raise Exception("implement in pvm")
+
+    def set_content(self, content:bytes, start: int, end: int) -> int:
+        raise Exception("implement in pvm")
+
+    def read_uint(self, section: bytearray, addr: int, length: int) -> int:
+        raise Exception("implement in pvm")
+
+    def write_uint(section: bytearray, section_offset: int, bytes_to_write: int, value: int):
+        raise Exception("implement in pvm")
+
+
     def __init__(self, address, size, contents, acl=None):
         if not contents:
             contents = []
@@ -66,35 +80,13 @@ class AbstractMemorySection:
         self.paged_tail = address + paged_size
 
         if acl is not None:
-            acl_size = max(1, paged_size // PVM_PAGE_SIZE)
+            nr_pages = paged_size // PVM_PAGE_SIZE
+            acl_size = max(1, (nr_pages + ACL_PAGES_PER_BITMAP - 1) // ACL_PAGES_PER_BITMAP)
             self.acl_bitmap = np.zeros(acl_size, dtype=np.uint64)
-            self.set_range_acl(0, acl_size, acl)
+            self.set_range_acl(0, nr_pages, acl)
         else:
-            self.acl_bitmap = np.zeros(max(1, paged_size // PVM_PAGE_SIZE), dtype=np.uint64)
-
-
-    def alloc_contents(self, _bytes):
-        # self.contents = np.zeros(self.size, dtype=np.uint8)
-        # if _bytes:
-        #     length = len(_bytes)
-        #     if isinstance(_bytes, (list, tuple)):
-        #         self.contents[0:length] = np.array(_bytes, dtype=np.uint8)
-        #     elif isinstance(_bytes, np.ndarray):
-        #         self.contents[0:length] = _bytes.astype(np.uint8)
-        #     else:
-        #         self.contents[0:length] = np.frombuffer(bytes(_bytes), dtype=np.uint8)
-        raise Exception("implement in pvm")
-
-    def set_content(self, content:bytes, start: int, end: int) -> int:
-        #section.contents[start:end] = np.frombuffer(content, dtype=np.uint8)  numba
-        #section.contents[start:end] = content  cpython
-        raise Exception("implement in pvm")
-
-    def read_uint(self, section: bytearray, addr: int, length: int) -> int:
-        raise Exception("implement in pvm")
-
-    def write_uint(section: bytearray, section_offset: int, bytes_to_write: int, value: int):
-        raise Exception("implement in pvm")
+            nr_pages = paged_size // PVM_PAGE_SIZE
+            self.acl_bitmap = np.zeros(max(1, (nr_pages + ACL_PAGES_PER_BITMAP - 1) // ACL_PAGES_PER_BITMAP), dtype=np.uint64)
 
     def contains(self, addr):
         return self.address <= addr < self.address + self.size
@@ -116,7 +108,7 @@ class AbstractMemorySection:
 
         return self.write_uint(self.contents, section_addr, length, value)
 
-    def set_page_acl(self, page_idx: int, perm: int) -> None:
+    def set_page_acl(self, page_idx: int, acl: int) -> None:
         bitmap_idx = acl_bitmap_idx(page_idx)
         if bitmap_idx >= len(self.acl_bitmap):
             new_len = bitmap_idx + 1
@@ -125,7 +117,7 @@ class AbstractMemorySection:
             self.acl_bitmap = extended
         shift = acl_page_idx(page_idx)
         mask = np.uint64(0b11 << shift)
-        bits = np.uint64(acl_bits(perm) << shift)
+        bits = np.uint64(acl_bits(acl) << shift)
         self.acl_bitmap[bitmap_idx] = np.uint64((self.acl_bitmap[bitmap_idx] & ~mask) | bits)
 
     def set_range_acl(self, start_page: int, nr_pages: int, acl: int) -> None:
