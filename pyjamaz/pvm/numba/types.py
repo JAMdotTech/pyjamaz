@@ -381,35 +381,6 @@ class PVMMemory:
         section.contents[section_addr:section_addr+len(content)] = np.frombuffer(content, dtype=np.uint8)
 
 
-    def _sbrk(self, size):
-        # Note: sbrk opcode
-        if size == 0:
-            return self._heap.paged_tail
-
-        current_heap_ptr = self._heap.paged_tail
-        new_heap_ptr = current_heap_ptr + size
-        if new_heap_ptr >= self._stack.address:
-            return 0
-
-        next_page_boundary = PVMMemory.page_size(current_heap_ptr)
-        if new_heap_ptr > next_page_boundary:
-            new_heap_end = PVMMemory.page_size(new_heap_ptr)
-            growth = new_heap_end - next_page_boundary
-
-            if new_heap_end - self._heap.address > len(self._heap.contents):
-                self._heap.contents = np.concatenate((self._heap.contents, np.zeros(growth, dtype=np.uint8)))
-                self._heap.size = len(self._heap.contents)
-
-            # Create ACL of new pages
-            next_page_nr = current_heap_ptr // PVM_PAGE_SIZE
-            pages = growth // PVM_PAGE_SIZE + 1
-            for page_nr in range(pages):
-                self._acl[next_page_nr + page_nr] = PVMMemoryMode.writable
-
-        self._heap.paged_tail = new_heap_ptr
-        return self._heap.paged_tail
-
-
     def zero(self, page_idx: int, nr_pages: int, acl: PVMMemoryMode):
         mem_addr = page_idx * PVM_PAGE_SIZE
         # TODO we assume acl should be set this way, cannot test right now

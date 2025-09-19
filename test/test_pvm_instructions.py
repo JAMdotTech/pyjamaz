@@ -34,7 +34,7 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/riscv_rv64ui_ma_data.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
     def test_instruction(self, name, test_vector):
 
         pvm_code = PVMCode.from_jam_bytes(

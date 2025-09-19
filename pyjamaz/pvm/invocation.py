@@ -128,16 +128,16 @@ class PVMInvocation:
         while True:
 
             # invoke general PVM function (Ψ)
-            PVMInterpreter.ttt += 1
-            s1 = time.time()
-            i1 = self.pvm.inst_nr
+            # PVMInterpreter.ttt += 1
+            # s1 = time.time()
+            # i1 = self.pvm.inst_nr
             self.pvm.invoke(
                 instruction_counter,
                 gas_limit
             )
-            if PVMInterpreter.ttt > 0:
-                PVMInterpreter.tttt += (time.time()-s1)
-                print(f"::: {self.pvm.name}::{instruction_counter}\t\t{PVMInterpreter.ttt}\t\t{(time.time()-s1):.4f}\t\t{(self.pvm.inst_nr-i1)}\t\t{PVMInterpreter.tttt:.4f}")
+            # if PVMInterpreter.ttt > 0:
+            #     PVMInterpreter.tttt += (time.time()-s1)
+            #     print(f"::: {self.pvm.name}::{instruction_counter}\t\t{PVMInterpreter.ttt}\t\t{(time.time()-s1):.4f}\t\t{(self.pvm.inst_nr-i1)}\t\t{PVMInterpreter.tttt:.4f}")
 
             exit_condition = self.pvm.get_exit_condition()
 

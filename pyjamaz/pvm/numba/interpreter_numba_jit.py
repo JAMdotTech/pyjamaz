@@ -471,10 +471,13 @@ def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
     uint64[::1],  # section_starts
     uint64[::1],  # section_ends
     u8_array_list,# section_arrays
-    int32[::1]    # acl_array
+    int32[::1],   # acl_array
+    int32[::1],   # acl_extra_start
+    int32[::1]    # acl_extra_count
 ), cache=NUMBA_CACHE)
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
-                  section_starts, section_ends, section_arrays, acl_array) -> I32:
+                  section_starts, section_ends, section_arrays,
+                  acl_array, acl_extra_start, acl_extra_count) -> I32:
     """
     Returns status:I32 where status==0 on success, -1 on fault.
     """
@@ -487,9 +490,16 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
         return I32(-1)
 
     page_nr = int(U64(addr >> PVM_PAGE_SHIFT) & U32_MASK)
-    if len(acl_array) > 0:
-        if page_nr < 0 or page_nr >= len(acl_array) or acl_array[page_nr] < MEM_WRITABLE:
-            return I32(-1)
+    allowed = False
+    if len(acl_array) > 0 and 0 <= page_nr < len(acl_array):
+        allowed = acl_array[page_nr] >= MEM_WRITABLE
+    if not allowed:
+        start_page = int(acl_extra_start[0])
+        count = int(acl_extra_count[0])
+        if count > 0 and start_page <= page_nr < start_page + count:
+            allowed = True
+    if not allowed:
+        return I32(-1)
 
     start = U64(section_starts[idx])
     off = addr - start
@@ -537,10 +547,13 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     uint64[::1],  # section_starts
     uint64[::1],  # section_ends
     u8_array_list,# section_arrays
-    int32[::1]    # acl_array
+    int32[::1],   # acl_array
+    int32[::1],   # acl_extra_start
+    int32[::1]    # acl_extra_count
 ), cache=NUMBA_CACHE)
 def mem_read_jit(addr: U64, bytes_to_read: U8,
-                 section_starts, section_ends, section_arrays, acl_array) -> (I32, U64):
+                 section_starts, section_ends, section_arrays,
+                 acl_array, acl_extra_start, acl_extra_count) -> (I32, U64):
     """
     Returns (status:I32, value:U64) where status==0 on success, -1 on fault.
     """
@@ -553,9 +566,16 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
         return I32(-1), U64(0)
 
     page_nr = int(U64(addr >> PVM_PAGE_SHIFT) & U32_MASK)
-    if len(acl_array) > 0:
-        if page_nr < 0 or page_nr >= len(acl_array) or acl_array[page_nr] == MEM_INACCESSIBLE:
-            return I32(-1), U64(0)
+    allowed = False
+    if len(acl_array) > 0 and 0 <= page_nr < len(acl_array):
+        allowed = acl_array[page_nr] != MEM_INACCESSIBLE
+    if not allowed:
+        start_page = int(acl_extra_start[0])
+        count = int(acl_extra_count[0])
+        if count > 0 and start_page <= page_nr < start_page + count:
+            allowed = True
+    if not allowed:
+        return I32(-1), U64(0)
 
     start = U64(section_starts[idx])
     off = addr - start
@@ -664,31 +684,30 @@ def get_memory_hash(section_arrays, seg_idx: I32):
     return segment_hash
 
 
-@njit(types.Tuple((uint64, int32))(
+@njit(types.Tuple((uint64, int64))(
     uint64,
     uint64,
     uint64,
-    int32[::1],
     int64,
     u8_array_list,
     uint64[::1]
 ), cache=NUMBA_CACHE)
 def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
-             acl_array, mem_writable: I64, section_arrays, section_starts) -> (U64, I32):
+             mem_writable: I64, section_arrays, section_starts) -> (U64, I64):
     """JIT implementation of sbrk heap allocation with optional heap growth.
     Returns (new_heap_ptr, grew_flag) where grew_flag==1 if heap buffer was extended.
     """
     if size == 0:
-        return current_heap_ptr, I32(0)
+        return current_heap_ptr, I64(0)
 
     new_heap_ptr = current_heap_ptr + size
     if new_heap_ptr >= next_section_start:
-        return U64(0), I32(0)  # Allocation failed - would overlap next section
+        return U64(0), I64(0)  # Allocation failed - would overlap next section
 
     # Calculate page boundaries (match PVMMemory.page_size semantics: ceil to page size)
     next_page_boundary = ((current_heap_ptr + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT) << PVM_PAGE_SHIFT
 
-    grew_flag = I32(0)
+    grew_bytes = I64(0)
     if new_heap_ptr > next_page_boundary:
         new_heap_end = ((new_heap_ptr + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT) << PVM_PAGE_SHIFT
         growth = new_heap_end - next_page_boundary
@@ -705,19 +724,9 @@ def sbrk_jit(size: U64, current_heap_ptr: U64, next_section_start: U64,
                 new_arr[:cur_len] = heap_arr[:cur_len]
             new_arr[cur_len:reserve_len] = 0
             section_arrays[1] = new_arr
-            grew_flag = I32(1)
-            print("SBRK GREW: " + str(desired_len))
+            grew_bytes = I64(growth)
 
-        # Create ACL of new pages
-        next_page_nr = U32(U64(current_heap_ptr >> PVM_PAGE_SHIFT) & U32_MASK)
-        pages = (growth >> PVM_PAGE_SHIFT) + 1
-        for page_nr in range(pages):
-            idx = int((U32(next_page_nr) + U32(page_nr)) & U32_MASK)
-            if idx >= len(acl_array):
-                return U64(0), I32(0)
-            acl_array[idx] = int32(mem_writable)
-
-    return new_heap_ptr, grew_flag
+    return new_heap_ptr, grew_bytes
 
 
 @njit(int32(uint32, int64, boolean, int32[::1]), cache=NUMBA_CACHE)
@@ -769,7 +778,7 @@ def invoke(
     inst_pos_keys, inst_pos_vals, inst_arg_len_array, pc_to_inst_index,
     opcode_scheme_array, jump_table_array,
     mem_ops_read, mem_ops_write, mem_ops_bytes,
-        mem_section_starts, mem_section_ends, section_arrays, acl_array,
+        mem_section_starts, mem_section_ends, section_arrays, acl_array, acl_extra_start, acl_extra_count,
     heap_info, registers_in, logging,
     registers_out, state_out, heap_grew_out
 ):
@@ -815,10 +824,10 @@ def invoke(
     registers_in = np.asarray(registers_in, dtype=np.uint64, order='C')
     heap_info    = np.asarray(heap_info,    dtype=np.uint64, order='C')
 
-    # outputs: registers_out:uint64[::1], state_out:int64[::1], heap_grew_out:int32[::1]
+    # outputs: registers_out:uint64[::1], state_out:int64[::1], heap_grew_out:int64[::1]
     registers_out = np.asarray(registers_out, dtype=np.uint64, order='C')
     state_out     = np.asarray(state_out,     dtype=np.int64,  order='C')
-    heap_grew_out = np.asarray(heap_grew_out, dtype=np.int32,  order='C')
+    heap_grew_out = np.asarray(heap_grew_out, dtype=np.int64,  order='C')
 
     # Ensure logging dict is a typed Dict[int64, unicode]
     if isinstance(logging, dict):
@@ -855,7 +864,7 @@ def invoke(
 
         registers_out,                 # uint64[::1]
         state_out,                     # int64[::1]
-        heap_grew_out,                 # int32[::1]
+        heap_grew_out,                 # int64[::1]
     )
     return error_code
 
@@ -989,6 +998,8 @@ def log(
     uint64[::1],     # mem_section_ends
     u8_array_list,   # section_arrays : List[uint8[:]]
     int32[::1],      # acl_array
+    int32[::1],      # acl_extra_starts
+    int32[::1],      # acl_extra_lengths
 
     uint64[::1],     # heap_info (len 3)
     uint64[::1],     # reg (len 13)
@@ -996,7 +1007,7 @@ def log(
 
     uint64[::1],     # registers_out
     int64[::1],      # state_out
-    int32[::1],      # heap_grew_out
+    int64[::1],      # heap_grew_out
 ), cache=NUMBA_CACHE)
 def invoke_native_jit(
         pc_start, gas_start, inst_start, initial_skip_len,
@@ -1004,7 +1015,7 @@ def invoke_native_jit(
         inst_pos_keys, inst_pos_vals, inst_arg_len, pc_to_inst_index,
         opcode_scheme, jump_table,
         mem_ops_read, mem_ops_write, mem_ops_bytes,
-        mem_section_starts, mem_section_ends, section_arrays, acl_array,
+        mem_section_starts, mem_section_ends, section_arrays, acl_array, acl_extra_start, acl_extra_count,
         heap_info,  # [current_heap_end, next_section_start, mem_writable_value]
         registers_in,
         logging,
@@ -1040,6 +1051,11 @@ def invoke_native_jit(
     # timing_enabled = True
     logg = False
     timing_enabled = False
+
+    if len(acl_extra_start) > 0:
+        acl_extra_start[0] = 0
+    if len(acl_extra_count) > 0:
+        acl_extra_count[0] = 0
 
     # Main execution loop
     while status == EXIT_RESUME and gas > 0:
@@ -1151,45 +1167,45 @@ def invoke_native_jit(
             v_y = pvm_X_jit(read_uint_jit(code, pc + 2 + l_x, l_y), np.uint8(l_y))
 
             if opcode == op_store_imm_u8:
-                if mem_write_jit(v_x, U64(v_y) & U64(0xFF), U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_array) < 0:
+                if mem_write_jit(v_x, U64(v_y) & U64(0xFF), U8(1), mem_section_starts, mem_section_ends, section_arrays, acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg:
                     __s1, __v1 = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays,
-                                              acl_array)
+                                              acl_array, acl_extra_start, acl_extra_count)
                     log(logging, local_state, reg, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v1),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
             elif opcode == op_store_imm_u16:
                 if mem_write_jit(v_x, U64(v_y) & U64(0xFFFF), U8(2), mem_section_starts, mem_section_ends, section_arrays,
-                                 acl_array) < 0:
+                                 acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg:
                     __s2, __v2 = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays,
-                                              acl_array)
+                                              acl_array, acl_extra_start, acl_extra_count)
                     log(logging, local_state, reg, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v2),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
             elif opcode == op_store_imm_u32:
                 if mem_write_jit(v_x, U64(v_y) & U32_MASK, U8(4), mem_section_starts, mem_section_ends, section_arrays,
-                                 acl_array) < 0:
+                                 acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg:
                     __s4, __v4 = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays,
-                                              acl_array)
+                                              acl_array, acl_extra_start, acl_extra_count)
                     log(logging, local_state, reg, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v4),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
             elif opcode == op_store_imm_u64:
-                if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_array) < 0:
+                if mem_write_jit(v_x, v_y, U8(8), mem_section_starts, mem_section_ends, section_arrays, acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg:
                     __s8, __v8 = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays,
-                                              acl_array)
+                                              acl_array, acl_extra_start, acl_extra_count)
                     log(logging, local_state, reg, imm1=v_x, imm2=v_y, context="u'_vx: " + str(__v8),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
             else:
@@ -1244,7 +1260,7 @@ def invoke_native_jit(
 
             elif opcode == op_load_u8:
                 status_read, loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT,
                                                  pc, gas, inst_nr,
@@ -1254,7 +1270,7 @@ def invoke_native_jit(
 
             elif opcode == op_load_i8:
                 status_read, loaded_value = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1263,7 +1279,7 @@ def invoke_native_jit(
 
             elif opcode == op_load_u16:
                 status_read, loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1271,7 +1287,7 @@ def invoke_native_jit(
 
             elif opcode == op_load_i16:
                 status_read, loaded_value = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1280,7 +1296,7 @@ def invoke_native_jit(
 
             elif opcode == op_load_u32:
                 status_read, loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1289,7 +1305,7 @@ def invoke_native_jit(
 
             elif opcode == op_load_i32:
                 status_read, loaded_value = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1298,7 +1314,7 @@ def invoke_native_jit(
 
             elif opcode == op_load_u64:
                 status_read, loaded_value = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1307,45 +1323,45 @@ def invoke_native_jit(
 
             elif opcode == op_store_u8:
                 if mem_write_jit(v_x, U64(reg[r_a]) & U64(0xFF), U8(1), mem_section_starts, mem_section_ends, section_arrays,
-                                 acl_array) < 0:
+                                 acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg:
                     _rs1, _rv1 = mem_read_jit(v_x, U8(1), mem_section_starts, mem_section_ends, section_arrays,
-                                              acl_array)
+                                              acl_array, acl_extra_start, acl_extra_count)
                     log(logging, local_state, reg, reg1=r_a, imm1=v_x, context="u'_vx: " + str(_rv1),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_u16:
                 if mem_write_jit(v_x, U64(reg[r_a]) & U64(0xFFFF), U8(2), mem_section_starts, mem_section_ends, section_arrays,
-                                 acl_array) < 0:
+                                 acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg:
                     _rs2, _rv2 = mem_read_jit(v_x, U8(2), mem_section_starts, mem_section_ends, section_arrays,
-                                              acl_array)
+                                              acl_array, acl_extra_start, acl_extra_count)
                     log(logging, local_state, reg, reg1=r_a, imm1=v_x, context="u'_vx: " + str(_rv2),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_u32:
                 if mem_write_jit(v_x, U64(reg[r_a]) & U32_MASK, U8(4), mem_section_starts, mem_section_ends, section_arrays,
-                                 acl_array) < 0:
+                                 acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg:
                     _rs4, _rv4 = mem_read_jit(v_x, U8(4), mem_section_starts, mem_section_ends, section_arrays,
-                                              acl_array)
+                                              acl_array, acl_extra_start, acl_extra_count)
                     log(logging, local_state, reg, reg1=r_a, imm1=v_x, context="u'_vx: " + str(_rv4),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_u64:
                 if mem_write_jit(v_x, reg[r_a], U8(8), mem_section_starts, mem_section_ends, section_arrays,
-                                 acl_array) < 0:
+                                 acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg:
                     _rs8, _rv8 = mem_read_jit(v_x, U8(8), mem_section_starts, mem_section_ends, section_arrays,
-                                              acl_array)
+                                              acl_array, acl_extra_start, acl_extra_count)
                     log(logging, local_state, reg, reg1=r_a, imm1=v_x, context="u'_vx: " + str(_rv8),
                         mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
@@ -1369,46 +1385,46 @@ def invoke_native_jit(
             if opcode == op_store_imm_ind_u8:
                 store_addr = (U64(w_a) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, U64(v_y) & U64(0xFF), U8(1), mem_section_starts, mem_section_ends,
-                                 section_arrays, acl_array) < 0:
+                                 section_arrays, acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(1), mem_section_starts, mem_section_ends,
-                                                section_arrays, acl_array)), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
+                                                section_arrays, acl_array, acl_extra_start, acl_extra_count)), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_imm_ind_u16:
                 store_addr = (U64(w_a) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, U64(v_y) & U64(0xFFFF), U8(2), mem_section_starts, mem_section_ends,
-                                 section_arrays, acl_array) < 0:
+                                 section_arrays, acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(2), mem_section_starts, mem_section_ends,
-                                                 section_arrays, acl_array)), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
+                                                 section_arrays, acl_array, acl_extra_start, acl_extra_count)), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_imm_ind_u32:
                 store_addr = (U64(w_a) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, U64(v_y) & U32_MASK, U8(4), mem_section_starts, mem_section_ends,
-                                 section_arrays, acl_array) < 0:
+                                 section_arrays, acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(4), mem_section_starts, mem_section_ends,
-                                                 section_arrays, acl_array)), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
+                                                 section_arrays, acl_array, acl_extra_start, acl_extra_count)), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             elif opcode == op_store_imm_ind_u64:
                 store_addr = (U64(w_a) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, v_y, U8(8), mem_section_starts, mem_section_ends, section_arrays,
-                                 acl_array) < 0:
+                                 acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, imm1=v_x, imm2=v_y,
                                 context="u'_vx: " + str(
                                     mem_read_jit(store_addr, U8(8), mem_section_starts, mem_section_ends,
-                                                 section_arrays, acl_array)), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
+                                                 section_arrays, acl_array, acl_extra_start, acl_extra_count)), mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
             else:
                 if logg: log(logging, local_state, reg, context="error: unknown opcode",
@@ -1555,19 +1571,35 @@ def invoke_native_jit(
                 size = reg[r_a]
                 current_heap_ptr = heap_info[0]
                 next_section_start = heap_info[1]
-                # Ensure signed type to match sbrk_jit signature and avoid Numba cast warning
                 mem_writable_value = I64(heap_info[2])
 
-                new_heap_ptr, grew = sbrk_jit(size, current_heap_ptr, next_section_start, acl_array, mem_writable_value,
-                                              section_arrays, mem_section_starts)
+                new_heap_ptr, grew_bytes = sbrk_jit(size, current_heap_ptr, next_section_start,
+                                                    mem_writable_value, section_arrays, mem_section_starts)
                 reg[r_d] = new_heap_ptr
 
                 if new_heap_ptr != U64(0):
                     heap_info[0] = new_heap_ptr
                     mem_section_ends[1] = new_heap_ptr
-                    if grew == I32(1):
-                        # Signal wrapper to sync grown heap back to numpy
-                        heap_grew_out[0] = 1
+                    if grew_bytes > I64(0):
+                        heap_grew_out[0] += grew_bytes
+                        start_page = int(current_heap_ptr >> PVM_PAGE_SHIFT)
+                        pages = int((int(grew_bytes) + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT)
+
+                        existing_start = int(acl_extra_start[0])
+                        existing_count = int(acl_extra_count[0])
+                        if existing_count == 0:
+                            acl_extra_start[0] = start_page
+                            acl_extra_count[0] = pages
+                        else:
+                            new_start = existing_start
+                            new_end = existing_start + existing_count
+                            if start_page < new_start:
+                                new_start = start_page
+                            candidate_end = start_page + pages
+                            if candidate_end > new_end:
+                                new_end = candidate_end
+                            acl_extra_start[0] = new_start
+                            acl_extra_count[0] = new_end - new_start
 
                 if logg: log(logging, local_state, reg, reg1=r_d, reg2=r_a, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
 
@@ -1657,7 +1689,7 @@ def invoke_native_jit(
             if opcode == op_store_ind_u8:
                 store_addr = (U64(w_b) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, U64(w_a) & U64(0xFF), U8(1), mem_section_starts, mem_section_ends,
-                                 section_arrays, acl_array) < 0:
+                                 section_arrays, acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
@@ -1665,7 +1697,7 @@ def invoke_native_jit(
 
             elif opcode == op_store_ind_u16:
                 store_addr =(U64(w_b) + U64(v_x)) & U64_MASK
-                if mem_write_jit(store_addr, U64(w_a) & U64(0xFFFF), U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_array) < 0:
+                if mem_write_jit(store_addr, U64(w_a) & U64(0xFFFF), U8(2), mem_section_starts, mem_section_ends, section_arrays, acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
@@ -1673,7 +1705,7 @@ def invoke_native_jit(
 
             elif opcode == op_store_ind_u32:
                 store_addr = (U64(w_b) + U64(v_x)) & U64_MASK
-                if mem_write_jit(store_addr,  U64(w_a) & U32_MASK, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_array) < 0:
+                if mem_write_jit(store_addr,  U64(w_a) & U32_MASK, U8(4), mem_section_starts, mem_section_ends, section_arrays, acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
@@ -1682,7 +1714,7 @@ def invoke_native_jit(
             elif opcode == op_store_ind_u64:
                 store_addr =  (U64(w_b) + U64(v_x)) & U64_MASK
                 if mem_write_jit(store_addr, w_a, U8(8), mem_section_starts, mem_section_ends, section_arrays,
-                                 acl_array) < 0:
+                                 acl_array, acl_extra_start, acl_extra_count) < 0:
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
                 if logg: log(logging, local_state, reg, reg1=r_a, reg2=r_b, imm1=v_x,
@@ -1691,7 +1723,7 @@ def invoke_native_jit(
             elif opcode == op_load_ind_u8:
                 load_addr =  (U64(w_b) + U64(v_x)) & U64_MASK
                 status_read, loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1702,7 +1734,7 @@ def invoke_native_jit(
             elif opcode == op_load_ind_i8:
                 load_addr = (U64(w_b) + U64(v_x)) & U64_MASK
                 status_read, loaded_value = mem_read_jit(load_addr, U8(1), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1713,7 +1745,7 @@ def invoke_native_jit(
             elif opcode == op_load_ind_u16:
                 load_addr = (U64(w_b) + U64(v_x)) & U64_MASK
                 status_read, loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1724,7 +1756,7 @@ def invoke_native_jit(
             elif opcode == op_load_ind_i16:
                 load_addr = (U64(w_b) + U64(v_x)) & U64_MASK
                 status_read, loaded_value = mem_read_jit(load_addr, U8(2), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1735,7 +1767,7 @@ def invoke_native_jit(
             elif opcode == op_load_ind_u32:
                 load_addr = (U64(w_b) + U64(v_x)) & U64_MASK
                 status_read, loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1746,7 +1778,7 @@ def invoke_native_jit(
             elif opcode == op_load_ind_i32:
                 load_addr = (U64(w_b) + U64(v_x)) & U64_MASK
                 status_read, loaded_value = mem_read_jit(load_addr, U8(4), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -1757,7 +1789,7 @@ def invoke_native_jit(
             elif opcode == op_load_ind_u64:
                 load_addr = (U64(w_b) + U64(v_x)) & U64_MASK
                 status_read, loaded_value = mem_read_jit(load_addr, U8(8), mem_section_starts, mem_section_ends,
-                                                         section_arrays, acl_array)
+                                                         section_arrays, acl_array, acl_extra_start, acl_extra_count)
                 if status_read != I32(0):
                     return sync_state_and_return(reg, registers_out, state_out, EXIT_PAGE_FAULT, pc, gas, inst_nr,
                                                  exit_value, skip_len, ERROR_MEMORY_FAULT)
@@ -2494,32 +2526,6 @@ class PVMInterpreter(PVMInterpreterBase):
 
         return arr
 
-    def _ensure_acl_capacity(self, required_page_count: int) -> None:
-        if required_page_count <= 0:
-            return
-
-        if self._jit_acl_array_cache is None:
-            self._jit_acl_array_cache = self._build_acl_array()
-            self._jit_mem_cache_dirty = True
-
-        current_len = len(self._jit_acl_array_cache)
-        if required_page_count <= current_len:
-            return
-
-        new_len = max(required_page_count, current_len * 2)
-        if self.mem_acl:
-            new_arr = np.full(new_len, MEM_INACCESSIBLE, dtype=np.int32)
-            new_arr[:current_len] = self._jit_acl_array_cache
-            for page, perm in self.mem_acl.items():
-                if page < new_len:
-                    new_arr[page] = int(perm)
-        else:
-            new_arr = np.full(new_len, MEM_WRITABLE, dtype=np.int32)
-            new_arr[:current_len] = self._jit_acl_array_cache
-
-        self._jit_acl_array_cache = new_arr
-        self._jit_mem_cache_dirty = True
-
     def invoke(self, pc: int, gas: int):
         """
         Pure JIT invoke that uses only Numba compilation.
@@ -2538,17 +2544,16 @@ class PVMInterpreter(PVMInterpreterBase):
             MEM_WRITABLE  # writable permission value
         ], dtype=np.uint64)
 
-        next_section_start = int(heap_info[1])
-        max_required_page = int((next_section_start + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT) if next_section_start > 0 else 0
-        self._ensure_acl_capacity(max_required_page)
-
         # Prepare memory arrays for JIT
         mem_section_starts, mem_section_ends, section_arrays, acl_array = self._prepare_memory_for_jit()
+
+        acl_extra_start = np.array([0], dtype=np.int32)
+        acl_extra_count = np.array([0], dtype=np.int32)
 
         registers_out = np.zeros(13, dtype=np.uint64)
         # state_out holds: [status, pc, gas, inst_nr, exit_value, skip_len, error_code]
         state_out = np.array([0, 0, 0, 0, 0, 0, 0], dtype=np.int64)
-        heap_grew_out = np.array([0], dtype=np.int32)
+        heap_grew_out = np.array([0], dtype=np.int64)
 
         opcode_names = Dict.empty(
             key_type=types.int64,
@@ -2570,7 +2575,7 @@ class PVMInterpreter(PVMInterpreterBase):
             self.inst_pos_keys, self.inst_pos_vals, self.inst_arg_len_array, self.pc_to_inst_index,
             self.opcode_scheme_array, jump_table_array,
             mem_ops_read_int64, mem_ops_write_int64, mem_ops_bytes_int64,
-            mem_section_starts, mem_section_ends, section_arrays, acl_array,
+            mem_section_starts, mem_section_ends, section_arrays, acl_array, acl_extra_start, acl_extra_count,
             heap_info,
             self.reg,
             opcode_names,
@@ -2625,7 +2630,8 @@ class PVMInterpreter(PVMInterpreterBase):
             self.mem_section_ends[1] = heap_info[0]
 
         # Sync grown heap back from JIT's typed list (preferred) or extend locally
-        if heap_grew_out[0] == 1 and section_arrays is not None:
+        growth_bytes = int(heap_grew_out[0])
+        if growth_bytes > 0 and section_arrays is not None:
             # Adopt the grown buffer from the JIT without copying
             self.mem_sections[1] = section_arrays[1]
             self._jit_mem_cache_dirty = True
@@ -2638,17 +2644,14 @@ class PVMInterpreter(PVMInterpreterBase):
                 self._jit_mem_cache_dirty = True
 
         new_heap_end = int(heap_info[0])
-        if hasattr(self, 'mem_acl') and self.mem_acl is not None and new_heap_end > current_heap_end:
-            start_page = current_heap_end >> PVM_PAGE_SHIFT
-            end_page = (new_heap_end + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT
-            for page in range(start_page, end_page):
-                self.mem_acl[page] = MEM_WRITABLE
+        extra_start_page = int(acl_extra_start[0])
+        extra_page_count = int(acl_extra_count[0])
 
-        if (self._jit_acl_array_cache is not None and new_heap_end > current_heap_end):
-            end_page = (new_heap_end + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT
-            self._ensure_acl_capacity(end_page)
-            start_page = current_heap_end >> PVM_PAGE_SHIFT
-            for page in range(start_page, end_page):
-                self._jit_acl_array_cache[page] = MEM_WRITABLE
+        if growth_bytes > 0 and extra_page_count > 0:
+            if hasattr(self, 'mem_acl') and self.mem_acl is not None:
+                start_page = extra_start_page
+                end_page = start_page + extra_page_count + 1
+                for page in range(start_page, end_page):
+                    self.mem_acl[page] = MEM_WRITABLE
 
         self._sync_memory()
