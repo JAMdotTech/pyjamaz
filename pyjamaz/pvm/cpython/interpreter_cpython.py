@@ -241,6 +241,7 @@ class PVMInterpreter:
                 self.mem._heap.contents = self.mem_sections[1]
                 self.mem._heap.size = len(self.mem_sections[1])
                 self.mem._heap.paged_tail = self.mem_section_ends[1]
+                self.mem._heap.acl_bitmap = self.mem_section_acl[1]
             self.mem._mem_addr = self._mem_addr
             self._last_sec = -1
 
@@ -271,17 +272,18 @@ class PVMInterpreter:
                 new_buf[:cur_size] = heap
                 self.mem_sections[1] = new_buf
                 self.mv_sections[1] = memoryview(self.mem_sections[1])
-                print("SBRK GREW: " + str(new_size))
+                #print("SBRK GREW: " + str(new_size))
 
-                page_count = len(self.mem_section_acl[1])  # (current_heap_ptr - self.mem_section_starts[1]) // PVM_PAGE_SIZE
+                bitmap_count = len(self.mem_section_acl[1])  # (current_heap_ptr - self.mem_section_starts[1]) // PVM_PAGE_SIZE
+                last_page_idx = (current_heap_ptr - self.mem_section_starts[1] + growth) // PVM_PAGE_SIZE
                 # note: ceil div: -(-a // b)
-                new_page_count = -(-(current_heap_ptr - self.mem_section_starts[1] + growth) // PVM_PAGE_SIZE)
-                new_bitmaps = new_page_count - page_count
-                if new_bitmaps > 0:
-                    extended = np.zeros(new_page_count, dtype=np.uint64)
+                bitmaps_required = -(-last_page_idx // ACL_PAGES_PER_BITMAP)
+
+                if bitmaps_required > bitmap_count:
+                    extended = np.ones(bitmaps_required, dtype=np.uint64)
                     extended[:len(self.mem_section_acl[1])] = self.mem_section_acl[1]
                     self.mem_section_acl[1] = extended
-                    print("ACL GREW: " + str(new_bitmaps))
+                    #print("ACL GREW: " + str(bitmaps_required))
 
             next_page_nr = (current_heap_ptr-self.mem_section_starts[1]) // PVM_PAGE_SIZE
             pages = growth // PVM_PAGE_SIZE + 1
@@ -314,7 +316,7 @@ class PVMInterpreter:
         section = self.mem_sections[section_idx]
         section_offset = addr - self.mem_section_starts[section_idx]
 
-        if self.mem_section_acl[section_idx]:
+        if len(self.mem_section_acl[section_idx]) > 0:
             start_page = section_offset // PVM_PAGE_SIZE
             end_page = (section_offset + bytes_to_write - 1) // PVM_PAGE_SIZE
             if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page + 1, ACL_WRITE_BIT):
@@ -356,7 +358,7 @@ class PVMInterpreter:
         if section_offset + bytes_to_read > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
 
-        if self.mem_section_acl[section_idx]:
+        if len(self.mem_section_acl[section_idx]):
             start_page = section_offset // PVM_PAGE_SIZE
             end_page = (section_offset + bytes_to_read - 1) // PVM_PAGE_SIZE
             if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page + 1, ACL_READ_BIT):

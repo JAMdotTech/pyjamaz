@@ -237,4 +237,10 @@ class PVMDebugLog(PVMLogger):
 
 
     def hc_log(self, msg, data):
-        pass
+        msg = f"{self._pvm_id}: {msg}"
+        spacing = " " * (51 - len(str(msg)))
+        print(
+            f"{msg}"
+            f"{spacing}"
+            f"{data}"
+        )

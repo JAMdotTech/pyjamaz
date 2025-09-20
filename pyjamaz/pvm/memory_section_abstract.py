@@ -59,7 +59,7 @@ def set_range_acl(acl_bitmap, start_page: int, nr_pages: int, acl: int) -> None:
 
 def check_acl(acl_bitmap, start_page: int, nr_pages: int, required_bits: int) -> bool:
     if nr_pages <= 0:
-        return True
+        return False
 
     end_page = start_page + nr_pages
     page = start_page

@@ -1,5 +1,4 @@
 import logging
-import time
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from typing import List, Optional
@@ -128,6 +127,7 @@ class PVMInvocation:
 
         while True:
 
+            # invoke general PVM function (Ψ)
             self.pvm.invoke(
                 instruction_counter,
                 gas_limit
