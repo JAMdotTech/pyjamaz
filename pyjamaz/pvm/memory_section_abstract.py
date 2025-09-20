@@ -42,10 +42,8 @@ def acl_page_idx(page: int) -> int:
 def set_page_acl(acl_bitmap, page_idx: int, acl: int) -> None:
     bitmap_idx = acl_bitmap_idx(page_idx)
     if bitmap_idx >= len(acl_bitmap):
-        new_len = bitmap_idx + 1
-        extended = np.zeros(new_len, dtype=np.uint64)
-        extended[:len(acl_bitmap)] = acl_bitmap
-        acl_bitmap = extended
+        # Note: extending the ACL bitmap should only occur when we extend the heap (sbrk impl)
+        raise PVMMemoryError(f'ACL for page {page_idx} is out of range')
     shift = acl_page_idx(page_idx)
     mask = np.uint64(0b11 << shift)
     bits = np.uint64(acl_bits(acl) << shift)

@@ -1,5 +1,6 @@
 import time
 
+import numpy as np
 from array import array
 from typing import List, Dict
 
@@ -15,7 +16,7 @@ from pyjamaz.pvm.constants import (
     OpcodeNames,
     ExitCondition,
     PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W,
-    ACL_READ_BIT, ACL_WRITE_BIT,
+    ACL_READ_BIT, ACL_WRITE_BIT, ACL_PAGES_PER_BITMAP,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -272,8 +273,16 @@ class PVMInterpreter:
                 self.mv_sections[1] = memoryview(self.mem_sections[1])
                 print("SBRK GREW: " + str(new_size))
 
-            if new_size==143360:
-                print(111)
+                page_count = len(self.mem_section_acl[1])  # (current_heap_ptr - self.mem_section_starts[1]) // PVM_PAGE_SIZE
+                # note: ceil div: -(-a // b)
+                new_page_count = -(-(current_heap_ptr - self.mem_section_starts[1] + growth) // PVM_PAGE_SIZE)
+                new_bitmaps = new_page_count - page_count
+                if new_bitmaps > 0:
+                    extended = np.zeros(new_page_count, dtype=np.uint64)
+                    extended[:len(self.mem_section_acl[1])] = self.mem_section_acl[1]
+                    self.mem_section_acl[1] = extended
+                    print("ACL GREW: " + str(new_bitmaps))
+
             next_page_nr = (current_heap_ptr-self.mem_section_starts[1]) // PVM_PAGE_SIZE
             pages = growth // PVM_PAGE_SIZE + 1
             set_range_acl(self.mem_section_acl[1], next_page_nr, pages, MEM_W)
