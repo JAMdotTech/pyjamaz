@@ -5,10 +5,8 @@ from dataclasses import dataclass, field
 from typing import List, T, Optional
 
 from pyjamaz.pvm import MemorySection
-from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W, MEM_RW, \
-    ACL_READ_BIT, ACL_WRITE_BIT, MEM_I
-from pyjamaz.pvm.exceptions import PanicError, PVMMemoryError
-from pyjamaz.pvm.memory_section_abstract import acl_page_idx, acl_bitmap_idx, set_range_acl, check_acl
+from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W, MEM_RW, MEM_I
+from pyjamaz.pvm.exceptions import PanicError, PVMMemoryError, PVMError
 
 
 @dataclass
@@ -54,6 +52,7 @@ class PVMMemory:
 
         return PVMMemory(rom=_rom, heap=_heap, stack=_stack, arguments=_arguments)
 
+
     def __init__(
         self,
         rom: MemorySection,
@@ -72,8 +71,10 @@ class PVMMemory:
 
         self.update_offsets()
 
+
     def update_offsets(self) -> Optional[MemorySection]:
         self.section_offsets = [p.address for p in (self._rom, self._heap, self._stack, self._args) if p]
+
 
     def find_section(self, addr: int) -> Optional[MemorySection]:
         if not self.section_offsets:
@@ -111,13 +112,10 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError("MemorySection not found")
 
-        if section.acl is not None:
-            start_page = (addr - section.address) // PVM_PAGE_SIZE
-            end_page = (addr - section.address + length - 1) // PVM_PAGE_SIZE
-            if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, ACL_WRITE_BIT):
-                raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is not writable")
-
         section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
+        if section.acl is not None and not section.acl_check(section_addr, length-1, MEM_W):
+            raise PVMMemoryError(f"Memory address {addr} ACL write check failed")
+
         self._section = section
         self._section_addr = section_addr
 
@@ -137,13 +135,10 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError("MemorySection not found")
 
-        if section.acl is not None:
-            start_page = (addr - section.address) // PVM_PAGE_SIZE
-            end_page = (addr - section.address + length - 1) // PVM_PAGE_SIZE
-            if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, ACL_READ_BIT):
-                raise PVMMemoryError(f"MemorySection {addr} - ({section.size} bytes) is inaccessible")
-
         section_addr = (addr - section.address) #% section.size  #TODO: not sure if % necesarry?
+        if section.acl is not None and not section.acl_check(section_addr, length-1, MEM_R):
+            raise PVMMemoryError(f"Memory address {addr} ACL read check failed")
+
         self._section = section
         self._section_addr = section_addr
 
@@ -164,21 +159,12 @@ class PVMMemory:
             return False
 
         if mode not in (MEM_R, MEM_W, MEM_RW):
-            raise PVMMemoryError(f"Invalid mode: {mode}")
-
-        start_page = (address - section.address) // PVM_PAGE_SIZE
-        end_page = (address - section.address + length - 1) // PVM_PAGE_SIZE
-        if mode == MEM_R:
-            required = ACL_READ_BIT
-        elif mode == MEM_RW:
-            required = ACL_READ_BIT | ACL_WRITE_BIT
-        else:
-            required = ACL_WRITE_BIT
-
-        if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, required):
-            return False
+            raise PVMError(f"Invalid PVMMemory mode: {mode}")
 
         local_addr = address - section.address
+        if section.acl and not section.acl_check(local_addr, length - 1, mode):
+            return False
+
         bytes_required = local_addr + length
 
         if bytes_required > section.size:
@@ -201,16 +187,12 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
-        section_bytes = (section.size - section_addr)
+        if section.acl is not None and not section.acl_check(section_addr, length-1, MEM_R):
+            raise PVMMemoryError(f"Memory address {address} ACL read check failed")
 
+        section_bytes = (section.size - section_addr)
         if section_bytes < length:
             raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
-
-        if section.acl is not None:
-            start_page = (address - section.address) // PVM_PAGE_SIZE
-            end_page = (address - section.address + length - 1) // PVM_PAGE_SIZE
-            if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, ACL_READ_BIT):
-                raise PVMMemoryError(f"Page {start_page} at address {start_page * PVM_PAGE_SIZE} is not readable")
 
         mem_bytes = bytes(section.contents[section_addr:section_addr+length])
         if padding and len(mem_bytes) < padding:
@@ -234,13 +216,10 @@ class PVMMemory:
         if not section:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
-        if section.acl is not None:
-            start_page = (address - section.address) // PVM_PAGE_SIZE
-            end_page = (address - section.address + len(content) - 1) // PVM_PAGE_SIZE
-            if not check_acl(section.acl_bitmap, start_page, end_page - start_page + 1, ACL_WRITE_BIT):
-                raise PVMMemoryError(f"Page {start_page} at address {start_page * PVM_PAGE_SIZE} is not writable")
-
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
+        if section.acl and not section.acl_check(section_addr, len(content), MEM_W):
+            raise PVMMemoryError(f"Memory address {address} ACL check failed")
+
         section_bytes = (section.size - section_addr)
 
         if section_bytes < len(content):
@@ -284,8 +263,8 @@ class PVMMemory:
 
         self.update_offsets()
         addr = page_idx * PVM_PAGE_SIZE - section.address
-        set_range_acl(section.acl_bitmap, addr // PVM_PAGE_SIZE, nr_pages, acl)
-        section.contents[addr:addr + nr_pages * PVM_PAGE_SIZE] = 0 #TODO: pvm specific?
+        section.acl_set_pages(addr // PVM_PAGE_SIZE, nr_pages, acl)
+        section.contents[addr:addr + nr_pages * PVM_PAGE_SIZE] = 0 #TODO: pvm specific const?
 
 
     def void(self, page_idx: int, nr_pages: int, acl: int):
@@ -296,37 +275,9 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {mem_addr}")
 
         page_nr = (mem_addr - section.address) // PVM_PAGE_SIZE
-        set_range_acl(section.acl_bitmap, page_nr, nr_pages, acl)
+        section.acl_set_pages(page_nr, nr_pages, acl)
         offset = mem_addr - section.address
-        section.contents[offset:offset + nr_pages * PVM_PAGE_SIZE] = 0 #TODO: pvm specific?
-
-
-    def has_inaccessible_acl(self, page_idx: int, nr_pages: int) -> bool:
-        for page in range(page_idx, page_idx + nr_pages):
-            addr = page * PVM_PAGE_SIZE
-            try:
-                section = self.find_section(addr)
-            except (PanicError, PVMMemoryError):
-                return True
-
-            if not section:
-                return True
-
-            # Skip further checks if this page has no acl
-            if section.acl is None:
-                continue
-
-            page_nr = (addr - section.address) // PVM_PAGE_SIZE
-            bitmap_idx = acl_bitmap_idx(page_nr)
-            if bitmap_idx >= len(section.acl_bitmap):
-                return True
-
-            shift = acl_page_idx(page_nr)
-            bits = (int(section.acl_bitmap[bitmap_idx]) >> shift) & 0b11
-            if bits == MEM_I:
-                return True
-
-        return False
+        section.contents[offset:offset + nr_pages * PVM_PAGE_SIZE] = 0 #TODO: pvm specific const?
 
 
     @staticmethod

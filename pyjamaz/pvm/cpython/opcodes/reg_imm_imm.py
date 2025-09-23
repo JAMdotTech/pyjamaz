@@ -16,22 +16,22 @@ def _op_store_imm_ind_u8(vm):
     r_a, w_a, v_x, v_y = _fetch_reg_imm_imm(vm)
     addr = u32(w_a + v_x)
     vm.mem_write(op_store_imm_ind_u8, addr, u8(v_y))
-    vm.log and vm.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_(vx+wa)": vm._mem_read_int(addr, 1)})
+    vm.log and vm.log(reg1=r_a, imm1=v_x, imm2=v_y)
 
 def _op_store_imm_ind_u16(vm):
     r_a, w_a, v_x, v_y = _fetch_reg_imm_imm(vm)
     addr = u32(w_a + v_x)
     vm.mem_write(op_store_imm_ind_u16, addr, u16(v_y))
-    vm.log and vm.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_(vx+wa)": vm._mem_read_int(addr, 2)})
+    vm.log and vm.log(reg1=r_a, imm1=v_x, imm2=v_y)
 
 def _op_store_imm_ind_u32(vm):
     r_a, w_a, v_x, v_y = _fetch_reg_imm_imm(vm)
     addr = u32(w_a + v_x)
     vm.mem_write(op_store_imm_ind_u32, addr, u32(v_y))
-    vm.log and vm.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_(vx+wa)": vm._mem_read_int(addr, 4)})
+    vm.log and vm.log(reg1=r_a, imm1=v_x, imm2=v_y)
 
 def _op_store_imm_ind_u64(vm):
     r_a, w_a, v_x, v_y = _fetch_reg_imm_imm(vm)
     addr = u32(w_a + v_x)
     vm.mem_write(op_store_imm_ind_u64, addr, v_y)
-    vm.log and vm.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_(vx+wa)": vm._mem_read_int(addr, 8)})
+    vm.log and vm.log(reg1=r_a, imm1=v_x, imm2=v_y)

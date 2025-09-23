@@ -1,5 +1,4 @@
 import logging
-import time
 from datetime import datetime
 
 import numpy as np
@@ -182,22 +181,36 @@ class PVMDebugLog(PVMLogger):
         reg_msg = f"reg={str(regs)}"
         logging.debug(f"{msg} {reg_msg}")
 
+    def sbrk(self, cur_size, new_size, growth, alloc_mem):
+        print(f"SBRK GROWN FROM {cur_size} TO {new_size} (growth {growth}, alloc mem: {alloc_mem})")
+
+    def acl(self, cur_size, new_size, growth):
+        print(f"ACL GROWN FROM {cur_size} TO {new_size} (growth: {growth})")
+
+    def exc(self, exc_str):
+        print(f"PVM EXCEPTION:\n{exc_str}")
+
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
         # if not self._pvm.ttt:
         #     return
 
         mem_info = ""
-        if hasattr(self._pvm, "mem_sections"):
-            mem = self._pvm.mem_sections
-            if mem is not None and len(mem) >= 2 and mem[1] is not None:
-                heap_hash = hash_memory_segment(mem[1])
-                mem_info += f"heap_hash:{heap_hash}"
-            if mem is not None and len(mem) >= 3 and mem[2] is not None:
-                stack_hash = hash_memory_segment(mem[2])
-                mem_info += f" stack_hash:{stack_hash}"
-        elif hasattr(self._pvm, "mem"):
-            #TODO
-            pass
+        # if hasattr(self._pvm, "mem_sections"):
+        #     mem = self._pvm.mem_sections
+        #     if mem is not None and len(mem) >= 2 and mem[1] is not None:
+        #         heap_hash = hash_memory_segment(mem[1])
+        #         mem_info += f"heap_hash:{heap_hash}"
+        #     if mem is not None and len(mem) >= 3 and mem[2] is not None:
+        #         stack_hash = hash_memory_segment(mem[2])
+        #         mem_info += f" stack_hash:{stack_hash}"
+        # elif hasattr(self._pvm, "mem"):
+        #     mem = [x for x in [self._pvm.mem._rom, self._pvm.mem._heap, self._pvm.mem._stack, self._pvm.mem._args] if x]
+        #     if mem is not None and len(mem) >= 2:
+        #         heap_hash = hash_memory_segment(mem[1].contents)
+        #         mem_info += f"heap_hash:{heap_hash}"
+        #     if mem is not None and len(mem) >= 3:
+        #         stack_hash = hash_memory_segment(mem[2].contents)
+        #         mem_info += f" stack_hash:{stack_hash}"
 
         # print("inst=", self._pvm.inst_nr, "op=", OpcodeNames[self._pvm.opcode], "pc=", self._pvm.pc, "gas=", self._pvm.gas,
         #       "r1=", reg1, "r2=", reg2, "r3=", reg3,

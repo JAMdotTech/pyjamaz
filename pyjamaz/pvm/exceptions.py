@@ -9,3 +9,6 @@ class PVMMemoryError(ValueError):
 
 class PanicError(ValueError):
     pass
+
+class PVMError(ValueError):
+    pass

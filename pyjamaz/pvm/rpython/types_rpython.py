@@ -111,9 +111,6 @@ class MemorySection:
             else:
                 self.contents[idx:idx+length] = np.frombuffer(bytes(_bytes), dtype=np.uint8)
 
-    def contains(self, addr):
-        return self.address <= addr < self.address + self.size
-
     def read_int(self, section_addr: int, length: int) -> np.uint64:
         if section_addr + length > (self.paged_tail - self.address):  # len(section):
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
@@ -469,12 +466,6 @@ class PVMMemory:
         for x in range(nr_pages * PVM_PAGE_SIZE):
             section.contents[mem_addr-section.address + x] = 0
 
-    def has_inaccessible_acl(self, page_idx: int, nr_pages: int) -> bool:
-        for page_nr in range(nr_pages):
-            if page_idx + page_nr not in self._acl or self._acl[page_idx + page_nr] == PVMMemoryMode.inaccesible:
-                return True
-
-        return False
 
     @staticmethod
     def page_size(items: int) -> int:

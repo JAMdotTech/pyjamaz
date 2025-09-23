@@ -59,19 +59,19 @@ def _op_load_u64(vm):
 def _op_store_u8(vm):
     r_a, v_x = _fetch_reg_imm(vm)
     vm.mem_write(op_store_u8, v_x, u8(vm.reg[r_a]))
-    vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 1)})
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 def _op_store_u16(vm):
     r_a, v_x = _fetch_reg_imm(vm)
     vm.mem_write(op_store_u16, v_x, u16(vm.reg[r_a]))
-    vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 2)})
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 def _op_store_u32(vm):
     r_a, v_x = _fetch_reg_imm(vm)
     vm.mem_write(op_store_u32, v_x, u32(vm.reg[r_a]))
-    vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 4)})
+    vm.log and vm.log(reg1=r_a, imm1=v_x)
 
 def _op_store_u64(vm):
     r_a, v_x = _fetch_reg_imm(vm)
     vm.mem_write(op_store_u64, v_x, vm.reg[r_a])
-    vm.log and vm.log(reg1=r_a, imm1=v_x, context={"u'_vx": vm._mem_read_int(v_x, 8)})
+    vm.log and vm.log(reg1=r_a, imm1=v_x)

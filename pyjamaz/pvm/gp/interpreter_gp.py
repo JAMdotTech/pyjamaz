@@ -1,267 +1,63 @@
+import traceback
+from typing import List, Dict
+
+import math
 import numpy as np
 import numpy.typing as npt
 
-from typing import List, Dict
+from pyjamaz.pvm.exceptions import InvalidOpcode, PVMMemoryError, PanicError
+from pyjamaz.pvm.memory_section_abstract import page_size
 
-from .exceptions import InvalidOpcode, PVMMemoryError, PanicError
-from .types import PVMProgram, PVMMemory
-
-from .constants import (
+from pyjamaz.pvm.constants import (
     Opcode as op,
     OpcodeScheme,
     InstructionType,
     ExitReason,
     MemOps,
     OpcodeNames,
-    ExitCondition,
+    ExitCondition, MEM_W,
 )
 
-from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
-from pyjamaz.pvm.exceptions import UIntValueError
-from ..debug_logger import PVMDebugLog
+from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
 
-
-# rori -> (x >> shift_amount)∣(x << (NRBITS−shift_amount))
-def rori64(x, shift_amount):
-    return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
-
-
-def roli64(x, shift_amount):
-    return np.uint64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
-
-
-def rori32(x, shift_amount):
-    return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
-
-
-def roli32(x, shift_amount):
-    return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
-
-
-def reverse_bytes(x):
-    y = 0
-    y |= (x & 0x00000000000000FF) << 8 * 7
-    y |= (x & 0x000000000000FF00) << 8 * 5
-    y |= (x & 0x0000000000FF0000) << 8 * 3
-    y |= (x & 0x00000000FF000000) << 8 * 1
-    y |= (x & 0x000000FF00000000) >> 8 * 1
-    y |= (x & 0x0000FF0000000000) >> 8 * 3
-    y |= (x & 0x00FF000000000000) >> 8 * 5
-    y |= (x & 0xFF00000000000000) >> 8 * 7
-    return y
-
-
-def count_trailing_zeroes(value, max_bits=64):
-    #https://stackoverflow.com/a/63552117
-    #https://github.com/numpy/numpy/issues/16325
-    #alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    if value == 0:
-        return max_bits
-    return int(value & -value).bit_length() - 1
-
-
-def count_leading_zeroes(value, max_bits=64):
-    #https://stackoverflow.com/a/71888844
-    #https://github.com/numpy/numpy/issues/16325
-    #alternative: https://gmpy2.readthedocs.io/en/latest/mpz.html
-    value &= (1 << max_bits) - 1  # truncate; treat negatives as 2's compliment
-    if value == 0:
-        return max_bits
-    significant_bits = len(bin(value)) - 2  # has "0b" prefix
-    return max_bits - significant_bits
-
-
-def pvm_smod(a: int, b: int) -> int:
-    """
-    Note:
-        Should be implemented / inlined using bitwise operators.
-        For clarity it is as closely implemented to the definition as in the GP.
-        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
-        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
-        Instead of np.uint64(x_int + factor*term) directly:
-    """
-    if b==0:
-        return a
-    else:
-        sign_a = 1 if a >= 0 else -1
-        return sign_a * (abs(a) % abs(b))
-
-
-def riscv_div(x: int, y: int) -> int:
-    """
-    Note:
-        divmod is essentially the same as integer division //, but possibly faster for large 64bit numbers:
-        https://stackoverflow.com/a/30079965
-
-        Should be implemented / inlined using bitwise operators.
-        For clarity it is as closely implemented to the definition as in the GP.
-        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
-        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
-        Instead of np.uint64(x_int + factor*term) directly:
-        18446744071562035200,00000381
-        18446744071562035200
-    """
-    x = int(x)
-    y = int(y)
-    q, r = divmod(x, y)
-    return q
-
-
-def pvm_rtz_div(a: int, b: int) -> int:
-    """
-    Truncates division results
-
-    Note:
-        Should be implemented / inlined using bitwise operators.
-        For clarity it is as closely implemented to the definition as in the GP.
-        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
-        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
-        Instead of np.uint64(x_int + factor*term) directly:
-    """
-    a = int(a)
-    b = int(b)
-
-    is_positive = (a >= 0) == (b >= 0)
-
-    q, r = divmod(abs(a), abs(b))
-
-    # https://math.stackexchange.com/questions/344815/how-do-the-floor-and-ceiling-functions-work-on-negative-numbers/344818#344818
-    if not is_positive:
-        return -q   # We take the ceil for negative numbers
-    else:
-        return q    # we take the floor for positive numbers
-
-
-def pvm_X(x:np.uint64, n:np.uint8) -> np.uint64:
-    """
-    Sign extend a number to two's complement form for value X and number of bytes n
-
-    Note:
-        Should be implemented / inlined using bitwise operators.
-        For clarity it is as closely implemented to the definition as in the GP.
-        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
-        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
-    """
-    x = int(x)
-    n = int(n)
-
-    assert 0 <= x < 2 ** (8 * n) <= 2**64, "x must be in the range of 0 to 2^(8*n) - 1"
-
-    sign_mask = (2 ** 64 - 2 ** (8 * n))
-    sign_bits = int(x // (2 ** (8 * n - 1)))
-
-    return x + sign_bits * sign_mask
-
-
-def pvm_Z(a:int, n:np.uint8) -> np.int64:
-    """
-    Transform an unsigned number into a signed number using the MSB
-
-    Note:
-        Should be implemented / inlined using bitwise operators.
-        For clarity it is as closely implemented to the definition as in the GP.
-        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
-        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
-    """
-    a = int(a)
-    n = int(n)
-    boundary = 2 ** (8 * n - 1)  # This is 2^(8n-1), the boundary between positive and negative numbers.
-    max_value = 2 ** (8 * n)  # This is 2^(8n), the maximum value in the n-bit space.
-
-    # If 'a' is less than the boundary, return 'a' unchanged, otherwise subtract 2^(8n).
-    if a < boundary:
-        return a
-    else:
-        return a - max_value
-
-
-def pvm_Z_inv(a:int, n:np.uint8) -> np.uint64:
-    """
-    Transform a signed number to an unsigned number
-
-    Note:
-        divmod is essentially the same as integer division //, but possibly faster for large 64bit numbers:
-        https://stackoverflow.com/a/30079965
-
-        Should be implemented / inlined using bitwise operators.
-        For clarity it is as closely implemented to the definition as in the GP.
-        There is a known quirk of NumPy’s type‐conversion logic on certain builds or platforms. Even though the value is below
-        2**64 and should fit in uint64, NumPy internally may use a signed 64-bit conversion step first.
-        Instead of np.uint64(x_int + factor*term) directly:
-    """
-    return (int(2**(8*n)) + int(a)) % int(2**(8*n))
-
-
-def read_uint(source: npt.NDArray[np.uint8], addr: np.uint32, l: np.uint8) -> np.uint32:
-    if l == 0:
-        return 0
-    elif l == 1:
-        return np.uint64(source[addr + 0]) % 2**8
-    elif l == 2:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        return np.uint64((byte1 << 8) + byte0) % 2**16
-    elif l == 3:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        return np.uint64((byte2 << 16) + (byte1 << 8) + byte0) % 2 ** 32
-    elif l == 4:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        byte3 = np.uint32(source[addr + 3])
-        return np.uint64(
-            (byte3 << 24) +
-            (byte2 << 16) +
-            (byte1 << 8) +
-            byte0
-        ) % 2**32
-    elif l == 8:
-        byte0 = np.uint8(source[addr + 0])
-        byte1 = np.uint16(source[addr + 1])
-        byte2 = np.uint32(source[addr + 2])
-        byte3 = np.uint32(source[addr + 3])
-        byte4 = np.uint64(source[addr + 4])
-        byte5 = np.uint64(source[addr + 5])
-        byte6 = np.uint64(source[addr + 6])
-        byte7 = np.uint64(source[addr + 7])
-        return np.uint64(
-            (byte7 << 56) +
-            (byte6 << 48) +
-            (byte5 << 40) +
-            (byte4 << 32) +
-            (byte3 << 24) +
-            (byte2 << 16) +
-            (byte1 << 8) +
-            byte0
-        )
-    else:
-        raise UIntValueError(f"Invalid uint length: {l}")
-
+from .defs import (
+    pvm_Z,
+    pvm_X,
+    pvm_Z_inv,
+    count_trailing_zeroes,
+    count_leading_zeroes,
+    reverse_bytes,
+    rori64,
+    rori32,
+    pvm_smod,
+    pvm_rtz_div,
+    roli32,
+    roli64,
+    read_uint, u64, u32, i64, u8, i32
+)
 
 
 class PVMInterpreter:
 
-    def __init__(self, program: PVMProgram, logger=None):
+    def __init__(self, program: "PVMProgram", logger=None):
         self.name = program.name
         self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
         self.skip_len: int = 0
-        self.gas:np.int64 = np.int64(0)
-        self.code:npt.NDArray[np.uint8] = np.array(1, dtype=np.uint8)
-        self.code_size: np.uint64 = np.uint64(0)
+        self.gas:np.int64 = i64(0)
+        self.code:bytearray = bytearray()
+        self.code_size: np.uint64 = u64(0)
         self.jump_table = []
 
         self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
 
-        self.mem:PVMMemory = None
+        self.mem:"PVMMemory" = None
         self.status:int = ExitReason.resume.value
-        self.exit_value:int = None
+        self.exit_value:int = 0
 
         self.log = None
 
@@ -333,18 +129,18 @@ class PVMInterpreter:
                 self.skip_len = b
 
 
-    def reset(self, program: PVMProgram):
-        self.pc = np.uint32(0)
-        self.gas = np.int64(0)
+    def reset(self, program: "PVMProgram"):
+        self.pc = u32(0)
+        self.gas = i64(0)
 
         self.name = program.name
-        self.code:npt.NDArray[np.uint8] = np.array(program.code.code, dtype=np.uint8)
-        self.code_size: np.uint64 = np.uint64(len(self.code))
+        self.code:bytearray = program.code.code
+        self.code_size: np.uint64 = u64(len(self.code))
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
 
         for idx, val in enumerate(program.registers):
-            self.reg[idx] = np.uint64(val)
+            self.reg[idx] = u64(val)
 
         self.status = ExitReason.resume.value
 
@@ -391,6 +187,34 @@ class PVMInterpreter:
             raise PanicError(f"Invalid djump operation: a={a}")
         else:
             return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
+
+
+    def _sbrk(self, size):
+        if size == 0:
+            return self.mem._heap.paged_tail
+
+        current_heap_ptr = self.mem._heap.paged_tail
+        new_heap_ptr = current_heap_ptr + size
+        if new_heap_ptr >= self.mem._stack.address:
+            return 0
+
+        next_page_boundary = page_size(current_heap_ptr)
+        growth = page_size(new_heap_ptr) - next_page_boundary
+        self.log and self.log.sbrk(current_heap_ptr, next_page_boundary, growth, new_heap_ptr > next_page_boundary)
+
+        if new_heap_ptr > next_page_boundary:
+            # Extend the heap contents to accommodate the growth
+            self.mem._heap.contents.extend(b"\x00" * growth)
+            self.mem._heap.size = len(self.mem._heap.contents)
+
+        # Create ACL of new pages
+        next_page_nr = math.ceil((current_heap_ptr - self.mem._heap.address) / PVM_PAGE_SIZE)
+        pages = math.ceil(growth / PVM_PAGE_SIZE)
+        self.mem._heap.acl_set_pages(next_page_nr, pages, MEM_W)
+        self.mem._heap.paged_tail = new_heap_ptr
+        self.log and self.log.acl((current_heap_ptr - self.mem._heap.address) // PVM_PAGE_SIZE, next_page_nr, pages)
+        return self.mem._heap.paged_tail
+
 
     def get_exit_condition(self) -> ExitCondition:
         exit_value = None
@@ -546,7 +370,7 @@ class PVMInterpreter:
 
                         match opcode:
                             case op.jump_ind.value:
-                                self.skip_len = self.djump(np.uint32(self.reg[r_a]+v_x))
+                                self.skip_len = self.djump(u32(self.reg[r_a]+v_x))
                                 self.log and self.log(reg1=r_a, imm1=v_x, context={"skip_len": self.skip_len})
 
                             case op.load_imm.value:
@@ -711,7 +535,7 @@ class PVMInterpreter:
 
                             case op.sbrk.value:
                                 # Note: set break / set break pointer (extend heap memory)
-                                self.reg[r_d] = self.mem._sbrk(self.reg[r_a])
+                                self.reg[r_d] = self._sbrk(self.reg[r_a])
                                 self.log and self.log(reg1=r_d, reg2=r_a)
 
                             case op.count_set_bits_64.value:
@@ -719,7 +543,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.count_set_bits_32.value:
-                                self.reg[r_d] = np.bitwise_count(np.uint32(self.reg[r_a]))
+                                self.reg[r_d] = np.bitwise_count(u32(self.reg[r_a]))
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.leading_zero_bits_64.value:
@@ -728,8 +552,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.leading_zero_bits_32.value:
-                                #self.reg[r_d] = count_leading_zeroes(np.uint32(reverse_bits_32(self.reg[r_a])), 32)
-                                self.reg[r_d] = count_leading_zeroes(np.uint32(self.reg[r_a]), 32)
+                                self.reg[r_d] = count_leading_zeroes(u32(self.reg[r_a]), 32)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.trailing_zero_bits_64.value:
@@ -737,7 +560,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.trailing_zero_bits_32.value:
-                                self.reg[r_d] = count_trailing_zeroes(np.uint32(self.reg[r_a]), 32)
+                                self.reg[r_d] = count_trailing_zeroes(u32(self.reg[r_a]), 32)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.sign_extend_8.value:
@@ -850,17 +673,11 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                             case op.shlo_r_imm_32.value:
-                                self.reg[r_a] = pvm_X(riscv_div((w_b % 2 ** 32), (2 ** (v_x % 32))), 4)
+                                self.reg[r_a] = pvm_X(int(w_b % 2 ** 32) // int(2 ** (v_x % 32)), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                             case op.shar_r_imm_32.value:
-                                self.reg[r_a] = pvm_Z_inv(
-                                    riscv_div(
-                                        pvm_Z(w_b % 2 ** 32, 4),
-                                        (2 ** (v_x % 32))
-                                    ),
-                                 8
-                                )
+                                self.reg[r_a] = pvm_Z_inv(pvm_Z(w_b % 2 ** 32, 4) // int(2 ** (v_x % 32)), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.neg_add_imm_32.value:
@@ -880,17 +697,11 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.shlo_r_imm_alt_32.value:
-                                self.reg[r_a] = pvm_X(riscv_div(v_x % 2**32, (2 ** (w_b % 32))), 4)
+                                self.reg[r_a] = pvm_X(int(v_x % 2**32) // int(2 ** (w_b % 32)), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.shar_r_imm_alt_32.value:
-                                self.reg[r_a] = pvm_Z_inv(
-                                    riscv_div(
-                                        pvm_Z(v_x % 2**32, 4),
-                                        2 ** (w_b % 32)
-                                    ),
-                                    8
-                                )
+                                self.reg[r_a] = pvm_Z_inv(pvm_Z(v_x % 2**32, 4) // int(2 ** (w_b % 32)), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.cmov_iz_imm.value:
@@ -916,17 +727,11 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.shlo_r_imm_64.value:
-                                self.reg[r_a] = pvm_X(riscv_div(w_b, np.uint64(2**(v_x % 64))), 8)
+                                self.reg[r_a] = pvm_X(int(w_b) // int(2**(v_x % 64)), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.shar_r_imm_64.value:
-                                self.reg[r_a] = pvm_Z_inv(
-                                    riscv_div(
-                                        pvm_Z(w_b, 8),
-                                        2**(v_x % 64)
-                                    ),
-                                    8
-                                )
+                                self.reg[r_a] = pvm_Z_inv(pvm_Z(w_b, 8) // int(2**(v_x % 64)), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.neg_add_imm_64.value:
@@ -938,16 +743,11 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.shlo_r_imm_alt_64.value:
-                                self.reg[r_a] = riscv_div(v_x, np.uint64(2**(w_b % 64)))
+                                self.reg[r_a] = int(v_x) // int(2**(w_b % 64))
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.shar_r_imm_alt_64.value:
-                                self.reg[r_a] = pvm_Z_inv(
-                                    riscv_div(
-                                        pvm_Z(v_x, 8),
-                                        2**(w_b % 64)),
-                                    8
-                                )
+                                self.reg[r_a] = pvm_Z_inv(pvm_Z(v_x, 8) // int(2**(w_b % 64)), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.rot_r_64_imm.value:
@@ -959,11 +759,11 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.rot_r_32_imm.value:
-                                self.reg[r_a] = pvm_X(rori32(np.uint32(w_b), np.uint32(v_x)), 4)
+                                self.reg[r_a] = pvm_X(rori32(u32(w_b), u32(v_x)), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.rot_r_32_imm_alt.value:
-                                self.reg[r_a] = pvm_X(rori32(np.uint32(v_x), np.uint32(w_b)), 4)
+                                self.reg[r_a] = pvm_X(rori32(u32(v_x), u32(w_b)), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case _:
@@ -1060,13 +860,13 @@ class PVMInterpreter:
                                 if self.reg[r_b] == 0:
                                     self.reg[r_d] = 2**64-1
                                 else:
-                                    self.reg[r_d] = pvm_X(riscv_div(w_a % 2**32, w_b % 2**32), 4)
+                                    self.reg[r_d] = pvm_X(w_a % 2**32 // int(w_b % 2**32), 4)
 
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.div_s_32.value:
-                                a = np.int32(pvm_Z(w_a % 2**32, 4))
-                                b = np.int32(pvm_Z(w_b % 2**32, 4))
+                                a = i32(pvm_Z(w_a % 2**32, 4))
+                                b = i32(pvm_Z(w_b % 2**32, 4))
 
                                 if b == 0:
                                     self.reg[r_d] = 2**64-1
@@ -1103,17 +903,11 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.shlo_r_32.value:
-                                self.reg[r_d] = pvm_X(riscv_div(w_a % 2**32, 2**(w_b % 32)), 4)
+                                self.reg[r_d] = pvm_X(int(w_a % 2**32) // int(2**(w_b % 32)), 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.shar_r_32.value:
-                                self.reg[r_d] = pvm_Z_inv(
-                                    riscv_div(
-                                        pvm_Z(w_a % 2**32, 4),
-                                        2**(w_b % 32)
-                                    ),
-                                 8
-                                )
+                                self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a % 2**32, 4) // int(2**(w_b % 32)),8)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.add_64.value:
@@ -1132,7 +926,7 @@ class PVMInterpreter:
                                 if w_b == 0:
                                     self.reg[r_d] = 2**64 - 1
                                 else:
-                                    self.reg[r_d] = riscv_div(w_a, w_b)
+                                    self.reg[r_d] = int(w_a) // int(w_b)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.div_s_64.value:
@@ -1175,17 +969,11 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.shlo_r_64.value:
-                                self.reg[r_d] = riscv_div(w_a, 2**(w_b % 64))
+                                self.reg[r_d] = int(w_a) // int(2**(w_b % 64))
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.shar_r_64.value:
-                                self.reg[r_d] = pvm_Z_inv(
-                                    riscv_div(
-                                        pvm_Z(w_a, 8),
-                                        2**(w_b % 64)
-                                    ),
-                                    8
-                                )
+                                self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a, 8) // int(2**(w_b % 64)), 8)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op._and.value:
@@ -1201,29 +989,23 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.mul_upper_s_s.value:
-                                self.reg[r_d] = pvm_Z_inv(
-                                    riscv_div((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)), 2**64),
-                                    8
-                                )
+                                self.reg[r_d] = pvm_Z_inv((pvm_Z(w_a, 8) * pvm_Z(w_b, 8)) // 2**64, 8)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.mul_upper_u_u.value:
-                                self.reg[r_d] = riscv_div(int(w_a) * int(w_b), 2**64)
+                                self.reg[r_d] = int(w_a) * int(w_b) // 2**64
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.mul_upper_s_u.value:
-                                self.reg[r_d] = pvm_Z_inv(
-                                    riscv_div(pvm_Z(w_a, 8) * int(w_b), 2**64),
-                                    8
-                                )
+                                self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a, 8) * int(w_b) // 2**64, 8)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.set_lt_u.value:
-                                self.reg[r_d] = np.uint64(w_a < w_b)
+                                self.reg[r_d] = u64(w_a < w_b)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.set_lt_s.value:
-                                self.reg[r_d] = np.int64(pvm_Z(w_a, 8) < pvm_Z(w_b,8))
+                                self.reg[r_d] = i64(pvm_Z(w_a, 8) < pvm_Z(w_b,8))
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.cmov_iz.value:
@@ -1241,7 +1023,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.rot_l_32.value:
-                                self.reg[r_d] = pvm_X(roli32(np.uint32(w_a), w_b % 32), 4)
+                                self.reg[r_d] = pvm_X(roli32(u32(w_a), w_b % 32), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.rot_r_64.value:
@@ -1249,7 +1031,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.rot_r_32.value:
-                                self.reg[r_d] = pvm_X(rori32(np.uint32(w_a), w_b % 32), 4)
+                                self.reg[r_d] = pvm_X(rori32(u32(w_a), w_b % 32), 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.and_inv.value:
@@ -1261,11 +1043,10 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.xnor.value:
-                                self.reg[r_d] = np.uint64(~(w_a ^ w_b))
+                                self.reg[r_d] = u64(~(w_a ^ w_b))
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op._max.value:
-                                #TODO: should probably just cast to np.uint64 <-> np.int64 ??
                                 self.reg[r_d] = pvm_Z_inv(
                                     max(pvm_Z(w_a, 8), pvm_Z(w_b, 8)),
                                     8
@@ -1293,11 +1074,16 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid instruction type: {inst_type}")
 
             except PVMMemoryError:
+                self.log and self.log.exc(traceback.format_exc())
                 self.status = ExitReason.page_fault.value
-                # self.gas -= 1
                 self.exit_value = self.mem._mem_addr
                 break
 
             except PanicError as panic_error:
+                self.log and self.log.exc(traceback.format_exc())
                 self.status = ExitReason.panic.value
                 break
+
+            except:
+                self.log and self.log.exc(traceback.format_exc())
+                raise

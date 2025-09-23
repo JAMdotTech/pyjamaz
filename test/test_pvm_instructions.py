@@ -1,6 +1,5 @@
 import json
 import os
-import time
 import unittest
 
 from os import path
@@ -51,8 +50,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
             for page_map in test_vector["initial-page-map"]:
                 page = MemorySection(
                     address=page_map["address"],
-                    size=1_000_000_000, #page_map["length"],
-                    #size=page_map["length"],
+                    #size=1_000_000_000,
+                    size=page_map["length"],
                     acl=MEM_W if page_map["is-writable"] else MEM_R,
                     contents=[0] * page_map["length"]
                 )
@@ -89,37 +88,34 @@ class TestPolkaVMInstructions(unittest.TestCase):
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
         pvm = PVMInterpreter(pvm_program, settings.PVM_DEBUGGER)
 
-        #s1 = time.time()
-        #i1 = pvm.inst_nr
         pvm.invoke(
             test_vector["initial-pc"],
             test_vector["initial-gas"]
         )
-        #print(f"{(time.time() - s1):.4f}\t\t{(pvm.inst_nr - i1)}")
 
-        # # Mapping specific for test vectors
-        # ExitReasonMap = {
-        #     ExitReason.resume.value: "none",
-        #     ExitReason.panic.value: "panic",
-        #     ExitReason.halt.value: "halt",
-        #     ExitReason.page_fault.value: "page-fault",
-        # }
-        #
-        # self.assertEqual(test_vector["expected-status"], ExitReasonMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
-        # self.assertEqual(test_vector["expected-regs"], list(pvm.reg), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg}")
-        # self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
-        # # self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
-        # if test_vector["expected-memory"]:
-        #     for expected_mem in test_vector["expected-memory"]:
-        #         page = pvm_memory.find_section(expected_mem["address"])
-        #         mem_offset = expected_mem["address"] - page.address
-        #         mem_len = len(expected_mem["contents"])
-        #         pvm_mem = list(page.contents[mem_offset:mem_offset + mem_len])
-        #         self.assertEqual(
-        #             expected_mem["contents"],
-        #             pvm_mem,
-        #             f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {pvm_mem}"
-        #         )
+        # Mapping specific for test vectors
+        ExitReasonMap = {
+            ExitReason.resume.value: "none",
+            ExitReason.panic.value: "panic",
+            ExitReason.halt.value: "halt",
+            ExitReason.page_fault.value: "page-fault",
+        }
+
+        self.assertEqual(test_vector["expected-status"], ExitReasonMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
+        self.assertEqual(test_vector["expected-regs"], list(pvm.reg), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg}")
+        self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
+        # self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
+        if test_vector["expected-memory"]:
+            for expected_mem in test_vector["expected-memory"]:
+                page = pvm_memory.find_section(expected_mem["address"])
+                mem_offset = expected_mem["address"] - page.address
+                mem_len = len(expected_mem["contents"])
+                pvm_mem = list(page.contents[mem_offset:mem_offset + mem_len])
+                self.assertEqual(
+                    expected_mem["contents"],
+                    pvm_mem,
+                    f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {pvm_mem}"
+                )
 
 # print some stats collected from logger
 # def tearDownModule():

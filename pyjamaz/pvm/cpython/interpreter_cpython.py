@@ -1,11 +1,13 @@
 import time
+import traceback
 
 import numpy as np
 from array import array
 from typing import List, Dict
 
 from pyjamaz.pvm.exceptions import PVMMemoryError, PanicError
-from pyjamaz.pvm.memory_section_abstract import page_size, set_range_acl, check_acl
+from pyjamaz.pvm.memory_section_abstract import page_size
+from .memory_section import set_range_acl, check_acl, ACL_PAGES_PER_BITMAP
 
 from .defs import read_uint, write_uint, u64, u32, i64, u8
 from .opcodes import _opcode_lut
@@ -16,7 +18,6 @@ from pyjamaz.pvm.constants import (
     OpcodeNames,
     ExitCondition,
     PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W,
-    ACL_READ_BIT, ACL_WRITE_BIT, ACL_PAGES_PER_BITMAP,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
@@ -259,11 +260,11 @@ class PVMInterpreter:
             return 0
 
         next_page_boundary = page_size(current_heap_ptr)
+        new_heap_end = page_size(new_heap_ptr)
+        growth = new_heap_end - next_page_boundary
+        self.log and self.log.sbrk(current_heap_ptr, next_page_boundary, growth, new_heap_ptr > next_page_boundary)
 
         if new_heap_ptr > next_page_boundary:
-            new_heap_end = page_size(new_heap_ptr)
-            growth = new_heap_end - next_page_boundary
-
             # Only grow when we exceed pre-allocated heap mem
             if new_heap_end - self.mem_section_starts[1] > cur_size:
                 # Calculate the total new size based on page boundaries
@@ -272,7 +273,6 @@ class PVMInterpreter:
                 new_buf[:cur_size] = heap
                 self.mem_sections[1] = new_buf
                 self.mv_sections[1] = memoryview(self.mem_sections[1])
-                #print("SBRK GREW: " + str(new_size))
 
                 bitmap_count = len(self.mem_section_acl[1])  # (current_heap_ptr - self.mem_section_starts[1]) // PVM_PAGE_SIZE
                 last_page_idx = (current_heap_ptr - self.mem_section_starts[1] + growth) // PVM_PAGE_SIZE
@@ -284,6 +284,7 @@ class PVMInterpreter:
                     extended[:len(self.mem_section_acl[1])] = self.mem_section_acl[1]
                     self.mem_section_acl[1] = extended
                     #print("ACL GREW: " + str(bitmaps_required))
+                    self.log and self.log.acl(bitmap_count, bitmaps_required)
 
             next_page_nr = (current_heap_ptr-self.mem_section_starts[1]) // PVM_PAGE_SIZE
             pages = growth // PVM_PAGE_SIZE + 1
@@ -318,8 +319,9 @@ class PVMInterpreter:
 
         if len(self.mem_section_acl[section_idx]) > 0:
             start_page = section_offset // PVM_PAGE_SIZE
-            end_page = (section_offset + bytes_to_write - 1) // PVM_PAGE_SIZE
-            if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page + 1, ACL_WRITE_BIT):
+            # note: ceil div: -(-a // b)
+            end_page = -(-(section_offset + bytes_to_write) // PVM_PAGE_SIZE)
+            if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page + 1, MEM_W):
                 raise PVMMemoryError(f"Memory at address {addr} is not writable")
 
         # Check bounds against the actual section size (not paged_tail)
@@ -360,8 +362,9 @@ class PVMInterpreter:
 
         if len(self.mem_section_acl[section_idx]):
             start_page = section_offset // PVM_PAGE_SIZE
-            end_page = (section_offset + bytes_to_read - 1) // PVM_PAGE_SIZE
-            if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page + 1, ACL_READ_BIT):
+            # note: ceil div: -(-a // b)
+            end_page = -(-(section_offset + bytes_to_read) // PVM_PAGE_SIZE)
+            if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page + 1, MEM_R):
                 raise PVMMemoryError(f"Memory at address {addr} is not accessible")
 
         return read_uint(self.mv_sections[section_idx], section_offset, bytes_to_read)
@@ -438,7 +441,6 @@ class PVMInterpreter:
                 self.exit_value = None
                 break
 
-
             inst_index = self.inst_pos[self.pc]
             self.opcode = opcode = self.code[self.pc]
             self.skip_len = self.mv_inst_arg_len[inst_index] + 1
@@ -446,10 +448,12 @@ class PVMInterpreter:
             try:
                 self.opcodes[opcode](self)
             except PVMMemoryError:
+                self.log and self.log.exc(traceback.format_exc())
                 self.status = ExitReason.page_fault.value
                 self.exit_value = self._mem_addr
                 break
             except PanicError:
+                self.log and self.log.exc(traceback.format_exc())
                 self.status = ExitReason.panic.value
                 break
 

@@ -278,11 +278,14 @@ def hc_pages(
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
+    addr = p * PVM_PAGE_SIZE
+    nr_bytes = c * PVM_PAGE_SIZE
+
     if mem is None:
         invocation_output.registers[7] = HostCallResult.WHO.value
     elif r > 4 or p < 16 or p+c >= 2**32 // PVM_PAGE_SIZE:
         invocation_output.registers[7] = HostCallResult.HUH.value
-    elif r > 2 and mem.has_inaccessible_acl(p, c):
+    elif r > 2 and not mem.is_accessible(addr, nr_bytes, MEM_R):
         invocation_output.registers[7] = HostCallResult.HUH.value
     else:
         invocation_output.registers[7] = HostCallResult.OK.value

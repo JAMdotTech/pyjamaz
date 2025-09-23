@@ -14,19 +14,19 @@ def _fetch_imm_imm(vm):
 def _op_store_imm_u8(vm):
     v_x, v_y = _fetch_imm_imm(vm)
     vm.mem_write(op_store_imm_u8, v_x, v_y % 2 ** 8)
-    vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 1)})
+    vm.log and vm.log(imm1=v_x, imm2=v_y)
 
 def _op_store_imm_u16(vm):
     v_x, v_y = _fetch_imm_imm(vm)
     vm.mem_write(op_store_imm_u16, v_x, v_y % 2 ** 16)
-    vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 2)})
+    vm.log and vm.log(imm1=v_x, imm2=v_y)
 
 def _op_store_imm_u32(vm):
     v_x, v_y = _fetch_imm_imm(vm)
     vm.mem_write(op_store_imm_u32, v_x, u32(v_y))
-    vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 4)})
+    vm.log and vm.log(imm1=v_x, imm2=v_y)
 
 def _op_store_imm_u64(vm):
     v_x, v_y = _fetch_imm_imm(vm)
     vm.mem_write(op_store_imm_u64, v_x, v_y)
-    vm.log and vm.log(imm1=v_x, imm2=v_y, context={"u'_vx": vm._mem_read_int(v_x, 8)})
+    vm.log and vm.log(imm1=v_x, imm2=v_y)

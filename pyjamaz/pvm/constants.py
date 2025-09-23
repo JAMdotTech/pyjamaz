@@ -16,13 +16,6 @@ MEM_W = 2  # writable memory
 MEM_RW = 3  # explicit read/write memory (since we have that bit available anyway :)
 
 
-ACL_PAGES_PER_BITMAP = 32
-ACL_BITS_PER_PAGE = 2
-ACL_READ_BIT = 0b01
-ACL_WRITE_BIT = 0b10
-
-
-
 class ExitReason(Enum):
     resume:int          = 0 #GP:     ▸: continue PVM
     halt:int            = 1 #GP-A.2: ∎: regular halt: halt
@@ -663,22 +656,6 @@ inst_reg_reg_reg = 12
 typezzz = [0] * 231
 for k,v in OpcodeScheme.items():
     typezzz[int(k)] = int(v.value)
-
-
-inst_none = 0
-inst_imm = 1
-inst_reg_ext_imm = 2
-inst_imm_imm = 3
-inst_offset = 4
-inst_reg_imm = 5
-inst_reg_imm_imm = 6
-inst_reg_imm_offset = 7
-inst_reg_reg = 8
-inst_reg_reg_imm = 9
-inst_reg_reg_offset = 10
-inst_reg_reg_imm_imm = 11
-inst_reg_reg_reg = 12
-
 
 op_trap = 0
 op_fallthrough = 1
