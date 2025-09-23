@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional, Union
 
-import numpy as np
 
 # TODO configurable during bootstrap
 PVM_PAGE_SIZE = 2**12 #ZP
