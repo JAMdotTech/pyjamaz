@@ -93,13 +93,8 @@ class MemorySection(AbstractMemorySection):
     def alloc_acl(self, acl_mode:int, paged_size:int):
         # note: ceil div: -(-a // b)
         nr_pages = -(-paged_size // PVM_PAGE_SIZE)
-
-        if acl_mode is not None:
-            acl_size = -(-nr_pages // ACL_PAGES_PER_BITMAP)
-            self.acl_bitmap = np.zeros(acl_size, dtype=np.uint64)
-            set_range_acl(self.acl_bitmap, 0, nr_pages, acl_mode)
-        else:
-            self.acl_bitmap = np.zeros(max(1, (nr_pages + ACL_PAGES_PER_BITMAP - 1) // ACL_PAGES_PER_BITMAP), dtype=np.uint64)
+        acl_size = -(-nr_pages // ACL_PAGES_PER_BITMAP)
+        self.acl_bitmap = np.full(acl_size, np.iinfo(np.uint64).max, dtype=np.uint64)
 
 
     def set_content(self, content:bytes, start: int, end: int):
