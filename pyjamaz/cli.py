@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 import json
 import os
 import shutil
-from pathlib import Path
-from typing import List, Tuple
+from pathlib import Path, PosixPath
+from typing import List, Tuple, Optional
 
 import anyio
 import ipaddress
@@ -26,6 +26,7 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, TraceGenesis
+from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE
 from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
@@ -592,8 +593,7 @@ async def replay_traces(
     for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
 
-        with open(os.path.join(traces_dir, block_file), 'rb') as fp:
-            trace = Trace.from_jam_bytes(JamBytes(fp.read()))
+        trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
 
         if trace.pre_state.state_root == bytes(32):
             # Skip genesis creation
@@ -654,7 +654,7 @@ async def replay_traces(
             logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.working_state.state_root)}')
 
             # Diffing DBs
-            process_state_diff(app.state_storage.as_list(), trace.post_state.keyvals)
+            process_state_diff(app.state_storage.as_list(), trace.post_state.keyvals, block_file)
 
             if nr < len(traces_files):
                 response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
@@ -833,21 +833,66 @@ async def setup_fuzzer_session(app: PyjamazApp, fuzzer_socket_path: str):
     # Subscribe to BEST_BLOCK to import them in fuzzer target
     app.pubsub.subscribe(MESSAGE_TYPES.BEST_BLOCK, process_block)
 
-def process_state_diff(my_state: List[Tuple[bytes, bytes]], other_state: List[Tuple[bytes, bytes]]):
-    my_state = {k.hex(): v.hex() for k, v in my_state}
-    other_state = [(k.hex(), v.hex()) for k, v in other_state]
+
+def process_state_diff(my_state: List[Tuple[bytes, bytes]], other_state: List[Tuple[bytes, bytes]], trace_file: PosixPath):
+    my_state = {bytes(k): bytes(v) for k, v in my_state}
+    other_state = [(bytes(k), bytes(v)) for k, v in other_state]
 
     for k, v in other_state:
         if k not in my_state:
-            logging.warning(f'key {k} is missing')
+            logging.warning(f'key {k.hex()} is missing')
+            write_storage_key_diff(k, None, v, trace_file)
+
         elif v != my_state[k]:
-            logging.warning(f'key {k} is different: {my_state[k]} != {v}')
+            logging.warning(f'key {k.hex()} is different: {my_state[k].hex()} != {v.hex()}')
+            write_storage_key_diff(k, my_state[k], v, trace_file)
 
     tracedb_keys = {k for k, v in other_state}
 
     for k, v in my_state.items():
         if k not in tracedb_keys:
-            logging.warning(f'key {k} is not present in trace: {v}')
+            logging.warning(f'key {k.hex()} is not present in trace: {v.hex()}')
+            write_storage_key_diff(k, v, None, trace_file)
+
+
+def write_storage_key_diff(storage_key: bytes, mine: Optional[bytes], theirs: Optional[bytes], trace_file: PosixPath):
+    # Save (decoded) diffs
+    if storage_key[0] == 255 and storage_key[-8:] == bytes(8):
+        # ServiceAccount
+        service_id = int.from_bytes(storage_key[1:2] + storage_key[3:4] + storage_key[5:6] + storage_key[7:8], byteorder='little')
+
+        if mine is not None:
+            mine_file = trace_file.parent / f'{trace_file.name}-service-{service_id}-mine.json'
+            my_value = ServiceAccount.from_serialized_bytes(mine)
+            mine_file.write_text(json.dumps(my_value.to_json(), indent=2))
+
+        if theirs is not None:
+            theirs_file = trace_file.parent / f'{trace_file.name}-service-{service_id}-theirs.json'
+            theirs_value = ServiceAccount.from_serialized_bytes(theirs)
+            theirs_file.write_text(json.dumps(theirs_value.to_json(), indent=2))
+
+    elif STORAGE_KEY_MAPPING.get(storage_key):
+        state_cls = STORAGE_KEY_MAPPING.get(storage_key)
+
+        # StateComponent
+        if mine is not None:
+            mine_file = trace_file.parent / f'{trace_file.name}-{state_cls.__name__}-mine.json'
+            my_value = state_cls.from_jam_bytes(JamBytes(mine))
+            mine_file.write_text(json.dumps(my_value.to_json(), indent=2))
+
+        if theirs is not None:
+            theirs_file = trace_file.parent / f'{trace_file.name}-{state_cls.__name__}-theirs.json'
+            theirs_value = state_cls.from_jam_bytes(JamBytes(theirs))
+            theirs_file.write_text(json.dumps(theirs_value.to_json(), indent=2))
+
+    else:
+        # Other
+        if mine is not None:
+            mine_file = trace_file.parent / f'{trace_file.name}-{storage_key[0:4].hex()}-mine.txt'
+            mine_file.write_text(mine.hex())
+        if theirs is not None:
+            theirs_file = trace_file.parent / f'{trace_file.name}-{storage_key[0:4].hex()}-theirs.txt'
+            theirs_file.write_text(theirs.hex())
 
 if __name__ == '__main__':
     main(_anyio_backend="asyncio")
