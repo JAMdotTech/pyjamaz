@@ -303,8 +303,8 @@ class PVMInterpreter:
 
         # Find the memory section
         section_idx = -1
-        if self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
-        elif self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
+        if self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
+        elif self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
         elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
         elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
@@ -344,8 +344,8 @@ class PVMInterpreter:
         self._mem_addr = addr
 
         section_idx = -1
-        if self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
-        elif self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
+        if self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
+        elif self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
         elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
         elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
@@ -415,6 +415,7 @@ class PVMInterpreter:
         self.pc = pc
         self.gas = gas
 
+        # Note: we cache attribute lookups and globals to locals for the pvm hot loop
         log = self.log
         code = self.code
         code_size = self.code_size
