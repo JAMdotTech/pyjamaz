@@ -24,11 +24,21 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
 class PVMInterpreter:
-    ttt = 0
-    tttt = 0
+    __slots__ = (
+        'name', 'reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
+        'code', 'code_size', 'jump_table', 'inst_bitmask', 'inst_pos',
+        'inst_arg_len', 'mv_inst_arg_len', 'mem', 'status', 'exit_value',
+        'mem_ops_bytes', 'mem_sections', 'mem_section_acl',
+        'mem_section_starts', 'mem_section_ends', 'mem_section_size',
+        '_mem_addr', 'ROM_ADDR', 'ROM_END', 'HEAP_ADDR', 'HEAP_END',
+        'STACK_ADDR', 'STACK_END', 'ARG_ADDR', 'ARG_END',
+        'mem_inaccesible', 'mem_readable', 'mem_writable', 'mv_code',
+        'mv_sections', 'log', 'opcodes', 'program',
+    )
 
     def __init__(self, program: "PVMProgram", logger=None):
         self.name = program.name
+        self.program = program
         self.reg = [u64(0)] * 13
         self.inst_nr = u32(0)
         self.pc = u32(0)
@@ -85,7 +95,6 @@ class PVMInterpreter:
         if logger:
             from ..debug_logger import PVMDebugLog
             logger_cls = PVMDebugLog
-            self.program = program
             self.log = logger_cls(pvm=self)
             self.log._pvm = self
             self.log._pvm_id = self.name
@@ -244,7 +253,6 @@ class PVMInterpreter:
                 self.mem._heap.paged_tail = self.mem_section_ends[1]
                 self.mem._heap.acl_bitmap = self.mem_section_acl[1]
             self.mem._mem_addr = self._mem_addr
-            self._last_sec = -1
 
 
     def _sbrk(self, size):
