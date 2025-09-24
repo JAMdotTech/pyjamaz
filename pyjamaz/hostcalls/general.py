@@ -195,11 +195,11 @@ def hc_read(
 
     if storage_item_mem_error or not mem_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger and logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key}")
+        logger and logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key.hex()}")
     elif storage_item is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
-        logger and logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key}")
+        logger and logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key.hex()}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(storage_item)
@@ -283,7 +283,6 @@ def hc_write(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = l
         if service_storage_item is None:
-            # TODO: mark dirty? maybe register changes
             services.delete_storage_item(
                 service_account_id=service_id,
                 storage_item_hash=k
@@ -295,7 +294,6 @@ def hc_write(
                 service_account.update_footprint_remove_storage_item(len(k), len(si))
 
         else:
-            # TODO: mark dirty? maybe register changes
             services.store_storage_item(
                 service_account_id=service_id,
                 storage_key=k,
@@ -304,12 +302,10 @@ def hc_write(
 
             # Update storage footprint
             if len(si) == 0:
-                # TODO: mark dirty? maybe register changes
                 service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
                 logger and logger.hc_log("WRITE NONE",
                                    f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
-                # TODO: mark dirty? maybe register changes
                 service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
                 logger and logger.hc_log("WRITE OK",
                                    f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
@@ -539,7 +535,7 @@ def hc_fetch(
         bold_v = accumulation_operands[w11].to_jam_bytes().to_bytes()
 
     elif deferred_transfers is not None and w10 == 16:
-        bold_v = Vec(DeferredTransfer.to_codec_def()).encode(deferred_transfers).to_bytes()
+        bold_v = Vec(DeferredTransfer.to_codec_def()).encode([t.to_jam_bytes() for t in deferred_transfers]).to_bytes()
 
     elif deferred_transfers is not None and w10 == 17 and w11 < len(deferred_transfers):
         bold_v = deferred_transfers[w11].to_jam_bytes().to_bytes()

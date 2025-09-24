@@ -378,23 +378,28 @@ def pvm_invoke_on_transfer(
     -------
     PvmOnTransferOutput
     """
-
-    service_account = services_state.retrieve_service_account(service_id) # bold_s
-    preimage_blob = service_account.preimages.get(service_account.code_hash)
-
-    serialized_program = None
-    program_name = None
-
-    if preimage_blob is not None:
-        try:
-            preimage = Preimage.extract(preimage_blob)
-            serialized_program = preimage.serialized_program
-            program_name = preimage.program_name
-        except Exception:
-            pass
+    service_account = services_state.retrieve_service_account(service_id)
 
     # Update balance
     service_account.balance += sum([t.amount for t in deferred_transfers])
+    services_state.store_service_account(service_id, service_account)
+
+    try:
+
+        preimage_blob = services_state.retrieve_preimage(
+            service_account_id=service_id,
+            preimage_hash=service_account.code_hash
+        )
+
+        preimage = Preimage.extract(preimage_blob)
+        serialized_program = preimage.serialized_program
+        program_name = preimage.program_name
+
+    except StateKeyNoResult:
+        # Program not found
+        serialized_program = None
+        program_name = None
+        logging.debug(f'⚠️ Could not retrieve program for service={service_id}')
 
     if serialized_program is None or len(serialized_program) > MAXIMUM_SIZE_SERVICE_CODE or len(deferred_transfers) == 0:
         gas_used = 0

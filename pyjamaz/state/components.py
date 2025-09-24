@@ -1999,16 +1999,12 @@ class Services(StateComponent):
             service_transfers = transfers_service_mapping(deferred_transfers, service_id)
 
             output = pvm_invoke_on_transfer(
-                services_state=intermediate_state_after_accumulation,
+                services_state=intermediate_state_after_transfers,
                 timeslot=post_state_timeslot.number,
                 service_id=service_id,
                 deferred_transfers=service_transfers,
                 post_state_entropy=post_state_entropy
             )
-
-            intermediate_state_after_transfers.services.update({
-                service_id: output.service_account
-            })
 
             # GP-0.6.4-eq:12.30
             if len(service_transfers) > 0:
