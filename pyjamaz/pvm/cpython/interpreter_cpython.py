@@ -415,43 +415,84 @@ class PVMInterpreter:
         self.pc = pc
         self.gas = gas
 
-        if self.log:
-            self.log.pvm_counters()
-            self.log.pvm_header()
+        log = self.log
+        code = self.code
+        code_size = self.code_size
+        inst_pos = self.inst_pos
+        mv_inst_arg_len = self.mv_inst_arg_len
+        op_funcs = self.opcodes
+        exit_resume = ExitReason.resume.value
+        exit_oom = ExitReason.out_of_gas.value
+        exit_panic = ExitReason.panic.value
+        exit_page_fault = ExitReason.page_fault.value
 
-        # GP-0.7.0-section:A.1 Single-Step State Transition
-        while self.status == ExitReason.resume.value:
+        log_exc = log.exc if log else None
 
-            #self.op_time = time.time()
+        pc_local = pc
+        gas_local = gas
+        status = self.status
+        skip_len = self.skip_len
+        inst_nr = self.inst_nr
 
-            if self.gas <= 0:
-                self.status = ExitReason.out_of_gas.value
+        if log:
+            log.pvm_counters()
+            log.pvm_header()
+
+        while status == exit_resume:
+
+            if gas_local <= 0:
+                status = exit_oom
                 self.exit_value = None
                 break
 
-            self.gas -= 1
-            self.pc = self.pc + self.skip_len
-            self.inst_nr += 1
+            gas_local -= 1
+            pc_local += skip_len
+            inst_nr += 1
 
-            if self.pc >= self.code_size:
-                self.status = ExitReason.panic.value
+            if pc_local >= code_size:
+                status = exit_panic
                 self.exit_value = None
                 break
-
-            inst_index = self.inst_pos[self.pc]
-            self.opcode = opcode = self.code[self.pc]
-            self.skip_len = self.mv_inst_arg_len[inst_index] + 1
 
             try:
-                self.opcodes[opcode](self)
+                inst_index = inst_pos[pc_local]
+            except KeyError:
+                status = exit_panic
+                self.exit_value = None
+                break
+
+            opcode = code[pc_local]
+            skip_len = mv_inst_arg_len[inst_index] + 1
+
+            self.opcode = opcode
+            self.skip_len = skip_len
+            self.pc = pc_local
+            self.inst_nr = inst_nr
+            self.gas = gas_local
+            self.status = status
+
+            try:
+                op_funcs[opcode](self)
             except PVMMemoryError:
-                self.log and self.log.exc(traceback.format_exc())
-                self.status = ExitReason.page_fault.value
+                log_exc and log_exc(traceback.format_exc())
+                status = exit_page_fault
                 self.exit_value = self._mem_addr
                 break
             except PanicError:
-                self.log and self.log.exc(traceback.format_exc())
-                self.status = ExitReason.panic.value
+                log_exc and log_exc(traceback.format_exc())
+                status = exit_panic
                 break
+
+            gas_local = self.gas
+            pc_local = self.pc
+            skip_len = self.skip_len
+            inst_nr = self.inst_nr
+            status = self.status
+
+        self.pc = pc_local
+        self.gas = gas_local
+        self.status = status
+        self.skip_len = skip_len
+        self.inst_nr = inst_nr
 
         self._sync_memory()
