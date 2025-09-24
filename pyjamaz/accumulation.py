@@ -324,6 +324,8 @@ def parallel_accumulation(
                 beefy_commitment_map.update({service_id: output.accumulation_output})
 
             # TODO Needs review
+            pre_state_delegator_id = accumulation_state.privileged_services.delegator # v
+
             if service_id == accumulation_state.privileged_services.manager:
                 # Process privilege services (m', a*, v*, z')
                 accumulation_state.privileged_services.manager = output.state_context.privileged_services.manager # m'
@@ -341,7 +343,7 @@ def parallel_accumulation(
                 accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator  # v'
 
             # Process validator queue (i')
-            if service_id == accumulation_state.privileged_services.delegator:
+            if service_id == pre_state_delegator_id:
                 accumulation_state.validator_queue = output.state_context.validator_queue
 
             # Process authorizer queue (q')
