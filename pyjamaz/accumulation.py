@@ -7,7 +7,6 @@ from typing import List, Set, Dict
 
 from pyjamaz.graypaper_constants import CORE_COUNT
 
-from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkReport, AccumulationOperand
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
@@ -248,10 +247,10 @@ def parallel_accumulation(
     -------
     ParallelAccumulationOutput
     """
-    # s
-    service_ids = list(
+    # s (sorted!)
+    service_ids = sorted(list(
         dict.fromkeys([r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()))
-    )
+    ))
 
     # u
     accumulation_gas_utilized = {}
@@ -263,6 +262,13 @@ def parallel_accumulation(
     logging.debug(f'Services to accumulate: {service_ids}')
 
     outputs = []
+
+    pre_state_delegator_id = accumulation_state.privileged_services.delegator  # v
+    pre_state_manager_id = accumulation_state.privileged_services.manager  # m
+    pre_state_assigners = accumulation_state.privileged_services.assigners  # a
+
+    # TODO check if this needed
+    #pre_accumulation_state = deepcopy(accumulation_state)
 
     if USE_THREAD_POOL:
 
@@ -323,10 +329,7 @@ def parallel_accumulation(
             if output.accumulation_output is not None:
                 beefy_commitment_map.update({service_id: output.accumulation_output})
 
-            # TODO Needs review
-            pre_state_delegator_id = accumulation_state.privileged_services.delegator # v
-
-            if service_id == accumulation_state.privileged_services.manager:
+            if service_id == pre_state_manager_id:
                 # Process privilege services (m', a*, v*, z')
                 accumulation_state.privileged_services.manager = output.state_context.privileged_services.manager # m'
                 accumulation_state.privileged_services.assigners = output.state_context.privileged_services.assigners # a*
@@ -348,7 +351,7 @@ def parallel_accumulation(
 
             # Process authorizer queue (q')
             for c in range(CORE_COUNT):
-                if service_id == accumulation_state.privileged_services.assigners[c]:
+                if service_id == pre_state_assigners[c]:
                     accumulation_state.authorizer_queues = output.state_context.authorizer_queues
 
     return ParallelAccumulationOutput(
