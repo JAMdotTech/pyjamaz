@@ -292,6 +292,10 @@ def parallel_accumulation(
                 output = fut.result()
                 service_id = futs[fut]
                 outputs.append((service_id, output))
+
+            # Sort output again on service ID (because of async processing)
+            outputs.sort(key=lambda x: x[0])
+
     else:
         # Process services
         for service_id in service_ids:
