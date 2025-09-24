@@ -525,6 +525,10 @@ class ServicesState(State, Serializable):
             service_account_id: int
     ) -> ServiceAccount:
 
+        # Sanity checks
+        if service_account_id >= 2**32:
+            raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
+
         service_account = None
         if service_account_id in self.services:
             service_account = self.services[service_account_id]
@@ -558,6 +562,11 @@ class ServicesState(State, Serializable):
         -------
 
         """
+
+        # Sanity checks
+        if service_account_id >= 2 ** 32:
+            raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
+
         if service_account_id not in self.services or self.services[service_account_id] is None:
             self.services[service_account_id] = service_account
         else:
@@ -589,6 +598,11 @@ class ServicesState(State, Serializable):
         -------
 
         """
+
+        # Sanity checks
+        if service_account_id >= 2 ** 32:
+            raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
+
         state_key = state_key_constructor_service_account(service_account_id)
 
         if commit:
