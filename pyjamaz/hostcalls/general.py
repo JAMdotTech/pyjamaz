@@ -205,7 +205,7 @@ def hc_read(
         invocation_output.registers[7] = len(storage_item)
         invocation_output.memory.write_bytes(o, storage_item[f:f + l])
         logger and logger.hc_log("READ OK",
-                           f"s={new_service_id} k={storage_key.hex()} (len(storage_item)) write_bytes({o}, {o + l})")
+                           f"s={new_service_id} k={storage_key.hex()} len={len(storage_item)} write_bytes({o}, {o + l})")
 
 
 def hc_write(
