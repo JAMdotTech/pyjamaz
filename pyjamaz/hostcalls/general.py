@@ -195,11 +195,11 @@ def hc_read(
 
     if storage_item_mem_error or not mem_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger and logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key.hex()}")
+        logger and logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key and storage_key.hex() or ''}")
     elif storage_item is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
-        logger and logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key.hex()}")
+        logger and logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key and storage_key.hex() or ''}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(storage_item)
