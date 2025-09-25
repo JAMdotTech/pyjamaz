@@ -380,6 +380,10 @@ def pvm_invoke_on_transfer(
     """
     service_account = services_state.retrieve_service_account(service_id)
 
+    # Update balance
+    service_account.balance += sum([t.amount for t in deferred_transfers])
+    services_state.store_service_account(service_id, service_account)
+
     try:
 
         preimage_blob = services_state.retrieve_preimage(
@@ -402,10 +406,6 @@ def pvm_invoke_on_transfer(
         logging.debug(f'💸 Skipping on_transfer for s={service_id}')
     else:
         logging.debug(f'💸 Processing transfer: s={service_id} t={[t.to_json() for t in deferred_transfers]}')
-
-        # Update balance
-        service_account.balance += sum([t.amount for t in deferred_transfers])
-        services_state.store_service_account(service_id, service_account)
 
         argument_data = OnTransferPvmArguments(
             timeslot=timeslot,
