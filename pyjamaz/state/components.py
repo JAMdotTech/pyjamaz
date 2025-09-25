@@ -1928,7 +1928,7 @@ class Services(StateComponent):
             )
         )
 
-        logging.debug(f'ORDERED ACCUMULATION: W^*={[w.package_spec.hash.hex() for w in accumulatable_work_reports]}')
+        logging.debug(f'ORDERED ACCUMULATION: W^*={[format_hash(w.package_spec.hash) for w in accumulatable_work_reports]}')
 
         # GP-0.7.0-eq:12.24
         output = full_sequential_accumulation(
@@ -1995,7 +1995,7 @@ class Services(StateComponent):
 
         deferred_transfer_statistics = {}
 
-        for service_id in [t.receiver for t in deferred_transfers]:
+        for service_id in sorted({t.receiver for t in deferred_transfers}):
             service_transfers = transfers_service_mapping(deferred_transfers, service_id)
 
             output = pvm_invoke_on_transfer(

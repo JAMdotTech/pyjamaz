@@ -107,7 +107,7 @@ def transfers_service_mapping(
         service_id: int
 ) -> List[DeferredTransfer]:
     """
-    GP-0.6.5-eq:12.27 (R) | Maps a sequence of deferred transfers to a service
+    GP-0.7.0-eq:12.29 (function_X) | Maps a sequence of deferred transfers to a service
 
     Parameters
     ----------
