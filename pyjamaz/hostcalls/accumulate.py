@@ -497,25 +497,30 @@ def hc_transfer(
 
     if transfer is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+
     elif dest_service_account is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
         logger and logger.hc_log("TRANSFER WHO", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+
     elif g < dest_service_account.gas_limit_on_transfer:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.LOW.value
         logger and logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+
+    # TODO GP 0.7.0 bug mentions (a)
     elif b < service_account.threshold_balance:   # insufficient funds
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
         logger and logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
         service_account.balance = b
         x.context.deferred_transfers.append(transfer)
-        # TODO inefficient; move to end, only once per service
+
         x.context.state_context.services.store_service_account(service_id, service_account)
         logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
 
