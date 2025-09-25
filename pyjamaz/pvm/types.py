@@ -13,9 +13,10 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger, Bytes
 
 from pyjamaz import settings
-from pyjamaz.pvm import MemorySection, page_size
+from pyjamaz.pvm import MemorySection
 from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W
+from pyjamaz.pvm.memory_section_abstract import page_size
 from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
 
 

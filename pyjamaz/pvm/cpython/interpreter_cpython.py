@@ -1,4 +1,3 @@
-import time
 import traceback
 
 import numpy as np
@@ -303,8 +302,6 @@ class PVMInterpreter:
     def mem_write(self, opcode, addr, value):
         """Write to memory based on opcode"""
         bytes_to_write = self.mem_ops_bytes[opcode]
-        #addr = int(addr)
-        #addr = addr % (2 ** 32)  #TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
@@ -345,8 +342,6 @@ class PVMInterpreter:
     def mem_read(self, opcode, addr):
         """Read from memory based on opcode"""
         bytes_to_read = self.mem_ops_bytes[opcode]
-        #addr = int(addr)
-        #addr = addr % (2 ** 32)  # TODO: necessary?
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
@@ -434,9 +429,7 @@ class PVMInterpreter:
         exit_oom = ExitReason.out_of_gas.value
         exit_panic = ExitReason.panic.value
         exit_page_fault = ExitReason.page_fault.value
-
-        log_exc = log.exc if log else None
-
+        log_exc = None
         pc_local = pc
         gas_local = gas
         status = self.status
@@ -446,6 +439,7 @@ class PVMInterpreter:
         if log:
             log.pvm_counters()
             log.pvm_header()
+            log_exc = log.exc
 
         while status == exit_resume:
 
