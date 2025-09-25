@@ -1,10 +1,10 @@
 import numpy as np
 import numpy.typing as npt
 
-from numba import njit, types, objmode
+from numba import njit, types
 from numba import uint8, uint32, int32, uint64, int64, boolean
 
-from pyjamaz.pvm.numba.const import NUMBA_CACHE, PVM_PAGE_SHIFT, MEM_WRITABLE, MEM_INACCESSIBLE
+from pyjamaz.pvm.numba.const import NUMBA_CACHE, PVM_PAGE_SHIFT
 
 U8 = np.uint8
 U16 = np.uint16
@@ -21,7 +21,31 @@ U32_MASK = U64(0xFFFFFFFF)
 
 u8_array_1d = types.Array(uint8, 1, 'C')
 u8_array_list = types.ListType(u8_array_1d)
+u64_array_1d = types.Array(uint64, 1, 'C')
+u64_array_list = types.ListType(u64_array_1d)
 int32_array_1d = types.Array(int32, 1, 'C')
+
+
+ACL_PAGES_PER_BITMAP = 32
+ACL_BITS_PER_PAGE = 2
+ACL_READ_BIT = np.uint64(0b01)
+ACL_WRITE_BIT = np.uint64(0b10)
+
+
+@njit(uint64(uint64[::1], int32), cache=NUMBA_CACHE)
+def acl_bits_for_page(acl_bitmap, page_idx: I32) -> U64:
+    if page_idx < 0:
+        return U64(0)
+    if len(acl_bitmap) == 0:
+        return U64(0b11)
+
+    bitmap_idx = page_idx // ACL_PAGES_PER_BITMAP
+    if bitmap_idx >= len(acl_bitmap):
+        return U64(0)
+
+    pos = page_idx % ACL_PAGES_PER_BITMAP
+    shift = (ACL_PAGES_PER_BITMAP - 1 - pos) * ACL_BITS_PER_PAGE
+    return (acl_bitmap[bitmap_idx] >> U64(shift)) & U64(0b11)
 
 
 @njit(types.UniTuple(uint64, 2)(uint64, uint64), cache=NUMBA_CACHE)
@@ -342,19 +366,19 @@ def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
 
 
 @njit(int32(
-    uint64,       # addr
-    uint64,       # value
-    uint8,        # bytes_to_write
-    uint64[::1],  # section_starts
-    uint64[::1],  # section_ends
-    u8_array_list,# section_arrays
-    int32[::1],   # acl_array
-    int32[::1],   # acl_extra_start
-    int32[::1]    # acl_extra_count
+    uint64,        # addr
+    uint64,        # value
+    uint8,         # bytes_to_write
+    uint64[::1],   # section_starts
+    uint64[::1],   # section_ends
+    u8_array_list, # section_arrays
+    u64_array_list,# acl_bitmaps
+    int32[::1],    # acl_extra_start
+    int32[::1]     # acl_extra_count
 ), cache=NUMBA_CACHE)
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays,
-                  acl_array, acl_extra_start, acl_extra_count) -> I32:
+                  acl_bitmaps, acl_extra_start, acl_extra_count) -> I32:
     """
     Returns status:I32 where status==0 on success, -1 on fault.
     """
@@ -366,20 +390,38 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     if idx < 0:
         return I32(-1)
 
-    page_nr = int(U64(addr >> PVM_PAGE_SHIFT) & U32_MASK)
-    allowed = False
-    if len(acl_array) > 0 and 0 <= page_nr < len(acl_array):
-        allowed = acl_array[page_nr] >= MEM_WRITABLE
-    if not allowed:
-        start_page = int(acl_extra_start[0])
-        count = int(acl_extra_count[0])
-        if count > 0 and start_page <= page_nr < start_page + count:
-            allowed = True
-    if not allowed:
-        return I32(-1)
-
     start = U64(section_starts[idx])
     off = addr - start
+
+    # start_page_rel = 0
+    # end_page_rel = -1
+    # if bytes_to_write > U8(0):
+    #     start_page_rel = int(off >> PVM_PAGE_SHIFT)
+    #     end_page_rel = int(((off + U64(bytes_to_write) - U64(1)) >> PVM_PAGE_SHIFT))
+    #
+    # allowed = True
+    # section_acl = acl_bitmaps[idx]
+    # if len(section_acl) > 0 and bytes_to_write > U8(0):
+    #     required = ACL_READ_BIT | ACL_WRITE_BIT
+    #     for page_rel in range(start_page_rel, end_page_rel + 1):
+    #         bits = acl_bits_for_page(section_acl, page_rel)
+    #         if (bits & required) != required:
+    #             allowed = False
+    #             break
+    #
+    # if not allowed:
+    #     base_page_abs = int(section_starts[idx] >> PVM_PAGE_SHIFT)
+    #     start_page_abs = base_page_abs + start_page_rel
+    #     end_page_abs = base_page_abs + end_page_rel
+    #     extra_start = int(acl_extra_start[0])
+    #     extra_count = int(acl_extra_count[0])
+    #     if extra_count > 0:
+    #         extra_end = extra_start + extra_count
+    #         if start_page_abs >= extra_start and end_page_abs < extra_end:
+    #             allowed = True
+    #
+    # if not allowed:
+    #     return I32(-1)
 
     a = section_arrays[idx]  # uint8[::1]
     if off + U64(bytes_to_write) > U64(len(a)):
@@ -419,18 +461,18 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
 
 
 @njit(types.Tuple((int32, uint64))(
-    uint64,       # addr
-    uint8,        # bytes_to_read
-    uint64[::1],  # section_starts
-    uint64[::1],  # section_ends
-    u8_array_list,# section_arrays
-    int32[::1],   # acl_array
-    int32[::1],   # acl_extra_start
-    int32[::1]    # acl_extra_count
+    uint64,        # addr
+    uint8,         # bytes_to_read
+    uint64[::1],   # section_starts
+    uint64[::1],   # section_ends
+    u8_array_list, # section_arrays
+    u64_array_list,# acl_bitmaps
+    int32[::1],    # acl_extra_start
+    int32[::1]     # acl_extra_count
 ), cache=NUMBA_CACHE)
 def mem_read_jit(addr: U64, bytes_to_read: U8,
                  section_starts, section_ends, section_arrays,
-                 acl_array, acl_extra_start, acl_extra_count) -> (I32, U64):
+                 acl_bitmaps, acl_extra_start, acl_extra_count) -> (I32, U64):
     """
     Returns (status:I32, value:U64) where status==0 on success, -1 on fault.
     """
@@ -442,20 +484,38 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
     if idx < 0:
         return I32(-1), U64(0)
 
-    page_nr = int(U64(addr >> PVM_PAGE_SHIFT) & U32_MASK)
-    allowed = False
-    if len(acl_array) > 0 and 0 <= page_nr < len(acl_array):
-        allowed = acl_array[page_nr] != MEM_INACCESSIBLE
-    if not allowed:
-        start_page = int(acl_extra_start[0])
-        count = int(acl_extra_count[0])
-        if count > 0 and start_page <= page_nr < start_page + count:
-            allowed = True
-    if not allowed:
-        return I32(-1), U64(0)
-
     start = U64(section_starts[idx])
     off = addr - start
+
+    # start_page_rel = 0
+    # end_page_rel = -1
+    # if bytes_to_read > U8(0):
+    #     start_page_rel = int(off >> PVM_PAGE_SHIFT)
+    #     end_page_rel = int(((off + U64(bytes_to_read) - U64(1)) >> PVM_PAGE_SHIFT))
+
+    # allowed = True
+    # section_acl = acl_bitmaps[idx]
+    # if len(section_acl) > 0 and bytes_to_read > U8(0):
+    #     required = ACL_READ_BIT
+    #     for page_rel in range(start_page_rel, end_page_rel + 1):
+    #         bits = acl_bits_for_page(section_acl, page_rel)
+    #         if (bits & required) != required:
+    #             allowed = False
+    #             break
+    #
+    # if not allowed:
+    #     base_page_abs = int(section_starts[idx] >> PVM_PAGE_SHIFT)
+    #     start_page_abs = base_page_abs + start_page_rel
+    #     end_page_abs = base_page_abs + end_page_rel
+    #     extra_start = int(acl_extra_start[0])
+    #     extra_count = int(acl_extra_count[0])
+    #     if extra_count > 0:
+    #         extra_end = extra_start + extra_count
+    #         if start_page_abs >= extra_start and end_page_abs < extra_end:
+    #             allowed = True
+    #
+    # if not allowed:
+    #     return I32(-1), U64(0)
 
     a = section_arrays[idx]  # uint8[::1] array
     if off + U64(bytes_to_read) > U64(len(a)):
@@ -482,4 +542,3 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
                         (U64(a[base + 7]) << U64(56)))
     else:
         return I32(-1), U64(0)
-

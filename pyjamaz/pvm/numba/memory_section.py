@@ -13,6 +13,9 @@ class MemorySection(CPythonMemorySection):
         self.acl_bitmap: npt.NDArray[np.uint64] = np.zeros(0, dtype=np.uint64) # Bitmask for per page ACL control
         super().__init__(address, size=size, contents=contents, acl=acl)
 
+    def set_content(self, content:bytes, start: int, end: int):
+        self.contents[start:end] = np.frombuffer(content, dtype=np.uint8)
+
     def alloc_contents(self, _bytes):
         # Note: Numba cannot JIT-optimize operations on Python bytearray objects — they’re treated as opaque Python objects,
         self.contents = np.zeros(self.size, dtype=np.uint8)

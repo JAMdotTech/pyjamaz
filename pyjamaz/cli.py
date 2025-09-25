@@ -90,6 +90,8 @@ def wrap_cli_import_block(traces_dir):
 
         except Exception as e:
             # Rollback state
+            import traceback
+            traceback.print_exc()
             logging.error(f'Import failed for #{block.header.timeslot} -> {e}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state = self.retrieve_jam_state()
