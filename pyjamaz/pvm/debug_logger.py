@@ -191,8 +191,7 @@ class PVMDebugLog(PVMLogger):
         print(f"PVM EXCEPTION:\n{exc_str}")
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
-        # if not self._pvm.ttt:
-        #     return
+        return
 
         mem_info = ""
         # if hasattr(self._pvm, "mem_sections"):
@@ -246,13 +245,14 @@ class PVMDebugLog(PVMLogger):
         # dt_ms = (tnow - self._pvm.op_time)
         # print(inst_str + " " + pc_str + " " + name_str + "" + str(dt_ms))
 
-        print(inst_str, pc_str, name_str, regs_str, mem_info)
+        # tt = " ".join([inst_str, pc_str, name_str, regs_str, mem_info])
+        # logging.debug(tt)
 
 
     def hc_log(self, msg, data):
         msg = f"{self._pvm_id}: {msg}"
         spacing = " " * (51 - len(str(msg)))
-        print(
+        logging.debug(
             f"{msg}"
             f"{spacing}"
             f"{data}"

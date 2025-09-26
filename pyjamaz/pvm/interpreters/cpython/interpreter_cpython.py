@@ -27,7 +27,7 @@ class PVMInterpreter:
         'name', 'reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
         'code', 'code_size', 'jump_table', 'inst_bitmask', 'inst_pos',
         'inst_arg_len', 'mv_inst_arg_len', 'mem', 'status', 'exit_value',
-        'mem_ops_bytes', 'mem_sections', 'mem_section_acl',
+        'mem_ops_bytes', 'mem_sections', 'mem_section_access', 'mem_section_acl',
         'mem_section_starts', 'mem_section_ends', 'mem_section_size',
         '_mem_addr', 'ROM_ADDR', 'ROM_END', 'HEAP_ADDR', 'HEAP_END',
         'STACK_ADDR', 'STACK_END', 'ARG_ADDR', 'ARG_END',
@@ -62,6 +62,7 @@ class PVMInterpreter:
 
         # Initialize memory sections storage
         self.mem_sections = []
+        self.mem_section_access = []
         self.mem_section_acl = []
         self.mem_section_starts = []
         self.mem_section_ends = []
@@ -92,7 +93,7 @@ class PVMInterpreter:
         self.opcodes = _opcode_lut()
 
         if logger:
-            from ..debug_logger import PVMDebugLog
+            from pyjamaz.pvm.debug_logger import PVMDebugLog
             logger_cls = PVMDebugLog
             self.log = logger_cls(pvm=self)
             self.log._pvm = self
@@ -224,6 +225,7 @@ class PVMInterpreter:
                     self.ARG_ADDR = int(section.address)
                     self.ARG_END = int(section.paged_tail)
 
+                self.mem_section_access.append(section.acl)
                 self.mem_section_acl.append(section.acl_bitmap)
                 self.mem_sections.append(section.contents)
                 mem_section_starts.append(section.address)
@@ -231,6 +233,7 @@ class PVMInterpreter:
                 mem_section_size.append(section.size)
                 self.mv_sections[idx] = memoryview(section.contents)
             else:
+                self.mem_section_access.append(None)
                 self.mem_section_acl.append(None)
                 self.mem_sections.append(None)
                 mem_section_starts.append(0)
@@ -284,7 +287,7 @@ class PVMInterpreter:
                 # Note: when using bitmaps, we only need to allocate a new bitmap when we allocate new pages
                 # Create ACL of new pages
                 bitmap_count = len(self.mem_section_acl[1])  # (current_heap_ptr - self.mem_section_starts[1]) // PVM_PAGE_SIZE
-                last_page_idx = (current_heap_ptr - self.mem_section_starts[1] + growth) // PVM_PAGE_SIZE
+                last_page_idx = new_size // PVM_PAGE_SIZE
                 # note: ceil div: -(-a // b)
                 bitmaps_required = -(-last_page_idx // ACL_PAGES_PER_BITMAP)
 
@@ -324,7 +327,11 @@ class PVMInterpreter:
         #     # note: ceil div: -(-a // b)
         #     end_page = -(-(section_offset + bytes_to_write) // PVM_PAGE_SIZE)
         #     if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page, MEM_W):
+        #         check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page, MEM_W)
         #         raise PVMMemoryError(f"Memory at address {addr} is not writable")
+        if self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_W:
+            raise PVMMemoryError(f"Memory at address {addr} is not writable")
+
 
         # Check bounds against the actual section size (not paged_tail)
         # The section might be larger than paged_tail if it has been extended
@@ -366,6 +373,8 @@ class PVMInterpreter:
         #     end_page = -(-(section_offset + bytes_to_read) // PVM_PAGE_SIZE)
         #     if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page, MEM_R):
         #         raise PVMMemoryError(f"Memory at address {addr} is not accessible")
+        if self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_R:
+            raise PVMMemoryError(f"Memory at address {addr} is not writable")
 
         return read_uint(self.mv_sections[section_idx], section_offset, bytes_to_read)
 

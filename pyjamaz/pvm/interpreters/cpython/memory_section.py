@@ -16,6 +16,9 @@ ACL_BITS_PER_PAGE = 2
 ACL_READ_BIT = 0b01
 ACL_WRITE_BIT = 0b10
 
+ACL_BITMAP_READ  = 0b0101010101010101010101010101010101010101010101010101010101010101
+ACL_BITMAP_WRITE = 0b0111111111111111111111111111111111111111111111111111111111111111
+
 
 def acl_bits(perm: int) -> int:
     if perm == MEM_I:
@@ -94,7 +97,10 @@ class MemorySection(AbstractMemorySection):
         # note: ceil div: -(-a // b)
         nr_pages = -(-paged_size // PVM_PAGE_SIZE)
         acl_size = -(-nr_pages // ACL_PAGES_PER_BITMAP)
-        self.acl_bitmap = np.full(acl_size, np.iinfo(np.uint64).max, dtype=np.uint64)
+        if acl_mode == MEM_R:
+            self.acl_bitmap = np.full(acl_size, ACL_BITMAP_READ, dtype=np.uint64)
+        else:
+            self.acl_bitmap = np.full(acl_size, ACL_BITMAP_WRITE, dtype=np.uint64)
 
 
     def set_content(self, content:bytes, start: int, end: int):
