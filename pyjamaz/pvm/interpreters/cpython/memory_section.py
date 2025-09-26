@@ -136,7 +136,7 @@ class MemorySection(AbstractMemorySection):
 
     def acl_check(self, section_addr: int, nr_bytes: int, required_acl: int) -> bool:
         start_page = section_addr // PVM_PAGE_SIZE
-        end_page = -(-(section_addr + nr_bytes - 1) // PVM_PAGE_SIZE)
+        end_page = -(-(int(section_addr + nr_bytes - 1)) // PVM_PAGE_SIZE)
         return check_acl(self.acl_bitmap, start_page, end_page - start_page + 1, required_acl)
 
 
