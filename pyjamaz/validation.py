@@ -4,7 +4,8 @@ import time
 from pyjamaz.models.stf_output import SafroleOutput, DisputesOutput
 
 from pyjamaz.exceptions import BlockValidationError, BlockValidationErrorCode
-from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS, TICKET_ENTRIES
+from pyjamaz.graypaper_constants import COMMON_ERA, SLOT_PERIOD, EPOCH_TIMESLOTS, TICKET_ENTRIES, \
+    TICKET_SUBMISSION_END_SLOT
 from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
@@ -36,48 +37,31 @@ class BlockValidation:
     def current_timeslot() -> int:
         return int(time.time() - COMMON_ERA) // SLOT_PERIOD
 
-    def validate_header(self,
-                        header: Header,
-                        post_entropy: EntropyState,
-                        post_validator_pool: ValidatorPoolState,
-                        safrole_output: SafroleOutput,
-                        disputes_output: DisputesOutput,
-                        extrinsic: Extrinsic,
-                        ):
-
-        #  GP-0.5.4-eq:5.4 | Check extrinsic hash
-        if header.extrinsic_hash != extrinsic.generate_extrinsic_hash():
-            raise BlockValidationError(BlockValidationErrorCode.extrinsic_hash_mismatch)
+    def validate_header_after_safrole(self,
+      header: Header,
+      post_entropy: EntropyState,
+      post_validator_pool: ValidatorPoolState,
+      safrole_output: SafroleOutput,
+      disputes_output: DisputesOutput,
+      extrinsic: Extrinsic,
+    ):
 
         # Check marker data
-        if header.tickets_marker and header.tickets_marker != safrole_output.tickets_mark:
-            raise ValueError(BlockValidationErrorCode.bad_ticket_marker_data)
+
+        # ticket marker *cannot* be set before TICKET_SUBMISSION_END_SLOT
+        if header.tickets_marker is not None and header.slot_phase_index < TICKET_SUBMISSION_END_SLOT:
+            raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
+
+        # Ticket marker *must* match at TICKET_SUBMISSION_END_SLOT
+        if header.tickets_marker != safrole_output.tickets_mark and header.slot_phase_index == TICKET_SUBMISSION_END_SLOT:
+            raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
 
         if header.epoch_marker != safrole_output.epoch_mark:
-            raise ValueError(BlockValidationErrorCode.bad_epoch_marker_data)
+            raise BlockValidationError(BlockValidationErrorCode.bad_epoch_marker_data)
 
         if header.offenders_marker != disputes_output.offenders_mark:
-            raise ValueError(BlockValidationErrorCode.bad_offender_marker_data)
+            raise BlockValidationError(BlockValidationErrorCode.bad_offender_marker_data)
 
-        parent_header = self.block_context.get_parent(header)
-
-        if parent_header is None:
-            raise BlockValidationError(
-                f"Parent hash {header.parent.hex()} does not has valid ancestor"
-            )
-
-        # GP-0.7.0-eq:5.7
-        if header.timeslot <= parent_header.timeslot:
-            raise BlockValidationError(BlockValidationErrorCode.bad_slot)
-
-        # GP-0.7.0-eq:5.7
-        if not settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK and header.timeslot > self.current_timeslot():
-            raise BlockValidationError(BlockValidationErrorCode.bad_slot)
-
-        if header.parent_state_root != self.block_context.state_root:
-            raise BlockValidationError(
-                f"Parent state root {header.parent_state_root.hex()} does not match with  0x{self.block_context.state_root.hex()}"
-            )
 
         # Validate seal
         entropy = post_entropy.entropy[3]
@@ -88,7 +72,10 @@ class BlockValidation:
             logging.debug(
                 f'Validate ticket | Timeslot: {header.timeslot} | Ticket ID: {ticket.id.hex()} | Author: {author_key.hex()} | Entropy: {entropy.hex()} '
             )
-            self.block_context.seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
+            try:
+                self.block_context.seal_vrf_output = header.verify_ticket_seal(author_key, ticket, entropy)
+            except ValueError:
+                raise BlockValidationError("Invalid seal key")
 
         elif safrole_output.post_state.slot_sealer_series.keys is not None:
             # Fallback method

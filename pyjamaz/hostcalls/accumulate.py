@@ -104,7 +104,6 @@ def hc_bless(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
-        # TODO: mark dirty? maybe register changes
         ps = x.context.state_context.privileged_services
         ps.manager = m
         ps.assigners = assigners
@@ -178,7 +177,7 @@ def hc_assign(
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
-        # TODO: mark dirty? maybe register changes
+
         x.context.state_context.authorizer_queues.authorizer_queues[core_index] = authorization_queue
         logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o}")
 
@@ -239,7 +238,7 @@ def hc_designate(
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
-        # TODO: mark dirty? maybe register changes
+
         x.context.state_context.validator_queue.validators = validator_queue
         logger and logger.hc_log("DESIGNATE OK", f"o={o}")
 
@@ -361,7 +360,7 @@ def hc_new(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = new_service_id
         updated_new_service_id = 2 ** 8 + (new_service_id - 2 ** 8 + 42) % (2 ** 32 - 2 ** 9)
-        # TODO: mark dirty? maybe register changes
+
         x.context.new_service_account_id = x.context.state_context.check_service_id(
             updated_new_service_id)
         service_account.balance = deducted_balance
@@ -425,7 +424,6 @@ def hc_upgrade(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
-        # TODO: mark dirty? maybe register changes
         service_account.code_hash = code_hash
         service_account.gas_limit_accumulate = g
         service_account.gas_limit_on_transfer = m
@@ -499,26 +497,30 @@ def hc_transfer(
 
     if transfer is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+
     elif dest_service_account is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
         logger and logger.hc_log("TRANSFER WHO", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+
     elif g < dest_service_account.gas_limit_on_transfer:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.LOW.value
         logger and logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+
+    # TODO GP 0.7.0 bug mentions (a)
     elif b < service_account.threshold_balance:   # insufficient funds
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
         logger and logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
-        # TODO: mark dirty? maybe register changes
         service_account.balance = b
         x.context.deferred_transfers.append(transfer)
-        # TODO inefficient; move to end, only once per service
+
         x.context.state_context.services.store_service_account(service_id, service_account)
         logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
 
@@ -606,7 +608,6 @@ def hc_eject(
         invocation_output.registers[7] = HostCallResult.OK.value
 
         # TODO: nodig?
-        # TODO: mark dirty? maybe register changes
         state.services.delete_preimage(d, preimage_hash)
         state.services.delete_preimage_availability(d, preimage_hash, l)
         state.services.delete_service_account(d)
@@ -767,7 +768,6 @@ def hc_solicit(
         preimage_availability = None
 
     if preimage_hash is not None and preimage_availability is None:
-        # TODO: mark dirty? maybe register changes
         # preimage is being requested that is not already present in storage
         service_account.update_footprint_add_preimage(preimage_length)
         state.services.store_service_account(service_id, service_account)
@@ -789,7 +789,6 @@ def hc_solicit(
 
         if preimage_availability is None:
 
-            # TODO: mark dirty? maybe register changes
             state.services.store_preimage_availability(
                 service_id,
                 preimage_hash,
@@ -799,7 +798,6 @@ def hc_solicit(
 
         elif len(preimage_availability) == 2:
 
-            # TODO: mark dirty? maybe register changes
             state.services.store_preimage_availability(
                 service_id,
                 preimage_hash,
@@ -870,14 +868,14 @@ def hc_forget(
 
         preimage_cardinality = len(preimage_availability)
         if preimage_cardinality in (0, 2) and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
-            # TODO: mark dirty? maybe register changes
+
             state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
             state.services.delete_preimage(service_id, preimage_hash)
             # Update footprint
             service_account.update_footprint_remove_preimage(preimage_length)
             state.services.store_service_account(service_id, service_account)
         elif preimage_cardinality == 1:
-            # TODO: mark dirty? maybe register changes
+
             state.services.store_preimage_availability(
                 service_id,
                 preimage_hash,
@@ -885,7 +883,7 @@ def hc_forget(
                 preimage_availability + [timeslot]
             )
         elif preimage_cardinality == 3 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
-            # TODO: mark dirty? maybe register changes
+
             # Note: reset unreferenced preimage expunge time with current timeslot
             state.services.store_preimage_availability(
                 service_id,

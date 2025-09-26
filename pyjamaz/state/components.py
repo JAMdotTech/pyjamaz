@@ -151,13 +151,15 @@ class Entropy(StateComponent):
             return bytes(32)
 
         logging.debug(f"Verifying entropy source signature: bs_key={format_hash(bytes(header.author_bandersnatch_key))} vrf_output={format_hash(self.block_context.seal_vrf_output)}")
-
-        return ietf_vrf_verify(
-            bytes(header.author_bandersnatch_key),
-            b"jam_entropy" + self.block_context.seal_vrf_output,
-            b'',
-            bytes(header.entropy_source)
-        )
+        try:
+            return ietf_vrf_verify(
+                bytes(header.author_bandersnatch_key),
+                b"jam_entropy" + self.block_context.seal_vrf_output,
+                b'',
+                bytes(header.entropy_source)
+            )
+        except ValueError:
+            raise BlockValidationError("Invalid entropy source signature")
 
 
 class ValidatorQueue(StateComponent):
@@ -266,12 +268,11 @@ class Safrole(StateComponent):
 
     def __init__(
         self,
-        storage_engine: StorageEngine,
         block_context: BlockContext,
         app_context: AppContext,
         ring_data: bytes
     ):
-        super().__init__(storage_engine, block_context, app_context)
+        super().__init__(block_context, app_context)
         self.ring_data = ring_data
         self.post_state_safrole = None
 
@@ -1754,7 +1755,7 @@ class Statistics(StateComponent):
         for validator_index, validator_data in enumerate(post_validator_pool.validators):
             if validator_data.ed25519 == ed25519_key:
                 return validator_index
-        raise ValueError("Bandersnatch key not found in validator pool")
+        raise StateTransitionError("Bandersnatch key not found in validator pool")
 
 
     def retrieve_state(self) -> StatisticsState:
@@ -1911,8 +1912,7 @@ class Services(StateComponent):
         # TODO: check GP-0.7.0-eq:4.16; needs attention and refactoring
 
         services = ServicesState(services=deepcopy(pre_state_services.services))
-        services.set_storage_engine(self.storage_engine)
-        services.set_storage_transaction(self.app_context.transaction)
+        services.set_state_storage(self.app_context.state_storage)
 
         accumulation_state = AccumulationStateComponents(
             services=services,
@@ -1928,7 +1928,7 @@ class Services(StateComponent):
             )
         )
 
-        logging.debug(f'ORDERED ACCUMULATION: W^*={[w.package_spec.hash.hex() for w in accumulatable_work_reports]}')
+        logging.debug(f'ORDERED ACCUMULATION: W^*={[format_hash(w.package_spec.hash) for w in accumulatable_work_reports]}')
 
         # GP-0.7.0-eq:12.24
         output = full_sequential_accumulation(
@@ -1991,25 +1991,20 @@ class Services(StateComponent):
         intermediate_state_after_transfers = ServicesState(
             services=deepcopy(intermediate_state_after_accumulation.services)
         )
-        intermediate_state_after_transfers.set_storage_engine(self.storage_engine)
-        intermediate_state_after_transfers.set_storage_transaction(self.app_context.transaction)
+        intermediate_state_after_transfers.set_state_storage(self.app_context.state_storage)
 
         deferred_transfer_statistics = {}
 
-        for service_id in [t.receiver for t in deferred_transfers]:
+        for service_id in sorted({t.receiver for t in deferred_transfers}):
             service_transfers = transfers_service_mapping(deferred_transfers, service_id)
 
             output = pvm_invoke_on_transfer(
-                services_state=intermediate_state_after_accumulation,
+                services_state=intermediate_state_after_transfers,
                 timeslot=post_state_timeslot.number,
                 service_id=service_id,
                 deferred_transfers=service_transfers,
                 post_state_entropy=post_state_entropy
             )
-
-            intermediate_state_after_transfers.services.update({
-                service_id: output.service_account
-            })
 
             # GP-0.6.4-eq:12.30
             if len(service_transfers) > 0:
@@ -2103,7 +2098,8 @@ class Services(StateComponent):
                 state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
             elif mut[0] == "preimage_availability_update":
                 # TODO async blocking exception??
-                await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
                 state.store_preimage_availability(
                     service_account_id=mut[1],
                     preimage_hash=mut[2],

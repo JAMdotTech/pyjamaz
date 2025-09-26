@@ -195,17 +195,17 @@ def hc_read(
 
     if storage_item_mem_error or not mem_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger and logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key}")
+        logger and logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key and storage_key.hex() or ''}")
     elif storage_item is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
-        logger and logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key}")
+        logger and logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key and storage_key.hex() or ''}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(storage_item)
         invocation_output.memory.write_bytes(o, storage_item[f:f + l])
         logger and logger.hc_log("READ OK",
-                           f"s={new_service_id} k={storage_key.hex()} (len(storage_item)) write_bytes({o}, {o + l})")
+                           f"s={new_service_id} k={storage_key.hex()} len={len(storage_item)} write_bytes({o}, {o + l})")
 
 
 def hc_write(
@@ -283,7 +283,6 @@ def hc_write(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = l
         if service_storage_item is None:
-            # TODO: mark dirty? maybe register changes
             services.delete_storage_item(
                 service_account_id=service_id,
                 storage_item_hash=k
@@ -295,7 +294,6 @@ def hc_write(
                 service_account.update_footprint_remove_storage_item(len(k), len(si))
 
         else:
-            # TODO: mark dirty? maybe register changes
             services.store_storage_item(
                 service_account_id=service_id,
                 storage_key=k,
@@ -304,12 +302,10 @@ def hc_write(
 
             # Update storage footprint
             if len(si) == 0:
-                # TODO: mark dirty? maybe register changes
                 service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
                 logger and logger.hc_log("WRITE NONE",
                                    f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
-                # TODO: mark dirty? maybe register changes
                 service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
                 logger and logger.hc_log("WRITE OK",
                                    f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
@@ -452,6 +448,17 @@ def hc_fetch(
     w12 = registers[12]
 
     def serialize_work_item(work_item: WorkItem) -> bytes:
+        """
+        Function S
+
+        Parameters
+        ----------
+        work_item
+
+        Returns
+        -------
+        bytes
+        """
         return (
             work_item.service.to_bytes(length=4, byteorder='little') + work_item.code_hash +
             work_item.refine_gas_limit.to_bytes(length=8, byteorder='little') +
@@ -476,66 +483,64 @@ def hc_fetch(
         )
         bold_v = const_bytes.to_bytes()
 
-    elif w10 == 1:
-        # Entropy
-        if entropy is not None:
-            bold_v = entropy
+    elif entropy is not None and w10 == 1:
+        bold_v = entropy
 
-    elif w10 == 2:
+    elif authorizer_output is not None and w10 == 2:
         # authorizer_output
-        if authorizer_output is not None:
-            bold_v = authorizer_output
+        bold_v = authorizer_output
 
-    elif w10 == 3 and w11 < len(extrinsics) and w12 < len(extrinsics[w11]):
+    elif extrinsics is not None and w10 == 3 and w11 < len(extrinsics) and w12 < len(extrinsics[w11]):
         # AnyExtrinsic
         bold_v = extrinsics[w11][w12]
 
-    elif w10 == 4 and w11 < len(extrinsics[work_item_index]):
-    # elif w10 == 6 and w11 < len(work_package.items[work_item_index].extrinsic): #TODO polkajam deviation
+    elif extrinsics is not None and work_item_index is not None and w10 == 4 and w11 < len(extrinsics[work_item_index]):
         # OurExtrinsic
         bold_v = extrinsics[work_item_index][w12]
 
-    elif w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
-
+    elif work_item_segs is not None and w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
         bold_v = work_item_segs[w11][w12]
 
-    elif w10 == 6 and work_item_index < len(work_item_segs) and w11 < len(work_item_segs[work_item_index]):
+    elif work_item_segs is not None and work_item_index is not None and w10 == 6 and \
+            work_item_index < len(work_item_segs) and w11 < len(work_item_segs[work_item_index]):
 
         bold_v = work_item_segs[work_item_index][w11]
 
-    elif w10 == 7 and work_package is not None:
+    elif work_package is not None and w10 == 7:
         bold_v = work_package.to_jam_bytes().to_bytes()
 
-    elif w10 == 8 and work_package is not None:
+    elif work_package is not None and w10 == 8:
         bold_v = work_package.auth_code_hash + Bytes.encode(work_package.authorizer_config).to_bytes()
 
-    elif w10 == 9 and work_package is not None:
+    elif work_package is not None and w10 == 9:
         bold_v = work_package.authorization
 
-    elif w10 == 10 and work_package is not None:
+    elif work_package is not None and w10 == 10:
         bold_v = work_package.context.to_jam_bytes().to_bytes()
 
-    elif w10 == 11 and work_package is not None:
+    elif work_package is not None and w10 == 11:
         serialized_work_items = [serialize_work_item(w) for w in work_package.items]
         bold_v = VarInt64.encode(len(serialized_work_items)).to_bytes() + b''.join(serialized_work_items)
 
-    elif w10 == 12 and work_package and w11 < len(work_package.items):
+    elif work_package is not None and w10 == 12 and w11 < len(work_package.items):
         bold_v = serialize_work_item(work_package.items[w11])
 
-    elif w10 == 13 and work_package and w11 < len(work_package.items):
+    elif work_package is not None and w10 == 13 and w11 < len(work_package.items):
         bold_v = work_package.items[w11].payload
 
-    elif w10 == 14:
+    elif accumulation_operands is not None and w10 == 14:
         bold_v = Vec(AccumulationOperand.to_codec_def()).encode([a.to_jam_bytes() for a in accumulation_operands]).to_bytes()
 
-    elif w10 == 15 and w11 < len(accumulation_operands):
+    elif accumulation_operands is not None and w10 == 15 and w11 < len(accumulation_operands):
         bold_v = accumulation_operands[w11].to_jam_bytes().to_bytes()
 
-    elif w10 == 16:
-        bold_v = Vec(DeferredTransfer.to_codec_def()).encode(deferred_transfers).to_bytes()
+    elif deferred_transfers is not None and w10 == 16:
+        bold_v = Vec(DeferredTransfer.to_codec_def()).encode([t.to_jam_bytes() for t in deferred_transfers]).to_bytes()
 
-    elif w10 == 17 and w11 < len(deferred_transfers):
+    elif deferred_transfers is not None and w10 == 17 and w11 < len(deferred_transfers):
         bold_v = deferred_transfers[w11].to_jam_bytes().to_bytes()
+    else:
+        bold_v = None
 
     o = w7
     f = min(w8, len(bold_v or []))
