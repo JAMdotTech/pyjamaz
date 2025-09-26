@@ -22,7 +22,15 @@ U32_MASK = U64(0xFFFFFFFF)
 
 u8_array_1d = types.Array(uint8, 1, 'C')
 u8_array_list = types.ListType(u8_array_1d)
+u64_array_1d = types.Array(uint64, 1, 'C')
+u64_array_list = types.ListType(u64_array_1d)
 int32_array_1d = types.Array(int32, 1, 'C')
+
+
+ACL_PAGES_PER_BITMAP = 32
+ACL_BITS_PER_PAGE = 2
+ACL_READ_BIT = np.uint64(0b01)
+ACL_WRITE_BIT = np.uint64(0b10)
 
 
 @njit(types.UniTuple(uint64, 2)(uint64, uint64), cache=NUMBA_CACHE)

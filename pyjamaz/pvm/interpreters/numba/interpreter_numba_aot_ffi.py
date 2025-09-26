@@ -20,6 +20,7 @@ I32_A1  = I32[::1]
 I64_A1  = I64[::1]
 
 U8_LIST        = types.ListType(U8_A1)                     # List[uint8[:]]
+U64_LIST       = types.ListType(U64_A1)                    # List[uint64[:]]
 NAMES_DICT_T   = types.DictType(I64, types.unicode_type)   # Dict[int64  -> unicode]
 
 
@@ -35,7 +36,7 @@ from .interpreter_numba_jit import invoke_native_jit
         I64_A1, I64_A1, I64_A1,                          # mem_ops_read/write/bytes
         U64_A1, U64_A1,                                  # mem_section_starts/ends
         U8_LIST,                                          # section_arrays : List[uint8[:]]
-        I32_A1,                                          # section_access
+        U64_LIST,                                         # acl_bitmaps
         I32_A1,                                          # section_access
         U64_A1, U64_A1,                                   # heap_info, registers_in
         NAMES_DICT_T,                                     # opcode_names  : Dict[int64, unicode]
@@ -47,7 +48,7 @@ def invoke_native(
     code, code_size,
     inst_pos_keys, inst_pos_vals, inst_arg_len_array, pc_to_inst_index, opcode_scheme_array, jump_table_array,
     mem_ops_read, mem_ops_write, mem_ops_bytes,
-    mem_section_starts, mem_section_ends, section_arrays, section_access,
+    mem_section_starts, mem_section_ends, section_arrays, acl_bitmaps, section_access,
     heap_info, reg, opcode_names,
     registers_out, state_out, heap_grew_out
 ):
@@ -56,7 +57,7 @@ def invoke_native(
         code, code_size,
         inst_pos_keys, inst_pos_vals, inst_arg_len_array, pc_to_inst_index, opcode_scheme_array, jump_table_array,
         mem_ops_read, mem_ops_write, mem_ops_bytes,
-        mem_section_starts, mem_section_ends, section_arrays, section_access,
+        mem_section_starts, mem_section_ends, section_arrays, acl_bitmaps, section_access,
         heap_info, reg, opcode_names,
         registers_out, state_out, heap_grew_out
     )
