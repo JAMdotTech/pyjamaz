@@ -2220,6 +2220,11 @@ class PVMInterpreter:
         Pure JIT invoke that uses only Numba compilation.
         No fallback to Python interpreter.
         """
+        if gas <= 0:
+            self.status = ExitReason.out_of_gas.value
+            self.exit_value = None
+            return
+
         self.pc = pc
         self.gas = gas
 
