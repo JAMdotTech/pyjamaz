@@ -21,8 +21,8 @@ from pyjamaz.hostcalls.general import (
 
 from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
-from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE
+from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection
+from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE, MEM_R, MEM_W
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer
 from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand
@@ -156,7 +156,7 @@ class TestHCGeneral(unittest.TestCase):
             page = MemorySection(
                 address=page_map["address"],
                 size=page_map["length"],
-                acl=PVMMemoryMode.writable if page_map["is-writable"] else PVMMemoryMode.readable,
+                acl=MEM_W if page_map["is-writable"] else MEM_R,
                 contents=[0] * page_map["length"]
             )
             if page_map["address"] < 2*65536:
@@ -179,7 +179,7 @@ class TestHCGeneral(unittest.TestCase):
             mem_heap = MemorySection(
                 address=min_addr,
                 size=total_size,
-                acl=PVMMemoryMode.writable,  # Default to writable for combined heap
+                acl=MEM_W,  # Default to writable for combined heap
                 contents=combined_contents
             )
 
@@ -191,8 +191,9 @@ class TestHCGeneral(unittest.TestCase):
                 # Copy the original page's ACL settings
                 start_page = page.address // PVM_PAGE_SIZE
                 end_page = (page.address + page.size - 1) // PVM_PAGE_SIZE
-                for pg in range(start_page, end_page + 1):
-                    pvm_memory._acl[pg] = page.acl.value
+                # for pg in range(start_page, end_page + 1):
+                #     pvm_memory._acl[pg] = page.acl
+                pvm_memory._heap.acl_set_pages(start_page, end_page-start_page, page.acl)
 
         for mem_block in test_vector["initial-memory"]:
             page = pvm_memory.find_section(mem_block["address"])

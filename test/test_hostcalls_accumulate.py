@@ -27,8 +27,8 @@ from pyjamaz.hostcalls.accumulate import (
 
 from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
-from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE
+from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection
+from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE, MEM_R, MEM_W
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState, ValidatorQueueState
 from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand
@@ -177,7 +177,7 @@ class TestHCAccumulate(unittest.TestCase):
             page = MemorySection(
                 address=page_map["address"],
                 size=page_map["length"],
-                acl=PVMMemoryMode.writable if page_map["is-writable"] else PVMMemoryMode.readable,
+                acl=MEM_W if page_map["is-writable"] else MEM_R,
                 contents=[0] * page_map["length"]
             )
             if page_map["address"] < 2 * 65536:
@@ -200,7 +200,7 @@ class TestHCAccumulate(unittest.TestCase):
             mem_heap = MemorySection(
                 address=min_addr,
                 size=total_size,
-                acl=PVMMemoryMode.writable,  # Default to writable for combined heap
+                acl=MEM_W,  # Default to writable for combined heap
                 contents=combined_contents
             )
 

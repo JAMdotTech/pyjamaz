@@ -26,28 +26,6 @@ class AbstractMemorySection(ABC):
     contents: bytearray # Bytes for this section (note: actual type depends on PVM implementation)
     acl: int  # Default Access Control for this section  (note: actual type depends on PVM implementation)
 
-    @abstractmethod
-    def alloc_contents(self, _bytes): ...
-
-    @abstractmethod
-    def alloc_acl(self, acl_mode: int, page_size: int): ...
-
-    @abstractmethod
-    def set_content(self, content:bytes, start: int, end: int) -> int: ...
-
-    @abstractmethod
-    def read_uint(self, section: bytearray, addr: int, length: int) -> int: ...
-
-    @abstractmethod
-    def write_uint(section: bytearray, section_offset: int, bytes_to_write: int, value: int): ...
-
-    @abstractmethod
-    def acl_check(self, start_page: int, nr_pages: int, required_acl: int) -> bool: ...
-
-    @abstractmethod
-    def acl_set_pages(self, start_page: int, nr_pages: int, required_acl: int): ...
-
-
     def __init__(self, address, size, contents, acl=None):
         if not contents:
             contents = []
@@ -86,3 +64,25 @@ class AbstractMemorySection(ABC):
             raise PVMMemoryError(msg)
 
         return self.write_uint(self.contents, section_addr, length, value)
+
+
+    @abstractmethod
+    def alloc_contents(self, _bytes): ...
+
+    @abstractmethod
+    def alloc_acl(self, acl_mode: int, page_size: int): ...
+
+    @abstractmethod
+    def set_content(self, content:bytes, start: int, end: int) -> int: ...
+
+    @abstractmethod
+    def read_uint(self, section: bytearray, addr: int, length: int) -> int: ...
+
+    @abstractmethod
+    def write_uint(section: bytearray, section_offset: int, bytes_to_write: int, value: int): ...
+
+    @abstractmethod
+    def acl_check(self, start_page: int, nr_pages: int, required_acl: int) -> bool: ...
+
+    @abstractmethod
+    def acl_set_pages(self, start_page: int, nr_pages: int, required_acl: int): ...
