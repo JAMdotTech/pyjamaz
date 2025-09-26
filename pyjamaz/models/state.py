@@ -551,6 +551,10 @@ class ServicesState(State, Serializable):
             service_account_id: int
     ) -> ServiceAccount:
 
+        # Sanity checks
+        if service_account_id >= 2**32:
+            raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
+
         service_account = None
         if service_account_id in self.services:
             service_account = self.services[service_account_id]
@@ -584,6 +588,11 @@ class ServicesState(State, Serializable):
         -------
 
         """
+
+        # Sanity checks
+        if service_account_id >= 2 ** 32:
+            raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
+
         if service_account_id not in self.services or self.services[service_account_id] is None:
             self.services[service_account_id] = service_account
         else:
@@ -615,6 +624,11 @@ class ServicesState(State, Serializable):
         -------
 
         """
+
+        # Sanity checks
+        if service_account_id >= 2 ** 32:
+            raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
+
         state_key = state_key_constructor_service_account(service_account_id)
 
         if commit:
@@ -1576,3 +1590,39 @@ class AccumulateInvocationContext(InvocationContext):
     context: AccumulateContextItem           # GP-0.7.0-eq:B.11 X_x
     savepoint_context: AccumulateContextItem # GP-0.7.0-eq:B.11 X_y
     timeslot: int # TODO how to make available?
+
+
+STORAGE_KEY_MAPPING = {
+    # Authorizer pool
+    bytes.fromhex('01000000000000000000000000000000000000000000000000000000000000'): AuthorizerPoolsState,
+    # Authorizer queue
+    bytes.fromhex('02000000000000000000000000000000000000000000000000000000000000'): AuthorizerQueuesState,
+    # Recent blocks
+    bytes.fromhex('03000000000000000000000000000000000000000000000000000000000000'): RecentHistoryState,
+    # Safrole
+    bytes.fromhex('04000000000000000000000000000000000000000000000000000000000000'): SafroleState,
+    # Disputes
+    bytes.fromhex('05000000000000000000000000000000000000000000000000000000000000'): DisputesState,
+    # Entropy
+    bytes.fromhex('06000000000000000000000000000000000000000000000000000000000000'): EntropyState,
+    # Validator queue
+    bytes.fromhex('07000000000000000000000000000000000000000000000000000000000000'): ValidatorQueueState,
+    # Validator pool
+    bytes.fromhex('08000000000000000000000000000000000000000000000000000000000000'): ValidatorPoolState,
+    # Validator archive
+    bytes.fromhex('09000000000000000000000000000000000000000000000000000000000000'): ValidatorArchiveState,
+    # Assurances
+    bytes.fromhex('0a000000000000000000000000000000000000000000000000000000000000'): AssurancesState,
+    # Timeslot
+    bytes.fromhex('0b000000000000000000000000000000000000000000000000000000000000'): TimeslotState,
+    # Privileged services
+    bytes.fromhex('0c000000000000000000000000000000000000000000000000000000000000'): PrivilegedServicesState,
+    # Statistics
+    bytes.fromhex('0d000000000000000000000000000000000000000000000000000000000000'): StatisticsState,
+    # Accumulation queue
+    bytes.fromhex('0e000000000000000000000000000000000000000000000000000000000000'): AccumulationQueueState,
+    # Accumulation history
+    bytes.fromhex('0f000000000000000000000000000000000000000000000000000000000000'): AccumulationHistoryState,
+    # Recent beefy commitments
+    bytes.fromhex('10000000000000000000000000000000000000000000000000000000000000'): BeefyCommitmentMap,
+}

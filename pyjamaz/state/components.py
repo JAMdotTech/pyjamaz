@@ -1915,7 +1915,7 @@ class Services(StateComponent):
             )
         )
 
-        logging.debug(f'ORDERED ACCUMULATION: W^*={[w.package_spec.hash.hex() for w in accumulatable_work_reports]}')
+        logging.debug(f'ORDERED ACCUMULATION: W^*={[format_hash(w.package_spec.hash) for w in accumulatable_work_reports]}')
 
         # GP-0.7.1-eq:12.24
         output = full_sequential_accumulation(
