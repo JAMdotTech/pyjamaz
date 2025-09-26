@@ -4,7 +4,7 @@ import numpy.typing as npt
 from numba import njit, types
 from numba import uint8, uint32, int32, uint64, int64, boolean
 
-from pyjamaz.pvm.numba.const import NUMBA_CACHE, PVM_PAGE_SHIFT
+from pyjamaz.pvm.interpreters.numba.const import NUMBA_CACHE, PVM_PAGE_SHIFT
 
 U8 = np.uint8
 U16 = np.uint16

@@ -3,7 +3,7 @@ import numpy as np
 
 from pyjamaz.graypaper_constants import PVM_PAGE_SIZE
 from pyjamaz.pvm.exceptions import UIntValueError
-from pyjamaz.pvm.gp.defs import u8, u16, u32, u64
+from pyjamaz.pvm.interpreters.graypaper.defs import u8, u16, u32, u64
 from pyjamaz.pvm.memory_section_abstract import AbstractMemorySection
 
 

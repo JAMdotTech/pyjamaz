@@ -21,15 +21,15 @@ from numba import uint8, uint32, int32, uint64, int64, boolean
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 from pyjamaz.pvm.exceptions import PVMMemoryError, PanicError
 from pyjamaz.pvm.memory import PVMMemory
-from pyjamaz.pvm.numba.const import NUMBA_CACHE, STATE_STATUS, STATE_PC, STATE_GAS, STATE_INST_NR, STATE_EXIT_VALUE, \
+from pyjamaz.pvm.interpreters.numba.const import NUMBA_CACHE, STATE_STATUS, STATE_PC, STATE_GAS, STATE_INST_NR, STATE_EXIT_VALUE, \
     STATE_SKIP_LEN, STATE_ERROR, PVM_PAGE_SIZE, PVM_PAGE_SHIFT, EXIT_RESUME, EXIT_PANIC, ERROR_PANIC_TRAP, \
     EXIT_HOST_HALT, ERROR_NONE, ERROR_MEMORY_FAULT, EXIT_PAGE_FAULT, EXIT_HALT, ERROR_PANIC_INVALID_DJUMP, \
     ERROR_PANIC_INVALID_BRANCH, MEM_WRITABLE, ERROR_PANIC_INVALID_PC, ERROR_INVALID_OPCODE
-from pyjamaz.pvm.numba.defs import U8, U16, U32, U64, I8, I16, I32, I64, u8_array_list, u64_array_list, U32_MASK, pvm_X_jit, \
+from pyjamaz.pvm.interpreters.numba.defs import U8, U16, U32, U64, I8, I16, I32, I64, u8_array_list, u64_array_list, U32_MASK, pvm_X_jit, \
     read_uint_jit, mem_write_jit, mem_read_jit, pvm_Z_jit, U64_MASK, count_leading_zeroes_jit, \
     count_trailing_zeroes_jit, pvm_Z_inv_jit, reverse_bytes_jit, rori64_jit, rori32_jit, pvm_rtz_div_jit, pvm_smod_jit, \
     imul64wide_jit, smul_u64wide_jit, umul64wide_jit, roli64_jit, roli32_jit, ACL_PAGES_PER_BITMAP
-from pyjamaz.pvm.cpython.memory_section import set_range_acl
+from pyjamaz.pvm.interpreters.cpython.memory_section import set_range_acl
 
 from pyjamaz.pvm.constants import (
     ExitReason, OpcodeScheme,

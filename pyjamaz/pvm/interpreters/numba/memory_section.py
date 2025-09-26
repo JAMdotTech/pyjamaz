@@ -1,7 +1,7 @@
-import npt
 import numpy as np
+import numpy.typing as npt
 
-from pyjamaz.pvm.cpython.memory_section import MemorySection as CPythonMemorySection
+from pyjamaz.pvm.interpreters.cpython.memory_section import MemorySection as CPythonMemorySection
 
 
 # Note: these memory segment helpers are defined outside MemorySection, so we can refer to them from code not using
