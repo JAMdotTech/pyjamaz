@@ -16,7 +16,7 @@ if typing.TYPE_CHECKING:
 T = TypeVar('T')
 
 
-def state_key_constructor_service_account(service_account_id) -> bytes:
+def state_key_constructor_service_account(service_account_id: int) -> bytes:
     """
     GP-0.7.1-eq:D.1 | State key constructor for a service account
 
@@ -66,14 +66,14 @@ def state_key_constructor_service_account_value(service_account_id: int, value: 
 
     return bytes(state_key) + value[3:27]
 
-def state_key_constructor_storage_item(service_account_id: int, storage_item_hash: bytes) -> bytes:
+def state_key_constructor_storage_item(service_account_id: int, storage_item_key: bytes) -> bytes:
     """
     GP-0.7.1-eq:D.2 | State key constructor for a storage item hash
 
     Parameters
     ----------
     service_account_id: int
-    storage_item_hash: bytes
+    storage_item_key: bytes
 
     Returns
     -------
@@ -81,7 +81,7 @@ def state_key_constructor_storage_item(service_account_id: int, storage_item_has
     """
     return state_key_constructor_service_account_value(
         service_account_id=service_account_id,
-        value=int(2**32-1).to_bytes(4, byteorder='little') + storage_item_hash
+        value=int(2**32-1).to_bytes(4, byteorder='little') + storage_item_key
     )
 
 def state_key_constructor_preimage(service_account_id: int, preimage_hash: bytes) -> bytes:

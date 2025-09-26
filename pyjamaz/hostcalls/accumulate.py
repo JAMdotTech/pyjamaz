@@ -429,7 +429,7 @@ def hc_upgrade(
         service_account.code_hash = code_hash
         service_account.gas_limit_accumulate = g
         service_account.gas_limit_on_transfer = m
-        # TODO inefficient; move to end, only once per service
+
         x.context.state_context.services.store_service_account(service_id, service_account)
         logger and logger.hc_log("UPGRADE OK", f"code_hash={code_hash} ")
 
@@ -518,7 +518,7 @@ def hc_transfer(
         # TODO: mark dirty? maybe register changes
         service_account.balance = b
         x.context.deferred_transfers.append(transfer)
-        # TODO inefficient; move to end, only once per service
+
         x.context.state_context.services.store_service_account(service_id, service_account)
         logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
 

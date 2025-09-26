@@ -364,6 +364,7 @@ class ServiceAccount(Serializable):
     code_hash: bytes = field(metadata={'codec': H256})
     balance: int = field(metadata={'codec': U64})
     gas_limit_accumulate: int = field(metadata={'codec': U64})
+    # TODO remove
     gas_limit_on_transfer: int = field(metadata={'codec': U64})
     footprint_storage_bytes: int = field(metadata={'codec': U64})
     deposit_offset: int = field(metadata={'codec': U64})
@@ -395,24 +396,48 @@ class ServiceAccount(Serializable):
 
     @classmethod
     def from_serialized_bytes(cls, serialized_bytes: bytes) -> 'ServiceAccount':
+        """
+        GP-0.7.1-eq:D.2 deserializes bytes into a ServiceAccount
+
+        Parameters
+        ----------
+        serialized_bytes: bytes
+
+        Returns
+        -------
+        ServiceAccount
+        """
+        version = U8.decode(serialized_bytes[0])
+
+        if version > 0:
+            raise ValueError(f'Unsupported service account version "{version}"')
+
         return ServiceAccount(
-            code_hash=serialized_bytes[0:32],
-            balance=U64.decode(JamBytes(serialized_bytes[32:40])),
-            gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
-            gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[48:56])),
-            footprint_storage_bytes=U64.decode(JamBytes(serialized_bytes[56:64])),
-            deposit_offset=U64.decode(JamBytes(serialized_bytes[64:72])),
-            footprint_storage_items=U32.decode(JamBytes(serialized_bytes[72:76])),
-            creation_slot=U32.decode(JamBytes(serialized_bytes[76:80])),
-            last_accumulation_slot=U32.decode(JamBytes(serialized_bytes[80:84])),
-            parent_service=U32.decode(JamBytes(serialized_bytes[84:88])),
+            code_hash=serialized_bytes[1:33],
+            balance=U64.decode(JamBytes(serialized_bytes[33:41])),
+            gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[41:49])),
+            gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[49:57])),
+            footprint_storage_bytes=U64.decode(JamBytes(serialized_bytes[57:65])),
+            deposit_offset=U64.decode(JamBytes(serialized_bytes[65:73])),
+            footprint_storage_items=U32.decode(JamBytes(serialized_bytes[73:77])),
+            creation_slot=U32.decode(JamBytes(serialized_bytes[77:81])),
+            last_accumulation_slot=U32.decode(JamBytes(serialized_bytes[81:85])),
+            parent_service=U32.decode(JamBytes(serialized_bytes[85:89])),
             storage_items={},
             preimages={},
             preimage_availability={},
         )
 
     def to_serialized_bytes(self) -> bytes:
-        serialized_bytes = self.code_hash
+        """
+        GP-0.7.1-eq:D.2 Serialize a ServiceAccount to bytes.
+
+        Returns
+        -------
+        bytes
+        """
+        serialized_bytes = b'\x00'  # Version
+        serialized_bytes += self.code_hash
         serialized_bytes += U64.encode(self.balance).to_bytes()
         serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
         serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
@@ -422,6 +447,7 @@ class ServiceAccount(Serializable):
         serialized_bytes += U32.encode(self.creation_slot).to_bytes()
         serialized_bytes += U32.encode(self.last_accumulation_slot).to_bytes()
         serialized_bytes += U32.encode(self.parent_service).to_bytes()
+
         return serialized_bytes
 
     def update_from(self, service_account: "ServiceAccount"):
@@ -1155,10 +1181,6 @@ class ServiceActivityRecord(Serializable):
         GP-0.7.1-eq:13.7 (a_0) | Number of work-items accumulated by service.
     accumulate_gas_used: VarInt64
         GP-0.7.1-eq:13.7 (a_1) | Amount of gas used for accumulation by service.
-    on_transfers_count: VarInt64
-        GP-0.7.1-eq:13.7 (t_0) | Number of transfers processed by service.
-    on_transfers_gas_used: VarInt64
-        GP-0.7.1-eq:13.7 (t_1) | Amount of gas used for processing transfers by service.
     """
     provided_count: int = field(metadata={'codec': VarInt64}, default=0)
     provided_size: int = field(metadata={'codec': VarInt64}, default=0)
@@ -1170,8 +1192,6 @@ class ServiceActivityRecord(Serializable):
     exports: int = field(metadata={'codec': VarInt64}, default=0)
     accumulate_count: int = field(metadata={'codec': VarInt64}, default=0)
     accumulate_gas_used: int = field(metadata={'codec': VarInt64}, default=0)
-    on_transfers_count: int = field(metadata={'codec': VarInt64}, default=0)
-    on_transfers_gas_used: int = field(metadata={'codec': VarInt64}, default=0)
 
 
 @dataclass

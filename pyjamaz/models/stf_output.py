@@ -5,7 +5,7 @@ from typing import Optional, List, Dict
 from jamcodec.mixins import Serializable
 from jamcodec.types import Option, Vec, H256, Array, U32, Map, U64
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
-from pyjamaz.models.block import EpochMark, DeferredTransferStatistic
+from pyjamaz.models.block import EpochMark
 from pyjamaz.models.common import WorkReport, TicketBody
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
@@ -292,20 +292,6 @@ class ServicesAfterPreimagesOutput(Serializable):
         GP-0.5.0-eq:4.?? (δ') | Primary output of ServicesAfterPreimages STF.
     """
     post_state: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
-
-
-@dataclass
-class ServicesAfterTransfersOutput(Serializable):
-    """
-    GP-0.7.1-eq:4.16 (δ‡) | Output of ServicesAfterTransfers STF.
-
-    Attributes
-    ----------
-    intermediate_state_after_transfers: ServicesState
-        GP-0.7.1-eq:4.16 (δ‡) | Primary output of ServicesAfterTransfers STF.
-    """
-    intermediate_state_after_transfers: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
-    deferred_transfer_statistics: Dict[int, DeferredTransferStatistic]
 
 
 @dataclass

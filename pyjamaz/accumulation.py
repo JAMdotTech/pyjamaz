@@ -103,26 +103,6 @@ def priority_queue(work_report_queue: List[AccumulationQueueWorkPackage]) -> Lis
         return g + priority_queue(edit_queue(work_report_queue, work_report_mapping(g)))
 
 
-def transfers_service_mapping(
-        deferred_transfers: List[DeferredTransfer],
-        service_id: int
-) -> List[DeferredTransfer]:
-    """
-    GP-0.6.5-eq:12.27 (R) | Maps a sequence of deferred transfers to a service
-
-    Parameters
-    ----------
-    deferred_transfers: List[DeferredTransfer]
-    service_id: int
-
-    Returns
-    -------
-    List[DeferredTransfer]
-    """
-    transfers = [t for t in deferred_transfers if t.receiver == service_id]
-    return sorted(transfers, key=lambda t: t.sender)
-
-
 @dataclass
 class ParallelAccumulationOutput:
     accumulation_state: AccumulationStateComponents

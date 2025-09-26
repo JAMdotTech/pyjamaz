@@ -180,13 +180,6 @@ class TestAccumulate(unittest.TestCase):
             post_state_entropy=post_entropy,
         )
 
-        transfer_output = services.state_transition_transfers(
-            intermediate_state_after_accumulation=accumulation_output.intermediate_state_after_accumulation,
-            post_state_timeslot=post_state_timeslot,
-            deferred_transfers=accumulation_output.deferred_transfers,
-            post_state_entropy=post_entropy,
-        )
-
         accumulation_history = AccumulationHistory(self.block_context, self.app_context)
         history_output = accumulation_history.state_transition(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
@@ -206,7 +199,7 @@ class TestAccumulate(unittest.TestCase):
         self.assertEqual(post_accumulation_history.to_json(), history_output.post_state.to_json())
         self.assertEqual(post_accumulation_queue.to_json(), queue_output.post_state.to_json())
 
-        self.assertDictEqual(post_services.to_json()['services'][0][1], transfer_output.intermediate_state_after_transfers.to_json()['services'][0][1])
+        self.assertDictEqual(post_services.to_json()['services'][0][1], accumulation_output.intermediate_state_after_accumulation.to_json()['services'][0][1])
 
 
 if __name__ == '__main__':

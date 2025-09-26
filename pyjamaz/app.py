@@ -551,7 +551,6 @@ class PyjamazApp:
             logging.info(f'📥 Accumulatable work-reports: {nr_acc_reports}')
 
         # Services Accumulation STF Block Data | GP-0.7.1-eq:4.18
-        # TODO: general review of this section after 0.7.1
         services_after_accumulation_output = self.components.services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_privileged_services=pre_state_privileged_services,
@@ -562,28 +561,16 @@ class PyjamazApp:
             post_state_entropy=entropy_output.post_state
         )
 
-        # GP-0.6.4-eq:12.24
-        # TODO: general review of this section after 0.7.1
+        # GP-0.7.1-eq:12.24
         self.block_context.set_accumulation_statistics(
             accumulation_gas_utilized=services_after_accumulation_output.accumulation_gas_utilized,
             nr_work_results_accumulated=services_after_accumulation_output.nr_work_results_accumulated,
         )
 
-        services_after_transfers_output = self.components.services.state_transition_transfers(
-            intermediate_state_after_accumulation=services_after_accumulation_output.intermediate_state_after_accumulation,
-            post_state_timeslot=timeslot_output.post_state,
-            deferred_transfers=services_after_accumulation_output.deferred_transfers,
-            post_state_entropy=entropy_output.post_state,
-        )
-
-        # GP-0.6.4-eq:12.30
-        # TODO: general review of this section after 0.7.1
-        self.block_context.deferred_transfer_statistics = services_after_transfers_output.deferred_transfer_statistics
-
         # Services After Preimages STF Block Data | GP-0.7.1-eq:4.18
         services_after_preimages_output = self.components.services.state_transition_after_preimages(
             extrinsic_preimages=block.extrinsic.preimages,
-            intermediate_state_after_transfers=services_after_transfers_output.intermediate_state_after_transfers,
+            intermediate_state_after_accumulation=services_after_accumulation_output.intermediate_state_after_accumulation,
             post_state_timeslot=timeslot_output.post_state
         )
 

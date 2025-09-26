@@ -16,7 +16,7 @@ from pyjamaz.merkle import WellBalancedMerkleTree
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.models.state import ServicesState
+    from pyjamaz.models.state import ServicesState, DeferredTransfer
 
 
 @dataclass
@@ -549,10 +549,10 @@ class AccumulationOperand(Serializable):
         GP-0.7.1-eq:12.13 (y) | [description].
     work_result_gas_limit: VarInt64
         GP-0.7.1-eq:12.13 (g) | [description].
-    work_exec_result: WorkExecResult
-        GP-0.7.1-eq:12.13 (bold_l) | [description].
     work_report_auth_output: Bytes
         GP-0.7.1-eq:12.13 (bold_t) | [description].
+    work_exec_result: WorkExecResult
+        GP-0.7.1-eq:12.13 (bold_l) | [description].
     """
     # TODO: check order of work_exec_result & work_report_auth_output (swapped in 0.7.0)
     work_report_hash: bytes = field(metadata={'codec': H256})
@@ -560,6 +560,16 @@ class AccumulationOperand(Serializable):
     work_report_authorizer_hash: bytes = field(metadata={'codec': H256})
     work_result_payload_hash: bytes = field(metadata={'codec': H256})
     work_result_gas_limit: int = field(metadata={'codec': VarInt64})
-    work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
     work_report_auth_output: bytes = field(metadata={'codec': Bytes})
+    work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
 
+
+@dataclass
+class AccumulationInput(Serializable):
+    """
+    GP-0.7.1-eq:12.15 (blackboard_I)
+    """
+    accumulation_operand: AccumulationOperand = field(metadata={'codec': AccumulationOperand.to_codec_def()})
+    deferred_transfer: DeferredTransfer = field(metadata={'codec': DeferredTransfer.to_codec_def()})
+
+    _codec_enum = True

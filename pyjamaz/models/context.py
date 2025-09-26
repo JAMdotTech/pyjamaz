@@ -4,7 +4,7 @@ from typing import Optional, List, Dict
 
 from pyjamaz.accumulation import edit_queue, work_report_dependencies, work_report_mapping, priority_queue
 from pyjamaz.graypaper_constants import ROTATION_PERIOD_CORE, EPOCH_TIMESLOTS
-from pyjamaz.models.block import GuarantorAssignment, Header, AccumulationStatistic, DeferredTransferStatistic
+from pyjamaz.models.block import GuarantorAssignment, Header, AccumulationStatistic
 from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMap, EntropyState, TimeslotState, \
     ValidatorPoolState, ValidatorArchiveState, AccumulationHistoryState, AccumulationQueueState
@@ -57,9 +57,6 @@ class BlockContext:
     # S
     accumulation_statistics: Optional[Dict[int, AccumulationStatistic]] = None
 
-    # X TODO: X no longer used as block context variable in 0.7.1
-    deferred_transfer_statistics: Optional[Dict[int, DeferredTransferStatistic]] = None
-
     def reset(self):
         self.guarantor_assignments = None
         self.prev_guarantor_assignments = None
@@ -73,7 +70,6 @@ class BlockContext:
         self.beefy_commitment_map = None
         self.accumulated_services = None
         self.accumulation_statistics = None
-        self.deferred_transfer_statistics = None
 
     def set_guarantor_assignments(self,
                        post_entropy: EntropyState,

@@ -10,16 +10,14 @@ from ed25519_zebra import ed_verify
 
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
-from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue,
-                                  transfers_service_mapping)
+from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue)
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.hostcalls.invocation import pvm_invoke_on_transfer
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.settings import SOLO_MODE, USE_THREAD_POOL, THREAD_POOL_MAX_WORKERS
 from pyjamaz.signing import Ed25519Keypair
-from pyjamaz.storage import StorageEngine, Transaction
+from pyjamaz.storage import Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
@@ -27,14 +25,14 @@ from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, Validator
     AssurancesAfterAssurancesOutput, AssurancesAfterGuaranteesOutput, ServicesAfterAccumulationOutput, \
     ServicesAfterPreimagesOutput, \
     DisputesErrorCode, AssurancesErrorCode, GuaranteeErrorCode, ReportedPackage, ServicesErrorCode, \
-    AccumulationHistoryOutput, AccumulationQueueOutput, ServicesAfterTransfersOutput
+    AccumulationHistoryOutput, AccumulationQueueOutput
 
 from pyjamaz.state.base import StateComponent
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.exceptions import StateTransitionError, BlockValidationError, StateKeyNoResult
 from pyjamaz.models.block import EpochMark, Header, TicketEnvelope, ExtrinsicDisputes, \
     Guarantee, Preimage, Assurance, Verdict, Judgement, Culprit, Fault, Credential, GuarantorAssignment, \
-    EpochMarkValidatorKeys, DeferredTransferStatistic
+    EpochMarkValidatorKeys
 from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState, SafroleState, \
     ValidatorQueueState, ValidatorArchiveState, AuthorizerQueuesState, AuthorizerPoolsState, RecentHistoryState, \
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
@@ -1705,11 +1703,10 @@ class Statistics(StateComponent):
 
         post_state.services = {}
 
-        # GP-0.7.1-eq:13.12 | Determine affected services
+        # TODO GP-0.7.1-eq:13.12 | Determine affected services
         services = [r.service_id for w in incoming_work_reports for r in w.results]
         services += [p.requester for p in extrinsic_preimages]
         services += self.block_context.accumulation_statistics.keys()
-        services += self.block_context.deferred_transfer_statistics.keys()
 
         # GP-0.7.1-eq:13.7 | Update service statistics
         for s in sorted(set(services)):
@@ -1733,11 +1730,6 @@ class Statistics(StateComponent):
             if accumulation_stats:
                 activity_record.accumulate_count += accumulation_stats.nr_work_reports_accumulated
                 activity_record.accumulate_gas_used += accumulation_stats.total_gas_utilized
-
-            transfer_stats = self.block_context.deferred_transfer_statistics.get(s)
-            if transfer_stats:
-                activity_record.on_transfers_count += transfer_stats.nr_transfers
-                activity_record.on_transfers_gas_used += transfer_stats.gas_used
 
             post_state.services[s] = activity_record
 
@@ -1830,7 +1822,7 @@ class Services(StateComponent):
     def state_transition_after_preimages(
             self,
             extrinsic_preimages: List[Preimage],
-            intermediate_state_after_transfers: ServicesState,
+            intermediate_state_after_accumulation: ServicesState,
             post_state_timeslot: TimeslotState
     ) -> ServicesAfterPreimagesOutput:
         """
@@ -1841,7 +1833,7 @@ class Services(StateComponent):
         ----------
         extrinsic_preimages: List[Preimage]
             GP-0.7.1-eq:4.18 (bold_E_P)
-        intermediate_state_after_transfers: ServicesState
+        intermediate_state_after_accumulation: ServicesState
             GP-0.7.1-eq:4.18 (δ‡)
         post_state_timeslot: TimeslotState
             GP-0.7.1-eq:4.18 (τ')
@@ -1855,13 +1847,13 @@ class Services(StateComponent):
         # GP-0.7.1-eq:12.35
         for preimage in extrinsic_preimages:
             # Store preimage
-            intermediate_state_after_transfers.store_preimage(
+            intermediate_state_after_accumulation.store_preimage(
                 service_account_id=preimage.requester,
                 preimage_blob=preimage.blob
             )
 
             # Update availability information
-            intermediate_state_after_transfers.store_preimage_availability(
+            intermediate_state_after_accumulation.store_preimage_availability(
                 service_account_id=preimage.requester,
                 preimage_hash=blake2b_256_hash(preimage.blob),
                 preimage_length=len(preimage.blob),
@@ -1869,7 +1861,7 @@ class Services(StateComponent):
             )
 
         return ServicesAfterPreimagesOutput(
-            post_state=intermediate_state_after_transfers
+            post_state=intermediate_state_after_accumulation
         )
 
     @log_execution_time
@@ -1956,67 +1948,6 @@ class Services(StateComponent):
             deferred_transfers=output.deferred_transfers,
             accumulation_gas_utilized=output.accumulation_gas_utilized
         )
-
-    @log_execution_time
-    def state_transition_transfers(
-            self,
-            intermediate_state_after_accumulation: ServicesState,
-            post_state_timeslot: TimeslotState,
-            deferred_transfers: List[DeferredTransfer],
-            post_state_entropy: EntropyState
-    ) -> ServicesAfterTransfersOutput:
-        """
-        GP-0.7.1-eq:12.28 (δ‡) | State transition function for the state's services.
-
-        Parameters
-        ----------
-        intermediate_state_after_accumulation: ServicesState
-            GP-0.6.1-eq:12.24 (δ†)
-        post_state_timeslot: TimeslotState
-            GP-0.6.1-eq:12.24 (τ')
-        deferred_transfers: List[DeferredTransfer]
-            GP-0.6.1-eq:12.24 (bold_t)
-
-        Returns
-        -------
-        ServicesAfterTransfersOutput
-            Output containing: intermediate state of ServicesState (δ‡)
-        """
-
-        intermediate_state_after_transfers = ServicesState(
-            services=deepcopy(intermediate_state_after_accumulation.services)
-        )
-        intermediate_state_after_transfers.set_state_storage(self.app_context.state_storage)
-
-        deferred_transfer_statistics = {}
-
-        for service_id in [t.receiver for t in deferred_transfers]:
-            service_transfers = transfers_service_mapping(deferred_transfers, service_id)
-
-            output = pvm_invoke_on_transfer(
-                services_state=intermediate_state_after_accumulation,
-                timeslot=post_state_timeslot.number,
-                service_id=service_id,
-                deferred_transfers=service_transfers,
-                post_state_entropy=post_state_entropy
-            )
-
-            intermediate_state_after_transfers.services.update({
-                service_id: output.service_account
-            })
-
-            # GP-0.6.4-eq:12.30
-            if len(service_transfers) > 0:
-                deferred_transfer_statistics[service_id] = DeferredTransferStatistic(
-                    nr_transfers=len(service_transfers),
-                    gas_used=output.gas_used,
-                )
-
-        return ServicesAfterTransfersOutput(
-            intermediate_state_after_transfers=intermediate_state_after_transfers,
-            deferred_transfer_statistics=deferred_transfer_statistics
-        )
-
 
     def retrieve_state(self) -> ServicesState:
         # State is retrieve per service
