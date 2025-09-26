@@ -131,7 +131,7 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
 
 class TestHCGeneral(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/hostcalls/general'))
+    @parameterized.expand(load_test_vectors('fixtures/hostcalls/general/'))
     def test_instruction(self, name, test_vector):
         skip_tests = [
         ]
@@ -139,7 +139,6 @@ class TestHCGeneral(unittest.TestCase):
             self.skipTest(f"Skipping {name} - overlapping memory regions not supported")
 
         # Set NumPy to ignore overflow warnings
-        np.seterr(over='ignore')
         pvm_code = PVMCode.from_jam_bytes(
             #JamBytes(bytes(test_vector["pvm-program"]))
             #Grrrrrrr just a dummy program (for now)
@@ -149,8 +148,8 @@ class TestHCGeneral(unittest.TestCase):
 
         mem_rom = None
         mem_heap = None
+        mem_stack = None
         mem_pages = []
-        heap_pages = []
 
         for page_map in test_vector["initial-page-map"]:
             page = MemorySection(
@@ -162,38 +161,20 @@ class TestHCGeneral(unittest.TestCase):
             if page_map["address"] < 2*65536:
                 mem_rom = page
             else:
-                heap_pages.append(page)
-            mem_pages.append(page)
+                mem_pages.append(page)
 
-        # For tests with multiple heap pages, we need to combine them into one
-        if len(heap_pages) == 1:
-            mem_heap = heap_pages[0]
-        elif len(heap_pages) > 1:
-            # Find the lowest address and total size
-            min_addr = min(p.address for p in heap_pages)
-            max_addr = max(p.address + p.size for p in heap_pages)
-            total_size = max_addr - min_addr
+        # Since we use multiple memory segments in the heap address space, we need to seperate them manually here :S
+        if len(mem_pages) == 0:
+            pass
+        elif len(mem_pages) == 1:
+            mem_heap = mem_pages[0]
+        elif len(mem_pages) == 2:
+            mem_heap = mem_pages[0]
+            mem_stack = mem_pages[1]
+        else:
+            raise Exception("Invalid memory pages")
 
-            # Create a combined heap section
-            combined_contents = [0] * total_size
-            mem_heap = MemorySection(
-                address=min_addr,
-                size=total_size,
-                acl=MEM_W,  # Default to writable for combined heap
-                contents=combined_contents
-            )
-
-        pvm_memory = PVMMemory(mem_rom, mem_heap, None, None)
-
-        # For tests with specific memory access requirements, update ACL after creation
-        if len(heap_pages) > 1:
-            for page in heap_pages:
-                # Copy the original page's ACL settings
-                start_page = page.address // PVM_PAGE_SIZE
-                end_page = (page.address + page.size - 1) // PVM_PAGE_SIZE
-                # for pg in range(start_page, end_page + 1):
-                #     pvm_memory._acl[pg] = page.acl
-                pvm_memory._heap.acl_set_pages(start_page, end_page-start_page, page.acl)
+        pvm_memory = PVMMemory(mem_rom, mem_heap, mem_stack, None)
 
         for mem_block in test_vector["initial-memory"]:
             page = pvm_memory.find_section(mem_block["address"])
@@ -463,7 +444,7 @@ class TestHCGeneral(unittest.TestCase):
                             f"{name}: Expected storage item {key} to have value {expected_value.hex()}, but got {actual_value.hex() if actual_value else 'None'}"
                         )
 
-            # vreify service account footprint updates were called if storage was modified
+            # verify service account footprint updates were called if storage was modified
             if "expected_footprint_calls" in test_vector:
                 for call_type, expected_count in test_vector["expected_footprint_calls"].items():
                     if call_type == "add":
