@@ -35,9 +35,8 @@ from .interpreter_numba_jit import invoke_native_jit
         I64_A1, I64_A1, I64_A1,                          # mem_ops_read/write/bytes
         U64_A1, U64_A1,                                  # mem_section_starts/ends
         U8_LIST,                                          # section_arrays : List[uint8[:]]
-        I32_A1,                                          # acl_base_array
-        I32_A1,                                          # acl_extra_start
-        I32_A1,                                          # acl_extra_count
+        I32_A1,                                          # section_access
+        I32_A1,                                          # section_access
         U64_A1, U64_A1,                                   # heap_info, registers_in
         NAMES_DICT_T,                                     # opcode_names  : Dict[int64, unicode]
         U64_A1, I64_A1, I64_A1                            # registers_out, state_out, heap_grew_out
@@ -48,7 +47,7 @@ def invoke_native(
     code, code_size,
     inst_pos_keys, inst_pos_vals, inst_arg_len_array, pc_to_inst_index, opcode_scheme_array, jump_table_array,
     mem_ops_read, mem_ops_write, mem_ops_bytes,
-    mem_section_starts, mem_section_ends, section_arrays, acl_base_array, acl_extra_start, acl_extra_count,
+    mem_section_starts, mem_section_ends, section_arrays, section_access,
     heap_info, reg, opcode_names,
     registers_out, state_out, heap_grew_out
 ):
@@ -57,7 +56,7 @@ def invoke_native(
         code, code_size,
         inst_pos_keys, inst_pos_vals, inst_arg_len_array, pc_to_inst_index, opcode_scheme_array, jump_table_array,
         mem_ops_read, mem_ops_write, mem_ops_bytes,
-        mem_section_starts, mem_section_ends, section_arrays, acl_base_array, acl_extra_start, acl_extra_count,
+        mem_section_starts, mem_section_ends, section_arrays, section_access,
         heap_info, reg, opcode_names,
         registers_out, state_out, heap_grew_out
     )
