@@ -2269,18 +2269,12 @@ class PVMInterpreter:
         if len(self.mem_section_ends) > 1:
             self.mem_section_ends[1] = heap_info[0]
 
-        # Sync grown heap back from JIT's typed list (preferred) or extend locally
+        # Always sync the heap buffer reference from the JIT to avoid losing writes.
+        # The JIT may have reallocated (np.empty) or simply advanced paged_tail without reallocation.
+        # Either way, `section_arrays[1]` is the authoritative backing store after invoke.
         growth_bytes = int(heap_grew_out[0])
-        if growth_bytes > 0 and section_arrays is not None:
-            # Adopt the grown buffer from the JIT without copying
+        if section_arrays is not None and len(section_arrays) > 1:
             self.mem_sections[1] = section_arrays[1]
             self._jit_mem_cache_dirty = True
-        elif self.mem_sections and self.mem_sections[1] is not None:
-            current_len = len(self.mem_sections[1])
-            desired_len = int(self.mem_section_ends[1] - self.mem_section_starts[1])
-            if desired_len > current_len:
-                growth = desired_len - current_len
-                self.mem_sections[1] = np.concatenate((self.mem_sections[1], np.zeros(growth, dtype=np.uint8)))
-                self._jit_mem_cache_dirty = True
 
         self._sync_memory()
