@@ -301,12 +301,10 @@ def invoke(
     initial_skip_len_u32 = np.uint32(initial_skip_len)
     code_size_u32 = np.uint32(code_size)
 
-    #TODO: hoeft maar 1x per pvm init te gebeuren!
-    # Ensure code is uint8[::1] C-contiguous
+    # TODO: hoeft maar 1x per pvm init te gebeuren!
     if not (isinstance(code, np.ndarray) and code.dtype == np.uint8 and code.flags['C_CONTIGUOUS']):
         code = np.asarray(code, dtype=np.uint8, order='C')
     # TODO: hoeft maar 1x per pvm init te gebeuren!
-    # Dense index structures must be int32[::1] C-contiguous
     if not (isinstance(inst_pos_keys, np.ndarray) and inst_pos_keys.dtype == np.int32 and inst_pos_keys.flags['C_CONTIGUOUS']):
         inst_pos_keys = np.asarray(inst_pos_keys, dtype=np.int32, order='C')
     if not (isinstance(inst_pos_vals, np.ndarray) and inst_pos_vals.dtype == np.int32 and inst_pos_vals.flags['C_CONTIGUOUS']):
@@ -604,15 +602,12 @@ def invoke_native_jit(
         if inst_type == inst_none:  # InstructionType.none
             if opcode == op_trap:
                 if logness: log(logging, local_state, reg, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC,
-                                             pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
             elif opcode == op_fallthrough:
                 if logness: log(logging, local_state, reg, mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
             else:
                 if logness: log(logging, local_state, reg, context="error: unknown opcode", mem=section_arrays, mem_starts=mem_section_starts, mem_ends=mem_section_ends)
-                return sync_state_and_return(
-                    reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
+                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
         # GP-0.6.7-section:A.5.2
         elif inst_type == inst_imm:  # InstructionType.imm
@@ -1388,28 +1383,23 @@ def invoke_native_jit(
 
                 if b_signed == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 elif a_signed == I32(-2 ** 31) and b_signed == I32(-1):
                     reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(I64(a_signed), I64(b_signed)), U8(8))
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rem_u_32:
                 wb32 = U64(w_b) & U32_MASK
                 if wb32 == 0:
                     reg[r_d] = pvm_X_jit(U32(U64(w_a) & U32_MASK), U8(4))
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     wa32 = U64(w_a) & U32_MASK
                     reg[r_d] = pvm_X_jit(U32(wa32 % wb32), U8(4))
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rem_s_32:
                 a_signed = pvm_Z_jit((U64(w_a) & U32_MASK), 4)
@@ -1417,233 +1407,189 @@ def invoke_native_jit(
 
                 if b_signed == 0:
                     reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 elif a_signed == I64(-2 ** 31) and b_signed == I64(-1):
                     reg[r_d] = U64(0)
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_Z_inv_jit(pvm_smod_jit(a_signed, b_signed), U8(8))
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shlo_l_32:
                 sh = U64(w_b) & U64(31)
                 reg[r_d] = pvm_X_jit(U32((U64(w_a) << sh) & U32_MASK), U8(4))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shlo_r_32:
                 reg[r_d] = pvm_X_jit(U32(w_a) >> U32(U32(w_b) & U32(31)), U8(4))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shar_r_32:
                 # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_d] = pvm_Z_inv_jit(I32(pvm_Z_jit(U32(w_a), 4)) >> I64(U32(w_b) & U32(31)), U8(8))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_add_64:
                 reg[r_d] =(U64(w_a) + U64(w_b)) & U64_MASK
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_sub_64:
                 # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_d] = (U64(w_a) - U64(w_b)) & U64_MASK
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_64:
                 reg[r_d] = (U64(w_a) * U64(w_b)) & U64_MASK
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_div_u_64:
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = w_a // w_b
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_div_s_64:
                 # TODO!!!!!!!!!!!!!!!!!!
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 elif pvm_Z_jit(w_a, 8) == I64(-9223372036854775808) and pvm_Z_jit(w_b, 8) == I64(-1):
                     reg[r_d] = w_a  # Overflow case
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_Z_inv_jit(pvm_rtz_div_jit(pvm_Z_jit(w_a, 8), pvm_Z_jit(w_b, 8)), U8(8))
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rem_u_64:
                 if w_b == 0:
                     reg[r_d] = w_a
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = w_a % w_b
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rem_s_64:
                 a_signed = pvm_Z_jit(w_a, 8)
                 b_signed = pvm_Z_jit(w_b, 8)
                 if b_signed == 0:
                     reg[r_d] = pvm_Z_inv_jit(a_signed, U8(8))
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 elif a_signed == I64(-9223372036854775808) and b_signed == I64(-1):
                     reg[r_d] = U64(0)
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
                 else:
                     reg[r_d] = pvm_Z_inv_jit(pvm_smod_jit(a_signed, b_signed), U8(8))
-                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                    context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                    if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shlo_l_64:
                 sh = U64(w_b) & U64(63)
                 reg[r_d] = (U64(w_a) << sh) & U64_MASK
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shlo_r_64:
                 reg[r_d] = U64(w_a) >> U64(U64(w_b) & U64(63))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_shar_r_64:
                 reg[r_d] = pvm_Z_inv_jit(I64(pvm_Z_jit(w_a, 8)) >> I64(U64(w_b) & U64(63)), U8(8))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_and:
                 reg[r_d] = w_a & w_b
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_xor:
                 reg[r_d] = w_a ^ w_b
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_or:
                 reg[r_d] = w_a | w_b
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_s_s:
                 # TODO!!!!!!!!!!!!!!!!!!
                 hi, lo = imul64wide_jit(I64(w_a), I64(w_b))
                 reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_u_u:
                 # TODO!!!!!!!!!!!!!!!!!!
                 hi, lo = umul64wide_jit(w_a, w_b)
                 reg[r_d] = hi
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_mul_upper_s_u:
                 # TODO!!!!!!!!!!!!!!!!!!
                 hi, lo = smul_u64wide_jit(I64(w_a), w_b)
                 reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_set_lt_u:
                 reg[r_d] = U64(1) if w_a < w_b else U64(0)
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_set_lt_s:
                 reg[r_d] = U64(1) if pvm_Z_jit(w_a, 8) < pvm_Z_jit(w_b, 8) else U64(0)
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_cmov_iz:
                 if w_b == 0:
                     reg[r_d] = w_a
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_cmov_nz:
                 if w_b != 0:
                     reg[r_d] = w_a
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rot_l_64:
                 reg[r_d] = roli64_jit(w_a, U64(w_b) & U64(63))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rot_l_32:
                 reg[r_d] = pvm_X_jit(roli32_jit(U32(w_a), U32(U32(w_b) & U32(31))), U8(4))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rot_r_64:
                 reg[r_d] = rori64_jit(w_a, U64(w_b) & U64(63))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_rot_r_32:
                 reg[r_d] = pvm_X_jit(rori32_jit(U32(w_a), U32(U32(w_b) & U32(31))), U8(4))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_and_inv:
                 reg[r_d] = w_a & U64(~w_b)
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_or_inv:
                 reg[r_d] = w_a | U64(~w_b)
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_xnor:
                 reg[r_d] = U64(~(w_a ^ w_b))
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_max:
                 reg[r_d] = w_a if pvm_Z_jit(w_a, 8) >= pvm_Z_jit(w_b, 8) else w_b
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_max_u:
                 reg[r_d] = w_a if w_a >= w_b else w_b
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_min:
                 reg[r_d] = w_a if pvm_Z_jit(w_a, 8) <= pvm_Z_jit(w_b, 8) else w_b
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             elif opcode == op_min_u:
                 reg[r_d] = w_a if w_a <= w_b else w_b
-                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d,
-                                context="w'_d: " + str(reg[r_d]), mem=section_arrays)
+                if logness: log(logging, local_state, reg, reg1=r_d, reg2=r_a, reg3=r_d, context="w'_d: " + str(reg[r_d]), mem=section_arrays)
 
             else:
-                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr,
-                                             exit_value, skip_len, ERROR_PANIC_TRAP)
+                return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
     # Finally, copy local state to state output
     for i in range(len(reg)):
@@ -1762,7 +1708,6 @@ class PVMInterpreter:
             if section:
                 contents = section.contents #_ensure_uint8_array(section.contents)
                 self.mem_sections.append(contents)
-                acl_bitmap = None
                 acl_bitmap = section.acl_bitmap #_ensure_uint64_array(section.acl_bitmap)
                 self.mem_section_acl.append(acl_bitmap)
                 self.mem_section_access.append(section.acl if hasattr(section, "acl") else None)
@@ -1842,7 +1787,6 @@ class PVMInterpreter:
         for opcode, scheme in OpcodeScheme.items():
             self.opcode_scheme_array[opcode] = scheme.value
 
-        # Dense PC -> inst_index lookup for O(1) fetch in JIT
         if self.inst_pos_keys.size > 0:
             max_pc = int(max(self.inst_pos_keys))
             size = max_pc + 1
@@ -2075,9 +2019,7 @@ class PVMInterpreter:
             self.mem_section_ends[1] = heap_info[0]
 
         # Always sync the heap buffer reference from the JIT to avoid losing writes.
-        # The JIT may have reallocated (np.empty) or simply advanced paged_tail without reallocation.
-        # Either way, `section_arrays[1]` is the authoritative backing store after invoke.
-        growth_bytes = int(heap_grew_out[0])
+        # growth_bytes = int(heap_grew_out[0])
         if section_arrays is not None and len(section_arrays) > 1:
             self.mem_sections[1] = section_arrays[1]
             self._jit_mem_cache_dirty = True
