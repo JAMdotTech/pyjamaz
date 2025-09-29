@@ -333,7 +333,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             preimages=marshalling_output.context.savepoint_context.preimages
         )
-        logging.info(f'PVM accumulate failed: {marshalling_output.exit_condition.reason}')
+        logging.info(f'😱 PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,
