@@ -391,90 +391,91 @@ def log(
         mem_starts=None,
         mem_ends=None):
 
-    inst_nr = int(local_state[0])
-    opcode = int(local_state[1])
-    pc = int(local_state[2])
-    gas = int(local_state[3])
-    start_time = float(local_state[4])
-
-    if len(opcode_names) == 0:
-        return
-
-    #name = opcode_names.get(np.int64(opcode), "UNKNOWN")
-    opcode_key = np.int64(opcode)
-    if opcode_key in opcode_names:
-        name = opcode_names[opcode_key]
-    else:
-        name = "UNKNOWN"
-
-    mem_info = ""
-    # if mem is not None and len(mem) >= 2:
-    #     if mem_starts is not None and mem_ends is not None:
-    #         # Compute effective lengths based on section bounds so hash reflects sbrk changes
-    #         heap_len = int(mem_ends[1] - mem_starts[1])
-    #         if heap_len < 0:
-    #             heap_len = 0
-    #         if heap_len > len(mem[1]):
-    #             heap_len = len(mem[1])
-    #         heap_hash = hash_memory_segment(mem[1][:heap_len])
+    # inst_nr = int(local_state[0])
+    # opcode = int(local_state[1])
+    # pc = int(local_state[2])
+    # gas = int(local_state[3])
+    # start_time = float(local_state[4])
+    #
+    # if len(opcode_names) == 0:
+    #     return
+    #
+    # name = opcode_names.get(np.int64(opcode), "UNKNOWN")
+    # # opcode_key = np.int64(opcode)
+    # # if opcode_key in opcode_names:
+    # #     name = opcode_names[opcode_key]
+    # # else:
+    # #     name = "UNKNOWN"
+    #
+    # mem_info = ""
+    # # if mem is not None and len(mem) >= 2:
+    # #     if mem_starts is not None and mem_ends is not None:
+    # #         # Compute effective lengths based on section bounds so hash reflects sbrk changes
+    # #         heap_len = int(mem_ends[1] - mem_starts[1])
+    # #         if heap_len < 0:
+    # #             heap_len = 0
+    # #         if heap_len > len(mem[1]):
+    # #             heap_len = len(mem[1])
+    # #         heap_hash = hash_memory_segment(mem[1][:heap_len])
+    # #     else:
+    # #         heap_hash = hash_memory_segment(mem[1])
+    # #     mem_info += f"heap_hash:{heap_hash}"
+    # # if mem is not None and len(mem) >= 3:
+    # #     if mem_starts is not None and mem_ends is not None:
+    # #         stack_len = int(mem_ends[2] - mem_starts[2])
+    # #         if stack_len < 0:
+    # #             stack_len = 0
+    # #         if stack_len > len(mem[2]):
+    # #             stack_len = len(mem[2])
+    # #         stack_hash = hash_memory_segment(mem[2][:stack_len])
+    # #     else:
+    # #         stack_hash = hash_memory_segment(mem[2])
+    # #     mem_info += f" stack_hash:{stack_hash}"
+    #
+    # # print("inst=",inst_nr, "op=",name, "pc=",pc, "gas=",gas,
+    # #       "r1=",reg1, "r2=",reg2, "r3=",reg3,
+    # #       "imm1=",imm1, "imm2=",imm2, "off1=",off1, "off2=",off2, context, mem_info)
+    #
+    # # Format opcode name with fixed width (22 chars)
+    # name_str = name
+    # name_pad = 22 - len(name_str)
+    # if name_pad > 0:
+    #     name_str = name_str + (" " * name_pad)
+    #
+    # # Format registers with fixed width (21 chars) for even spacing.
+    # regs_str = ""
+    # for i in range(len(regs)):
+    #     s = str(regs[i])
+    #     pad = 21 - len(s)
+    #     if pad > 0:
+    #         regs_str += (" " * pad) + s
     #     else:
-    #         heap_hash = hash_memory_segment(mem[1])
-    #     mem_info += f"heap_hash:{heap_hash}"
-    # if mem is not None and len(mem) >= 3:
-    #     if mem_starts is not None and mem_ends is not None:
-    #         stack_len = int(mem_ends[2] - mem_starts[2])
-    #         if stack_len < 0:
-    #             stack_len = 0
-    #         if stack_len > len(mem[2]):
-    #             stack_len = len(mem[2])
-    #         stack_hash = hash_memory_segment(mem[2][:stack_len])
-    #     else:
-    #         stack_hash = hash_memory_segment(mem[2])
-    #     mem_info += f" stack_hash:{stack_hash}"
-
-    # print("inst=",inst_nr, "op=",name, "pc=",pc, "gas=",gas,
-    #       "r1=",reg1, "r2=",reg2, "r3=",reg3,
-    #       "imm1=",imm1, "imm2=",imm2, "off1=",off1, "off2=",off2, context, mem_info)
-
-    # Format opcode name with fixed width (22 chars)
-    name_str = name
-    name_pad = 22 - len(name_str)
-    if name_pad > 0:
-        name_str = name_str + (" " * name_pad)
-
-    # Format registers with fixed width (21 chars) for even spacing.
-    regs_str = ""
-    for i in range(len(regs)):
-        s = str(regs[i])
-        pad = 21 - len(s)
-        if pad > 0:
-            regs_str += (" " * pad) + s
-        else:
-            regs_str += s
-        if i != len(regs) - 1:
-            regs_str += " "
-
-    # Fixed width for inst_nr and pc (4 chars each, right-aligned)
-    inst_str = str(inst_nr)
-    if len(inst_str) < 4:
-        inst_str = (" " * (4 - len(inst_str))) + inst_str
-
-    pc_str = str(pc)
-    if len(pc_str) < 4:
-        pc_str = (" " * (4 - len(pc_str))) + pc_str
-
-    # Compute elapsed time if start_time provided (debug; uses objmode)
-    # if start_time > 0.0:
-    #     with objmode(tnow='float64'):
-    #         tnow = _pytime.perf_counter()
-    #     dt_ms = (tnow - start_time) * 1000.0
-    #     #print(inst_str, pc_str, name_str, regs_str, mem_info, dt_ms)
-    #     print(inst_str, pc_str, name_str, dt_ms)
-    # else:
-    #     print(inst_str, pc_str, name_str, regs_str, mem_info)
-
-    #print(inst_str, pc_str, name_str, dt_ms)
-    print(inst_str, pc_str, name_str, regs_str, mem_info)
+    #         regs_str += s
+    #     if i != len(regs) - 1:
+    #         regs_str += " "
+    #
+    # # Fixed width for inst_nr and pc (4 chars each, right-aligned)
+    # inst_str = str(inst_nr)
+    # if len(inst_str) < 4:
+    #     inst_str = (" " * (4 - len(inst_str))) + inst_str
+    #
+    # pc_str = str(pc)
+    # if len(pc_str) < 4:
+    #     pc_str = (" " * (4 - len(pc_str))) + pc_str
+    #
+    # # Compute elapsed time if start_time provided (debug; uses objmode)
+    # # if start_time > 0.0:
+    # #     with objmode(tnow='float64'):
+    # #         tnow = _pytime.perf_counter()
+    # #     dt_ms = (tnow - start_time) * 1000.0
+    # #     #print(inst_str, pc_str, name_str, regs_str, mem_info, dt_ms)
+    # #     print(inst_str, pc_str, name_str, dt_ms)
+    # # else:
+    # #     print(inst_str, pc_str, name_str, regs_str, mem_info)
+    #
+    # #print(inst_str, pc_str, name_str, dt_ms)
+    # print(inst_str, pc_str, name_str, regs_str, mem_info)
+    print(1111)
 
 
 @njit(int32(
@@ -1606,7 +1607,7 @@ def invoke_native_jit(
 
 
 class PVMInterpreter:
-
+    ttt=False
     def __init__(self, program: "PVMProgram", logger=None):
 
         self.name = program.name
@@ -1952,9 +1953,9 @@ class PVMInterpreter:
             key_type=types.int64,
             value_type=types.unicode_type,
         )
-        # if __init__:
-        #     for _k, _v in OpcodeNames.items():
-        #         opcode_names[int(_k)] = _v
+        if PVMInterpreter.ttt:
+            for _k, _v in OpcodeNames.items():
+                opcode_names[int64(_k)] = str(_v)
 
         # Convert mem_ops arrays to int64 for JIT compatibility
         mem_ops_read_int64 = np.asarray(self.mem_ops_read, dtype=np.int64, order='C')
