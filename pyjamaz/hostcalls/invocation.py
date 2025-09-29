@@ -266,10 +266,6 @@ def pvm_invoke_accumulate(
     -------
     PvmAccumulateOutput
     """
-    if '02c050d49213a50e9f6b74f646fc6332e2a08e86030343f1fed1e2a84ba1272c' in [x.work_report_hash.hex() for x in operands]:
-        print(1111)
-        PVMInterpreter.ttt=True
-
     logging.debug(f'PVM invoke accumulate: s={service_id} operands={[o.to_json() for o in operands]}')
 
     invocation_context = AccumulateInvocationContext.create_from_accumulation_state(
@@ -326,7 +322,6 @@ def pvm_invoke_accumulate(
         program_name=program_metadata
     )
 
-    #19932133
     # GP-0.6.2-eq:B.12 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
 

@@ -465,12 +465,17 @@ def hc_transfer(
     None
     """
     logger and logger.hc_regs(f"TRANSFER", "accumulate")
-    gas_cost = 10 + registers[9]
-    invocation_output.gas_limit -= gas_cost
+    gas_limit = registers[9] & ((1 << 64) - 1) # TODO: should wrap around??
+    gas_usage = 10 + registers[9]
+    if gas_usage > invocation_output.gas_limit:
+        # Note: keep gas negative (otherwise a int wrap around could make it positive again)
+        invocation_output.gas_limit = -1 #invocation_output.gas_limit - gas_usage
+    else:
+        invocation_output.gas_limit -= gas_usage
 
     d = registers[7]     # destination
     a = registers[8]     # amount
-    g = registers[9]     # gas_limit
+    g = gas_limit        # gas_limit
     o = registers[10]    # offset for memo
 
     service_id = x.context.service_account_id

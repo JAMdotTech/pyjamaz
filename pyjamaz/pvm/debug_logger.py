@@ -4,6 +4,7 @@ from datetime import datetime
 import numpy as np
 
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import OpcodeNames
 from pyjamaz.pvm.invocation import PVMLogger
 
@@ -164,17 +165,18 @@ class PVMDebugLog(PVMLogger):
         logging.debug(f"GAS: {self._pvm.gas} PC: {self._pvm.pc}")
 
     def pvm_header(self):
-        logging.debug(
-            f"PC      "
-            f"INST                  "
-            f"R1  "
-            f"R2  "
-            f"R3  "
-            f"IMM1                    "
-            f"IMM2                    "
-            f"OFF1                    "
-            f"OFF2                    "
-            "CTX")
+        # logging.debug(
+        #     f"PC      "
+        #     f"INST                  "
+        #     f"R1  "
+        #     f"R2  "
+        #     f"R3  "
+        #     f"IMM1                    "
+        #     f"IMM2                    "
+        #     f"OFF1                    "
+        #     f"OFF2                    "
+        #     "CTX")
+        pass
 
     def pvm_regs(self, msg):
         regs = self._pvm.get_registers()
@@ -245,8 +247,9 @@ class PVMDebugLog(PVMLogger):
         # dt_ms = (tnow - self._pvm.op_time)
         # print(inst_str + " " + pc_str + " " + name_str + "" + str(dt_ms))
 
-        # tt = " ".join([inst_str, pc_str, name_str, regs_str, mem_info])
-        # logging.debug(tt)
+        #print(inst_str, pc_str, name_str, self._pvm.gas, regs_str, mem_info)
+        tt = " ".join([inst_str, pc_str, name_str, self._pvm.gas, regs_str, mem_info])
+        logging.debug(tt)
 
 
     def hc_log(self, msg, data):
