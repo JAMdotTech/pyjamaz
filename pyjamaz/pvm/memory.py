@@ -113,7 +113,7 @@ class PVMMemory:
             raise PVMMemoryError("MemorySection not found")
 
         section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
-        if section.acl is not None and not section.acl_check(section_addr, length-1, MEM_W):
+        if section.acl is not None and not section.acl_check(section_addr, length, MEM_W):
             raise PVMMemoryError(f"Memory address {addr} ACL write check failed")
 
         self._section = section
@@ -136,7 +136,7 @@ class PVMMemory:
             raise PVMMemoryError("MemorySection not found")
 
         section_addr = (addr - section.address) #% section.size  #TODO: not sure if % necesarry?
-        if section.acl is not None and not section.acl_check(section_addr, length-1, MEM_R):
+        if section.acl is not None and not section.acl_check(section_addr, length, MEM_R):
             raise PVMMemoryError(f"Memory address {addr} ACL read check failed")
 
         self._section = section
@@ -162,7 +162,7 @@ class PVMMemory:
             raise PVMError(f"Invalid PVMMemory mode: {mode}")
 
         local_addr = address - section.address
-        if section.acl and not section.acl_check(local_addr, length - 1, mode):
+        if section.acl and not section.acl_check(local_addr, length, mode):
             return False
 
         bytes_required = local_addr + length
@@ -187,12 +187,18 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
-        if section.acl is not None and not section.acl_check(section_addr, length-1, MEM_R):
-            raise PVMMemoryError(f"Memory address {address} ACL read check failed")
+        if section.acl is not None and not section.acl_check(section_addr, length, MEM_R):
+            raise PVMMemoryError(
+                f"Memory address {address} ACL read check failed (offset={section_addr}, len={length}, "
+                f"section_start={section.address}, paged_tail={section.paged_tail}, section_size={section.size})"
+            )
 
         section_bytes = (section.size - section_addr)
         if section_bytes < length:
-            raise PVMMemoryError(f"Heap overflow {length} > {section_bytes}")
+            raise PVMMemoryError(
+                f"Heap overflow {length} > {section_bytes} (offset={section_addr}, section_size={section.size}, "
+                f"section_start={section.address}, paged_tail={section.paged_tail})"
+            )
 
         mem_bytes = bytes(section.contents[section_addr:section_addr+length])
         if padding and len(mem_bytes) < padding:
@@ -218,12 +224,18 @@ class PVMMemory:
 
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
         if section.acl and not section.acl_check(section_addr, len(content), MEM_W):
-            raise PVMMemoryError(f"Memory address {address} ACL check failed")
+            raise PVMMemoryError(
+                f"Memory address {address} ACL check failed (offset={section_addr}, len={len(content)}, "
+                f"section_start={section.address}, paged_tail={section.paged_tail}, section_size={section.size})"
+            )
 
         section_bytes = (section.size - section_addr)
 
         if section_bytes < len(content):
-            raise PVMMemoryError(f"Heap overflow {len(content)} > {section_bytes}")
+            raise PVMMemoryError(
+                f"Heap overflow {len(content)} > {section_bytes} (offset={section_addr}, section_size={section.size}, "
+                f"section_start={section.address}, paged_tail={section.paged_tail})"
+            )
 
         section.set_content(content, section_addr, section_addr+len(content))
 

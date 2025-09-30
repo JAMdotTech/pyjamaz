@@ -288,16 +288,22 @@ class PVMInterpreter:
 
                 # Note: when using bitmaps, we only need to allocate a new bitmap when we allocate new pages
                 # Create ACL of new pages
-                bitmap_count = len(self.mem_section_acl[1])  # (current_heap_ptr - self.mem_section_starts[1]) // PVM_PAGE_SIZE
-                last_page_idx = new_size // PVM_PAGE_SIZE
+                prev_page_count = cur_size // PVM_PAGE_SIZE
+                new_page_count = new_size // PVM_PAGE_SIZE
+                bitmap_count = len(self.mem_section_acl[1])
                 # note: ceil div: -(-a // b)
-                bitmaps_required = -(-last_page_idx // ACL_PAGES_PER_BITMAP)
+                bitmaps_required = -(-new_page_count // ACL_PAGES_PER_BITMAP)
 
                 if bitmaps_required > bitmap_count:
-                    extended = np.full(bitmaps_required, np.iinfo(np.uint64).max, dtype=np.uint64)
-                    extended[:len(self.mem_section_acl[1])] = self.mem_section_acl[1]
+                    extended = np.zeros(bitmaps_required, dtype=np.uint64)
+                    if bitmap_count > 0:
+                        extended[:bitmap_count] = self.mem_section_acl[1]
                     self.mem_section_acl[1] = extended
-                    self.log and self.log.acl(bitmap_count, bitmaps_required, bitmaps_required-bitmap_count)
+                    self.log and self.log.acl(bitmap_count, bitmaps_required, bitmaps_required - bitmap_count)
+
+                if new_page_count > prev_page_count and len(self.mem_section_acl[1]):
+                    pages_to_enable = new_page_count - prev_page_count
+                    set_range_acl(self.mem_section_acl[1], prev_page_count, pages_to_enable, self.mem_writable)
 
         self.mem_section_ends[1] = new_heap_ptr
         self.HEAP_END = new_heap_ptr

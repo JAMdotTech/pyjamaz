@@ -94,13 +94,14 @@ class MemorySection(AbstractMemorySection):
 
 
     def alloc_acl(self, acl_mode:int, paged_size:int):
+        total_bytes = max(paged_size, self.size)
         # note: ceil div: -(-a // b)
-        nr_pages = -(-paged_size // PVM_PAGE_SIZE)
+        nr_pages = -(-total_bytes // PVM_PAGE_SIZE)
         acl_size = -(-nr_pages // ACL_PAGES_PER_BITMAP)
-        if acl_mode == MEM_R:
-            self.acl_bitmap = np.full(acl_size, ACL_BITMAP_READ, dtype=np.uint64)
-        else:
-            self.acl_bitmap = np.full(acl_size, ACL_BITMAP_WRITE, dtype=np.uint64)
+        self.acl_bitmap = np.zeros(max(0, acl_size), dtype=np.uint64)
+        if acl_size > 0:
+            if acl_mode is not None:
+                set_range_acl(self.acl_bitmap, 0, nr_pages, acl_mode)
 
 
     def set_content(self, content:bytes, start: int, end: int):
@@ -140,10 +141,16 @@ class MemorySection(AbstractMemorySection):
             raise PVMMemoryError(f"Invalid write length: {n}")
 
 
-    def acl_check(self, section_addr: int, nr_bytes: int, required_acl: int) -> bool:
+    def acl_check(self, section_addr: int, length: int, required_acl: int) -> bool:
+        if length <= 0:
+            return True
+
+        last_offset = section_addr + length - 1
         start_page = section_addr // PVM_PAGE_SIZE
-        end_page = -(-(int(section_addr + nr_bytes - 1)) // PVM_PAGE_SIZE)
-        return check_acl(self.acl_bitmap, start_page, end_page - start_page + 1, required_acl)
+        end_page = last_offset // PVM_PAGE_SIZE
+        nr_pages = end_page - start_page + 1
+
+        return check_acl(self.acl_bitmap, start_page, nr_pages, required_acl)
 
 
     def acl_set_pages(self, start_page: int, nr_pages: int, acl_level: int):

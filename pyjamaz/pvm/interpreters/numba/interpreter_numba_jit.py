@@ -18,7 +18,7 @@ from pyjamaz.pvm.interpreters.numba.const import NUMBA_CACHE, STATE_STATUS, STAT
     STATE_EXIT_VALUE, \
     STATE_SKIP_LEN, STATE_ERROR, PVM_PAGE_SIZE, PVM_PAGE_SHIFT, EXIT_RESUME, EXIT_PANIC, ERROR_PANIC_TRAP, \
     EXIT_HOST_HALT, ERROR_NONE, ERROR_MEMORY_FAULT, EXIT_PAGE_FAULT, EXIT_HALT, ERROR_PANIC_INVALID_DJUMP, \
-    ERROR_PANIC_INVALID_BRANCH, MEM_WRITABLE, ERROR_PANIC_INVALID_PC, ERROR_INVALID_OPCODE, OUT_OF_GAS
+    ERROR_PANIC_INVALID_BRANCH, MEM_READABLE, MEM_WRITABLE, ERROR_PANIC_INVALID_PC, ERROR_INVALID_OPCODE, OUT_OF_GAS
 from pyjamaz.pvm.interpreters.numba.defs import U8, U16, U32, U64, I8, I16, I32, I64, u8_array_list, u64_array_list, U32_MASK, pvm_X_jit, \
     read_uint_jit, mem_write_jit, mem_read_jit, pvm_Z_jit, U64_MASK, count_leading_zeroes_jit, \
     count_trailing_zeroes_jit, pvm_Z_inv_jit, reverse_bytes_jit, rori64_jit, rori32_jit, pvm_rtz_div_jit, pvm_smod_jit, \
@@ -190,13 +190,36 @@ def sbrk_jit(
             # Ensure ACL bitmaps cover the extended heap size
             acl_array = acl_bitmaps[1]
             bitmap_count = len(acl_array)
-            last_page_idx = reserve_len // PVM_PAGE_SIZE
-            bitmaps_required = -(-last_page_idx // ACL_PAGES_PER_BITMAP)
+            prev_page_count = cur_len // PVM_PAGE_SIZE
+            new_page_count = reserve_len // PVM_PAGE_SIZE
+            bitmaps_required = -(-new_page_count // ACL_PAGES_PER_BITMAP)
+
             if bitmaps_required > bitmap_count:
-                extended = np.full(bitmaps_required, np.iinfo(np.uint64).max, dtype=np.uint64)
+                extended = np.zeros(bitmaps_required, dtype=np.uint64)
                 if bitmap_count > 0:
                     extended[:bitmap_count] = acl_array
-                acl_bitmaps[1] = extended
+                acl_array = extended
+                acl_bitmaps[1] = acl_array
+            else:
+                acl_array = acl_bitmaps[1]
+
+            if new_page_count > prev_page_count and len(acl_array) > 0:
+                pages_to_enable = new_page_count - prev_page_count
+                perm = int(mem_writable)
+                if perm == MEM_WRITABLE:
+                    required_bits = 0b11
+                elif perm == MEM_READABLE:
+                    required_bits = 0b01
+                else:
+                    required_bits = 0
+
+                if required_bits != 0:
+                    for page in range(prev_page_count, prev_page_count + pages_to_enable):
+                        bitmap_idx = page // ACL_PAGES_PER_BITMAP
+                        shift = (ACL_PAGES_PER_BITMAP - 1 - (page % ACL_PAGES_PER_BITMAP)) * 2
+                        mask = np.uint64(0b11 << shift)
+                        bits = np.uint64(required_bits << shift)
+                        acl_array[bitmap_idx] = np.uint64((acl_array[bitmap_idx] & ~mask) | bits)
         else:
             grew_bytes = I64(growth)
             current_len = int(current_heap_ptr - base_start)

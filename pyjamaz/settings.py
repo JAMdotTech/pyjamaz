@@ -25,7 +25,8 @@ PVM_DEBUGGER = None
 PVM_MIN_HEAP_SIZE = 0
 PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
 
-PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "NUMBA_JIT") #Options: GRAYPAPER, CPYTHON, NUMBA_JIT, NUMBA_AOT
+# Options: GRAYPAPER, CPYTHON, NUMBA_JIT, NUMBA_AOT
+PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "NUMBA_JIT")
 
 try:
     from pyjamaz.local_settings import *

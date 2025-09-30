@@ -20,7 +20,8 @@ class MemorySection(AbstractMemorySection):
 
 
     def alloc_acl(self, acl_mode: int, paged_size: int):
-        nr_pages = math.ceil(paged_size / PVM_PAGE_SIZE)
+        total_bytes = max(paged_size, self.size)
+        nr_pages = math.ceil(total_bytes / PVM_PAGE_SIZE)
         self._acl.update({n: acl_mode for n in range(nr_pages)})
 
 
@@ -105,17 +106,22 @@ class MemorySection(AbstractMemorySection):
             raise UIntValueError(f"Invalid uint length: {n}")
 
 
-    def acl_check(self, section_addr: int, nr_bytes: int, required_acl: int) -> bool:
-        start_page = section_addr // PVM_PAGE_SIZE
-        end_page = (section_addr + nr_bytes) // PVM_PAGE_SIZE
+    def acl_check(self, section_addr: int, length: int, required_acl: int) -> bool:
+        if length <= 0:
+            return True
 
-        if start_page == end_page and (not start_page in self._acl or self._acl[start_page] < required_acl):
+        last_offset = section_addr + length - 1
+        start_page = section_addr // PVM_PAGE_SIZE
+        end_page = last_offset // PVM_PAGE_SIZE
+
+        if start_page == end_page and (start_page not in self._acl or self._acl[start_page] < required_acl):
             return False
-        else:
-            nr_pages = end_page - start_page + 1
-            for page_nr in range(nr_pages):
-                if start_page + page_nr not in self._acl or self._acl[start_page + page_nr] < required_acl:
-                    return False
+
+        nr_pages = end_page - start_page + 1
+        for page_nr in range(nr_pages):
+            page = start_page + page_nr
+            if page not in self._acl or self._acl[page] < required_acl:
+                return False
 
         return True
 

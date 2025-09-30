@@ -32,6 +32,8 @@ ENV NUMBA_EAGERNESS=1
 ENV NUMBA_LOOP_VECTORIZE=1
 ENV NUMBA_ENABLE_AVX=1
 ENV NUMBA_OPT=3
+ENV NUMBA_DEBUG=0
+ENV NUMBA_DEBUGINFO=0
 
 # Trigger compilation of the numba PVM interpreter
 #RUN ./scripts/build_numba_aot.sh

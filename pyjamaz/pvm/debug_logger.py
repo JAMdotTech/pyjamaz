@@ -194,7 +194,6 @@ class PVMDebugLog(PVMLogger):
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
         return
-
         mem_info = ""
         # if hasattr(self._pvm, "mem_sections"):
         #     mem = self._pvm.mem_sections
@@ -248,7 +247,7 @@ class PVMDebugLog(PVMLogger):
         # print(inst_str + " " + pc_str + " " + name_str + "" + str(dt_ms))
 
         #print(inst_str, pc_str, name_str, self._pvm.gas, regs_str, mem_info)
-        tt = " ".join([inst_str, pc_str, name_str, self._pvm.gas, regs_str, mem_info])
+        tt = " ".join([str(inst_str), pc_str, name_str, str(self._pvm.gas), regs_str, mem_info])
         logging.debug(tt)
 
 
