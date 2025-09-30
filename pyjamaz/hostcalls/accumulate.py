@@ -862,7 +862,7 @@ def hc_forget(
 
     timeslot = x.timeslot #GP: t
     # Note: x & y & w refer to the cardinality of the preimage_availability dictionary, see 9.2.2 EQ9.7
-    preimage_updated = True #GP: bold_a = ∇
+    preimage_updated = False #GP: bold_a = ∇
 
     try:
         preimage_availability = state.services.retrieve_preimage_availability(
@@ -872,13 +872,15 @@ def hc_forget(
         )
 
         preimage_cardinality = len(preimage_availability)
-        if preimage_cardinality in (0, 2) and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
+        if preimage_cardinality == 0 or preimage_cardinality == 2 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
 
             state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
             state.services.delete_preimage(service_id, preimage_hash)
             # Update footprint
             service_account.update_footprint_remove_preimage(preimage_length)
             state.services.store_service_account(service_id, service_account)
+
+            preimage_updated = True
         elif preimage_cardinality == 1:
 
             state.services.store_preimage_availability(
@@ -887,6 +889,7 @@ def hc_forget(
                 preimage_length,
                 preimage_availability + [timeslot]
             )
+            preimage_updated = True
         elif preimage_cardinality == 3 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
 
             # Note: reset unreferenced preimage expunge time with current timeslot
@@ -896,10 +899,9 @@ def hc_forget(
                 preimage_length,
                 [preimage_availability[2], timeslot]
             )
-        else:
-            preimage_updated = False
+            preimage_updated = True
     except StateKeyNoResult:
-        preimage_updated = False
+        pass
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)

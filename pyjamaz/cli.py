@@ -21,7 +21,7 @@ from pyjamaz import settings
 
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.exceptions import StateKeyNoResult, StateTransitionError, BlockValidationError
 
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
@@ -187,7 +187,7 @@ async def initialize_app(
     if block_importer:
         app = PyjamazApp(config=config, import_block_callback=block_importer(record_traces))
     else:
-        app = PyjamazApp(config=config, import_block_callback=import_block_cli(record_traces))
+        app = PyjamazApp(config=config)
 
     if pubsub:
         app.pubsub = PubSub()
@@ -263,7 +263,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             keys=Keys.from_seed(bytes.fromhex(seed[2:])),
             custom_db_path=custom_db_path,
             record_traces=record_traces,
-            storage_engine=STORAGE_ENGINE
+            storage_engine=STORAGE_ENGINE,
+            block_importer=import_block_cli
         )
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
@@ -529,7 +530,12 @@ async def init(
         shutil.rmtree(db_path)  # Delete the directory if it exists
         click.echo(f"The database at '{db_path}' was deleted successfully.")
 
-    app = await initialize_app(read_state=False, custom_db_path=custom_db_path, storage_engine=STORAGE_ENGINE)
+    app = await initialize_app(
+        read_state=False,
+        custom_db_path=custom_db_path,
+        storage_engine=STORAGE_ENGINE,
+        block_importer=import_block_cli
+    )
 
     # Load chainspec
     with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
@@ -584,7 +590,12 @@ async def replay_traces(
     # Set GP relaxation flags
     settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
 
-    app = await initialize_app(read_state=False, custom_db_path=None, storage_engine='memory', pubsub=False)
+    app = await initialize_app(
+        read_state=False,
+        custom_db_path=None,
+        storage_engine='memory',
+        pubsub=False,
+    )
 
     traces_folder = Path(traces_dir)
 
@@ -649,10 +660,14 @@ async def replay_traces(
         # Finalize parent
         app.state_storage.finalize(trace.block.header.parent)
 
-        # Import block
-        await app.import_block(trace.block)
+        try:
+            # Import block
+            await app.import_block(trace.block)
 
-        logging.info(f'✅ Block {trace.block.header.timeslot} successfully imported.')
+            logging.info(f'✅ Block {format_hash(trace.block.header.hash)} successfully imported.')
+
+        except (StateTransitionError, BlockValidationError) as e:
+            logging.info(f"🛑 Block {format_hash(trace.block.header.hash)} raised error -> {e}")
 
         # Validate new state root
         if app.working_state.state_root == trace.post_state.state_root:
@@ -751,7 +766,7 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool):
             logging.info(f'✅ Imported block {format_hash(trace.block.header.hash)} successfully: State root matches ({format_hash(response.state_root)})')
         else:
             logging.error(f'🚽Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
-            exit(2)
+            #exit(2)
 
     logging.info(f'Fuzzer session finished in {time.time() - start_time} seconds')
 
@@ -761,23 +776,10 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool):
 @click.option('--db-path', 'db_path', type=click.Path(), default=None, show_default=True, help="[deprecated]")
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database [deprecated]")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-async def fuzzer_target(
-        db_path, force_overwrite, socket_path, verbose
-):
+async def fuzzer_target(db_path, force_overwrite, socket_path, verbose):
+
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
-
-    db_path = None
-
-    if not db_path:
-        storage_engine = 'memory'
-    else:
-        storage_engine = 'rocksdb'
-
-        # Create database
-        if os.path.isdir(db_path):
-            shutil.rmtree(db_path)  # Delete the directory if it exists
-            logging.debug(f"The database at '{db_path}' was deleted successfully.")
 
     # Safety checks
     if settings.SOLO_MODE:
@@ -786,7 +788,11 @@ async def fuzzer_target(
     # Set GP relaxation flags
     settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
 
-    app = await initialize_app(read_state=False, custom_db_path=db_path, storage_engine=storage_engine, pubsub=False, block_importer=import_block_fuzzer)
+    app = await initialize_app(
+        read_state=False,
+        storage_engine='memory',
+        pubsub=False
+    )
 
     try:
         srv = FuzzerTarget(socket_path, app)

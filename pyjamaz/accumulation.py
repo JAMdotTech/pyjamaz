@@ -248,9 +248,9 @@ def parallel_accumulation(
     ParallelAccumulationOutput
     """
     # s (sorted!)
-    service_ids = sorted(list(
-        dict.fromkeys([r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()))
-    ))
+    service_ids = sorted(
+        set([r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()))
+    )
 
     # u
     accumulation_gas_utilized = {}
