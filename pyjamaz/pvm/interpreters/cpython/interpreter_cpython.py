@@ -1,4 +1,5 @@
 import traceback
+import typing
 
 import numpy as np
 from array import array
@@ -18,7 +19,8 @@ from pyjamaz.pvm.constants import (
     ExitCondition,
     PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W,
 )
-
+from pyjamaz.pvm.types import PVMProgram
+from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
@@ -35,7 +37,7 @@ class PVMInterpreter:
         'mv_sections', 'log', 'opcodes', 'program',
     )
 
-    def __init__(self, program: "PVMProgram", logger=None):
+    def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.program = program
         self.reg = [u64(0)] * 13
@@ -53,7 +55,7 @@ class PVMInterpreter:
         self.inst_arg_len: List[int] = []
         self.mv_inst_arg_len: memoryview = None
 
-        self.mem:"PVMMemory" = None
+        self.mem:PVMMemory = None
         self.status:int = ExitReason.resume.value
         self.exit_value:int = None
 
@@ -158,7 +160,7 @@ class PVMInterpreter:
                 self.skip_len = b
 
 
-    def reset(self, program: "PVMProgram"):
+    def reset(self, program: PVMProgram):
         self.pc = u32(0)
         self.gas = i64(0)
 

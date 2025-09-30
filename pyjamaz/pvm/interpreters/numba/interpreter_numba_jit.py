@@ -1,17 +1,11 @@
 """
 An optimized PVM interpreter using Numba JIT compiler for the main loop & functions.
 """
-import ctypes
-import numpy.typing as npt
-
-#TODO: signatures toevoegen aan alle njit decorator
-#TODO: port de opcodes vd laatste versie van mb-pvm-pyd
-#TODO: sort de if/else statements op frequentie dat een opcode voorkomt!
-
+#import ctypes
 #import time as _pytime
 
-
 import numpy as np
+import numpy.typing as npt
 
 from numba import njit, types
 from numba.typed import Dict, List
@@ -66,23 +60,8 @@ from pyjamaz.pvm.constants import (
     inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg, MemOps, ExitCondition, OpcodeNames
 )
 
-
-# Set up Numba caching for persistent compilation
-#PVM_AOT_CACHE: str = "./pyjamaz_numba_cache"
-#_cache_dir = os.path.expanduser("./pyjamaz_numba_cache")
-#_cache_dir = os.path.expanduser("/tmp/numba-cache/")
-#os.makedirs(_cache_dir, exist_ok=True)
-#os.environ['NUMBA_CACHE_DIR'] = _cache_dir
-#os.environ['NUMBA_CACHE'] = '1'
-#os.environ['NUMBA_CACHE_DIR'] = _cache_dir
-
-# os.environ['NUMBA_DISABLE_PERFORMANCE_WARNINGS'] = '1'
-# os.environ['NUMBA_BOUNDSCHECK'] = '0'  # Disable bounds checking for speed
-# os.environ['NUMBA_DISABLE_JIT'] = '0'  # Ensure JIT is enabled
-# os.environ['NUMBA_OPT'] = '3'  # Maximum optimization level
-# os.environ['NUMBA_EAGERNESS'] = '1'  # Compile all branches eagerly
-# os.environ['NUMBA_NUM_THREADS'] = '1'  # Avoid parallel compilation issues
-# os.environ['NUMBA_THREADING_LAYER'] = 'sequential'
+from pyjamaz.pvm.types import PVMProgram
+from pyjamaz.pvm.memory import PVMMemory
 
 
 @njit(uint32(
@@ -121,25 +100,6 @@ def sync_state_and_return(
     return error_code
 
 
-# def _ensure_uint8_array(buffer) -> np.ndarray:
-#     """Return a C-contiguous np.uint8 array view of the buffer without copying."""
-#     if isinstance(buffer, np.ndarray) and buffer.dtype == np.uint8 and buffer.flags.c_contiguous:
-#         return buffer
-#
-#     mv = memoryview(buffer)
-#     ptr_type = ctypes.c_uint8 * mv.nbytes
-#     ptr = ptr_type.from_buffer(mv)
-#     arr = np.ctypeslib.as_array(ptr)
-#     return arr
-
-
-# def _ensure_uint64_array(buffer) -> np.ndarray:
-#     if isinstance(buffer, np.ndarray) and buffer.dtype == np.uint64 and buffer.flags.c_contiguous:
-#         return buffer
-#
-#     return np.asarray(buffer, dtype=np.uint64, order='C')
-
-#
 # @njit(uint64(uint64), cache=NUMBA_CACHE)
 # def _fmix64_jit(x: U64) -> U64:
 #     # Finalization mix (from MurmurHash3)
@@ -1492,7 +1452,7 @@ def invoke_native_jit(
 
 class PVMInterpreter:
 
-    def __init__(self, program: "PVMProgram", logger=None):
+    def __init__(self, program: PVMProgram, logger=None):
 
         self.name = program.name
         self.reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)

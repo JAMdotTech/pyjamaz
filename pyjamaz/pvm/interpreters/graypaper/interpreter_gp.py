@@ -36,10 +36,13 @@ from .defs import (
     read_uint, u64, u32, i64, u8, i32
 )
 
+from pyjamaz.pvm.types import PVMProgram
+from pyjamaz.pvm.memory import PVMMemory
+
 
 class PVMInterpreter:
 
-    def __init__(self, program: "PVMProgram", logger=None):
+    def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
@@ -55,7 +58,7 @@ class PVMInterpreter:
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
 
-        self.mem:"PVMMemory" = None
+        self.mem:PVMMemory = None
         self.status:int = ExitReason.resume.value
         self.exit_value:int = 0
 
@@ -129,7 +132,7 @@ class PVMInterpreter:
                 self.skip_len = b
 
 
-    def reset(self, program: "PVMProgram"):
+    def reset(self, program: PVMProgram):
         self.pc = u32(0)
         self.gas = i64(0)
 
