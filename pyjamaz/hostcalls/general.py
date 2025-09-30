@@ -4,9 +4,8 @@ from typing import List, Optional
 from jamcodec.types import U64, U32, VarInt64, U8, U16, Vec, Bytes
 from pyjamaz import graypaper_constants as gp_const
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import WorkPackage, AccumulationOperand, WorkItem
-from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer
+from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationInput
+from pyjamaz.models.state import ServiceAccount, ServicesState
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput
@@ -405,8 +404,7 @@ def hc_fetch(
         work_item_index: Optional[int],    #GP: i
         work_item_segs: Optional[List[List[bytes]]], #GP: i_flat
         extrinsics: Optional[List[List[bytes]]], # GP: x_flat
-        accumulation_operands: Optional[List[AccumulationOperand]], #GP: bold_o
-        deferred_transfers: Optional[List[DeferredTransfer]], # GP: bold_t
+        accumulation_inputs: Optional[List[AccumulationInput]], #GP: bold_o
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -427,8 +425,7 @@ def hc_fetch(
     work_item_index: Optional[int]
     work_item_segs: Optional[List[List[bytes]]]
     extrinsics: Optional[List[List[bytes]]]
-    accumulation_operands: Optional[List[AccumulationOperand]]
-    deferred_transfers: Optional[List[DeferredTransfer]]
+    accumulation_inputs: Optional[List[AccumulationInput]]
     invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
@@ -528,17 +525,11 @@ def hc_fetch(
     elif work_package is not None and w10 == 13 and w11 < len(work_package.items):
         bold_v = work_package.items[w11].payload
 
-    elif accumulation_operands is not None and w10 == 14:
-        bold_v = Vec(AccumulationOperand.to_codec_def()).encode([a.to_jam_bytes() for a in accumulation_operands]).to_bytes()
+    elif accumulation_inputs is not None and w10 == 14:
+        bold_v = Vec(AccumulationInput.to_codec_def()).encode([a.to_jam_bytes() for a in accumulation_inputs]).to_bytes()
 
-    elif accumulation_operands is not None and w10 == 15 and w11 < len(accumulation_operands):
-        bold_v = accumulation_operands[w11].to_jam_bytes().to_bytes()
-
-    elif deferred_transfers is not None and w10 == 16:
-        bold_v = Vec(DeferredTransfer.to_codec_def()).encode([t.to_jam_bytes() for t in deferred_transfers]).to_bytes()
-
-    elif deferred_transfers is not None and w10 == 17 and w11 < len(deferred_transfers):
-        bold_v = deferred_transfers[w11].to_jam_bytes().to_bytes()
+    elif accumulation_inputs is not None and w10 == 15 and w11 < len(accumulation_inputs):
+        bold_v = accumulation_inputs[w11].to_jam_bytes().to_bytes()
     else:
         bold_v = None
 

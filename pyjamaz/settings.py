@@ -9,6 +9,7 @@ FUZZER_FEATURE_FORK = True
 FUZZER_FEATURE_ANCESTRY = False
 
 DEBUG = False
+PVM_DEBUG = False
 SOLO_MODE = False
 STORAGE_ENGINE = 'rocksdb' # memory | rocksdb | leveldb
 

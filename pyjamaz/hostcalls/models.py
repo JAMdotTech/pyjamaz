@@ -7,10 +7,9 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Vec, VarInt64, Bytes, H256, U16
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import AccumulationOperand, RefinementContext, WorkPackage, WorkExecResult
-from pyjamaz.models.state import AccumulationStateComponents, DeferredTransfer, ServiceAccount, ServicesState
+from pyjamaz.models.common import WorkExecResult, DeferredTransfer
+from pyjamaz.models.state import AccumulationStateComponents
 
-from pyjamaz.pvm.constants import ExitCondition
 from pyjamaz.pvm.invocation import InvocationContext
 from pyjamaz.pvm.types import PVMCode, PVMMemory
 
@@ -22,12 +21,6 @@ class PvmAccumulateOutput:
     accumulation_output: Optional[bytes]
     gas_used: int
     preimages: List[typing.Tuple[int, bytes]]
-
-
-@dataclass
-class PvmOnTransferOutput:
-    service_account: ServiceAccount
-    gas_used: int
 
 
 @dataclass
@@ -119,30 +112,17 @@ class AccumulatePvmArguments(Serializable):
 
 
 @dataclass
-class OnTransferInvocationContext(InvocationContext):
-    service_id: int           # GP-0.6.4-eq:B.16 s
-    service_account: ServiceAccount  # GP-0.6.4-eq:B.16 bold_s
-    services_state: ServicesState # GP-0.6.4-eq:B.16 bold_D
-
-
-@dataclass
-class OnTransferPvmArguments(Serializable):
-    timeslot: int = field(metadata={'codec': VarInt64})
-    service_id: int = field(metadata={'codec': VarInt64})
-    deferred_transfer_count: int = field(metadata={'codec': VarInt64})
-
-
-@dataclass
 class IsAuthorizedPvmArguments(Serializable):
     core_index: int = field(metadata={'codec': U16})
 
 
 @dataclass
 class RefinePvmArguments(Serializable):
-    work_item_index: int = field(metadata={'codec': VarInt64})  # GP-0.6.6-eq:B.5 i
-    service_id: int = field(metadata={'codec': VarInt64})  # GP-0.6.6-eq:B.5 w_s
-    payload_blob: bytes = field(metadata={'codec': Bytes}) # GP-0.6.4-eq:B.5 w_y
-    work_package_hash: bytes = field(metadata={'codec': H256}) # GP-0.6.4-eq:B.5 H(p)
+    core_index: int = field(metadata={'codec': VarInt64})  # GP-0.7.1-eq:B.5 c
+    work_item_index: int = field(metadata={'codec': VarInt64})  # GP-0.7.1-eq:B.5 i
+    service_id: int = field(metadata={'codec': VarInt64})  # GP-0.7.1-eq:B.5 w_s
+    payload_blob: bytes = field(metadata={'codec': Bytes}) # GP-0.7.1-eq:B.5 w_y
+    work_package_hash: bytes = field(metadata={'codec': H256}) # GP-0.7.1-eq:B.5 H(p)
 
 
 @dataclass

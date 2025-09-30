@@ -8,9 +8,8 @@ from typing import List, Set, Dict
 from pyjamaz.graypaper_constants import CORE_COUNT
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import WorkReport, AccumulationOperand
-from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
-    BeefyCommitmentMap, TimeslotState, EntropyState
+from pyjamaz.models.common import WorkReport, AccumulationOperand, AccumulationInput, DeferredTransfer
+from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, BeefyCommitmentMap, TimeslotState, EntropyState
 
 from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
 from pyjamaz.settings import USE_THREAD_POOL, THREAD_POOL_MAX_WORKERS
@@ -104,6 +103,9 @@ def priority_queue(work_report_queue: List[AccumulationQueueWorkPackage]) -> Lis
 
 @dataclass
 class ParallelAccumulationOutput:
+    """
+    GP-0.7.1-eq:12.19
+    """
     accumulation_state: AccumulationStateComponents
     deferred_transfers: List[DeferredTransfer]
     accumulation_commitment: BeefyCommitmentMap
@@ -113,14 +115,12 @@ class ParallelAccumulationOutput:
 @dataclass
 class FullAccumulationOutput:
     """
-    GP-0.7.0-eq:12.24
+    GP-0.7.1-eq:12.28
     """
     # n
     nr_work_results_accumulated: int
     # e'
     post_accumulation_state: AccumulationStateComponents
-    # bold_t
-    deferred_transfers: List[DeferredTransfer]
     # θ
     accumulation_commitment: BeefyCommitmentMap
     # bold_u
@@ -129,6 +129,7 @@ class FullAccumulationOutput:
 
 def full_sequential_accumulation(
         gas_limit: int,
+        deferred_transfers: List[DeferredTransfer],
         work_reports: List[WorkReport],
         accumulation_state: AccumulationStateComponents,
         auto_accumulate_services: Dict[int, int],
@@ -141,6 +142,7 @@ def full_sequential_accumulation(
     Parameters
     ----------
     gas_limit: int
+    deferred_transfers: List[DeferredTransfer]
     work_reports: List[WorkReport]
     accumulation_state: AccumulationStateComponents
     auto_accumulate_services: Dict[int, int]
@@ -166,21 +168,24 @@ def full_sequential_accumulation(
         return FullAccumulationOutput(
             nr_work_results_accumulated=0,
             post_accumulation_state=accumulation_state,
-            deferred_transfers=[],
             accumulation_commitment=BeefyCommitmentMap(beefy_commitment_map={}),
             accumulation_gas_utilized={}
         )
 
     output = parallel_accumulation(
         accumulation_state=accumulation_state,
+        deferred_transfers=deferred_transfers,
         work_reports=work_reports[:i],
         auto_accumulate_services=auto_accumulate_services,
         post_state_timeslot=post_state_timeslot,
         post_state_entropy=post_state_entropy
     )
 
+    gas_limit += sum([t.gas_limit for t in deferred_transfers]) # g*
+
     second_output = full_sequential_accumulation(
         gas_limit=gas_limit - sum([u for u in output.accumulation_gas_utilized.values()]),
+        deferred_transfers=output.deferred_transfers,
         work_reports=work_reports[i:],
         accumulation_state=output.accumulation_state,
         auto_accumulate_services={},
@@ -200,7 +205,6 @@ def full_sequential_accumulation(
     return FullAccumulationOutput(
         nr_work_results_accumulated=i + second_output.nr_work_results_accumulated,
         post_accumulation_state=accumulation_state,
-        deferred_transfers=output.deferred_transfers + second_output.deferred_transfers,
         accumulation_commitment=output.accumulation_commitment,
         accumulation_gas_utilized=output.accumulation_gas_utilized,
     )
@@ -208,6 +212,7 @@ def full_sequential_accumulation(
 
 def parallel_accumulation(
         accumulation_state: AccumulationStateComponents,
+        deferred_transfers: List[DeferredTransfer],
         work_reports: List[WorkReport],
         auto_accumulate_services: Dict[int, int],
         post_state_timeslot: TimeslotState,
@@ -218,10 +223,12 @@ def parallel_accumulation(
 
     Parameters
     ----------
+    deferred_transfers: List[DeferredTransfer]
     accumulation_state: AccumulationStateComponents
     work_reports: List[WorkReport]
     auto_accumulate_services: Dict[int, int]
     post_state_timeslot: TimeslotState
+    post_state_entropy: EntropyState
 
     Returns
     -------
@@ -236,8 +243,6 @@ def parallel_accumulation(
     accumulation_gas_utilized = {}
     # b
     beefy_commitment_map = {}
-    # t
-    deferred_transfers = []
 
     logging.debug(f'Services to accumulate: {service_ids}')
 
@@ -259,6 +264,7 @@ def parallel_accumulation(
                 tp.submit(
                     single_step_accumulation,
                     accumulation_state=accumulation_state,
+                    deferred_transfers=deferred_transfers,
                     post_state_timeslot=post_state_timeslot,
                     post_state_entropy=post_state_entropy,
                     work_reports=work_reports,
@@ -281,6 +287,7 @@ def parallel_accumulation(
 
             output = single_step_accumulation(
                 accumulation_state=accumulation_state,
+                deferred_transfers=deferred_transfers,
                 post_state_timeslot=post_state_timeslot,
                 post_state_entropy=post_state_entropy,
                 work_reports=work_reports,
@@ -347,6 +354,7 @@ def parallel_accumulation(
 
 def single_step_accumulation(
         accumulation_state: AccumulationStateComponents,
+        deferred_transfers: List[DeferredTransfer],
         post_state_timeslot: TimeslotState,
         post_state_entropy: EntropyState,
         work_reports: List[WorkReport],
@@ -368,22 +376,35 @@ def single_step_accumulation(
     -------
     PvmAccumulateOutput
     """
-    g = substitute_if_nothing(auto_accumulate_services.get(service_id), 0)
-    i = []
+    # g = substitute_if_nothing(auto_accumulate_services.get(service_id), 0)
+    g: int = auto_accumulate_services.get(service_id, 0)
+
+    i: List[AccumulationInput] = []
+
+    # Add deferred transfers (i^T)
+    for t in deferred_transfers:
+        if t.receiver == service_id:
+            g += t.gas_limit
+
+            i.append(AccumulationInput(deferred_transfer=t))
+
+    # Add accumulation operands (i^U)
     for w in work_reports:
         for r in w.results:
             if r.service_id == service_id:
                 g += r.accumulate_gas
 
                 i.append(
-                    AccumulationOperand(
-                        work_report_hash=w.package_spec.hash,
-                        work_report_exports_root=w.package_spec.exports_root,
-                        work_report_authorizer_hash=w.authorizer_hash,
-                        work_report_auth_output=w.auth_output,
-                        work_result_payload_hash=r.payload_hash,
-                        work_result_gas_limit=r.accumulate_gas,
-                        work_exec_result=r.result,
+                    AccumulationInput(
+                        accumulation_operand=AccumulationOperand(
+                            work_report_hash=w.package_spec.hash,
+                            work_report_exports_root=w.package_spec.exports_root,
+                            work_report_authorizer_hash=w.authorizer_hash,
+                            work_report_auth_output=w.auth_output,
+                            work_result_payload_hash=r.payload_hash,
+                            work_result_gas_limit=r.accumulate_gas,
+                            work_exec_result=r.result,
+                        )
                     )
                 )
 
@@ -392,6 +413,6 @@ def single_step_accumulation(
         timeslot=post_state_timeslot.number,
         service_id=service_id,
         gas_limit=g,
-        operands=i,
+        accumulation_inputs=i,
         post_entropy=post_state_entropy
     )

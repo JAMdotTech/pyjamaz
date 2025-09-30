@@ -13,7 +13,7 @@ from cryptography import x509
 from pyjamaz.app import Keys
 
 #certificate_file = os.path.join("./pyjamaz/data/alice", "cert.pem")
-certificate_file = os.path.join("./", "clone.pem")
+certificate_file = os.path.join("../", "clone.pem")
 pk_file = os.path.join("./pyjamaz/data/alice", "cert.key")
 
 

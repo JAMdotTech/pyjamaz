@@ -10,13 +10,13 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String
 
 from pyjamaz.exceptions import BlockValidationError
-from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE
+from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import WellBalancedMerkleTree
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.models.state import ServicesState, DeferredTransfer
+    from pyjamaz.models.state import ServicesState
 
 
 @dataclass
@@ -565,11 +565,36 @@ class AccumulationOperand(Serializable):
 
 
 @dataclass
+class DeferredTransfer(Serializable):
+    """
+    GP-0.7.1-eq:12.14 (blackboard_X) | A single deferred transfer.
+
+    Attributes
+    ----------
+    sender: U32
+        GP-0.7.1-eq:12.14 (s) | Sender of a deferred transfer.
+    receiver: U32
+        GP-0.7.1-eq:12.14 (d) | Receiver of a deferred transfer (destination).
+    amount: U64
+        GP-0.7.1-eq:12.14 (a) | Balance to be transferred (amount) of the deferred transfer.
+    memo: Array(U8, SIZE_TRANSFER_MEMO)
+        GP-0.7.1-eq:12.14 (m) | Constant length memo blob of the deferred transfer.
+    gas_limit: U64
+        GP-0.7.1-eq:12.14 (g) | Gas limit of the deferred transfer.
+    """
+    sender: int = field(metadata={'codec': U32})
+    receiver: int = field(metadata={'codec': U32})
+    amount: int = field(metadata={'codec': U64})
+    memo: bytes = field(metadata={'codec': Array(U8, SIZE_TRANSFER_MEMO)})
+    gas_limit: int = field(metadata={'codec': U64})
+
+
+@dataclass
 class AccumulationInput(Serializable):
     """
     GP-0.7.1-eq:12.15 (blackboard_I)
     """
-    accumulation_operand: AccumulationOperand = field(metadata={'codec': AccumulationOperand.to_codec_def()})
-    deferred_transfer: DeferredTransfer = field(metadata={'codec': DeferredTransfer.to_codec_def()})
+    accumulation_operand: AccumulationOperand = field(default=None, metadata={'codec': AccumulationOperand.to_codec_def()})
+    deferred_transfer: DeferredTransfer = field(default=None, metadata={'codec': DeferredTransfer.to_codec_def()})
 
     _codec_enum = True

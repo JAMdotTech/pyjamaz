@@ -12,16 +12,16 @@ from pyjamaz.hashing import keccak_256_hash, blake2b_256_hash
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Array, H256, Vec, U8, Option, U64, Map, Bytes, Enum, Tuple as JamTuple, VarInt64
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_COUNT, \
-    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, SIZE_TRANSFER_MEMO, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
-    MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE
+    MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MINIMUM_BALANCE_SERVICE, MINIMUM_BALANCE_ITEM, \
+    MINIMUM_BALANCE_OCTET, EC_SEGMENT_SIZE, MINIMUM_PUBLIC_SERVICE_ID
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
-from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, WorkPackage
+from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, WorkPackage, DeferredTransfer
 from pyjamaz.pvm.invocation import InvocationContext
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
 from pyjamaz.state.storage import StateStorage
-from pyjamaz.storage import StorageEngine, Transaction
+from pyjamaz.storage import StorageEngine
 
 from pyjamaz.models.block import Assurance as ExtrinsicAssurance, Preimage
 
@@ -407,7 +407,7 @@ class ServiceAccount(Serializable):
         -------
         ServiceAccount
         """
-        version = U8.decode(serialized_bytes[0])
+        version = serialized_bytes[0]
 
         if version > 0:
             raise ValueError(f'Unsupported service account version "{version}"')
@@ -449,6 +449,37 @@ class ServiceAccount(Serializable):
         serialized_bytes += U32.encode(self.parent_service).to_bytes()
 
         return serialized_bytes
+
+    # @classmethod
+    # def from_serialized_bytes(cls, serialized_bytes: bytes) -> 'ServiceAccount':
+    #     return ServiceAccount(
+    #         code_hash=serialized_bytes[0:32],
+    #         balance=U64.decode(JamBytes(serialized_bytes[32:40])),
+    #         gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
+    #         gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[48:56])),
+    #         footprint_storage_bytes=U64.decode(JamBytes(serialized_bytes[56:64])),
+    #         deposit_offset=U64.decode(JamBytes(serialized_bytes[64:72])),
+    #         footprint_storage_items=U32.decode(JamBytes(serialized_bytes[72:76])),
+    #         creation_slot=U32.decode(JamBytes(serialized_bytes[76:80])),
+    #         last_accumulation_slot=U32.decode(JamBytes(serialized_bytes[80:84])),
+    #         parent_service=U32.decode(JamBytes(serialized_bytes[84:88])),
+    #         storage_items={},
+    #         preimages={},
+    #         preimage_availability={},
+    #     )
+    #
+    # def to_serialized_bytes(self) -> bytes:
+    #     serialized_bytes = self.code_hash
+    #     serialized_bytes += U64.encode(self.balance).to_bytes()
+    #     serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
+    #     serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
+    #     serialized_bytes += U64.encode(self.footprint_storage_bytes).to_bytes()
+    #     serialized_bytes += U64.encode(self.deposit_offset).to_bytes()
+    #     serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
+    #     serialized_bytes += U32.encode(self.creation_slot).to_bytes()
+    #     serialized_bytes += U32.encode(self.last_accumulation_slot).to_bytes()
+    #     serialized_bytes += U32.encode(self.parent_service).to_bytes()
+    #     return serialized_bytes
 
     def update_from(self, service_account: "ServiceAccount"):
         self.footprint_storage_bytes = service_account.footprint_storage_bytes
@@ -545,6 +576,13 @@ class ServicesState(State, Serializable):
     @property
     def state_storage(self) -> Optional[StateStorage]:
         return getattr(self, '_state_storage', None)
+
+    def service_exists(self, service_id: int) -> bool:
+        try:
+            self.retrieve_service_account(service_id)
+            return True
+        except StateKeyNoResult:
+            return False
 
     def retrieve_service_account(
             self,
@@ -1027,11 +1065,10 @@ class PrivilegedServicesState(State, Serializable):
     always_accumulators: Dict(U32,U64)
         GP-0.7.1-eq:9.9 (χ_Z) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
-    # TODO: restructure in 0.7.0 add: χ_R (U32) and new order: (χ_M,χ_V,χ_R,χ_A,χ_Z)
     manager: int = field(metadata={'codec': U32})
     assigners: List[int] = field(metadata={'codec': Array(U32, CORE_COUNT)})
     delegator: int = field(metadata={'codec': U32})
-    # TODO: restructure in 0.7.1 add: χ_R (U32)
+    registrar: int = field(metadata={'codec': U32})
     always_accumulators: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
 
 
@@ -1431,6 +1468,7 @@ class JamState(State, Serializable):
                 manager=0,
                 assigners=[0 for _ in range(CORE_COUNT)],
                 delegator=0,
+                registrar=0,
                 always_accumulators={}
             ),
             disputes=DisputesState(
@@ -1455,31 +1493,6 @@ class JamState(State, Serializable):
             ),
             recent_accumulation_outputs=BeefyCommitmentMap(beefy_commitment_map={})
         )
-
-
-@dataclass
-class DeferredTransfer(Serializable):
-    """
-    GP-0.7.1-eq:12.14 (blackboard_X) | A single deferred transfer.
-
-    Attributes
-    ----------
-    sender: U32
-        GP-0.7.1-eq:12.14 (s) | Sender of a deferred transfer.
-    receiver: U32
-        GP-0.7.1-eq:12.14 (d) | Receiver of a deferred transfer (destination).
-    amount: U64
-        GP-0.7.1-eq:12.14 (a) | Balance to be transferred (amount) of the deferred transfer.
-    memo: Array(U8, SIZE_TRANSFER_MEMO)
-        GP-0.7.1-eq:12.14 (m) | Constant length memo blob of the deferred transfer.
-    gas_limit: U64
-        GP-0.7.1-eq:12.14 (g) | Gas limit of the deferred transfer.
-    """
-    sender: int = field(metadata={'codec': U32})
-    receiver: int = field(metadata={'codec': U32})
-    amount: int = field(metadata={'codec': U64})
-    memo: bytes = field(metadata={'codec': Array(U8, SIZE_TRANSFER_MEMO)})
-    gas_limit: int = field(metadata={'codec': U64})
 
 
 @dataclass
@@ -1521,11 +1534,13 @@ class AccumulationStateComponents(Serializable):
 
     def check_service_id(self, service_id: int) -> int:
         """
-        B.13 | Find an unused service id
+        GP-0.7.1-eq:B.14 | Find an unused service id
         """
         try:
             self.services.retrieve_service_account(service_id)
-            return self.check_service_id((service_id - 2 ** 8 + 1) % (2 ** 32 - 2 ** 9) + 2 ** 8)
+            return self.check_service_id(
+                (service_id - MINIMUM_PUBLIC_SERVICE_ID + 1) % (2 ** 32 - 2 ** 8 - MINIMUM_PUBLIC_SERVICE_ID) + MINIMUM_PUBLIC_SERVICE_ID
+            )
 
         except StateKeyNoResult:
             return service_id
@@ -1533,7 +1548,7 @@ class AccumulationStateComponents(Serializable):
 
     def to_invocation_context(self, service_account_id: int, entropy: bytes, timeslot: int) -> 'AccumulateInvocationContext':
         """
-        B.9 (I)
+        GP-0.7.1-eq:B.10 (I)
 
         entropy: eta_0
         timeslot: int post_state
@@ -1544,7 +1559,9 @@ class AccumulationStateComponents(Serializable):
             service_account_id.to_bytes(length=4, byteorder='little') + entropy + timeslot.to_bytes(length=4, byteorder='little')
         )[:4], byteorder='little')
 
-        new_service_account_id = self.check_service_id((check_payload % (2**32 - 2**9)) + 2**8)
+        new_service_account_id = self.check_service_id(
+            (check_payload % (2**32 - MINIMUM_PUBLIC_SERVICE_ID - 2**8)) + MINIMUM_PUBLIC_SERVICE_ID
+        )
 
         return AccumulateInvocationContext(
             context=AccumulateContextItem(

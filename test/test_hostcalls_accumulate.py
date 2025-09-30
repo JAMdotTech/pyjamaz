@@ -30,8 +30,8 @@ from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState, ValidatorQueueState
-from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand
+from pyjamaz.models.state import ServiceAccount, ServicesState, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState, ValidatorQueueState
+from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand, DeferredTransfer
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hostcalls.models import AccumulateInvocationContext, AccumulateContextItem
 from pyjamaz.hostcalls.constants import HostCallResult
@@ -80,37 +80,37 @@ def create_mock_service_account(
     service_account.update_footprint_remove_storage_item = Mock()
     service_account.update_footprint_update_storage_item = Mock()
     service_account.update_footprint_add_preimage = Mock()
-    
+
     return service_account
 
 
 def create_mock_services_state(service_accounts=None, storage_items=None, preimages=None):
     services = Mock(spec=ServicesState)
     services.services = service_accounts or {}
-    
+
     def retrieve_service_account(service_id):
         if service_id in services.services:
             return services.services[service_id]
         raise StateKeyNoResult(f"Service account {service_id} not found")
-    
+
     services.retrieve_service_account = Mock(side_effect=retrieve_service_account)
-    
+
     storage_items_dict = storage_items or {}
     def retrieve_storage_item(service_account_id, storage_item_hash):
         key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
         if key in storage_items_dict:
             return storage_items_dict[key]
         raise StateKeyNoResult(f"Storage item not found")
-    
+
     def store_storage_item(service_account_id, storage_item_hash, value):
         key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
         storage_items_dict[key] = value
-    
+
     def delete_storage_item(service_account_id, storage_item_hash):
         key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
         if key in storage_items_dict:
             del storage_items_dict[key]
-    
+
     services.retrieve_storage_item = Mock(side_effect=retrieve_storage_item)
     services.store_storage_item = Mock(side_effect=store_storage_item)
     services.delete_storage_item = Mock(side_effect=delete_storage_item)
@@ -122,13 +122,13 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
         if key in preimages_dict:
             return preimages_dict[key]
         raise StateKeyNoResult(f"Preimage not found")
-    
+
     services.retrieve_preimage = Mock(side_effect=retrieve_preimage)
     services.store_preimage_availability = Mock()
     services.delete_preimage = Mock()
     services.delete_preimage_availability = Mock()
     services.delete_service_account = Mock()
-    
+
     # Add preimage availability support
     preimage_availability_dict = {}
     def retrieve_preimage_availability(service_id, preimage_hash, length):
@@ -136,22 +136,22 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
         if key in preimage_availability_dict:
             return preimage_availability_dict[key]
         raise StateKeyNoResult(f"Preimage availability not found")
-    
+
     services.retrieve_preimage_availability = Mock(side_effect=retrieve_preimage_availability)
-    
+
     def store_preimage_availability(service_id, preimage_hash, length, value):
         key = f"{service_id}:{preimage_hash.hex() if isinstance(preimage_hash, bytes) else preimage_hash}:{length}"
         preimage_availability_dict[key] = value
-    
+
     services.store_preimage_availability = Mock(side_effect=store_preimage_availability)
-    
+
     def delete_preimage_availability(service_id, preimage_hash, length):
         key = f"{service_id}:{preimage_hash.hex() if isinstance(preimage_hash, bytes) else preimage_hash}:{length}"
         if key in preimage_availability_dict:
             del preimage_availability_dict[key]
-    
+
     services.delete_preimage_availability = Mock(side_effect=delete_preimage_availability)
-    
+
     return services, preimage_availability_dict
 
 
@@ -250,24 +250,24 @@ class TestHCAccumulate(unittest.TestCase):
                 footprint_storage_bytes=service_config.get("footprint_storage_bytes", 0),
                 footprint_storage_items=service_config.get("footprint_storage_items", 0)
             )
-        
+
         # load preimage availability from test vector (if set)
         preimage_availability_data = test_vector.get("context", {}).get("preimage_availability", {})
-        
+
         services, preimage_availability_dict = create_mock_services_state(service_accounts=service_accounts)
-        
+
         # make preimage data available
         for key, value in preimage_availability_data.items():
             preimage_availability_dict[key] = value
-        
+
         # Setup privileged services from test vector if provided
         privileged_services_data = test_vector.get("context", {}).get("privileged_services", {})
         privileged_services = Mock(spec=PrivilegedServicesState)
         privileged_services.manager = privileged_services_data.get("manager", None)
-        
+
         # Handle assigners - it can be a partial array or sparse dict in test vector
         privileged_services.assigners = [None] * 341  # Initialize array of 341 cores (CORE_COUNT)
-        
+
         # Check for sparse format first (dict with core indices as keys)
         if "assigners_sparse" in privileged_services_data:
             assigners_sparse = privileged_services_data["assigners_sparse"]
@@ -282,29 +282,29 @@ class TestHCAccumulate(unittest.TestCase):
             for i, assigner in enumerate(assigners_from_test):
                 if i < 341:
                     privileged_services.assigners[i] = assigner
-        
+
         privileged_services.delegator = privileged_services_data.get("delegator", None)
         privileged_services.always_accumulators = privileged_services_data.get("always_accumulators", {})
-        
+
         authorizer_queues = Mock(spec=AuthorizerQueuesState)
         authorizer_queues.authorizer_queues = {}
-        
+
         validator_queue = Mock(spec=ValidatorQueueState)
         validator_queue.validators = []
-        
+
         state_components = Mock(spec=AccumulationStateComponents)
         state_components.services = services
         state_components.privileged_services = privileged_services
         state_components.authorizer_queues = authorizer_queues
         state_components.validator_queue = validator_queue
         state_components.check_service_id = Mock(side_effect=lambda x: x)
-        
+
         context_item = Mock(spec=AccumulateContextItem)
         context_item.state_context = state_components
         context_item.service_account_id = test_vector.get("context", {}).get("service_account_id", 1)
         context_item.new_service_account_id = test_vector.get("context", {}).get("new_service_account_id", 256)
         context_item.deferred_transfers = []
-        
+
         preimages_data = test_vector.get("context", {}).get("preimages", [])
         preimages_hex = test_vector.get("context", {}).get("preimages_hex", False)
         context_item.preimages = []
@@ -313,7 +313,7 @@ class TestHCAccumulate(unittest.TestCase):
                 context_item.preimages.append((preimage[0], bytes.fromhex(preimage[1])))
             else:
                 context_item.preimages.append(tuple(preimage))
-        
+
         accumulate_context = Mock(spec=AccumulateInvocationContext)
         accumulate_context.context = context_item
         accumulate_context.timeslot = test_vector.get("context", {}).get("timeslot", 0)
@@ -442,7 +442,7 @@ class TestHCAccumulate(unittest.TestCase):
             invocation_output.exit_condition.reason.name.lower(),
             f"{name}: Expected exit reason {expected_exit_reason}, but got {invocation_output.exit_condition.reason.name.lower()}"
         )
-        
+
         # additionally, heck expected privileged services if provided
         if "expected-privileged-services" in test_vector:
             expected_ps = test_vector["expected-privileged-services"]
@@ -480,7 +480,7 @@ class TestHCAccumulate(unittest.TestCase):
             # hc_bless modifies privileged services in the context
             # Changes are verified above in expected-privileged-services
             pass
-        
+
         elif hostcall == "hc_assign":
             # hc_assign modifies authorizer queues in the context
             if "expected-authorizer-queues" in test_vector:
@@ -491,7 +491,7 @@ class TestHCAccumulate(unittest.TestCase):
                         actual_queue,
                         f"{name}: Expected authorizer queue for core {core_index} to be {expected_queue}, but got {actual_queue}"
                     )
-        
+
         elif hostcall == "hc_designate":
             # hc_designate modifies validator queue in the context
             if "expected-validator-queue" in test_vector:
@@ -500,7 +500,7 @@ class TestHCAccumulate(unittest.TestCase):
                     validator_queue.validators,
                     f"{name}: Expected validator queue {test_vector['expected-validator-queue']}, but got {validator_queue.validators}"
                 )
-        
+
         elif hostcall == "hc_checkpoint":
             # hc_checkpoint saves a snapshot of the context
             # the savepoint_context should be updated to be a deep copy of context
@@ -519,7 +519,7 @@ class TestHCAccumulate(unittest.TestCase):
                 accumulate_context.savepoint_context.new_service_account_id,
                 f"{name}: savepoint_context should have same new_service_account_id as context"
             )
-        
+
         elif hostcall == "hc_new":
             # hc_new creates a new service account and modifies:
             # - new_service_account_id in context
@@ -531,21 +531,21 @@ class TestHCAccumulate(unittest.TestCase):
                     context_item.new_service_account_id,
                     f"{name}: Expected new_service_account_id {test_vector['expected-new-service-id']}, but got {context_item.new_service_account_id}"
                 )
-            
+
             #check if new service was stored
             if "expected-new-service" in test_vector:
                 new_service_data = test_vector["expected-new-service"]
                 # Verify store_service_account was called for the new service
                 store_calls = services.store_service_account.call_args_list
                 new_service_stored = any(
-                    call[0][0] == new_service_data.get("id") 
+                    call[0][0] == new_service_data.get("id")
                     for call in store_calls
                 )
                 self.assertTrue(
                     new_service_stored,
                     f"{name}: Expected new service {new_service_data.get('id')} to be stored"
                 )
-        
+
         elif hostcall == "hc_upgrade":
             # hc_upgrade modifies the service accounts code hash and gas limits
             # vhanges are stored in the services state
@@ -556,7 +556,7 @@ class TestHCAccumulate(unittest.TestCase):
                     0,
                     f"{name}: Expected store_service_account to be called for upgrade"
                 )
-        
+
         elif hostcall == "hc_transfer":
             # hc_transfer adds to deferred_transfers in context
             if "expected-deferred-transfers-count" in test_vector:
@@ -565,7 +565,7 @@ class TestHCAccumulate(unittest.TestCase):
                     len(context_item.deferred_transfers),
                     f"{name}: Expected {test_vector['expected-deferred-transfers-count']} deferred transfers, but got {len(context_item.deferred_transfers)}"
                 )
-            
+
             # verify transfer details if specified
             if "expected-deferred-transfers" in test_vector:
                 for i, expected_transfer in enumerate(test_vector["expected-deferred-transfers"]):
@@ -589,7 +589,7 @@ class TestHCAccumulate(unittest.TestCase):
                                 actual_transfer.amount,
                                 f"{name}: Transfer {i} amount mismatch"
                             )
-        
+
         elif hostcall == "hc_eject":
             # hc_eject removes a zombie service and transfers its balance
             # modifies service balances and removes preimage availability
@@ -619,7 +619,7 @@ class TestHCAccumulate(unittest.TestCase):
                                 service.balance,
                                 f"{name}: Expected service {service_id} balance {expected_balance}, but got {service.balance}"
                             )
-            
+
             if "expected-ejected-service" in test_vector:
                 # Verify the zombie service was removed
                 ejected_id = test_vector["expected-ejected-service"]
@@ -630,27 +630,27 @@ class TestHCAccumulate(unittest.TestCase):
                     services.services,
                     f"{name}: Expected service {ejected_id} to be ejected (removed)"
                 )
-        
+
         elif hostcall == "hc_query":
             # hc_query retrieves service account information
             # it doesnt modify context, just reads and returns data
             pass
-        
+
         elif hostcall == "hc_quit":
             # hc_quit adds storage item for preimage lookup
             # verified through services state modifications
             pass
-        
+
         elif hostcall == "hc_solicit":
             # hc_solicit may add preimage availability
             # check if store_preimage_availability was called
             pass
-        
+
         elif hostcall == "hc_forget":
             # hc_forget removes preimage availability
             # check if delete_preimage_availability was called
             pass
-        
+
         elif hostcall == "hc_yield":
             # hc_yield sets invocation_output in context
             if "expected-invocation-output" in test_vector:
@@ -665,7 +665,7 @@ class TestHCAccumulate(unittest.TestCase):
                         context_item.invocation_output,
                         f"{name}: Expected invocation_output {expected_output.hex()}, but got {context_item.invocation_output.hex()}"
                     )
-        
+
         elif hostcall == "hc_provide":
             # hc_provide adds preimages to the context
             if "expected-preimages-count" in test_vector:

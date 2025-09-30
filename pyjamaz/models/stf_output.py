@@ -6,11 +6,11 @@ from jamcodec.mixins import Serializable
 from jamcodec.types import Option, Vec, H256, Array, U32, Map, U64
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
 from pyjamaz.models.block import EpochMark
-from pyjamaz.models.common import WorkReport, TicketBody
+from pyjamaz.models.common import WorkReport, TicketBody, DeferredTransfer
 from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState, EntropyState, DisputesState, \
     ValidatorArchiveState, RecentHistoryState, StatisticsState, AuthorizerPoolsState, AssurancesState, ServicesState, \
     BeefyCommitmentMap, AccumulationHistoryState, AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, \
-    AuthorizerQueuesState, DeferredTransfer
+    AuthorizerQueuesState
 
 
 @dataclass
@@ -313,8 +313,6 @@ class ServicesAfterAccumulationOutput(Serializable):
         GP-0.6.1-eq:12.21 (C) | Secondary output of Services STF, BeefyCommitmentMap.
     nr_work_results_accumulated: int
         GP-0.6.1-eq:12.21 (n) | Number of work results accumulated
-    deferred_transfers: List[DeferredTransfer]
-        GP-0.6.1-eq:12.21 (bold_t) | Number of work results accumulated
     accumulation_gas_utilized: Dict[int, int]
         GP-0.6.4-eq:12.21 (bold_u) | accumulation gas utilized per service
 
@@ -325,7 +323,6 @@ class ServicesAfterAccumulationOutput(Serializable):
     post_state_authorizer_queues: AuthorizerQueuesState = field(metadata={'codec': AuthorizerQueuesState.to_codec_def()})
     beefy_commitment_map: BeefyCommitmentMap = field(metadata={'codec': BeefyCommitmentMap.to_codec_def()})
     nr_work_results_accumulated: int = field(metadata={'codec': U32})
-    deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
     accumulation_gas_utilized: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
 
 

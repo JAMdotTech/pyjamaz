@@ -6,10 +6,10 @@ from jamcodec.types import U64, U32
 
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, \
-    PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO
+    PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO, MINIMUM_PUBLIC_SERVICE_ID
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import ValidatorData
-from pyjamaz.models.state import ServiceAccount, DeferredTransfer, ServicesState
+from pyjamaz.models.common import ValidatorData, DeferredTransfer
+from pyjamaz.models.state import ServiceAccount, ServicesState
 from pyjamaz.hostcalls.models import AccumulateInvocationContext
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.exceptions import PVMMemoryError
@@ -310,6 +310,7 @@ def hc_new(
     g = registers[9]  # gas_limit_accumulate
     m = registers[10] # gas_limit_on_transfer
     f = registers[11] # deposit_offset
+    i = registers[12] # new public service ID
 
     code_hash = None
     if 0 < l < 2**32 and memory.is_accessible(o, 32, PVMMemoryMode.readable):
@@ -349,26 +350,44 @@ def hc_new(
 
     if code_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger and logger.hc_log("NEW PANIC", f"old_service={service_id}")
+        logger and logger.hc_log("NEW PANIC", f"service={service_id}")
 
     elif deducted_balance < service_account.threshold_balance:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
-        logger and logger.hc_log("NEW CASH", f"old_service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
+        logger and logger.hc_log("NEW CASH", f"service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
+
+    elif (service_id == x.context.state_context.privileged_services.registrar and i < MINIMUM_PUBLIC_SERVICE_ID and
+          x.context.state_context.services.service_exists(service_id)):
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+
+        invocation_output.registers[7] = HostCallResult.FULL.value
+        logger and logger.hc_log(
+            "NEW FULL",
+            f"service={service_id} i={i} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}"
+            )
 
     else:
-        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = new_service_id
-        updated_new_service_id = 2 ** 8 + (new_service_id - 2 ** 8 + 42) % (2 ** 32 - 2 ** 9)
 
-        x.context.new_service_account_id = x.context.state_context.check_service_id(
-            updated_new_service_id)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+
+        if service_id == x.context.state_context.privileged_services.registrar and i < MINIMUM_PUBLIC_SERVICE_ID:
+            new_service_id = i
+        else:
+            updated_new_service_id = (MINIMUM_PUBLIC_SERVICE_ID + (new_service_id - MINIMUM_PUBLIC_SERVICE_ID + 42) %
+                                      (2 ** 32 - MINIMUM_PUBLIC_SERVICE_ID - 2 ** 8))
+            x.context.new_service_account_id = x.context.state_context.check_service_id(
+                updated_new_service_id
+            )
+
+        invocation_output.registers[7] = new_service_id
+
         service_account.balance = deducted_balance
-        # TODO inefficient; move to end, only once per service
+
         x.context.state_context.services.store_service_account(service_id, service_account)
-        # TODO inefficient; move to end, only once per service
         x.context.state_context.services.store_service_account(new_service_id, new_service_account)
         x.context.state_context.services.store_preimage_availability(new_service_id, code_hash, l, [])
+
         logger and logger.hc_log("NEW OK", f"old_service={service_id} code_hash={code_hash} code_len={l}")
 
 

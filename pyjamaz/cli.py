@@ -567,7 +567,7 @@ async def replay_traces(
         traces_dir, verbose
 ):
 
-    log_level = logging.DEBUG if verbose else logging.INFO
+    log_level = logging.DEBUG if verbose or settings.DEBUG else logging.INFO
     setup_logging(log_level)
 
     # Safety checks

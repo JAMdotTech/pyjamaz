@@ -111,6 +111,7 @@ class TestAccumulate(unittest.TestCase):
             manager=test_vector["pre_state"]["privileges"]["bless"],
             assigners=test_vector["pre_state"]["privileges"]["assign"],
             delegator=test_vector["pre_state"]["privileges"]["designate"],
+            registrar=test_vector["pre_state"]["privileges"]["registrar"],
             always_accumulators={} #test_vector["pre_state"]["privileges"]["always_acc"]
         )
 

@@ -41,6 +41,7 @@ def work_result_computation(
         export_segment_offset = sum([w.export_count for k, w in enumerate(work_package.items) if k < j])
 
         refine_output = pvm_invoke_refine(
+            core_index=core_index,
             work_item_index=j,
             work_package=work_package,
             authorizer_output=auth_output.work_exec_result.ok,

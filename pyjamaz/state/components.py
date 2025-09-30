@@ -18,7 +18,7 @@ from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.settings import SOLO_MODE, USE_THREAD_POOL, THREAD_POOL_MAX_WORKERS
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import Transaction
-from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody
+from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, DeferredTransfer
 from pyjamaz.models.stf_output import SafroleErrorCode, SafroleOutput, ValidatorPoolOutput, TimeslotOutput, \
     EntropyOutput, ValidatorArchiveOutput, RecentHistoryOutput, DisputesOutput, StatisticsOutput, \
     AuthorizerPoolsOutput, RecentHistoryIntermediateOutput, AssurancesAfterDisputesOutput, \
@@ -38,7 +38,7 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
     AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
-    AccumulationQueueWorkPackage, DeferredTransfer, ServiceActivityRecord
+    AccumulationQueueWorkPackage, ServiceActivityRecord
 from pyjamaz.transport.pubsub import PubSubSignal
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates, format_hash, log_execution_time
 
@@ -1908,7 +1908,7 @@ class Services(StateComponent):
             privileged_services=deepcopy(pre_state_privileged_services)
         )
 
-        # GP-0.7.0-eq:12.22
+        # GP-0.7.1-eq:12.22
         gas_limit = max(
             gp_const.GAS_TOTAL, gp_const.GAS_ACCUMULATION * gp_const.CORE_COUNT + sum(
                 pre_state_privileged_services.always_accumulators.values()
@@ -1920,6 +1920,7 @@ class Services(StateComponent):
         # GP-0.7.1-eq:12.24
         output = full_sequential_accumulation(
             gas_limit=gas_limit,
+            deferred_transfers=[],
             work_reports=accumulatable_work_reports,
             accumulation_state=accumulation_state,
             auto_accumulate_services=pre_state_privileged_services.always_accumulators,
@@ -1945,7 +1946,6 @@ class Services(StateComponent):
             post_state_authorizer_queues=output.post_accumulation_state.authorizer_queues,
             beefy_commitment_map=output.accumulation_commitment,
             nr_work_results_accumulated=output.nr_work_results_accumulated,
-            deferred_transfers=output.deferred_transfers,
             accumulation_gas_utilized=output.accumulation_gas_utilized
         )
 
