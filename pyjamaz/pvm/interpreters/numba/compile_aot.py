@@ -28,7 +28,7 @@ def _resolve_runtime_symbol():
         invoke_native_aot = getattr(mod, 'invoke_native')
         return
     try:
-        from pyjamaz.pvm.numba.interpreter_numba_jit import invoke_native as _invoke_native_jit
+        from pyjamaz.pvm.interpreters.numba.interpreter_numba_jit import invoke_native as _invoke_native_jit
     except Exception:
         from .interpreter_numba_jit import invoke_native as _invoke_native_jit  # type: ignore
     invoke_native_aot = _invoke_native_jit
