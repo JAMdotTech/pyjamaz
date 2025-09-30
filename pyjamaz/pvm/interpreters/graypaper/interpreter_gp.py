@@ -65,7 +65,7 @@ class PVMInterpreter:
 
         if logger:
             self.program = program
-            from ..debug_logger import PVMDebugLog
+            from pyjamaz.pvm.debug_logger import PVMDebugLog
             logger_cls = PVMDebugLog
             self.log = logger_cls(pvm=self)
             self.log._pvm = self
@@ -245,8 +245,8 @@ class PVMInterpreter:
         pc: int,
         gas: int
     ):
-        self.pc = pc
-        self.gas = gas
+        self.pc = np.uint32(pc)
+        self.gas = np.int64(gas)
 
         if self.log:
             self.log.pvm_counters()

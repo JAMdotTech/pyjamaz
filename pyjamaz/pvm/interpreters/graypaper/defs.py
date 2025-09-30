@@ -47,7 +47,7 @@ def roli32(x, shift_amount) -> np.uint32:
     return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-def reverse_bytes(x) -> np.uint64:
+def reverse_bytes(x) -> int:
     y = 0
     y |= (x & 0x00000000000000FF) << 8 * 7
     y |= (x & 0x000000000000FF00) << 8 * 5
@@ -134,7 +134,7 @@ def pvm_Z_inv(a: int, n: int) -> int:
 
 def read_uint(source: bytearray, addr: np.uint32, l: np.uint8) -> np.uint64:
     if l == 0:
-        return 0
+        return u64(0)
     elif l == 1:
         return u64(source[addr + 0]) % 2**8
     elif l == 2:
