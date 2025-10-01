@@ -165,17 +165,6 @@ class PVMDebugLog(PVMLogger):
         logging.debug(f"GAS: {self._pvm.gas} PC: {self._pvm.pc}")
 
     def pvm_header(self):
-        # logging.debug(
-        #     f"PC      "
-        #     f"INST                  "
-        #     f"R1  "
-        #     f"R2  "
-        #     f"R3  "
-        #     f"IMM1                    "
-        #     f"IMM2                    "
-        #     f"OFF1                    "
-        #     f"OFF2                    "
-        #     "CTX")
         pass
 
     def pvm_regs(self, msg):
@@ -212,10 +201,6 @@ class PVMDebugLog(PVMLogger):
         #         stack_hash = hash_memory_segment(mem[2].contents)
         #         mem_info += f" stack_hash:{stack_hash}"
 
-        # print("inst=", self._pvm.inst_nr, "op=", OpcodeNames[self._pvm.opcode], "pc=", self._pvm.pc, "gas=", self._pvm.gas,
-        #       "r1=", reg1, "r2=", reg2, "r3=", reg3,
-        #       "imm1=", imm1, "imm2=", imm2, "off1=", off1, "off2=", off2, context, mem_info)
-
         name_str = OpcodeNames[self._pvm.opcode]
         name_pad = 22 - len(name_str)
         if name_pad > 0:
@@ -242,11 +227,6 @@ class PVMDebugLog(PVMLogger):
         if len(pc_str) < 4:
             pc_str = (" " * (4 - len(pc_str))) + pc_str
 
-        # tnow = time.time()
-        # dt_ms = (tnow - self._pvm.op_time)
-        # print(inst_str + " " + pc_str + " " + name_str + "" + str(dt_ms))
-
-        #print(inst_str, pc_str, name_str, self._pvm.gas, regs_str, mem_info)
         tt = " ".join([str(inst_str), pc_str, name_str, str(self._pvm.gas), regs_str, mem_info])
         logging.debug(tt)
 

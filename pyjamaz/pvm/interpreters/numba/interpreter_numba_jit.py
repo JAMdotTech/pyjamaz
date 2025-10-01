@@ -13,7 +13,7 @@ from numba import uint8, uint32, int32, uint64, int64, boolean
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 from pyjamaz.pvm.exceptions import PVMMemoryError, PanicError
-from pyjamaz.pvm.memory import PVMMemory
+
 from pyjamaz.pvm.interpreters.numba.const import NUMBA_CACHE, STATE_STATUS, STATE_PC, STATE_GAS, STATE_INST_NR, \
     STATE_EXIT_VALUE, \
     STATE_SKIP_LEN, STATE_ERROR, PVM_PAGE_SIZE, PVM_PAGE_SHIFT, EXIT_RESUME, EXIT_PANIC, ERROR_PANIC_TRAP, \
@@ -99,6 +99,8 @@ def sync_state_and_return(
     state_out[STATE_ERROR] = I64(error_code)
     return error_code
 
+
+# Note: uncomment for memory debugging:
 
 # @njit(uint64(uint64), cache=NUMBA_CACHE)
 # def _fmix64_jit(x: U64) -> U64:
@@ -350,6 +352,7 @@ def log(opcode_names, local_state, regs, mem, mem_starts, mem_ends):
     if len(pc_str) < 4:
         pc_str = (" " * (4 - len(pc_str))) + pc_str
 
+    # Note: uncomment when logging timing info
     # Compute elapsed time if start_time provided (debug; uses objmode)
     # if start_time > 0.0:
     #     with objmode(tnow='float64'):
@@ -393,7 +396,7 @@ def log(opcode_names, local_state, regs, mem, mem_starts, mem_ends):
     int64[::1],      # state_out
     int64[::1],      # heap_grew_out
 ), cache=NUMBA_CACHE)
-def invoke_native_jit(
+def invoke_native(
         pc_start,
         gas_start,
         inst_start,
@@ -569,7 +572,7 @@ def invoke_native_jit(
             v_x = pvm_X_jit(read_uint_jit(code, pc + 2, l_x), np.uint8(l_x))
 
             if opcode == op_jump_ind:
-                jump_target = U32(((U64(reg[r_a]) + U64(v_x)) & U32_MASK)) #!!!!!!!!!!!!!!mogegijk anders? 128bit wraparound?
+                jump_target = U32(((U64(reg[r_a]) + U64(v_x)) & U32_MASK))
                 djump_result = djump_jit(jump_target, jump_table, pc, pc_to_inst_index)
                 if djump_result == I32(-1):
                     skip_len = I64(0)
@@ -829,7 +832,6 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_count_set_bits_64:
-                # TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!helper function: bit counting (np.bitwise_count not available in numba)
                 val = reg[r_a]
                 count = U64(0)
                 for _ in range(64):
@@ -839,7 +841,6 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_count_set_bits_32:
-                # TODO: !!!!!!!!!!!!!!!!!!!!helper function: bit counting (np.bitwise_count not available in numba)
                 val = U32(U64(reg[r_a]) & U32_MASK)
                 count = U64(0)
                 for _ in range(32):
@@ -865,17 +866,14 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_sign_extend_8:
-                # todo: !!!!!!!!!!!!!!!!!!!reg[r_d] = pvm_X_jit(reg[r_a], U8(1))
                 reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(U64(reg[r_a]) & U64(0xFF), 1), U8(8))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_sign_extend_16:
-                # todo: !!!!!!!!!!!!!!!reg[r_d] = pvm_X_jit(reg[r_a], U8(2))
                 reg[r_d] = pvm_Z_inv_jit(pvm_Z_jit(U64(reg[r_a]) & U64(0xFFFF), 2), U8(8))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_zero_extend_16:
-                # reg[r_d] = reg[r_a] & U64(0xFFFF)
                 reg[r_d] = U64(reg[r_a]) & U64(0xFFFF)
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
@@ -982,7 +980,6 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_add_imm_32:
-                #TODO!!!!!!!!!!!!!!!!!!
                 wb_vx_32 = (U64(w_b) + U64(v_x)) & U32_MASK
                 reg[r_a] = pvm_X_jit(U32(wb_vx_32), np.uint8(4))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
@@ -1000,7 +997,6 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_mul_imm_32:
-                # TODO!!!!!!!!!!!!!!!!!!
                 prod32 = (U64(w_b) * U64(v_x)) & U32_MASK
                 reg[r_a] = pvm_X_jit(U32(prod32), np.uint8(4))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
@@ -1019,7 +1015,6 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_shlo_r_imm_32:
-                # TODO!!!!!!!!!!?
                 reg[r_a] = pvm_X_jit(U32(w_b) >> U32(U32(v_x) & U32(31)), U8(4))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
@@ -1072,34 +1067,28 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_shlo_l_imm_64:
-                # TODO!!!!!!!!!!!!!!!!!!
                 sh = U64(v_x) & U64(63)
                 reg[r_a] = (U64(w_b) << sh) & U64_MASK
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_shlo_r_imm_64:
-                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = U64(w_b) >> U64(U64(v_x) & U64(63))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_shar_r_imm_64:
-                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = pvm_Z_inv_jit(I64(pvm_Z_jit(w_b, 8)) >> I64(U64(v_x) & U64(63)), U8(8))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_neg_add_imm_64:
-                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = (U64(v_x) - U64(w_b)) & U64_MASK
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_shlo_l_imm_alt_64:
-                # TODO!!!!!!!!!!!!!!!!!!
                 sh = U64(w_b) & U64(63)
                 reg[r_a] = (U64(v_x) << sh) & U64_MASK
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_shlo_r_imm_alt_64:
-                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_a] = v_x >> U64(w_b & U64(63))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
@@ -1235,13 +1224,11 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_sub_32:
-                # TODO!!!!!!!!!!!!!!!!!!
                 wa_minus_wb_32 = (U64(w_a) - U64(w_b)) & U32_MASK
                 reg[r_d] = pvm_X_jit(U32(wa_minus_wb_32), U8(4))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_mul_32:
-                # TODO!!!!!!!!!!!!!!!!!!
                 prod32 = (U64(w_a) * U64(w_b)) & U32_MASK
                 reg[r_d] = pvm_X_jit(U32(prod32), U8(4))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
@@ -1255,7 +1242,6 @@ def invoke_native_jit(
                     if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_div_s_32:
-                # TODO!!!!!!!!!!!!!!!!!!
                 a_signed = I32(pvm_Z_jit((U64(w_a) & U32_MASK), 4))
                 b_signed = I32(pvm_Z_jit((U64(w_b) & U32_MASK), 4))
 
@@ -1303,7 +1289,6 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_shar_r_32:
-                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_d] = pvm_Z_inv_jit(I32(pvm_Z_jit(U32(w_a), 4)) >> I64(U32(w_b) & U32(31)), U8(8))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
@@ -1312,7 +1297,6 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_sub_64:
-                # TODO!!!!!!!!!!!!!!!!!!
                 reg[r_d] = (U64(w_a) - U64(w_b)) & U64_MASK
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
@@ -1329,7 +1313,6 @@ def invoke_native_jit(
                     if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_div_s_64:
-                # TODO!!!!!!!!!!!!!!!!!!
                 if w_b == 0:
                     reg[r_d] = U64(0xFFFFFFFFFFFFFFFF)
                     if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
@@ -1387,19 +1370,16 @@ def invoke_native_jit(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_mul_upper_s_s:
-                # TODO!!!!!!!!!!!!!!!!!!
                 hi, lo = imul64wide_jit(I64(w_a), I64(w_b))
                 reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_mul_upper_u_u:
-                # TODO!!!!!!!!!!!!!!!!!!
                 hi, lo = umul64wide_jit(w_a, w_b)
                 reg[r_d] = hi
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_mul_upper_s_u:
-                # TODO!!!!!!!!!!!!!!!!!!
                 hi, lo = smul_u64wide_jit(I64(w_a), w_b)
                 reg[r_d] = pvm_Z_inv_jit(I64(hi), U8(8))
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
@@ -1509,13 +1489,8 @@ class PVMInterpreter:
 
         self._mem_addr: int = -1
 
-        # self.mem_inaccesible = PVMMemoryMode.inaccesible
-        # self.mem_readable = PVMMemoryMode.readable
-        # self.mem_writable = PVMMemoryMode.writable
-
         self.pc = U32(0)
         self.gas = I64(0)
-
         self.name = program.name
         self.code:npt.NDArray[U8] = np.array(program.code.code, dtype=U8)
         self.code_size: U64 = U64(len(self.code))
@@ -1817,7 +1792,7 @@ class PVMInterpreter:
         heap_grew_out = np.array([0], dtype=np.int64)
 
         # Call the Numba compiled invoke function
-        error_code = invoke_native_jit(
+        error_code = invoke_native(
             np.uint32(self.pc),
             np.int64(self.gas),
             np.uint32(self.inst_nr),

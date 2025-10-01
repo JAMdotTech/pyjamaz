@@ -95,8 +95,6 @@ def import_block_cli(traces_dir):
 
         except Exception as e:
             # Rollback state
-            import traceback
-            traceback.print_exc()
             logging.error(f'Import failed for #{block.header.timeslot} -> {e}; Rollback state')
             logging.debug(traceback.format_exc())
             self.state_storage.rollback()
@@ -234,6 +232,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     # Note: Add packages that need a different logging level here
     log_package_overrides = {
         "pyjamaz.transport": log_level,
+        "quic": logging.WARNING,
         "numba": logging.WARNING,
         "numba.core": logging.WARNING
     }

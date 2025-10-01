@@ -21,8 +21,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/app"
 
-#RUN mkdir /app/numba-cache
-#ENV NUMBA_CACHE_DIR="/app/numba-cache/"
+RUN mkdir /app/numba-cache
+ENV NUMBA_CACHE_DIR="/app/numba-cache/"
 
 # https://numba.pydata.org/numba-doc/dev/reference/envvars.html
 ENV NUMBA_CACHE=1
@@ -45,4 +45,4 @@ RUN python -m compileall -b ./pyjamaz && \
     -delete
 
 
-ENTRYPOINT ["python", "pyjamaz/cli.pyc"]
+ENTRYPOINT ["python", "pyjamaz/cli.py"]

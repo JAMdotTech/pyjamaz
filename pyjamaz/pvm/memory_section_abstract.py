@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from math import ceil
 from dataclasses import dataclass
 
+from pyjamaz import settings
 from pyjamaz.pvm.constants import PVM_PAGE_SIZE
 from pyjamaz.pvm.exceptions import PVMMemoryError
 
@@ -30,8 +31,8 @@ class AbstractMemorySection(ABC):
         if not contents:
             contents = []
 
-        # if size > settings.PVM_MAX_HEAP_SIZE:
-        #     raise PVMMemoryError(f"Memory size too large: {size} > {settings.PVM_MAX_HEAP_SIZE}")
+        if size > settings.PVM_MAX_HEAP_SIZE:
+            raise PVMMemoryError(f"Memory size too large: {size} > {settings.PVM_MAX_HEAP_SIZE}")
 
         self.acl:int = acl
         self.address:int = address

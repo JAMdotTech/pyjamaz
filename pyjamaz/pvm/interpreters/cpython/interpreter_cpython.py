@@ -330,16 +330,8 @@ class PVMInterpreter:
         section = self.mem_sections[section_idx]
         section_offset = addr - self.mem_section_starts[section_idx]
 
-        # if len(self.mem_section_acl[section_idx]) > 0:
-        #     start_page = section_offset // PVM_PAGE_SIZE
-        #     # note: ceil div: -(-a // b)
-        #     end_page = -(-(section_offset + bytes_to_write) // PVM_PAGE_SIZE)
-        #     if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page, MEM_W):
-        #         check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page, MEM_W)
-        #         raise PVMMemoryError(f"Memory at address {addr} is not writable")
         if self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_W:
             raise PVMMemoryError(f"Memory at address {addr} is not writable")
-
 
         # Check bounds against the actual section size (not paged_tail)
         # The section might be larger than paged_tail if it has been extended
@@ -375,12 +367,6 @@ class PVMInterpreter:
         if section_offset + bytes_to_read > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
 
-        # if len(self.mem_section_acl[section_idx]):
-        #     start_page = section_offset // PVM_PAGE_SIZE
-        #     # note: ceil div: -(-a // b)
-        #     end_page = -(-(section_offset + bytes_to_read) // PVM_PAGE_SIZE)
-        #     if not check_acl(self.mem_section_acl[section_idx], start_page, end_page - start_page, MEM_R):
-        #         raise PVMMemoryError(f"Memory at address {addr} is not accessible")
         if self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_R:
             raise PVMMemoryError(f"Memory at address {addr} is not writable")
 

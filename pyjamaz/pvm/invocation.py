@@ -27,6 +27,18 @@ class PVMLogger(ABC):
         pass
 
     @abstractmethod
+    def sbrk(self, cur_size, new_size, growth, alloc_mem):
+        pass
+
+    @abstractmethod
+    def acl(self, cur_size, new_size, growth):
+        pass
+
+    @abstractmethod
+    def exc(self, exc_str):
+        pass
+
+    @abstractmethod
     def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
         pass
 

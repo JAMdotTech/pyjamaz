@@ -45,6 +45,15 @@ class PVMFormattedLog(PVMDebugLog):
             f"{reg_msg}"
         )
 
+    def sbrk(self, cur_size, new_size, growth, alloc_mem):
+        logging.debug(f"SBRK GROWN FROM {cur_size} TO {new_size} (growth {growth}, alloc mem: {alloc_mem})")
+
+    def acl(self, cur_size, new_size, growth):
+        logging.debug(f"ACL GROWN FROM {cur_size} TO {new_size} (growth: {growth})")
+
+    def exc(self, exc_str):
+        logging.warning(f"PVM EXCEPTION:\n{exc_str}")
+
     def hc_debug(self, log_lvl, log_lvl_name, core_idx, service_idx, target, message):
         target_str = ""
         if target:

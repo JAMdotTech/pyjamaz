@@ -16,7 +16,7 @@ invoke_native_aot = None  # will be resolved below
 
 def _try_import_compiled():
     try:
-        return importlib.import_module('pyjamaz.pvm.numba.interpreter_numba_aot_ffi')
+        return importlib.import_module('pyjamaz.pvm.numba.interpreter_numba_aot')
     except Exception:
         return None
 
@@ -38,7 +38,7 @@ _resolve_runtime_symbol()
 
 
 def _compile_from_source():
-    aot_src = pathlib.Path(__file__).with_name('interpreter_numba_aot_ffi.py')
+    aot_src = pathlib.Path(__file__).with_name('interpreter_numba_aot.py')
     if not aot_src.exists():
         raise RuntimeError(f"AOT source file not found: {aot_src}")
     mod_name = 'pyjamaz.pvm.numba._aot_build_tmp'
@@ -47,7 +47,7 @@ def _compile_from_source():
     sys.modules[mod_name] = mod
     spec.loader.exec_module(mod)
     if not hasattr(mod, 'cc'):
-        raise RuntimeError("interpreter_numba_aot_ffi.py must define `cc = CC(...)`.")
+        raise RuntimeError("interpreter_numba_aot.py must define `cc = CC(...)`.")
     mod.cc.compile()
 
 
