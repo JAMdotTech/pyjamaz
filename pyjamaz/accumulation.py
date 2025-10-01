@@ -2,6 +2,7 @@ import logging
 import typing
 from concurrent.futures import as_completed
 from concurrent.futures.thread import ThreadPoolExecutor
+from copy import copy
 from dataclasses import dataclass
 from typing import List, Set, Dict
 
@@ -13,7 +14,7 @@ from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationState
 
 from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
 from pyjamaz.settings import USE_THREAD_POOL, THREAD_POOL_MAX_WORKERS
-from pyjamaz.utils import substitute_if_nothing, sum_dict_values
+from pyjamaz.utils import sum_dict_values
 
 if typing.TYPE_CHECKING:
     from pyjamaz.hostcalls.models import PvmAccumulateOutput
@@ -236,7 +237,10 @@ def parallel_accumulation(
     """
     # s (sorted!)
     service_ids = sorted(
-        set([r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()))
+        set(
+            [r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()) +
+            [t.receiver for t in deferred_transfers]
+        )
     )
 
     # u
@@ -248,12 +252,14 @@ def parallel_accumulation(
 
     outputs = []
 
-    pre_state_delegator_id = accumulation_state.privileged_services.delegator  # v
-    pre_state_manager_id = accumulation_state.privileged_services.manager  # m
-    pre_state_assigners = accumulation_state.privileged_services.assigners  # a
+    pre_state_delegator = accumulation_state.privileged_services.delegator  # v
+    pre_state_manager = accumulation_state.privileged_services.manager  # m
+    pre_state_assigners = copy(accumulation_state.privileged_services.assigners)  # a
+    pre_state_registrar = accumulation_state.privileged_services.registrar # r
 
-    # TODO check if this needed
-    #pre_accumulation_state = deepcopy(accumulation_state)
+    manager_delegator = pre_state_delegator # v*
+    manager_assigners = copy(pre_state_assigners) # a*
+    manager_registrar = pre_state_registrar # r*
 
     if USE_THREAD_POOL:
 
@@ -298,13 +304,13 @@ def parallel_accumulation(
             outputs.append((service_id, output))
 
     for service_id, output in outputs:
-            # Update gas usage
+            # Update gas usage (u)
             accumulation_gas_utilized[service_id] = output.gas_used
 
-            # Update transfers
+            # Update transfers (t')
             deferred_transfers += output.deferred_transfers
 
-            # Process provided pre-images
+            # GP-0.7.1-eq:12.21 Process provided pre-images
             for s, i in output.preimages:
                 availability = output.state_context.services.retrieve_preimage_availability(s, blake2b_256_hash(i), len(i))
                 if availability == []:
@@ -317,14 +323,15 @@ def parallel_accumulation(
             accumulation_state.services.services.update(output.state_context.services.services)
 
             if output.accumulation_output is not None:
-                beefy_commitment_map.update({service_id: output.accumulation_output})
+                beefy_commitment_map.update({service_id: output.accumulation_output}) # b
 
-            if service_id == pre_state_manager_id:
+            if service_id == pre_state_manager:
                 # Process privilege services (m', a*, v*, z')
                 accumulation_state.privileged_services.manager = output.state_context.privileged_services.manager # m'
-                accumulation_state.privileged_services.assigners = output.state_context.privileged_services.assigners # a*
-                accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator # v*
                 accumulation_state.privileged_services.always_accumulators = output.state_context.privileged_services.always_accumulators # z'
+                manager_assigners = output.state_context.privileged_services.assigners # a*
+                manager_delegator = output.state_context.privileged_services.delegator # v*
+                manager_registrar = output.state_context.privileged_services.registrar # r*
 
             # Process assigners (a')
             for c in range(CORE_COUNT):
@@ -335,14 +342,30 @@ def parallel_accumulation(
             if service_id == accumulation_state.privileged_services.delegator:
                 accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator  # v'
 
+            # Process registrar (r')
+            if service_id == accumulation_state.privileged_services.registrar:
+                accumulation_state.privileged_services.registrar = output.state_context.privileged_services.registrar  # r'
+
             # Process validator queue (i')
-            if service_id == pre_state_delegator_id:
+            if service_id == pre_state_delegator:
                 accumulation_state.validator_queue = output.state_context.validator_queue
 
             # Process authorizer queue (q')
             for c in range(CORE_COUNT):
                 if service_id == pre_state_assigners[c]:
                     accumulation_state.authorizer_queues = output.state_context.authorizer_queues
+
+    # Check if manager service modified a', v' and r' and then override
+    for c in range(CORE_COUNT):
+        if pre_state_assigners[c] != manager_assigners[c]:
+            accumulation_state.privileged_services.assigners[c] = manager_assigners[c]
+
+    if pre_state_delegator != manager_delegator:
+        accumulation_state.privileged_services.delegator = manager_delegator
+
+    if pre_state_registrar != manager_registrar:
+        accumulation_state.privileged_services.registrar = manager_registrar
+
 
     return ParallelAccumulationOutput(
         accumulation_state=accumulation_state,
