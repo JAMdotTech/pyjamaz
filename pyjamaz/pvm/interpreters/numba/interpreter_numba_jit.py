@@ -444,6 +444,9 @@ def invoke_native(
     timing_enabled = False
     start_time = 0.0    # Note: only used when timing_enabled == True to measure time per opcode
 
+    # Local state array for logging: [inst_nr, opcode, pc, gas, start_time]
+    local_state = np.empty(5, dtype=np.int64)
+
     while status == EXIT_RESUME:
 
         # Note: enable when we want to run perf checks
@@ -476,8 +479,6 @@ def invoke_native(
         opcode = code[pc]
         inst_type = opcode_scheme[opcode]
         skip_len = inst_arg_len[inst_index] + 1
-        # Local state array for logging: [inst_nr, opcode, pc, gas, start_time]
-        local_state = np.empty(5, dtype=np.int64)
         if logging:
             local_state[0] = inst_nr
             local_state[1] = opcode
