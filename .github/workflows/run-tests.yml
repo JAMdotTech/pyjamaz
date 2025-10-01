@@ -38,16 +38,16 @@ jobs:
         pip install pytest
         pytest
       env:
-        PVM_INTERPRETER: PVM_NUMBA_JIT
+        PVM_INTERPRETER: NUMBA_JIT
     - name: Test with pytest for PVM CPYTHON
       run: |
         pip install pytest
         pytest
       env:
-        PVM_INTERPRETER: PVM_CPYTHON
+        PVM_INTERPRETER: CPYTHON
     - name: Test with pytest for PVM GP
       run: |
         pip install pytest
         pytest
       env:
-        PVM_INTERPRETER: PVM_GP
+        PVM_INTERPRETER: GRAYPAPER
