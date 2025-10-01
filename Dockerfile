@@ -45,4 +45,4 @@ RUN python -m compileall -b ./pyjamaz && \
     -delete
 
 
-ENTRYPOINT ["python", "pyjamaz/cli.py"]
+ENTRYPOINT ["python", "pyjamaz/cli.pyc"]
