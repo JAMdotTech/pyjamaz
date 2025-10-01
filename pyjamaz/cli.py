@@ -39,6 +39,10 @@ from pyjamaz.transport.protocol_jamnp_s import JAMNPS
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import format_hash, quic_peer_id
 
+
+from pyjamaz.pvm import *
+
+
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
 
@@ -229,6 +233,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     log_package_overrides = {
         "pyjamaz.transport": log_level,
         "quic": logging.WARNING,
+        "numba": logging.WARNING,
+        "numba.core": logging.WARNING
     }
     setup_logging(log_level, log_package_overrides)
 

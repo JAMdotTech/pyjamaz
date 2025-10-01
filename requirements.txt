@@ -14,6 +14,7 @@ rocksdict~=0.3
 bandersnatch-vrfs==0.6.0
 jamcodec~=0.1.3
 
-numpy~=2.3
+numpy==2.2.6
+numba==0.61.2
 
 aioquic==1.2.0

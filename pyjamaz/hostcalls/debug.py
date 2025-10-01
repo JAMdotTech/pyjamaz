@@ -2,8 +2,8 @@ import logging
 from typing import List
 
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
-from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.pvm.types import PVMLogger, PVMMemory
+from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
+from pyjamaz.pvm.memory import PVMMemory
 
 
 LEVELS = {

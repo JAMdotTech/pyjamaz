@@ -10,10 +10,10 @@ from jamcodec.base import JamBytes
 from parameterized import parameterized
 
 from pyjamaz import settings
-from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.constants import ExitReason, OpcodeNames
-from pyjamaz.pvm.debug_logger import PVMDebugLog
-from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection, PVMMemoryMode
+from pyjamaz.pvm.types import PVMCode, PVMProgram
+from pyjamaz.pvm.memory import PVMMemory
+from pyjamaz.pvm import MemorySection, PVMInterpreter
+from pyjamaz.pvm.constants import ExitReason, MEM_W, MEM_R
 
 
 def load_test_vectors(directory):
@@ -35,7 +35,8 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs-custom'))
     def test_instruction(self, name, test_vector):
 
         pvm_code = PVMCode.from_jam_bytes(
@@ -50,8 +51,9 @@ class TestPolkaVMInstructions(unittest.TestCase):
             for page_map in test_vector["initial-page-map"]:
                 page = MemorySection(
                     address=page_map["address"],
+                    #size=1_000_000_000,
                     size=page_map["length"],
-                    acl=PVMMemoryMode.writable if page_map["is-writable"] else PVMMemoryMode.readable,
+                    acl=MEM_W if page_map["is-writable"] else MEM_R,
                     contents=[0] * page_map["length"]
                 )
                 if page_map["address"] < 2*65536:
@@ -86,6 +88,7 @@ class TestPolkaVMInstructions(unittest.TestCase):
 
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
         pvm = PVMInterpreter(pvm_program, settings.PVM_DEBUGGER)
+
         pvm.invoke(
             test_vector["initial-pc"],
             test_vector["initial-gas"]

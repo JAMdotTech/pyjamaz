@@ -7,10 +7,11 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
 from pyjamaz.models.state import ServicesState
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.constants import ExitReason, ExitCondition
+from pyjamaz.pvm.types import PVMProgram, PVMCode
+from pyjamaz.pvm.memory import PVMMemory
+from pyjamaz.pvm.constants import ExitReason, ExitCondition, MEM_W, MEM_R, MEM_I
 from pyjamaz.pvm.exceptions import PVMMemoryError
-from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.pvm.types import PVMLogger, PVMMemory, PVMMemoryMode, PVMProgram, PVMCode
+from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.hostcalls.constants import HostCallResult, InnerPVMResult
 from pyjamaz.hostcalls.models import RefineInvocationContext, IntegratedPVM
 from pyjamaz.settings import PVM_DEBUGGER
@@ -58,7 +59,7 @@ def hc_historical_lookup(
     preimage = None
     mem_inaccessible = False
     if service_account:
-        if memory.is_accessible(h, 32, PVMMemoryMode.readable):
+        if memory.is_accessible(h, 32, MEM_R):
             try:
                 preimage_hash = memory.read_bytes(h, 32)
                 preimage = services.historical_preimage_lookup(service_account_id, timeslot, preimage_hash) #(EQ 9.5), historical lookup
@@ -70,7 +71,7 @@ def hc_historical_lookup(
     f = min(registers[10], len(preimage or []))
     l = min(registers[11], len(preimage or []) - f)
 
-    if mem_inaccessible is True or not memory.is_accessible(o, l, PVMMemoryMode.writable):
+    if mem_inaccessible is True or not memory.is_accessible(o, l, MEM_W):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif preimage is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -101,7 +102,7 @@ def hc_export(
     p = registers[7]
     z = min(registers[8], EC_SEGMENT_SIZE)
     data_segment = None #GP: bold_x
-    if memory.is_accessible(p, z, PVMMemoryMode.readable):
+    if memory.is_accessible(p, z, MEM_R):
         data_segment = memory.read_bytes(p, z, padding=EC_SEGMENT_SIZE)
 
     if data_segment is None:
@@ -136,7 +137,7 @@ def hc_machine(
     i = registers[9]
 
     program_blob = None
-    if memory.is_accessible(p_o, p_z, PVMMemoryMode.readable):
+    if memory.is_accessible(p_o, p_z, MEM_R):
         program_blob = memory.read_bytes(p_o, p_z)
 
     pvm_code = None
@@ -196,12 +197,12 @@ def hc_peek(
     s = registers[9]
     z = registers[10]
 
-    if not memory.is_accessible(o, z, PVMMemoryMode.writable):
+    if not memory.is_accessible(o, z, MEM_W):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif n not in m_e.inner_pvm_lookup:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-    elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, PVMMemoryMode.readable):
+    elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_R):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OOB.value
     else:
@@ -232,12 +233,12 @@ def hc_poke(
     o = registers[9]
     z = registers[10]
 
-    if not memory.is_accessible(s, z, PVMMemoryMode.readable):
+    if not memory.is_accessible(s, z, MEM_R):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif n not in m_e.inner_pvm_lookup:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-    elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, PVMMemoryMode.writable):
+    elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_W):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OOB.value
     else:
@@ -277,21 +278,24 @@ def hc_pages(
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
+    addr = p * PVM_PAGE_SIZE
+    nr_bytes = c * PVM_PAGE_SIZE
+
     if mem is None:
         invocation_output.registers[7] = HostCallResult.WHO.value
     elif r > 4 or p < 16 or p+c >= 2**32 // PVM_PAGE_SIZE:
         invocation_output.registers[7] = HostCallResult.HUH.value
-    elif r > 2 and mem.has_inaccessible_acl(p, c):
+    elif r > 2 and not mem.is_accessible(addr, nr_bytes, MEM_R):
         invocation_output.registers[7] = HostCallResult.HUH.value
     else:
         invocation_output.registers[7] = HostCallResult.OK.value
 
         if r == 0:
-            acl = PVMMemoryMode.inaccesible
+            acl = MEM_I
         elif r == 1 or r == 3:
-            acl = PVMMemoryMode.readable
+            acl = MEM_R
         elif r == 2 or r == 4:
-            acl = PVMMemoryMode.writable
+            acl = MEM_W
         else:
             raise ValueError('invalid r')
 
@@ -323,7 +327,7 @@ def hc_invoke(
 
     gas = None
     reg = []
-    if memory.is_accessible(o, 112, PVMMemoryMode.writable):
+    if memory.is_accessible(o, 112, MEM_W):
         jam_bytes = JamBytes(memory.read_bytes(o, 112))
         gas = U64.decode(jam_bytes)
         for _ in range(13):

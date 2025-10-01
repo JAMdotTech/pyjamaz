@@ -19,12 +19,7 @@
   "initial-page-map": [
     {
       "address": 131072,
-      "length": 4096,
-      "is-writable": true
-    },
-    {
-      "address": 135168,
-      "length": 4096,
+      "length": 8192,
       "is-writable": true
     }
   ],
