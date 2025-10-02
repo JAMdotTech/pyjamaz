@@ -21,4 +21,4 @@ elif settings.PVM_INTERPRETER == "NUMBA_AOT":
     import pyjamaz.pvm.interpreters.numba.interpreter_numba_aot_patch
     from .interpreters.numba.defs import *
     from .interpreters.numba.memory_section import *
-    from .interpreters.numba.interpreter_numba_aot import PVMInterpreter
+    from .interpreters.numba.interpreter_numba_jit import PVMInterpreter
