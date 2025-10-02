@@ -445,7 +445,8 @@ def invoke_native(
     start_time = 0.0    # Note: only used when timing_enabled == True to measure time per opcode
 
     # Local state array for logging: [inst_nr, opcode, pc, gas, start_time]
-    local_state = np.empty(5, dtype=np.int64)
+    if logging:
+        local_state = np.empty(5, dtype=np.int64)
 
     while status == EXIT_RESUME:
 
