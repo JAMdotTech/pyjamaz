@@ -1,15 +1,12 @@
-# pyjamaz/_numba_cache_only.py
 import os, sys, pickle, importlib.util
 import numba
 import inspect
+
 from numba.core import caching
 from numba.core.caching import IndexDataCacheFile
 from numba.core import compiler as _nb_compiler
 from numba.core import dispatcher as _nb_dispatcher
 
-# ---- fix source-file lookup for .pyc-only installs -------------------------
-
-_orig_from_function = caching._SourceFileBackedLocatorMixin.from_function
 
 def _safe_get_source_file(py_func):
     # 1) Prefer inspect-reported paths (may point to .py even if missing)
@@ -27,7 +24,6 @@ def _safe_get_source_file(py_func):
     if path:
         return path
 
-    # 2) Code object filename (often the .py path recorded at compile time)
     co = getattr(py_func, '__code__', None)
     if co is not None:
         fn = co.co_filename
@@ -40,7 +36,6 @@ def _safe_get_source_file(py_func):
                     pass
             return fn
 
-    # 3) Fall back to module.__file__
     mod = sys.modules.get(py_func.__module__)
     mfile = getattr(mod, '__file__', None)
     if mfile:
@@ -58,7 +53,6 @@ def _safe_get_source_file(py_func):
     return None
 
 def _from_function_allow_pyc(cls, py_func, source_path=None):
-    # Numba >=0.56 calls from_function(py_func, source_path); accept both forms
     py_file = None
     if source_path:
         py_file = source_path
@@ -73,11 +67,8 @@ def _from_function_allow_pyc(cls, py_func, source_path=None):
         return
     return self
 
-# Apply patches
-
 caching._SourceFileBackedLocatorMixin.from_function = classmethod(_from_function_allow_pyc)
 
-# Make get_source_stamp tolerate missing .py files
 try:
     _orig_get_source_stamp = caching._SourceFileBackedLocatorMixin.get_source_stamp
 except AttributeError:
