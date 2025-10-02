@@ -6,10 +6,10 @@ from pyjamaz import graypaper_constants as gp_const
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationInput
 from pyjamaz.models.state import ServiceAccount, ServicesState
-from pyjamaz.pvm.constants import ExitCondition, ExitReason
+from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_W, MEM_R
 from pyjamaz.pvm.exceptions import PVMMemoryError
-from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.pvm.types import PVMMemoryMode, PVMLogger, PVMMemory
+from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
+from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 
 
@@ -97,7 +97,7 @@ def hc_lookup(
     preimage_writable = True
     preimage_bytes = bytes()  # GP: bold_v
     preimage_hash_unreadable = False
-    if not memory.is_accessible(preimage_hash, 32, PVMMemoryMode.readable):
+    if not memory.is_accessible(preimage_hash, 32, MEM_R):
         preimage_hash_unreadable = True  # GP: bold_v = ∇
     elif service_account is None:
         preimage_bytes = None  # GP: bold_v = ∅
@@ -106,7 +106,7 @@ def hc_lookup(
             preimage_bytes = services.retrieve_preimage(service_account_id, memory.read_bytes(preimage_hash, 32))
             f = min(registers[10], len(preimage_bytes))
             l = min(registers[11], len(preimage_bytes) - f)
-            preimage_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)  # bold_v = ∇
+            preimage_writable = memory.is_accessible(o, l, MEM_W)  # bold_v = ∇
         except StateKeyNoResult:
             preimage_bytes = None  # GP: bold_v = ∅
 
@@ -190,7 +190,7 @@ def hc_read(
 
     f = min(registers[11], len(storage_item or bytes()))
     l = min(registers[12], len(storage_item or bytes()) - f)
-    mem_writable = memory.is_accessible(o, l, PVMMemoryMode.writable)
+    mem_writable = memory.is_accessible(o, l, MEM_W)
 
     if storage_item_mem_error or not mem_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -537,7 +537,7 @@ def hc_fetch(
     f = min(w8, len(bold_v or []))
     l = min(w9, len(bold_v or []) - f)
 
-    if not memory.is_accessible(o, l, PVMMemoryMode.writable):
+    if not memory.is_accessible(o, l, MEM_W):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif bold_v is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)

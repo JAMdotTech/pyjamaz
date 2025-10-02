@@ -2,7 +2,7 @@ import os
 
 TEST_SUITE = 'tiny' # tiny or full
 GP_VERSION = '0.7.1'
-APP_VERSION = '0.1.19'
+APP_VERSION = '0.1.20'
 
 FUZZER_VERSION = 1
 FUZZER_FEATURE_FORK = True
@@ -18,15 +18,16 @@ SKIP_TIMESLOT_WALL_CLOCK_CHECK = False
 
 DEBUG_PROGRAM_OVERRIDE = {}
 
-USE_THREAD_POOL = False
+USE_THREAD_POOL = True
 THREAD_POOL_MAX_WORKERS = os.cpu_count()
 
 PVM_DEBUGGER = None
-#PVM_INTERPRETER = "PVM_GP"
-PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "PVM_CPYTHON")
+
 PVM_MIN_HEAP_SIZE = 0
 PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
 
+# Options: GRAYPAPER, CPYTHON, NUMBA_JIT, NUMBA_AOT
+PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "NUMBA_JIT")
 
 try:
     from pyjamaz.local_settings import *

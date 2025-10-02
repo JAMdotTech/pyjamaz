@@ -12,9 +12,9 @@ from pyjamaz.hostcalls.models import PvmAccumulateOutput, PvmIsAuthorizedOutput,
     PvmRefineOutput, AccumulateInvocationContext, AccumulatePvmArguments,  \
     IsAuthorizedPvmArguments, RefinePvmArguments, RefineInvocationContext
 from pyjamaz.pvm import PVMInterpreter
+from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.pvm.constants import ExitReason, ExitCondition
 from pyjamaz.pvm.invocation import InvocationMutator, PVMInvocation, InvocationMutationOutput
-from pyjamaz.pvm.types import PVMMemory
 from pyjamaz.hostcalls.accumulate import hc_bless, hc_assign, hc_designate, hc_checkpoint, hc_upgrade, \
     hc_transfer, hc_eject, hc_query, hc_solicit, hc_forget, hc_yield, hc_new, hc_provide
 from pyjamaz.hostcalls.constants import HostCallAccumulate, HostCallGeneral, HostCallDebug, HostCallRefine

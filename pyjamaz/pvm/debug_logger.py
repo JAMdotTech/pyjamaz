@@ -4,8 +4,9 @@ from datetime import datetime
 import numpy as np
 
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import OpcodeNames
-from pyjamaz.pvm.types import PVMLogger
+from pyjamaz.pvm.invocation import PVMLogger
 
 
 
@@ -164,41 +165,41 @@ class PVMDebugLog(PVMLogger):
         logging.debug(f"GAS: {self._pvm.gas} PC: {self._pvm.pc}")
 
     def pvm_header(self):
-        logging.debug(
-            f"PC      "
-            f"INST                  "
-            f"R1  "
-            f"R2  "
-            f"R3  "
-            f"IMM1                    "
-            f"IMM2                    "
-            f"OFF1                    "
-            f"OFF2                    "
-            "CTX")
+        pass
 
     def pvm_regs(self, msg):
         regs = self._pvm.get_registers()
         reg_msg = f"reg={str(regs)}"
         logging.debug(f"{msg} {reg_msg}")
 
+    def sbrk(self, cur_size, new_size, growth, alloc_mem):
+        print(f"SBRK GROWN FROM {cur_size} TO {new_size} (growth {growth}, alloc mem: {alloc_mem})")
+
+    def acl(self, cur_size, new_size, growth):
+        print(f"ACL GROWN FROM {cur_size} TO {new_size} (growth: {growth})")
+
+    def exc(self, exc_str):
+        print(f"PVM EXCEPTION:\n{exc_str}")
+
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
+        return
         mem_info = ""
-        if hasattr(self._pvm, "mem_sections"):
-            mem = self._pvm.mem_sections
-            if mem is not None and len(mem) >= 2 and mem[1] is not None:
-                heap_hash = hash_memory_segment(mem[1])
-                mem_info += f"heap_hash:{heap_hash}"
-            if mem is not None and len(mem) >= 3 and mem[2] is not None:
-                stack_hash = hash_memory_segment(mem[2])
-                mem_info += f" stack_hash:{stack_hash}"
-        elif hasattr(self._pvm, "mem"):
-            mem = self._pvm.mem
-            if mem and mem._heap:
-                heap_hash = hash_memory_segment(mem._heap.contents)
-                mem_info += f"heap_hash:{heap_hash}"
-            if mem and mem._stack:
-                stack_hash = hash_memory_segment(mem._stack.contents)
-                mem_info += f" stack_hash:{stack_hash}"
+        # if hasattr(self._pvm, "mem_sections"):
+        #     mem = self._pvm.mem_sections
+        #     if mem is not None and len(mem) >= 2 and mem[1] is not None:
+        #         heap_hash = hash_memory_segment(mem[1])
+        #         mem_info += f"heap_hash:{heap_hash}"
+        #     if mem is not None and len(mem) >= 3 and mem[2] is not None:
+        #         stack_hash = hash_memory_segment(mem[2])
+        #         mem_info += f" stack_hash:{stack_hash}"
+        # elif hasattr(self._pvm, "mem"):
+        #     mem = [x for x in [self._pvm.mem._rom, self._pvm.mem._heap, self._pvm.mem._stack, self._pvm.mem._args] if x]
+        #     if mem is not None and len(mem) >= 2:
+        #         heap_hash = hash_memory_segment(mem[1].contents)
+        #         mem_info += f"heap_hash:{heap_hash}"
+        #     if mem is not None and len(mem) >= 3:
+        #         stack_hash = hash_memory_segment(mem[2].contents)
+        #         mem_info += f" stack_hash:{stack_hash}"
 
         name_str = OpcodeNames[self._pvm.opcode]
         name_pad = 22 - len(name_str)
@@ -226,8 +227,15 @@ class PVMDebugLog(PVMLogger):
         if len(pc_str) < 4:
             pc_str = (" " * (4 - len(pc_str))) + pc_str
 
-        print(inst_str, pc_str, name_str, regs_str, mem_info)
+        tt = " ".join([str(inst_str), pc_str, name_str, str(self._pvm.gas), regs_str, mem_info])
+        logging.debug(tt)
 
 
     def hc_log(self, msg, data):
-        pass
+        msg = f"{self._pvm_id}: {msg}"
+        spacing = " " * (51 - len(str(msg)))
+        logging.debug(
+            f"{msg}"
+            f"{spacing}"
+            f"{data}"
+        )
