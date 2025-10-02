@@ -41,8 +41,6 @@ ENV NUMBA_DEBUGINFO=0
 # Compile app and remove source code
 RUN python -m compileall -b ./pyjamaz && \
     find ./pyjamaz -name "*.py" -type f \
-    ! -path "./pyjamaz/pvm/interpreters/numba/*" \
     -delete
-
 
 ENTRYPOINT ["python", "pyjamaz/cli.pyc"]
