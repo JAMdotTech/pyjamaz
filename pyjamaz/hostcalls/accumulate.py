@@ -59,9 +59,9 @@ def hc_bless(
     m = registers[7] # m: index of manager service (manager of chi(X))
     a = registers[8] # a: address to read values of the assign services (authorization queue)
     v = registers[9] # v: index of designate service (validator queue)
-
-    o = registers[10] # offset to read service indices and accompanying gas limits from
-    n = registers[11] # number of entries in the auto_accumulate_services dictionary to read
+    r = registers[10]  # r: index of registrar service
+    o = registers[11] # offset to read service indices and accompanying gas limits from
+    n = registers[12] # number of entries in the auto_accumulate_services dictionary to read
 
     assigners = None # GP: bold_a
     if memory.is_accessible(a, 4 * CORE_COUNT, MEM_R):
@@ -85,21 +85,18 @@ def hc_bless(
         except PVMMemoryError:
             auto_accumulate_services = None   # bold_g = ∇
 
-    # TODO review
-    service_exists = True
-
     if auto_accumulate_services is None or assigners is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
-
-    elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
-        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = HostCallResult.HUH.value
-        logger and logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
-    elif not service_exists:
+    # TODO regressie huh?
+    # elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
+    #     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+    #     invocation_output.registers[7] = HostCallResult.HUH.value
+    #     logger and logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
+    elif m >= 2**32 or v >= 2**32 or r >= 2**32:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-        logger and logger.hc_log("BLESS WHO", f"m={m} a={a} v={v}")
+        logger and logger.hc_log("BLESS WHO", f"m={m} a={a} v={v} r={r}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
@@ -108,9 +105,10 @@ def hc_bless(
         ps.manager = m
         ps.assigners = assigners
         ps.delegator = v
+        ps.registrar = r
         ps.always_accumulators = auto_accumulate_services
 
-        logger and logger.hc_log("BLESS OK", f"m={m} a={a} v={v}")
+        logger and logger.hc_log("BLESS OK", f"m={m} a={a} v={v} r={r}")
 
 
 def hc_assign(
@@ -148,6 +146,7 @@ def hc_assign(
     # Privileged services:
     core_index = registers[7] # Core index to update (0..341)
     o = registers[8] # memory offset
+    a = registers[9] # new assigner service
 
     if memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MEM_R):
         authorization_queue = [] #GP: bold_c
@@ -172,14 +171,21 @@ def hc_assign(
     elif x.context.service_account_id != x.context.state_context.privileged_services.assigners[core_index]:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger and logger.hc_log("BLESS HUH", f"X_s={x.context.service_account_id}")
+        logger and logger.hc_log("ASSIGN HUH", f"X_s={x.context.service_account_id}")
+
+    elif a >= 2**32:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.WHO.value
+        logger and logger.hc_log("ASSIGN WHO", f"a={a}")
 
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
         x.context.state_context.authorizer_queues.authorizer_queues[core_index] = authorization_queue
-        logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o}")
+        x.context.state_context.privileged_services.assigners[core_index] = a
+
+        logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o} a={a}")
 
 
 def hc_designate(
