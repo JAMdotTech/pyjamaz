@@ -85,9 +85,6 @@ def hc_bless(
         except PVMMemoryError:
             auto_accumulate_services = None   # bold_g = ∇
 
-    # TODO review
-    service_exists = True
-
     if auto_accumulate_services is None or assigners is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
@@ -96,7 +93,8 @@ def hc_bless(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
         logger and logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
-    elif not service_exists:
+
+    elif m >= 2**32 or v >= 2**32:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
         logger and logger.hc_log("BLESS WHO", f"m={m} a={a} v={v}")
@@ -148,6 +146,8 @@ def hc_assign(
     # Privileged services:
     core_index = registers[7] # Core index to update (0..341)
     o = registers[8] # memory offset
+    a = registers[9] # new assigner service
+
 
     if memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MEM_R):
         authorization_queue = [] #GP: bold_c
@@ -174,11 +174,19 @@ def hc_assign(
         invocation_output.registers[7] = HostCallResult.HUH.value
         logger and logger.hc_log("BLESS HUH", f"X_s={x.context.service_account_id}")
 
+    elif a >= 2**32:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.WHO.value
+        logger and logger.hc_log("ASSIGN WHO", f"a={a}")
+
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
+        # Apply state changes
         x.context.state_context.authorizer_queues.authorizer_queues[core_index] = authorization_queue
+        x.context.state_context.privileged_services.assigners[core_index] = a
+
         logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o}")
 
 

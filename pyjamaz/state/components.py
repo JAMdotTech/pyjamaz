@@ -1911,6 +1911,18 @@ class Services(StateComponent):
         """
         # TODO: check GP-0.7.0-eq:4.16; needs attention and refactoring
 
+        if len(accumulatable_work_reports) == 0:
+            return ServicesAfterAccumulationOutput(
+                intermediate_state_after_accumulation=pre_state_services,
+                post_state_privileged_services=pre_state_privileged_services,
+                post_state_validator_queue=pre_state_validator_queue,
+                post_state_authorizer_queues=pre_state_authorizer_queues,
+                beefy_commitment_map=BeefyCommitmentMap(beefy_commitment_map={}),
+                nr_work_results_accumulated=0,
+                deferred_transfers=[],
+                accumulation_gas_utilized={}
+            )
+
         services = ServicesState(services=deepcopy(pre_state_services.services))
         services.set_state_storage(self.app_context.state_storage)
 
