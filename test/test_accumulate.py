@@ -46,8 +46,12 @@ class TestAccumulate(unittest.TestCase):
 
         self.app_context = AppContext(state_storage=StateStorage(storage_engine))
 
-        log_level = logging.DEBUG
-        setup_logging(log_level)
+        log_level = logging.INFO
+        log_package_overrides = {
+            "numba": logging.WARNING,
+            "numba.core": logging.WARNING
+        }
+        setup_logging(log_level, log_package_overrides)
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -111,7 +115,7 @@ class TestAccumulate(unittest.TestCase):
             manager=test_vector["pre_state"]["privileges"]["bless"],
             assigners=test_vector["pre_state"]["privileges"]["assign"],
             delegator=test_vector["pre_state"]["privileges"]["designate"],
-            registrar=test_vector["pre_state"]["privileges"]["registrar"],
+            registrar=0, #test_vector["pre_state"]["privileges"]["registrar"],
             always_accumulators={} #test_vector["pre_state"]["privileges"]["always_acc"]
         )
 

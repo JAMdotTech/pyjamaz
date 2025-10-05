@@ -291,7 +291,7 @@ class WorkPackage(Serializable):
 @dataclass
 class WorkExecResult(Serializable):
     """
-    GP-0.7.1-eq:11.7 (blackboard_E) | Work result output or error of the execution of the code in the refine stage.
+    GP-0.7.1-eq:11.7 (function_O = blackboard_E u blackboard_B) | Work result output or error of the execution of the code in the refine stage.
     Either a byte sequence in case it was successful or one of the possible errors
 
     Attributes
@@ -549,10 +549,10 @@ class AccumulationOperand(Serializable):
         GP-0.7.1-eq:12.13 (y) | [description].
     work_result_gas_limit: VarInt64
         GP-0.7.1-eq:12.13 (g) | [description].
-    work_report_auth_output: Bytes
-        GP-0.7.1-eq:12.13 (bold_t) | [description].
     work_exec_result: WorkExecResult
         GP-0.7.1-eq:12.13 (bold_l) | [description].
+    work_report_auth_output: Bytes
+        GP-0.7.1-eq:12.13 (bold_t) | [description].
     """
     # TODO: check order of work_exec_result & work_report_auth_output (swapped in 0.7.0)
     work_report_hash: bytes = field(metadata={'codec': H256})
@@ -560,8 +560,8 @@ class AccumulationOperand(Serializable):
     work_report_authorizer_hash: bytes = field(metadata={'codec': H256})
     work_result_payload_hash: bytes = field(metadata={'codec': H256})
     work_result_gas_limit: int = field(metadata={'codec': VarInt64})
-    work_report_auth_output: bytes = field(metadata={'codec': Bytes})
     work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
+    work_report_auth_output: bytes = field(metadata={'codec': Bytes})
 
 
 @dataclass

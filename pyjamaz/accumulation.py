@@ -390,7 +390,9 @@ def single_step_accumulation(
     Parameters
     ----------
     accumulation_state: AccumulationStateComponents
+    deferred_transfers: List[DeferredTransfer]
     post_state_timeslot: TimeslotState
+    post_state_entropy: EntropyState
     work_reports: List[WorkReport]
     auto_accumulate_services: Dict[int, int]
     service_id: int

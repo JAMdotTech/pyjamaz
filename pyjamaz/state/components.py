@@ -1703,7 +1703,7 @@ class Statistics(StateComponent):
 
         post_state.services = {}
 
-        # TODO GP-0.7.1-eq:13.12 | Determine affected services
+        # GP-0.7.1-eq:13.12 | Determine affected services
         services = [r.service_id for w in incoming_work_reports for r in w.results]
         services += [p.requester for p in extrinsic_preimages]
         services += self.block_context.accumulation_statistics.keys()
