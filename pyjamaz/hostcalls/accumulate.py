@@ -358,13 +358,21 @@ def hc_new(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("NEW PANIC", f"service={service_id}")
 
+    elif f != 0 and service_id != x.context.state_context.privileged_services.manager:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
+        logger and logger.hc_log(
+            "NEW HUH",
+            f"service={service_id} attempted non-zero deposit_offset f={f} without manager privileges"
+        )
+
     elif deducted_balance < service_account.threshold_balance:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
         logger and logger.hc_log("NEW CASH", f"service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
 
     elif (service_id == x.context.state_context.privileged_services.registrar and i < MINIMUM_PUBLIC_SERVICE_ID and
-          x.context.state_context.services.service_exists(service_id)):
+          x.context.state_context.services.service_exists(i)):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
         invocation_output.registers[7] = HostCallResult.FULL.value
@@ -1080,4 +1088,3 @@ def hc_provide(
         ctx_in.context.preimages.append((service_account_id, preimage_blob))
 
         logger and logger.hc_log("PROVIDE OK", f"h={format_hash(blake2b_256_hash(preimage_blob))}")
-

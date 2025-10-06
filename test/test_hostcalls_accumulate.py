@@ -1,7 +1,7 @@
 import json
 import os
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, ANY
 from copy import deepcopy
 from os import path
 
@@ -114,7 +114,10 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
     services.retrieve_storage_item = Mock(side_effect=retrieve_storage_item)
     services.store_storage_item = Mock(side_effect=store_storage_item)
     services.delete_storage_item = Mock(side_effect=delete_storage_item)
-    services.store_service_account = Mock()
+    def store_service_account(service_id, account):
+        services.services[service_id] = account
+
+    services.store_service_account = Mock(side_effect=store_service_account)
 
     preimages_dict = preimages or {}
     def retrieve_preimage(service_account_id, preimage_hash):
@@ -127,7 +130,15 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
     services.store_preimage_availability = Mock()
     services.delete_preimage = Mock()
     services.delete_preimage_availability = Mock()
-    services.delete_service_account = Mock()
+    def delete_service_account(service_id):
+        services.services.pop(service_id, None)
+
+    services.delete_service_account = Mock(side_effect=delete_service_account)
+
+    def service_exists(service_id):
+        return service_id in services.services
+
+    services.service_exists = Mock(side_effect=service_exists)
 
     # Add preimage availability support
     preimage_availability_dict = {}
@@ -284,6 +295,7 @@ class TestHCAccumulate(unittest.TestCase):
                     privileged_services.assigners[i] = assigner
 
         privileged_services.delegator = privileged_services_data.get("delegator", None)
+        privileged_services.registrar = privileged_services_data.get("registrar", None)
         privileged_services.always_accumulators = privileged_services_data.get("always_accumulators", {})
 
         authorizer_queues = Mock(spec=AuthorizerQueuesState)
@@ -467,6 +479,12 @@ class TestHCAccumulate(unittest.TestCase):
                     privileged_services.delegator,
                     f"{name}: Expected delegator {expected_ps['delegator']}, but got {privileged_services.delegator}"
                 )
+            if expected_ps.get("registrar") is not None:
+                self.assertEqual(
+                    expected_ps["registrar"],
+                    privileged_services.registrar,
+                    f"{name}: Expected registrar {expected_ps['registrar']}, but got {privileged_services.registrar}"
+                )
             if "always_accumulators" in expected_ps:
                 expected_auto_acc = {int(k): v for k, v in expected_ps["always_accumulators"].items()}
                 self.assertEqual(
@@ -525,11 +543,21 @@ class TestHCAccumulate(unittest.TestCase):
             # - new_service_account_id in context
             # - service accounts in state_context
             # - balance of the calling service
-            if "expected-new-service-id" in test_vector:
+            expected_new_service_id = test_vector.get("expected-new-service-id")
+            if expected_new_service_id is not None:
+                services.store_service_account.assert_any_call(expected_new_service_id, ANY)
+                self.assertIn(
+                    expected_new_service_id,
+                    services.services,
+                    f"{name}: Expected new service {expected_new_service_id} to be stored"
+                )
+
+            expected_next_id = test_vector.get("expected-next-new-service-account-id")
+            if expected_next_id is not None:
                 self.assertEqual(
-                    test_vector["expected-new-service-id"],
+                    expected_next_id,
                     context_item.new_service_account_id,
-                    f"{name}: Expected new_service_account_id {test_vector['expected-new-service-id']}, but got {context_item.new_service_account_id}"
+                    f"{name}: Expected new_service_account_id {expected_next_id}, but got {context_item.new_service_account_id}"
                 )
 
             #check if new service was stored

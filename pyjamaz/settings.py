@@ -9,7 +9,6 @@ FUZZER_FEATURE_FORK = True
 FUZZER_FEATURE_ANCESTRY = False
 
 DEBUG = False
-PVM_DEBUG = False
 SOLO_MODE = False
 STORAGE_ENGINE = 'rocksdb' # memory | rocksdb | leveldb
 
@@ -21,7 +20,10 @@ DEBUG_PROGRAM_OVERRIDE = {}
 USE_THREAD_POOL = True
 THREAD_POOL_MAX_WORKERS = os.cpu_count()
 
-PVM_DEBUGGER = None
+PVM_DEBUGGER = None         # Class handling all PVM (& hostcall) related logging
+PVM_DEBUG = False
+PVM_DEBUG_OPCODES = False
+PVM_DEBUG_MEMORY = False
 
 PVM_MIN_HEAP_SIZE = 0
 PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
