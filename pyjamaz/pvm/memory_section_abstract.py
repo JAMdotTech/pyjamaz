@@ -31,8 +31,19 @@ class AbstractMemorySection(ABC):
         if not contents:
             contents = []
 
+        psize = page_size(size)
+
+        if psize != size:
+            raise PVMMemoryError(f"Memory size is not paged: {size}")
+
         if size > settings.PVM_MAX_HEAP_SIZE:
             raise PVMMemoryError(f"Memory size too large: {size} > {settings.PVM_MAX_HEAP_SIZE}")
+
+        initial_contents_size = page_size(len(contents))
+        if initial_contents_size > size:
+            raise PVMMemoryError(f"Memory contents > size: {initial_contents_size} > {size}")
+
+        #paged_size = max(initial_contents_size, size)
 
         self.acl:int = acl
         self.address:int = address
@@ -41,11 +52,10 @@ class AbstractMemorySection(ABC):
         # Note: actual implementation depends on PVM implementation
         self.alloc_contents(contents)
 
-        paged_size = page_size(len(contents))
-        self.paged_tail = address + paged_size
+        self.paged_tail = address + psize
 
         # Note: actual implementation depends on PVM implementation
-        self.alloc_acl(acl, paged_size)
+        self.alloc_acl(acl, psize)
 
 
     def read_int(self, section_addr: int, length: int) -> int:
