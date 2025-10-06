@@ -140,6 +140,7 @@ class TestCodec(unittest.TestCase):
 
         with open(path.join(self.test_vector_jdt_dir, f'state_privileged_services.bin'), "rb") as f:
            jam_data = f.read()
+
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 
     def test_jdt_state_recent_history(self):

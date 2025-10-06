@@ -102,7 +102,7 @@ class TestAccumulate(unittest.TestCase):
                 "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
                 "parent_service": s["data"]["service"]["parent_service"],
                 "storage_items": {p['key']:p['value'] for p in s['data']['storage']},
-                "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
+                "preimages": {p['hash']:p['blob'] for p in s['data']['preimages_blob']},
                 "preimage_availability": {},
                 "threshold_balance": 0
 
@@ -148,7 +148,7 @@ class TestAccumulate(unittest.TestCase):
                         "footprint_storage_bytes": s["data"]["service"]["bytes"],
                         "threshold_balance": 0,
                         "storage_items": {p['key']:p['value'] for p in s['data']['storage']},
-                        "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
+                        "preimages": {p['hash']:p['blob'] for p in s['data']['preimages_blob']},
                         "preimage_availability": {},
                         "deposit_offset": s["data"]["service"]["deposit_offset"],
                         "creation_slot": s["data"]["service"]["creation_slot"],
