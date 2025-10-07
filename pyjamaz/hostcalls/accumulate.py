@@ -645,12 +645,12 @@ def hc_eject(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
-        # TODO: nodig?
-        state.services.delete_preimage(d, preimage_hash)
-        state.services.delete_preimage_availability(d, preimage_hash, l)
+        # TODO: @Arjan: nodig? Deze operaties staan niet in het GP vermeld
+        #state.services.delete_preimage(d, preimage_hash)
+        #state.services.delete_preimage_availability(d, preimage_hash, l)
         state.services.delete_service_account(d)
         service_account.balance = updated_balance
-        state.services.store_service_account(service_id, service_account) # TODO: meenemen in de finalize vd transactie
+        state.services.store_service_account(service_id, service_account)
         logger and logger.hc_log("EJECT OK", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)

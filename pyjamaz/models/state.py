@@ -486,7 +486,7 @@ class ServiceAccount(Serializable):
         self.footprint_storage_items = service_account.footprint_storage_items
         self.balance = service_account.balance
         self.code_hash = service_account.code_hash
-        self.gas_limit_accumulate = service_account.gas_limit_on_transfer
+        self.gas_limit_accumulate = service_account.gas_limit_on_transfer   #TODO: @Arjan: bug?? gas_limit_accumulate???
         self.gas_limit_on_transfer = service_account.gas_limit_on_transfer
 
     def update_footprint_add_storage_item(self, key_len: int, value_len: int) -> None:

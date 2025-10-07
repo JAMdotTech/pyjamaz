@@ -103,11 +103,19 @@ class TestAccumulate(unittest.TestCase):
                 "parent_service": s["data"]["service"]["parent_service"],
                 "storage_items": {p['key']:p['value'] for p in s['data']['storage']},
                 "preimages": {p['hash']:p['blob'] for p in s['data']['preimages_blob']},
-                "preimage_availability": {},
+                "preimage_availability": {}, #Note: done as a post processing step
                 "threshold_balance": 0
 
             } for s in test_vector["pre_state"]["accounts"]}}
         )
+
+        for s in test_vector["pre_state"]["accounts"]:
+            preimages_status = s['data']['preimages_status']
+            for p in preimages_status:
+                si_key = bytes.fromhex(p['hash'][2:])
+                if si_key in pre_services.services[s["id"]].preimages:
+                    si_len = len(pre_services.services[s["id"]].preimages[si_key])
+                    pre_services.services[s["id"]].preimage_availability[(si_key, si_len)] = p["status"]
 
         pre_services.set_state_storage(self.app_context.state_storage)
 
@@ -159,6 +167,15 @@ class TestAccumulate(unittest.TestCase):
             }
         )
 
+        #TODO: make serializing preimage_status generic
+        for s in test_vector["post_state"]["accounts"]:
+            preimages_status = s['data']['preimages_status']
+            for p in preimages_status:
+                si_key = bytes.fromhex(p['hash'][2:])
+                if si_key in post_services.services[s["id"]].preimages:
+                    si_len = len(post_services.services[s["id"]].preimages[si_key])
+                    post_services.services[s["id"]].preimage_availability[(si_key, si_len)] = p["status"]
+
         # Prepare block context
         self.block_context.reset()
 
@@ -201,10 +218,22 @@ class TestAccumulate(unittest.TestCase):
             post_state_timeslot=post_state_timeslot
         )
 
+        #########################################
+        #TODO: @Arjan: this is a hack to make test_accumulate work, should not be necesary?
+        # deletezz = []
+        # for service_key, service in accumulation_output.intermediate_state_after_accumulation.services.items():
+        #     if service.marked_as_deleted:
+        #         deletezz.append(service_key)
+        # for service_key in deletezz:
+        #     del accumulation_output.intermediate_state_after_accumulation.services[service_key]
+        #########################################
+
+
+
         self.assertEqual(post_accumulation_history.to_json(), history_output.post_state.to_json())
         self.assertEqual(post_accumulation_queue.to_json(), queue_output.post_state.to_json())
 
-        self.assertDictEqual(post_services.to_json()['services'][0][1], accumulation_output.intermediate_state_after_accumulation.to_json()['services'][0][1])
+        self.assertEqual(post_services.to_json()['services'], accumulation_output.intermediate_state_after_accumulation.to_json()['services'])
 
 
 if __name__ == '__main__':
