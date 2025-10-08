@@ -1,14 +1,14 @@
 import typing
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Set
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Vec, VarInt64, Bytes, H256, U16
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkExecResult, DeferredTransfer
-from pyjamaz.models.state import AccumulationStateComponents
+from pyjamaz.models.state import AccumulationStateComponents, ServicesState
 
 from pyjamaz.pvm.invocation import InvocationContext
 from pyjamaz.pvm.types import PVMCode, PVMMemory
@@ -21,6 +21,8 @@ class PvmAccumulateOutput:
     accumulation_output: Optional[bytes]
     gas_used: int
     preimages: List[typing.Tuple[int, bytes]]
+    services: Optional[ServicesState] = None
+    mutated_services: Set[int] = field(default_factory=set)
 
 
 @dataclass

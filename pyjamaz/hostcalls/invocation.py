@@ -144,6 +144,8 @@ class AccumulateInvocationMutator(InvocationMutator):
                 # Host call not found
                 hc_not_found(invocation_output, _pvm.log)
 
+        invocation_output.services = services
+        invocation_output.mutated_services = services.mutated_services()
         return invocation_output
 
 
@@ -205,7 +207,9 @@ def pvm_invoke_accumulate(
             deferred_transfers=[],
             accumulation_output=None,
             gas_used=0,
-            preimages=[]
+            preimages=[],
+            services=state_context.services,
+            mutated_services=set()
         )
 
     argument_data = AccumulatePvmArguments(
@@ -238,7 +242,9 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.savepoint_context.deferred_transfers,
             accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
             gas_used=marshalling_output.gas_used,
-            preimages=marshalling_output.context.savepoint_context.preimages
+            preimages=marshalling_output.context.savepoint_context.preimages,
+            services=marshalling_output.services or marshalling_output.context.savepoint_context.state_context.services,
+            mutated_services=marshalling_output.mutated_services
         )
         logging.info(f'😱 PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
@@ -247,7 +253,9 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.exit_condition.value,
             gas_used=marshalling_output.gas_used,
-            preimages=marshalling_output.context.context.preimages
+            preimages=marshalling_output.context.context.preimages,
+            services=marshalling_output.services or marshalling_output.context.context.state_context.services,
+            mutated_services=marshalling_output.mutated_services
         )
         DEBUG and logging.debug(f'PVM accumulate successful, output=0x{output.accumulation_output.hex()}')
     else:
@@ -256,7 +264,9 @@ def pvm_invoke_accumulate(
             deferred_transfers=marshalling_output.context.context.deferred_transfers,
             accumulation_output=marshalling_output.context.context.invocation_output,
             gas_used=marshalling_output.gas_used,
-            preimages=marshalling_output.context.context.preimages
+            preimages=marshalling_output.context.context.preimages,
+            services=marshalling_output.services or marshalling_output.context.context.state_context.services,
+            mutated_services=marshalling_output.mutated_services
         )
         DEBUG and logging.debug(f'PVM accumulate successful, no output')
 

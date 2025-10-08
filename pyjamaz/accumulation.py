@@ -320,7 +320,11 @@ def parallel_accumulation(
                     output.state_context.services.store_preimage(s, i)
 
             # Update services state with output
-            accumulation_state.services.services.update(output.state_context.services.services)
+            services_state = output.services or output.state_context.services
+            mutated_ids = output.mutated_services or {service_id}
+            for mutated_id in mutated_ids:
+                if mutated_id in services_state.services:
+                    accumulation_state.services.services[mutated_id] = services_state.services[mutated_id]
 
             if output.accumulation_output is not None:
                 beefy_commitment_map.update({service_id: output.accumulation_output}) # b

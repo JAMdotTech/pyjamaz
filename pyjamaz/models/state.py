@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import ceil
-from typing import List, Optional, Dict, Tuple, Union
+from typing import List, Optional, Dict, Tuple, Union, Set
 
 from jamcodec.base import JamBytes
 
@@ -482,12 +482,16 @@ class ServiceAccount(Serializable):
     #     return serialized_bytes
 
     def update_from(self, service_account: "ServiceAccount"):
-        self.footprint_storage_bytes = service_account.footprint_storage_bytes
-        self.footprint_storage_items = service_account.footprint_storage_items
-        self.balance = service_account.balance
         self.code_hash = service_account.code_hash
-        self.gas_limit_accumulate = service_account.gas_limit_on_transfer   #TODO: @Arjan: bug?? gas_limit_accumulate???
+        self.balance = service_account.balance
+        self.gas_limit_accumulate = service_account.gas_limit_accumulate
         self.gas_limit_on_transfer = service_account.gas_limit_on_transfer
+        self.footprint_storage_bytes = service_account.footprint_storage_bytes
+        self.deposit_offset = service_account.deposit_offset
+        self.footprint_storage_items = service_account.footprint_storage_items
+        self.creation_slot = service_account.creation_slot
+        self.last_accumulation_slot = service_account.last_accumulation_slot
+        self.parent_service = service_account.parent_service
 
     def update_footprint_add_storage_item(self, key_len: int, value_len: int) -> None:
         """
@@ -557,6 +561,9 @@ class ServicesState(State, Serializable):
         metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
     )
 
+    def __post_init__(self):
+        setattr(self, '_mutated_services', set())
+
     def __deepcopy__(self, memo):
         # Create a new instance without calling __init__
         new_obj = self.__class__.__new__(self.__class__)
@@ -567,6 +574,7 @@ class ServicesState(State, Serializable):
 
         # Set new storage engine
         new_obj.set_state_storage(self.state_storage)
+        setattr(new_obj, '_mutated_services', set(getattr(self, '_mutated_services', set())))
 
         return new_obj
 
@@ -576,6 +584,12 @@ class ServicesState(State, Serializable):
     @property
     def state_storage(self) -> Optional[StateStorage]:
         return getattr(self, '_state_storage', None)
+
+    def register_mutation(self, service_id: int):
+        getattr(self, '_mutated_services').add(service_id)
+
+    def mutated_services(self) -> Set[int]:
+        return set(getattr(self, '_mutated_services'))
 
     def service_exists(self, service_id: int) -> bool:
         try:
@@ -647,6 +661,8 @@ class ServicesState(State, Serializable):
 
             self.state_storage.put(state_key, data)
 
+        self.register_mutation(service_account_id)
+
         logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} f_i={service_account.footprint_storage_items} f_b={service_account.footprint_storage_bytes} commit={commit}')
 
 
@@ -680,6 +696,8 @@ class ServicesState(State, Serializable):
             self.services[service_account_id].marked_as_deleted = True
         else:
             self.services[service_account_id] = None
+
+        self.register_mutation(service_account_id)
 
         logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
 
@@ -816,6 +834,8 @@ class ServicesState(State, Serializable):
 
             self.state_storage.put(storage_key, preimage_blob)
 
+        self.register_mutation(service_account_id)
+
         logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): sk={storage_key.hex()} commit={commit}')
 
 
@@ -881,6 +901,8 @@ class ServicesState(State, Serializable):
 
             self.state_storage.put(storage_key, data.to_bytes())
 
+        self.register_mutation(service_account_id)
+
         logging.debug(
             f'store_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={value} {storage_key.hex()}'
         )
@@ -902,6 +924,8 @@ class ServicesState(State, Serializable):
             self.services[service_account_id].preimages.pop(preimage_hash, None)
         else:
             self.services[service_account_id].preimages[preimage_hash] = None
+
+        self.register_mutation(service_account_id)
 
         logging.debug(
             f'delete_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={commit}'
@@ -927,6 +951,8 @@ class ServicesState(State, Serializable):
 
         else:
             self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = None
+
+        self.register_mutation(service_account_id)
 
         logging.debug(
             f'delete_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}'
@@ -987,6 +1013,8 @@ class ServicesState(State, Serializable):
 
         self.services[service_account_id].storage_items[storage_key] = value
 
+        self.register_mutation(service_account_id)
+
 
     def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, commit=False):
         """
@@ -1012,6 +1040,8 @@ class ServicesState(State, Serializable):
         logging.debug(
             f'delete_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()} [commit={commit}]'
             )
+
+        self.register_mutation(service_account_id)
 
 
 @dataclass
