@@ -26,7 +26,7 @@ from pyjamaz.settings import DEBUG
 from pyjamaz.utils import format_hash
 
 
-# GP-0.7.1-section:B.6 | Accumulate Invocations
+# GP-0.7.1-section:B.4 | Accumulate Invocations
 class AccumulateInvocationMutator(InvocationMutator):
 
     def __init__(self, post_entropy: EntropyState, accumulation_inputs: List[AccumulationInput]):
