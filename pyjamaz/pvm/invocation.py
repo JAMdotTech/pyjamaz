@@ -146,8 +146,8 @@ class PVMInvocation:
         GP-0.7.1-eq:A.35 (Ψ_H) | Hostcall definition
         """
 
-        last_services: Optional['ServicesState'] = None
-        last_mutated_services: Set[int] = set()
+        hc_services: Optional['ServicesState'] = None
+        hc_mutated_services: Set[int] = set()
 
         while True:
 
@@ -169,8 +169,8 @@ class PVMInvocation:
                     registers=self.pvm.get_registers(),
                     memory=self.pvm.mem,
                     invocation_context=self.invocation_context,
-                    services=last_services,
-                    mutated_services=set(last_mutated_services)
+                    services=hc_services,
+                    mutated_services=hc_mutated_services
                 )
 
             if exit_condition.reason == ExitReason.host_halt:
@@ -188,9 +188,9 @@ class PVMInvocation:
                 gas_limit = host_call_output.gas_limit
 
                 if host_call_output.services is not None:
-                    last_services = host_call_output.services
+                    hc_services = host_call_output.services
                 if host_call_output.mutated_services:
-                    last_mutated_services.update(host_call_output.mutated_services)
+                    hc_mutated_services.update(host_call_output.mutated_services)
 
                 if host_call_output.exit_condition.reason == ExitReason.page_fault:
                     return PvMHostCallOutput(
@@ -200,8 +200,8 @@ class PVMInvocation:
                         registers=self.pvm.get_registers(),
                         memory=self.pvm.mem,
                         invocation_context=self.invocation_context,
-                        services=host_call_output.services or last_services,
-                        mutated_services=host_call_output.mutated_services or set(last_mutated_services)
+                        services=host_call_output.services or hc_services,
+                        mutated_services=host_call_output.mutated_services or hc_mutated_services
                     )
                 elif host_call_output.exit_condition.reason == ExitReason.resume:
                     self.pvm.status = ExitReason.resume.value
@@ -219,8 +219,8 @@ class PVMInvocation:
                         registers=host_call_output.registers,
                         memory=host_call_output.memory,
                         invocation_context=self.invocation_context,
-                        services=host_call_output.services or last_services,
-                        mutated_services=host_call_output.mutated_services or set(last_mutated_services)
+                        services=host_call_output.services or hc_services,
+                        mutated_services=host_call_output.mutated_services or hc_mutated_services
                     )
                 else:
                     raise Exception("OEPSIE!")

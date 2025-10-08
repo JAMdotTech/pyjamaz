@@ -562,7 +562,7 @@ class ServicesState(State, Serializable):
     )
 
     def __post_init__(self):
-        setattr(self, '_mutated_services', set())
+        self._mutated_services = set()
 
     def __deepcopy__(self, memo):
         # Create a new instance without calling __init__
@@ -574,7 +574,7 @@ class ServicesState(State, Serializable):
 
         # Set new storage engine
         new_obj.set_state_storage(self.state_storage)
-        setattr(new_obj, '_mutated_services', set(getattr(self, '_mutated_services', set())))
+        new_obj._mutated_services = set(self._mutated_services) # note: make a copy, so we dont change the original
 
         return new_obj
 
@@ -586,10 +586,10 @@ class ServicesState(State, Serializable):
         return getattr(self, '_state_storage', None)
 
     def register_mutation(self, service_id: int):
-        getattr(self, '_mutated_services').add(service_id)
+        self._mutated_services.add(service_id) # note: make a copy, so we dont change the original
 
     def mutated_services(self) -> Set[int]:
-        return set(getattr(self, '_mutated_services'))
+        return set(self._mutated_services)
 
     def service_exists(self, service_id: int) -> bool:
         try:
