@@ -240,6 +240,55 @@ class TestAccumulate(unittest.TestCase):
                     }
 
                 for storage_item_hash, x in accumulation_output.intermediate_state_after_accumulation.services[service_id].storage_items.items():
+                    """
+                    @Arjan:
+                    Ik heb volgens mij een nasty bug gevonden;
+                    De hc_write hostcall werkte met een deepcopy vd ServiceState in de invocation context (opzicht logisch); Deze werd weer geplaatst in invocation_context.context.state_context.services.services (Dict[int, ServiceAccount])
+                    
+                    Wanneer een hostcall een service_account update, muteerde het de dict (vervangt bv services[service_id] met een nieuwe ServiceAccount, met een nieuwe storage map, footprint etc). 
+                    Maar deze mutaties kwamen nooit terecht in de accumulation_state.services.services (state_transition_accumulation).
+                    
+                    services: Union[Dict[int, ServiceAccount], ServiceAccountMap]
+                    
+                    elke accumulate invocation maakt een pre-state copy (AccumulateInvocationContext.create_from_accumulation_state(...)). 
+                    De hostcalls muteren deze kopie (bv hc_write calls services.store_service_account(...)). 
+                    pvm_invoke_accumulate maakte hiervan een resultaat: PvmAccumulateOutput(... state_context=marshalling_output.context.context.state_context, ...)
+                    
+                    accumulation_state.services.services.update(output.state_context.services.services)
+                    dit creeerde de nieuwe service ids via dict.update, maar voor bestaande ids overschreef de oude item het nieuw gemuteerde, en "vergat" dus alle hostcall changes...
+                    
+                    De bug trad dus alleen op voor bestaande services waar de hostcall de ServiceAccount muteerde, en dit ServiceAccount dus weer overschreven werd door de deep copy voor de hostcall
+                    
+                    pyjamaz/accumulation.py:
+                    accumulation_state.services.services.update(output.state_context.services.services)
+                    
+                    Nu dus gefixed door dict.update(...) te vervangen met:
+                    
+                      services_state = output.services or output.state_context.services
+                      mutated_ids = output.mutated_services or {service_id}
+                      for mutated_id in mutated_ids:
+                          if mutated_id in services_state.services:
+                              accumulation_state.services.services[mutated_id] = services_state.services[mutated_id]
+                    
+                    * output.services bevat nu post hostcall ServicesState met een lijstje van mutated_services, we overschrijven nu service ids die een gemuteerde ServiceAccount hebben.
+
+                    Dit is de executive samevatting :)
+                    Zie code wijzigingen voor meer detaisl!
+
+                    
+                    Verder is er nog 1 puzzel over!
+                    Emiel en ik hebben accumulate tests aangepast om de state transitions echt door te drukken naar de storage engine en deze vervolgens terug te syncen, om een "schone" state te krijgen waarop we kunnen vergelijken
+                    
+                    Er is echter 1 testvector over (welke ook de oorzaak van het stukje hierboven was); testvector transfer_for_ejected_service-1.json
+                    Volgens mij klapt deze testvector terecht, want er wordt een storage item aangemaakt via de hc_write
+                    De testvector verwacht 3 storage items (preimage, preimage_availability en 1 (nieuw) storage item, deze properties voor service 0 kloppen verder nu ook allemaal, door de bovenstaande fix
+                    Maar ik snap nog niet waarom de testvector vervolgens helemaal geen storage_items heeft opgenomen voor service 0, deze is immers aangemaakt en alle properties wijzen daar ook op (zie 1.txt)
+                    In ons resultaat (zie 2.txt) staat deze wel opgenomen...
+                    
+                    Als je de if not expected_storage_keys or storage_item_hash not in expected_storage_keys: hieronder weer aanzet, zal die uiteraard wel slagen, maar dat is alleen omdat ik dan op props check die expected zijn, 
+                    wat uiteraard niet de bedoeling is :) 
+                    """
+
                     # if not expected_storage_keys or storage_item_hash not in expected_storage_keys:
                     #     continue
                     try:

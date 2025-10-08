@@ -1,6 +1,5 @@
 import logging
-from dataclasses import dataclass
-from typing import List, Dict
+from typing import List
 
 from pyjamaz.constants import PVM_MARSHALLING_OFFSET_ACCUMULATE, PVM_MARSHALLING_OFFSET_TRANSFER, \
     PVM_MARSHALLING_OFFSET_AUTH, PVM_MARSHALLING_OFFSET_REFINE
