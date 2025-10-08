@@ -1,7 +1,7 @@
 import logging
 from abc import abstractmethod, ABC
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import List, Optional, TYPE_CHECKING, Set
 
 import numpy as np
 import numpy.typing as npt
@@ -10,6 +10,9 @@ from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.types import PVMProgram, PVMMemory
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
+
+if TYPE_CHECKING:
+    from pyjamaz.models.state import ServicesState
 
 
 class PVMLogger(ABC):
@@ -71,6 +74,8 @@ class InvocationMutationOutput:
     gas_limit: int
     registers: npt.NDArray[np.uint64]
     memory: PVMMemory
+    services: Optional['ServicesState'] = None
+    mutated_services: Set[int] = field(default_factory=set)
 
 
 class InvocationMutator:
@@ -103,6 +108,8 @@ class PvmMarshallingOutput:
     gas_used: int
     exit_condition: ExitCondition
     context: InvocationContext
+    services: Optional['ServicesState'] = None
+    mutated_services: Set[int] = field(default_factory=set)
 
 
 @dataclass
@@ -113,6 +120,8 @@ class PvMHostCallOutput:
     registers: List[int]                   # ω′
     memory: PVMMemory                      # μ′
     invocation_context: InvocationContext  # x
+    services: Optional['ServicesState'] = None
+    mutated_services: Set[int] = field(default_factory=set)
 
 
 class PVMInvocation:
@@ -137,6 +146,9 @@ class PVMInvocation:
         GP-0.7.1-eq:A.35 (Ψ_H) | Hostcall definition
         """
 
+        last_services: Optional['ServicesState'] = None
+        last_mutated_services: Set[int] = set()
+
         while True:
 
             # invoke general PVM function (Ψ)
@@ -156,7 +168,9 @@ class PVMInvocation:
                     gas_limit=int(self.pvm.gas),
                     registers=self.pvm.get_registers(),
                     memory=self.pvm.mem,
-                    invocation_context=self.invocation_context
+                    invocation_context=self.invocation_context,
+                    services=last_services,
+                    mutated_services=set(last_mutated_services)
                 )
 
             if exit_condition.reason == ExitReason.host_halt:
@@ -173,6 +187,11 @@ class PVMInvocation:
                 # Update gas usage
                 gas_limit = host_call_output.gas_limit
 
+                if host_call_output.services is not None:
+                    last_services = host_call_output.services
+                if host_call_output.mutated_services:
+                    last_mutated_services.update(host_call_output.mutated_services)
+
                 if host_call_output.exit_condition.reason == ExitReason.page_fault:
                     return PvMHostCallOutput(
                         exit_condition=host_call_output.exit_condition,
@@ -180,7 +199,9 @@ class PVMInvocation:
                         gas_limit=int(self.pvm.gas),
                         registers=self.pvm.get_registers(),
                         memory=self.pvm.mem,
-                        invocation_context=self.invocation_context
+                        invocation_context=self.invocation_context,
+                        services=host_call_output.services or last_services,
+                        mutated_services=host_call_output.mutated_services or set(last_mutated_services)
                     )
                 elif host_call_output.exit_condition.reason == ExitReason.resume:
                     self.pvm.status = ExitReason.resume.value
@@ -197,7 +218,9 @@ class PVMInvocation:
                         gas_limit=host_call_output.gas_limit,
                         registers=host_call_output.registers,
                         memory=host_call_output.memory,
-                        invocation_context=self.invocation_context
+                        invocation_context=self.invocation_context,
+                        services=host_call_output.services or last_services,
+                        mutated_services=host_call_output.mutated_services or set(last_mutated_services)
                     )
                 else:
                     raise Exception("OEPSIE!")
@@ -225,7 +248,9 @@ class PVMInvocation:
             return PvmMarshallingOutput(
                 gas_used=0,
                 exit_condition=ExitCondition(reason=ExitReason.panic),
-                context=self.invocation_context
+                context=self.invocation_context,
+                services=None,
+                mutated_services=set()
             )
 
         self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger=settings.PVM_DEBUGGER)
@@ -242,5 +267,7 @@ class PVMInvocation:
         return PvmMarshallingOutput(
             gas_used=gas_limit - max(output.gas_limit, 0),
             exit_condition=output.exit_condition,
-            context=output.invocation_context
+            context=output.invocation_context,
+            services=output.services,
+            mutated_services=output.mutated_services
         )
