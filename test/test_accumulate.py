@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -218,22 +219,49 @@ class TestAccumulate(unittest.TestCase):
             post_state_timeslot=post_state_timeslot
         )
 
-        #########################################
-        #TODO: @Arjan: this is a hack to make test_accumulate work, should not be necesary?
-        # deletezz = []
-        # for service_key, service in accumulation_output.intermediate_state_after_accumulation.services.items():
-        #     if service.marked_as_deleted:
-        #         deletezz.append(service_key)
-        # for service_key in deletezz:
-        #     del accumulation_output.intermediate_state_after_accumulation.services[service_key]
-        #########################################
+        result = asyncio.run(services.store_state(accumulation_output.intermediate_state_after_accumulation))
+        self.app_context.state_storage.commit()
 
+        new_service_state = ServicesState(services={})
+        new_service_state.set_state_storage(self.app_context.state_storage)
+        for service_id in accumulation_output.intermediate_state_after_accumulation.services:
+            try:
+                new_service = new_service_state.retrieve_service_account(service_id)
+                new_service_state.services[service_id] = new_service
 
+                for storage_item_hash, x in accumulation_output.intermediate_state_after_accumulation.services[service_id].storage_items.items():
+                    try:
+                        si = new_service_state.retrieve_storage_item(service_id, storage_item_hash)
+                        new_service.storage_items[storage_item_hash] = si
+                    except:
+                        # Ignore deleted / missing storage items
+                        pass
+
+                for preimage_hash, x in accumulation_output.intermediate_state_after_accumulation.services[service_id].preimages.items():
+                    try:
+                        pi = new_service_state.retrieve_preimage(service_id, preimage_hash)
+                        new_service.preimages[preimage_hash] = pi
+
+                        try:
+                            pa = new_service_state.retrieve_preimage_availability(service_id, preimage_hash, len(pi))
+                            new_service.preimage_availability[(preimage_hash, len(pi))] = pa
+                        except:
+                            # Ignore deleted / missing preimage availability
+                            pass
+
+                    except:
+                        # Ignore deleted / missing preimages
+                        pass
+
+            except:
+                # Ignore deleted / missing services
+                pass
 
         self.assertEqual(post_accumulation_history.to_json(), history_output.post_state.to_json())
         self.assertEqual(post_accumulation_queue.to_json(), queue_output.post_state.to_json())
 
-        self.assertEqual(post_services.to_json()['services'], accumulation_output.intermediate_state_after_accumulation.to_json()['services'])
+        #self.assertEqual(post_services.to_json()['services'], accumulation_output.intermediate_state_after_accumulation.to_json()['services'])
+        self.assertEqual(post_services.to_json()['services'], new_service_state.to_json()['services'])
 
 
 if __name__ == '__main__':
