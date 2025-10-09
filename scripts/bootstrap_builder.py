@@ -36,7 +36,7 @@ async def create_empty_workpackage(client: WebsocketClient) -> WorkPackage:
     work_package = WorkPackage(
         authorization=b'',
         auth_code_host=0,
-        auth_code_hash=bytes.fromhex('aa7eaf029f48cbd4c551d1f8e5e2e4287b7bb557ce86775971707565d4629216'),
+        auth_code_hash=bytes.fromhex('f8d86b97d65319a078e5840f1614c296a5254217794dcc910e72ca174e3c2e86'),
         authorizer_config=b'',
         context=context,
         items=[]
@@ -49,12 +49,12 @@ async def create_bootservice_workpackage(client: WebsocketClient, instruction: I
     work_package.items.append(
             WorkItem(
                 accumulate_gas_limit=10000000,
-                code_hash=bytes.fromhex('3898108f9060356a575388c2bc8bd86de6c2bb5cef92331e1a21bb527505873b'),
+                code_hash=bytes.fromhex('34ce1e5be974e62476f62779abfa24a6236d0b98d8d691ee218adddf5b2176b4'),
                 export_count=0,
                 extrinsic=[WorkItemExtrinsic.from_blob(e) for e in extrinsic],
                 import_segments=[],
                 payload=instruction.to_jam_bytes().to_bytes(),
-                refine_gas_limit=5000000000,
+                refine_gas_limit=1000000000,
                 service=0
             )
     )
