@@ -181,7 +181,7 @@ def rpcFinalizedBlock(app, params):
 
 def rpcParent(app, params):
     try:
-        block = app.retrieve_block_by_hash(bytes(params))
+        block = app.retrieve_block_by_hash(bytes(params[0]))
         if not block:
             raise RPCCallException(RPC_ERROR["UNKNOWN_HEADER_HASH"])
         return [
