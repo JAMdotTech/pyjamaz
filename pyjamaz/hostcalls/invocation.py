@@ -146,6 +146,7 @@ class AccumulateInvocationMutator(InvocationMutator):
         # TODO: should be X?
         invocation_output.services = services
         invocation_output.mutated_services = services.mutated_services()
+        invocation_context.context.mutated_services = set(invocation_output.mutated_services)
         return invocation_output
 
 
@@ -237,14 +238,18 @@ def pvm_invoke_accumulate(
     # GP-0.7.1-eq:B.13 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
 
+        savepoint_context = marshalling_output.context.savepoint_context
+        savepoint_services = savepoint_context.state_context.services
+        savepoint_mutations = savepoint_context.mutated_services or savepoint_services.mutated_services()
+
         output = PvmAccumulateOutput(
-            state_context=marshalling_output.context.savepoint_context.state_context,
-            deferred_transfers=marshalling_output.context.savepoint_context.deferred_transfers,
-            accumulation_output=marshalling_output.context.savepoint_context.invocation_output,
+            state_context=savepoint_context.state_context,
+            deferred_transfers=savepoint_context.deferred_transfers,
+            accumulation_output=savepoint_context.invocation_output,
             gas_used=marshalling_output.gas_used,
-            preimages=marshalling_output.context.savepoint_context.preimages,
-            services=marshalling_output.services or marshalling_output.context.savepoint_context.state_context.services,
-            mutated_services=marshalling_output.mutated_services
+            preimages=savepoint_context.preimages,
+            services=savepoint_services,
+            mutated_services=savepoint_mutations
         )
         logging.info(f'😱 PVM accumulate failed: {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:

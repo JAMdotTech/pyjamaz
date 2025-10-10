@@ -52,6 +52,7 @@ class AccumulateContextItem:
     deferred_transfers: List[DeferredTransfer]  # t
     invocation_output: Optional[bytes]  # y
     preimages: List[typing.Tuple[int, bytes]]  # p
+    mutated_services: Set[int] = field(default_factory=set)
 
 
 @dataclass
@@ -86,6 +87,8 @@ class AccumulateInvocationContext(InvocationContext):
 
         new_service_account_id = accumulation_state.check_service_id((check_payload % (2 ** 32 - 2 ** 9)) + 2 ** 8)
 
+        initial_mutated_services = set(accumulation_state.services.mutated_services())
+
         return AccumulateInvocationContext(
             context=AccumulateContextItem(
                 service_account_id=service_account_id,
@@ -93,7 +96,8 @@ class AccumulateInvocationContext(InvocationContext):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                preimages=[]
+                preimages=[],
+                mutated_services=set(initial_mutated_services)
             ),
             savepoint_context=AccumulateContextItem(
                 service_account_id=service_account_id,
@@ -101,7 +105,8 @@ class AccumulateInvocationContext(InvocationContext):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                preimages = []
+                preimages = [],
+                mutated_services=set(initial_mutated_services)
             ),
             timeslot=timeslot
         )
