@@ -165,7 +165,9 @@ def full_sequential_accumulation(
             i -= 1
             break
 
-    if i == 0:
+    n = len(deferred_transfers) + i + len(auto_accumulate_services)
+
+    if n == 0:
         return FullAccumulationOutput(
             nr_work_results_accumulated=0,
             post_accumulation_state=accumulation_state,
@@ -302,6 +304,8 @@ def parallel_accumulation(
             )
 
             outputs.append((service_id, output))
+
+    deferred_transfers = []
 
     for service_id, output in outputs:
             # Update gas usage (u)
