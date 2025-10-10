@@ -262,7 +262,6 @@ class TestAccumulate(unittest.TestCase):
                     accumulation_state.services.services.update(output.state_context.services.services)
                     
                     Nu dus gefixed door dict.update(...) te vervangen met:
-                    
                       services_state = output.services or output.state_context.services
                       mutated_ids = output.mutated_services or {service_id}
                       for mutated_id in mutated_ids:
