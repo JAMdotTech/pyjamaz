@@ -271,7 +271,6 @@ class TestAccumulate(unittest.TestCase):
                     
                     * output.services bevat nu post hostcall ServicesState met een lijstje van mutated_services, we overschrijven nu service ids die een gemuteerde ServiceAccount hebben.
 
-
                     Dit is de executive samevatting :)
                     Zie code wijzigingen voor meer detaisl!
                     """
