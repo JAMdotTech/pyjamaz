@@ -21,6 +21,7 @@ class PvmAccumulateOutput:
     accumulation_output: Optional[bytes]
     gas_used: int
     preimages: List[typing.Tuple[int, bytes]]
+    # TODO: added because of lost service account mutations, part of X?
     services: Optional[ServicesState] = None
     mutated_services: Set[int] = field(default_factory=set)
 
