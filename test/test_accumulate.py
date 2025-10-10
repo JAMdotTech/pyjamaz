@@ -62,7 +62,7 @@ class TestAccumulate(unittest.TestCase):
         with open(test_vector_file) as f:
             return json.load(f)
 
-    @parameterized.expand(get_test_vector_files(file_filter='transfer_for_ejected_service-1.json'))
+    @parameterized.expand(get_test_vector_files(file_filter=''))
     def test_vector(self, name, test_file):
 
 
@@ -274,23 +274,8 @@ class TestAccumulate(unittest.TestCase):
 
                     Dit is de executive samevatting :)
                     Zie code wijzigingen voor meer detaisl!
-
-                    
-                    Verder is er nog 1 puzzel over!
-                    Emiel en ik hebben accumulate tests aangepast om de state transitions echt door te drukken naar de storage engine en deze vervolgens terug te syncen, om een "schone" state te krijgen waarop we kunnen vergelijken
-                    
-                    Er is echter 1 testvector over (welke ook de oorzaak van het stukje hierboven was); testvector transfer_for_ejected_service-1.json
-                    Volgens mij klapt deze testvector terecht, want er wordt een storage item aangemaakt via de hc_write
-                    De testvector verwacht 3 storage items (preimage, preimage_availability en 1 (nieuw) storage item, deze properties voor service 0 kloppen verder nu ook allemaal, door de bovenstaande fix
-                    Maar ik snap nog niet waarom de testvector vervolgens helemaal geen storage_items heeft opgenomen voor service 0, deze is immers aangemaakt en alle properties wijzen daar ook op (zie 1.txt)
-                    In ons resultaat (zie 2.txt) staat deze wel opgenomen...
-                    
-                    Als je de if not expected_storage_keys or storage_item_hash not in expected_storage_keys: hieronder weer aanzet, zal die uiteraard wel slagen, maar dat is alleen omdat ik dan op props check die expected zijn, 
-                    wat uiteraard niet de bedoeling is :) 
                     """
 
-                    # if not expected_storage_keys or storage_item_hash not in expected_storage_keys:
-                    #     continue
                     try:
                         si = new_service_state.retrieve_storage_item(service_id, storage_item_hash)
                         new_service.storage_items[storage_item_hash] = si

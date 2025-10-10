@@ -143,6 +143,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                 # Host call not found
                 hc_not_found(invocation_output, _pvm.log)
 
+        # TODO: should be X?
         invocation_output.services = services
         invocation_output.mutated_services = services.mutated_services()
         return invocation_output

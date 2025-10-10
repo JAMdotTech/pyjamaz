@@ -74,6 +74,7 @@ class InvocationMutationOutput:
     gas_limit: int
     registers: npt.NDArray[np.uint64]
     memory: PVMMemory
+    #TODO: added because of lost service account mutations, part of X?
     services: Optional['ServicesState'] = None
     mutated_services: Set[int] = field(default_factory=set)
 
