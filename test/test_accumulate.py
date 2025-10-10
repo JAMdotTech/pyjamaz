@@ -65,7 +65,6 @@ class TestAccumulate(unittest.TestCase):
     @parameterized.expand(get_test_vector_files(file_filter=''))
     def test_vector(self, name, test_file):
 
-
         test_vector = self.load_test_vector_data(test_file)
 
         # Set up input
@@ -311,7 +310,6 @@ class TestAccumulate(unittest.TestCase):
         expected_services = post_services.to_json()['services']
         new_services = new_service_state.to_json()['services']
 
-        #self.assertEqual(post_services.to_json()['services'], accumulation_output.intermediate_state_after_accumulation.to_json()['services'])
         self.assertEqual(expected_services, new_services)
 
 
