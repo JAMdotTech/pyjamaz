@@ -140,6 +140,9 @@ class BlockExtrinsicAccumulator:
         preimages = []
         new_queue = []
 
+        # Sort preimages as requited per GP
+        self.preimage_queue = sorted(self.preimage_queue, key=lambda p: p.sort_key())
+
         for preimage in self.preimage_queue:
             if service_state.is_preimage_needed(preimage):
                 preimages.append(preimage)
