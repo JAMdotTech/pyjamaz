@@ -20,7 +20,7 @@ class WebsocketClient(RPCMethods):
         self.subs = {}
 
     async def __aenter__(self):
-        self.ws = await websockets.connect(self.url)
+        self.ws = await websockets.connect(self.url, max_size=20 * 1024 * 1024)
         self.listener_task = asyncio.create_task(self._listener())
         return self
 

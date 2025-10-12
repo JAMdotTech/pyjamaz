@@ -187,6 +187,14 @@ def pvm_invoke_accumulate(
     try:
 
         service_account = state_context.services.retrieve_service_account(service_id)
+
+        # Process transfers
+        x = [i for i in accumulation_inputs if i.deferred_transfer is not None]
+
+        if len(x) > 0:
+            service_account.balance += sum(r.deferred_transfer.amount for r in x)
+            state_context.services.store_service_account(service_id, service_account)
+
         preimage_blob = state_context.services.retrieve_preimage(
             service_account_id=service_id,
             preimage_hash=service_account.code_hash

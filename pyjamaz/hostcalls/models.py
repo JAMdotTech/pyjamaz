@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Set
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Vec, VarInt64, Bytes, H256, U16
+from pyjamaz.graypaper_constants import MINIMUM_PUBLIC_SERVICE_ID
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkExecResult, DeferredTransfer
@@ -85,7 +86,9 @@ class AccumulateInvocationContext(InvocationContext):
             byteorder='little'
         )
 
-        new_service_account_id = accumulation_state.check_service_id((check_payload % (2 ** 32 - 2 ** 9)) + 2 ** 8)
+        new_service_account_id = accumulation_state.check_service_id(
+            (check_payload % (2 ** 32 - MINIMUM_PUBLIC_SERVICE_ID - 2 ** 8)) + MINIMUM_PUBLIC_SERVICE_ID
+        )
 
         initial_mutated_services = set(accumulation_state.services.mutated_services())
 

@@ -1812,7 +1812,7 @@ class Services(StateComponent):
         bool
         """
 
-        sorted_preimage = lambda p: int(p.requester).to_bytes(4, byteorder="big") + p.blob
+        sorted_preimage = lambda p: p.sort_key()
 
         return all(
             sorted_preimage(preimages[i]) <= sorted_preimage(preimages[i + 1]) for i in range(len(preimages) - 1)
