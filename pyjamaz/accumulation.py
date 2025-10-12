@@ -309,9 +309,7 @@ def parallel_accumulation(
 
     for service_id, output in outputs:
             # Update gas usage (u)
-            if output.gas_used > 0:
-                # TODO quickfix, properly implement 12.27
-                accumulation_gas_utilized[service_id] = output.gas_used
+            accumulation_gas_utilized[service_id] = output.gas_used
 
             # Update transfers (t')
             deferred_transfers += output.deferred_transfers

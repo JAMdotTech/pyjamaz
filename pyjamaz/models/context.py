@@ -209,13 +209,19 @@ class BlockContext:
         if self.accumulatable_work_reports is None:
             raise ValueError("No accumulatable reports set")
         self.accumulation_statistics = {}
+
+        # GP-0.7.1-eq:12.27 (function_N)
+        digests_per_service = {}
         for w in self.accumulatable_work_reports[:nr_work_results_accumulated]:
-            for r in w.results:
-                if r.service_id not in self.accumulation_statistics:
-                    self.accumulation_statistics[r.service_id] = AccumulationStatistic()
-                self.accumulation_statistics[r.service_id].nr_work_reports_accumulated += 1
+            for d in w.results:
+                if d.service_id not in digests_per_service:
+                    digests_per_service[d.service_id] = []
+                digests_per_service[d.service_id].append(d)
 
         for s, u in accumulation_gas_utilized.items():
-            if s not in self.accumulation_statistics:
-                self.accumulation_statistics[s] = AccumulationStatistic()
-            self.accumulation_statistics[s].total_gas_utilized = u
+            if s in digests_per_service and len(digests_per_service[s]) > 0:
+                if s not in self.accumulation_statistics:
+                    self.accumulation_statistics[s] = AccumulationStatistic()
+                self.accumulation_statistics[s].total_gas_utilized = u
+                self.accumulation_statistics[s].nr_work_reports_accumulated = len(digests_per_service[s])
+
