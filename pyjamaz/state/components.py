@@ -1908,7 +1908,7 @@ class Services(StateComponent):
             privileged_services=deepcopy(pre_state_privileged_services)
         )
 
-        # GP-0.7.1-eq:12.22
+        # GP-0.7.1-eq:12.18
         gas_limit = max(
             gp_const.GAS_TOTAL, gp_const.GAS_ACCUMULATION * gp_const.CORE_COUNT + sum(
                 pre_state_privileged_services.always_accumulators.values()
@@ -1917,7 +1917,7 @@ class Services(StateComponent):
 
         logging.debug(f'ORDERED ACCUMULATION: W^*={[format_hash(w.package_spec.hash) for w in accumulatable_work_reports]}')
 
-        # GP-0.7.1-eq:12.24
+        # GP-0.7.1-eq:12.18
         output = full_sequential_accumulation(
             gas_limit=gas_limit,
             deferred_transfers=[],
@@ -1928,15 +1928,18 @@ class Services(StateComponent):
             post_state_entropy=post_state_entropy
         )
 
-        # GP-0.6.7-eq:12.30 | Update last_accumulation_slot
-        for s in output.accumulation_gas_utilized.keys():
-            try:
+        # GP-0.7.1-eq:12.27
+        self.block_context.set_accumulation_statistics(
+            accumulation_gas_utilized=output.accumulation_gas_utilized,
+            nr_work_results_accumulated=output.nr_work_results_accumulated,
+        )
+
+        # GP-0.7.1-eq:12.29 | Update last_accumulation_slot
+        if self.block_context.accumulation_statistics is not None:
+            for s in self.block_context.accumulation_statistics.keys():
                 service_account = output.post_accumulation_state.services.retrieve_service_account(s)
                 service_account.last_accumulation_slot = post_state_timeslot.number
                 output.post_accumulation_state.services.store_service_account(s, service_account)
-            except StateKeyNoResult:
-                # todo what to do with service_id=0?
-                pass
 
         # GP-0.6.0-eq:12.22
         return ServicesAfterAccumulationOutput(
