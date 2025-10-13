@@ -1812,7 +1812,7 @@ class Services(StateComponent):
         bool
         """
 
-        sorted_preimage = lambda p: int(p.requester).to_bytes(4, byteorder="big") + p.blob
+        sorted_preimage = lambda p: p.sort_key()
 
         return all(
             sorted_preimage(preimages[i]) <= sorted_preimage(preimages[i + 1]) for i in range(len(preimages) - 1)
@@ -1908,7 +1908,7 @@ class Services(StateComponent):
             privileged_services=deepcopy(pre_state_privileged_services)
         )
 
-        # GP-0.7.1-eq:12.22
+        # GP-0.7.1-eq:12.18
         gas_limit = max(
             gp_const.GAS_TOTAL, gp_const.GAS_ACCUMULATION * gp_const.CORE_COUNT + sum(
                 pre_state_privileged_services.always_accumulators.values()
@@ -1917,7 +1917,7 @@ class Services(StateComponent):
 
         logging.debug(f'ORDERED ACCUMULATION: W^*={[format_hash(w.package_spec.hash) for w in accumulatable_work_reports]}')
 
-        # GP-0.7.1-eq:12.24
+        # GP-0.7.1-eq:12.18
         output = full_sequential_accumulation(
             gas_limit=gas_limit,
             deferred_transfers=[],
@@ -1928,15 +1928,18 @@ class Services(StateComponent):
             post_state_entropy=post_state_entropy
         )
 
-        # GP-0.6.7-eq:12.30 | Update last_accumulation_slot
-        for s in output.accumulation_gas_utilized.keys():
-            try:
+        # GP-0.7.1-eq:12.27
+        self.block_context.set_accumulation_statistics(
+            accumulation_gas_utilized=output.accumulation_gas_utilized,
+            nr_work_results_accumulated=output.nr_work_results_accumulated,
+        )
+
+        # GP-0.7.1-eq:12.29 | Update last_accumulation_slot
+        if self.block_context.accumulation_statistics is not None:
+            for s in self.block_context.accumulation_statistics.keys():
                 service_account = output.post_accumulation_state.services.retrieve_service_account(s)
                 service_account.last_accumulation_slot = post_state_timeslot.number
                 output.post_accumulation_state.services.store_service_account(s, service_account)
-            except StateKeyNoResult:
-                # todo what to do with service_id=0?
-                pass
 
         # GP-0.6.0-eq:12.22
         return ServicesAfterAccumulationOutput(
@@ -2006,44 +2009,60 @@ class Services(StateComponent):
 
 
         # Process all mutations afterwards (in order) to prevent mutating the state while iterating over it
-        for mut in state_mutations:
-            if mut[0] == "storage_items_delete":
-                #TODO: self.app_context.pubsub.publish()
-                state.delete_storage_item(mut[1], mut[2], commit=True)
-            elif mut[0] == "storage_items_update":
-                # TODO async blocking exception??
-                state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
-            elif mut[0] == "preimages_delete":
-                # TODO: self.app_context.pubsub.publish()
-                state.delete_preimage(mut[1], mut[2], commit=True)
-            elif mut[0] == "preimages_update":
-                # TODO async blocking exception??
-                state.store_preimage(mut[1], mut[3], commit=True)
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
-            elif mut[0] == "preimage_availability_delete":
-                # TODO: self.app_context.pubsub.publish()
-                state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
-            elif mut[0] == "preimage_availability_update":
-                # TODO async blocking exception??
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
-                state.store_preimage_availability(
-                    service_account_id=mut[1],
-                    preimage_hash=mut[2],
-                    preimage_length=mut[3],
-                    value=mut[4],
-                    commit=True
-                )
-            elif mut[0] == "service_account_delete":
-                # TODO: self.app_context.pubsub.publish()
-                state.delete_service_account(mut[1], commit=True)
-            elif mut[0] == "service_account_update":
-                state.store_service_account(mut[1], mut[2], commit=True)
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
+
+        ordered_components = [
+            "storage_items_delete",
+            "storage_items_update",
+            "preimages_delete",
+            "preimages_update",
+            "preimage_availability_delete",
+            "preimage_availability_update",
+            "service_account_delete",
+            "service_account_update"
+        ]
+
+        for component in ordered_components:
+            for mut in state_mutations:
+                if mut[0] != component:
+                    continue
+
+                if mut[0] == "storage_items_delete":
+                    #TODO: self.app_context.pubsub.publish()
+                    state.delete_storage_item(mut[1], mut[2], commit=True)
+                elif mut[0] == "storage_items_update":
+                    # TODO async blocking exception??
+                    state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
+                    if self.app_context.pubsub:
+                        await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
+                elif mut[0] == "preimages_delete":
+                    # TODO: self.app_context.pubsub.publish()
+                    state.delete_preimage(mut[1], mut[2], commit=True)
+                elif mut[0] == "preimages_update":
+                    # TODO async blocking exception??
+                    state.store_preimage(mut[1], mut[3], commit=True)
+                    if self.app_context.pubsub:
+                        await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
+                elif mut[0] == "preimage_availability_delete":
+                    # TODO: self.app_context.pubsub.publish()
+                    state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
+                elif mut[0] == "preimage_availability_update":
+                    # TODO async blocking exception??
+                    if self.app_context.pubsub:
+                        await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
+                    state.store_preimage_availability(
+                        service_account_id=mut[1],
+                        preimage_hash=mut[2],
+                        preimage_length=mut[3],
+                        value=mut[4],
+                        commit=True
+                    )
+                elif mut[0] == "service_account_delete":
+                    # TODO: self.app_context.pubsub.publish()
+                    state.delete_service_account(mut[1], commit=True)
+                elif mut[0] == "service_account_update":
+                    state.store_service_account(mut[1], mut[2], commit=True)
+                    if self.app_context.pubsub:
+                        await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
 
 
 class AccumulationQueue(StateComponent):

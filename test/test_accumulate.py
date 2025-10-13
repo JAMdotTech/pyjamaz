@@ -62,7 +62,7 @@ class TestAccumulate(unittest.TestCase):
         with open(test_vector_file) as f:
             return json.load(f)
 
-    @parameterized.expand(get_test_vector_files(file_filter='transfer_for_ejected_service-1.json'))
+    @parameterized.expand(get_test_vector_files(file_filter=''))
     def test_vector(self, name, test_file):
 
 

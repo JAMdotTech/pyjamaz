@@ -249,6 +249,9 @@ class Preimage(Serializable):
     def length(self):
         return len(self.blob)
 
+    def sort_key(self):
+        return int(self.requester).to_bytes(4, byteorder="big") + self.blob
+
 
 @dataclass
 class Assurance(Serializable):

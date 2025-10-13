@@ -561,12 +561,6 @@ class PyjamazApp:
             post_state_entropy=entropy_output.post_state
         )
 
-        # GP-0.7.1-eq:12.24
-        self.block_context.set_accumulation_statistics(
-            accumulation_gas_utilized=services_after_accumulation_output.accumulation_gas_utilized,
-            nr_work_results_accumulated=services_after_accumulation_output.nr_work_results_accumulated,
-        )
-
         # Services After Preimages STF Block Data | GP-0.7.1-eq:4.18
         services_after_preimages_output = self.components.services.state_transition_after_preimages(
             extrinsic_preimages=block.extrinsic.preimages,
