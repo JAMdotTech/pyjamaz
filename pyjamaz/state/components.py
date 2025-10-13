@@ -1940,7 +1940,7 @@ class Services(StateComponent):
                 try:
                     service_account = output.post_accumulation_state.services.retrieve_service_account(s)
                 except StateKeyNoResult:
-                    # TODO: klopt dit? skip services die niet meer bestaan
+                    # TODO: @Arjan: ok?
                     continue
 
                 service_account.last_accumulation_slot = post_state_timeslot.number
