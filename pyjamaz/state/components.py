@@ -1937,7 +1937,12 @@ class Services(StateComponent):
         # GP-0.7.1-eq:12.29 | Update last_accumulation_slot
         if self.block_context.accumulation_statistics is not None:
             for s in self.block_context.accumulation_statistics.keys():
-                service_account = output.post_accumulation_state.services.retrieve_service_account(s)
+                try:
+                    service_account = output.post_accumulation_state.services.retrieve_service_account(s)
+                except StateKeyNoResult:
+                    # TODO: klopt dit? skip services die niet meer bestaan
+                    continue
+
                 service_account.last_accumulation_slot = post_state_timeslot.number
                 output.post_accumulation_state.services.store_service_account(s, service_account)
 
