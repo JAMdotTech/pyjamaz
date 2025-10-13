@@ -86,6 +86,7 @@ def create_mock_service_account(
 def create_mock_services_state(service_accounts=None, storage_items=None, preimages=None):
     services = Mock(spec=ServicesState)
     services.services = service_accounts or {}
+    services._mutated_services = set()
 
     def retrieve_service_account(service_id):
         if service_id in services.services:
@@ -106,16 +107,22 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
         hash_value = storage_key if storage_key is not None else storage_item_hash
         key = (service_account_id, hash_value.hex() if isinstance(hash_value, bytes) else hash_value)
         storage_items_dict[key] = value
+        services._mutated_services.add(service_account_id)
 
     def delete_storage_item(service_account_id, storage_item_hash):
         key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
         if key in storage_items_dict:
             del storage_items_dict[key]
+        services._mutated_services.add(service_account_id)
 
     services.retrieve_storage_item = Mock(side_effect=retrieve_storage_item)
     services.store_storage_item = Mock(side_effect=store_storage_item)
     services.delete_storage_item = Mock(side_effect=delete_storage_item)
-    services.store_service_account = Mock()
+    def store_service_account(service_id, account):
+        services.services[service_id] = account
+        services._mutated_services.add(service_id)
+
+    services.store_service_account = Mock(side_effect=store_service_account)
 
     preimages_dict = preimages or {}
     def retrieve_preimage(service_account_id, preimage_hash):
@@ -125,6 +132,8 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
         raise StateKeyNoResult(f"Preimage not found")
 
     services.retrieve_preimage = Mock(side_effect=retrieve_preimage)
+    services.mutated_services = Mock(side_effect=lambda: set(services._mutated_services))
+    services.register_mutation = Mock(side_effect=lambda service_id: services._mutated_services.add(service_id))
 
     return services
 

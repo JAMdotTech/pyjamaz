@@ -1604,6 +1604,8 @@ class AccumulationStateComponents(Serializable):
             (check_payload % (2**32 - MINIMUM_PUBLIC_SERVICE_ID - 2**8)) + MINIMUM_PUBLIC_SERVICE_ID
         )
 
+        initial_mutated_services = set(self.services.mutated_services())
+
         return AccumulateInvocationContext(
             context=AccumulateContextItem(
                 service_account_id=service_account_id,
@@ -1611,7 +1613,8 @@ class AccumulationStateComponents(Serializable):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                preimages=[]
+                preimages=[],
+                mutated_services=set(initial_mutated_services)
             ),
             savepoint_context=AccumulateContextItem(
                 service_account_id=service_account_id,
@@ -1619,7 +1622,8 @@ class AccumulationStateComponents(Serializable):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                preimages=[]
+                preimages=[],
+                mutated_services=set(initial_mutated_services)
             ),
             timeslot=timeslot
         )
@@ -1638,6 +1642,7 @@ class AccumulateContextItem:
     deferred_transfers: List[DeferredTransfer]  # bold_t
     invocation_output: Optional[bytes]  # y
     preimages: List[Tuple[int, bytes]] # bold_p
+    mutated_services: Set[int] = field(default_factory=set)
 
 
 @dataclass

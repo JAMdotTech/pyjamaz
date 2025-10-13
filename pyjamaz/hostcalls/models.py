@@ -22,6 +22,7 @@ class PvmAccumulateOutput:
     accumulation_output: Optional[bytes]
     gas_used: int
     preimages: List[typing.Tuple[int, bytes]]
+    # TODO: added because of lost service account mutations, part of X?
     services: Optional[ServicesState] = None
     mutated_services: Set[int] = field(default_factory=set)
 
@@ -52,6 +53,7 @@ class AccumulateContextItem:
     deferred_transfers: List[DeferredTransfer]  # t
     invocation_output: Optional[bytes]  # y
     preimages: List[typing.Tuple[int, bytes]]  # p
+    mutated_services: Set[int] = field(default_factory=set)
 
 
 @dataclass
@@ -88,6 +90,8 @@ class AccumulateInvocationContext(InvocationContext):
             (check_payload % (2 ** 32 - MINIMUM_PUBLIC_SERVICE_ID - 2 ** 8)) + MINIMUM_PUBLIC_SERVICE_ID
         )
 
+        initial_mutated_services = set(accumulation_state.services.mutated_services())
+
         return AccumulateInvocationContext(
             context=AccumulateContextItem(
                 service_account_id=service_account_id,
@@ -95,7 +99,8 @@ class AccumulateInvocationContext(InvocationContext):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                preimages=[]
+                preimages=[],
+                mutated_services=set(initial_mutated_services)
             ),
             savepoint_context=AccumulateContextItem(
                 service_account_id=service_account_id,
@@ -103,7 +108,8 @@ class AccumulateInvocationContext(InvocationContext):
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,
-                preimages = []
+                preimages = [],
+                mutated_services=set(initial_mutated_services)
             ),
             timeslot=timeslot
         )

@@ -87,6 +87,7 @@ def create_mock_service_account(
 def create_mock_services_state(service_accounts=None, storage_items=None, preimages=None):
     services = Mock(spec=ServicesState)
     services.services = service_accounts or {}
+    services._mutated_services = set()
 
     def retrieve_service_account(service_id):
         if service_id in services.services:
@@ -105,17 +106,20 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
     def store_storage_item(service_account_id, storage_item_hash, value):
         key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
         storage_items_dict[key] = value
+        services._mutated_services.add(service_account_id)
 
     def delete_storage_item(service_account_id, storage_item_hash):
         key = (service_account_id, storage_item_hash.hex() if isinstance(storage_item_hash, bytes) else storage_item_hash)
         if key in storage_items_dict:
             del storage_items_dict[key]
+        services._mutated_services.add(service_account_id)
 
     services.retrieve_storage_item = Mock(side_effect=retrieve_storage_item)
     services.store_storage_item = Mock(side_effect=store_storage_item)
     services.delete_storage_item = Mock(side_effect=delete_storage_item)
     def store_service_account(service_id, account):
         services.services[service_id] = account
+        services._mutated_services.add(service_id)
 
     services.store_service_account = Mock(side_effect=store_service_account)
 
@@ -132,6 +136,7 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
     services.delete_preimage_availability = Mock()
     def delete_service_account(service_id):
         services.services.pop(service_id, None)
+        services._mutated_services.add(service_id)
 
     services.delete_service_account = Mock(side_effect=delete_service_account)
 
@@ -153,6 +158,7 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
     def store_preimage_availability(service_id, preimage_hash, length, value):
         key = f"{service_id}:{preimage_hash.hex() if isinstance(preimage_hash, bytes) else preimage_hash}:{length}"
         preimage_availability_dict[key] = value
+        services._mutated_services.add(service_id)
 
     services.store_preimage_availability = Mock(side_effect=store_preimage_availability)
 
@@ -160,6 +166,10 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
         key = f"{service_id}:{preimage_hash.hex() if isinstance(preimage_hash, bytes) else preimage_hash}:{length}"
         if key in preimage_availability_dict:
             del preimage_availability_dict[key]
+        services._mutated_services.add(service_id)
+
+    services.mutated_services = Mock(side_effect=lambda: set(services._mutated_services))
+    services.register_mutation = Mock(side_effect=lambda service_id: services._mutated_services.add(service_id))
 
     services.delete_preimage_availability = Mock(side_effect=delete_preimage_availability)
 
@@ -316,6 +326,7 @@ class TestHCAccumulate(unittest.TestCase):
         context_item.service_account_id = test_vector.get("context", {}).get("service_account_id", 1)
         context_item.new_service_account_id = test_vector.get("context", {}).get("new_service_account_id", 256)
         context_item.deferred_transfers = []
+        context_item.mutated_services = set()
 
         preimages_data = test_vector.get("context", {}).get("preimages", [])
         preimages_hex = test_vector.get("context", {}).get("preimages_hex", False)
@@ -536,6 +547,11 @@ class TestHCAccumulate(unittest.TestCase):
                 accumulate_context.context.new_service_account_id,
                 accumulate_context.savepoint_context.new_service_account_id,
                 f"{name}: savepoint_context should have same new_service_account_id as context"
+            )
+            self.assertEqual(
+                accumulate_context.context.mutated_services,
+                accumulate_context.savepoint_context.mutated_services,
+                f"{name}: savepoint_context should copy mutated_services from context"
             )
 
         elif hostcall == "hc_new":

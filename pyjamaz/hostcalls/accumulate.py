@@ -281,7 +281,7 @@ def hc_checkpoint(
     invocation_output.gas_limit -= 10
     invocation_output.registers[7] = invocation_output.gas_limit
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-    # TODO: optimize deepcopy?
+    x.context.mutated_services = set(x.context.state_context.services.mutated_services())
     x.savepoint_context = deepcopy(x.context)
 
 

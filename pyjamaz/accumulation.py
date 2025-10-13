@@ -324,7 +324,7 @@ def parallel_accumulation(
                     output.state_context.services.store_preimage(s, i)
 
             # Warning: .update makes shallow copies, does not reflect changes:
-            # accumulation_state.services.services.update(output.state_context.services.services)
+            #accumulation_state.services.services.update(output.state_context.services.services)
 
             # Update services state with output
             services_state = output.services or output.state_context.services
