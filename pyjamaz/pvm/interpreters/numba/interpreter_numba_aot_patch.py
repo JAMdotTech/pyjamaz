@@ -1,4 +1,4 @@
-import os, sys, pickle, importlib.util
+import os, sys, pickle, importlib.util, hashlib, marshal
 import numba
 import inspect
 
@@ -90,42 +90,31 @@ def _from_function_allow_pyc(cls, py_func, source_path=None):
 
 caching._SourceFileBackedLocatorMixin.from_function = classmethod(_from_function_allow_pyc)
 
-try:
-    _orig_get_source_stamp = caching._SourceFileBackedLocatorMixin.get_source_stamp
-except AttributeError:
-    _orig_get_source_stamp = None
+def _code_based_stamp(py_func):
+    co = getattr(py_func, "__code__", None)
+    if co is None:
+        return (0, 0)
+    blob = marshal.dumps(co)
+    digest = hashlib.sha256(blob).digest()
+    hi = int.from_bytes(digest[:8], "little", signed=False)
+    lo = int.from_bytes(digest[8:16], "little", signed=False)
+    return (hi, lo)
 
 def _get_source_stamp_lenient(self):
-    # Try the original; if the .py is gone, fabricate a stable stamp
-    if _orig_get_source_stamp is not None:
-        try:
-            return _orig_get_source_stamp(self)
-        except FileNotFoundError:
-            pass
-    # Fabricate a deterministic stamp so downstream cache code can proceed.
-    # (We ignore stamp mismatches in IndexDataCacheFile._load_index.)
-    return (0, 0)
+    # Prefer a deterministic stamp derived from the function bytecode so that
+    # caches remain valid even when .py sources are stripped from the image.
+    try:
+        return _code_based_stamp(self.py_func)
+    except Exception:
+        return (0, 0)
 
 # Apply the lenient stamp getter
 caching._SourceFileBackedLocatorMixin.get_source_stamp = _get_source_stamp_lenient
 
-# ---- accept cached index even if source stamp differs -----------------------
-
+# Ensure we keep the original index loader (stamp checks now succeed because we
+# return a stable, reproducible stamp from _get_source_stamp_lenient)
+# Preserve earlier reference for completeness
 _orig_load_index = IndexDataCacheFile._load_index
-def _load_index_ignore_stamp(self):
-    try:
-        with open(self._index_path, "rb") as f:
-            version = pickle.load(f)
-            data = f.read()
-    except FileNotFoundError:
-        return {}
-    if version != numba.__version__:
-        return {}  # numba version mismatch ⇒ bail
-    # NOTE: ignore source_stamp freshness
-    stamp, overloads = pickle.loads(data)
-    return overloads
-
-IndexDataCacheFile._load_index = _load_index_ignore_stamp
 
 # ---- optional hard cache-only mode (no recompilation, no saving) -----------
 
