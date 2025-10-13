@@ -303,6 +303,7 @@ class TestAccumulate(unittest.TestCase):
                 # Ignore deleted / missing services
                 pass
 
+
         self.assertEqual(post_accumulation_history.to_json(), history_output.post_state.to_json())
         self.assertEqual(post_accumulation_queue.to_json(), queue_output.post_state.to_json())
 
