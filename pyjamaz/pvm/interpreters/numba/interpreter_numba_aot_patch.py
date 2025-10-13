@@ -6,6 +6,27 @@ from numba.core import caching
 from numba.core.caching import IndexDataCacheFile
 from numba.core import compiler as _nb_compiler
 from numba.core import dispatcher as _nb_dispatcher
+from numba.core import config as _nb_config
+
+
+# Note:
+# we ensure the cpu fingerprint matches between dcoker cache build and runtime.
+# wtihout this, numba includes host cpu name/features in the cache key, which
+# causes cache misses when warmup happens with NUMBA_CPU_NAME=generic but the
+# runtime process inherits the host defaults. deefault to "generic" (no# extra
+# features) unless the user explicitly opts in via environment variables.
+
+if "NUMBA_CPU_NAME" not in os.environ:
+    os.environ["NUMBA_CPU_NAME"] = "generic"
+
+if _nb_config.CPU_NAME in (None, "", "native"):
+    _nb_config.CPU_NAME = os.environ.get("NUMBA_CPU_NAME", "generic")
+
+if "NUMBA_CPU_FEATURES" not in os.environ:
+    os.environ["NUMBA_CPU_FEATURES"] = ""
+
+if _nb_config.CPU_FEATURES in (None, "", "native", "host"):
+    _nb_config.CPU_FEATURES = os.environ.get("NUMBA_CPU_FEATURES", "")
 
 
 def _safe_get_source_file(py_func):
