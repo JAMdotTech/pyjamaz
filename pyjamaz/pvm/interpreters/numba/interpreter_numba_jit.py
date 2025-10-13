@@ -1521,7 +1521,8 @@ class PVMInterpreter:
         self.log = None
         if logger:
             self.program = program
-            from pyjamaz.pvm.debug_logger import PVMDebugLog
+            # Note: for numba we hardcode to debug_logger, since we only support basic print() calls
+            from pyjamaz.pvm.loggers.debug_logger import PVMDebugLog
             logger_cls = PVMDebugLog
             self.log = logger_cls(pvm=self)
             self.log._pvm = self
