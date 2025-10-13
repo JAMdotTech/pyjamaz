@@ -204,6 +204,9 @@ class PVMOpcodeLogger(PVMDebugLog):
         self._source_label = f"{type(pvm).__name__}:{pvm.name}"
 
     def before_opcode(self, opcode: int) -> None:
+        if not settings.PVM_DEBUG_OPCODES:
+            return
+
         if not self._collect_stats:
             return
         if self._current_opcode is not None:
@@ -212,6 +215,9 @@ class PVMOpcodeLogger(PVMDebugLog):
         self._current_start = perf_counter()
 
     def _finalize_current_opcode(self) -> Optional[int]:
+        if not settings.PVM_DEBUG_OPCODES:
+            return
+
         opcode = self._current_opcode
         start = self._current_start
         self._current_opcode = None
@@ -226,6 +232,9 @@ class PVMOpcodeLogger(PVMDebugLog):
         return opcode
 
     def __call__(self, *args, **kwargs):
+        if not settings.PVM_DEBUG_OPCODES:
+            return
+
         opcode = self._finalize_current_opcode()
         if opcode is None:
             opcode = int(self._pvm.opcode)
@@ -234,6 +243,9 @@ class PVMOpcodeLogger(PVMDebugLog):
         return super().__call__(*args, **kwargs)
 
     def exc(self, exc_str):
+        if not settings.PVM_DEBUG_OPCODES:
+            return
+
         opcode = self._finalize_current_opcode()
         if opcode is None:
             opcode = int(self._pvm.opcode)
@@ -242,6 +254,9 @@ class PVMOpcodeLogger(PVMDebugLog):
         return super().exc(exc_str)
 
     def finalize_opcode_stats(self) -> Optional[int]:
+        if not settings.PVM_DEBUG_OPCODES:
+            return
+
         if not self._collect_stats:
             return None
         self._finalize_current_opcode()
