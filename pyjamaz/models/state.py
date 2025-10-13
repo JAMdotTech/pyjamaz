@@ -607,8 +607,11 @@ class ServicesState(State, Serializable):
             if data:
                 service_account = ServiceAccount.from_serialized_bytes(data)
 
-        if service_account is None:
+        #TODO: we think this marked_as_deleted check is necesary, covers case where eject is called twice
+        if service_account is None or service_account.marked_as_deleted:
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
+
+        #TODO: should this cache this storage account? see todo in delete_service_account -> this now needs an additional query to verify
 
         return service_account
 
@@ -675,11 +678,19 @@ class ServicesState(State, Serializable):
                 raise ValueError('state_storage must be set before deleting service account data')
 
             self.state_storage.delete(state_key)
-
-        if service_account_id in self.services:
-            self.services[service_account_id].marked_as_deleted = True
+            #self.services[service_account_id] = None
+            del self.services[service_account_id]
         else:
-            self.services[service_account_id] = None
+            if service_account_id in self.services:
+                self.services[service_account_id].marked_as_deleted = True
+            else:
+                try:
+                    #TODO: is this the way?
+                    self.services[service_account_id] = self.retrieve_service_account(service_account_id)
+                    self.services[service_account_id].marked_as_deleted = True
+                except StateKeyNoResult:
+                    #TODO: should never happen??
+                    self.services[service_account_id] = None
 
         logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
 
