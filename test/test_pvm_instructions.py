@@ -35,8 +35,9 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
     #@parameterized.expand(load_test_vectors('fixtures/pvm/programs-custom'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost'))
     def test_instruction(self, name, test_vector):
 
         pvm_code = PVMCode.from_jam_bytes(

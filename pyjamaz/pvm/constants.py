@@ -637,6 +637,33 @@ OpcodeNames = {
     op.min_u.value: "min_u"
 }
 
+TERMINATION_OPCODES = {
+    op.trap.value,
+    op.fallthrough.value,
+
+    op.jump.value,
+    op.jump_ind.value,
+
+    op.load_imm_jump.value,
+    op.load_imm_jump_ind.value,
+
+    op.branch_eq_imm.value,
+    op.branch_ne_imm.value,
+    op.branch_lt_u_imm.value,
+    op.branch_ge_u_imm.value,
+    op.branch_le_u_imm.value,
+    op.branch_gt_u_imm.value,
+    op.branch_lt_s_imm.value,
+    op.branch_ge_s_imm.value,
+    op.branch_le_s_imm.value,
+    op.branch_gt_s_imm.value,
+    op.branch_eq.value,
+    op.branch_ne.value,
+    op.branch_lt_u.value,
+    op.branch_lt_s.value,
+    op.branch_ge_u.value,
+    op.branch_ge_s.value
+}
 
 inst_none = InstructionType.none.value
 inst_imm = InstructionType.imm.value

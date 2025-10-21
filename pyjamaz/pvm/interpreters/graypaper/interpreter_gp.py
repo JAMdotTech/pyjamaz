@@ -15,7 +15,7 @@ from pyjamaz.pvm.constants import (
     ExitReason,
     MemOps,
     OpcodeNames,
-    ExitCondition, MEM_W,
+    ExitCondition, MEM_W, TERMINATION_OPCODES,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
@@ -53,6 +53,8 @@ class PVMInterpreter:
         self.code:bytearray = bytearray()
         self.code_size: np.uint64 = u64(0)
         self.jump_table = []
+
+        self.basic_block = {}
 
         self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -96,6 +98,8 @@ class PVMInterpreter:
             self.inst_arg_len.append(0)
             return
 
+        basic_block_index = 0
+
         # Parse instruction bitmask and create a opcode offset and instruction length lookup
         while inst_bitmask_idx < len(inst_bitmask):
             inst_args = 0
@@ -112,6 +116,24 @@ class PVMInterpreter:
 
                 if inst_bitmask_idx > len(inst_bitmask) - 1:
                     is_opcode = True
+
+            if is_opcode:
+
+                if basic_block_index == -1:
+                    basic_block_index = inst_bitmask_idx-1
+
+                if inst_bitmask_idx >= len(self.code):
+                    instr = op.trap.value
+                else:
+                    instr = self.code[inst_bitmask_idx-1]
+
+                if instr in TERMINATION_OPCODES:
+                    self.basic_block[basic_block_index] = 0
+
+                    basic_block_index = -1
+                #
+                # elif basic_block_index == -1:
+                #     basic_block_index = inst_bitmask_idx-1
 
             # GP-0.6.2-eq:A.19 (l)
             self.inst_arg_len.append(inst_args)
@@ -151,6 +173,7 @@ class PVMInterpreter:
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
+
 
     #TODO: registers_as_int
     def get_registers(self):
