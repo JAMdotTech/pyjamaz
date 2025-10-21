@@ -63,6 +63,7 @@ class PVMInterpreter:
         self.exit_value:int = 0
 
         self.log = None
+        self.opcode_log_path: str = "opcode_log.txt"
 
         self.reset(program)
 

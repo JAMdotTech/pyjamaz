@@ -37,7 +37,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "--limit",
         type=int,
         default=100,
-        help="Maximum number of runs to display (ignored when --run-id is supplied).",
+        help=(
+            "Maximum number of runs to display when using --per-run "
+            "(ignored when --run-id is supplied)."
+        ),
     )
     parser.add_argument(
         "--run-id",
@@ -60,12 +63,17 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         action="store_true",
         help="Skip Excel export.",
     )
+    parser.add_argument(
+        "--per-run",
+        action="store_true",
+        help="Report stats for individual runs instead of aggregating all runs.",
+    )
     return parser.parse_args(argv)
 
 
 def fetch_runs(
     conn: sqlite3.Connection,
-    limit: int,
+    limit: Optional[int],
     run_id: Optional[int],
     source: Optional[str],
 ) -> Iterable[RunRow]:
@@ -87,7 +95,7 @@ def fetch_runs(
 
     base_query += " ORDER BY id DESC"
 
-    if run_id is None:
+    if run_id is None and limit is not None:
         base_query += " LIMIT ?"
         params.append(limit)
 
@@ -221,6 +229,177 @@ def export_to_excel(
     print(f"Excel report written to {path}")
 
 
+def fetch_aggregate_samples(
+    conn: sqlite3.Connection,
+    run_ids: Sequence[int],
+) -> Iterable[Tuple[int, str, int, float, float, float, float, float]]:
+    if not run_ids:
+        return []
+
+    placeholders = ",".join("?" for _ in run_ids)
+    query = f"""
+        SELECT
+            opcode,
+            opcode_name,
+            SUM(count) AS total_count,
+            SUM(total_time) AS total_time,
+            CASE WHEN SUM(count) = 0 THEN 0.0
+                 ELSE SUM(total_time) / SUM(count)
+            END AS avg_time,
+            CASE WHEN SUM(count) = 0 THEN 0.0
+                 ELSE SUM(mean_time * count) / SUM(count)
+            END AS mean_time,
+            MIN(min_time) AS min_time,
+            MAX(max_time) AS max_time
+        FROM opcode_timing_samples
+        WHERE run_id IN ({placeholders})
+        GROUP BY opcode, opcode_name
+        ORDER BY avg_time DESC, max_time DESC, opcode ASC
+    """
+    cur = conn.execute(query, list(run_ids))
+    return list(cur.fetchall())
+
+
+def format_aggregate(runs: Sequence[RunRow], samples: Iterable[SampleRow]) -> str:
+    run_count = len(runs)
+    total_iterations = sum(run[3] for run in runs)
+    total_time = sum(run[4] for run in runs)
+    avg_time_per_instr = (
+        total_time / total_iterations if total_iterations else 0.0
+    )
+
+    lines = [f"Aggregated opcode timing stats across {run_count} run(s)"]
+
+    lines.append(f"Total iterations {total_iterations}")
+
+    if total_iterations == 0:
+        lines.append("Opcode timing stats: no iterations executed")
+        return "\n".join(lines)
+
+    lines.append(f"Total recorded time (seconds) {total_time:.9f}")
+    lines.append(
+        "Average time per instruction (seconds) "
+        f"{avg_time_per_instr:.9e} ({avg_time_per_instr * 1e6:.3f} us)"
+    )
+
+    for opcode, name, count, total_time_sample, avg_time, mean_time, min_time, max_time in samples:
+        lines.append(
+            f"   {opcode:3d} {name:>24} "
+            f"count {count:6d} total_us {total_time_sample * 1e6:.3f} "
+            f"avg_us {avg_time * 1e6:.3f} mean_us {mean_time * 1e6:.3f} "
+            f"min_us {min_time * 1e6:.3f} max_us {max_time * 1e6:.3f}"
+        )
+
+    return "\n".join(lines)
+
+
+def export_aggregate_to_excel(
+    runs: Sequence[RunRow],
+    samples: Iterable[SampleRow],
+    path: Path,
+) -> None:
+    path = path.resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    wb = Workbook()
+    default_ws = wb.active
+    wb.remove(default_ws)
+
+    run_count = len(runs)
+    total_iterations = sum(run[3] for run in runs)
+    total_time = sum(run[4] for run in runs)
+    avg_time_per_instr = (
+        total_time / total_iterations if total_iterations else 0.0
+    )
+
+    summary_ws = wb.create_sheet("aggregate")
+    summary_rows = [
+        ("run_count", run_count),
+        ("total_iterations", total_iterations),
+        ("total_time_s", total_time),
+        ("avg_time_per_instr_s", avg_time_per_instr),
+        ("avg_time_per_instr_us", avg_time_per_instr * 1e6),
+    ]
+    for label, value in summary_rows:
+        summary_ws.append([label, value])
+
+    summary_ws.append([])
+
+    header = [
+        "opcode",
+        "opcode_name",
+        "count",
+        "total_time_s",
+        "total_time_us",
+        "avg_time_s",
+        "avg_time_us",
+        "mean_time_s",
+        "mean_time_us",
+        "min_time_s",
+        "min_time_us",
+        "max_time_s",
+        "max_time_us",
+    ]
+    summary_ws.append(header)
+
+    for sample in samples:
+        (
+            opcode,
+            name,
+            count,
+            total_time_sample,
+            avg_time,
+            mean_time,
+            min_time,
+            max_time,
+        ) = sample
+
+        summary_ws.append([
+            opcode,
+            name,
+            count,
+            total_time_sample,
+            total_time_sample * 1e6,
+            avg_time,
+            avg_time * 1e6,
+            mean_time,
+            mean_time * 1e6,
+            min_time,
+            min_time * 1e6,
+            max_time,
+            max_time * 1e6,
+        ])
+
+    runs_ws = wb.create_sheet("included_runs")
+    runs_ws.append(
+        [
+            "run_id",
+            "created_at",
+            "source",
+            "total_iterations",
+            "total_time_s",
+            "avg_time_per_instr_s",
+            "avg_time_per_instr_us",
+        ]
+    )
+    for run in runs:
+        run_id, created_at, source, total_iterations_run, total_time_run, avg_time_run = run
+        runs_ws.append(
+            [
+                run_id,
+                created_at,
+                source,
+                total_iterations_run,
+                total_time_run,
+                avg_time_run,
+                avg_time_run * 1e6,
+            ]
+        )
+
+    wb.save(path)
+    print(f"Excel report written to {path}")
+
+
 def main(argv: Sequence[str]) -> int:
     args = parse_args(argv)
 
@@ -231,36 +410,65 @@ def main(argv: Sequence[str]) -> int:
     conn = sqlite3.connect(str(args.db))
     conn.execute("PRAGMA foreign_keys = ON")
 
-    runs = fetch_runs(conn, args.limit, args.run_id, args.source)
+    try:
+        if args.per_run:
+            runs = fetch_runs(conn, args.limit, args.run_id, args.source)
 
-    if not runs:
-        target = f"run_id={args.run_id}" if args.run_id else "recent runs"
-        print(f"No opcode timing data found for {target}.")
-        return 0
+            if not runs:
+                target = f"run_id={args.run_id}" if args.run_id else "recent runs"
+                print(f"No opcode timing data found for {target}.")
+                return 0
 
-    rendered = []
-    samples_by_run: Dict[int, Iterable[SampleRow]] = {}
-    for run in runs:
-        samples = fetch_samples(conn, run[0])
-        samples_by_run[run[0]] = samples
-        rendered.append(format_run(run, samples))
+            rendered = []
+            samples_by_run: Dict[int, Iterable[SampleRow]] = {}
+            for run in runs:
+                samples = fetch_samples(conn, run[0])
+                samples_by_run[run[0]] = samples
+                rendered.append(format_run(run, samples))
 
-    conn.close()
+            print("\n\n".join(rendered))
 
-    print("\n\n".join(rendered))
-
-    excel_path: Optional[Path] = None if args.no_excel else args.excel
-    if excel_path:
-        if Workbook is None:
-            print(
-                "[opcode_timing_report] openpyxl is required for Excel export. "
-                "Install it or re-run with --no-excel.",
-                file=sys.stderr,
-            )
+            excel_path: Optional[Path] = None if args.no_excel else args.excel
+            if excel_path:
+                if Workbook is None:
+                    print(
+                        "[opcode_timing_report] openpyxl is required for Excel export. "
+                        "Install it or re-run with --no-excel.",
+                        file=sys.stderr,
+                    )
+                else:
+                    export_to_excel(runs, samples_by_run, excel_path)
         else:
-            export_to_excel(runs, samples_by_run, excel_path)
-    return 0
+            runs = fetch_runs(conn, None, args.run_id, args.source)
+
+            if not runs:
+                if args.run_id:
+                    print(f"No opcode timing data found for run_id={args.run_id}.")
+                elif args.source:
+                    print(f"No opcode timing data found for source={args.source}.")
+                else:
+                    print("No opcode timing data found.")
+                return 0
+
+            run_ids = [run[0] for run in runs]
+            aggregate_samples = fetch_aggregate_samples(conn, run_ids)
+            print(format_aggregate(runs, aggregate_samples))
+
+            excel_path = None if args.no_excel else args.excel
+            if excel_path:
+                if Workbook is None:
+                    print(
+                        "[opcode_timing_report] openpyxl is required for Excel export. "
+                        "Install it or re-run with --no-excel.",
+                        file=sys.stderr,
+                    )
+                else:
+                    export_aggregate_to_excel(runs, aggregate_samples, excel_path)
+        return 0
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
+
