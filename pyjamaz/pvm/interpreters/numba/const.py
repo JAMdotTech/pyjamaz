@@ -1,5 +1,4 @@
-NUMBA_CACHE = False
-
+NUMBA_CACHE = True
 
 # Error codes for the JIT function
 ERROR_NONE = 0
