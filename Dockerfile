@@ -35,15 +35,14 @@ ENV NUMBA_OPT=3
 ENV NUMBA_DEBUG=0
 ENV NUMBA_DEBUGINFO=0
 
-ENV PVM_INTERPRETER=NUMBA_JIT
+ENV PVM_INTERPRETER=NUMBA_AOT
 
 # Trigger compilation of the numba PVM interpreter
-#RUN ./scripts/build_numba_aot.sh
+RUN ./scripts/build_numba_aot.sh
 
 # Compile app and remove source code
 RUN python -m compileall -b ./pyjamaz && \
     find ./pyjamaz -name "*.py" -type f \
-    ! -path "./pyjamaz/pvm/interpreters/numba/*" \
     -delete
 
 ENTRYPOINT ["python", "pyjamaz/cli.pyc"]
