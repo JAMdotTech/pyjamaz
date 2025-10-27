@@ -25,7 +25,7 @@ RUN mkdir /app/numba-cache
 ENV NUMBA_CACHE_DIR="/app/numba-cache/"
 
 # https://numba.pydata.org/numba-doc/dev/reference/envvars.html
-ENV NUMBA_CACHE=1
+ENV NUMBA_CACHE=0
 ENV NUMBA_DISABLE_PERFORMANCE_WARNINGS=1
 ENV NUMBA_BOUNDSCHECK=0
 ENV NUMBA_EAGERNESS=1
