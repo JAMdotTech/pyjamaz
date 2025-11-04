@@ -283,6 +283,7 @@ def hc_checkpoint(
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
     x.savepoint_context = deepcopy(x.context)
+    x.context.state_context.services.state_storage.checkpoint()
 
 
 def hc_new(
@@ -616,7 +617,8 @@ def hc_eject(
     updated_balance = None
     preimage_availability = None
     eject_service_account = None  # GP: bold_d
-    if d != service_id:
+
+    if preimage_hash is not None and d != service_id:
         try:
             eject_service_account = state.services.retrieve_service_account(d)
             l = max(81, eject_service_account.footprint_storage_bytes) - 81
@@ -697,19 +699,18 @@ def hc_query(
     # GP: h
     try:
         preimage_hash = memory.read_bytes(o, 32)
+        # GP: bold_a
+        try:
+            # GP: (xs)l[h,z] == bold_a
+            preimage_availability = x.context.state_context.services.retrieve_preimage_availability(
+                service_id,
+                preimage_hash,
+                preimage_length
+            )
+        except StateKeyNoResult as e:
+            preimage_availability = None
     except PVMMemoryError:
         preimage_hash = None
-
-    # GP: bold_a
-    try:
-        # GP: (xs)l[h,z] == bold_a
-        preimage_availability = x.context.state_context.services.retrieve_preimage_availability(
-            service_id,
-            preimage_hash,
-            preimage_length
-        )
-    except StateKeyNoResult as e:
-        preimage_availability = None
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -791,28 +792,30 @@ def hc_solicit(
     #GP: h
     try:
         preimage_hash = memory.read_bytes(o, 32)
+
+        try:
+            # GP: bold_a
+            preimage_availability = state.services.retrieve_preimage_availability(
+                service_id,
+                preimage_hash,
+                preimage_length
+            )
+
+            # preimage is being requested that is not already present in storage
+            service_account.update_footprint_add_preimage(preimage_length)
+            state.services.store_service_account(service_id, service_account)
+
+        except StateKeyNoResult:
+            preimage_availability = None
+
     except PVMMemoryError:
         preimage_hash = None #GP: h = ∇
-
-    try:
-        # GP: bold_a
-        preimage_availability = state.services.retrieve_preimage_availability(
-            service_id,
-            preimage_hash,
-            preimage_length
-        )
-    except StateKeyNoResult:
         preimage_availability = None
-
-    if preimage_hash is not None and preimage_availability is None:
-        # preimage is being requested that is not already present in storage
-        service_account.update_footprint_add_preimage(preimage_length)
-        state.services.store_service_account(service_id, service_account)
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("SOLICIT PANIC", f"")
-    elif preimage_availability is not None and len(preimage_availability) != 2:
+    elif preimage_availability is None or len(preimage_availability) != 2:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
         logger and logger.hc_log("SOLICIT HUH", f"h={preimage_hash} newvalue={preimage_availability}")
@@ -889,51 +892,53 @@ def hc_forget(
     #GP: h
     try:
         preimage_hash = memory.read_bytes(o, 32)
+
+        timeslot = x.timeslot  # GP: t
+        # Note: x & y & w refer to the cardinality of the preimage_availability dictionary, see 9.2.2 EQ9.7
+        preimage_updated = False  # GP: bold_a = ∇
+
+        try:
+            preimage_availability = state.services.retrieve_preimage_availability(
+                service_id,
+                preimage_hash,
+                preimage_length
+            )
+
+            preimage_cardinality = len(preimage_availability)
+            if preimage_cardinality == 0 or preimage_cardinality == 2 and preimage_availability[1] < (
+                    timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
+
+                state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
+                state.services.delete_preimage(service_id, preimage_hash)
+                # Update footprint
+                service_account.update_footprint_remove_preimage(preimage_length)
+                state.services.store_service_account(service_id, service_account)
+
+                preimage_updated = True
+            elif preimage_cardinality == 1:
+
+                state.services.store_preimage_availability(
+                    service_id,
+                    preimage_hash,
+                    preimage_length,
+                    preimage_availability + [timeslot]
+                )
+                preimage_updated = True
+            elif preimage_cardinality == 3 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
+
+                # Note: reset unreferenced preimage expunge time with current timeslot
+                state.services.store_preimage_availability(
+                    service_id,
+                    preimage_hash,
+                    preimage_length,
+                    [preimage_availability[2], timeslot]
+                )
+                preimage_updated = True
+        except StateKeyNoResult:
+            pass
+
     except PVMMemoryError:
         preimage_hash = None #GP: h = ∇
-
-    timeslot = x.timeslot #GP: t
-    # Note: x & y & w refer to the cardinality of the preimage_availability dictionary, see 9.2.2 EQ9.7
-    preimage_updated = False #GP: bold_a = ∇
-
-    try:
-        preimage_availability = state.services.retrieve_preimage_availability(
-            service_id,
-            preimage_hash,
-            preimage_length
-        )
-
-        preimage_cardinality = len(preimage_availability)
-        if preimage_cardinality == 0 or preimage_cardinality == 2 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
-
-            state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
-            state.services.delete_preimage(service_id, preimage_hash)
-            # Update footprint
-            service_account.update_footprint_remove_preimage(preimage_length)
-            state.services.store_service_account(service_id, service_account)
-
-            preimage_updated = True
-        elif preimage_cardinality == 1:
-
-            state.services.store_preimage_availability(
-                service_id,
-                preimage_hash,
-                preimage_length,
-                preimage_availability + [timeslot]
-            )
-            preimage_updated = True
-        elif preimage_cardinality == 3 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
-
-            # Note: reset unreferenced preimage expunge time with current timeslot
-            state.services.store_preimage_availability(
-                service_id,
-                preimage_hash,
-                preimage_length,
-                [preimage_availability[2], timeslot]
-            )
-            preimage_updated = True
-    except StateKeyNoResult:
-        pass
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)

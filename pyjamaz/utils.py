@@ -10,7 +10,7 @@ from typing import List, Optional
 from pyjamaz.graypaper_constants import CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, ROTATION_PERIOD_CORE
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.settings import DEBUG
+from pyjamaz.settings import DEBUG, PROFILING
 
 
 def reorder_list_outside_in(items: list) -> list:
@@ -193,7 +193,7 @@ def sum_dict_values(d1: dict, d2: dict) -> dict:
 
 
 def log_execution_time(func):
-    if not DEBUG:
+    if not PROFILING:
         return func
 
     @wraps(func)

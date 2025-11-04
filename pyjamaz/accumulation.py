@@ -2,10 +2,11 @@ import logging
 import typing
 from concurrent.futures import as_completed
 from concurrent.futures.thread import ThreadPoolExecutor
-from copy import copy
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from typing import List, Set, Dict
 
+from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import CORE_COUNT
 
 from pyjamaz.hashing import blake2b_256_hash
@@ -316,15 +317,16 @@ def parallel_accumulation(
 
             # GP-0.7.1-eq:12.21 Process provided pre-images
             for s, i in output.preimages:
-                availability = output.state_context.services.retrieve_preimage_availability(s, blake2b_256_hash(i), len(i))
+                try:
+                    availability = output.state_context.services.retrieve_preimage_availability(s, blake2b_256_hash(i), len(i))
+                except StateKeyNoResult:
+                    # TODO check this
+                    availability = None
                 if availability == []:
                     output.state_context.services.store_preimage_availability(
                         s, blake2b_256_hash(i), len(i), [post_state_timeslot.number]
                     )
                     output.state_context.services.store_preimage(s, i)
-
-            # Update services state with output
-            accumulation_state.services.services.update(output.state_context.services.services)
 
             if output.accumulation_output is not None:
                 beefy_commitment_map.update({service_id: output.accumulation_output}) # b
@@ -437,8 +439,11 @@ def single_step_accumulation(
                     )
                 )
 
+    state_context = deepcopy(accumulation_state)
+    state_context.services.services = {}
+
     return pvm_invoke_accumulate(
-        state_context=accumulation_state,
+        state_context=state_context,
         timeslot=post_state_timeslot.number,
         service_id=service_id,
         gas_limit=g,
