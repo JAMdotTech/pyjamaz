@@ -1277,6 +1277,10 @@ class AccumulationHistoryState(State, Serializable):
     )
 
 
+class TupleMap(Map):
+    def to_serializable_obj(self, value_object: list):
+        return [(key.to_serializable_obj(), value.to_serializable_obj()) for key, value in value_object]
+
 @dataclass
 class BeefyCommitmentMap(State, Serializable):
     """
@@ -1284,22 +1288,21 @@ class BeefyCommitmentMap(State, Serializable):
 
     Attributes
     ----------
-    beefy_commitment_map: Dict(U32,H256)
+    beefy_commitment_map: List[Tuple[int, bytes]]
         GP-0.7.1-eq:7.4 (θ) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
-    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
+    beefy_commitment_map: List[Tuple[int, bytes]] = field(metadata={'codec': TupleMap(U32, H256)})
 
     def get_accumulate_root(self) -> bytes:
         """
-        GP-0.6.1-eq:7.6,7.7 (r) | The accumulation-result tree root of the beefy commitment map.
+        GP-0.7.1-eq:7.6,7.7 (r) | The accumulation-result tree root of the beefy commitment map.
 
         Returns
         -------
         bytes
         """
-        # TODO: Check annotation reference
-        items = sorted(self.beefy_commitment_map.items(), key=lambda x: x[0])
+        items = sorted(self.beefy_commitment_map)
         data = [k.to_bytes(4, byteorder='little') + v for k, v in items]
         return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
@@ -1447,7 +1450,7 @@ class JamState(State, Serializable):
             accumulation_history=AccumulationHistoryState(
                 accumulation_history=[[] for _ in range(EPOCH_TIMESLOTS)]
             ),
-            recent_accumulation_outputs=BeefyCommitmentMap(beefy_commitment_map={})
+            recent_accumulation_outputs=BeefyCommitmentMap(beefy_commitment_map=[])
         )
 
 
