@@ -801,12 +801,12 @@ def hc_solicit(
                 preimage_length
             )
 
+        except StateKeyNoResult:
+            preimage_availability = None
+
             # preimage is being requested that is not already present in storage
             service_account.update_footprint_add_preimage(preimage_length)
             state.services.store_service_account(service_id, service_account)
-
-        except StateKeyNoResult:
-            preimage_availability = None
 
     except PVMMemoryError:
         preimage_hash = None #GP: h = ∇

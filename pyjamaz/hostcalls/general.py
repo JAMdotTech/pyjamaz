@@ -268,21 +268,23 @@ def hc_write(
             si = bytes()
             l = HostCallResult.NONE.value
 
+        # Note: update the footprint in advance, to correctly calculate the threshold balance
+        # In cases where we panic, this is roll backed anyway
+        if service_storage_item is None:
+            # Update storage footprint
+            if l != HostCallResult.NONE.value:
+                service_account.update_footprint_remove_storage_item(len(k), len(si))
+        else:
+            # Update storage footprint
+            if len(si) == 0:
+                service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
+            else:
+                service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
+
     except PVMMemoryError:
         storage_key_mem_error = True  # GP: k= ∇
 
-    # Note: update the footprint in advance, to correctly calculate the threshold balance
-    # In cases where we panic, this is roll backed anyway
-    if service_storage_item is None:
-        # Update storage footprint
-        if l != HostCallResult.NONE.value:
-            service_account.update_footprint_remove_storage_item(len(k), len(si))
-    else:
-        # Update storage footprint
-        if len(si) == 0:
-            service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
-        else:
-            service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
+
 
     if storage_key_mem_error or service_storage_item_mem_error:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
