@@ -271,6 +271,19 @@ def hc_write(
     except PVMMemoryError:
         storage_key_mem_error = True  # GP: k= ∇
 
+    # Note: update the footprint in advance, to correctly calculate the threshold balance
+    # In cases where we panic, this is roll backed anyway
+    if service_storage_item is None:
+        # Update storage footprint
+        if l != HostCallResult.NONE.value:
+            service_account.update_footprint_remove_storage_item(len(k), len(si))
+    else:
+        # Update storage footprint
+        if len(si) == 0:
+            service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
+        else:
+            service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
+
     if storage_key_mem_error or service_storage_item_mem_error:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("WRITE PANIC", f"l={l}  s={service_id} mu_k={k}")
@@ -288,10 +301,6 @@ def hc_write(
             )
             logger and logger.hc_log("WRITE DELETE", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
 
-            # Update storage footprint
-            if l != HostCallResult.NONE.value:
-                service_account.update_footprint_remove_storage_item(len(k), len(si))
-
         else:
             services.store_storage_item(
                 service_account_id=service_id,
@@ -299,15 +308,12 @@ def hc_write(
                 value=service_storage_item,
             )
 
-            # Update storage footprint
             if len(si) == 0:
-                service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
-                logger and logger.hc_log("WRITE NONE",
-                                   f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
+                #service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
+                logger and logger.hc_log("WRITE NONE", f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
-                service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
-                logger and logger.hc_log("WRITE OK",
-                                   f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
+                #service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
+                logger and logger.hc_log("WRITE OK", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
 
         services.store_service_account(service_id, service_account)
 
