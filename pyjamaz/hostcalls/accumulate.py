@@ -806,7 +806,6 @@ def hc_solicit(
 
             # preimage is being requested that is not already present in storage
             service_account.update_footprint_add_preimage(preimage_length)
-            state.services.store_service_account(service_id, service_account)
 
     except PVMMemoryError:
         preimage_hash = None #GP: h = ∇
@@ -815,7 +814,7 @@ def hc_solicit(
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("SOLICIT PANIC", f"")
-    elif preimage_availability is None or len(preimage_availability) != 2:
+    elif preimage_availability is not None and len(preimage_availability) != 2:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
         logger and logger.hc_log("SOLICIT HUH", f"h={preimage_hash} newvalue={preimage_availability}")
@@ -844,6 +843,8 @@ def hc_solicit(
                 preimage_length,
                 preimage_availability + [x.timeslot]
             )
+
+        state.services.store_service_account(service_id, service_account)
 
         logger and logger.hc_log("SOLICIT OK", f"h={preimage_hash.hex()} newvalue={preimage_availability}")
 
@@ -1074,7 +1075,7 @@ def hc_provide(
         invocation_output.registers[7] = HostCallResult.WHO.value
         logger and logger.hc_log("PROVIDE WHO", f"")
 
-    elif preimage_availability is not None and preimage_availability != []:
+    elif preimage_availability != []:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
         logger and logger.hc_log("PROVIDE HUH", f"")
