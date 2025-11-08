@@ -1898,7 +1898,7 @@ class Services(StateComponent):
         """
         # TODO: check GP-0.7.1-eq:4.16; needs attention and refactoring
 
-        services = ServicesState(services=deepcopy(pre_state_services.services))
+        services = ServicesState(services={})
         services.set_state_storage(self.app_context.state_storage)
 
         accumulation_state = AccumulationStateComponents(
@@ -1969,100 +1969,30 @@ class Services(StateComponent):
         -------
 
         """
-        #TODO: mark dirty state, so we have state_mutations directly available
-        state_mutations = []
 
-        # Collect all service accounts in current memory
-        for service_id, service_account in state.services.items():
-
-            # Process service account
-            if service_account is None:
-                state_mutations.append(("service_account_delete", service_id,))
+        for (service_id, storage_hash), value in state.state_storage.pending_changes.storage_items.items():
+            if value is None:
+                state.delete_storage_item(service_id, storage_hash, commit=True)
             else:
+                state.store_storage_item(service_id, storage_hash, value, commit=True)
 
-                if service_account.marked_as_deleted:
-                    state_mutations.append(("service_account_delete", service_id,))
-                else:
-                    state_mutations.append(("service_account_update", service_id, service_account))
+        for (service_id, preimage_hash), value in state.state_storage.pending_changes.preimages.items():
+            if value is None:
+                state.delete_preimage(service_id, preimage_hash, commit=True)
+            else:
+                state.store_preimage(service_id, value, commit=True)
 
-                # Process storage items
-                for storage_key, storage_value in service_account.storage_items.items():
-                    if storage_value is None:
-                        state_mutations.append(("storage_items_delete", service_id, storage_key))
-                    else:
-                        state_mutations.append(("storage_items_update", service_id, storage_key, storage_value))
+        for (service_id, preimage_hash, preimage_length), value in state.state_storage.pending_changes.preimages_availability.items():
+            if value is None:
+                state.delete_preimage_availability(service_id, preimage_hash, preimage_length, commit=True)
+            else:
+                state.store_preimage_availability(service_id, preimage_hash, preimage_length, value, commit=True)
 
-                # Process preimages
-                for preimage_hash, preimage_blob in service_account.preimages.items():
-                    if preimage_blob is None:
-                        state_mutations.append(("preimages_delete", service_id, preimage_hash))
-                    else:
-                        state_mutations.append(("preimages_update", service_id, preimage_hash, preimage_blob))
-
-                # Process preimage availability
-                for (preimage_hash, preimage_length), availability  in service_account.preimage_availability.items():
-
-                    if availability is None:
-                        state_mutations.append(("preimage_availability_delete", service_id, preimage_hash, preimage_length))
-                    else:
-                        state_mutations.append(("preimage_availability_update", service_id, preimage_hash, preimage_length, availability))
-
-
-        # Process all mutations afterwards (in order) to prevent mutating the state while iterating over it
-
-        ordered_components = [
-            "storage_items_delete",
-            "storage_items_update",
-            "preimages_delete",
-            "preimages_update",
-            "preimage_availability_delete",
-            "preimage_availability_update",
-            "service_account_delete",
-            "service_account_update"
-        ]
-
-        for component in ordered_components:
-            for mut in state_mutations:
-                if mut[0] != component:
-                    continue
-
-                if mut[0] == "storage_items_delete":
-                    #TODO: self.app_context.pubsub.publish()
-                    state.delete_storage_item(mut[1], mut[2], commit=True)
-                elif mut[0] == "storage_items_update":
-                    # TODO async blocking exception??
-                    state.store_storage_item(mut[1], mut[2], mut[3], commit=True)
-                    if self.app_context.pubsub:
-                        await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[mut[1], mut[2], mut[3]]))
-                elif mut[0] == "preimages_delete":
-                    # TODO: self.app_context.pubsub.publish()
-                    state.delete_preimage(mut[1], mut[2], commit=True)
-                elif mut[0] == "preimages_update":
-                    # TODO async blocking exception??
-                    state.store_preimage(mut[1], mut[3], commit=True)
-                    if self.app_context.pubsub:
-                        await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[mut[1], mut[2], mut[3]]))
-                elif mut[0] == "preimage_availability_delete":
-                    # TODO: self.app_context.pubsub.publish()
-                    state.delete_preimage_availability(mut[1], mut[2], mut[3], commit=True)
-                elif mut[0] == "preimage_availability_update":
-                    # TODO async blocking exception??
-                    if self.app_context.pubsub:
-                        await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY, data=[mut[1], mut[2], mut[3], mut[4]]))
-                    state.store_preimage_availability(
-                        service_account_id=mut[1],
-                        preimage_hash=mut[2],
-                        preimage_length=mut[3],
-                        value=mut[4],
-                        commit=True
-                    )
-                elif mut[0] == "service_account_delete":
-                    # TODO: self.app_context.pubsub.publish()
-                    state.delete_service_account(mut[1], commit=True)
-                elif mut[0] == "service_account_update":
-                    state.store_service_account(mut[1], mut[2], commit=True)
-                    if self.app_context.pubsub:
-                        await self.app_context.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[mut[1], mut[2]]))
+        for service_id, service_account in state.state_storage.pending_changes.service_accounts.items():
+            if service_account is None:
+                state.delete_service_account(service_id, commit=True)
+            else:
+                state.store_service_account(service_id, service_account, commit=True)
 
 
 class AccumulationQueue(StateComponent):

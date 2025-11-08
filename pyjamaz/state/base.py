@@ -115,7 +115,7 @@ def state_key_constructor_preimage_availability(
     ----------
     service_account_id: int
     preimage_hash: bytes
-    preimage_length: bytes
+    preimage_length: int
     Returns
     -------
     bytes

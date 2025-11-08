@@ -174,13 +174,6 @@ def pvm_invoke_accumulate(
 
     DEBUG and logging.debug(f'PVM invoke accumulate: s={service_id} input={[i.to_json() for i in accumulation_inputs]}')
 
-    invocation_context = AccumulateInvocationContext.create_from_accumulation_state(
-        accumulation_state=state_context,
-        service_account_id=service_id,
-        entropy=post_entropy.entropy[0],
-        timeslot=timeslot
-    )
-
     try:
 
         service_account = state_context.services.retrieve_service_account(service_id)
@@ -190,6 +183,7 @@ def pvm_invoke_accumulate(
 
         if len(x) > 0:
             service_account.balance += sum(r.deferred_transfer.amount for r in x)
+            DEBUG and logging.debug(f'Deferred transfers: Added {sum(r.deferred_transfer.amount for r in x)} to balance of service {service_id}')
             state_context.services.store_service_account(service_id, service_account)
 
         preimage_blob = state_context.services.retrieve_preimage(
@@ -222,6 +216,13 @@ def pvm_invoke_accumulate(
         operands_length=len(accumulation_inputs),
     ).to_jam_bytes().to_bytes()
 
+    invocation_context = AccumulateInvocationContext.create_from_accumulation_state(
+        accumulation_state=state_context,
+        service_account_id=service_id,
+        entropy=post_entropy.entropy[0],
+        timeslot=timeslot
+    )
+
     pvm_invocation = PVMInvocation(
         invocation_context=invocation_context,
         invocation_mutator=AccumulateInvocationMutator(
@@ -240,6 +241,8 @@ def pvm_invoke_accumulate(
 
     # GP-0.7.1-eq:B.13 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
+        # Rollback pending changes in state storage
+        state_context.services.state_storage.checkpoint_rollback()
 
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.savepoint_context.state_context,

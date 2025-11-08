@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import ceil
-from typing import List, Optional, Dict, Tuple, Union
+from typing import List, Optional, Dict, Tuple, Union, Set
 
 from jamcodec.base import JamBytes
 
@@ -450,44 +450,15 @@ class ServiceAccount(Serializable):
 
         return serialized_bytes
 
-    # @classmethod
-    # def from_serialized_bytes(cls, serialized_bytes: bytes) -> 'ServiceAccount':
-    #     return ServiceAccount(
-    #         code_hash=serialized_bytes[0:32],
-    #         balance=U64.decode(JamBytes(serialized_bytes[32:40])),
-    #         gas_limit_accumulate=U64.decode(JamBytes(serialized_bytes[40:48])),
-    #         gas_limit_on_transfer=U64.decode(JamBytes(serialized_bytes[48:56])),
-    #         footprint_storage_bytes=U64.decode(JamBytes(serialized_bytes[56:64])),
-    #         deposit_offset=U64.decode(JamBytes(serialized_bytes[64:72])),
-    #         footprint_storage_items=U32.decode(JamBytes(serialized_bytes[72:76])),
-    #         creation_slot=U32.decode(JamBytes(serialized_bytes[76:80])),
-    #         last_accumulation_slot=U32.decode(JamBytes(serialized_bytes[80:84])),
-    #         parent_service=U32.decode(JamBytes(serialized_bytes[84:88])),
-    #         storage_items={},
-    #         preimages={},
-    #         preimage_availability={},
-    #     )
-    #
-    # def to_serialized_bytes(self) -> bytes:
-    #     serialized_bytes = self.code_hash
-    #     serialized_bytes += U64.encode(self.balance).to_bytes()
-    #     serialized_bytes += U64.encode(self.gas_limit_accumulate).to_bytes()
-    #     serialized_bytes += U64.encode(self.gas_limit_on_transfer).to_bytes()
-    #     serialized_bytes += U64.encode(self.footprint_storage_bytes).to_bytes()
-    #     serialized_bytes += U64.encode(self.deposit_offset).to_bytes()
-    #     serialized_bytes += U32.encode(self.footprint_storage_items).to_bytes()
-    #     serialized_bytes += U32.encode(self.creation_slot).to_bytes()
-    #     serialized_bytes += U32.encode(self.last_accumulation_slot).to_bytes()
-    #     serialized_bytes += U32.encode(self.parent_service).to_bytes()
-    #     return serialized_bytes
-
     def update_from(self, service_account: "ServiceAccount"):
         self.footprint_storage_bytes = service_account.footprint_storage_bytes
         self.footprint_storage_items = service_account.footprint_storage_items
         self.balance = service_account.balance
         self.code_hash = service_account.code_hash
-        self.gas_limit_accumulate = service_account.gas_limit_on_transfer   #TODO: @Arjan: bug?? gas_limit_accumulate???
+        self.gas_limit_accumulate = service_account.gas_limit_accumulate
         self.gas_limit_on_transfer = service_account.gas_limit_on_transfer
+        # TODO check if this is needed
+        self.marked_as_deleted = service_account.marked_as_deleted
 
     def update_footprint_add_storage_item(self, key_len: int, value_len: int) -> None:
         """
@@ -594,8 +565,8 @@ class ServicesState(State, Serializable):
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
 
         service_account = None
-        if service_account_id in self.services:
-            service_account = self.services[service_account_id]
+        if service_account_id in self.state_storage.pending_changes.service_accounts:
+            service_account = self.state_storage.pending_changes.service_accounts[service_account_id]
         else:
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before retrieving preimage')
@@ -634,10 +605,10 @@ class ServicesState(State, Serializable):
         if service_account_id >= 2 ** 32:
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
 
-        if service_account_id not in self.services or self.services[service_account_id] is None:
-            self.services[service_account_id] = service_account
+        if service_account_id not in self.state_storage.pending_changes.service_accounts or self.state_storage.pending_changes.service_accounts[service_account_id] is None:
+            self.state_storage.pending_changes.service_accounts[service_account_id] = service_account
         else:
-            self.services[service_account_id].update_from(service_account)
+            self.state_storage.pending_changes.service_accounts[service_account_id].update_from(service_account)
 
         state_key = state_key_constructor_service_account(service_account_id)
 
@@ -678,19 +649,9 @@ class ServicesState(State, Serializable):
                 raise ValueError('state_storage must be set before deleting service account data')
 
             self.state_storage.delete(state_key)
-            #self.services[service_account_id] = None
-            del self.services[service_account_id]
         else:
-            if service_account_id in self.services:
-                self.services[service_account_id].marked_as_deleted = True
-            else:
-                try:
-                    #TODO: is this the way?
-                    self.services[service_account_id] = self.retrieve_service_account(service_account_id)
-                    self.services[service_account_id].marked_as_deleted = True
-                except StateKeyNoResult:
-                    #TODO: should never happen??
-                    self.services[service_account_id] = None
+            self.state_storage.pending_changes.service_accounts[service_account_id] = None
+
 
         logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
 
@@ -710,8 +671,8 @@ class ServicesState(State, Serializable):
         bytes
         """
 
-        if service_account_id in self.services and preimage_hash in self.services[service_account_id].preimages:
-            preimage = self.services[service_account_id].preimages[preimage_hash]
+        if (service_account_id, preimage_hash) in self.state_storage.pending_changes.preimages:
+            preimage = self.state_storage.pending_changes.preimages[(service_account_id, preimage_hash)]
         else:
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before retrieving preimage')
@@ -812,11 +773,9 @@ class ServicesState(State, Serializable):
         None
         """
 
-        if service_account_id not in self.services:
-            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
-
         preimage_hash = blake2b_256_hash(preimage_blob)
-        self.services[service_account_id].preimages[preimage_hash] = preimage_blob
+
+        self.state_storage.pending_changes.preimages[(service_account_id, preimage_hash)] = preimage_blob
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
 
@@ -844,19 +803,21 @@ class ServicesState(State, Serializable):
 
         preimage_availability = None
 
-        if service_account_id in self.services and (preimage_hash, preimage_length) in self.services[service_account_id].preimage_availability:
-            preimage_availability = self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)]
-        else:
-            if self.state_storage is None:
-                raise ValueError('state_storage must be set before retrieving preimage availability')
+        if service_account_id < 2**32 and preimage_length < 2**32:
 
-            storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
+            if (service_account_id, preimage_hash, preimage_length) in self.state_storage.pending_changes.preimages_availability:
+                preimage_availability = self.state_storage.pending_changes.preimages_availability[(service_account_id, preimage_hash, preimage_length)]
+            else:
+                if self.state_storage is None:
+                    raise ValueError('state_storage must be set before retrieving preimage availability')
 
-            data = self.state_storage.get(storage_key)
-            if data:
-                availability = Vec(U32).new()
-                availability.decode(JamBytes(data))
-                preimage_availability = availability.value
+                storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
+
+                data = self.state_storage.get(storage_key)
+                if data:
+                    availability = Vec(U32).new()
+                    availability.decode(JamBytes(data))
+                    preimage_availability = availability.value
 
         if preimage_availability is None:
             raise StateKeyNoResult(
@@ -874,12 +835,9 @@ class ServicesState(State, Serializable):
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int, value: List[int], commit=False
     ):
 
-        if service_account_id not in self.services:
-            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
-
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
-        self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = value
+        self.state_storage.pending_changes.preimages_availability[(service_account_id, preimage_hash, preimage_length)] = value
 
         if commit:
 
@@ -899,8 +857,6 @@ class ServicesState(State, Serializable):
 
     def delete_preimage(self, service_account_id: int, preimage_hash: bytes, commit=False):
 
-        if service_account_id not in self.services:
-            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
 
@@ -910,9 +866,8 @@ class ServicesState(State, Serializable):
                 raise ValueError('state_storage must be set before deleting preimage availability data')
 
             self.state_storage.delete(storage_key)
-            self.services[service_account_id].preimages.pop(preimage_hash, None)
         else:
-            self.services[service_account_id].preimages[preimage_hash] = None
+            self.state_storage.pending_changes.preimages[(service_account_id, preimage_hash)] = None
 
         logging.debug(
             f'delete_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={commit}'
@@ -923,9 +878,6 @@ class ServicesState(State, Serializable):
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int, commit=False
     ):
 
-        if service_account_id not in self.services:
-            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
-
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
         if commit:
@@ -934,10 +886,9 @@ class ServicesState(State, Serializable):
                 raise ValueError('state_storage must be set before deleting preimage availability data')
 
             self.state_storage.delete(storage_key)
-            self.services[service_account_id].preimage_availability.pop((preimage_hash, preimage_length), None)
 
         else:
-            self.services[service_account_id].preimage_availability[(preimage_hash, preimage_length)] = None
+            self.state_storage.pending_changes.preimages_availability[(service_account_id, preimage_hash, preimage_length)] = None
 
         logging.debug(
             f'delete_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}'
@@ -960,8 +911,8 @@ class ServicesState(State, Serializable):
         bytes
         """
 
-        if service_account_id in self.services and storage_item_hash in self.services[service_account_id].storage_items:
-            data = self.services[service_account_id].storage_items[storage_item_hash]
+        if (service_account_id, storage_item_hash) in self.state_storage.pending_changes.storage_items:
+            data = self.state_storage.pending_changes.storage_items[(service_account_id,storage_item_hash)]
         else:
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before retrieving storage items')
@@ -984,8 +935,8 @@ class ServicesState(State, Serializable):
         """
         Store a storage item in the storage engine
         """
-        if service_account_id not in self.services:
-            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
+
+        self.state_storage.pending_changes.storage_items[(service_account_id, storage_key)] = value
 
         state_key = state_key_constructor_storage_item(service_account_id, storage_key)
 
@@ -996,15 +947,11 @@ class ServicesState(State, Serializable):
 
         logging.debug(f'store_storage_item(s={service_account_id}, k={storage_key.hex()}): v={value.hex()} state_key={state_key.hex()} [commit={commit}]')
 
-        self.services[service_account_id].storage_items[storage_key] = value
-
 
     def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, commit=False):
         """
         Delete a storage item in the storage engine
         """
-        if service_account_id not in self.services:
-            self.services[service_account_id] = self.retrieve_service_account(service_account_id)
 
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
 
@@ -1015,10 +962,8 @@ class ServicesState(State, Serializable):
 
             self.state_storage.delete(storage_key)
 
-            self.services[service_account_id].storage_items.pop(storage_item_hash, None)
-
         else:
-            self.services[service_account_id].storage_items[storage_item_hash] = None
+            self.state_storage.pending_changes.storage_items[(service_account_id, storage_item_hash)] = None
 
         logging.debug(
             f'delete_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()} [commit={commit}]'
@@ -1332,6 +1277,10 @@ class AccumulationHistoryState(State, Serializable):
     )
 
 
+class TupleMap(Map):
+    def to_serializable_obj(self, value_object: list):
+        return [(key.to_serializable_obj(), value.to_serializable_obj()) for key, value in value_object]
+
 @dataclass
 class BeefyCommitmentMap(State, Serializable):
     """
@@ -1339,22 +1288,27 @@ class BeefyCommitmentMap(State, Serializable):
 
     Attributes
     ----------
-    beefy_commitment_map: Dict(U32,H256)
+    beefy_commitment_map: List[Tuple[int, bytes]]
         GP-0.7.1-eq:7.4 (θ) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
-    beefy_commitment_map: Dict[int, bytes] = field(metadata={'codec': Map(U32, H256)})
+    beefy_commitment_map: Set[Tuple[int, bytes]] = field(default_factory=set, metadata={'codec': TupleMap(U32, H256)})
+
+    def add_accumulation_output(self, service_index: int, accumulation_output: bytes):
+        self.beefy_commitment_map.add((service_index, accumulation_output))
+
+    def get_accumulation_outputs(self):
+        return sorted(self.beefy_commitment_map)
 
     def get_accumulate_root(self) -> bytes:
         """
-        GP-0.6.1-eq:7.6,7.7 (r) | The accumulation-result tree root of the beefy commitment map.
+        GP-0.7.1-eq:7.6,7.7 (r) | The accumulation-result tree root of the beefy commitment map.
 
         Returns
         -------
         bytes
         """
-        # TODO: Check annotation reference
-        items = sorted(self.beefy_commitment_map.items(), key=lambda x: x[0])
+        items = self.get_accumulation_outputs()
         data = [k.to_bytes(4, byteorder='little') + v for k, v in items]
         return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
@@ -1502,7 +1456,7 @@ class JamState(State, Serializable):
             accumulation_history=AccumulationHistoryState(
                 accumulation_history=[[] for _ in range(EPOCH_TIMESLOTS)]
             ),
-            recent_accumulation_outputs=BeefyCommitmentMap(beefy_commitment_map={})
+            recent_accumulation_outputs=BeefyCommitmentMap()
         )
 
 

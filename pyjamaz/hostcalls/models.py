@@ -63,7 +63,11 @@ class AccumulateInvocationContext(InvocationContext):
 
     @classmethod
     def create_from_accumulation_state(
-            cls, accumulation_state: AccumulationStateComponents, service_account_id: int, entropy: bytes, timeslot: int
+            cls,
+            accumulation_state: AccumulationStateComponents,
+            service_account_id: int,
+            entropy: bytes,
+            timeslot: int
     ) -> 'AccumulateInvocationContext':
         """
                 B.10 (I)
@@ -86,10 +90,13 @@ class AccumulateInvocationContext(InvocationContext):
             (check_payload % (2 ** 32 - MINIMUM_PUBLIC_SERVICE_ID - 2 ** 8)) + MINIMUM_PUBLIC_SERVICE_ID
         )
 
+        # Initiate initial checkpoint
+        accumulation_state.services.state_storage.checkpoint()
+
         return AccumulateInvocationContext(
             context=AccumulateContextItem(
                 service_account_id=service_account_id,
-                state_context=deepcopy(accumulation_state),
+                state_context=accumulation_state,
                 new_service_account_id=new_service_account_id,
                 deferred_transfers=[],
                 invocation_output=None,

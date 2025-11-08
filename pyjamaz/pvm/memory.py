@@ -86,7 +86,7 @@ class PVMMemory:
         if addr < 2**16:
             msg = "Invalid memory access"
             logging.debug(msg)
-            raise PanicError(msg)
+            raise PVMMemoryError(msg)
 
         if self._heap and addr >= self._heap.address and addr <= self._heap.paged_tail:
             return self._heap
