@@ -18,7 +18,7 @@ SKIP_TIMESLOT_WALL_CLOCK_CHECK = False
 
 DEBUG_PROGRAM_OVERRIDE = {}
 
-USE_THREAD_POOL = True
+USE_THREAD_POOL = False
 THREAD_POOL_MAX_WORKERS = os.cpu_count()
 
 PVM_DEBUGGER = None         # Class handling all PVM (& hostcall) related logging

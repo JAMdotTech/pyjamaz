@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import ceil
-from typing import List, Optional, Dict, Tuple, Union
+from typing import List, Optional, Dict, Tuple, Union, Set
 
 from jamcodec.base import JamBytes
 
@@ -1292,7 +1292,13 @@ class BeefyCommitmentMap(State, Serializable):
         GP-0.7.1-eq:7.4 (θ) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
-    beefy_commitment_map: List[Tuple[int, bytes]] = field(metadata={'codec': TupleMap(U32, H256)})
+    beefy_commitment_map: Set[Tuple[int, bytes]] = field(default_factory=set, metadata={'codec': TupleMap(U32, H256)})
+
+    def add_accumulation_output(self, service_index: int, accumulation_output: bytes):
+        self.beefy_commitment_map.add((service_index, accumulation_output))
+
+    def get_accumulation_outputs(self):
+        return sorted(self.beefy_commitment_map)
 
     def get_accumulate_root(self) -> bytes:
         """
@@ -1302,7 +1308,7 @@ class BeefyCommitmentMap(State, Serializable):
         -------
         bytes
         """
-        items = sorted(self.beefy_commitment_map)
+        items = self.get_accumulation_outputs()
         data = [k.to_bytes(4, byteorder='little') + v for k, v in items]
         return WellBalancedMerkleTree(data, hash_function=keccak_256_hash).root()
 
@@ -1450,7 +1456,7 @@ class JamState(State, Serializable):
             accumulation_history=AccumulationHistoryState(
                 accumulation_history=[[] for _ in range(EPOCH_TIMESLOTS)]
             ),
-            recent_accumulation_outputs=BeefyCommitmentMap(beefy_commitment_map=[])
+            recent_accumulation_outputs=BeefyCommitmentMap()
         )
 
 

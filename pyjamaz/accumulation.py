@@ -172,7 +172,7 @@ def full_sequential_accumulation(
         return FullAccumulationOutput(
             nr_work_results_accumulated=0,
             post_accumulation_state=accumulation_state,
-            accumulation_commitment=BeefyCommitmentMap(beefy_commitment_map=[]),
+            accumulation_commitment=BeefyCommitmentMap(),
             accumulation_gas_utilized={}
         )
 
@@ -197,7 +197,7 @@ def full_sequential_accumulation(
         post_state_entropy=post_state_entropy
     )
 
-    output.accumulation_commitment.beefy_commitment_map += second_output.accumulation_commitment.beefy_commitment_map
+    output.accumulation_commitment.beefy_commitment_map.update(second_output.accumulation_commitment.beefy_commitment_map)
 
     # Update gas statistics
     output.accumulation_gas_utilized = sum_dict_values(
@@ -247,7 +247,7 @@ def parallel_accumulation(
     # u
     accumulation_gas_utilized = {}
     # b
-    beefy_commitment_map = []
+    beefy_commitment_map = BeefyCommitmentMap()
 
     logging.debug(f'Services to accumulate: {service_ids}')
 
@@ -327,7 +327,7 @@ def parallel_accumulation(
                     output.state_context.services.store_preimage(s, i)
 
             if output.accumulation_output is not None:
-                beefy_commitment_map.append((service_id, output.accumulation_output)) # b
+                beefy_commitment_map.add_accumulation_output(service_id, output.accumulation_output) # b
 
             if service_id == pre_state_manager:
                 # Process privilege services (m', a*, v*, z')
@@ -374,7 +374,7 @@ def parallel_accumulation(
     return ParallelAccumulationOutput(
         accumulation_state=accumulation_state,
         deferred_transfers=deferred_transfers,
-        accumulation_commitment=BeefyCommitmentMap(beefy_commitment_map=beefy_commitment_map),
+        accumulation_commitment=beefy_commitment_map,
         accumulation_gas_utilized=accumulation_gas_utilized
     )
 
