@@ -457,8 +457,10 @@ class ServiceAccount(Serializable):
         self.code_hash = service_account.code_hash
         self.gas_limit_accumulate = service_account.gas_limit_accumulate
         self.gas_limit_on_transfer = service_account.gas_limit_on_transfer
-        # TODO check if this is needed
-        self.marked_as_deleted = service_account.marked_as_deleted
+        self.deposit_offset = service_account.deposit_offset
+        self.creation_slot = service_account.creation_slot
+        self.last_accumulation_slot = service_account.last_accumulation_slot
+        self.parent_service = service_account.parent_service
 
     def update_footprint_add_storage_item(self, key_len: int, value_len: int) -> None:
         """
