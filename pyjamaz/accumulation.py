@@ -14,7 +14,7 @@ from pyjamaz.models.common import WorkReport, AccumulationOperand, AccumulationI
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, BeefyCommitmentMap, TimeslotState, EntropyState
 
 from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
-from pyjamaz.settings import USE_THREAD_POOL, THREAD_POOL_MAX_WORKERS
+from pyjamaz.settings import USE_THREAD_POOL_ACCUMULATE, THREAD_POOL_MAX_WORKERS
 from pyjamaz.utils import sum_dict_values
 
 if typing.TYPE_CHECKING:
@@ -262,7 +262,7 @@ def parallel_accumulation(
     manager_assigners = copy(pre_state_assigners) # a*
     manager_registrar = pre_state_registrar # r*
 
-    if USE_THREAD_POOL:
+    if USE_THREAD_POOL_ACCUMULATE:
 
         logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
 

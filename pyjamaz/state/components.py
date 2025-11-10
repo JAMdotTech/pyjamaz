@@ -11,11 +11,10 @@ from ed25519_zebra import ed_verify
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue)
-from pyjamaz.constants import MESSAGE_TYPES
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
-from pyjamaz.settings import SOLO_MODE, USE_THREAD_POOL, THREAD_POOL_MAX_WORKERS
+from pyjamaz.settings import SOLO_MODE, THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL_SAFROLE
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, DeferredTransfer
@@ -358,7 +357,7 @@ class Safrole(StateComponent):
 
             ring_context = RingContext(self.ring_data, ring_public_keys)
 
-            if USE_THREAD_POOL:
+            if USE_THREAD_POOL_SAFROLE:
 
                 logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
 
