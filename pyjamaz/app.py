@@ -5,7 +5,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TypeVar, Optional, List, Callable
+from typing import TypeVar, Optional, List, Callable, Dict
 
 from bandersnatch_vrfs import ietf_vrf_sign, RingContext
 
@@ -163,6 +163,11 @@ class PyjamazApp:
             if self.working_state.timeslot.number >= block.header.timeslot:
                 logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
                 continue
+
+            if self.pubsub:
+                await self.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.BLOCK_IMPORTING, data={"block": block})
+                )
 
             await self.import_block(block)
             logging.debug(f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')
@@ -446,14 +451,29 @@ class PyjamazApp:
         # Validate quality of header data (second stage)
 
         if not produce:
-            block_validation.validate_header_after_safrole(
-                header=block.header,
-                post_entropy=entropy_output.post_state,
-                post_validator_pool=validator_pool_output.post_state,
-                safrole_output=safrole_output,
-                disputes_output=disputes_output,
-                extrinsic=block.extrinsic
-            )
+            try:
+                block_validation.validate_header_after_safrole(
+                    header=block.header,
+                    post_entropy=entropy_output.post_state,
+                    post_validator_pool=validator_pool_output.post_state,
+                    safrole_output=safrole_output,
+                    disputes_output=disputes_output,
+                    extrinsic=block.extrinsic
+                )
+            except Exception as exc:
+                if self.pubsub:
+                    await self.pubsub.publish(
+                        PubSubSignal(
+                            topic=MESSAGE_TYPES.BLOCK_VERIFICATION_FAILED,
+                            data={"block": block, "reason": f"{exc.__class__.__name__}: {exc}"}
+                        )
+                    )
+                raise
+            else:
+                if self.pubsub:
+                    await self.pubsub.publish(
+                        PubSubSignal(topic=MESSAGE_TYPES.BLOCK_VERIFIED, data={"block": block})
+                    )
 
         # Entropy STF Block Data | GP-0.5.0-eq:4.9
         # TODO second time is necessary because author bandersnatch key is known after
@@ -678,12 +698,36 @@ class PyjamazApp:
         # Add header to ancestors
         self.state_storage.add_ancestor(header)
 
+    def _snapshot_accumulation_statistics(self) -> Dict[int, Dict[str, int]]:
+        stats = self.block_context.accumulation_statistics or {}
+        return {
+            service_id: {
+                "nr_work_reports_accumulated": stat.nr_work_reports_accumulated,
+                "total_gas_utilized": stat.total_gas_utilized,
+            }
+            for service_id, stat in stats.items()
+        }
+
     @log_execution_time
     async def _import_block(self, block: Block, dry_run=False) -> STFOutput:
+
+        accumulation_snapshot = self._snapshot_accumulation_statistics()
 
         output = await self.state_transition(block, produce=False)
 
         await self.add_ancestor_block(block)
+
+        if self.pubsub:
+            await self.pubsub.publish(
+                PubSubSignal(
+                    topic=MESSAGE_TYPES.BLOCK_EXECUTED,
+                    data={
+                        "block": block,
+                        "accumulation_statistics": accumulation_snapshot,
+                        "source": "import",
+                    },
+                )
+            )
 
         return output
 
@@ -965,11 +1009,24 @@ class PyjamazApp:
         if self.config.create_traces:
             pre_state = await self.create_state_dump()
 
+        accumulation_snapshot = self._snapshot_accumulation_statistics()
         await self.state_transition(block, produce=True)
 
         await self.add_ancestor_block(block)
 
         logging.debug(f'New state root: {format_hash(self.working_state.state_root)}')
+
+        if self.pubsub:
+            await self.pubsub.publish(
+                PubSubSignal(
+                    topic=MESSAGE_TYPES.BLOCK_EXECUTED,
+                    data={
+                        "block": block,
+                        "accumulation_statistics": accumulation_snapshot,
+                        "source": "author",
+                    },
+                )
+            )
 
         if self.config.create_traces:
             await self.store_trace(pre_state, block, self.config.create_traces)
