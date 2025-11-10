@@ -31,10 +31,8 @@ from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE, MEM_R, MEM_W
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.models.state import ServiceAccount, ServicesState, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState, ValidatorQueueState
-from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand, DeferredTransfer
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hostcalls.models import AccumulateInvocationContext, AccumulateContextItem
-from pyjamaz.hostcalls.constants import HostCallResult
 
 
 def load_test_vectors(directory):

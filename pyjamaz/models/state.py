@@ -379,14 +379,6 @@ class ServiceAccount(Serializable):
     parent_service: int = field(metadata={'codec': U32})
 
     @property
-    def marked_as_deleted(self) -> bool:
-        return getattr(self, '_marked_as_deleted', False)
-
-    @marked_as_deleted.setter
-    def marked_as_deleted(self, value: bool) -> None:
-        setattr(self, '_marked_as_deleted', value)
-
-    @property
     def threshold_balance(self):
         # GP-0.7.1-eq:9.8 (a_t)
         return max(0,
@@ -527,6 +519,7 @@ class ServicesState(State, Serializable):
         service account index.
     """
     services: Union[Dict[int, ServiceAccount], ServiceAccountMap] = field(
+        default_factory=dict,
         metadata={'codec': Map(U32, ServiceAccount.to_codec_def())}
     )
 
@@ -580,11 +573,8 @@ class ServicesState(State, Serializable):
             if data:
                 service_account = ServiceAccount.from_serialized_bytes(data)
 
-        #TODO: we think this marked_as_deleted check is necesary, covers case where eject is called twice
-        if service_account is None or service_account.marked_as_deleted:
+        if service_account is None:
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
-
-        #TODO: should this cache this storage account? see todo in delete_service_account -> this now needs an additional query to verify
 
         return service_account
 

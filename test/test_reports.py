@@ -9,7 +9,8 @@ from parameterized import parameterized
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState
+    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState, \
+    ServiceAccount
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
@@ -89,8 +90,12 @@ class TestReports(unittest.TestCase):
             {"validators": test_vector["pre_state"]["prev_validators"]}
         )
 
-        pre_services = ServicesState.from_json(
-            {"services": {s["id"]: {
+        pre_services = ServicesState()
+
+        pre_services.set_state_storage(self.app_context.state_storage)
+
+        for s in test_vector["pre_state"]["accounts"]:
+            pre_services.store_service_account(s["id"], ServiceAccount.from_json({
                 "code_hash": bytes.fromhex(s["data"]["service"]["code_hash"][2:]),
                 "balance": s["data"]["service"]["balance"],
                 "gas_limit_accumulate": s["data"]["service"]["min_item_gas"],
@@ -106,10 +111,9 @@ class TestReports(unittest.TestCase):
                 "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
                 "parent_service": s["data"]["service"]["parent_service"]
 
-            } for s in test_vector["pre_state"]["accounts"]}}
-        )
+            }))
 
-        pre_services.set_state_storage(self.app_context.state_storage)
+
 
         intermediate_state_recent_history = RecentHistoryState.from_json(
             {

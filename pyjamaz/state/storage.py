@@ -12,7 +12,7 @@ from pyjamaz.utils import format_hash, log_execution_time
 
 
 if typing.TYPE_CHECKING:
-    from pyjamaz.models.state import ServiceAccount
+    from pyjamaz.models.state import ServiceAccount, ServicesState
 
 
 class ItemStatus(Enum):
@@ -258,3 +258,22 @@ class StateStorage:
     def checkpoint_rollback(self):
         self.pending_changes = deepcopy(self.savepoint_changes)
         logging.debug(f"StateStorage: Checkpoint rollback")
+
+    def add_pending_changes_to_services_state(self, services_state: 'ServicesState'):
+
+        for id, service_account in self.pending_changes.service_accounts.items():
+            if service_account is not None:
+                services_state.services[id] = service_account
+
+        for (service_id, storage_hash), storage_item in self.pending_changes.storage_items.items():
+            if storage_item is not None:
+                services_state.services[service_id].storage_items[storage_hash] = storage_item
+
+        for (service_id, preimage_hash), preimage_blob in self.pending_changes.preimages.items():
+            if preimage_blob is not None:
+                services_state.services[service_id].preimages[preimage_hash] = preimage_blob
+
+        for (service_id, preimage_hash, preimage_size), availability in self.pending_changes.preimages_availability.items():
+            if availability is not None:
+                services_state.services[service_id].preimage_availability[(preimage_hash, preimage_size)] = availability
+
