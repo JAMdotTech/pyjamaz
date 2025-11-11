@@ -1219,6 +1219,15 @@ class StatisticsState(State, Serializable):
         'codec': Map(U32, ServiceActivityRecord.to_codec_def())
     })
 
+    @classmethod
+    def default(cls) -> 'StatisticsState':
+        return cls(
+            vals_current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+            vals_last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
+            cores=[CoreActivityRecord(0, 0, 0, 0, 0, 0, 0, 0) for _ in range(CORE_COUNT)],
+            services={},
+        )
+
 
 
 @dataclass
@@ -1434,12 +1443,7 @@ class JamState(State, Serializable):
                 wonky_set=[],
                 offenders=[],
             ),
-            statistics=StatisticsState(
-                vals_current=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
-                vals_last=[ActivityRecord(0, 0, 0, 0, 0, 0) for _ in range(VALIDATOR_COUNT)],
-                cores=[CoreActivityRecord(0, 0, 0, 0, 0, 0 ,0, 0) for _ in range(CORE_COUNT)],
-                services={},
-            ),
+            statistics=StatisticsState.default(),
             accumulation_queue=AccumulationQueueState(
                 accumulation_queue=[
                     [] for _ in range(EPOCH_TIMESLOTS)

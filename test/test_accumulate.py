@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import os
@@ -13,12 +12,12 @@ from pyjamaz.models.common import WorkReport
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
-from pyjamaz.state.components import Services, AccumulationHistory, AccumulationQueue
+from pyjamaz.state.components import Services, AccumulationHistory, AccumulationQueue, Statistics
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header
 from pyjamaz.models.state import TimeslotState, ServicesState, AccumulationHistoryState, EntropyState, \
     AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, AuthorizerQueuesState, \
-    AccumulationQueueWorkPackage, ServiceAccount
+    AccumulationQueueWorkPackage, ServiceAccount, StatisticsState, ValidatorPoolState
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -131,8 +130,8 @@ class TestAccumulate(unittest.TestCase):
             manager=test_vector["pre_state"]["privileges"]["bless"],
             assigners=test_vector["pre_state"]["privileges"]["assign"],
             delegator=test_vector["pre_state"]["privileges"]["designate"],
-            registrar=0, #test_vector["pre_state"]["privileges"]["registrar"],
-            always_accumulators={} #test_vector["pre_state"]["privileges"]["always_acc"]
+            registrar=test_vector["pre_state"]["privileges"]["register"],
+            always_accumulators={s: g for s, g in test_vector["pre_state"]["privileges"]["always_acc"]}
         )
 
         # Set up post-state
@@ -184,6 +183,14 @@ class TestAccumulate(unittest.TestCase):
                     si_len = len(post_services.services[s["id"]].preimages[si_key])
                     post_services.services[s["id"]].preimage_availability[(si_key, si_len)] = p["status"]
 
+        post_privileged_services = PrivilegedServicesState(
+            manager=test_vector["post_state"]["privileges"]["bless"],
+            assigners=test_vector["post_state"]["privileges"]["assign"],
+            delegator=test_vector["post_state"]["privileges"]["designate"],
+            registrar=test_vector["post_state"]["privileges"]["register"],
+            always_accumulators={s: g for s, g in test_vector["post_state"]["privileges"]["always_acc"]}
+        )
+
         # Prepare block context
         self.block_context.reset()
 
@@ -226,18 +233,35 @@ class TestAccumulate(unittest.TestCase):
             post_state_timeslot=post_state_timeslot
         )
 
-        result = asyncio.run(services.store_state(accumulation_output.intermediate_state_after_accumulation))
-        self.app_context.state_storage.commit()
+        statistics = Statistics(self.block_context, self.app_context)
+        self.block_context.reporters = []
+
+        stats_output = statistics.state_transition(
+            extrinsic_guarantees=[],
+            extrinsic_preimages=[],
+            extrinsic_assurances=[],
+            extrinsic_tickets=[],
+            pre_state_timeslot=pre_state_timeslot,
+            post_state_timeslot=post_state_timeslot,
+            post_state_validator_pool=ValidatorPoolState(validators=[]),
+            pre_state_statistics=StatisticsState.default(),
+            header=header
+        )
+
+        post_stats = [
+            {"id": s_id, "record": s_record.to_json()} for s_id, s_record in stats_output.post_state.services.items()
+        ]
 
         new_service_state = ServicesState()
 
         # Add items created in state storage to ServiceState instance
         self.app_context.state_storage.add_pending_changes_to_services_state(new_service_state)
 
-        self.assertEqual(post_accumulation_history.to_json(), history_output.post_state.to_json())
-        self.assertEqual(post_accumulation_queue.to_json(), queue_output.post_state.to_json())
-
-        self.assertEqual(post_services.to_json()['services'], new_service_state.to_json()['services'])
+        self.assertEqual(post_accumulation_history, history_output.post_state)
+        self.assertEqual(post_accumulation_queue, queue_output.post_state)
+        self.assertEqual(post_services.services, new_service_state.services)
+        self.assertEqual(test_vector["post_state"]["statistics"], post_stats)
+        self.assertEqual(post_privileged_services, accumulation_output.post_state_privileged_services)
 
 
 if __name__ == '__main__':
