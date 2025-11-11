@@ -110,8 +110,9 @@ class Preimage:
     @classmethod
     def extract(cls, data: bytes) -> "Preimage":
         jam_bytes = JamBytes(data)
-        metadata = Bytes.decode(jam_bytes)
+        metadata = b''
         try:
+            metadata = Bytes.decode(jam_bytes)
             metadata_bytes = JamBytes(metadata)
             metadata_version = U8.decode(metadata_bytes)
             program_name = String.decode(metadata_bytes)
@@ -119,11 +120,11 @@ class Preimage:
             program_license = String.decode(metadata_bytes)
             program_authors = Vec(String).decode(metadata_bytes)
         except Exception:
-            metadata_version = None
+            metadata_version = 0
             program_name = metadata.decode("utf-8")
-            program_license = None
-            program_authors = None
-            program_version = None
+            program_license = ''
+            program_authors = []
+            program_version = ''
 
         return Preimage(
             metadata=metadata,

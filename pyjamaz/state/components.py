@@ -11,6 +11,7 @@ from ed25519_zebra import ed_verify
 import pyjamaz.graypaper_constants as gp_const
 from jamcodec.base import JamBytes
 from pyjamaz.accumulation import (work_report_mapping, full_sequential_accumulation, edit_queue)
+from pyjamaz.constants import MESSAGE_TYPES
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
@@ -1978,11 +1979,21 @@ class Services(StateComponent):
             else:
                 state.store_storage_item(service_id, storage_hash, value, commit=True)
 
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[service_id, storage_hash, value])
+                )
+
         for (service_id, preimage_hash), value in state.state_storage.pending_changes.preimages.items():
             if value is None:
                 state.delete_preimage(service_id, preimage_hash, commit=True)
             else:
                 state.store_preimage(service_id, value, commit=True)
+
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[service_id, preimage_hash, value])
+                )
 
         for (service_id, preimage_hash, preimage_length), value in state.state_storage.pending_changes.preimages_availability.items():
             if value is None:
@@ -1990,11 +2001,24 @@ class Services(StateComponent):
             else:
                 state.store_preimage_availability(service_id, preimage_hash, preimage_length, value, commit=True)
 
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(
+                        topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY,
+                        data=[service_id, preimage_hash, preimage_length, value]
+                    )
+                )
+
         for service_id, service_account in state.state_storage.pending_changes.service_accounts.items():
             if service_account is None:
                 state.delete_service_account(service_id, commit=True)
             else:
                 state.store_service_account(service_id, service_account, commit=True)
+
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[service_id, service_account])
+                )
 
 
 class AccumulationQueue(StateComponent):
