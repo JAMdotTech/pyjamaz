@@ -2,6 +2,7 @@
   "manager": 1,
   "assigners": [2, 3],
   "delegator": 4,
+  "registrar": 5,
   "always_accumulators": [
     [1, 999888777],
     [2, 999888777],

@@ -1,5 +1,7 @@
 import logging
 import typing
+from copy import deepcopy
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Dict, List, Tuple
 
@@ -9,9 +11,19 @@ from pyjamaz.storage import StorageEngine
 from pyjamaz.utils import format_hash, log_execution_time
 
 
+if typing.TYPE_CHECKING:
+    from pyjamaz.models.state import ServiceAccount, ServicesState
+
+
 class ItemStatus(Enum):
     deleted = 1
 
+@dataclass
+class PendingChanges:
+    service_accounts: Dict[int, Optional['ServiceAccount']] = field(default_factory=dict)
+    storage_items: Dict[Tuple[int, bytes], Optional[bytes]] = field(default_factory=dict)
+    preimages: Dict[Tuple[int, bytes], Optional[bytes]] = field(default_factory=dict)
+    preimages_availability: Dict[Tuple[int, bytes, int], Optional[List[int]]]= field(default_factory=dict)
 
 class StateStorage:
 
@@ -24,6 +36,9 @@ class StateStorage:
         self.parents: Dict[bytes, Optional[bytes]] = {}
         # GP-0.7.0-eq:5.3 (A)
         self.ancestors: Dict[bytes, Header] = {}
+
+        self.pending_changes: PendingChanges = PendingChanges()
+        self.savepoint_changes: PendingChanges = PendingChanges()
 
     def add_ancestor(self, header: Header):
         self.ancestors[header.hash] = header
@@ -217,6 +232,8 @@ class StateStorage:
         self.block_hash = None
         self.finalized_block_hash = None
         self.transaction = {}
+        self.pending_changes = PendingChanges()
+        self.savepoint_changes = PendingChanges()
 
     def commit(self):
         if self.block_hash is not None:
@@ -233,3 +250,30 @@ class StateStorage:
             self.change_sets.pop(self.block_hash)
             logging.debug(f"StateStorage: Rollback transaction for {format_hash(self.block_hash)}")
         self.transaction = {}
+
+    def checkpoint(self):
+        self.savepoint_changes = deepcopy(self.pending_changes)
+        logging.debug(f"StateStorage: Checkpoint")
+
+    def checkpoint_rollback(self):
+        self.pending_changes = deepcopy(self.savepoint_changes)
+        logging.debug(f"StateStorage: Checkpoint rollback")
+
+    def add_pending_changes_to_services_state(self, services_state: 'ServicesState'):
+
+        for id, service_account in self.pending_changes.service_accounts.items():
+            if service_account is not None:
+                services_state.services[id] = service_account
+
+        for (service_id, storage_hash), storage_item in self.pending_changes.storage_items.items():
+            if storage_item is not None:
+                services_state.services[service_id].storage_items[storage_hash] = storage_item
+
+        for (service_id, preimage_hash), preimage_blob in self.pending_changes.preimages.items():
+            if preimage_blob is not None:
+                services_state.services[service_id].preimages[preimage_hash] = preimage_blob
+
+        for (service_id, preimage_hash, preimage_size), availability in self.pending_changes.preimages_availability.items():
+            if availability is not None:
+                services_state.services[service_id].preimage_availability[(preimage_hash, preimage_size)] = availability
+

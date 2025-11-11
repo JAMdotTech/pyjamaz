@@ -6,10 +6,10 @@ from jamcodec.types import U64, U32
 
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, CORE_COUNT, VALIDATOR_COUNT, \
-    PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO
+    PREIMAGE_EXPUNGE_TIMESLOTS, SIZE_TRANSFER_MEMO, MINIMUM_PUBLIC_SERVICE_ID
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import ValidatorData
-from pyjamaz.models.state import ServiceAccount, DeferredTransfer, ServicesState
+from pyjamaz.models.common import ValidatorData, DeferredTransfer
+from pyjamaz.models.state import ServiceAccount, ServicesState
 from pyjamaz.hostcalls.models import AccumulateInvocationContext
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_R
 from pyjamaz.pvm.exceptions import PVMMemoryError
@@ -26,7 +26,7 @@ def hc_bless(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_B) | Accumulate host function: bless.
+    GP-0.7.1-section:B.7 (Ω_B) | Accumulate host function: bless.
 
     Set the privileged services.
     manager: The ID of the service which may effectually call bless in the future.
@@ -59,9 +59,9 @@ def hc_bless(
     m = registers[7] # m: index of manager service (manager of chi(X))
     a = registers[8] # a: address to read values of the assign services (authorization queue)
     v = registers[9] # v: index of designate service (validator queue)
-
-    o = registers[10] # offset to read service indices and accompanying gas limits from
-    n = registers[11] # number of entries in the auto_accumulate_services dictionary to read
+    r = registers[10]  # r: index of registrar service
+    o = registers[11] # offset to read service indices and accompanying gas limits from
+    n = registers[12] # number of entries in the auto_accumulate_services dictionary to read
 
     assigners = None # GP: bold_a
     if memory.is_accessible(a, 4 * CORE_COUNT, MEM_R):
@@ -85,21 +85,18 @@ def hc_bless(
         except PVMMemoryError:
             auto_accumulate_services = None   # bold_g = ∇
 
-    # TODO review
-    service_exists = True
-
     if auto_accumulate_services is None or assigners is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("BLESS PANIC", f"m={m} a={a} v={v}")
-
-    elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
-        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = HostCallResult.HUH.value
-        logger and logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
-    elif not service_exists:
+    # TODO regressie huh?
+    # elif x.context.service_account_id != x.context.state_context.privileged_services.manager:
+    #     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+    #     invocation_output.registers[7] = HostCallResult.HUH.value
+    #     logger and logger.hc_log("BLESS HUH", f"m={m} a={a} v={v}")
+    elif m >= 2**32 or v >= 2**32 or r >= 2**32:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-        logger and logger.hc_log("BLESS WHO", f"m={m} a={a} v={v}")
+        logger and logger.hc_log("BLESS WHO", f"m={m} a={a} v={v} r={r}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
@@ -108,9 +105,10 @@ def hc_bless(
         ps.manager = m
         ps.assigners = assigners
         ps.delegator = v
+        ps.registrar = r
         ps.always_accumulators = auto_accumulate_services
 
-        logger and logger.hc_log("BLESS OK", f"m={m} a={a} v={v}")
+        logger and logger.hc_log("BLESS OK", f"m={m} a={a} v={v} r={r}")
 
 
 def hc_assign(
@@ -120,7 +118,7 @@ def hc_assign(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_A) | Accumulate host function: assign.
+    GP-0.7.1-section:B.7 (Ω_A) | Accumulate host function: assign.
 
     Assign a series of authorizers to a core.
     core: The index of the core to assign the authorizers to.
@@ -148,6 +146,7 @@ def hc_assign(
     # Privileged services:
     core_index = registers[7] # Core index to update (0..341)
     o = registers[8] # memory offset
+    a = registers[9] # new assigner service
 
     if memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MEM_R):
         authorization_queue = [] #GP: bold_c
@@ -172,14 +171,21 @@ def hc_assign(
     elif x.context.service_account_id != x.context.state_context.privileged_services.assigners[core_index]:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
-        logger and logger.hc_log("BLESS HUH", f"X_s={x.context.service_account_id}")
+        logger and logger.hc_log("ASSIGN HUH", f"X_s={x.context.service_account_id}")
+
+    elif a >= 2**32:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.WHO.value
+        logger and logger.hc_log("ASSIGN WHO", f"a={a}")
 
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
         x.context.state_context.authorizer_queues.authorizer_queues[core_index] = authorization_queue
-        logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o}")
+        x.context.state_context.privileged_services.assigners[core_index] = a
+
+        logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o} a={a}")
 
 
 def hc_designate(
@@ -189,7 +195,7 @@ def hc_designate(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_D) | Accumulate host function: designate.
+    GP-0.7.1-section:B.7 (Ω_D) | Accumulate host function: designate.
 
     Designate the new validator keys.
     keys: The new validator keys.
@@ -250,7 +256,7 @@ def hc_checkpoint(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_C) | Accumulate host function: checkpoint.
+    GP-0.7.1-section:B.7 (Ω_C) | Accumulate host function: checkpoint.
 
     Checkpoint the state of the accumulation at present.
     In the case that accumulation runs out of gas or otherwise terminates unexpectedly, all changes extrinsic to the
@@ -277,6 +283,7 @@ def hc_checkpoint(
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
     x.savepoint_context = deepcopy(x.context)
+    x.context.state_context.services.state_storage.checkpoint()
 
 
 def hc_new(
@@ -286,7 +293,7 @@ def hc_new(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_N) | Accumulate host function: new.
+    GP-0.7.1-section:B.7 (Ω_N) | Accumulate host function: new.
 
     Creates new service account.
 
@@ -310,6 +317,7 @@ def hc_new(
     g = registers[9]  # gas_limit_accumulate
     m = registers[10] # gas_limit_on_transfer
     f = registers[11] # deposit_offset
+    i = registers[12] # new public service ID
 
     code_hash = None
     if 0 < l < 2**32 and memory.is_accessible(o, 32, MEM_R):
@@ -349,26 +357,52 @@ def hc_new(
 
     if code_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger and logger.hc_log("NEW PANIC", f"old_service={service_id}")
+        logger and logger.hc_log("NEW PANIC", f"service={service_id}")
+
+    elif f != 0 and service_id != x.context.state_context.privileged_services.manager:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.HUH.value
+        logger and logger.hc_log(
+            "NEW HUH",
+            f"service={service_id} attempted non-zero deposit_offset f={f} without manager privileges"
+        )
 
     elif deducted_balance < service_account.threshold_balance:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
-        logger and logger.hc_log("NEW CASH", f"old_service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
+        logger and logger.hc_log("NEW CASH", f"service={service_id} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}")
+
+    elif (service_id == x.context.state_context.privileged_services.registrar and i < MINIMUM_PUBLIC_SERVICE_ID and
+          x.context.state_context.services.service_exists(i)):
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+
+        invocation_output.registers[7] = HostCallResult.FULL.value
+        logger and logger.hc_log(
+            "NEW FULL",
+            f"service={service_id} i={i} deducted_balance={deducted_balance} threshold_balance={service_account.threshold_balance} code_hash={code_hash} code_len={l}"
+            )
 
     else:
-        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = new_service_id
-        updated_new_service_id = 2 ** 8 + (new_service_id - 2 ** 8 + 42) % (2 ** 32 - 2 ** 9)
 
-        x.context.new_service_account_id = x.context.state_context.check_service_id(
-            updated_new_service_id)
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+
+        if service_id == x.context.state_context.privileged_services.registrar and i < MINIMUM_PUBLIC_SERVICE_ID:
+            new_service_id = i
+        else:
+            updated_new_service_id = (MINIMUM_PUBLIC_SERVICE_ID + (new_service_id - MINIMUM_PUBLIC_SERVICE_ID + 42) %
+                                      (2 ** 32 - MINIMUM_PUBLIC_SERVICE_ID - 2 ** 8))
+            x.context.new_service_account_id = x.context.state_context.check_service_id(
+                updated_new_service_id
+            )
+
+        invocation_output.registers[7] = new_service_id
+
         service_account.balance = deducted_balance
-        # TODO inefficient; move to end, only once per service
+
         x.context.state_context.services.store_service_account(service_id, service_account)
-        # TODO inefficient; move to end, only once per service
         x.context.state_context.services.store_service_account(new_service_id, new_service_account)
         x.context.state_context.services.store_preimage_availability(new_service_id, code_hash, l, [])
+
         logger and logger.hc_log("NEW OK", f"old_service={service_id} code_hash={code_hash} code_len={l}")
 
 
@@ -379,7 +413,7 @@ def hc_upgrade(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_U) | Accumulate host function: upgrade.
+    GP-0.7.1-section:B.7 (Ω_U) | Accumulate host function: upgrade.
 
     Upgrade the code of the service.
     code_hash: The hash of the code to upgrade to, to be found in the service's preimage store.
@@ -427,7 +461,7 @@ def hc_upgrade(
         service_account.code_hash = code_hash
         service_account.gas_limit_accumulate = g
         service_account.gas_limit_on_transfer = m
-        # TODO inefficient; move to end, only once per service
+
         x.context.state_context.services.store_service_account(service_id, service_account)
         logger and logger.hc_log("UPGRADE OK", f"code_hash={code_hash} ")
 
@@ -439,7 +473,7 @@ def hc_transfer(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.7 (Ω_T) | Accumulate host function: transfer.
+    GP-0.7.1-section:B.7 (Ω_T) | Accumulate host function: transfer.
 
     Transfer data and/or funds to another service asynchronously.
     destination: The ID of the service to transfer to. This service must exist at present.
@@ -537,7 +571,7 @@ def hc_eject(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_E) | Accumulate host function: eject.
+    GP-0.7.1-section:B.7 (Ω_E) | Accumulate host function: eject.
 
     Remove the target zombie service, drop its final preimage item code_hash and transfer
     remaining balance to this service.
@@ -583,7 +617,8 @@ def hc_eject(
     updated_balance = None
     preimage_availability = None
     eject_service_account = None  # GP: bold_d
-    if d != service_id:
+
+    if preimage_hash is not None and d != service_id:
         try:
             eject_service_account = state.services.retrieve_service_account(d)
             l = max(81, eject_service_account.footprint_storage_bytes) - 81
@@ -612,12 +647,11 @@ def hc_eject(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
-        # TODO: nodig?
         state.services.delete_preimage(d, preimage_hash)
         state.services.delete_preimage_availability(d, preimage_hash, l)
         state.services.delete_service_account(d)
         service_account.balance = updated_balance
-        state.services.store_service_account(service_id, service_account) # TODO: meenemen in de finalize vd transactie
+        state.services.store_service_account(service_id, service_account)
         logger and logger.hc_log("EJECT OK", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -632,7 +666,7 @@ def hc_query(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_Q) | Accumulate host function: query.
+    GP-0.7.1-section:B.7 (Ω_Q) | Accumulate host function: query.
 
     Query the status of a preimage.
     hash: The hash of the preimage to be queried.
@@ -665,19 +699,18 @@ def hc_query(
     # GP: h
     try:
         preimage_hash = memory.read_bytes(o, 32)
+        # GP: bold_a
+        try:
+            # GP: (xs)l[h,z] == bold_a
+            preimage_availability = x.context.state_context.services.retrieve_preimage_availability(
+                service_id,
+                preimage_hash,
+                preimage_length
+            )
+        except StateKeyNoResult as e:
+            preimage_availability = None
     except PVMMemoryError:
         preimage_hash = None
-
-    # GP: bold_a
-    try:
-        # GP: (xs)l[h,z] == bold_a
-        preimage_availability = x.context.state_context.services.retrieve_preimage_availability(
-            service_id,
-            preimage_hash,
-            preimage_length
-        )
-    except StateKeyNoResult as e:
-        preimage_availability = None
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -723,7 +756,7 @@ def hc_solicit(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_S) | Accumulate host function: solicit.
+    GP-0.7.1-section:B.7 (Ω_S) | Accumulate host function: solicit.
 
     Request that preimage data be available for lookup.
     hash: The hash of the preimage to be made available.
@@ -751,7 +784,7 @@ def hc_solicit(
 
     state = x.context.state_context
     service_id = x.context.service_account_id
-    service_account = x.context.state_context.services.retrieve_service_account(service_id) # GP: bold_a
+    service_account = deepcopy(x.context.state_context.services.retrieve_service_account(service_id)) # GP: bold_a
 
     o = registers[7]
     preimage_length = registers[8]    # GP: z
@@ -759,23 +792,24 @@ def hc_solicit(
     #GP: h
     try:
         preimage_hash = memory.read_bytes(o, 32)
+
+        try:
+            # GP: bold_a
+            preimage_availability = state.services.retrieve_preimage_availability(
+                service_id,
+                preimage_hash,
+                preimage_length
+            )
+
+        except StateKeyNoResult:
+            preimage_availability = None
+
+            # preimage is being requested that is not already present in storage
+            service_account.update_footprint_add_preimage(preimage_length)
+
     except PVMMemoryError:
         preimage_hash = None #GP: h = ∇
-
-    try:
-        # GP: bold_a
-        preimage_availability = state.services.retrieve_preimage_availability(
-            service_id,
-            preimage_hash,
-            preimage_length
-        )
-    except StateKeyNoResult:
         preimage_availability = None
-
-    if preimage_hash is not None and preimage_availability is None:
-        # preimage is being requested that is not already present in storage
-        service_account.update_footprint_add_preimage(preimage_length)
-        state.services.store_service_account(service_id, service_account)
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -810,6 +844,8 @@ def hc_solicit(
                 preimage_availability + [x.timeslot]
             )
 
+        state.services.store_service_account(service_id, service_account)
+
         logger and logger.hc_log("SOLICIT OK", f"h={preimage_hash.hex()} newvalue={preimage_availability}")
 
 
@@ -820,7 +856,7 @@ def hc_forget(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_F) | Accumulate host function: forget.
+    GP-0.7.1-section:B.7 (Ω_F) | Accumulate host function: forget.
 
     No longer request that preimage data be available for lookup, or drop preimage data once time limit has passed.
     hash: The hash of the preimage to be forgotten.
@@ -857,51 +893,53 @@ def hc_forget(
     #GP: h
     try:
         preimage_hash = memory.read_bytes(o, 32)
+
+        timeslot = x.timeslot  # GP: t
+        # Note: x & y & w refer to the cardinality of the preimage_availability dictionary, see 9.2.2 EQ9.7
+        preimage_updated = False  # GP: bold_a = ∇
+
+        try:
+            preimage_availability = state.services.retrieve_preimage_availability(
+                service_id,
+                preimage_hash,
+                preimage_length
+            )
+
+            preimage_cardinality = len(preimage_availability)
+            if preimage_cardinality == 0 or preimage_cardinality == 2 and preimage_availability[1] < (
+                    timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
+
+                state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
+                state.services.delete_preimage(service_id, preimage_hash)
+                # Update footprint
+                service_account.update_footprint_remove_preimage(preimage_length)
+                state.services.store_service_account(service_id, service_account)
+
+                preimage_updated = True
+            elif preimage_cardinality == 1:
+
+                state.services.store_preimage_availability(
+                    service_id,
+                    preimage_hash,
+                    preimage_length,
+                    preimage_availability + [timeslot]
+                )
+                preimage_updated = True
+            elif preimage_cardinality == 3 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
+
+                # Note: reset unreferenced preimage expunge time with current timeslot
+                state.services.store_preimage_availability(
+                    service_id,
+                    preimage_hash,
+                    preimage_length,
+                    [preimage_availability[2], timeslot]
+                )
+                preimage_updated = True
+        except StateKeyNoResult:
+            pass
+
     except PVMMemoryError:
         preimage_hash = None #GP: h = ∇
-
-    timeslot = x.timeslot #GP: t
-    # Note: x & y & w refer to the cardinality of the preimage_availability dictionary, see 9.2.2 EQ9.7
-    preimage_updated = False #GP: bold_a = ∇
-
-    try:
-        preimage_availability = state.services.retrieve_preimage_availability(
-            service_id,
-            preimage_hash,
-            preimage_length
-        )
-
-        preimage_cardinality = len(preimage_availability)
-        if preimage_cardinality == 0 or preimage_cardinality == 2 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
-
-            state.services.delete_preimage_availability(service_id, preimage_hash, preimage_length)
-            state.services.delete_preimage(service_id, preimage_hash)
-            # Update footprint
-            service_account.update_footprint_remove_preimage(preimage_length)
-            state.services.store_service_account(service_id, service_account)
-
-            preimage_updated = True
-        elif preimage_cardinality == 1:
-
-            state.services.store_preimage_availability(
-                service_id,
-                preimage_hash,
-                preimage_length,
-                preimage_availability + [timeslot]
-            )
-            preimage_updated = True
-        elif preimage_cardinality == 3 and preimage_availability[1] < (timeslot - PREIMAGE_EXPUNGE_TIMESLOTS):
-
-            # Note: reset unreferenced preimage expunge time with current timeslot
-            state.services.store_preimage_availability(
-                service_id,
-                preimage_hash,
-                preimage_length,
-                [preimage_availability[2], timeslot]
-            )
-            preimage_updated = True
-    except StateKeyNoResult:
-        pass
 
     if preimage_hash is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -923,7 +961,7 @@ def hc_yield(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_Y) | Accumulate host function: yield.
+    GP-0.7.1-section:B.7 (Ω_Y) | Accumulate host function: yield.
 
     Set the default result hash of Accumulation.
     hash: The hash to be used as the Accumulation result.
@@ -974,7 +1012,7 @@ def hc_provide(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.8 (Ω_P) | Accumulate host function: provide.
+    GP-0.7.1-section:B.7 (Ω_P) | Accumulate host function: provide.
 
     Provides a preimage for specified service ID
 
@@ -1037,7 +1075,7 @@ def hc_provide(
         invocation_output.registers[7] = HostCallResult.WHO.value
         logger and logger.hc_log("PROVIDE WHO", f"")
 
-    elif preimage_availability is not None and preimage_availability != []:
+    elif preimage_availability != []:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
         logger and logger.hc_log("PROVIDE HUH", f"")
@@ -1055,5 +1093,3 @@ def hc_provide(
         ctx_in.context.preimages.append((service_account_id, preimage_blob))
 
         logger and logger.hc_log("PROVIDE OK", f"h={format_hash(blake2b_256_hash(preimage_blob))}")
-
-

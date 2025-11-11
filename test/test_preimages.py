@@ -113,7 +113,7 @@ class TestPreimages(unittest.TestCase):
 
             output = services.state_transition_after_preimages(
                 extrinsic_preimages=extrinsic_preimages,
-                intermediate_state_after_transfers=pre_services,
+                intermediate_state_after_accumulation=pre_services,
                 post_state_timeslot=post_state_timeslot,
 
             )
@@ -122,10 +122,7 @@ class TestPreimages(unittest.TestCase):
                 'ok': None
             }
 
-            # Retrieve created items in working state
-            for p in extrinsic_preimages:
-                _ = output.post_state.retrieve_preimage(p.requester, blake2b_256_hash(p.blob))
-                _ = output.post_state.retrieve_preimage_availability(p.requester, blake2b_256_hash(p.blob), len(p.blob))
+            self.app_context.state_storage.add_pending_changes_to_services_state(output.post_state)
 
             # Transform post_state to test format
             post_state = {

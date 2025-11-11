@@ -21,7 +21,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/app"
 
-RUN mkdir /app/numba-cache
+RUN mkdir -p /app/numba-cache
 ENV NUMBA_CACHE_DIR="/app/numba-cache/"
 
 # https://numba.pydata.org/numba-doc/dev/reference/envvars.html
@@ -35,12 +35,17 @@ ENV NUMBA_OPT=3
 ENV NUMBA_DEBUG=0
 ENV NUMBA_DEBUGINFO=0
 
-# Trigger compilation of the numba PVM interpreter
-#RUN ./scripts/build_numba_aot.sh
+ENV PVM_INTERPRETER=NUMBA_AOT
 
-# Compile app and remove source code
-RUN python -m compileall -b ./pyjamaz && \
-    find ./pyjamaz -name "*.py" -type f \
-    -delete
+# Trigger compilation of the numba PVM interpreter
+RUN ./scripts/build_numba_aot.sh
+
+RUN python -m compileall -b -d /app ./pyjamaz && \
+ find ./pyjamaz -name "*.py" -type f \
+   ! -path "./pyjamaz/pvm/interpreters/numba/*" \
+   -delete && \
+ rm -rf ./pyjamaz/pvm/interpreters/numba/__pycache__ && \
+ chmod -R 777 /app/numba-cache && \
+ chmod -R 777 /app/pyjamaz/pvm/interpreters/numba
 
 ENTRYPOINT ["python", "pyjamaz/cli.pyc"]

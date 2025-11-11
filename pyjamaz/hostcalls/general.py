@@ -4,9 +4,8 @@ from typing import List, Optional
 from jamcodec.types import U64, U32, VarInt64, U8, U16, Vec, Bytes
 from pyjamaz import graypaper_constants as gp_const
 from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import WorkPackage, AccumulationOperand, WorkItem
-from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer
+from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationInput
+from pyjamaz.models.state import ServiceAccount, ServicesState
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_W, MEM_R
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
@@ -20,7 +19,7 @@ def hc_gas(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.6 (Ω_G) | General host function: gas.
+    GP-0.7.1-section:B.5 (Ω_G) | General host function: gas.
 
     Query the gas left.
     Returns the remaining gas in register 7.
@@ -57,7 +56,7 @@ def hc_lookup(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.6 (Ω_L) | General host function: lookup.
+    GP-0.7.1-section:B.5 (Ω_L) | General host function: lookup.
 
     Make a lookup into the service's preimage store.
     hash: The hash of the preimage to look up.
@@ -134,7 +133,7 @@ def hc_read(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.6 (Ω_R) | General host function: read.
+    GP-0.7.1-section:B.5 (Ω_R) | General host function: read.
 
     Puts a Service StorageItem blob into PVM memory
 
@@ -217,7 +216,7 @@ def hc_write(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.6 (Ω_W) | General host function: write.
+    GP-0.7.1-section:B.5 (Ω_W) | General host function: write.
 
     Writes/deletes a Service StorageItem blob
 
@@ -269,8 +268,23 @@ def hc_write(
             si = bytes()
             l = HostCallResult.NONE.value
 
+        # Note: update the footprint in advance, to correctly calculate the threshold balance
+        # In cases where we panic, this is roll backed anyway
+        if service_storage_item is None:
+            # Update storage footprint
+            if l != HostCallResult.NONE.value:
+                service_account.update_footprint_remove_storage_item(len(k), len(si))
+        else:
+            # Update storage footprint
+            if len(si) == 0:
+                service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
+            else:
+                service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
+
     except PVMMemoryError:
         storage_key_mem_error = True  # GP: k= ∇
+
+
 
     if storage_key_mem_error or service_storage_item_mem_error:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -289,10 +303,6 @@ def hc_write(
             )
             logger and logger.hc_log("WRITE DELETE", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} (delete_storage_item)")
 
-            # Update storage footprint
-            if l != HostCallResult.NONE.value:
-                service_account.update_footprint_remove_storage_item(len(k), len(si))
-
         else:
             services.store_storage_item(
                 service_account_id=service_id,
@@ -300,15 +310,12 @@ def hc_write(
                 value=service_storage_item,
             )
 
-            # Update storage footprint
             if len(si) == 0:
-                service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
-                logger and logger.hc_log("WRITE NONE",
-                                   f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
+                #service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
+                logger and logger.hc_log("WRITE NONE", f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
-                service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
-                logger and logger.hc_log("WRITE OK",
-                                   f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
+                #service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
+                logger and logger.hc_log("WRITE OK", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
 
         services.store_service_account(service_id, service_account)
 
@@ -324,7 +331,7 @@ def hc_info(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.6 (Ω_I) | General host function: info.
+    GP-0.7.1-section:B.5 (Ω_I) | General host function: info.
 
     Writes ServiceAccount into PVM memory
 
@@ -405,12 +412,11 @@ def hc_fetch(
         work_item_index: Optional[int],    #GP: i
         work_item_segs: Optional[List[List[bytes]]], #GP: i_flat
         extrinsics: Optional[List[List[bytes]]], # GP: x_flat
-        accumulation_operands: Optional[List[AccumulationOperand]], #GP: bold_o
-        deferred_transfers: Optional[List[DeferredTransfer]], # GP: bold_t
+        accumulation_inputs: Optional[List[AccumulationInput]], #GP: bold_o
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.6.7-section:B.6 (Ω_F) | General host function: fetch.
+    GP-0.7.1-section:B.5 (Ω_F) | General host function: fetch.
 
     Fetch the data defined by this Fetch into the given target buffer.
     target: The buffer to write the fetched data into.
@@ -427,8 +433,7 @@ def hc_fetch(
     work_item_index: Optional[int]
     work_item_segs: Optional[List[List[bytes]]]
     extrinsics: Optional[List[List[bytes]]]
-    accumulation_operands: Optional[List[AccumulationOperand]]
-    deferred_transfers: Optional[List[DeferredTransfer]]
+    accumulation_inputs: Optional[List[AccumulationInput]]
     invocation_output: InvocationMutationOutput
     logger: PVMLogger
 
@@ -528,17 +533,11 @@ def hc_fetch(
     elif work_package is not None and w10 == 13 and w11 < len(work_package.items):
         bold_v = work_package.items[w11].payload
 
-    elif accumulation_operands is not None and w10 == 14:
-        bold_v = Vec(AccumulationOperand.to_codec_def()).encode([a.to_jam_bytes() for a in accumulation_operands]).to_bytes()
+    elif accumulation_inputs is not None and w10 == 14:
+        bold_v = Vec(AccumulationInput.to_codec_def()).encode([a.to_jam_bytes() for a in accumulation_inputs]).to_bytes()
 
-    elif accumulation_operands is not None and w10 == 15 and w11 < len(accumulation_operands):
-        bold_v = accumulation_operands[w11].to_jam_bytes().to_bytes()
-
-    elif deferred_transfers is not None and w10 == 16:
-        bold_v = Vec(DeferredTransfer.to_codec_def()).encode([t.to_jam_bytes() for t in deferred_transfers]).to_bytes()
-
-    elif deferred_transfers is not None and w10 == 17 and w11 < len(deferred_transfers):
-        bold_v = deferred_transfers[w11].to_jam_bytes().to_bytes()
+    elif accumulation_inputs is not None and w10 == 15 and w11 < len(accumulation_inputs):
+        bold_v = accumulation_inputs[w11].to_jam_bytes().to_bytes()
     else:
         bold_v = None
 

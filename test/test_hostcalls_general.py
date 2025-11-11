@@ -24,8 +24,8 @@ from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE, MEM_R, MEM_W
 from pyjamaz.pvm.invocation import InvocationMutationOutput
-from pyjamaz.models.state import ServiceAccount, ServicesState, DeferredTransfer
-from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand
+from pyjamaz.models.state import ServiceAccount, ServicesState
+from pyjamaz.models.common import WorkPackage, WorkItem, AccumulationOperand, DeferredTransfer, AccumulationInput
 from pyjamaz.exceptions import StateKeyNoResult
 
 
@@ -325,17 +325,11 @@ class TestHCGeneral(unittest.TestCase):
             for ext_list in test_vector.get("extrinsics", []):
                 extrinsics.append([bytes.fromhex(ext) for ext in ext_list])
 
-            accumulation_operands = []
-            for op_data in test_vector.get("accumulation_operands", []):
-                op = Mock(spec=AccumulationOperand)
+            accumulation_inputs = []
+            for op_data in test_vector.get("accumulation_inputs", []):
+                op = Mock(spec=AccumulationInput)
                 op.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(op_data.get("encoded", "00" * 20))))
-                accumulation_operands.append(op)
-
-            deferred_transfers = []
-            for dt_data in test_vector.get("deferred_transfers", []):
-                dt = Mock(spec=DeferredTransfer)
-                dt.to_jam_bytes = Mock(return_value=JamBytes(bytes.fromhex(dt_data.get("encoded", "00" * 40))))
-                deferred_transfers.append(dt)
+                accumulation_inputs.append(op)
 
             hc_fetch(
                 pvm_regs,
@@ -346,8 +340,7 @@ class TestHCGeneral(unittest.TestCase):
                 work_item_index,
                 work_item_segs,
                 extrinsics,
-                accumulation_operands,
-                deferred_transfers,
+                accumulation_inputs,
                 invocation_output,
                 logger)
 

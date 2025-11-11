@@ -5,12 +5,12 @@ from os import path
 from jamcodec.types import Vec, BitArray
 
 from pyjamaz.models.block import Header, Extrinsic, Assurance, ExtrinsicDisputes, Guarantee, Preimage, TicketEnvelope, Block
-from pyjamaz.models.common import WorkDigest, RefinementContext, WorkReport, WorkItem, WorkPackage
+from pyjamaz.models.common import WorkDigest, RefinementContext, WorkReport, WorkItem, WorkPackage, DeferredTransfer
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.models.state import DisputesState, AssurancesState, AuthorizerPoolsState, AuthorizerQueuesState, \
     EntropyState, PrivilegedServicesState, RecentHistoryState, SafroleState, StatisticsState, TimeslotState, \
     ValidatorArchiveState, ValidatorPoolState, ValidatorQueueState, ServiceAccount, ServicesState, BeefyCommitmentMap, \
-    AccumulationQueueState, AccumulationHistoryState, DeferredTransfers, DeferredTransfer, AccumulationStateComponents
+    AccumulationQueueState, AccumulationHistoryState, DeferredTransfers, AccumulationStateComponents
 from test.test_safrole import SafroleTestOutput, SafroleOutputMarks
 
 
@@ -140,6 +140,7 @@ class TestCodec(unittest.TestCase):
 
         with open(path.join(self.test_vector_jdt_dir, f'state_privileged_services.bin'), "rb") as f:
            jam_data = f.read()
+
         self.assertEqual(jam_data.hex(), state.to_jam_bytes().to_bytes().hex())
 
     def test_jdt_state_recent_history(self):

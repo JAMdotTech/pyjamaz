@@ -45,7 +45,10 @@
         "threshold_balance": 100
       }
     },
-    "preimages": []
+    "preimages": [],
+    "preimage_availability": {
+      "42:a0909e6ba08e7cdc759ef2f6d4da6c7544372a288d9e55c7b6089f92eda55060:100": []
+    }
   },
   "expected-regs": [
     0,

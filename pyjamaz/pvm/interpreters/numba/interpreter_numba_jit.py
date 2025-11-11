@@ -401,18 +401,18 @@ def invoke_native(
         gas_start,
         inst_start,
         initial_skip_len,
-        
+
         code,
         code_size,
         inst_arg_len,
         pc_to_inst_index,
         opcode_scheme,
         jump_table,
-        
-        mem_section_starts, 
-        mem_section_ends, 
-        section_arrays, 
-        acl_bitmaps, 
+
+        mem_section_starts,
+        mem_section_ends,
+        section_arrays,
+        acl_bitmaps,
         section_access,
         heap_info,  # [current_heap_end, next_section_start, mem_writable_value]
 
@@ -420,7 +420,7 @@ def invoke_native(
 
         logging,
         opcode_names,
-        
+
         registers_out,
         state_out,
         heap_grew_out
@@ -1794,11 +1794,13 @@ class PVMInterpreter:
         heap_grew_out = np.array([0], dtype=np.int64)
 
         # Call the Numba compiled invoke function
+        prev_skip = int(self.skip_len) & U32_MASK
+
         error_code = invoke_native(
             np.uint32(self.pc),
             np.int64(self.gas),
             np.uint32(self.inst_nr),
-            np.uint32(int(self.skip_len)),
+            np.uint32(prev_skip),
 
             self.code,
             np.uint32(self.code_size),
@@ -1830,7 +1832,7 @@ class PVMInterpreter:
         self.status = int(state_out[STATE_STATUS])
         pc_out_val = np.uint32(state_out[STATE_PC])
         self.exit_value = int(state_out[STATE_EXIT_VALUE])
-        skip_len_out_val = int(state_out[STATE_SKIP_LEN])
+        skip_len = int(state_out[STATE_SKIP_LEN])
         self.gas = int(state_out[STATE_GAS])
         self.inst_nr = np.uint32(state_out[STATE_INST_NR])
         # Advance PC only when there were no errors
@@ -1839,10 +1841,12 @@ class PVMInterpreter:
             if self.status == ExitReason.host_halt.value:
                 self.pc = pc_out_val
             else:
-                self.pc = np.uint32(pc_out_val + skip_len_out_val)
+                pc_int = int(pc_out_val)
+                new_pc = (pc_int + skip_len) & U32_MASK
+                self.pc = np.uint32(new_pc)
         else:
             self.pc = pc_out_val
-        self.skip_len = skip_len_out_val
+        self.skip_len = skip_len
 
         # Handle errors
         if error_code == ERROR_PANIC_TRAP:

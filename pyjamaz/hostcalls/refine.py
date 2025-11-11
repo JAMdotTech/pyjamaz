@@ -343,7 +343,7 @@ def hc_invoke(
         """
         Invokes general PVM function (Ψ) on an inner PVM
         """
-        pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger_cls=PVM_DEBUGGER)
+        pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger=PVM_DEBUGGER)
         pvm.invoke(
             m_e.inner_pvm_lookup[n].program_counter,
             gas

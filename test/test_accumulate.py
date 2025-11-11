@@ -12,12 +12,12 @@ from pyjamaz.models.common import WorkReport
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
-from pyjamaz.state.components import Services, AccumulationHistory, AccumulationQueue
+from pyjamaz.state.components import Services, AccumulationHistory, AccumulationQueue, Statistics
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header
 from pyjamaz.models.state import TimeslotState, ServicesState, AccumulationHistoryState, EntropyState, \
     AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, AuthorizerQueuesState, \
-    AccumulationQueueWorkPackage
+    AccumulationQueueWorkPackage, ServiceAccount, StatisticsState, ValidatorPoolState
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -46,8 +46,12 @@ class TestAccumulate(unittest.TestCase):
 
         self.app_context = AppContext(state_storage=StateStorage(storage_engine))
 
-        log_level = logging.DEBUG
-        setup_logging(log_level)
+        log_level = logging.INFO
+        log_package_overrides = {
+            "numba": logging.WARNING,
+            "numba.core": logging.WARNING
+        }
+        setup_logging(log_level, log_package_overrides)
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -85,8 +89,12 @@ class TestAccumulate(unittest.TestCase):
             {"accumulation_history": test_vector["pre_state"]["accumulated"]}
         )
 
-        pre_services = ServicesState.from_json(
-            {"services": {s["id"]: {
+        pre_services = ServicesState()
+
+        pre_services.set_state_storage(self.app_context.state_storage)
+
+        for s in test_vector["pre_state"]["accounts"]:
+            pre_services.store_service_account(s["id"], ServiceAccount.from_json({
                 "code_hash": bytes.fromhex(s["data"]["service"]["code_hash"][2:]),
                 "balance": s["data"]["service"]["balance"],
                 "gas_limit_accumulate": s["data"]["service"]["min_item_gas"],
@@ -97,21 +105,33 @@ class TestAccumulate(unittest.TestCase):
                 "creation_slot": s["data"]["service"]["creation_slot"],
                 "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
                 "parent_service": s["data"]["service"]["parent_service"],
-                "storage_items": {p['key']:p['value'] for p in s['data']['storage']},
-                "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
-                "preimage_availability": {},
+                "storage_items": {},
+                "preimages": {},
+                "preimage_availability": {}, #Note: done as a post processing step
                 "threshold_balance": 0
+            }))
 
-            } for s in test_vector["pre_state"]["accounts"]}}
-        )
+            for p in s['data']['storage']:
+                pre_services.store_storage_item(s["id"], bytes.fromhex(p["key"][2:]), bytes.fromhex(p['value'][2:]))
 
-        pre_services.set_state_storage(self.app_context.state_storage)
+            for p in s['data']['preimages_blob']:
+                pre_services.store_preimage(s["id"], bytes.fromhex(p['blob'][2:]))
+
+            preimages_status = s['data']['preimages_status']
+            for p in preimages_status:
+                si_key = bytes.fromhex(p['hash'][2:])
+                preimage = pre_services.retrieve_preimage(s["id"], si_key)
+                if preimage is not None:
+                    si_len = len(preimage)
+                    pre_services.store_preimage_availability(s["id"], si_key, si_len, p["status"])
+
 
         pre_privileged_services = PrivilegedServicesState(
             manager=test_vector["pre_state"]["privileges"]["bless"],
             assigners=test_vector["pre_state"]["privileges"]["assign"],
             delegator=test_vector["pre_state"]["privileges"]["designate"],
-            always_accumulators={} #test_vector["pre_state"]["privileges"]["always_acc"]
+            registrar=test_vector["pre_state"]["privileges"]["register"],
+            always_accumulators={s: g for s, g in test_vector["pre_state"]["privileges"]["always_acc"]}
         )
 
         # Set up post-state
@@ -143,7 +163,7 @@ class TestAccumulate(unittest.TestCase):
                         "footprint_storage_bytes": s["data"]["service"]["bytes"],
                         "threshold_balance": 0,
                         "storage_items": {p['key']:p['value'] for p in s['data']['storage']},
-                        "preimages": {p['hash']:p['blob'] for p in s['data']['preimages']},
+                        "preimages": {p['hash']:p['blob'] for p in s['data']['preimages_blob']},
                         "preimage_availability": {},
                         "deposit_offset": s["data"]["service"]["deposit_offset"],
                         "creation_slot": s["data"]["service"]["creation_slot"],
@@ -152,6 +172,23 @@ class TestAccumulate(unittest.TestCase):
                     } for s in test_vector["post_state"]["accounts"]
                 }
             }
+        )
+
+        #TODO: make serializing preimage_status generic
+        for s in test_vector["post_state"]["accounts"]:
+            preimages_status = s['data']['preimages_status']
+            for p in preimages_status:
+                si_key = bytes.fromhex(p['hash'][2:])
+                if si_key in post_services.services[s["id"]].preimages:
+                    si_len = len(post_services.services[s["id"]].preimages[si_key])
+                    post_services.services[s["id"]].preimage_availability[(si_key, si_len)] = p["status"]
+
+        post_privileged_services = PrivilegedServicesState(
+            manager=test_vector["post_state"]["privileges"]["bless"],
+            assigners=test_vector["post_state"]["privileges"]["assign"],
+            delegator=test_vector["post_state"]["privileges"]["designate"],
+            registrar=test_vector["post_state"]["privileges"]["register"],
+            always_accumulators={s: g for s, g in test_vector["post_state"]["privileges"]["always_acc"]}
         )
 
         # Prepare block context
@@ -180,13 +217,6 @@ class TestAccumulate(unittest.TestCase):
             post_state_entropy=post_entropy,
         )
 
-        transfer_output = services.state_transition_transfers(
-            intermediate_state_after_accumulation=accumulation_output.intermediate_state_after_accumulation,
-            post_state_timeslot=post_state_timeslot,
-            deferred_transfers=accumulation_output.deferred_transfers,
-            post_state_entropy=post_entropy,
-        )
-
         accumulation_history = AccumulationHistory(self.block_context, self.app_context)
         history_output = accumulation_history.state_transition(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
@@ -203,10 +233,35 @@ class TestAccumulate(unittest.TestCase):
             post_state_timeslot=post_state_timeslot
         )
 
-        self.assertEqual(post_accumulation_history.to_json(), history_output.post_state.to_json())
-        self.assertEqual(post_accumulation_queue.to_json(), queue_output.post_state.to_json())
+        statistics = Statistics(self.block_context, self.app_context)
+        self.block_context.reporters = []
 
-        self.assertDictEqual(post_services.to_json()['services'][0][1], transfer_output.intermediate_state_after_transfers.to_json()['services'][0][1])
+        stats_output = statistics.state_transition(
+            extrinsic_guarantees=[],
+            extrinsic_preimages=[],
+            extrinsic_assurances=[],
+            extrinsic_tickets=[],
+            pre_state_timeslot=pre_state_timeslot,
+            post_state_timeslot=post_state_timeslot,
+            post_state_validator_pool=ValidatorPoolState(validators=[]),
+            pre_state_statistics=StatisticsState.default(),
+            header=header
+        )
+
+        post_stats = [
+            {"id": s_id, "record": s_record.to_json()} for s_id, s_record in stats_output.post_state.services.items()
+        ]
+
+        new_service_state = ServicesState()
+
+        # Add items created in state storage to ServiceState instance
+        self.app_context.state_storage.add_pending_changes_to_services_state(new_service_state)
+
+        self.assertEqual(post_accumulation_history, history_output.post_state)
+        self.assertEqual(post_accumulation_queue, queue_output.post_state)
+        self.assertEqual(post_services.services, new_service_state.services)
+        self.assertEqual(test_vector["post_state"]["statistics"], post_stats)
+        self.assertEqual(post_privileged_services, accumulation_output.post_state_privileged_services)
 
 
 if __name__ == '__main__':

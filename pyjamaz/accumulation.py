@@ -2,26 +2,27 @@ import logging
 import typing
 from concurrent.futures import as_completed
 from concurrent.futures.thread import ThreadPoolExecutor
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from typing import List, Set, Dict
 
+from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import CORE_COUNT
 
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.common import WorkReport, AccumulationOperand
-from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, DeferredTransfer, \
-    BeefyCommitmentMap, TimeslotState, EntropyState
+from pyjamaz.models.common import WorkReport, AccumulationOperand, AccumulationInput, DeferredTransfer
+from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, BeefyCommitmentMap, TimeslotState, EntropyState
 
 from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
-from pyjamaz.settings import USE_THREAD_POOL, THREAD_POOL_MAX_WORKERS
-from pyjamaz.utils import substitute_if_nothing, sum_dict_values
+from pyjamaz.settings import USE_THREAD_POOL_ACCUMULATE, THREAD_POOL_MAX_WORKERS
+from pyjamaz.utils import sum_dict_values
 
 if typing.TYPE_CHECKING:
     from pyjamaz.hostcalls.models import PvmAccumulateOutput
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
     """
-    GP-0.6.1-eq:12.6 (D) | Create a dependency graph of work report dependencies
+    GP-0.7.1-eq:12.6 (D) | Create a dependency graph of work report dependencies
 
     Parameters
     ----------
@@ -42,7 +43,7 @@ def edit_queue(
         accumulated_packages: List[bytes]
 ) -> List[AccumulationQueueWorkPackage]:
     """
-    GP-0.6.1-eq:12.7 (E) | Queue editing function
+    GP-0.7.1-eq:12.7 (E) | Queue editing function
 
     Parameters
     ----------
@@ -68,7 +69,7 @@ def edit_queue(
 
 def work_report_mapping(work_reports: List[WorkReport]) -> Set[bytes]:
     """
-    GP-0.6.1-eq:12.9 (P) | Extracts hashes from given work reports
+    GP-0.7.1-eq:12.9 (P) | Extracts hashes from given work reports
 
     Parameters
     ----------
@@ -83,7 +84,7 @@ def work_report_mapping(work_reports: List[WorkReport]) -> Set[bytes]:
 
 def priority_queue(work_report_queue: List[AccumulationQueueWorkPackage]) -> List[WorkReport]:
     """
-    GP-0.6.1-eq:12.8 (Q) | Accumulate priority queue function
+    GP-0.7.1-eq:12.8 (Q) | Accumulate priority queue function
 
     Parameters
     ----------
@@ -102,28 +103,11 @@ def priority_queue(work_report_queue: List[AccumulationQueueWorkPackage]) -> Lis
         return g + priority_queue(edit_queue(work_report_queue, work_report_mapping(g)))
 
 
-def transfers_service_mapping(
-        deferred_transfers: List[DeferredTransfer],
-        service_id: int
-) -> List[DeferredTransfer]:
-    """
-    GP-0.7.0-eq:12.29 (function_X) | Maps a sequence of deferred transfers to a service
-
-    Parameters
-    ----------
-    deferred_transfers: List[DeferredTransfer]
-    service_id: int
-
-    Returns
-    -------
-    List[DeferredTransfer]
-    """
-    transfers = [t for t in deferred_transfers if t.receiver == service_id]
-    return sorted(transfers, key=lambda t: t.sender)
-
-
 @dataclass
 class ParallelAccumulationOutput:
+    """
+    GP-0.7.1-eq:12.19
+    """
     accumulation_state: AccumulationStateComponents
     deferred_transfers: List[DeferredTransfer]
     accumulation_commitment: BeefyCommitmentMap
@@ -133,14 +117,12 @@ class ParallelAccumulationOutput:
 @dataclass
 class FullAccumulationOutput:
     """
-    GP-0.7.0-eq:12.24
+    GP-0.7.1-eq:12.28
     """
     # n
     nr_work_results_accumulated: int
     # e'
     post_accumulation_state: AccumulationStateComponents
-    # bold_t
-    deferred_transfers: List[DeferredTransfer]
     # θ
     accumulation_commitment: BeefyCommitmentMap
     # bold_u
@@ -149,6 +131,7 @@ class FullAccumulationOutput:
 
 def full_sequential_accumulation(
         gas_limit: int,
+        deferred_transfers: List[DeferredTransfer],
         work_reports: List[WorkReport],
         accumulation_state: AccumulationStateComponents,
         auto_accumulate_services: Dict[int, int],
@@ -156,11 +139,12 @@ def full_sequential_accumulation(
         post_state_entropy: EntropyState
 ) -> FullAccumulationOutput:
     """
-    GP-0.7.0-eq:12.16 ∆+ | full sequential accumulation function
+    GP-0.7.1-eq:12.18 ∆+ | full sequential accumulation function
 
     Parameters
     ----------
     gas_limit: int
+    deferred_transfers: List[DeferredTransfer]
     work_reports: List[WorkReport]
     accumulation_state: AccumulationStateComponents
     auto_accumulate_services: Dict[int, int]
@@ -182,25 +166,30 @@ def full_sequential_accumulation(
             i -= 1
             break
 
-    if i == 0:
+    n = len(deferred_transfers) + i + len(auto_accumulate_services)
+
+    if n == 0:
         return FullAccumulationOutput(
             nr_work_results_accumulated=0,
             post_accumulation_state=accumulation_state,
-            deferred_transfers=[],
-            accumulation_commitment=BeefyCommitmentMap(beefy_commitment_map={}),
+            accumulation_commitment=BeefyCommitmentMap(),
             accumulation_gas_utilized={}
         )
 
     output = parallel_accumulation(
         accumulation_state=accumulation_state,
+        deferred_transfers=deferred_transfers,
         work_reports=work_reports[:i],
         auto_accumulate_services=auto_accumulate_services,
         post_state_timeslot=post_state_timeslot,
         post_state_entropy=post_state_entropy
     )
 
+    gas_limit += sum([t.gas_limit for t in deferred_transfers]) # g*
+
     second_output = full_sequential_accumulation(
         gas_limit=gas_limit - sum([u for u in output.accumulation_gas_utilized.values()]),
+        deferred_transfers=output.deferred_transfers,
         work_reports=work_reports[i:],
         accumulation_state=output.accumulation_state,
         auto_accumulate_services={},
@@ -208,9 +197,7 @@ def full_sequential_accumulation(
         post_state_entropy=post_state_entropy
     )
 
-    output.accumulation_commitment.beefy_commitment_map.update(
-        second_output.accumulation_commitment.beefy_commitment_map
-    )
+    output.accumulation_commitment.beefy_commitment_map.update(second_output.accumulation_commitment.beefy_commitment_map)
 
     # Update gas statistics
     output.accumulation_gas_utilized = sum_dict_values(
@@ -220,7 +207,6 @@ def full_sequential_accumulation(
     return FullAccumulationOutput(
         nr_work_results_accumulated=i + second_output.nr_work_results_accumulated,
         post_accumulation_state=accumulation_state,
-        deferred_transfers=output.deferred_transfers + second_output.deferred_transfers,
         accumulation_commitment=output.accumulation_commitment,
         accumulation_gas_utilized=output.accumulation_gas_utilized,
     )
@@ -228,20 +214,23 @@ def full_sequential_accumulation(
 
 def parallel_accumulation(
         accumulation_state: AccumulationStateComponents,
+        deferred_transfers: List[DeferredTransfer],
         work_reports: List[WorkReport],
         auto_accumulate_services: Dict[int, int],
         post_state_timeslot: TimeslotState,
         post_state_entropy: EntropyState
 ) -> ParallelAccumulationOutput:
     """
-    GP-0.6.5-eq:12.17 ∆* | parallel accumulation function
+    GP-0.7.1-eq:12.19 ∆* | parallel accumulation function
 
     Parameters
     ----------
+    deferred_transfers: List[DeferredTransfer]
     accumulation_state: AccumulationStateComponents
     work_reports: List[WorkReport]
     auto_accumulate_services: Dict[int, int]
     post_state_timeslot: TimeslotState
+    post_state_entropy: EntropyState
 
     Returns
     -------
@@ -249,28 +238,31 @@ def parallel_accumulation(
     """
     # s (sorted!)
     service_ids = sorted(
-        set([r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()))
+        set(
+            [r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()) +
+            [t.receiver for t in deferred_transfers]
+        )
     )
 
     # u
     accumulation_gas_utilized = {}
     # b
-    beefy_commitment_map = {}
-    # t
-    deferred_transfers = []
+    beefy_commitment_map = BeefyCommitmentMap()
 
     logging.debug(f'Services to accumulate: {service_ids}')
 
     outputs = []
 
-    pre_state_delegator_id = accumulation_state.privileged_services.delegator  # v
-    pre_state_manager_id = accumulation_state.privileged_services.manager  # m
-    pre_state_assigners = accumulation_state.privileged_services.assigners  # a
+    pre_state_delegator = accumulation_state.privileged_services.delegator  # v
+    pre_state_manager = accumulation_state.privileged_services.manager  # m
+    pre_state_assigners = copy(accumulation_state.privileged_services.assigners)  # a
+    pre_state_registrar = accumulation_state.privileged_services.registrar # r
 
-    # TODO check if this needed
-    #pre_accumulation_state = deepcopy(accumulation_state)
+    manager_delegator = pre_state_delegator # v*
+    manager_assigners = copy(pre_state_assigners) # a*
+    manager_registrar = pre_state_registrar # r*
 
-    if USE_THREAD_POOL:
+    if USE_THREAD_POOL_ACCUMULATE:
 
         logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
 
@@ -279,6 +271,7 @@ def parallel_accumulation(
                 tp.submit(
                     single_step_accumulation,
                     accumulation_state=accumulation_state,
+                    deferred_transfers=deferred_transfers,
                     post_state_timeslot=post_state_timeslot,
                     post_state_entropy=post_state_entropy,
                     work_reports=work_reports,
@@ -301,6 +294,7 @@ def parallel_accumulation(
 
             output = single_step_accumulation(
                 accumulation_state=accumulation_state,
+                deferred_transfers=deferred_transfers,
                 post_state_timeslot=post_state_timeslot,
                 post_state_entropy=post_state_entropy,
                 work_reports=work_reports,
@@ -310,34 +304,38 @@ def parallel_accumulation(
 
             outputs.append((service_id, output))
 
+    deferred_transfers = []
+
     for service_id, output in outputs:
-            # Update gas usage
+            # Update gas usage (u)
             accumulation_gas_utilized[service_id] = output.gas_used
 
-            # Update transfers
+            # Update transfers (t')
             deferred_transfers += output.deferred_transfers
 
-            # Process provided pre-images
+            # GP-0.7.1-eq:12.21 Process provided pre-images
             for s, i in output.preimages:
-                availability = output.state_context.services.retrieve_preimage_availability(s, blake2b_256_hash(i), len(i))
+                try:
+                    availability = output.state_context.services.retrieve_preimage_availability(s, blake2b_256_hash(i), len(i))
+                except StateKeyNoResult:
+                    # TODO check this
+                    availability = None
                 if availability == []:
                     output.state_context.services.store_preimage_availability(
                         s, blake2b_256_hash(i), len(i), [post_state_timeslot.number]
                     )
                     output.state_context.services.store_preimage(s, i)
 
-            # Update services state with output
-            accumulation_state.services.services.update(output.state_context.services.services)
-
             if output.accumulation_output is not None:
-                beefy_commitment_map.update({service_id: output.accumulation_output})
+                beefy_commitment_map.add_accumulation_output(service_id, output.accumulation_output) # b
 
-            if service_id == pre_state_manager_id:
+            if service_id == pre_state_manager:
                 # Process privilege services (m', a*, v*, z')
                 accumulation_state.privileged_services.manager = output.state_context.privileged_services.manager # m'
-                accumulation_state.privileged_services.assigners = output.state_context.privileged_services.assigners # a*
-                accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator # v*
                 accumulation_state.privileged_services.always_accumulators = output.state_context.privileged_services.always_accumulators # z'
+                manager_assigners = output.state_context.privileged_services.assigners # a*
+                manager_delegator = output.state_context.privileged_services.delegator # v*
+                manager_registrar = output.state_context.privileged_services.registrar # r*
 
             # Process assigners (a')
             for c in range(CORE_COUNT):
@@ -348,8 +346,12 @@ def parallel_accumulation(
             if service_id == accumulation_state.privileged_services.delegator:
                 accumulation_state.privileged_services.delegator = output.state_context.privileged_services.delegator  # v'
 
+            # Process registrar (r')
+            if service_id == accumulation_state.privileged_services.registrar:
+                accumulation_state.privileged_services.registrar = output.state_context.privileged_services.registrar  # r'
+
             # Process validator queue (i')
-            if service_id == pre_state_delegator_id:
+            if service_id == pre_state_delegator:
                 accumulation_state.validator_queue = output.state_context.validator_queue
 
             # Process authorizer queue (q')
@@ -357,16 +359,29 @@ def parallel_accumulation(
                 if service_id == pre_state_assigners[c]:
                     accumulation_state.authorizer_queues = output.state_context.authorizer_queues
 
+    # Check if manager service modified a', v' and r' and then override
+    for c in range(CORE_COUNT):
+        if pre_state_assigners[c] != manager_assigners[c]:
+            accumulation_state.privileged_services.assigners[c] = manager_assigners[c]
+
+    if pre_state_delegator != manager_delegator:
+        accumulation_state.privileged_services.delegator = manager_delegator
+
+    if pre_state_registrar != manager_registrar:
+        accumulation_state.privileged_services.registrar = manager_registrar
+
+
     return ParallelAccumulationOutput(
         accumulation_state=accumulation_state,
         deferred_transfers=deferred_transfers,
-        accumulation_commitment=BeefyCommitmentMap(beefy_commitment_map=beefy_commitment_map),
+        accumulation_commitment=beefy_commitment_map,
         accumulation_gas_utilized=accumulation_gas_utilized
     )
 
 
 def single_step_accumulation(
         accumulation_state: AccumulationStateComponents,
+        deferred_transfers: List[DeferredTransfer],
         post_state_timeslot: TimeslotState,
         post_state_entropy: EntropyState,
         work_reports: List[WorkReport],
@@ -374,12 +389,14 @@ def single_step_accumulation(
         service_id: int
 ) -> 'PvmAccumulateOutput':
     """
-    GP-0.6.1-eq:12.19 ∆1 | single step accumulation function
+    GP-0.7.1-eq:12.23 ∆1 | single step accumulation function
 
     Parameters
     ----------
     accumulation_state: AccumulationStateComponents
+    deferred_transfers: List[DeferredTransfer]
     post_state_timeslot: TimeslotState
+    post_state_entropy: EntropyState
     work_reports: List[WorkReport]
     auto_accumulate_services: Dict[int, int]
     service_id: int
@@ -388,30 +405,46 @@ def single_step_accumulation(
     -------
     PvmAccumulateOutput
     """
-    g = substitute_if_nothing(auto_accumulate_services.get(service_id), 0)
-    i = []
+    # g = substitute_if_nothing(auto_accumulate_services.get(service_id), 0)
+    g: int = auto_accumulate_services.get(service_id, 0)
+
+    i: List[AccumulationInput] = []
+
+    # Add deferred transfers (i^T)
+    for t in deferred_transfers:
+        if t.receiver == service_id:
+            g += t.gas_limit
+
+            i.append(AccumulationInput(deferred_transfer=t))
+
+    # Add accumulation operands (i^U)
     for w in work_reports:
         for r in w.results:
             if r.service_id == service_id:
                 g += r.accumulate_gas
 
                 i.append(
-                    AccumulationOperand(
-                        work_report_hash=w.package_spec.hash,
-                        work_report_exports_root=w.package_spec.exports_root,
-                        work_report_authorizer_hash=w.authorizer_hash,
-                        work_report_auth_output=w.auth_output,
-                        work_result_payload_hash=r.payload_hash,
-                        work_result_gas_limit=r.accumulate_gas,
-                        work_exec_result=r.result,
+                    AccumulationInput(
+                        accumulation_operand=AccumulationOperand(
+                            work_report_hash=w.package_spec.hash,
+                            work_report_exports_root=w.package_spec.exports_root,
+                            work_report_authorizer_hash=w.authorizer_hash,
+                            work_report_auth_output=w.auth_output,
+                            work_result_payload_hash=r.payload_hash,
+                            work_result_gas_limit=r.accumulate_gas,
+                            work_exec_result=r.result,
+                        )
                     )
                 )
 
+    state_context = deepcopy(accumulation_state)
+    state_context.services.services = {}
+
     return pvm_invoke_accumulate(
-        state_context=accumulation_state,
+        state_context=state_context,
         timeslot=post_state_timeslot.number,
         service_id=service_id,
         gas_limit=g,
-        operands=i,
+        accumulation_inputs=i,
         post_entropy=post_state_entropy
     )

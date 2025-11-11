@@ -59,7 +59,7 @@ class BlockExtrinsicAccumulator:
 
         attempt = len(self.own_tickets_next)
 
-        # GP-0.3.8-eq:75
+        # GP-0.7.1-eq:6.31
         vrf_input_data = vrf_input_ticket_seal(entropy, attempt)
         aux_data = b''
 
@@ -139,6 +139,9 @@ class BlockExtrinsicAccumulator:
         # Check which of present preimages are actually requested
         preimages = []
         new_queue = []
+
+        # Sort preimages as requited per GP
+        self.preimage_queue = sorted(self.preimage_queue, key=lambda p: p.sort_key())
 
         for preimage in self.preimage_queue:
             if service_state.is_preimage_needed(preimage):

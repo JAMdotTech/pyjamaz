@@ -88,7 +88,6 @@ class TestStatistics(unittest.TestCase):
 
         self.block_context.reporters = []
         self.block_context.accumulation_statistics = {}
-        self.block_context.deferred_transfer_statistics = {}
 
         for guarantee in extrinsic.guarantees:
             for signature in guarantee.signatures:
