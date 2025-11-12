@@ -178,6 +178,9 @@ def pvm_invoke_accumulate(
 
         service_account = state_context.services.retrieve_service_account(service_id)
 
+        # Set service id context
+        state_context.services.set_context_service_id(service_id)
+
         # Process transfers
         x = [i for i in accumulation_inputs if i.deferred_transfer is not None]
 
@@ -242,7 +245,7 @@ def pvm_invoke_accumulate(
     # GP-0.7.1-eq:B.13 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
         # Rollback pending changes in state storage
-        state_context.services.state_storage.checkpoint_rollback()
+        state_context.services.state_storage.checkpoint_rollback(service_id)
 
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.savepoint_context.state_context,

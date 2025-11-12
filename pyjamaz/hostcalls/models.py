@@ -91,7 +91,7 @@ class AccumulateInvocationContext(InvocationContext):
         )
 
         # Initiate initial checkpoint
-        accumulation_state.services.state_storage.checkpoint()
+        accumulation_state.services.state_storage.checkpoint(service_account_id)
 
         return AccumulateInvocationContext(
             context=AccumulateContextItem(

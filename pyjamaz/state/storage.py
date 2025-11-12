@@ -37,8 +37,8 @@ class StateStorage:
         # GP-0.7.0-eq:5.3 (A)
         self.ancestors: Dict[bytes, Header] = {}
 
-        self.pending_changes: PendingChanges = PendingChanges()
-        self.savepoint_changes: PendingChanges = PendingChanges()
+        self.pending_changes: Dict[int, PendingChanges] = {}
+        self.savepoint_changes: Dict[int, PendingChanges] = {}
 
     def add_ancestor(self, header: Header):
         self.ancestors[header.hash] = header
@@ -232,8 +232,8 @@ class StateStorage:
         self.block_hash = None
         self.finalized_block_hash = None
         self.transaction = {}
-        self.pending_changes = PendingChanges()
-        self.savepoint_changes = PendingChanges()
+        self.pending_changes = {}
+        self.savepoint_changes = {}
 
     def commit(self):
         if self.block_hash is not None:
@@ -251,13 +251,19 @@ class StateStorage:
             logging.debug(f"StateStorage: Rollback transaction for {format_hash(self.block_hash)}")
         self.transaction = {}
 
-    def checkpoint(self):
-        self.savepoint_changes = deepcopy(self.pending_changes)
-        logging.debug(f"StateStorage: Checkpoint")
+    def checkpoint(self, service_id: int):
+        if service_id not in self.pending_changes:
+            self.pending_changes[service_id] = PendingChanges()
+            self.savepoint_changes[service_id] = PendingChanges()
 
-    def checkpoint_rollback(self):
-        self.pending_changes = deepcopy(self.savepoint_changes)
-        logging.debug(f"StateStorage: Checkpoint rollback")
+        self.savepoint_changes[service_id] = deepcopy(self.pending_changes[service_id])
+        logging.debug(f"StateStorage: Checkpoint [service={service_id}]")
+
+    def checkpoint_rollback(self, service_id: int):
+        self.pending_changes[service_id] = deepcopy(self.savepoint_changes[service_id])
+        logging.debug(f"StateStorage: Checkpoint rollback [service={service_id}]")
+
+
 
     def add_pending_changes_to_services_state(self, services_state: 'ServicesState'):
 

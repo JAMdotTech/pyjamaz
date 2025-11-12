@@ -438,7 +438,6 @@ def single_step_accumulation(
                 )
 
     state_context = deepcopy(accumulation_state)
-    state_context.services.services = {}
 
     return pvm_invoke_accumulate(
         state_context=state_context,

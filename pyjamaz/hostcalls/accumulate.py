@@ -283,7 +283,7 @@ def hc_checkpoint(
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
     x.savepoint_context = deepcopy(x.context)
-    x.context.state_context.services.state_storage.checkpoint()
+    x.context.state_context.services.state_storage.checkpoint(x.context.service_account_id)
 
 
 def hc_new(
@@ -784,7 +784,7 @@ def hc_solicit(
 
     state = x.context.state_context
     service_id = x.context.service_account_id
-    service_account = deepcopy(x.context.state_context.services.retrieve_service_account(service_id)) # GP: bold_a
+    service_account = x.context.state_context.services.retrieve_service_account(service_id) # GP: bold_a
 
     o = registers[7]
     preimage_length = registers[8]    # GP: z

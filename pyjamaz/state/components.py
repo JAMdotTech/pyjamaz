@@ -1959,7 +1959,7 @@ class Services(StateComponent):
         # State is retrieve per service
         return ServicesState(services={})
 
-    async def store_state(self, state: ServicesState, transaction: Optional[Transaction] = None):
+    async def store_state(self, state: ServicesState):
         """
         State for services are stored per service account
 
@@ -1973,52 +1973,54 @@ class Services(StateComponent):
 
         """
 
-        for (service_id, storage_hash), value in state.state_storage.pending_changes.storage_items.items():
-            if value is None:
-                state.delete_storage_item(service_id, storage_hash, commit=True)
-            else:
-                state.store_storage_item(service_id, storage_hash, value, commit=True)
+        for service_id in sorted(state.state_storage.pending_changes):
 
-            if self.app_context.pubsub:
-                await self.app_context.pubsub.publish(
-                    PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[service_id, storage_hash, value])
-                )
+            for (service_id, storage_hash), value in state.state_storage.pending_changes[service_id].storage_items.items():
+                if value is None:
+                    state.delete_storage_item(service_id, storage_hash, commit=True)
+                else:
+                    state.store_storage_item(service_id, storage_hash, value, commit=True)
 
-        for (service_id, preimage_hash), value in state.state_storage.pending_changes.preimages.items():
-            if value is None:
-                state.delete_preimage(service_id, preimage_hash, commit=True)
-            else:
-                state.store_preimage(service_id, value, commit=True)
-
-            if self.app_context.pubsub:
-                await self.app_context.pubsub.publish(
-                    PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[service_id, preimage_hash, value])
-                )
-
-        for (service_id, preimage_hash, preimage_length), value in state.state_storage.pending_changes.preimages_availability.items():
-            if value is None:
-                state.delete_preimage_availability(service_id, preimage_hash, preimage_length, commit=True)
-            else:
-                state.store_preimage_availability(service_id, preimage_hash, preimage_length, value, commit=True)
-
-            if self.app_context.pubsub:
-                await self.app_context.pubsub.publish(
-                    PubSubSignal(
-                        topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY,
-                        data=[service_id, preimage_hash, preimage_length, value]
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(
+                        PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[service_id, storage_hash, value])
                     )
-                )
 
-        for service_id, service_account in state.state_storage.pending_changes.service_accounts.items():
-            if service_account is None:
-                state.delete_service_account(service_id, commit=True)
-            else:
-                state.store_service_account(service_id, service_account, commit=True)
+            for (service_id, preimage_hash), value in state.state_storage.pending_changes[service_id].preimages.items():
+                if value is None:
+                    state.delete_preimage(service_id, preimage_hash, commit=True)
+                else:
+                    state.store_preimage(service_id, value, commit=True)
 
-            if self.app_context.pubsub:
-                await self.app_context.pubsub.publish(
-                    PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[service_id, service_account])
-                )
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(
+                        PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[service_id, preimage_hash, value])
+                    )
+
+            for (service_id, preimage_hash, preimage_length), value in state.state_storage.pending_changes[service_id].preimages_availability.items():
+                if value is None:
+                    state.delete_preimage_availability(service_id, preimage_hash, preimage_length, commit=True)
+                else:
+                    state.store_preimage_availability(service_id, preimage_hash, preimage_length, value, commit=True)
+
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(
+                        PubSubSignal(
+                            topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY,
+                            data=[service_id, preimage_hash, preimage_length, value]
+                        )
+                    )
+
+            for service_id, service_account in state.state_storage.pending_changes[service_id].service_accounts.items():
+                if service_account is None:
+                    state.delete_service_account(service_id, commit=True)
+                else:
+                    state.store_service_account(service_id, service_account, commit=True)
+
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(
+                        PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[service_id, service_account])
+                    )
 
 
 class AccumulationQueue(StateComponent):
