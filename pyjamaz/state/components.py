@@ -1846,19 +1846,34 @@ class Services(StateComponent):
 
         # GP-0.7.1-eq:12.35
         for preimage in extrinsic_preimages:
-            # Store preimage
-            intermediate_state_after_accumulation.store_preimage(
-                service_account_id=preimage.requester,
-                preimage_blob=preimage.blob
-            )
 
-            # Update availability information
-            intermediate_state_after_accumulation.store_preimage_availability(
-                service_account_id=preimage.requester,
-                preimage_hash=blake2b_256_hash(preimage.blob),
-                preimage_length=len(preimage.blob),
-                value=[post_state_timeslot.number]
-            )
+            preimage_hash = blake2b_256_hash(preimage.blob)
+            preimage_length = len(preimage.blob)
+
+            pre_image_exists = intermediate_state_after_accumulation.preimage_exists(preimage.requester, preimage_hash)
+            try:
+                is_newly_requested = intermediate_state_after_accumulation.retrieve_preimage_availability(
+                    preimage.requester, preimage_hash, preimage_length
+                ) == []
+            except StateKeyNoResult:
+                is_newly_requested = False
+
+            # check if preimage does not already exist and is newly requested
+            if not pre_image_exists and is_newly_requested:
+
+                # Store preimage
+                intermediate_state_after_accumulation.store_preimage(
+                    service_account_id=preimage.requester,
+                    preimage_blob=preimage.blob
+                )
+
+                # Update availability information
+                intermediate_state_after_accumulation.store_preimage_availability(
+                    service_account_id=preimage.requester,
+                    preimage_hash=preimage_hash,
+                    preimage_length=preimage_length,
+                    value=[post_state_timeslot.number]
+                )
 
         return ServicesAfterPreimagesOutput(
             post_state=intermediate_state_after_accumulation

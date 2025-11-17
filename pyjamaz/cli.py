@@ -671,7 +671,7 @@ async def replay_traces(
         if app.working_state.state_root == trace.post_state.state_root:
             logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
         else:
-            logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.working_state.state_root)}')
+            logging.error(f'State root mismatch in trace "{block_file.parent.name}/{block_file.name}": their={format_hash(trace.post_state.state_root)}  ours={format_hash(app.working_state.state_root)}')
 
             # Diffing DBs
             process_state_diff(app.state_storage.as_list(), trace.post_state.keyvals, block_file)
