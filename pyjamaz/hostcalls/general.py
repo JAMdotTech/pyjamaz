@@ -352,8 +352,6 @@ def hc_info(
     logger and logger.hc_regs(f"INFO", "general")
     invocation_output.gas_limit -= 10
 
-    #state = ctx_in.invocation_context.context.state_context
-
     # GP: bold_t
     try:
         if registers[7] == 2 ** 64 - 1:

@@ -561,7 +561,7 @@ class ServicesState(State, Serializable):
 
         service_account = None
         if service_account_id in self.state_storage.pending_changes.service_accounts:
-            service_account = self.state_storage.pending_changes.service_accounts[service_account_id]
+            service_account = deepcopy(self.state_storage.pending_changes.service_accounts[service_account_id])
         else:
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before retrieving preimage')

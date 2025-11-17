@@ -784,7 +784,7 @@ def hc_solicit(
 
     state = x.context.state_context
     service_id = x.context.service_account_id
-    service_account = deepcopy(x.context.state_context.services.retrieve_service_account(service_id)) # GP: bold_a
+    service_account = x.context.state_context.services.retrieve_service_account(service_id) # GP: bold_a
 
     o = registers[7]
     preimage_length = registers[8]    # GP: z
