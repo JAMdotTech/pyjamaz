@@ -156,17 +156,17 @@ def hc_read(
 
     # gp: s*
     if registers[7] == 2 ** 64 - 1:
-        new_service_id = service_id
+        target_service_id = service_id
     else:
-        new_service_id = registers[7]
+        target_service_id = registers[7]
 
-    #state = ctx_in.invocation_context.context.state_context
     # gp: bold_a
+    # TODO not really necessary because retrieve_storage_item will raise StateKeyNoResult anyway, but here for GP ref
     try:
-        if new_service_id == service_id:
+        if target_service_id == service_id:
             service_account = service
         else:
-            service_account = services.retrieve_service_account(new_service_id)
+            service_account = services.retrieve_service_account(target_service_id)
     except StateKeyNoResult as e:
         service_account = None  # GP: bold_a = ∅
 
@@ -177,16 +177,18 @@ def hc_read(
     # GP: bold_v (storage_item)
     storage_key = None
     storage_item_mem_error = False
-    storage_item = None  # bold_v
-    if service_account is not None:
-        try:
-            storage_key = memory.read_bytes(k_o, k_z)
-            storage_item = services.retrieve_storage_item(service_account_id=new_service_id, storage_item_hash=storage_key)
-        except StateKeyNoResult:
-            storage_item = None  # bold_v = ∅
-        except PVMMemoryError:
-            storage_item_mem_error = True  # bold_v = ∇
+
+    try:
+        storage_key = memory.read_bytes(k_o, k_z)
+        if service_account is not None:
+            storage_item = services.retrieve_storage_item(service_account_id=target_service_id, storage_item_hash=storage_key)
+        else:
             storage_item = None
+    except StateKeyNoResult:
+        storage_item = None  # bold_v = ∅
+    except PVMMemoryError:
+        storage_item_mem_error = True  # bold_v = ∇
+        storage_item = None
 
     f = min(registers[11], len(storage_item or bytes()))
     l = min(registers[12], len(storage_item or bytes()) - f)
@@ -194,17 +196,17 @@ def hc_read(
 
     if storage_item_mem_error or not mem_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger and logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key and storage_key.hex() or ''}")
+        logger and logger.hc_log("READ PANIC", f"s={target_service_id} k={storage_key and storage_key.hex() or ''}")
     elif storage_item is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
-        logger and logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key and storage_key.hex() or ''}")
+        logger and logger.hc_log("READ NONE", f"s={target_service_id} k={storage_key and storage_key.hex() or ''}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(storage_item)
         invocation_output.memory.write_bytes(o, storage_item[f:f + l])
         logger and logger.hc_log("READ OK",
-                           f"s={new_service_id} k={storage_key.hex()} len={len(storage_item)} write_bytes({o}, {o + l})")
+                           f"s={target_service_id} k={storage_key.hex()} len={len(storage_item)} write_bytes({o}, {o + l})")
 
 
 def hc_write(
@@ -285,7 +287,6 @@ def hc_write(
         storage_key_mem_error = True  # GP: k= ∇
 
 
-
     if storage_key_mem_error or service_storage_item_mem_error:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("WRITE PANIC", f"l={l}  s={service_id} mu_k={k}")
@@ -311,10 +312,8 @@ def hc_write(
             )
 
             if len(si) == 0:
-                #service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
                 logger and logger.hc_log("WRITE NONE", f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
-                #service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
                 logger and logger.hc_log("WRITE OK", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
 
         services.store_service_account(service_id, service_account)
