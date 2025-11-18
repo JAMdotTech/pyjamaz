@@ -7,6 +7,7 @@ from typing import Optional, Dict, List, Tuple
 
 from pyjamaz.merkle import PatriciaMerkleTrie
 from pyjamaz.models.block import Header
+from pyjamaz.settings import DEBUG
 from pyjamaz.storage import StorageEngine
 from pyjamaz.utils import format_hash, log_execution_time
 
@@ -72,7 +73,7 @@ class StateStorage:
         self.add_ancestor(header)
 
     def set_finalized_block_hash(self, block_hash: bytes):
-        logging.debug(f"Setting finalized block hash {format_hash(block_hash)}")
+        DEBUG and logging.debug(f"Setting finalized block hash {format_hash(block_hash)}")
         self.finalized_block_hash = block_hash
 
     def set_block_hash(self, block_hash: bytes, parent_hash: bytes):
@@ -84,7 +85,7 @@ class StateStorage:
         if len(self.transaction) > 0:
             raise ValueError(f"Pending transaction; commit or rollback first")
 
-        logging.debug(f"StateStorage: State set to block hash={format_hash(block_hash)} parent={format_hash(parent_hash)}")
+        DEBUG and logging.debug(f"StateStorage: State set to block hash={format_hash(block_hash)} parent={format_hash(parent_hash)}")
         self.block_hash = block_hash
         self.parents[block_hash] = parent_hash
 
@@ -99,7 +100,7 @@ class StateStorage:
         self.block_hash = block_hash
 
     def clear_block_hash(self):
-        logging.debug(f"StateStorage: Clearing block hash; set to finalized state")
+        DEBUG and logging.debug(f"StateStorage: Clearing block hash; set to finalized state")
         self.block_hash = None
 
     def get(self, key: bytes, changeset_only=False) -> Optional[bytes]:
@@ -154,7 +155,7 @@ class StateStorage:
         state_trie = PatriciaMerkleTrie(self.as_list())
 
         state_root = state_trie.root()
-        logging.debug(f"StateStorage: Calculated state root {format_hash(state_root)}")
+        DEBUG and logging.debug(f"StateStorage: Calculated state root {format_hash(state_root)}")
 
         return state_root
 
@@ -223,7 +224,7 @@ class StateStorage:
                 self.ancestors.pop(lookup_block_hash, None)
 
         self.finalized_block_hash = block_hash
-        logging.debug(f"Finalized block hash={format_hash(block_hash)}")
+        DEBUG and logging.debug(f"Finalized block hash={format_hash(block_hash)}")
 
     def clear(self):
         self.change_sets = {}
@@ -242,22 +243,22 @@ class StateStorage:
                 raise ValueError('Cannot commit temporary block hash')
 
             self.change_sets[self.block_hash] = self.transaction
-            logging.debug(f"StateStorage: Commit transaction for {format_hash(self.block_hash)}")
+            DEBUG and logging.debug(f"StateStorage: Commit transaction for {format_hash(self.block_hash)}")
         self.transaction = {}
 
     def rollback(self):
         if self.block_hash is not None:
             self.change_sets.pop(self.block_hash)
-            logging.debug(f"StateStorage: Rollback transaction for {format_hash(self.block_hash)}")
+            DEBUG and logging.debug(f"StateStorage: Rollback transaction for {format_hash(self.block_hash)}")
         self.transaction = {}
 
     def checkpoint(self):
         self.savepoint_changes = deepcopy(self.pending_changes)
-        logging.debug(f"StateStorage: Checkpoint")
+        DEBUG and logging.debug(f"StateStorage: Checkpoint")
 
     def checkpoint_rollback(self):
         self.pending_changes = deepcopy(self.savepoint_changes)
-        logging.debug(f"StateStorage: Checkpoint rollback")
+        DEBUG and logging.debug(f"StateStorage: Checkpoint rollback")
 
     def add_pending_changes_to_services_state(self, services_state: 'ServicesState'):
 

@@ -28,7 +28,7 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
-from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE
+from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
 from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.fuzzer import FuzzerMessage, InitializeMessage, FuzzerTarget, FuzzerSession, AncestryItem
@@ -96,7 +96,7 @@ def import_block_cli(traces_dir):
         except Exception as e:
             # Rollback state
             logging.error(f'Import failed for #{block.header.timeslot} -> {e}; Rollback state')
-            logging.debug(traceback.format_exc())
+            DEBUG and logging.debug(traceback.format_exc())
             self.state_storage.rollback()
             self.working_state = self.retrieve_jam_state()
 
@@ -155,7 +155,7 @@ async def initialize_app(
 
     # Initiate storage engine
     try:
-        logging.debug(f'Selected storage engine: {storage_engine}')
+        DEBUG and logging.debug(f'Selected storage engine: {storage_engine}')
 
         if storage_engine == 'memory':
             storage_engine = InMemoryStorageEngine()
@@ -268,7 +268,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
 
-    logging.debug("Retrieving ancestor headers from DB..")
+    DEBUG and logging.debug("Retrieving ancestor headers from DB..")
 
     for header in app.retrieve_ancestor_headers(app.state_storage.finalized_block_hash):
         app.state_storage.add_ancestor(header)
@@ -333,12 +333,12 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
                     validator_address = validator.get_metadata_ipaddress()
 
                     if validator.ed25519 == app.config.keys.ed25519.public_key:
-                        logging.debug(
+                        DEBUG and logging.debug(
                             f'Skipping own node ({validator_address}:{validator_port})'
                         )
                         continue
 
-                    logging.debug(f'Connecting to node {validator_address}:{validator_port}')
+                    DEBUG and logging.debug(f'Connecting to node {validator_address}:{validator_port}')
                     tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
             await anyio.sleep(ts - time.time())
@@ -360,10 +360,10 @@ async def timeslot_ticker(app: PyjamazApp):
         epoch = timeslot // EPOCH_TIMESLOTS
         phase = timeslot % EPOCH_TIMESLOTS
 
-        logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
+        DEBUG and logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
 
         if app.working_state.timeslot.number >= timeslot:
-            logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
+            DEBUG and logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
             await anyio.sleep(0.1)
             continue
 
@@ -395,7 +395,7 @@ async def timeslot_ticker(app: PyjamazApp):
 
             # Process tickets
             app.block_extrinsic.process_epoch_change()
-            logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
+            DEBUG and logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
 
             safrole_state = safrole_output.post_state
             entropy_state = entropy_output.post_state
@@ -421,7 +421,7 @@ async def timeslot_ticker(app: PyjamazApp):
                 logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
-                logging.debug(traceback.format_exc())
+                DEBUG and logging.debug(traceback.format_exc())
                 # Rollback state from DB
                 app.working_state = app.retrieve_jam_state()
                 # TODO Make transactional
@@ -671,7 +671,7 @@ async def replay_traces(
         if app.working_state.state_root == trace.post_state.state_root:
             logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
         else:
-            logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.working_state.state_root)}')
+            logging.error(f'State root mismatch in trace "{block_file.parent.name}/{block_file.name}": their={format_hash(trace.post_state.state_root)}  ours={format_hash(app.working_state.state_root)}')
 
             # Diffing DBs
             process_state_diff(app.state_storage.as_list(), trace.post_state.keyvals, block_file)
