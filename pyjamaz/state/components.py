@@ -15,7 +15,7 @@ from pyjamaz.constants import MESSAGE_TYPES
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import MerkleMountainRange
-from pyjamaz.settings import SOLO_MODE, THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL_SAFROLE
+from pyjamaz.settings import SOLO_MODE, THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL_SAFROLE, DEBUG
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, DeferredTransfer
@@ -148,7 +148,7 @@ class Entropy(StateComponent):
         if header.author_bandersnatch_key is None or self.block_context.seal_vrf_output == bytes(96):
             return bytes(32)
 
-        logging.debug(f"Verifying entropy source signature: bs_key={format_hash(bytes(header.author_bandersnatch_key))} vrf_output={format_hash(self.block_context.seal_vrf_output)}")
+        DEBUG and logging.debug(f"Verifying entropy source signature: bs_key={format_hash(bytes(header.author_bandersnatch_key))} vrf_output={format_hash(self.block_context.seal_vrf_output)}")
         try:
             return ietf_vrf_verify(
                 bytes(header.author_bandersnatch_key),
@@ -284,7 +284,7 @@ class Safrole(StateComponent):
         aux_data = b''
 
         try:
-            logging.debug(f'Validating ticket in STF with entropy {entropy.hex()}')
+            DEBUG and logging.debug(f'Validating ticket in STF with entropy {entropy.hex()}')
             ring_vrf_output = ring_context.ring_vrf_verify(vrf_input_data, aux_data, bytes(ticket_data.signature))
 
         except ValueError as e:
@@ -360,7 +360,7 @@ class Safrole(StateComponent):
 
             if USE_THREAD_POOL_SAFROLE:
 
-                logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
+                DEBUG and logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
 
                 with ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS) as tp:
                     futs = {
@@ -411,7 +411,7 @@ class Safrole(StateComponent):
             if len(self.post_state_safrole.ticket_accumulator) == gp_const.EPOCH_TIMESLOTS:
                 # GP-0.7.1-eq:6.25
                 tickets_mark = reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
-                logging.debug(f"Tickets Mark generated")
+                DEBUG and logging.debug(f"Tickets Mark generated")
 
         # TODO check conditions when epoch should be mark as changed
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
@@ -438,7 +438,7 @@ class Safrole(StateComponent):
                     ) for validator in self.post_state_safrole.validators
                 ]
             )
-            logging.debug(f"Epoch Mark generated")
+            DEBUG and logging.debug(f"Epoch Mark generated")
 
             # Update Sealing-key series of the current epoch.
             if self.enact_fallback_method(pre_state_timeslot.number, header.timeslot):
@@ -461,14 +461,14 @@ class Safrole(StateComponent):
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(keys=validators)
                 logging.info(f"🤷‍ New Slot Sealer Series with fallback keys")
                 # TODO temp
-                logging.debug(f"Used entropy: {post_state_entropy.entropy[2].hex()}")
-                logging.debug(f"New Series: {self.post_state_safrole.slot_sealer_series.to_json()}")
+                DEBUG and logging.debug(f"Used entropy: {post_state_entropy.entropy[2].hex()}")
+                DEBUG and logging.debug(f"New Series: {self.post_state_safrole.slot_sealer_series.to_json()}")
             else:
                 # When ticket accumulator is saturated and ticket mark is generated # GP-0.7.1-eq:6.24
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(
                     tickets=reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 )
-                logging.debug(f"New Slot Sealer Series with tickets")
+                DEBUG and logging.debug(f"New Slot Sealer Series with tickets")
 
             # Update ring commitment using O(); GP-0.7.1-eq:6.13
             ring_context = RingContext(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
@@ -683,7 +683,7 @@ class RecentHistory(StateComponent):
         else:
             accumulate_root = beefy_commitment_map.get_accumulate_root()
 
-        logging.debug(f'accumulate_root={format_hash(accumulate_root)}')
+        DEBUG and logging.debug(f'accumulate_root={format_hash(accumulate_root)}')
 
         mmr = MerkleMountainRange(mmr_peaks)
         mmr.insert(accumulate_root)
@@ -696,7 +696,7 @@ class RecentHistory(StateComponent):
             state_root=bytes(32),
             reported=reported_work_packages
         )
-        logging.debug(f"beefy_root={format_hash(recent_block.beefy_root)}")
+        DEBUG and logging.debug(f"beefy_root={format_hash(recent_block.beefy_root)}")
 
         post_state_recent_history.recent_blocks.append(recent_block)
 
@@ -1930,7 +1930,7 @@ class Services(StateComponent):
             )
         )
 
-        logging.debug(f'ORDERED ACCUMULATION: W^*={[format_hash(w.package_spec.hash) for w in accumulatable_work_reports]}')
+        DEBUG and logging.debug(f'ORDERED ACCUMULATION: W^*={[format_hash(w.package_spec.hash) for w in accumulatable_work_reports]}')
 
         # GP-0.7.1-eq:12.18
         output = full_sequential_accumulation(

@@ -10,6 +10,7 @@ from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.types import PVMProgram, PVMMemory
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
+from pyjamaz.settings import DEBUG
 
 
 class PVMLogger(ABC):
@@ -186,7 +187,7 @@ class PVMInvocation:
                     self.pvm.status = ExitReason.resume.value
                     self.pvm.next_instruction()
                     instruction_counter = self.pvm.pc
-                    logging.debug(f'PVM continue @ {instruction_counter}')
+                    DEBUG and logging.debug(f'PVM continue @ {instruction_counter}')
 
                 elif host_call_output.exit_condition.reason in [
                     ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas

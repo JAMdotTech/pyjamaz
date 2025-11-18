@@ -8,6 +8,7 @@ from pyjamaz.models.block import GuarantorAssignment, Header, AccumulationStatis
 from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMap, EntropyState, TimeslotState, \
     ValidatorPoolState, ValidatorArchiveState, AccumulationHistoryState, AccumulationQueueState
+from pyjamaz.settings import DEBUG
 from pyjamaz.state.storage import StateStorage
 
 from pyjamaz.transport.pubsub import PubSub
@@ -91,7 +92,7 @@ class BlockContext:
         """
         assignments = guarantor_permute(post_entropy.entropy[2], post_timeslot.number)
 
-        logging.debug(f"Guarantor assignments for {post_timeslot.number}: {assignments}")
+        DEBUG and logging.debug(f"Guarantor assignments for {post_timeslot.number}: {assignments}")
 
         self.guarantor_assignments = [
             GuarantorAssignment(

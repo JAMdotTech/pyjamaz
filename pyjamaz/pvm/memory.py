@@ -7,6 +7,7 @@ from typing import List, T, Optional
 from pyjamaz.pvm import MemorySection
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W, MEM_RW, MEM_I
 from pyjamaz.pvm.exceptions import PanicError, PVMMemoryError, PVMError
+from pyjamaz.settings import DEBUG
 
 
 @dataclass
@@ -85,7 +86,7 @@ class PVMMemory:
         #GP-0.6.2-eq:A.7
         if addr < 2**16:
             msg = "Invalid memory access"
-            logging.debug(msg)
+            DEBUG and logging.debug(msg)
             raise PVMMemoryError(msg)
 
         if self._heap and addr >= self._heap.address and addr <= self._heap.paged_tail:
