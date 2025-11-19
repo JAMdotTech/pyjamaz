@@ -575,9 +575,9 @@ async def fuzzer():
 @main.command('traces', help='Run trace files in specified folder')
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-@click.option('--prompt', is_flag=True, help="Prompt for continue at state diff ")
+@click.option('--prompt', is_flag=True, help="Prompt on state diff ")
 async def replay_traces(
-        traces_dir, verbose, prompt
+        traces_dir, verbose, prompt,
 ):
 
     log_level = logging.DEBUG if verbose or settings.DEBUG else logging.INFO
@@ -688,7 +688,8 @@ async def replay_traces(
 @click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool):
+@click.option('--prompt-on-diff', is_flag=True, help="Prompt on state diff ")
+async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt_on_diff: bool):
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
@@ -750,7 +751,7 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool):
                 exit(2)
 
             last_parent = block_file.parent
-
+        verbose and logging.debug(f'Import block: h={format_hash(trace.block.header.hash)} p={format_hash(trace.block.header.parent)} ts={trace.block.header.timeslot}')
         request = FuzzerMessage(
             import_block=trace.block,
         )
@@ -764,7 +765,11 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool):
             logging.info(f'✅ Imported block {format_hash(trace.block.header.hash)} successfully: State root matches ({format_hash(response.state_root)})')
         else:
             logging.error(f'🚽Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
-            #exit(2)
+            if prompt_on_diff:
+                response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                if response.lower() == 'q':
+                    logging.info('✋ User aborted.')
+                    break
 
     logging.info(f'Fuzzer session finished in {time.time() - start_time} seconds')
 

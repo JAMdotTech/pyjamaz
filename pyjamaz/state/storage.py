@@ -236,6 +236,11 @@ class StateStorage:
         self.pending_changes = PendingChanges()
         self.savepoint_changes = PendingChanges()
 
+    def start_tx(self):
+        self.transaction = {}
+        self.pending_changes = PendingChanges()
+        self.savepoint_changes = PendingChanges()
+
     def commit(self):
         if self.block_hash is not None:
 
@@ -244,13 +249,21 @@ class StateStorage:
 
             self.change_sets[self.block_hash] = self.transaction
             DEBUG and logging.debug(f"StateStorage: Commit transaction for {format_hash(self.block_hash)}")
+
+        # Clear transaction and pending changes
         self.transaction = {}
+        self.pending_changes = PendingChanges()
+        self.savepoint_changes = PendingChanges()
 
     def rollback(self):
         if self.block_hash is not None:
             self.change_sets.pop(self.block_hash)
             DEBUG and logging.debug(f"StateStorage: Rollback transaction for {format_hash(self.block_hash)}")
+
+        # Clear transaction and pending changes
         self.transaction = {}
+        self.pending_changes = PendingChanges()
+        self.savepoint_changes = PendingChanges()
 
     def checkpoint(self):
         self.savepoint_changes = deepcopy(self.pending_changes)

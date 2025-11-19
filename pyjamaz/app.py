@@ -325,6 +325,9 @@ class PyjamazApp:
         # Reset block context
         self.block_context.reset()
 
+        # Start transaction
+        self.state_storage.start_tx()
+
         if not produce:
             # todo refactor
             self.block_context.seal_vrf_output = bytes(96)
