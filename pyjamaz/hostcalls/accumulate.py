@@ -547,7 +547,7 @@ def hc_transfer(
         invocation_output.registers[7] = HostCallResult.LOW.value
         logger and logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
 
-    # TODO GP 0.7.0 bug mentions (a)
+    # TODO GP BUG?: mentions a (amount) < threshold_balance ????
     elif b < service_account.threshold_balance:   # insufficient funds
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
@@ -836,7 +836,7 @@ def hc_solicit(
             )
 
         elif len(preimage_availability) == 2:
-
+            service_account.update_footprint_add_preimage(preimage_length)  # TODO: @Arjan, liojkt me ook nodig?
             state.services.store_preimage_availability(
                 service_id,
                 preimage_hash,

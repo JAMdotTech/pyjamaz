@@ -94,23 +94,22 @@ def hc_lookup(
     preimage_hash = registers[8]  # GP: h (offset to read image hash from pvm mem)
     o = registers[9]  # offset to write image data to in pvm mem
 
-    preimage_writable = True
-    preimage_bytes = bytes()  # GP: bold_v
-    preimage_hash_unreadable = False
-    if not memory.is_accessible(preimage_hash, 32, MEM_R):
-        preimage_hash_unreadable = True  # GP: bold_v = ∇
-    elif service_account is None:
-        preimage_bytes = None  # GP: bold_v = ∅
-    elif service_account is not None:
+    preimage_hash_unreadable = not memory.is_accessible(preimage_hash, 32, MEM_R) # GP: bold_v = ∇
+    preimage_bytes = None # GP: bold_v = ∅
+    if not preimage_hash_unreadable and service_account is not None:
         try:
-            preimage_bytes = services.retrieve_preimage(service_account_id, memory.read_bytes(preimage_hash, 32))
-            f = min(registers[10], len(preimage_bytes))
-            l = min(registers[11], len(preimage_bytes) - f)
-            preimage_writable = memory.is_accessible(o, l, MEM_W)  # bold_v = ∇
+            preimage_bytes = services.retrieve_preimage(
+                service_account_id,
+                memory.read_bytes(preimage_hash, 32)
+            )
         except StateKeyNoResult:
-            preimage_bytes = None  # GP: bold_v = ∅
+            preimage_bytes = None
 
-    if preimage_hash_unreadable is True or preimage_writable is False:
+    f = min(registers[10], len(preimage_bytes or bytes()))
+    l = min(registers[11], len(preimage_bytes or bytes()) - f)
+    preimage_writable = memory.is_accessible(o, l, MEM_W)
+
+    if preimage_hash_unreadable or not preimage_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("LOOKUP PANIC", f"s={service_account_id} h={preimage_hash} len(v)=none")
     elif preimage_bytes is None:
@@ -354,7 +353,6 @@ def hc_info(
     # GP: bold_t
     try:
         if registers[7] == 2 ** 64 - 1:
-            # TODO: nieuwe functie: retrieve_service_account_bytes -> nalopen waar allemaal toepassen
             service_account = services.retrieve_service_account(service_id)
         else:
             service_account = services.retrieve_service_account(registers[7])
@@ -364,7 +362,6 @@ def hc_info(
     o = registers[8]
 
     service_account_bytes = None  # GP: bold_v
-    mem_write_error = False
     if service_account is not None:
         # GP: bold_v
         service_account_bytes = service_account.code_hash
@@ -379,15 +376,11 @@ def hc_info(
         service_account_bytes += U32.encode(service_account.last_accumulation_slot).to_bytes()
         service_account_bytes += U32.encode(service_account.parent_service).to_bytes()
 
-        f = min(registers[9], len(service_account_bytes))
-        l = min(registers[10], len(service_account_bytes) - f)
+    f = min(registers[9], len(service_account_bytes or bytes()))    #TODO: CHECK: GP FOUT????
+    l = min(registers[10], len(service_account_bytes or bytes()) - f) #TODO: CHECK: GP FOUT????
+    mem_writable = memory.is_accessible(o, l, MEM_W)
 
-        try:
-            invocation_output.memory.write_bytes(o, service_account_bytes[f:f+l])
-        except PVMMemoryError:
-            mem_write_error = True
-
-    if mem_write_error:
+    if not mem_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("INFO PANIC", f"s={service_id}")
     elif service_account_bytes is None:
@@ -397,6 +390,7 @@ def hc_info(
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(service_account_bytes)
+        invocation_output.memory.write_bytes(o, service_account_bytes[f:f + l])
         logger and logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
 
 
@@ -476,12 +470,39 @@ def hc_fetch(
     if w10 == 0:
         # GP Constants
         const_bytes = (
-            U64.encode(gp_const.MINIMUM_BALANCE_ITEM) + U64.encode(gp_const.MINIMUM_BALANCE_OCTET) + U64.encode(gp_const.MINIMUM_BALANCE_SERVICE) + U16.encode(gp_const.CORE_COUNT) + U32.encode(gp_const.PREIMAGE_EXPUNGE_TIMESLOTS) + U32.encode(gp_const.EPOCH_TIMESLOTS) + U64.encode(gp_const.GAS_ACCUMULATION) +
-            U64.encode(gp_const.GAS_INVOKE) + U64.encode(gp_const.GAS_REFINE) + U64.encode(gp_const.GAS_TOTAL) + U16.encode(gp_const.HISTORY) + U16.encode(gp_const.MAXIMUM_WORK_ITEMS) + U16.encode(gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT) + U16.encode(gp_const.MAXIMUM_EXTRINSIC_TICKETS) +
-            U32.encode(gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR) + U16.encode(gp_const.TICKET_ENTRIES) + U16.encode(gp_const.MAXIMIM_AUTHORIZATION_POOL_ITEMS) +
-            U16.encode(gp_const.SLOT_PERIOD) + U16.encode(gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS) + U16.encode(gp_const.ROTATION_PERIOD_CORE) + U16.encode(gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE) + U16.encode(gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD) +
-            U16.encode(gp_const.VALIDATOR_COUNT) + U32.encode(gp_const.MAXIMUM_SIZE_IS_AUTH_CODE) + U32.encode(gp_const.MAXIMUM_SIZE_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_SERVICE_CODE) + U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES)  + U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) +
-            U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) + U32.encode(gp_const.SIZE_TRANSFER_MEMO) + U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) + U32.encode(gp_const.TICKET_SUBMISSION_END_SLOT)
+                U64.encode(gp_const.MINIMUM_BALANCE_ITEM) +
+                U64.encode(gp_const.MINIMUM_BALANCE_OCTET) +
+                U64.encode(gp_const.MINIMUM_BALANCE_SERVICE) +
+                U16.encode(gp_const.CORE_COUNT) +
+                U32.encode(gp_const.PREIMAGE_EXPUNGE_TIMESLOTS) +
+                U32.encode(gp_const.EPOCH_TIMESLOTS) +
+                U64.encode(gp_const.GAS_ACCUMULATION) +
+                U64.encode(gp_const.GAS_INVOKE) +
+                U64.encode(gp_const.GAS_REFINE) +
+                U64.encode(gp_const.GAS_TOTAL) +
+                U16.encode(gp_const.HISTORY) +
+                U16.encode(gp_const.MAXIMUM_WORK_ITEMS) +
+                U16.encode(gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT) +
+                U16.encode(gp_const.MAXIMUM_EXTRINSIC_TICKETS) +
+                U32.encode(gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR) +
+                U16.encode(gp_const.TICKET_ENTRIES) +
+                U16.encode(gp_const.MAXIMIM_AUTHORIZATION_POOL_ITEMS) +
+                U16.encode(gp_const.SLOT_PERIOD) +
+                U16.encode(gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS) +
+                U16.encode(gp_const.ROTATION_PERIOD_CORE) +
+                U16.encode(gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE) +
+                U16.encode(gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD) +
+                U16.encode(gp_const.VALIDATOR_COUNT) +
+                U32.encode(gp_const.MAXIMUM_SIZE_IS_AUTH_CODE) +
+                U32.encode(gp_const.MAXIMUM_SIZE_WORK_PACKAGE) +
+                U32.encode(gp_const.MAXIMUM_SIZE_SERVICE_CODE) +
+                U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES) +
+                U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) +
+                U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) +
+                U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) +  # !!!!
+                U32.encode(gp_const.SIZE_TRANSFER_MEMO) +
+                U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) +
+                U32.encode(gp_const.TICKET_SUBMISSION_END_SLOT)
         )
         bold_v = const_bytes.to_bytes()
 
@@ -494,10 +515,22 @@ def hc_fetch(
 
     elif extrinsics is not None and w10 == 3 and w11 < len(extrinsics) and w12 < len(extrinsics[w11]):
         # AnyExtrinsic
+        # item = work_package.items[w11]
+        # if w12 < len(item.extrinsic):
+        #     try:
+        #         bold_v = services.retrieve_preimage(item.service, item.extrinsic[w12].hash)
+        #     except StateKeyNoResult:
+        #         bold_v = None
         bold_v = extrinsics[w11][w12]
 
     elif extrinsics is not None and work_item_index is not None and w10 == 4 and w11 < len(extrinsics[work_item_index]):
         # OurExtrinsic
+        # item = work_package.items[work_item_index]
+        # if w11 < len(item.extrinsic):
+        #     try:
+        #         bold_v = services.retrieve_preimage(item.service, item.extrinsic[w11].hash)
+        #     except StateKeyNoResult:
+        #         bold_v = None
         bold_v = extrinsics[work_item_index][w12]
 
     elif work_item_segs is not None and w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
@@ -531,7 +564,8 @@ def hc_fetch(
         bold_v = work_package.items[w11].payload
 
     elif accumulation_inputs is not None and w10 == 14:
-        bold_v = Vec(AccumulationInput.to_codec_def()).encode([a.to_jam_bytes() for a in accumulation_inputs]).to_bytes()
+        encoded_inputs = [a.to_jam_bytes() for a in accumulation_inputs]
+        bold_v = Vec(AccumulationInput.to_codec_def()).encode(encoded_inputs).to_bytes()
 
     elif accumulation_inputs is not None and w10 == 15 and w11 < len(accumulation_inputs):
         bold_v = accumulation_inputs[w11].to_jam_bytes().to_bytes()
@@ -539,8 +573,9 @@ def hc_fetch(
         bold_v = None
 
     o = w7
-    f = min(w8, len(bold_v or []))
-    l = min(w9, len(bold_v or []) - f)
+    bold_v_len = len(bold_v) if bold_v is not None else 0
+    f = min(w8, bold_v_len)
+    l = min(w9, bold_v_len - f)
 
     if not memory.is_accessible(o, l, MEM_W):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -551,6 +586,7 @@ def hc_fetch(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(bold_v)
         invocation_output.memory.write_bytes(o, bold_v[f:f+l])
+
 
 def hc_not_found(
         invocation_output: InvocationMutationOutput,
