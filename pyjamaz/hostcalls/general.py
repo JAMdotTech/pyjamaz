@@ -515,22 +515,10 @@ def hc_fetch(
 
     elif extrinsics is not None and w10 == 3 and w11 < len(extrinsics) and w12 < len(extrinsics[w11]):
         # AnyExtrinsic
-        # item = work_package.items[w11]
-        # if w12 < len(item.extrinsic):
-        #     try:
-        #         bold_v = services.retrieve_preimage(item.service, item.extrinsic[w12].hash)
-        #     except StateKeyNoResult:
-        #         bold_v = None
         bold_v = extrinsics[w11][w12]
 
     elif extrinsics is not None and work_item_index is not None and w10 == 4 and w11 < len(extrinsics[work_item_index]):
         # OurExtrinsic
-        # item = work_package.items[work_item_index]
-        # if w11 < len(item.extrinsic):
-        #     try:
-        #         bold_v = services.retrieve_preimage(item.service, item.extrinsic[w11].hash)
-        #     except StateKeyNoResult:
-        #         bold_v = None
         bold_v = extrinsics[work_item_index][w12]
 
     elif work_item_segs is not None and w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
