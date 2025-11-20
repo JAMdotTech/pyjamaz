@@ -624,10 +624,10 @@ async def replay_traces(
         # Clear pending changesets
         app.state_storage.clear()
 
-        # Add stub parent as ancestor TODO still needed?
+        # Add stub parent as ancestor
         stub_parent = Header.default()
         stub_parent.hash = trace.block.header.parent
-        stub_parent.timeslot = trace.block.header.timeslot - 1
+        stub_parent.timeslot = max(0, trace.block.header.timeslot - 1)
 
         # Set finalized head
         app.state_storage.set_finalized_block_hash(stub_parent.hash)
