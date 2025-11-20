@@ -80,7 +80,7 @@ class PVMMemory:
         if not self.section_offsets:
             msg = "Memory not initialized"
             logging.error(msg)
-            raise PVMMemoryError(msg)
+            raise PanicError(msg)
 
         #GP-0.6.2-eq:A.7
         if addr < 2**16:

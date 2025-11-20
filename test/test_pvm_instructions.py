@@ -106,7 +106,12 @@ class TestPolkaVMInstructions(unittest.TestCase):
         self.assertEqual(test_vector["expected-status"], ExitReasonMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
         self.assertEqual(test_vector["expected-regs"], list(pvm.reg), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg}")
         self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
-        # self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
+        self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
+        if "block-gas-costs" in test_vector:
+            block_gas = {str(k): v for k, v in pvm.basic_block_gas.items()}
+            for blk, expected_cost in test_vector["block-gas-costs"].items():
+                self.assertIn(blk, block_gas, f"{name}:\n Missing block {blk} in basic block gas costs")
+                self.assertEqual(expected_cost, block_gas[blk], f"{name}:\n Expected block gas costs: {test_vector['block-gas-costs']}, but got: {block_gas}")
         if test_vector["expected-memory"]:
             for expected_mem in test_vector["expected-memory"]:
                 page = pvm_memory.find_section(expected_mem["address"])
