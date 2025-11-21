@@ -14,7 +14,7 @@ from pyjamaz.models.common import WorkReport, AccumulationOperand, AccumulationI
 from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, BeefyCommitmentMap, TimeslotState, EntropyState
 
 from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
-from pyjamaz.settings import USE_THREAD_POOL_ACCUMULATE, THREAD_POOL_MAX_WORKERS
+from pyjamaz.settings import USE_THREAD_POOL_ACCUMULATE, THREAD_POOL_MAX_WORKERS, DEBUG
 from pyjamaz.utils import sum_dict_values
 
 if typing.TYPE_CHECKING:
@@ -249,7 +249,7 @@ def parallel_accumulation(
     # b
     beefy_commitment_map = BeefyCommitmentMap()
 
-    logging.debug(f'Services to accumulate: {service_ids}')
+    DEBUG and logging.debug(f'Services to accumulate: {service_ids}')
 
     outputs = []
 
@@ -264,7 +264,7 @@ def parallel_accumulation(
 
     if USE_THREAD_POOL_ACCUMULATE:
 
-        logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
+        DEBUG and logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
 
         with ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS) as tp:
             futs = {

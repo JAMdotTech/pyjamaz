@@ -10,6 +10,7 @@ from pyjamaz.models.block import Header, Extrinsic
 from pyjamaz.models.context import BlockContext
 from pyjamaz.models.state import EntropyState, ValidatorPoolState, SafroleState, TimeslotState
 from pyjamaz import settings
+from pyjamaz.settings import DEBUG
 from pyjamaz.utils import format_hash
 
 
@@ -69,7 +70,7 @@ class BlockValidation:
 
         if safrole_output.post_state.slot_sealer_series.tickets is not None:
             ticket = safrole_output.post_state.slot_sealer_series.tickets[header.timeslot % EPOCH_TIMESLOTS]
-            logging.debug(
+            DEBUG and logging.debug(
                 f'Validate ticket | Timeslot: {header.timeslot} | Ticket ID: {ticket.id.hex()} | Author: {author_key.hex()} | Entropy: {entropy.hex()} '
             )
             try:
@@ -81,7 +82,7 @@ class BlockValidation:
             # Fallback method
             sealer_key = safrole_output.post_state.slot_sealer_series.keys[header.timeslot % EPOCH_TIMESLOTS]
 
-            logging.debug(
+            DEBUG and logging.debug(
                 f'Validate key | Timeslot: {header.timeslot} |  Author: {format_hash(sealer_key)} | Entropy: {format_hash(entropy)}'
             )
 
@@ -90,7 +91,7 @@ class BlockValidation:
                 raise BlockValidationError("Invalid author key")
             try:
 
-                logging.debug(f"Validate Seal with entropy {format_hash(entropy)}")
+                DEBUG and logging.debug(f"Validate Seal with entropy {format_hash(entropy)}")
 
                 self.block_context.seal_vrf_output = header.verify_fallback_seal(author_key, entropy)
 

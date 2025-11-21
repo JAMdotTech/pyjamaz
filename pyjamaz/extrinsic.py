@@ -34,7 +34,7 @@ class BlockExtrinsicAccumulator:
         aux_data = b''
 
         try:
-            logging.debug(f'Validating ticket with entropy {entropy.hex()}')
+            logging.DEBUG and logging.debug(f'Validating ticket with entropy {entropy.hex()}')
             ring_vrf_output = ring_context.ring_vrf_verify(vrf_input_data, aux_data, bytes(ticket_data.signature))
 
         except ValueError as e:
@@ -73,7 +73,7 @@ class BlockExtrinsicAccumulator:
         ticket_id = vrf_output(keypair.private_key, vrf_input_data)
 
         logging.info(f'🎫 Generated ticket: {format_hash(ticket_id)}')
-        logging.debug(f'Generated ticket: id = {format_hash(ticket_id)} with entropy {format_hash(entropy)}')
+        logging.DEBUG and logging.debug(f'Generated ticket: id = {format_hash(ticket_id)} with entropy {format_hash(entropy)}')
 
         self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)

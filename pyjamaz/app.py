@@ -24,7 +24,7 @@ from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.app import StateDump, Trace
 from pyjamaz.models.common import WorkPackage, WorkReport
 from pyjamaz.refine import work_result_computation
-from pyjamaz.settings import SOLO_MODE
+from pyjamaz.settings import SOLO_MODE, DEBUG
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
@@ -110,7 +110,7 @@ class PyjamazApp:
 
     async def import_block_from_bytes(self, data):
         block = Block.from_jam_bytes(JamBytes(data))
-        logging.debug(f"📦 Importing block {block.header.timeslot} from bytes")
+        DEBUG and logging.debug(f"📦 Importing block {block.header.timeslot} from bytes")
         self.import_queue.append(block)
 
         # Note: when we receive a block announcement and we just started our node, we send out a blocks request to sync our state
@@ -130,7 +130,7 @@ class PyjamazApp:
 
 
     async def import_block_from_json(self, data):
-        logging.debug(f"📦 Importing block from json")
+        DEBUG and logging.debug(f"📦 Importing block from json")
         block = Block.from_json(data)
         await self.import_block(block)
 
@@ -161,11 +161,11 @@ class PyjamazApp:
         for block in sorted_blocks:
             # TODO: protocol should only import blocks from this point on -> fix the block_request
             if self.working_state.timeslot.number >= block.header.timeslot:
-                logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
+                DEBUG and logging.debug(f" TEMP BREAK block from process_import_queue: {block.header.timeslot}")
                 continue
 
             await self.import_block(block)
-            logging.debug(f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')
+            DEBUG and logging.debug(f'✅ Block {block.header.timeslot} successfully imported from process_import_queue.')
 
 
     async def initialize(self, header: Optional[Header] = None, produce=False):
@@ -186,18 +186,18 @@ class PyjamazApp:
         if self.working_state is None or header is None or header.parent_state_root != self.working_state.state_root:
             # update working state
             if header is None:
-                logging.debug(
+                DEBUG and logging.debug(
                     f"Updating working state to finalized state @ {format_hash(self.state_storage.finalized_block_hash)}"
                 )
             else:
-                logging.debug(
+                DEBUG and logging.debug(
                     f"Updating working state to state_root={format_hash(header.parent_state_root)} to match block hash={format_hash(header.parent)}"
                     )
             self.working_state = self.retrieve_jam_state()
-            logging.debug(f"Updated working state to state_root={format_hash(self.working_state.state_root)}")
+            DEBUG and logging.debug(f"Updated working state to state_root={format_hash(self.working_state.state_root)}")
 
         else:
-            logging.debug("StateStorage: State already matches requested state root, no updating required")
+            DEBUG and logging.debug("StateStorage: State already matches requested state root, no updating required")
 
     def retrieve_ancestor_headers(self, block_hash: bytes) -> List[Header]:
         """
@@ -205,7 +205,7 @@ class PyjamazApp:
         previous (constant_L) = 24 hours of any block (bold_B) they wish to validate.
         """
         ancestor_headers = []
-        logging.debug(f"Retrieving ancestor headers from block_hash={format_hash(block_hash)}")
+        DEBUG and logging.debug(f"Retrieving ancestor headers from block_hash={format_hash(block_hash)}")
 
         header = self.retrieve_block_header(block_hash)
         ancestor_headers.append(header)
@@ -315,7 +315,7 @@ class PyjamazApp:
         parent_header = self.state_storage.get_parent(block.header)
 
         if parent_header is None:
-            logging.debug(f"Parent hash {format_hash(block.header.parent)} does not has a valid ancestor")
+            DEBUG and logging.debug(f"Parent hash {format_hash(block.header.parent)} does not has a valid ancestor")
             raise StateTransitionError(BlockValidationErrorCode.bad_slot)
 
         # GP-0.7.0-eq:5.7
@@ -324,6 +324,9 @@ class PyjamazApp:
 
         # Reset block context
         self.block_context.reset()
+
+        # Start transaction
+        self.state_storage.start_tx()
 
         if not produce:
             # todo refactor
@@ -335,7 +338,7 @@ class PyjamazApp:
         await self.initialize(header=block.header, produce=produce)
 
         if block.header.parent_state_root != self.working_state.state_root:
-            logging.debug(f"Parent state root {format_hash(block.header.parent_state_root)} does not match with working state {format_hash(self.working_state.state_root)}")
+            DEBUG and logging.debug(f"Parent state root {format_hash(block.header.parent_state_root)} does not match with working state {format_hash(self.working_state.state_root)}")
             raise BlockValidationError(BlockValidationErrorCode.state_root_mismatch)
 
         self.block_context.state_root = self.working_state.state_root
@@ -660,7 +663,7 @@ class PyjamazApp:
 
     @log_execution_time
     async def add_ancestor_header(self, header: Header):
-        logging.debug(f"Addded ancestor_header: {format_hash(header.hash)}")
+        DEBUG and logging.debug(f"Addded ancestor_header: {format_hash(header.hash)}")
         # Add header to ancestors
         self.state_storage.add_ancestor(header)
 
@@ -736,9 +739,9 @@ class PyjamazApp:
             should_produce = ticket_id in self.block_extrinsic.own_tickets_current
 
             if should_produce:
-                logging.debug(f'Owning ticket ID: {ticket_id.hex()}')
+                DEBUG and logging.debug(f'Owning ticket ID: {ticket_id.hex()}')
             else:
-                logging.debug(f'Waiting for author with ticket ID: {ticket_id.hex()}')
+                DEBUG and logging.debug(f'Waiting for author with ticket ID: {ticket_id.hex()}')
 
             return should_produce
 
@@ -748,9 +751,9 @@ class PyjamazApp:
             should_produce = author == self.config.keys.bandersnatch.public_key
 
             if should_produce:
-                logging.debug(f'Having author key: {author.hex()}')
+                DEBUG and logging.debug(f'Having author key: {author.hex()}')
             else:
-                logging.debug(f'Waiting for author with key: {author.hex()}')
+                DEBUG and logging.debug(f'Waiting for author with key: {author.hex()}')
 
             return should_produce
 
@@ -772,11 +775,11 @@ class PyjamazApp:
         if safrole_state.slot_sealer_series.tickets is not None:
 
             ticket = safrole_state.slot_sealer_series.tickets[self.slot_phase_index(timeslot)]
-            logging.debug(f"VRF input: for ticket {ticket.id.hex()} with entropy {entropy_state.entropy[3].hex()}")
+            DEBUG and logging.debug(f"VRF input: for ticket {ticket.id.hex()} with entropy {entropy_state.entropy[3].hex()}")
             return vrf_input_ticket_seal(bytes(entropy_state.entropy[3]), ticket.attempt)
 
         elif safrole_state.slot_sealer_series.keys is not None:
-            logging.debug(f"VRF input: Fallback with entropy {entropy_state.entropy[3].hex()}")
+            DEBUG and logging.debug(f"VRF input: Fallback with entropy {entropy_state.entropy[3].hex()}")
             return vrf_input_fallback_seal(bytes(entropy_state.entropy[3]))
 
         else:
@@ -800,7 +803,7 @@ class PyjamazApp:
         if safrole_state.slot_sealer_series.tickets is not None:
 
             ticket = safrole_state.slot_sealer_series.tickets[self.slot_phase_index(header.timeslot)]
-            logging.debug(f"Ticket Seal for ticket {ticket.id.hex()} with entropy {entropy_state.entropy[3].hex()}")
+            DEBUG and logging.debug(f"Ticket Seal for ticket {ticket.id.hex()} with entropy {entropy_state.entropy[3].hex()}")
 
             return header.generate_ticket_seal(
                 bandersnatch_priv_key=self.config.keys.bandersnatch.private_key,
@@ -809,7 +812,7 @@ class PyjamazApp:
             )
 
         elif safrole_state.slot_sealer_series.keys is not None:
-            logging.debug(f"Fallback Seal with entropy {entropy_state.entropy[3].hex()}")
+            DEBUG and logging.debug(f"Fallback Seal with entropy {entropy_state.entropy[3].hex()}")
             return header.generate_fallback_seal(
                 bandersnatch_priv_key=self.config.keys.bandersnatch.private_key,
                 entropy=bytes(entropy_state.entropy[3])
@@ -835,7 +838,7 @@ class PyjamazApp:
         self.block_context.seal_vrf_output = self.config.keys.bandersnatch.vrf_output(
             self.get_block_seal_vrf_input(timeslot, safrole_state, entropy_state)
         )
-        logging.debug(f"Entropy source generated with: bs_pub={self.config.keys.bandersnatch.public_key.hex()} seal_vrf={self.block_context.seal_vrf_output.hex()} ")
+        DEBUG and logging.debug(f"Entropy source generated with: bs_pub={self.config.keys.bandersnatch.public_key.hex()} seal_vrf={self.block_context.seal_vrf_output.hex()} ")
         return ietf_vrf_sign(
             self.config.keys.bandersnatch.private_key,
             b"jam_entropy" + self.block_context.seal_vrf_output,
@@ -941,7 +944,7 @@ class PyjamazApp:
             seal=bytes(96)
         )
 
-        logging.debug(f"Produced with parent: {header.parent.hex()}")
+        DEBUG and logging.debug(f"Produced with parent: {header.parent.hex()}")
 
         block = Block(
             header=header,
@@ -955,7 +958,7 @@ class PyjamazApp:
 
         await self.add_ancestor_block(block)
 
-        logging.debug(f'New state root: {format_hash(self.working_state.state_root)}')
+        DEBUG and logging.debug(f'New state root: {format_hash(self.working_state.state_root)}')
 
         if self.config.create_traces:
             await self.store_trace(pre_state, block, self.config.create_traces)
@@ -968,7 +971,7 @@ class PyjamazApp:
             await self.store_finalized_head(header_hash)
             logging.info(f'🔒 Finalized block  {format_hash(header_hash)}')
         else:
-            logging.debug(f'Skipped finalization, {format_hash(header_hash)} already finalized')
+            DEBUG and logging.debug(f'Skipped finalization, {format_hash(header_hash)} already finalized')
 
     async def create_state_dump(self) -> StateDump:
         return StateDump(
@@ -1050,7 +1053,7 @@ class PyjamazApp:
         )
         # Clean up work package extrinsics
         self.work_package_extrinsics.clear(work_package)
-        logging.debug(f"Processed work package: {format_hash(work_package.hash())}")
+        DEBUG and logging.debug(f"Processed work package: {format_hash(work_package.hash())}")
         return work_report
 
     async def guarantee_work_report(self, work_report: WorkReport, timeslot: int):

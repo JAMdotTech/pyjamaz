@@ -550,7 +550,7 @@ class Header(Serializable):
         -------
 
         """
-        if self.author_index > len(post_state_validator_pool.validators):
+        if self.author_index >= len(post_state_validator_pool.validators):
             raise BlockValidationError("Invalid author index")
 
         setattr(self, '_author_bandersnatch_key', post_state_validator_pool.validators[self.author_index].bandersnatch)

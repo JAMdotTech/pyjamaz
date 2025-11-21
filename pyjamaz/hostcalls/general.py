@@ -94,23 +94,22 @@ def hc_lookup(
     preimage_hash = registers[8]  # GP: h (offset to read image hash from pvm mem)
     o = registers[9]  # offset to write image data to in pvm mem
 
-    preimage_writable = True
-    preimage_bytes = bytes()  # GP: bold_v
-    preimage_hash_unreadable = False
-    if not memory.is_accessible(preimage_hash, 32, MEM_R):
-        preimage_hash_unreadable = True  # GP: bold_v = ∇
-    elif service_account is None:
-        preimage_bytes = None  # GP: bold_v = ∅
-    elif service_account is not None:
+    preimage_hash_unreadable = not memory.is_accessible(preimage_hash, 32, MEM_R) # GP: bold_v = ∇
+    preimage_bytes = None # GP: bold_v = ∅
+    if not preimage_hash_unreadable and service_account is not None:
         try:
-            preimage_bytes = services.retrieve_preimage(service_account_id, memory.read_bytes(preimage_hash, 32))
-            f = min(registers[10], len(preimage_bytes))
-            l = min(registers[11], len(preimage_bytes) - f)
-            preimage_writable = memory.is_accessible(o, l, MEM_W)  # bold_v = ∇
+            preimage_bytes = services.retrieve_preimage(
+                service_account_id,
+                memory.read_bytes(preimage_hash, 32)
+            )
         except StateKeyNoResult:
-            preimage_bytes = None  # GP: bold_v = ∅
+            preimage_bytes = None
 
-    if preimage_hash_unreadable is True or preimage_writable is False:
+    f = min(registers[10], len(preimage_bytes or bytes()))
+    l = min(registers[11], len(preimage_bytes or bytes()) - f)
+    preimage_writable = memory.is_accessible(o, l, MEM_W)
+
+    if preimage_hash_unreadable or not preimage_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("LOOKUP PANIC", f"s={service_account_id} h={preimage_hash} len(v)=none")
     elif preimage_bytes is None:
@@ -156,17 +155,17 @@ def hc_read(
 
     # gp: s*
     if registers[7] == 2 ** 64 - 1:
-        new_service_id = service_id
+        target_service_id = service_id
     else:
-        new_service_id = registers[7]
+        target_service_id = registers[7]
 
-    #state = ctx_in.invocation_context.context.state_context
     # gp: bold_a
+    # TODO not really necessary because retrieve_storage_item will raise StateKeyNoResult anyway, but here for GP ref
     try:
-        if new_service_id == service_id:
+        if target_service_id == service_id:
             service_account = service
         else:
-            service_account = services.retrieve_service_account(new_service_id)
+            service_account = services.retrieve_service_account(target_service_id)
     except StateKeyNoResult as e:
         service_account = None  # GP: bold_a = ∅
 
@@ -177,16 +176,18 @@ def hc_read(
     # GP: bold_v (storage_item)
     storage_key = None
     storage_item_mem_error = False
-    storage_item = None  # bold_v
-    if service_account is not None:
-        try:
-            storage_key = memory.read_bytes(k_o, k_z)
-            storage_item = services.retrieve_storage_item(service_account_id=new_service_id, storage_item_hash=storage_key)
-        except StateKeyNoResult:
-            storage_item = None  # bold_v = ∅
-        except PVMMemoryError:
-            storage_item_mem_error = True  # bold_v = ∇
+
+    try:
+        storage_key = memory.read_bytes(k_o, k_z)
+        if service_account is not None:
+            storage_item = services.retrieve_storage_item(service_account_id=target_service_id, storage_item_hash=storage_key)
+        else:
             storage_item = None
+    except StateKeyNoResult:
+        storage_item = None  # bold_v = ∅
+    except PVMMemoryError:
+        storage_item_mem_error = True  # bold_v = ∇
+        storage_item = None
 
     f = min(registers[11], len(storage_item or bytes()))
     l = min(registers[12], len(storage_item or bytes()) - f)
@@ -194,17 +195,17 @@ def hc_read(
 
     if storage_item_mem_error or not mem_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        logger and logger.hc_log("READ PANIC", f"s={new_service_id} k={storage_key and storage_key.hex() or ''}")
+        logger and logger.hc_log("READ PANIC", f"s={target_service_id} k={storage_key and storage_key.hex() or ''}")
     elif storage_item is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
-        logger and logger.hc_log("READ NONE", f"s={new_service_id} k={storage_key and storage_key.hex() or ''}")
+        logger and logger.hc_log("READ NONE", f"s={target_service_id} k={storage_key and storage_key.hex() or ''}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(storage_item)
         invocation_output.memory.write_bytes(o, storage_item[f:f + l])
         logger and logger.hc_log("READ OK",
-                           f"s={new_service_id} k={storage_key.hex()} len={len(storage_item)} write_bytes({o}, {o + l})")
+                           f"s={target_service_id} k={storage_key.hex()} len={len(storage_item)} write_bytes({o}, {o + l})")
 
 
 def hc_write(
@@ -285,7 +286,6 @@ def hc_write(
         storage_key_mem_error = True  # GP: k= ∇
 
 
-
     if storage_key_mem_error or service_storage_item_mem_error:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("WRITE PANIC", f"l={l}  s={service_id} mu_k={k}")
@@ -311,10 +311,8 @@ def hc_write(
             )
 
             if len(si) == 0:
-                #service_account.update_footprint_add_storage_item(len(k), len(service_storage_item))
                 logger and logger.hc_log("WRITE NONE", f"l={l}  s={service_id} mu_k={k.hex()} si=null v={service_storage_item.hex()} (update_footprint_add_storage_item)")
             else:
-                #service_account.update_footprint_update_storage_item(len(si), len(service_storage_item))
                 logger and logger.hc_log("WRITE OK", f"l={l}  s={service_id} mu_k={k.hex()} si={len(si)} v={service_storage_item.hex()} (update_footprint_add_storage_item)")
 
         services.store_service_account(service_id, service_account)
@@ -352,12 +350,9 @@ def hc_info(
     logger and logger.hc_regs(f"INFO", "general")
     invocation_output.gas_limit -= 10
 
-    #state = ctx_in.invocation_context.context.state_context
-
     # GP: bold_t
     try:
         if registers[7] == 2 ** 64 - 1:
-            # TODO: nieuwe functie: retrieve_service_account_bytes -> nalopen waar allemaal toepassen
             service_account = services.retrieve_service_account(service_id)
         else:
             service_account = services.retrieve_service_account(registers[7])
@@ -367,7 +362,6 @@ def hc_info(
     o = registers[8]
 
     service_account_bytes = None  # GP: bold_v
-    mem_write_error = False
     if service_account is not None:
         # GP: bold_v
         service_account_bytes = service_account.code_hash
@@ -382,15 +376,11 @@ def hc_info(
         service_account_bytes += U32.encode(service_account.last_accumulation_slot).to_bytes()
         service_account_bytes += U32.encode(service_account.parent_service).to_bytes()
 
-        f = min(registers[9], len(service_account_bytes))
-        l = min(registers[10], len(service_account_bytes) - f)
+    f = min(registers[9], len(service_account_bytes or bytes()))    #TODO: CHECK: GP FOUT????
+    l = min(registers[10], len(service_account_bytes or bytes()) - f) #TODO: CHECK: GP FOUT????
+    mem_writable = memory.is_accessible(o, l, MEM_W)
 
-        try:
-            invocation_output.memory.write_bytes(o, service_account_bytes[f:f+l])
-        except PVMMemoryError:
-            mem_write_error = True
-
-    if mem_write_error:
+    if not mem_writable:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
         logger and logger.hc_log("INFO PANIC", f"s={service_id}")
     elif service_account_bytes is None:
@@ -400,6 +390,7 @@ def hc_info(
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(service_account_bytes)
+        invocation_output.memory.write_bytes(o, service_account_bytes[f:f + l])
         logger and logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
 
 
@@ -479,12 +470,39 @@ def hc_fetch(
     if w10 == 0:
         # GP Constants
         const_bytes = (
-            U64.encode(gp_const.MINIMUM_BALANCE_ITEM) + U64.encode(gp_const.MINIMUM_BALANCE_OCTET) + U64.encode(gp_const.MINIMUM_BALANCE_SERVICE) + U16.encode(gp_const.CORE_COUNT) + U32.encode(gp_const.PREIMAGE_EXPUNGE_TIMESLOTS) + U32.encode(gp_const.EPOCH_TIMESLOTS) + U64.encode(gp_const.GAS_ACCUMULATION) +
-            U64.encode(gp_const.GAS_INVOKE) + U64.encode(gp_const.GAS_REFINE) + U64.encode(gp_const.GAS_TOTAL) + U16.encode(gp_const.HISTORY) + U16.encode(gp_const.MAXIMUM_WORK_ITEMS) + U16.encode(gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT) + U16.encode(gp_const.MAXIMUM_EXTRINSIC_TICKETS) +
-            U32.encode(gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR) + U16.encode(gp_const.TICKET_ENTRIES) + U16.encode(gp_const.MAXIMIM_AUTHORIZATION_POOL_ITEMS) +
-            U16.encode(gp_const.SLOT_PERIOD) + U16.encode(gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS) + U16.encode(gp_const.ROTATION_PERIOD_CORE) + U16.encode(gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE) + U16.encode(gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD) +
-            U16.encode(gp_const.VALIDATOR_COUNT) + U32.encode(gp_const.MAXIMUM_SIZE_IS_AUTH_CODE) + U32.encode(gp_const.MAXIMUM_SIZE_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_SERVICE_CODE) + U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES)  + U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) +
-            U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) + U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) + U32.encode(gp_const.SIZE_TRANSFER_MEMO) + U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) + U32.encode(gp_const.TICKET_SUBMISSION_END_SLOT)
+                U64.encode(gp_const.MINIMUM_BALANCE_ITEM) +
+                U64.encode(gp_const.MINIMUM_BALANCE_OCTET) +
+                U64.encode(gp_const.MINIMUM_BALANCE_SERVICE) +
+                U16.encode(gp_const.CORE_COUNT) +
+                U32.encode(gp_const.PREIMAGE_EXPUNGE_TIMESLOTS) +
+                U32.encode(gp_const.EPOCH_TIMESLOTS) +
+                U64.encode(gp_const.GAS_ACCUMULATION) +
+                U64.encode(gp_const.GAS_INVOKE) +
+                U64.encode(gp_const.GAS_REFINE) +
+                U64.encode(gp_const.GAS_TOTAL) +
+                U16.encode(gp_const.HISTORY) +
+                U16.encode(gp_const.MAXIMUM_WORK_ITEMS) +
+                U16.encode(gp_const.MAXIMUM_DEPENDENCIES_WORK_REPORT) +
+                U16.encode(gp_const.MAXIMUM_EXTRINSIC_TICKETS) +
+                U32.encode(gp_const.MAXIMUM_AGE_LOOKUP_ANCHOR) +
+                U16.encode(gp_const.TICKET_ENTRIES) +
+                U16.encode(gp_const.MAXIMIM_AUTHORIZATION_POOL_ITEMS) +
+                U16.encode(gp_const.SLOT_PERIOD) +
+                U16.encode(gp_const.MAXIMUM_AUTHORIZATION_QUEUE_ITEMS) +
+                U16.encode(gp_const.ROTATION_PERIOD_CORE) +
+                U16.encode(gp_const.MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE) +
+                U16.encode(gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD) +
+                U16.encode(gp_const.VALIDATOR_COUNT) +
+                U32.encode(gp_const.MAXIMUM_SIZE_IS_AUTH_CODE) +
+                U32.encode(gp_const.MAXIMUM_SIZE_WORK_PACKAGE) +
+                U32.encode(gp_const.MAXIMUM_SIZE_SERVICE_CODE) +
+                U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES) +
+                U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) +
+                U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) +
+                U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) +  # !!!!
+                U32.encode(gp_const.SIZE_TRANSFER_MEMO) +
+                U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) +
+                U32.encode(gp_const.TICKET_SUBMISSION_END_SLOT)
         )
         bold_v = const_bytes.to_bytes()
 
@@ -534,7 +552,8 @@ def hc_fetch(
         bold_v = work_package.items[w11].payload
 
     elif accumulation_inputs is not None and w10 == 14:
-        bold_v = Vec(AccumulationInput.to_codec_def()).encode([a.to_jam_bytes() for a in accumulation_inputs]).to_bytes()
+        encoded_inputs = [a.to_jam_bytes() for a in accumulation_inputs]
+        bold_v = Vec(AccumulationInput.to_codec_def()).encode(encoded_inputs).to_bytes()
 
     elif accumulation_inputs is not None and w10 == 15 and w11 < len(accumulation_inputs):
         bold_v = accumulation_inputs[w11].to_jam_bytes().to_bytes()
@@ -542,8 +561,9 @@ def hc_fetch(
         bold_v = None
 
     o = w7
-    f = min(w8, len(bold_v or []))
-    l = min(w9, len(bold_v or []) - f)
+    bold_v_len = len(bold_v) if bold_v is not None else 0
+    f = min(w8, bold_v_len)
+    l = min(w9, bold_v_len - f)
 
     if not memory.is_accessible(o, l, MEM_W):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -554,6 +574,7 @@ def hc_fetch(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(bold_v)
         invocation_output.memory.write_bytes(o, bold_v[f:f+l])
+
 
 def hc_not_found(
         invocation_output: InvocationMutationOutput,

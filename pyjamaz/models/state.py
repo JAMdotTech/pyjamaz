@@ -17,6 +17,7 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, WorkPackage, DeferredTransfer
 from pyjamaz.pvm.invocation import InvocationContext
+from pyjamaz.settings import DEBUG
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
     state_key_constructor_storage_item, state_key_constructor_preimage_availability
@@ -575,7 +576,7 @@ class ServicesState(State, Serializable):
                 raise ValueError('state_storage must be set')
 
             storage_key = state_key_constructor_service_account(service_account_id)
-            logging.debug(f'retrieve_service_account({service_account_id}): {storage_key.hex()}')
+            DEBUG and logging.debug(f'retrieve_service_account({service_account_id}): {storage_key.hex()}')
 
             data = self.state_storage.get(storage_key)
             if data:
@@ -624,7 +625,7 @@ class ServicesState(State, Serializable):
 
             self.state_storage.put(state_key, data)
 
-        logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} f_i={service_account.footprint_storage_items} f_b={service_account.footprint_storage_bytes} commit={commit}')
+        DEBUG and logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} threshold_balance={service_account.threshold_balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} f_i={service_account.footprint_storage_items} f_b={service_account.footprint_storage_bytes} commit={commit}')
 
 
     def delete_service_account(self, service_account_id: int, commit=False):
@@ -656,7 +657,7 @@ class ServicesState(State, Serializable):
             self.state_storage.pending_changes[self.context_service_id].service_accounts[service_account_id] = None
 
 
-        logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
+        DEBUG and logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
 
 
     def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes) -> bytes:
@@ -681,7 +682,7 @@ class ServicesState(State, Serializable):
                 raise ValueError('state_storage must be set before retrieving preimage')
 
             storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
-            logging.debug(f'retrieve_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
+            DEBUG and logging.debug(f'retrieve_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()}')
 
             preimage = self.state_storage.get(storage_key)
 
@@ -789,7 +790,7 @@ class ServicesState(State, Serializable):
 
             self.state_storage.put(storage_key, preimage_blob)
 
-        logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): sk={storage_key.hex()} commit={commit}')
+        DEBUG and logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): sk={storage_key.hex()} commit={commit}')
 
 
     def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
@@ -827,7 +828,7 @@ class ServicesState(State, Serializable):
                 f'Preimage availability not found for hash {preimage_hash} and length {preimage_length}'
             )
 
-        logging.debug(
+        DEBUG and logging.debug(
             f'retrieve_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={preimage_availability}'
             )
 
@@ -853,7 +854,7 @@ class ServicesState(State, Serializable):
 
             self.state_storage.put(storage_key, data.to_bytes())
 
-        logging.debug(
+        DEBUG and logging.debug(
             f'store_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): v={value} {storage_key.hex()}'
         )
 
@@ -872,7 +873,7 @@ class ServicesState(State, Serializable):
         else:
             self.state_storage.pending_changes[self.context_service_id].preimages[(service_account_id, preimage_hash)] = None
 
-        logging.debug(
+        DEBUG and logging.debug(
             f'delete_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={commit}'
             )
 
@@ -893,7 +894,7 @@ class ServicesState(State, Serializable):
         else:
             self.state_storage.pending_changes[self.context_service_id].preimages_availability[(service_account_id, preimage_hash, preimage_length)] = None
 
-        logging.debug(
+        DEBUG and logging.debug(
             f'delete_preimage_availability({service_account_id}, {preimage_hash.hex()}, {preimage_length}): {storage_key.hex()}'
         )
 
@@ -928,7 +929,7 @@ class ServicesState(State, Serializable):
                 f'Storage item not found for hash {storage_item_hash} for service account {service_account_id}'
             )
 
-        logging.debug(
+        DEBUG and logging.debug(
             f'retrieve_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): v={data.hex()}'
             )
 
@@ -948,7 +949,7 @@ class ServicesState(State, Serializable):
                 raise ValueError('state_storage must be set before storing storage items')
             self.state_storage.put(state_key, value)
 
-        logging.debug(f'store_storage_item(s={service_account_id}, k={storage_key.hex()}): v={value.hex()} state_key={state_key.hex()} [commit={commit}]')
+        DEBUG and logging.debug(f'store_storage_item(s={service_account_id}, k={storage_key.hex()}): v={value.hex()} state_key={state_key.hex()} [commit={commit}]')
 
 
     def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, commit=False):
@@ -968,7 +969,7 @@ class ServicesState(State, Serializable):
         else:
             self.state_storage.pending_changes[self.context_service_id].storage_items[(service_account_id, storage_item_hash)] = None
 
-        logging.debug(
+        DEBUG and logging.debug(
             f'delete_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()} [commit={commit}]'
             )
 
