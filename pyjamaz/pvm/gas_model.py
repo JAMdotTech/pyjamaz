@@ -369,13 +369,13 @@ class GasModel:
             table[opcode] = self.InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units(A=2))
 
         # 64-bit shifts/rotations
-        for opcode in (
-            self.op.shlo_l_64.value,
-            self.op.shlo_r_64.value,
-            self.op.shar_r_64.value,
-            self.op.rot_l_64.value,
-            self.op.rot_r_64.value,
-        ):
+        table[self.op.shlo_l_64.value] = self.InstrCost(
+            latency_fn=const(1), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
+        )
+        table[self.op.shlo_r_64.value] = self.InstrCost(
+            latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1)
+        )
+        for opcode in (self.op.shar_r_64.value, self.op.rot_l_64.value, self.op.rot_r_64.value):
             table[opcode] = self.InstrCost(
                 latency_fn=const(1), decode_fn=lambda pc, a=3, b=4: self.P(a, b, pc), units_fn=units(A=1)
             )
