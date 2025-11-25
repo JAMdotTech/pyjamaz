@@ -57,6 +57,7 @@ class Opcode(Enum):
     # Instructions without Arguments (none)
     trap: int                                      = 0
     fallthrough: int                               = 1
+    unlikely: int                                  = 3
 
     # GP_A.5.2
     # Instructions with Arguments of One Immediate (imm)
@@ -244,6 +245,7 @@ OpcodeScheme = {
     # Instructions with args: none
     op.trap.value                                           : it.none,
     op.fallthrough.value                                    : it.none,
+    op.unlikely.value                                       : it.none,
 
     # GP_A.5.2
     # Instructions with args: imm
@@ -461,6 +463,7 @@ OpcodeNames = {
     # Instructions with args: none
     op.trap.value: "trap",
     op.fallthrough.value: "fallthrough",
+    op.unlikely.value: "unlikely",
 
     # GP_A.5.2
     # Instructions with args: imm

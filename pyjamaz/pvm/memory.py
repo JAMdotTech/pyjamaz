@@ -60,6 +60,12 @@ class PVMMemory:
         stack: MemorySection,
         arguments: MemorySection
     ):
+        # Track all mapped sections so find_section can support arbitrary mappings
+        self.sections = []
+        for section in (rom, heap, stack, arguments):
+            if section:
+                self.sections.append(section)
+
         self._rom = rom
         self._heap = heap
         self._stack = stack
@@ -73,14 +79,17 @@ class PVMMemory:
 
 
     def update_offsets(self) -> Optional[MemorySection]:
-        self.section_offsets = [p.address for p in (self._rom, self._heap, self._stack, self._args) if p]
+        self.section_offsets = [p.address for p in self.sections]
+
+
+    def map_section(self, section: MemorySection):
+        self.sections.append(section)
+        self.update_offsets()
 
 
     def find_section(self, addr: int) -> Optional[MemorySection]:
         if not self.section_offsets:
-            msg = "Memory not initialized"
-            logging.error(msg)
-            raise PanicError(msg)
+            raise PVMMemoryError("Memory not initialized")
 
         #GP-0.6.2-eq:A.7
         if addr < 2**16:
@@ -88,16 +97,11 @@ class PVMMemory:
             logging.debug(msg)
             raise PanicError(msg)
 
-        if self._heap and addr >= self._heap.address and addr <= self._heap.paged_tail:
-            return self._heap
-        elif self._stack and addr >= self._stack.address and addr <= self._stack.paged_tail:
-            return self._stack
-        elif self._rom and addr >= self._rom.address and addr <= self._rom.paged_tail:
-            return self._rom
-        elif self._args and addr >= self._args.address and addr <= self._args.paged_tail:
-            return self._args
-        else:
-            return None
+        for section in self.sections:
+            if section.address <= addr <= section.paged_tail:
+                return section
+
+        return None
 
 
     def write_int(self, addr: int, value: int, length: int):

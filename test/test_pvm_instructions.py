@@ -35,94 +35,100 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/programs-custom'))
-    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/gas_xor_and_shift.json'))
     def test_instruction(self, name, test_vector):
+
+        import logging
+
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        )
 
         pvm_code = PVMCode.from_jam_bytes(
             JamBytes(bytes(test_vector["program"]))
         )
-        pvm_regs = test_vector["initial-regs"]
+        # Zeroed registers by default; the test steps may mutate them before running.
+        pvm_regs = [0] * 13
 
-        mem_rom = None
-        mem_heap = None
-        mem_pages = []
-        if test_vector["initial-page-map"]:
-            for page_map in test_vector["initial-page-map"]:
-                page = MemorySection(
-                    address=page_map["address"],
-                    #size=1_000_000_000,
-                    size=page_map["length"],
-                    acl=MEM_W if page_map["is-writable"] else MEM_R,
-                    contents=[0] * page_map["length"]
-                )
-                if page_map["address"] < 2*65536:
-                    mem_rom = page
-                else:
-                    mem_heap = page
-
-                """
-                 ROM:       2**16 65536  
-                 HEAP:      2*65536+len(rom) 196608
-                 STACK: 
-                 ARGUMENTS: 
-                """
-
-                mem_pages.append(page)
-
-        if len(mem_pages) > 3:
-            raise Exception("TODO: implement heap & stack for testvectors?")
-
-        pvm_memory = PVMMemory(mem_rom, mem_heap, None, None)
-
-        if test_vector["initial-memory"]:
-            for mem_block in test_vector["initial-memory"]:
-                page = pvm_memory.find_section(mem_block["address"])
-                mem = page.contents
-
-                if len(mem_block["contents"]) > len(mem):
-                    raise ValueError(f"TOO BIG TO FIT IN HERE :D")
-                offset = mem_block["address"] - page.address
-                for idx, byt in enumerate(mem_block["contents"]):
-                    mem[offset + idx] = np.uint8(byt)
-
+        pvm_memory = PVMMemory(None, None, None, None)
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
         pvm = PVMInterpreter(pvm_program, settings.PVM_DEBUGGER)
 
-        pvm.invoke(
-            test_vector["initial-pc"],
-            test_vector["initial-gas"]
-        )
-
-        # Mapping specific for test vectors
-        ExitReasonMap = {
+        status_map = {
             ExitReason.resume.value: "none",
             ExitReason.panic.value: "panic",
             ExitReason.halt.value: "halt",
             ExitReason.page_fault.value: "page-fault",
+            ExitReason.host_halt.value: "ecalli",
+            ExitReason.out_of_gas.value: "out-of-gas",
         }
 
-        self.assertEqual(test_vector["expected-status"], ExitReasonMap[pvm.status], f"{name}:\n Expected status: {test_vector['expected-status']}, but got: {pvm.status}")
-        self.assertEqual(test_vector["expected-regs"], list(pvm.reg), f"{name}:\n Expected registers: {test_vector['expected-regs']}, but got: {pvm.reg}")
-        self.assertEqual(test_vector["expected-pc"], pvm.pc, f"{name}:\n Expected PC: {test_vector['expected-pc']}, but got: {pvm.pc}")
-        self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
-        if "block-gas-costs" in test_vector:
-            block_gas = {str(k): v for k, v in pvm.basic_block_gas.items()}
-            for blk, expected_cost in test_vector["block-gas-costs"].items():
-                self.assertIn(blk, block_gas, f"{name}:\n Missing block {blk} in basic block gas costs")
-                self.assertEqual(expected_cost, block_gas[blk], f"{name}:\n Expected block gas costs: {test_vector['block-gas-costs']}, but got: {block_gas}")
-        if test_vector["expected-memory"]:
-            for expected_mem in test_vector["expected-memory"]:
-                page = pvm_memory.find_section(expected_mem["address"])
-                mem_offset = expected_mem["address"] - page.address
-                mem_len = len(expected_mem["contents"])
-                pvm_mem = list(page.contents[mem_offset:mem_offset + mem_len])
-                self.assertEqual(
-                    expected_mem["contents"],
-                    pvm_mem,
-                    f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {pvm_mem}"
+        current_pc = test_vector["initial-pc"]
+        current_gas = test_vector["initial-gas"]
+
+        for step in test_vector["steps"]:
+            if "set-reg" in step:
+                reg = step["set-reg"]["reg"]
+                value = step["set-reg"]["value"]
+                pvm.reg[reg] = value
+            elif "map" in step:
+                mapping = step["map"]
+                section = MemorySection(
+                    address=mapping["address"],
+                    size=mapping["length"],
+                    contents=[0] * mapping["length"],
+                    acl=MEM_W if mapping["is-writable"] else MEM_R
                 )
+                pvm_memory.map_section(section)
+            elif "write" in step:
+                write = step["write"]
+                section = pvm_memory.find_section(write["address"])
+                if not section:
+                    raise ValueError(f"Memory section not found for address {write['address']}")
+                offset = write["address"] - section.address
+                if offset + len(write["contents"]) > len(section.contents):
+                    raise ValueError(f"Write too large for mapped section at {write['address']}")
+                for idx, byt in enumerate(write["contents"]):
+                    section.contents[offset + idx] = np.uint8(byt)
+            elif "run" in step:
+                pvm.invoke(current_pc, current_gas)
+                current_pc = pvm.pc
+                current_gas = pvm.gas
+            elif "assert" in step:
+                expected = step["assert"]
+                self.assertIn(pvm.status, status_map, f"{name}:\n Unknown status {pvm.status}")
+                self.assertEqual(expected["status"], status_map[pvm.status], f"{name}:\n Expected status: {expected['status']}, but got: {pvm.status}")
+                self.assertEqual(expected["gas"], pvm.gas, f"{name}:\n Expected gas: {expected['gas']}, but got: {pvm.gas}")
+                self.assertEqual(expected["pc"], pvm.pc, f"{name}:\n Expected PC: {expected['pc']}, but got: {pvm.pc}")
+                self.assertEqual(expected["regs"], list(pvm.reg), f"{name}:\n Expected registers: {expected['regs']}, but got: {pvm.reg}")
+
+                if "memory" in expected and expected["memory"]:
+                    for expected_mem in expected["memory"]:
+                        section = pvm_memory.find_section(expected_mem["address"])
+                        mem_offset = expected_mem["address"] - section.address
+                        mem_len = len(expected_mem["contents"])
+                        pvm_mem = list(section.contents[mem_offset:mem_offset + mem_len])
+                        self.assertEqual(
+                            expected_mem["contents"],
+                            pvm_mem,
+                            f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {pvm_mem}"
+                        )
+
+                if "page-fault-address" in expected:
+                    self.assertEqual(expected["page-fault-address"], pvm.exit_value, f"{name}:\n Expected page fault address: {expected['page-fault-address']}, but got: {pvm.exit_value}")
+
+                if "hostcall" in expected:
+                    self.assertEqual(expected["hostcall"], pvm.exit_value, f"{name}:\n Expected hostcall value: {expected['hostcall']}, but got: {pvm.exit_value}")
+
+        # Validate block gas costs when provided by the test vector.
+        if "block-gas-costs" in test_vector:
+            block_gas = {int(k): v for k, v in pvm.basic_block_gas.items()}
+            for block in test_vector["block-gas-costs"]:
+                blk_pc = block["pc"]
+                expected_cost = block["cost"]
+                self.assertIn(blk_pc, block_gas, f"{name}:\n Missing block {blk_pc} in basic block gas costs")
+                self.assertEqual(expected_cost, block_gas[blk_pc], f"{name}:\n Expected block gas costs: {test_vector['block-gas-costs']}, but got: {block_gas}")
 
 # print some stats collected from logger
 # def tearDownModule():

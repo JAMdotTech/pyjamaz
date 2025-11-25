@@ -20,6 +20,7 @@ from pyjamaz.pvm.constants import (
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
 
+from pyjamaz.pvm.gas_model import GasModel
 from .defs import (
     pvm_Z,
     pvm_X,
@@ -42,39 +43,6 @@ from pyjamaz.pvm.memory import PVMMemory
 
 class PVMInterpreter:
 
-    # Rough block-gas parameters calibrated to the current test-vectors
-    BLOCK_GAS_DEFAULT = 2
-    BLOCK_GAS_COSTS = {
-        OpcodeNames[op.load_ind_u8.value]: 24,
-        OpcodeNames[op.branch_eq.value]: 0,
-        OpcodeNames[op.branch_ne.value]: 0,
-        OpcodeNames[op.branch_eq_imm.value]: 0,
-        OpcodeNames[op.branch_ne_imm.value]: -1,
-        OpcodeNames[op.branch_lt_u.value]: 20,
-        OpcodeNames[op.branch_ge_u.value]: 20,
-        OpcodeNames[op.branch_lt_s.value]: 20,
-        OpcodeNames[op.branch_ge_s.value]: 20,
-        OpcodeNames[op.branch_lt_u_imm.value]: 0,
-        OpcodeNames[op.branch_ge_u_imm.value]: 0,
-        OpcodeNames[op.branch_le_u_imm.value]: 0,
-        OpcodeNames[op.branch_gt_u_imm.value]: 0,
-        OpcodeNames[op.branch_lt_s_imm.value]: 0,
-        OpcodeNames[op.branch_ge_s_imm.value]: 0,
-        OpcodeNames[op.branch_le_s_imm.value]: 0,
-        OpcodeNames[op.branch_gt_s_imm.value]: 0,
-        OpcodeNames[op.jump.value]: 13,
-        OpcodeNames[op.jump_ind.value]: 21,
-        OpcodeNames[op.load_imm.value]: 0,
-        OpcodeNames[op.load_imm_64.value]: 0,
-        OpcodeNames[op.add_imm_32.value]: 2,
-        OpcodeNames[op.add_imm_64.value]: 18,
-        OpcodeNames[op.shlo_l_imm_64.value]: 1,
-        OpcodeNames[op.trailing_zero_bits_32.value]: 2,
-        OpcodeNames[op.fallthrough.value]: 0,
-        OpcodeNames[op.trap.value]: 0,
-        OpcodeNames[op.move_reg.value]: 0,
-    }
-
     def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
@@ -89,6 +57,7 @@ class PVMInterpreter:
 
         self.basic_block = {}
         self.basic_block_gas = {}
+        self.gas_model = None
 
         self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -102,7 +71,7 @@ class PVMInterpreter:
 
         self.reset(program)
 
-        if logger:
+        if True: #logger:
             self.program = program
             from pyjamaz.pvm.debug_logger import PVMDebugLog
             logger_cls = PVMDebugLog
@@ -173,31 +142,79 @@ class PVMInterpreter:
             self.inst_arg_len.append(inst_args)
             inst_nr += 1
             self.inst_pos[inst_bitmask_idx - 1] = inst_nr
-        self.calculate_basic_block_gas()
 
     def calculate_basic_block_gas(self):
-        """
-        Pre-compute the gas charge for every basic block.
-        """
+
+        if not self.gas_model:
+            return
+
+        leaders = set(self.basic_block.keys()) | {0}
+        opcode_positions = sorted(k for k in self.inst_pos.keys() if k < len(self.code))
+        for pc in opcode_positions:
+            opcode = self.code[pc]
+            inst_index = self.inst_pos.get(pc, 0)
+            skip = 1
+            if inst_index < len(self.inst_arg_len):
+                skip = 1 + self.inst_arg_len[inst_index]
+
+            if opcode in TERMINATION_OPCODES:
+                fallthrough = pc + skip
+                if fallthrough in self.inst_pos:
+                    leaders.add(fallthrough)
+
+                if opcode == op.jump.value:
+                    l_x = int(min(4, self.inst_arg_len[inst_index]))
+                    v_x = pvm_Z(read_uint(self.code, pc + 1, l_x), l_x)
+                    if pc + v_x in self.inst_pos:
+                        leaders.add(pc + v_x)
+
+                elif opcode in {
+                    op.branch_eq.value,
+                    op.branch_ne.value,
+                    op.branch_lt_u.value,
+                    op.branch_lt_s.value,
+                    op.branch_ge_u.value,
+                    op.branch_ge_s.value,
+                }:
+                    l_x = min(4, max(0, self.inst_arg_len[inst_index] - 1))
+                    v_x = pvm_Z(read_uint(self.code, pc + 2, l_x), l_x)
+                    target = pc + v_x
+                    if target in self.inst_pos:
+                        leaders.add(target)
+                elif opcode == op.load_imm_jump.value:
+                    l_x = int(min(4, (self.code[pc + 1] // 16) % 8))
+                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
+                    v_y = pvm_Z(read_uint(self.code, pc + 2 + l_x, l_y), l_y)
+                    target = pc + v_y
+                    if target in self.inst_pos:
+                        leaders.add(target)
+
+                elif opcode in {
+                    op.branch_eq_imm.value,
+                    op.branch_ne_imm.value,
+                    op.branch_lt_u_imm.value,
+                    op.branch_le_u_imm.value,
+                    op.branch_ge_u_imm.value,
+                    op.branch_gt_u_imm.value,
+                    op.branch_lt_s_imm.value,
+                    op.branch_le_s_imm.value,
+                    op.branch_ge_s_imm.value,
+                    op.branch_gt_s_imm.value,
+                }:
+                    l_x = int(min(4, (self.code[pc + 1] // 16) % 8))
+                    l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
+                    v_y = pvm_Z(read_uint(self.code, pc + 2 + l_x, l_y), l_y)
+                    target = pc + v_y
+                    if target in self.inst_pos:
+                        leaders.add(target)
+
+        # Note: make sure leaders correspond to opcode positions we can step into
+        leaders = {pc for pc in leaders if pc in self.inst_pos}
+        self.basic_block = {pc: 0 for pc in leaders}
+
         self.basic_block_gas = {}
-        for start in sorted(self.basic_block):
-            cost = self.BLOCK_GAS_DEFAULT
-            pos = start
-            while True:
-                opcode = self.code[pos]
-                name = OpcodeNames.get(opcode)
-                cost += self.BLOCK_GAS_COSTS.get(name, 1)
-
-                if opcode in TERMINATION_OPCODES:
-                    break
-
-                inst_index = self.inst_pos[pos]
-                if inst_index >= len(self.inst_arg_len):
-                    break
-                pos = pos + 1 + self.inst_arg_len[inst_index]
-                if pos >= len(self.code):
-                    break
-            self.basic_block_gas[start] = cost
+        for start in sorted(leaders):
+            self.basic_block_gas[start] = self.gas_model.block_cost(start)
 
 
     def branch(self, b:int, C:bool):
@@ -232,6 +249,16 @@ class PVMInterpreter:
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
+        self.gas_model = GasModel(
+            code=self.code,
+            inst_pos=self.inst_pos,
+            inst_arg_len=self.inst_arg_len,
+            opcode_scheme=OpcodeScheme,
+            opcode_enum=op,
+            mem_model="L2HIT",
+            jump_table=self.jump_table,
+        )
+        self.calculate_basic_block_gas()
 
 
     #TODO: registers_as_int
@@ -346,7 +373,7 @@ class PVMInterpreter:
             if self.pc in self.basic_block_gas:
                 block_cost = self.basic_block_gas[self.pc]
                 self.gas -= block_cost
-                if self.gas <= 0:
+                if self.gas < 0:
                     self.status = ExitReason.out_of_gas.value
                     self.exit_value = None
                     break
@@ -356,7 +383,15 @@ class PVMInterpreter:
                 self.exit_value = None
                 break
 
+            if self.pc not in self.inst_pos:
+                self.status = ExitReason.panic.value
+                self.exit_value = None
+                break
             inst_index = self.inst_pos[self.pc]
+            if inst_index >= len(self.inst_arg_len):
+                self.status = ExitReason.panic.value
+                self.exit_value = None
+                break
             self.opcode = opcode = self.code[self.pc]
             inst_type = OpcodeScheme[opcode]
             self.skip_len = self.inst_arg_len[inst_index] + 1
@@ -373,7 +408,10 @@ class PVMInterpreter:
                                 #self.status = ExitCondition.panic.value
                                 raise PanicError(f"trap")
                             case op.fallthrough.value:
-                                self.log and self.log()
+                                self.log and self.log("fallthrough")
+
+                            case op.unlikely.value:
+                                self.log and self.log("unlikely")
 
                             case _:
                                 raise InvalidOpcode(f"Invalid noargs opcode: {opcode} for instruction type {inst_type}")
