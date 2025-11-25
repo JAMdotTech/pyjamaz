@@ -35,7 +35,7 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/gas_xor_and_shift.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/'))
     def test_instruction(self, name, test_vector):
 
         import logging

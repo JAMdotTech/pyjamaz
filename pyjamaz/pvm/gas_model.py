@@ -377,7 +377,7 @@ class GasModel:
             self.op.rot_r_64.value,
         ):
             table[opcode] = self.InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
+                latency_fn=const(1), decode_fn=lambda pc, a=3, b=4: self.P(a, b, pc), units_fn=units(A=1)
             )
 
         # 32-bit shifts/rotations (register)

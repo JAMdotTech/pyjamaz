@@ -114,6 +114,8 @@ class PVMMemory:
             section = self._section
 
         if not section:
+            # Record the base address of the missing page for teh pagefault
+            self._mem_addr = addr - (addr % PVM_PAGE_SIZE)
             raise PVMMemoryError("MemorySection not found")
 
         section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
@@ -137,6 +139,7 @@ class PVMMemory:
             section = self._section
 
         if not section:
+            self._mem_addr = addr - (addr % PVM_PAGE_SIZE)
             raise PVMMemoryError("MemorySection not found")
 
         section_addr = (addr - section.address) #% section.size  #TODO: not sure if % necesarry?
@@ -188,6 +191,7 @@ class PVMMemory:
 
         section = self.find_section(address)
         if not section:
+            self._mem_addr = address - (address % PVM_PAGE_SIZE)
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
@@ -224,6 +228,7 @@ class PVMMemory:
 
         section = self.find_section(address)
         if not section:
+            self._mem_addr = address - (address % PVM_PAGE_SIZE)
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
