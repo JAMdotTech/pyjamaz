@@ -54,6 +54,13 @@ class GasState:
     units_free: ExecUnits # x_arrow; how many of each unit type are still available this cycle.
 
 
+@dataclass
+class InstrCost:
+    latency_fn: Callable[[int], int]
+    decode_fn: Callable[[int], int]
+    units_fn: Callable[[int], ExecUnits]
+    
+
 class GasModel:
     """
     Implements the graypaper gas model (Appendix A.9/A.10).
@@ -86,7 +93,7 @@ class GasModel:
         self.inst_arg_len_sim.append(0)
         self.sim_code.append(self.op.trap.value)
 
-        self.cost_table = self._build_cost_table()
+        self.cost_table = self._build_instruction_cost_table()
 
 
     def skip_bytes(self, pc: int) -> int:
@@ -103,7 +110,8 @@ class GasModel:
 
     def s_hat(self, pc: int) -> Set[int]:
         """
-        Return the registers well read from for the current instruction (source registers)
+        GP-0.7.1 (Appendix A.9/A.10)
+        ŝ / s_hat: set of source registers the instruction at pc reads (RAW deps, P(a, b, pc)).
         """
         opcode, inst_type, inst_index = self.decode_instruction(pc)
 
@@ -195,8 +203,8 @@ class GasModel:
 
     def r_hat(self, pc: int) -> Set[int]:
         """
-        # GP-0.7.1-eq:A.9 / A.10
-        Return the registers we will store into for the current instruction (destination registers)
+        GP-0.7.1 (Appendix A.9/A.10)
+        r̂ / r_hat: set of destination registers the instruction at pc writes.
         """
         opcode, inst_type, inst_index = self.decode_instruction(pc)
 
@@ -282,15 +290,32 @@ class GasModel:
 
         return set()
 
-    # GP-0.7.1-eq:A.54
-    def P(self, a: int, b: int, pc: int) -> int:
-        return a if self.s_hat(pc) & self.r_hat(pc) else b
+
+    # def P(self, a: int, b: int, pc: int) -> int:
+    #     """
+    #     GP-0.7.1-eq:A.54
+    #     Decode cost helper P(a, b, pc): return a if intersection(s_hat(pc), r_hat̂(pc)) is not None, otherwise b.
+    #     """
+    #     return a if self.s_hat(pc) & self.r_hat(pc) else b
+    def decode_cost_with_self_overlap(self, cost_if_overlap: int, cost_if_no_overlap: int, pc: int) -> int:
+        """
+        GP-0.7.1-eq:A.54 (helper P)
+        Return cost_if_overlap or cost_if_no_overlap
+        """
+        return cost_if_overlap if self.s_hat(pc) & self.r_hat(pc) else cost_if_no_overlap
 
     def memory_latency(self) -> int:
-        # GP-0.7.1-eq:A.55
+        """
+        GP-0.7.1-eq:A.55
+        Memory latency m: 25 cycles for L2HIT, 37 for L3HIT
+        """
         return 25 if self.mem_model == "L2HIT" else 37
 
-    def _static_branch_target(self, pc: int, opcode: int) -> Optional[int]:
+    def _compute_static_branch_target_pc(self, pc: int, opcode: int) -> Optional[int]:
+        """
+        Helper for GP-0.7.1-eq:A.56
+        Compute the static branch target PC for a branch at pc; None for non branch instructions
+        """
         inst_type = self.opcode_scheme.get(opcode)
         inst_index = self.inst_pos_sim.get(pc, 0)
         if inst_index >= len(self.inst_arg_len_sim):
@@ -309,14 +334,18 @@ class GasModel:
 
         return None
 
-    # GP-0.7.1-eq:A.56
     def branch_penalty(self, pc: int) -> int:
+        """
+        GP-0.7.1-eq:A.56
+        Branch misprediction penalty b(pc):
+        1 if fallthrough or target is an 'unlikely' or 'trap' opcode, else 20.
+        """
         inst_index = self.inst_pos_sim.get(pc, 0)
         fallthrough_pc = pc + self.skip_bytes(pc)
         fallthrough_opcode = self.sim_code[fallthrough_pc] if fallthrough_pc < len(self.sim_code) else None
 
         opcode = self.sim_code[pc]
-        target_pc = self._static_branch_target(pc, opcode)
+        target_pc = self._compute_static_branch_target_pc(pc, opcode)
         target_opcode = self.sim_code[target_pc] if target_pc is not None and target_pc < len(self.sim_code) else None
 
         if fallthrough_opcode in (self.op.unlikely.value, self.op.trap.value) or target_opcode in (
@@ -327,13 +356,11 @@ class GasModel:
         return 20
 
 
-    @dataclass
-    class InstrCost:
-        latency_fn: Callable[[int], int]
-        decode_fn: Callable[[int], int]
-        units_fn: Callable[[int], ExecUnits]
-
-    def _build_cost_table(self) -> Dict[int, "GasModel.InstrCost"]:
+    def _build_instruction_cost_table(self) -> Dict[int, InstrCost]:
+        """
+        GP-0.7.1 Appendix A.10
+        Build a table mapping opcode -> InstrCost(c_hat, d_hat, x_hat) per the graypaper model.
+        """
         def const(v: int) -> Callable[[int], int]:
             return lambda pc: v
 
@@ -344,23 +371,23 @@ class GasModel:
 
         # Arithmetic & logical operations
         for opcode in (self.op._and.value, self.op.xor.value, self.op._or.value):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
             )
         for opcode in (self.op.add_64.value, self.op.sub_64.value):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
             )
         for opcode in (self.op.add_32.value, self.op.sub_32.value):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(2), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(2), decode_fn=lambda pc, a=2, b=3: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
             )
         for opcode in (self.op.and_imm.value, self.op.xor_imm.value, self.op.or_imm.value, self.op.add_imm_64.value):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
             )
-        table[self.op.shlo_r_imm_64.value] = self.InstrCost(
-            latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1)
+        table[self.op.shlo_r_imm_64.value] = InstrCost(
+            latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
         )
         table[self.op.shar_r_imm_64.value] = table[self.op.shlo_r_imm_64.value]
         table[self.op.shlo_l_imm_64.value] = table[self.op.shlo_r_imm_64.value]
@@ -375,8 +402,8 @@ class GasModel:
             self.op.shlo_l_imm_32.value,
             self.op.rot_r_32_imm.value,
         ):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(2), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(2), decode_fn=lambda pc, a=2, b=3: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
             )
 
         # Bit operations
@@ -389,20 +416,20 @@ class GasModel:
             self.op.sign_extend_16.value,
             self.op.zero_extend_16.value,
         ):
-            table[opcode] = self.InstrCost(latency_fn=const(1), decode_fn=const(1), units_fn=units(A=1))
+            table[opcode] = InstrCost(latency_fn=const(1), decode_fn=const(1), units_fn=units(A=1))
         for opcode in (self.op.trailing_zero_bits_64.value, self.op.trailing_zero_bits_32.value):
-            table[opcode] = self.InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units(A=2))
+            table[opcode] = InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units(A=2))
 
         # 64-bit shifts/rotations
-        table[self.op.shlo_l_64.value] = self.InstrCost(
-            latency_fn=const(1), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
+        table[self.op.shlo_l_64.value] = InstrCost(
+            latency_fn=const(1), decode_fn=lambda pc, a=2, b=3: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
         )
-        table[self.op.shlo_r_64.value] = self.InstrCost(
+        table[self.op.shlo_r_64.value] = InstrCost(
             latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1)
         )
         for opcode in (self.op.shar_r_64.value, self.op.rot_l_64.value, self.op.rot_r_64.value):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=3, b=4: self.P(a, b, pc), units_fn=units(A=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(1), decode_fn=lambda pc, a=3, b=4: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
             )
 
         # 32-bit shifts/rotations (register)
@@ -413,8 +440,8 @@ class GasModel:
             self.op.rot_l_32.value,
             self.op.rot_r_32.value,
         ):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(2), decode_fn=lambda pc, a=3, b=4: self.P(a, b, pc), units_fn=units(A=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(2), decode_fn=lambda pc, a=3, b=4: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
             )
 
         # Alt immediates
@@ -424,14 +451,14 @@ class GasModel:
             self.op.shar_r_imm_alt_64.value,
             self.op.rot_r_64_imm_alt.value,
         ):
-            table[opcode] = self.InstrCost(latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1))
+            table[opcode] = InstrCost(latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1))
         for opcode in (
             self.op.shlo_l_imm_alt_32.value,
             self.op.shlo_r_imm_alt_32.value,
             self.op.shar_r_imm_alt_32.value,
             self.op.rot_r_32_imm_alt.value,
         ):
-            table[opcode] = self.InstrCost(latency_fn=const(2), decode_fn=const(4), units_fn=units(A=1))
+            table[opcode] = InstrCost(latency_fn=const(2), decode_fn=const(4), units_fn=units(A=1))
 
         # Set/compare ops
         for opcode in (
@@ -442,12 +469,12 @@ class GasModel:
             self.op.set_gt_u_imm.value,
             self.op.set_gt_s_imm.value,
         ):
-            table[opcode] = self.InstrCost(latency_fn=const(3), decode_fn=const(3), units_fn=units(A=1))
+            table[opcode] = InstrCost(latency_fn=const(3), decode_fn=const(3), units_fn=units(A=1))
 
         # Conditional moves
-        table[self.op.cmov_iz.value] = self.InstrCost(latency_fn=const(2), decode_fn=const(2), units_fn=units(A=1))
+        table[self.op.cmov_iz.value] = InstrCost(latency_fn=const(2), decode_fn=const(2), units_fn=units(A=1))
         table[self.op.cmov_nz.value] = table[self.op.cmov_iz.value]
-        table[self.op.cmov_iz_imm.value] = self.InstrCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
+        table[self.op.cmov_iz_imm.value] = InstrCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
         table[self.op.cmov_nz_imm.value] = table[self.op.cmov_iz_imm.value]
 
         # Min/Max
@@ -457,8 +484,8 @@ class GasModel:
             self.op._min.value,
             self.op.min_u.value,
         ):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(3), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(3), decode_fn=lambda pc, a=2, b=3: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
             )
 
         # Memory loads
@@ -479,7 +506,7 @@ class GasModel:
             self.op.load_u64.value,
         ]
         for opcode in load_opcodes:
-            table[opcode] = self.InstrCost(
+            table[opcode] = InstrCost(
                 latency_fn=lambda pc: self.memory_latency(), decode_fn=const(1), units_fn=units(A=1, L=1)
             )
 
@@ -503,7 +530,7 @@ class GasModel:
             self.op.store_u64.value,
         ]
         for opcode in store_opcodes:
-            table[opcode] = self.InstrCost(
+            table[opcode] = InstrCost(
                 latency_fn=const(25), decode_fn=const(1), units_fn=units(A=1, S=1)
             )
 
@@ -527,7 +554,7 @@ class GasModel:
             self.op.branch_gt_s_imm.value,
         ]
         for opcode in branch_opcodes:
-            table[opcode] = self.InstrCost(
+            table[opcode] = InstrCost(
                 latency_fn=lambda pc: self.branch_penalty(pc), decode_fn=const(1), units_fn=units(A=1)
             )
 
@@ -542,66 +569,78 @@ class GasModel:
             self.op.rem_u_64.value,
             self.op.rem_s_64.value,
         ):
-            table[opcode] = self.InstrCost(latency_fn=const(60), decode_fn=const(4), units_fn=units(A=1, D=1))
+            table[opcode] = InstrCost(latency_fn=const(60), decode_fn=const(4), units_fn=units(A=1, D=1))
 
         # Boolean inversions
         for opcode in (self.op.and_inv.value, self.op.or_inv.value):
-            table[opcode] = self.InstrCost(
+            table[opcode] = InstrCost(
                 latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1)
             )
-        table[self.op.xnor.value] = self.InstrCost(
-            latency_fn=const(2), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
+        table[self.op.xnor.value] = InstrCost(
+            latency_fn=const(2), decode_fn=lambda pc, a=2, b=3: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1)
         )
 
         # Negate/add
-        table[self.op.neg_add_imm_64.value] = self.InstrCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
-        table[self.op.neg_add_imm_32.value] = self.InstrCost(latency_fn=const(3), decode_fn=const(4), units_fn=units(A=1))
+        table[self.op.neg_add_imm_64.value] = InstrCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
+        table[self.op.neg_add_imm_32.value] = InstrCost(latency_fn=const(3), decode_fn=const(4), units_fn=units(A=1))
 
         # Immediates
-        table[self.op.load_imm.value] = self.InstrCost(latency_fn=const(1), decode_fn=const(1), units_fn=units())
-        table[self.op.load_imm_64.value] = self.InstrCost(latency_fn=const(1), decode_fn=const(2), units_fn=units())
+        table[self.op.load_imm.value] = InstrCost(latency_fn=const(1), decode_fn=const(1), units_fn=units())
+        table[self.op.load_imm_64.value] = InstrCost(latency_fn=const(1), decode_fn=const(2), units_fn=units())
 
         # Multiplication
         for opcode in (self.op.mul_64.value, self.op.mul_imm_64.value):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(3), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1, M=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(3), decode_fn=lambda pc, a=1, b=2: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1, M=1)
             )
         for opcode in (self.op.mul_32.value, self.op.mul_imm_32.value):
-            table[opcode] = self.InstrCost(
-                latency_fn=const(4), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1, M=1)
+            table[opcode] = InstrCost(
+                latency_fn=const(4), decode_fn=lambda pc, a=2, b=3: self.decode_cost_with_self_overlap(a, b, pc), units_fn=units(A=1, M=1)
             )
         for opcode in (
             self.op.mul_upper_s_s.value,
             self.op.mul_upper_u_u.value,
             self.op.mul_upper_s_u.value,
         ):
-            table[opcode] = self.InstrCost(latency_fn=const(4 if opcode != self.op.mul_upper_s_u.value else 6), decode_fn=const(4), units_fn=units(A=1, M=1))
+            table[opcode] = InstrCost(latency_fn=const(4 if opcode != self.op.mul_upper_s_u.value else 6), decode_fn=const(4), units_fn=units(A=1, M=1))
 
         # Control flow and misc
-        table[self.op.trap.value] = self.InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
-        table[self.op.fallthrough.value] = self.InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
-        table[self.op.unlikely.value] = self.InstrCost(latency_fn=const(40), decode_fn=const(1), units_fn=units())
-        table[self.op.jump.value] = self.InstrCost(latency_fn=const(15), decode_fn=const(1), units_fn=units())
-        table[self.op.load_imm_jump.value] = self.InstrCost(latency_fn=const(15), decode_fn=const(1), units_fn=units())
-        table[self.op.jump_ind.value] = self.InstrCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
-        table[self.op.load_imm_jump_ind.value] = self.InstrCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
-        table[self.op.ecalli.value] = self.InstrCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
-        table[self.op.sbrk.value] = self.InstrCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
+        table[self.op.trap.value] = InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
+        table[self.op.fallthrough.value] = InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
+        table[self.op.unlikely.value] = InstrCost(latency_fn=const(40), decode_fn=const(1), units_fn=units())
+        table[self.op.jump.value] = InstrCost(latency_fn=const(15), decode_fn=const(1), units_fn=units())
+        table[self.op.load_imm_jump.value] = InstrCost(latency_fn=const(15), decode_fn=const(1), units_fn=units())
+        table[self.op.jump_ind.value] = InstrCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
+        table[self.op.load_imm_jump_ind.value] = InstrCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
+        table[self.op.ecalli.value] = InstrCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
+        table[self.op.sbrk.value] = InstrCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
 
         return table
 
     # Pipeline transitions
-    def _units_add(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
+    def _add_exec_units(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
+        """Element-wise addition of execution units: a + b."""
         return ExecUnits(A=a.A + b.A, L=a.L + b.L, S=a.S + b.S, M=a.M + b.M, D=a.D + b.D)
 
-    def _units_sub(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
+    def _subtract_exec_units(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
+        """Element-wise subtraction of execution units: a - b."""
         return ExecUnits(A=a.A - b.A, L=a.L - b.L, S=a.S - b.S, M=a.M - b.M, D=a.D - b.D)
 
-    def _units_leq(self, a: ExecUnits, b: ExecUnits) -> bool:
-        return a.A <= b.A and a.L <= b.L and a.S <= b.S and a.M <= b.M and a.D <= b.D
+    def _has_enough_exec_units(self, required: ExecUnits, available: ExecUnits) -> bool:
+        """Return True iff required ≤ available for each ExecUnits component."""
+        return (
+            required.A <= available.A
+            and required.L <= available.L
+            and required.S <= available.S
+            and required.M <= available.M
+            and required.D <= available.D
+        )
 
-    def _initial_state(self, start_pc: int) -> GasState:
-        # GP-0.7.1-eq:A.45
+    def _create_initial_gas_state(self, start_pc: int) -> GasState:
+        """
+        GP-0.7.1-eq:A.45
+        Construct the initial pipeline / gas simulation state Ξ₀ for a basic block starting at start_pc.
+        """
         return GasState(
             i=start_pc,
             c_cycles=0,
@@ -612,19 +651,30 @@ class GasModel:
             units_free=ExecUnits(A=4, L=4, S=4, M=1, D=1),
         )
 
-    def _ready_index(self, state: GasState) -> Optional[int]:
-        # GP-0.7.1-eq:A.52
+    def _find_ready_rob_entry_index(self, state: GasState) -> Optional[int]:
+        """
+        GP-0.7.1-eq:A.52
+        Compute S(Ξₙ): return the index of the oldest ROB entry that is ready to issue
+        (stage == 2, enough execution units available, and all dependencies finished),
+        or None if no such entry exists.
+        """
         for idx, entry in enumerate(state.rob):
             if entry.stage != 2:
                 continue
-            if not self._units_leq(entry.units, state.units_free):
+            if not self._has_enough_exec_units(entry.units, state.units_free):
                 continue
             if any(state.rob[k].cycles_left > 0 for k in entry.deps):
                 continue
             return idx
         return None
 
-    def _step_decode(self, state: GasState) -> GasState:
+    def _decode_next_instruction_into_rob(self, state: GasState) -> GasState:
+        """
+        GP-0.7.1-eq:A.48–A.50
+        Decode front-end transition Ξ′:
+        - Special-case move_reg (Ξ^mov, Eq. A.49)
+        - Otherwise decode a generic instruction and append a ROB entry (Ξ^decode, Eq. A.50).
+        """
         if state.i is None:
             return state
         pc = state.i
@@ -717,8 +767,13 @@ class GasModel:
             units_free=state.units_free,
         )
 
-    def _step_issue(self, state: GasState) -> GasState:
-        ready_idx = self._ready_index(state)
+    def _issue_ready_instruction_from_rob(self, state: GasState) -> GasState:
+        """
+        GP-0.7.1-eq:A.51
+        Issue transition Ξ″: move a ready ROB entry to executing (stage=3),
+        consume one issue slot and reserve its execution units.
+        """
+        ready_idx = self._find_ready_rob_entry_index(state)
         if ready_idx is None or state.e_slots <= 0:
             return state
 
@@ -732,7 +787,7 @@ class GasModel:
             dest_regs=set(entry.dest_regs),
         )
 
-        new_units = self._units_sub(state.units_free, entry.units)
+        new_units = self._subtract_exec_units(state.units_free, entry.units)
         return GasState(
             i=state.i,
             c_cycles=state.c_cycles,
@@ -743,7 +798,14 @@ class GasModel:
             units_free=new_units,
         )
 
-    def _step_tick(self, state: GasState) -> GasState:
+    def _advance_pipeline_one_cycle(self, state: GasState) -> GasState:
+        """
+        GP-0.7.1-eq:A.53
+        Tick transition Ξ‴:
+        - Advance the pipeline by one cycle (update ROB stages, retire in order, decrement cycles_left),
+        - Return freed execution units,
+        - Increment the global cycle counter and reset decode/issue slots for the next cycle.
+        """
         new_rob: List[RobEntry] = []
         returned_units = ExecUnits()
 
@@ -772,13 +834,13 @@ class GasModel:
 
             if entry.stage == 3 and entry.cycles_left == 1:
                 dest_regs = set()
-                returned_units = self._units_add(returned_units, entry.units)
+                returned_units = self._add_exec_units(returned_units, entry.units)
 
             new_rob.append(
                 RobEntry(stage=stage, cycles_left=cycles_left, units=entry.units, deps=set(entry.deps), dest_regs=dest_regs)
             )
 
-        new_units = self._units_add(state.units_free, returned_units)
+        new_units = self._add_exec_units(state.units_free, returned_units)
         return GasState(
             i=state.i,
             c_cycles=state.c_cycles + 1,
@@ -789,9 +851,14 @@ class GasModel:
             units_free=new_units,
         )
 
-    # GP-0.7.1-eq:A.46
     def block_cost(self, block_start_pc: int) -> int:
-        state = self._initial_state(block_start_pc)
+        """
+        GP-0.7.1-eq:A.46
+        GP-0.7.1-eq:A.47
+        Simulate the pipeline for a basic block starting at block_start_pc until the ROB is empty
+        and return its gas cost ϱᵢ = max(c˙(m) - 3, 1)
+        """
+        state = self._create_initial_gas_state(block_start_pc)
         steps = 0
         max_steps = 100000
 
@@ -821,15 +888,15 @@ class GasModel:
                     or (cost_entry is not None and cost_entry.decode_fn(state.i) <= state.d_slots)
                 )
             )
-            ready_idx = self._ready_index(state)
+            ready_idx = self._find_ready_rob_entry_index(state)
             can_issue = ready_idx is not None and state.e_slots > 0
 
             if steps == 0 or can_decode:
-                state = self._step_decode(state)
+                state = self._decode_next_instruction_into_rob(state)
             elif can_issue:
-                state = self._step_issue(state)
+                state = self._issue_ready_instruction_from_rob(state)
             elif state.rob or state.i is not None:
-                state = self._step_tick(state)
+                state = self._advance_pipeline_one_cycle(state)
             else:
                 break
 
