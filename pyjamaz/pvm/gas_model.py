@@ -8,32 +8,50 @@ from pyjamaz.pvm.interpreters.graypaper.defs import pvm_Z, read_uint
 
 @dataclass
 class ExecUnits:
-    A: int = 0
-    L: int = 0
-    S: int = 0
-    M: int = 0
-    D: int = 0
+    # x̂ / x_hat
+    A: int = 0  # Arithmetic / ALU units; integer/bit-ops pipeline: add/sub/and/xor/shifts/compare, etc.
+    L: int = 0  # Load units; memory loads
+    S: int = 0  # Store units;memory stores
+    M: int = 0  # Multiply units; mul_* ops
+    D: int = 0  # Divide units; div_* / rem_*
 
 
 @dataclass
 class RobEntry:
-    stage: int
-    cycles_left: int
-    units: ExecUnits
-    deps: Set[int]
-    dest_regs: Set[int]
+    """
+    Note:
+        re‑order buffer (ROB) is a hardware structure in out‑of‑order CPUs that:
+            - tracks all in‑flight instructions,
+            - lets them execute out of order, and
+            - then commits their results in program order so the CPU appears precise and sane.
+        See: https://en.wikipedia.org/wiki/Out-of-order_execution
+
+        In short just a queue of in‑flight instructions;
+        Each RobEntry tracks:
+            - which stage it’s in (stage)
+            - how many cycles left (cycles_left)
+            - which functional units it uses (units)
+            - its dependencies on older entries (deps)
+            - and which registers it will eventually write (dest_regs)
+    """
+    #TODO: maak stage enum
+    stage: int # s_arrow; At which big step of its life-cycle is this instruction right now; 1: decoded, 2: ready to issue, 3: executing, 4: finishing / retiring, 0: free
+    cycles_left: int # c_arrow;
+    units: ExecUnits # x_arrow; tracks cost (A/L/S/M/D) for this instruction
+    deps: Set[int]  # p_arrow; ROB indices of producers of our source regs (RAW hazards from s_hat with older r_hat)
+    dest_regs: Set[int] #r_arrwo; registers used
 
 
 @dataclass
 class GasState:
     # GP-0.7.1-eq:A.45
-    i: Optional[int]
-    c_cycles: int
-    n_rob: int
-    d_slots: int
-    e_slots: int
-    rob: List[RobEntry]
-    units_free: ExecUnits
+    i: Optional[int] # instruction index
+    c_cycles: int # c_dot; nr cycles procesed
+    n_rob: int  # n_dot; nr entries in the reordering buffer -> todo: missch overal len(state.rob) gebruiken
+    d_slots: int # d_dot; the nr of decode slots remaining (into the ROB)
+    e_slots: int # e_dot; the nr remaining instructions we can execute (out the ROB)
+    rob: List[RobEntry] # the reordening buffer, keeps track of decoded instructions (
+    units_free: ExecUnits # x_arrow; how many of each unit type are still available this cycle.
 
 
 class GasModel:
@@ -48,9 +66,10 @@ class GasModel:
         inst_arg_len: List[int],
         opcode_scheme,
         opcode_enum,
-        mem_model: str = "L2HIT",
+        mem_model: str = "L2HIT", #TODO: enum van maken
         jump_table: Optional[List[int]] = None,
     ):
+        #TODO: clone voor nu... later herbruiken / optimizen
         self.code = code
         self.inst_pos = inst_pos
         self.inst_arg_len = inst_arg_len
@@ -59,8 +78,7 @@ class GasModel:
         self.mem_model = mem_model
         self.jump_table = jump_table or []
 
-        # Extend with a synthetic trap to gracefully terminate when running past
-        # the end of the code blob during simulation.
+        # !!!!TODO: temp extend with a synthetic trap to terminate when running past the end of the code blob
         self.sim_code = bytearray(self.code)
         self.inst_arg_len_sim = list(self.inst_arg_len)
         self.inst_pos_sim = dict(self.inst_pos)
@@ -70,7 +88,7 @@ class GasModel:
 
         self.cost_table = self._build_cost_table()
 
-    # ----- Helpers ------------------------------------------------------------------
+
     def skip_bytes(self, pc: int) -> int:
         inst_index = self.inst_pos_sim.get(pc, 0)
         if inst_index >= len(self.inst_arg_len_sim):
@@ -84,6 +102,9 @@ class GasModel:
         return opcode, inst_type, inst_index
 
     def s_hat(self, pc: int) -> Set[int]:
+        """
+        Return the registers well read from for the current instruction (source registers)
+        """
         opcode, inst_type, inst_index = self.decode_instruction(pc)
 
         match inst_type:
@@ -173,6 +194,10 @@ class GasModel:
         return set()
 
     def r_hat(self, pc: int) -> Set[int]:
+        """
+        # GP-0.7.1-eq:A.9 / A.10
+        Return the registers we will store into for the current instruction (destination registers)
+        """
         opcode, inst_type, inst_index = self.decode_instruction(pc)
 
         match inst_type:
@@ -657,15 +682,15 @@ class GasModel:
         d_hat = cost.decode_fn(pc)
         x_hat = cost.units_fn(pc)
 
-        # Advance instruction pointer unless we hit termination (handled by main loop).
+        # next instruction pointer unless we hit termination (handled by main loop)
         next_i = None if opcode in TERMINATION_OPCODES else pc + self.skip_bytes(pc)
         new_d_slots = state.d_slots - d_hat
         new_n_rob = state.n_rob + 1
 
-        # Compute dependencies based on overlapping register writes
+        # compute dependencies based on overlapping register writes
         parents = {idx for idx, entry in enumerate(state.rob) if src & entry.dest_regs}
 
-        # Remove new destinations from older entries
+        # remove new destinations from older entries
         new_rob = []
         for entry in state.rob:
             new_rob.append(
@@ -764,14 +789,14 @@ class GasModel:
             units_free=new_units,
         )
 
-
+    # GP-0.7.1-eq:A.46
     def block_cost(self, block_start_pc: int) -> int:
         state = self._initial_state(block_start_pc)
         steps = 0
         max_steps = 100000
 
         while steps < max_steps:
-            # Terminate when instruction pointer is None and ROB is empty
+            # terminate when instruction pointer is None and ROB (symbol s_arrow/s⃗) is empty
             if state.i is None and all(entry.stage == 0 for entry in state.rob):
                 break
 
