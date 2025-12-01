@@ -499,17 +499,10 @@ def hc_transfer(
     None
     """
     logger and logger.hc_regs(f"TRANSFER", "accumulate")
-    gas_limit = registers[9] & ((1 << 64) - 1) # TODO: should wrap around??
-    gas_usage = 10 + registers[9]
-    if gas_usage > invocation_output.gas_limit:
-        # Note: keep gas negative (otherwise a int wrap around could make it positive again)
-        invocation_output.gas_limit = -1 #invocation_output.gas_limit - gas_usage
-    else:
-        invocation_output.gas_limit -= gas_usage
 
     d = registers[7]     # destination
     a = registers[8]     # amount
-    g = gas_limit        # gas_limit
+    l = registers[9] & ((1 << 64) - 1)     # gas_limit # TODO: should wrap around??
     o = registers[10]    # offset for memo
 
     service_id = x.context.service_account_id
@@ -527,7 +520,7 @@ def hc_transfer(
             receiver=d,
             amount=a,
             memo=m,
-            gas_limit=g,
+            gas_limit=l,
         )
         b = service_account.balance - a
     except PVMMemoryError:
@@ -536,22 +529,26 @@ def hc_transfer(
 
     if transfer is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        t = 0
 
     elif dest_service_account is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-        logger and logger.hc_log("TRANSFER WHO", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        t = 0
+        logger and logger.hc_log("TRANSFER WHO", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
-    elif g < dest_service_account.gas_limit_on_transfer:
+    elif l < dest_service_account.gas_limit_on_transfer:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.LOW.value
-        logger and logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        t = 0
+        logger and logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
     # TODO GP 0.7.0 bug mentions (a)
     elif b < service_account.threshold_balance:   # insufficient funds
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
-        logger and logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        t = 0
+        logger and logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -561,7 +558,17 @@ def hc_transfer(
         x.context.deferred_transfers.append(transfer)
 
         x.context.state_context.services.store_service_account(service_id, service_account)
-        logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+
+        t = l
+        logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
+
+    # Process gas usage
+    gas_usage = 10 + t
+    if gas_usage > invocation_output.gas_limit:
+        # Note: keep gas negative (otherwise a int wrap around could make it positive again)
+        invocation_output.gas_limit = -1  # invocation_output.gas_limit - gas_usage
+    else:
+        invocation_output.gas_limit -= gas_usage
 
 
 def hc_eject(
