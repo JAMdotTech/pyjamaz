@@ -143,12 +143,12 @@ class PVMInterpreter:
             inst_nr += 1
             self.inst_pos[inst_bitmask_idx - 1] = inst_nr
 
-    def calculate_basic_block_gas(self):
 
+    def calculate_basic_block_gas(self):
         if not self.gas_model:
             return
 
-        leaders = set(self.basic_block.keys()) | {0}
+        basic_block_starts = set(self.basic_block.keys()) | {0}
         opcode_positions = sorted(k for k in self.inst_pos.keys() if k < len(self.code))
         for pc in opcode_positions:
             opcode = self.code[pc]
@@ -160,13 +160,13 @@ class PVMInterpreter:
             if opcode in TERMINATION_OPCODES:
                 fallthrough = pc + skip
                 if fallthrough in self.inst_pos:
-                    leaders.add(fallthrough)
+                    basic_block_starts.add(fallthrough)
 
                 if opcode == op.jump.value:
                     l_x = int(min(4, self.inst_arg_len[inst_index]))
                     v_x = pvm_Z(read_uint(self.code, pc + 1, l_x), l_x)
                     if pc + v_x in self.inst_pos:
-                        leaders.add(pc + v_x)
+                        basic_block_starts.add(pc + v_x)
 
                 elif opcode in {
                     op.branch_eq.value,
@@ -180,14 +180,15 @@ class PVMInterpreter:
                     v_x = pvm_Z(read_uint(self.code, pc + 2, l_x), l_x)
                     target = pc + v_x
                     if target in self.inst_pos:
-                        leaders.add(target)
+                        basic_block_starts.add(target)
+
                 elif opcode == op.load_imm_jump.value:
                     l_x = int(min(4, (self.code[pc + 1] // 16) % 8))
                     l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
                     v_y = pvm_Z(read_uint(self.code, pc + 2 + l_x, l_y), l_y)
                     target = pc + v_y
                     if target in self.inst_pos:
-                        leaders.add(target)
+                        basic_block_starts.add(target)
 
                 elif opcode in {
                     op.branch_eq_imm.value,
@@ -206,14 +207,14 @@ class PVMInterpreter:
                     v_y = pvm_Z(read_uint(self.code, pc + 2 + l_x, l_y), l_y)
                     target = pc + v_y
                     if target in self.inst_pos:
-                        leaders.add(target)
+                        basic_block_starts.add(target)
 
-        # Note: make sure leaders correspond to opcode positions we can step into
-        leaders = {pc for pc in leaders if pc in self.inst_pos}
-        self.basic_block = {pc: 0 for pc in leaders}
+        # Note: make sure basic_block_starts (leaders) correspond to opcode positions we can step into
+        basic_block_starts = {pc for pc in basic_block_starts if pc in self.inst_pos}
+        self.basic_block = {pc: 0 for pc in basic_block_starts}
 
         self.basic_block_gas = {}
-        for start in sorted(leaders):
+        for start in sorted(basic_block_starts):
             self.basic_block_gas[start] = self.gas_model.block_cost(start)
 
 
