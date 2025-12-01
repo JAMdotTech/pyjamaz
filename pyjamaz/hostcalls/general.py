@@ -533,7 +533,7 @@ def hc_fetch(
         bold_v = work_package.to_jam_bytes().to_bytes()
 
     elif work_package is not None and w10 == 8:
-        bold_v = work_package.auth_code_hash + Bytes.encode(work_package.authorizer_config).to_bytes()
+        bold_v = work_package.authorizer_config
 
     elif work_package is not None and w10 == 9:
         bold_v = work_package.authorization

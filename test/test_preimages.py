@@ -89,13 +89,13 @@ class TestPreimages(unittest.TestCase):
             pre_services.store_service_account(s["id"], service_account)
             pre_services.retrieve_service_account(s["id"])
 
-            for preimage in s["data"]["preimages"]:
+            for preimage in s["data"]["preimage_blobs"]:
                 pre_services.store_preimage(
                     service_account_id=s["id"], preimage_blob=bytes.fromhex(preimage["blob"][2:])
                 )
                 pre_services.retrieve_preimage(s["id"], blake2b_256_hash(bytes.fromhex(preimage["blob"][2:])))
 
-            for preimage in s["data"]["lookup_meta"]:
+            for preimage in s["data"]["preimage_requests"]:
                 pre_services.store_preimage_availability(
                     service_account_id=s["id"],
                     preimage_hash=bytes.fromhex(preimage["key"]["hash"][2:]),
@@ -130,13 +130,13 @@ class TestPreimages(unittest.TestCase):
                     {
                         "id": s[0],
                         "data": {
-                            "preimages": [
+                            "preimage_blobs": [
                                 {
                                     "hash": p[0],
                                     "blob": p[1]
                                 } for p in sorted(s[1]["preimages"], key=lambda item: item[0])
                             ],
-                            "lookup_meta": [
+                            "preimage_requests": [
                                 {
                                     "key": {
                                         "hash": h[0][0],

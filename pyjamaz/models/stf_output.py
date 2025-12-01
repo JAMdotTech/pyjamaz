@@ -261,6 +261,7 @@ class GuaranteeErrorCode(Serializable, enum.Enum):
     work_report_too_big = 22,
     banned_validator = 23,
     lookup_anchor_not_recent = 24,
+    missing_work_results = 25
 
 
 @dataclass

@@ -378,7 +378,7 @@ class TestHCGeneral(unittest.TestCase):
             self.assertEqual(
                 expected_mem["contents"],
                 hc_mem,
-                f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {hc_mem}"
+                f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {[int(x) for x in hc_mem]}"
             )
 
         expected_exit_reason = test_vector.get("expected-exit-reason", "resume")

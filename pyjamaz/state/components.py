@@ -913,6 +913,11 @@ class Assurances(StateComponent):
 
         # TODO: rename variable w to r or I (maybe)
         for w in work_reports:
+
+            # TODO add GP ref
+            if len(w.results) == 0:
+                raise StateTransitionError(GuaranteeErrorCode.missing_work_results)
+
             # GP-0.7.1-eq:11.8 | Work report respects gas requirements
             self.check_size_limit(w)
             # GP-0.7.1-eq:11.30 | Work report respects gas requirements

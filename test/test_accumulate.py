@@ -114,16 +114,15 @@ class TestAccumulate(unittest.TestCase):
             for p in s['data']['storage']:
                 pre_services.store_storage_item(s["id"], bytes.fromhex(p["key"][2:]), bytes.fromhex(p['value'][2:]))
 
-            for p in s['data']['preimages_blob']:
+            for p in s['data']['preimage_blobs']:
                 pre_services.store_preimage(s["id"], bytes.fromhex(p['blob'][2:]))
 
-            preimages_status = s['data']['preimages_status']
-            for p in preimages_status:
-                si_key = bytes.fromhex(p['hash'][2:])
-                preimage = pre_services.retrieve_preimage(s["id"], si_key)
-                if preimage is not None:
-                    si_len = len(preimage)
-                    pre_services.store_preimage_availability(s["id"], si_key, si_len, p["status"])
+            preimage_requests = s['data']['preimage_requests']
+            for p in preimage_requests:
+                si_key = bytes.fromhex(p['key']['hash'][2:])
+                si_len = p['key']['length']
+
+                pre_services.store_preimage_availability(s["id"], si_key, si_len, p["value"])
 
 
         pre_privileged_services = PrivilegedServicesState(
@@ -163,7 +162,7 @@ class TestAccumulate(unittest.TestCase):
                         "footprint_storage_bytes": s["data"]["service"]["bytes"],
                         "threshold_balance": 0,
                         "storage_items": {p['key']:p['value'] for p in s['data']['storage']},
-                        "preimages": {p['hash']:p['blob'] for p in s['data']['preimages_blob']},
+                        "preimages": {p['hash']:p['blob'] for p in s['data']['preimage_blobs']},
                         "preimage_availability": {},
                         "deposit_offset": s["data"]["service"]["deposit_offset"],
                         "creation_slot": s["data"]["service"]["creation_slot"],
@@ -176,12 +175,11 @@ class TestAccumulate(unittest.TestCase):
 
         #TODO: make serializing preimage_status generic
         for s in test_vector["post_state"]["accounts"]:
-            preimages_status = s['data']['preimages_status']
-            for p in preimages_status:
-                si_key = bytes.fromhex(p['hash'][2:])
-                if si_key in post_services.services[s["id"]].preimages:
-                    si_len = len(post_services.services[s["id"]].preimages[si_key])
-                    post_services.services[s["id"]].preimage_availability[(si_key, si_len)] = p["status"]
+            preimage_requests = s['data']['preimage_requests']
+            for p in preimage_requests:
+                si_key = bytes.fromhex(p['key']['hash'][2:])
+                si_len = p['key']['length']
+                post_services.services[s["id"]].preimage_availability[(si_key, si_len)] = p["value"]
 
         post_privileged_services = PrivilegedServicesState(
             manager=test_vector["post_state"]["privileges"]["bless"],
