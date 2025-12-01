@@ -57,6 +57,8 @@ class PVMInterpreter:
 
         self.basic_block = {}
         self.basic_block_gas = {}
+        self.pc_block_start = {}
+        self.current_block_start = None
         self.gas_model = None
 
         self.inst_bitmask: List[bool] = []
@@ -99,6 +101,7 @@ class PVMInterpreter:
         # Note: In the exceptional case we only have 1 instruction (trap or fallthrough), we add it manually and be done
         if len(inst_bitmask) == 1:
             self.inst_arg_len.append(0)
+            self.basic_block = {0: 0, 1: 0}
             return
 
         basic_block_index = 0
@@ -209,13 +212,21 @@ class PVMInterpreter:
                     if target in self.inst_pos:
                         basic_block_starts.add(target)
 
-        # Note: make sure basic_block_starts (leaders) correspond to opcode positions we can step into
-        basic_block_starts = {pc for pc in basic_block_starts if pc in self.inst_pos}
+        # Note: keep leaders that fall within the code buffer (including the fallthrough slot at the end)
+        basic_block_starts = {pc for pc in basic_block_starts if 0 <= pc <= len(self.code)}
         self.basic_block = {pc: 0 for pc in basic_block_starts}
 
         self.basic_block_gas = {}
+        self.pc_block_start = {}
         for start in sorted(basic_block_starts):
-            self.basic_block_gas[start] = self.gas_model.block_cost(start)
+            self.basic_block_gas[start] = self.gas_model.compute_block_gas_cost(start)
+        # Map every instruction pc to its containing basic block start for mid-block entry charging.
+        current_start = None
+        for pc in opcode_positions:
+            if pc in basic_block_starts:
+                current_start = pc
+            if current_start is not None:
+                self.pc_block_start[pc] = current_start
 
 
     def branch(self, b:int, C:bool):
@@ -245,6 +256,7 @@ class PVMInterpreter:
             self.reg[idx] = u64(val)
 
         self.status = ExitReason.resume.value
+        self.current_block_start = None
 
         self.inst_bitmask: List[bool] = program.code.opcode_bitmask
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -358,8 +370,16 @@ class PVMInterpreter:
         pc: int,
         gas: int
     ):
+        prev_status = self.status
+        prev_pc = getattr(self, "last_pc", None)
         self.pc = np.uint32(pc)
         self.gas = np.int64(gas)
+        # Reset per-run execution state so invoking multiple times continues execution
+        # from the provided pc/gas rather than a prior exit status.
+        if prev_status == ExitReason.page_fault.value:
+            # Re-execute the faulting instruction after the caller adjusted memory.
+            self.skip_len = 0
+        self.status = ExitReason.resume.value
 
         if self.log:
             self.log.pvm_counters()
@@ -371,13 +391,28 @@ class PVMInterpreter:
             self.pc = int(self.pc) + self.skip_len
             self.inst_nr += 1
 
+            block_start = None
             if self.pc in self.basic_block_gas:
-                block_cost = self.basic_block_gas[self.pc]
-                self.gas -= block_cost
-                if self.gas < 0:
-                    self.status = ExitReason.out_of_gas.value
-                    self.exit_value = None
-                    break
+                block_start = self.pc
+            elif hasattr(self, "pc_block_start") and self.pc in self.pc_block_start:
+                block_start = self.pc_block_start[self.pc]
+
+            if block_start is not None:
+                charge_block = False
+                if self.current_block_start is None:
+                    charge_block = True
+                elif self.pc == block_start and not (prev_status == ExitReason.page_fault.value and prev_pc == self.pc):
+                    charge_block = True
+
+                if charge_block:
+                    block_cost = self.basic_block_gas[block_start]
+                    if self.gas < block_cost:
+                        self.status = ExitReason.out_of_gas.value
+                        self.exit_value = None
+                        break
+                    self.gas -= block_cost
+
+                self.current_block_start = block_start
 
             if self.pc >= self.code_size:
                 self.status = ExitReason.panic.value
@@ -1213,3 +1248,5 @@ class PVMInterpreter:
             except:
                 self.log and self.log.exc(traceback.format_exc())
                 raise
+
+        self.last_pc = self.pc
