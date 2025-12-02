@@ -376,8 +376,8 @@ def hc_info(
         service_account_bytes += U32.encode(service_account.last_accumulation_slot).to_bytes()
         service_account_bytes += U32.encode(service_account.parent_service).to_bytes()
 
-    f = min(registers[9], len(service_account_bytes or bytes()))    #TODO: CHECK: GP FOUT????
-    l = min(registers[10], len(service_account_bytes or bytes()) - f) #TODO: CHECK: GP FOUT????
+    f = min(registers[9], len(service_account_bytes or bytes()))
+    l = min(registers[10], len(service_account_bytes or bytes()) - f)
     mem_writable = memory.is_accessible(o, l, MEM_W)
 
     if not mem_writable:
@@ -499,7 +499,7 @@ def hc_fetch(
                 U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES) +
                 U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) +
                 U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) +
-                U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) +  # !!!!
+                U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) +
                 U32.encode(gp_const.SIZE_TRANSFER_MEMO) +
                 U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) +
                 U32.encode(gp_const.TICKET_SUBMISSION_END_SLOT)
@@ -567,13 +567,16 @@ def hc_fetch(
 
     if not memory.is_accessible(o, l, MEM_W):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        logger and logger.hc_log("FETCH PANIC", f"kind={w10}")
     elif bold_v is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
+        logger and logger.hc_log("FETCH NONE", f"kind={w10}")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(bold_v)
         invocation_output.memory.write_bytes(o, bold_v[f:f+l])
+        logger and logger.hc_log("FETCH OK", f"kind={w10} value={bold_v[f:f+l].hex()}")
 
 
 def hc_not_found(
