@@ -1,8 +1,8 @@
 import os
 
 TEST_SUITE = 'tiny' # tiny or full
-GP_VERSION = '0.7.1'
-APP_VERSION = '0.1.36'
+GP_VERSION = '0.7.2'
+APP_VERSION = '0.1.37'
 
 FUZZER_VERSION = 1
 FUZZER_FEATURE_FORK = True
@@ -31,7 +31,7 @@ PVM_MIN_HEAP_SIZE = 0
 PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
 
 # Options: GRAYPAPER, CPYTHON, NUMBA_JIT, NUMBA_AOT
-PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "NUMBA_AOT")
+PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "CPYTHON")
 
 try:
     from pyjamaz.local_settings import *
