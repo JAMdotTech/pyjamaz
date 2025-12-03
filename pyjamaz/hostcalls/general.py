@@ -359,10 +359,12 @@ def hc_info(
     # GP: bold_t
     try:
         if reg7 == U64_MAX - 1:
+            # Note: when looking up our own service,we shoudl include pending changes
             service_account = services.retrieve_service_account(service_id)
         else:
+            # Note: when looking up another service, skip pending changes (parallel accumulation isolation)
             target_service_id = reg7 % U32_MAX
-            service_account = services.retrieve_service_account(target_service_id)
+            service_account = services.retrieve_service_account(target_service_id, skip_pending_changes=True)
     except StateKeyNoResult:
         service_account = None  # GP: t = ∅
 

@@ -553,7 +553,8 @@ class ServicesState(State, Serializable):
 
     def retrieve_service_account(
             self,
-            service_account_id: int
+            service_account_id: int,
+            skip_pending_changes: bool = False
     ) -> ServiceAccount:
 
         # Sanity checks
@@ -561,7 +562,7 @@ class ServicesState(State, Serializable):
             raise StateKeyNoResult(f'Service account not found for ID {service_account_id}')
 
         service_account = None
-        if service_account_id in self.state_storage.pending_changes.service_accounts:
+        if not skip_pending_changes and service_account_id in self.state_storage.pending_changes.service_accounts:
             service_account = deepcopy(self.state_storage.pending_changes.service_accounts[service_account_id])
         else:
             if self.state_storage is None:
