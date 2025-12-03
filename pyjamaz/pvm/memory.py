@@ -102,8 +102,14 @@ class PVMMemory:
 
 
     def write_int(self, addr: int, value: int, length: int):
+        # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
+        addr = addr % self.SIZE
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
+
+        # Check for address + length overflow beyond 32-bit address space
+        if addr + length > self.SIZE:
+            raise PVMMemoryError(f"Memory access overflow: {addr} + {length} > 2^32")
 
         if not (self._section and self._section.address <= addr < self._section.address + self._section.size):
             section = self.find_section(addr)
@@ -125,8 +131,14 @@ class PVMMemory:
 
 
     def read_int(self, addr: int, length: int):
+        # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
+        addr = addr % self.SIZE
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
+
+        # Check for address + length overflow beyond 32-bit address space
+        if addr + length > self.SIZE:
+            raise PVMMemoryError(f"Memory access overflow: {addr} + {length} > 2^32")
 
         if not (self._section and self._section.address <= addr < self._section.address + self._section.size):
             section = self.find_section(addr)
@@ -148,8 +160,15 @@ class PVMMemory:
 
 
     def is_accessible(self, address: int, length: int, mode: int) -> bool:
+        # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
+        address = address % self.SIZE
+
         if length == 0:
             return True
+
+        # Check for address + length overflow beyond 32-bit address space
+        if address + length > self.SIZE:
+            return False
 
         try:
             section = self.find_section(address)
@@ -177,11 +196,17 @@ class PVMMemory:
     def read_bytes(self, address: int, length: int, padding:int = None) -> bytes:
         """
         """
+        # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
+        address = address % self.SIZE
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = address
 
         if length == 0:
             return bytes()
+
+        # Check for address + length overflow beyond 32-bit address space
+        if address + length > self.SIZE:
+            raise PVMMemoryError(f"Memory access overflow: {address} + {length} > 2^32")
 
         section = self.find_section(address)
         if not section:
@@ -203,7 +228,7 @@ class PVMMemory:
 
         mem_bytes = bytes(section.contents[section_addr:section_addr+length])
         if padding and len(mem_bytes) < padding:
-            mem_bytes.ljust(padding, b'\0')
+            mem_bytes = mem_bytes.ljust(padding, b'\0')
 
         return mem_bytes
 
@@ -211,6 +236,8 @@ class PVMMemory:
     def write_bytes(self, address: int, content: bytes) -> None:
         """
         """
+        # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
+        address = address % self.SIZE
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = address
 
@@ -218,6 +245,10 @@ class PVMMemory:
         # TODO: or raise PVMMemoryError?
         if bytes_remaining == 0:
             return
+
+        # Check for address + length overflow beyond 32-bit address space
+        if address + bytes_remaining > self.SIZE:
+            raise PVMMemoryError(f"Memory access overflow: {address} + {bytes_remaining} > 2^32")
 
         section = self.find_section(address)
         if not section:
