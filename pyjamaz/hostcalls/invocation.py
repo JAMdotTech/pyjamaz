@@ -88,6 +88,7 @@ class AccumulateInvocationMutator(InvocationMutator):
 
             case HostCallGeneral.fetch.value:
                 # GP-0.6.6-eq:B.11 | Y
+                DEBUG and logging.debug(f'[ACCUM MUTATOR] hc_fetch: accumulation_inputs count={len(self.accumulation_inputs) if self.accumulation_inputs else 0}')
                 hc_fetch(
                     registers=registers,
                     memory=memory,

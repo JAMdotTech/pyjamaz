@@ -16,6 +16,9 @@ from pyjamaz.hostcalls.constants import HostCallResult, InnerPVMResult
 from pyjamaz.hostcalls.models import RefineInvocationContext, IntegratedPVM
 from pyjamaz.settings import PVM_DEBUGGER
 
+U32_MAX = 2 ** 32
+U64_MAX = 2 ** 64
+
 
 def hc_historical_lookup(
         registers: List[int],
@@ -42,18 +45,18 @@ def hc_historical_lookup(
     except StateKeyNoResult:
         service_account = None
 
-    # GP: bold_a
-    if registers[7] == 2 ** 64 - 1 and service_account:
+    reg7 = registers[7]
+    if reg7 == U64_MAX - 1 and service_account:
         service_account_id = service_id
     else:
         try:
-            service_account_id = registers[7]
+            service_account_id = reg7 % U32_MAX
             service_account = services.retrieve_service_account(service_account_id)
         except StateKeyNoResult:
             service_account = None  # bold_a = ∅
 
-    h = registers[8]
-    o = registers[9]
+    h = registers[8] % U32_MAX
+    o = registers[9] % U32_MAX
 
     # GP: bold_v
     preimage = None
@@ -99,7 +102,7 @@ def hc_export(
     """
     logger and logger.hc_regs(f"EXPORT", "refine")
 
-    p = registers[7]
+    p = registers[7] % U32_MAX
     z = min(registers[8], EC_SEGMENT_SIZE)
     data_segment = None #GP: bold_x
     if memory.is_accessible(p, z, MEM_R):
@@ -132,9 +135,9 @@ def hc_machine(
     """
     logger and logger.hc_regs(f"MACHINE", "refine")
 
-    p_o = registers[7]
-    p_z = registers[8]
-    i = registers[9]
+    p_o = registers[7] % U32_MAX
+    p_z = registers[8] % U32_MAX
+    i = registers[9] % U32_MAX
 
     program_blob = None
     if memory.is_accessible(p_o, p_z, MEM_R):
@@ -192,10 +195,10 @@ def hc_peek(
     """
     logger and logger.hc_regs(f"PEEK", "refine")
 
-    n = registers[7]
-    o = registers[8]
-    s = registers[9]
-    z = registers[10]
+    n = registers[7]  # pvm handle (UInt64)
+    o = registers[8] % U32_MAX  # outer dst address (UInt32 for memory access)
+    s = registers[9] % U32_MAX  # inner src address (UInt32 for inner memory)
+    z = registers[10]  # length (UInt64)
 
     if not memory.is_accessible(o, z, MEM_W):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -228,10 +231,10 @@ def hc_poke(
     """
     logger and logger.hc_regs(f"POKE", "refine")
 
-    n = registers[7]
-    s = registers[8]
-    o = registers[9]
-    z = registers[10]
+    n = registers[7]  # pvm handle (UInt64)
+    s = registers[8] % U32_MAX  # outer src address (UInt32 for memory access)
+    o = registers[9] % U32_MAX  # inner dst address (UInt32 for inner memory)
+    z = registers[10]  # length (UInt64)
 
     if not memory.is_accessible(s, z, MEM_R):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -267,10 +270,10 @@ def hc_pages(
     """
     logger and logger.hc_regs(f"PAGES", "refine")
 
-    n = registers[7]
-    p = registers[8]
-    c = registers[9]
-    r = registers[10]
+    n = registers[7]  # pvm handle (UInt64)
+    p = registers[8]  # page index (UInt64)
+    c = registers[9]  # count (UInt64)
+    r = registers[10] # variant (UInt64)
 
     mem: PVMMemory = None
     if n in m_e.inner_pvm_lookup:
@@ -320,8 +323,8 @@ def hc_invoke(
     """
     logger and logger.hc_regs(f"INVOKE", "refine")
 
-    n = registers[7]
-    o = registers[8]
+    n = registers[7]  # pvm handle (UInt64)
+    o = registers[8] % U32_MAX  # memory address (UInt32)
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
