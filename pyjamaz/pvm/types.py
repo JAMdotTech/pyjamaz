@@ -9,12 +9,11 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger, Bytes
 
-from pyjamaz import settings
 from pyjamaz.pvm import MemorySection
 from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W
 from pyjamaz.pvm.memory_section_abstract import page_size
-from pyjamaz.settings import DEBUG, DEBUG_PROGRAM_OVERRIDE
+from pyjamaz import settings
 
 
 @dataclass
@@ -154,12 +153,12 @@ class PVMProgram(Serializable):
 
             jam_bytes = JamBytes(serialized_program)
 
-            if DEBUG:
+            if settings.DEBUG:
                 override_heap_mem_pages = None
-                if name in DEBUG_PROGRAM_OVERRIDE:
-                    with open(DEBUG_PROGRAM_OVERRIDE.get(name)['file'], 'rb') as fp:
+                if name in settings.DEBUG_PROGRAM_OVERRIDE:
+                    with open(settings.DEBUG_PROGRAM_OVERRIDE.get(name)['file'], 'rb') as fp:
                         jam_bytes = JamBytes(fp.read())
-                        override_heap_mem_pages = DEBUG_PROGRAM_OVERRIDE.get(name)['heap_mem_pages']
+                        override_heap_mem_pages = settings.DEBUG_PROGRAM_OVERRIDE.get(name)['heap_mem_pages']
 
                         metadata = Bytes.decode(jam_bytes)
 
@@ -179,7 +178,7 @@ class PVMProgram(Serializable):
             pvm_code_size = int.from_bytes(jam_bytes.get_next_bytes(4), byteorder='little')
             pvm_code = jam_bytes.get_next_bytes(pvm_code_size)
 
-            if DEBUG and override_heap_mem_pages:
+            if settings.DEBUG and override_heap_mem_pages:
                 heap_mem_pages = override_heap_mem_pages
 
             # GP-0.7.1-eq:A.42
@@ -197,7 +196,7 @@ class PVMProgram(Serializable):
                 )
 
                 #TODO: TEMP HACK TO DEBUG INJECT CUSTOM PROGRAMS!!!!!!!
-                if DEBUG:
+                if settings.DEBUG:
                     instance._code = pvm_code
                     instance._ram = pvm_heap_contents
                     instance._rom = pvm_rom_contents
