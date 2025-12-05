@@ -242,8 +242,6 @@ def pvm_invoke_accumulate(
 
     # GP-0.7.1-eq:B.13 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
-        # Rollback pending changes in state storage
-        state_context.services.state_storage.checkpoint_rollback()
 
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.savepoint_context.state_context,

@@ -17,7 +17,7 @@ from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header
 from pyjamaz.models.state import TimeslotState, ServicesState, AccumulationHistoryState, EntropyState, \
     AccumulationQueueState, PrivilegedServicesState, ValidatorQueueState, AuthorizerQueuesState, \
-    AccumulationQueueWorkPackage, ServiceAccount, StatisticsState, ValidatorPoolState
+    AccumulationQueueWorkPackage, ServiceAccount, StatisticsState, ValidatorPoolState, PendingChanges
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -90,8 +90,8 @@ class TestAccumulate(unittest.TestCase):
         )
 
         pre_services = ServicesState()
-
         pre_services.set_state_storage(self.app_context.state_storage)
+        pre_services.pending_changes = PendingChanges()
 
         for s in test_vector["pre_state"]["accounts"]:
             pre_services.store_service_account(s["id"], ServiceAccount.from_json({
@@ -250,14 +250,11 @@ class TestAccumulate(unittest.TestCase):
             {"id": s_id, "record": s_record.to_json()} for s_id, s_record in stats_output.post_state.services.items()
         ]
 
-        new_service_state = ServicesState()
-
-        # Add items created in state storage to ServiceState instance
-        self.app_context.state_storage.add_pending_changes_to_services_state(new_service_state)
+        accumulation_output.intermediate_state_after_accumulation.add_pending_changes()
 
         self.assertEqual(post_accumulation_history, history_output.post_state)
         self.assertEqual(post_accumulation_queue, queue_output.post_state)
-        self.assertEqual(post_services.services, new_service_state.services)
+        self.assertEqual(post_services.services, accumulation_output.intermediate_state_after_accumulation.services)
         self.assertEqual(test_vector["post_state"]["statistics"], post_stats)
         self.assertEqual(post_privileged_services, accumulation_output.post_state_privileged_services)
 

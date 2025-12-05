@@ -251,7 +251,7 @@ def hc_write(
     k = None
     l = None
     si = None
-    service_account = deepcopy(service)
+    service_account = services.retrieve_service_account(service_id)
     storage_key_mem_error = False
     service_storage_item_mem_error = False
     service_storage_item = None

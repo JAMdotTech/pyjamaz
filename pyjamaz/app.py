@@ -35,7 +35,7 @@ from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchiv
     AccumulationQueue, AccumulationHistory, RecentAccumulationLog
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Guarantee, Credential, \
     Assurance
-from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState
+from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState, PendingChanges
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time
@@ -363,6 +363,7 @@ class PyjamazApp:
 
         # Set storage engine for services
         pre_state_services.set_state_storage(self.state_storage)
+        pre_state_services.pending_changes = PendingChanges()
 
         # Validate quality of dispute extrinsic data
         self.components.disputes.validate_extrinsic_disputes(

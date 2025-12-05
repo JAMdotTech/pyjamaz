@@ -90,9 +90,6 @@ class AccumulateInvocationContext(InvocationContext):
             (check_payload % (2 ** 32 - MINIMUM_PUBLIC_SERVICE_ID - 2 ** 8)) + MINIMUM_PUBLIC_SERVICE_ID
         )
 
-        # Initiate initial checkpoint
-        accumulation_state.services.state_storage.checkpoint()
-
         return AccumulateInvocationContext(
             context=AccumulateContextItem(
                 service_account_id=service_account_id,

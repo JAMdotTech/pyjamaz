@@ -2,7 +2,7 @@ import os
 
 TEST_SUITE = 'tiny' # tiny or full
 GP_VERSION = '0.7.2'
-APP_VERSION = '0.1.37'
+APP_VERSION = '0.1.38'
 
 FUZZER_VERSION = 1
 FUZZER_FEATURE_FORK = True

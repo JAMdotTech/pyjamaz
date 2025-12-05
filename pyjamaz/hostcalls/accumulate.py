@@ -285,7 +285,6 @@ def hc_checkpoint(
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
     x.savepoint_context = deepcopy(x.context)
-    x.context.state_context.services.state_storage.checkpoint()
 
 
 def hc_new(
