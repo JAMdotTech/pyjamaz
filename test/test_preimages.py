@@ -13,7 +13,7 @@ from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Services
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Preimage
-from pyjamaz.models.state import TimeslotState, ServicesState, ServiceAccount
+from pyjamaz.models.state import TimeslotState, ServicesState, ServiceAccount, PendingChanges
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -68,6 +68,7 @@ class TestPreimages(unittest.TestCase):
         )
 
         pre_services.set_state_storage(self.app_context.state_storage)
+        pre_services.pending_changes = PendingChanges()
 
         # Store services and preimages in storage engine
         for s in test_vector["pre_state"]["accounts"]:
@@ -122,7 +123,7 @@ class TestPreimages(unittest.TestCase):
                 'ok': None
             }
 
-            self.app_context.state_storage.add_pending_changes_to_services_state(output.post_state)
+            output.post_state.add_pending_changes()
 
             # Transform post_state to test format
             post_state = {

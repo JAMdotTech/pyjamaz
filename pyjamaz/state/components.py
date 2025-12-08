@@ -1870,7 +1870,7 @@ class Services(StateComponent):
                 intermediate_state_after_accumulation.store_preimage(
                     service_account_id=preimage.requester,
                     preimage_blob=preimage.blob,
-                    commit=True
+                    save_to_tx=True
                 )
 
                 # Update availability information
@@ -1879,7 +1879,7 @@ class Services(StateComponent):
                     preimage_hash=preimage_hash,
                     preimage_length=preimage_length,
                     value=[post_state_timeslot.number],
-                    commit=True
+                    save_to_tx=True
                 )
 
         return ServicesAfterPreimagesOutput(
@@ -1918,9 +1918,8 @@ class Services(StateComponent):
         ServicesAfterAccumulationOutput
             Output containing: intermediate state of ServicesState (δ†) and BeefyCommitmentMap (C).
         """
-        # TODO: check GP-0.7.1-eq:4.16; needs attention and refactoring
 
-        services = ServicesState(services={})
+        services = deepcopy(pre_state_services)
         services.set_state_storage(self.app_context.state_storage)
         services.pending_changes = PendingChanges()
 
@@ -1963,7 +1962,7 @@ class Services(StateComponent):
                 try:
                     service_account = output.post_accumulation_state.services.retrieve_service_account(s)
                     service_account.last_accumulation_slot = post_state_timeslot.number
-                    output.post_accumulation_state.services.store_service_account(s, service_account, commit=True)
+                    output.post_accumulation_state.services.store_service_account(s, service_account, save_to_tx=True)
                 except StateKeyNoResult:
                     pass
 

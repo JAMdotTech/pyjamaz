@@ -598,7 +598,7 @@ class ServicesState(State, Serializable):
 
         return service_account
 
-    def store_service_account(self, service_account_id: int, service_account: ServiceAccount, commit=False):
+    def store_service_account(self, service_account_id: int, service_account: ServiceAccount, save_to_tx=False):
         """
         Stores a service account
 
@@ -606,7 +606,7 @@ class ServicesState(State, Serializable):
         ----------
         service_account_id
         service_account
-        commit
+        save_to_tx
 
         Returns
         -------
@@ -624,7 +624,7 @@ class ServicesState(State, Serializable):
 
         state_key = state_key_constructor_service_account(service_account_id)
 
-        if commit:
+        if save_to_tx:
 
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before storing a service account')
@@ -633,10 +633,10 @@ class ServicesState(State, Serializable):
 
             self.state_storage.put(state_key, data)
 
-        DEBUG and logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} threshold_balance={service_account.threshold_balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} f_i={service_account.footprint_storage_items} f_b={service_account.footprint_storage_bytes} commit={commit}')
+        DEBUG and logging.debug(f'store_service_account({service_account_id}): code_hash={service_account.code_hash.hex()} balance={service_account.balance} threshold_balance={service_account.threshold_balance} min_item_gas={service_account.gas_limit_accumulate} min_memo_gas={service_account.gas_limit_on_transfer} f_i={service_account.footprint_storage_items} f_b={service_account.footprint_storage_bytes} commit={save_to_tx}')
 
 
-    def delete_service_account(self, service_account_id: int, commit=False):
+    def delete_service_account(self, service_account_id: int, save_to_tx=False):
         """
         Deletes a service account
 
@@ -655,7 +655,7 @@ class ServicesState(State, Serializable):
 
         state_key = state_key_constructor_service_account(service_account_id)
 
-        if commit:
+        if save_to_tx:
 
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before deleting service account data')
@@ -665,7 +665,7 @@ class ServicesState(State, Serializable):
             self.pending_changes.service_accounts[service_account_id] = None
 
 
-        DEBUG and logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={commit}')
+        DEBUG and logging.debug(f'delete_service_account({service_account_id}) storage_key={state_key.hex()} commit={save_to_tx}')
 
 
     def retrieve_preimage(self, service_account_id: int, preimage_hash: bytes) -> bytes:
@@ -771,7 +771,7 @@ class ServicesState(State, Serializable):
         except StateKeyNoResult:
             return False
 
-    def store_preimage(self, service_account_id: int, preimage_blob: bytes, commit=False):
+    def store_preimage(self, service_account_id: int, preimage_blob: bytes, save_to_tx=False):
         """
         Stores a preimage
 
@@ -791,14 +791,14 @@ class ServicesState(State, Serializable):
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
 
-        if commit:
+        if save_to_tx:
 
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before storing preimage data')
 
             self.state_storage.put(storage_key, preimage_blob)
 
-        DEBUG and logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): sk={storage_key.hex()} commit={commit}')
+        DEBUG and logging.debug(f'store_preimage({service_account_id}, {preimage_hash.hex()}): sk={storage_key.hex()} commit={save_to_tx}')
 
 
     def preimage_exists(self, service_account_id: int, preimage_hash: bytes) -> bool:
@@ -844,14 +844,14 @@ class ServicesState(State, Serializable):
 
 
     def store_preimage_availability(
-            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, value: List[int], commit=False
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, value: List[int], save_to_tx=False
     ):
 
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
         self.pending_changes.preimages_availability[(service_account_id, preimage_hash, preimage_length)] = value
 
-        if commit:
+        if save_to_tx:
 
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before storing preimage availability data')
@@ -867,12 +867,12 @@ class ServicesState(State, Serializable):
         )
 
 
-    def delete_preimage(self, service_account_id: int, preimage_hash: bytes, commit=False):
+    def delete_preimage(self, service_account_id: int, preimage_hash: bytes, save_to_tx=False):
 
 
         storage_key = state_key_constructor_preimage(service_account_id, preimage_hash)
 
-        if commit:
+        if save_to_tx:
 
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before deleting preimage availability data')
@@ -882,17 +882,17 @@ class ServicesState(State, Serializable):
             self.pending_changes.preimages[(service_account_id, preimage_hash)] = None
 
         DEBUG and logging.debug(
-            f'delete_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={commit}'
+            f'delete_preimage({service_account_id}, {preimage_hash.hex()}): {storage_key.hex()} commit={save_to_tx}'
             )
 
 
     def delete_preimage_availability(
-            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, commit=False
+            self, service_account_id: int, preimage_hash: bytes, preimage_length: int, save_to_tx=False
     ):
 
         storage_key = state_key_constructor_preimage_availability(service_account_id, preimage_hash, preimage_length)
 
-        if commit:
+        if save_to_tx:
 
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before deleting preimage availability data')
@@ -943,7 +943,7 @@ class ServicesState(State, Serializable):
 
         return data
 
-    def store_storage_item(self, service_account_id: int, storage_key: bytes, value: bytes, commit=False):
+    def store_storage_item(self, service_account_id: int, storage_key: bytes, value: bytes, save_to_tx=False):
         """
         Store a storage item in the storage engine
         """
@@ -952,22 +952,22 @@ class ServicesState(State, Serializable):
 
         state_key = state_key_constructor_storage_item(service_account_id, storage_key)
 
-        if commit:
+        if save_to_tx:
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before storing storage items')
             self.state_storage.put(state_key, value)
 
-        DEBUG and logging.debug(f'store_storage_item(s={service_account_id}, k={storage_key.hex()}): v={value.hex()} state_key={state_key.hex()} [commit={commit}]')
+        DEBUG and logging.debug(f'store_storage_item(s={service_account_id}, k={storage_key.hex()}): v={value.hex()} state_key={state_key.hex()} [commit={save_to_tx}]')
 
 
-    def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, commit=False):
+    def delete_storage_item(self, service_account_id: int, storage_item_hash: bytes, save_to_tx=False):
         """
         Delete a storage item in the storage engine
         """
 
         storage_key = state_key_constructor_storage_item(service_account_id, storage_item_hash)
 
-        if commit:
+        if save_to_tx:
 
             if self.state_storage is None:
                 raise ValueError('state_storage must be set before deleting storage items')
@@ -978,24 +978,32 @@ class ServicesState(State, Serializable):
             self.pending_changes.storage_items[(service_account_id, storage_item_hash)] = None
 
         DEBUG and logging.debug(
-            f'delete_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()} [commit={commit}]'
+            f'delete_storage_item(s={service_account_id}, k={storage_item_hash.hex()}): state_key={storage_key.hex()} [commit={save_to_tx}]'
             )
 
-    def add_pending_changes(self):
+    def add_pending_changes(self, pending_changes: PendingChanges = None):
 
-        for id, service_account in self.pending_changes.service_accounts.items():
-            if service_account is not None:
+        if pending_changes is None:
+            pending_changes = self.pending_changes
+
+        for id, service_account in pending_changes.service_accounts.items():
+            if id in self.services:
+                if service_account is None:
+                    del self.services[id]
+                else:
+                    self.services[id].update_from(service_account)
+            elif service_account is not None:
                 self.services[id] = service_account
 
-        for (service_id, storage_hash), storage_item in self.pending_changes.storage_items.items():
+        for (service_id, storage_hash), storage_item in pending_changes.storage_items.items():
             if storage_item is not None:
                 self.services[service_id].storage_items[storage_hash] = storage_item
 
-        for (service_id, preimage_hash), preimage_blob in self.pending_changes.preimages.items():
+        for (service_id, preimage_hash), preimage_blob in pending_changes.preimages.items():
             if preimage_blob is not None:
                 self.services[service_id].preimages[preimage_hash] = preimage_blob
 
-        for (service_id, preimage_hash, preimage_size), availability in self.pending_changes.preimages_availability.items():
+        for (service_id, preimage_hash, preimage_size), availability in pending_changes.preimages_availability.items():
             if availability is not None:
                 self.services[service_id].preimage_availability[(preimage_hash, preimage_size)] = availability
 

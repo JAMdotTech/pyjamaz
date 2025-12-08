@@ -94,6 +94,26 @@ class TestAccumulate(unittest.TestCase):
         pre_services.pending_changes = PendingChanges()
 
         for s in test_vector["pre_state"]["accounts"]:
+            pre_services.store_service_account(
+                s["id"], ServiceAccount.from_json(
+                    {
+                        "code_hash": bytes.fromhex(s["data"]["service"]["code_hash"][2:]),
+                        "balance": s["data"]["service"]["balance"],
+                        "gas_limit_accumulate": s["data"]["service"]["min_item_gas"],
+                        "gas_limit_on_transfer": s["data"]["service"]["min_memo_gas"],
+                        "footprint_storage_items": s["data"]["service"]["items"],
+                        "footprint_storage_bytes": s["data"]["service"]["bytes"],
+                        "deposit_offset": s["data"]["service"]["deposit_offset"],
+                        "creation_slot": s["data"]["service"]["creation_slot"],
+                        "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
+                        "parent_service": s["data"]["service"]["parent_service"],
+                        "storage_items": {},
+                        "preimages": {},
+                        "preimage_availability": {},  # Note: done as a post processing step
+                        "threshold_balance": 0
+                    }
+                ))
+
             pre_services.store_service_account(s["id"], ServiceAccount.from_json({
                 "code_hash": bytes.fromhex(s["data"]["service"]["code_hash"][2:]),
                 "balance": s["data"]["service"]["balance"],
@@ -109,13 +129,15 @@ class TestAccumulate(unittest.TestCase):
                 "preimages": {},
                 "preimage_availability": {}, #Note: done as a post processing step
                 "threshold_balance": 0
-            }))
+            }), save_to_tx=True)
 
             for p in s['data']['storage']:
                 pre_services.store_storage_item(s["id"], bytes.fromhex(p["key"][2:]), bytes.fromhex(p['value'][2:]))
+                pre_services.store_storage_item(s["id"], bytes.fromhex(p["key"][2:]), bytes.fromhex(p['value'][2:]), save_to_tx=True)
 
             for p in s['data']['preimage_blobs']:
                 pre_services.store_preimage(s["id"], bytes.fromhex(p['blob'][2:]))
+                pre_services.store_preimage(s["id"], bytes.fromhex(p['blob'][2:]), save_to_tx=True)
 
             preimage_requests = s['data']['preimage_requests']
             for p in preimage_requests:
@@ -123,7 +145,9 @@ class TestAccumulate(unittest.TestCase):
                 si_len = p['key']['length']
 
                 pre_services.store_preimage_availability(s["id"], si_key, si_len, p["value"])
+                pre_services.store_preimage_availability(s["id"], si_key, si_len, p["value"], save_to_tx=True)
 
+        pre_services.add_pending_changes()
 
         pre_privileged_services = PrivilegedServicesState(
             manager=test_vector["pre_state"]["privileges"]["bless"],
