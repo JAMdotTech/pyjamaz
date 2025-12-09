@@ -33,6 +33,8 @@ PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
 # Options: GRAYPAPER, CPYTHON, NUMBA_JIT, NUMBA_AOT
 PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "NUMBA_AOT")
 
+RPC_SERVER_MAX_SIZE = 30 * 1024 * 1024
+
 try:
     from pyjamaz.local_settings import *
 except ImportError:

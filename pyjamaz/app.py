@@ -660,7 +660,7 @@ class PyjamazApp:
         if self.pubsub:
             await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.BEST_BLOCK, data=block))
             await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))  # TODO: placeholder for now, move when implemented
-            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.working_state.statistics.to_jam_bytes().to_bytes())))
+            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=self.working_state.statistics.to_jam_bytes().to_bytes()))
 
     @log_execution_time
     async def add_ancestor_header(self, header: Header):

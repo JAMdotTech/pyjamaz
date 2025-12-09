@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+from base64 import b64encode, b64decode
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
@@ -28,6 +29,12 @@ RPC_ERROR = {
     "INVALID_PARAMS": {"code": -32602, "msg": "Invalid params"},
     "PARSE_ERROR": {"code": -32700, "msg": "Parse error"},
 }
+
+def base64_encode(data: bytes) -> str:
+    return b64encode(data).decode('ascii')
+
+def base64_decode(data: str) -> bytes:
+    return b64decode(data.encode('ascii'))
 
 
 class RPCCallException(Exception):
@@ -172,20 +179,20 @@ def rpcParameters(app, params):
 
 
 def rpcBestBlock(app, params):
-    return [list(app.retrieve_block_hash(app.working_state.timeslot.number)), app.working_state.timeslot.number]
+    return [base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)), app.working_state.timeslot.number]
 
 
 def rpcFinalizedBlock(app, params):
-    return [list(app.retrieve_block_hash(app.working_state.timeslot.number)), app.working_state.timeslot.number]
+    return [base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)), app.working_state.timeslot.number]
 
 
 def rpcParent(app, params):
     try:
-        block = app.retrieve_block_by_hash(bytes(params[0]))
+        block = app.retrieve_block_by_hash(base64_decode(params[0]))
         if not block:
             raise RPCCallException(RPC_ERROR["UNKNOWN_HEADER_HASH"])
         return [
-            list(block.header.parent),
+            base64_encode(block.header.parent),
             block.header.timeslot
         ]
     except StateKeyNoResult:
@@ -197,7 +204,7 @@ def rpcParent(app, params):
 def rpcServiceData(app, params):
     try:
         service = app.working_state.services.retrieve_service_account(params[1])
-        return list(service.to_serialized_bytes())
+        return base64_encode(service.to_serialized_bytes())
     except StateKeyNoResult:
         return None
 
@@ -216,50 +223,50 @@ def rpcListServices(app: PyjamazApp, params):
 
 def rpcServicePreimage(app, params):
     try:
-        return list(app.working_state.services.retrieve_preimage(params[1], bytes(params[2])))
+        return base64_encode(app.working_state.services.retrieve_preimage(params[1], base64_decode(params[2])))
     except StateKeyNoResult:
         return None
 
 
 def rpcStateRoot(app: PyjamazApp, params):
 
-    header_hash = bytes(params[0])
+    header_hash = base64_decode(params[0])
     for n, block in enumerate(reversed(app.working_state.recent_history.recent_blocks)):
         if block.header_hash == header_hash:
             if n == 0:
-                return list(app.working_state.state_root)
+                return base64_encode(app.working_state.state_root)
             else:
-                return list(block.state_root)
+                return base64_encode(block.state_root)
 
     return None
 
 
 def rpcStatistics(app, params):
     #TODO: params should contain the header hash indicating the block whose posterior state should be used for the query
-    return list(app.working_state.statistics.to_jam_bytes().to_bytes())
+    return base64_encode(app.working_state.statistics.to_jam_bytes().to_bytes())
 
 
 def rpcBeefyRoot(app: PyjamazApp, params):
-    header_hash = bytes(params[0])
-    return list(app.get_beefy_root(header_hash))
+    header_hash = base64_decode(params[0])
+    return base64_encode(app.get_beefy_root(header_hash))
 
 
 def rpcSubmitWorkPackage(app: PyjamazApp, params):
     #TODO: should assign to a specific core
-    ex = [bytes(x) for x in params[2]]
-    wp = WorkPackage.from_jam_bytes(JamBytes(bytes(params[1])))
+    ex = [base64_decode(x) for x in params[2]]
+    wp = WorkPackage.from_jam_bytes(JamBytes(base64_decode(params[1])))
     app.add_work_package(wp, ex)
 
 
 def rpcSubmitPreimage(app: PyjamazApp, params):
-    preimage_blob = bytes(params[1])
+    preimage_blob = base64_decode(params[1])
     pr = Preimage(requester=params[0], blob=preimage_blob)
     app.block_extrinsic.add_preimage(pr)
 
 
 def rpcServiceRequest(app: PyjamazApp, params):
     try:
-        return app.working_state.services.retrieve_preimage_availability(params[1], bytes(params[2]), params[3])
+        return app.working_state.services.retrieve_preimage_availability(params[1], base64_decode(params[2]), params[3])
     except StateKeyNoResult:
         return None
 
@@ -292,7 +299,7 @@ def rpcSubscribeServiceData(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
             "slot": app.working_state.timeslot.number,
             "value": rpcServiceData(app, params)
         }
@@ -304,7 +311,7 @@ def rpcSubscribeStatistics(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
             "slot": app.working_state.timeslot.number,
             "value": rpcStatistics(app, params)
         }
@@ -316,7 +323,7 @@ def rpcSubscribeServiceRequest(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
             "slot": app.working_state.timeslot.number,
             "value": rpcServiceRequest(app, [None, params[0], params[1], params[2]])
         }
@@ -325,7 +332,9 @@ def rpcSubscribeServiceRequest(app: PyjamazApp, params):
 
 def rpcServiceValue(app: PyjamazApp, params):
     try:
-        return list(app.working_state.services.retrieve_storage_item(service_account_id=params[1], storage_item_hash=bytes(params[2])))
+        return base64_encode(app.working_state.services.retrieve_storage_item(
+            service_account_id=params[1], storage_item_hash=base64_decode(params[2]))
+        )
     except StateKeyNoResult:
         return None
 
@@ -333,7 +342,7 @@ def rpcSubscribeServiceValue(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
             "slot": app.working_state.timeslot.number,
             "value": rpcServiceValue(app, [None] + params)
         }
@@ -345,7 +354,7 @@ def rpcSubscribeServicePreimage(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
             "slot": app.working_state.timeslot.number,
             "value": rpcServicePreimage(app, params)
         }
