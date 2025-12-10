@@ -1,19 +1,32 @@
 """
-Brain dump / annotated GP ref:
+Gas Cost Model (GCM) for the Polkadot Virtual Machine (PVM)
 
-Naive implementation of the Gas Cost Model (GCM) for the Polkadot Virtual Machine (PVM)
-This module implemenst the gas model (Appendix A.9/A.10) which simulates
-"a pipelined, out-of-order CPU microarchitecture to compute gas costs for basic blocks."
+Implements the gas model (GP Appendix A.9/A.10) which simulates a pipelined,
+out-of-order CPU microarchitecture to compute gas costs for basic blocks.
 
-IT basically predicts how many cycles each basic block takes by simulating CPU execution, taking parallel execution in account!
-This has simalarities with compilers; try to reorder instructions - to break dependency chains and let more work happen in parallel
+It predicts how many cycles each basic block takes by simulating CPU execution,
+accounting for parallel execution of independent instructions.
+
+
+Section | GP Reference | Function(s)
+--------|--------------|-------------------------------------------------------------
+1       | A.45         | Data structures (RobEntry, PipelineState, etc.)
+2.1     | A.46-A.47    | compute_block_gas_cost()
+2.2     | A.45         | _create_initial_state()
+2.3     | A.46         | _should_terminate(), _can_decode(), _can_issue()
+2.4     | A.48-A.50    | _transition_decode(), _decode_move_reg(), _decode_normal()
+2.5     | A.51-A.52    | _transition_issue(), _find_ready_instruction()
+2.6     | A.53         | _transition_tick()
+3       | (helpers)    | source_registers(), dest_registers(), decode_cost_P() (A.54)
+4       | A.55-A.56    | memory_latency(), branch_penalty()
+5       | A.10         | _build_instruction_cost_table()
 """
 
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from pyjamaz.pvm.constants import InstructionType, Opcode as op, OpcodeScheme, TERMINATION_OPCODES
+from pyjamaz.pvm.constants import InstructionType, TERMINATION_OPCODES
 from pyjamaz.pvm.interpreters.graypaper.defs import pvm_Z, read_uint
 
 
@@ -83,7 +96,7 @@ class PipelineState:
     - cycle_count:      c_dot - total cycles elapsed
     - decode_slots:     d_dot - decode slots remaining this cycle (reset to 4)
     - issue_slots:      e_dot - issue slots remaining this cycle (reset to 5)
-    - rob:              s_bar (stages), c_bar (cycles remaining), p_bar dependencies), r_bar (dest regs), x_bar (exec units)
+    - rob:              s_bar (stages), c_bar (cycles remaining), p_bar (dependencies), r_bar (dest regs), x_bar (exec units)
     - units_available:  x_ring - execution units available this cycle
     """
     instruction_pc: Optional[int]
@@ -136,19 +149,18 @@ class GasModel:
         mem_model: str = "L2HIT",
         jump_table: Optional[List[int]] = None,
     ):
-        self.code = code
-        self.inst_pos = inst_pos
-        self.inst_arg_len = inst_arg_len
+        # Store only what we need (scheme and enum for lookups)
         self.opcode_scheme = opcode_scheme
         self.op = opcode_enum
         self.mem_model = mem_model
         self.jump_table = jump_table or []
 
-        # Extend code with synthetic trap for clean termination
-        self.sim_code = bytearray(self.code)
-        self.inst_arg_len_sim = list(self.inst_arg_len)
-        self.inst_pos_sim = dict(self.inst_pos)
-        self.inst_pos_sim[len(self.code)] = len(self.inst_arg_len_sim)
+        # Create simulation code with synthetic trap for clean termination
+        # (originals not stored - only sim_* versions needed)
+        self.sim_code = bytearray(code)
+        self.inst_arg_len_sim = list(inst_arg_len)
+        self.inst_pos_sim = dict(inst_pos)
+        self.inst_pos_sim[len(code)] = len(self.inst_arg_len_sim)
         self.inst_arg_len_sim.append(0)
         self.sim_code.append(self.op.trap.value)
 
@@ -522,13 +534,13 @@ class GasModel:
         )
 
     # =========================================================================
-    # Section 3: Register Analysis (GP A.54)
+    # Section 3: Register Analysis
     # =========================================================================
 
     def source_registers(self, pc: int) -> Set[int]:
         """
         s_hat(pc): Set of source registers read by instruction at pc.
-        Used for RAW dependency detection and P(a,b) calculation.
+        Used for RAW dependency detection and decode_cost_P (A.54).
         """
         opcode, inst_type, _ = self._decode_at(pc)
 
@@ -958,24 +970,3 @@ class GasModel:
         """Check if required <= available for all unit types."""
         return (required.A <= available.A and required.L <= available.L and
                 required.S <= available.S and required.M <= available.M and required.D <= available.D)
-
-
-    # def s_hat(self, pc: int) -> Set[int]:
-    #     """Alias for source_registers (legacy API)."""
-    #     return self.source_registers(pc)
-    #
-    # def r_hat(self, pc: int) -> Set[int]:
-    #     """Alias for dest_registers (legacy API)."""
-    #     return self.dest_registers(pc)
-    #
-    # def P(self, a: int, b: int, pc: int) -> int:
-    #     """Alias for decode_cost_P (legacy API)."""
-    #     return self.decode_cost_P(a, b, pc)
-    #
-    # def skip_bytes(self, pc: int) -> int:
-    #     """Alias for _skip_bytes (legacy API)."""
-    #     return self._skip_bytes(pc)
-    #
-    # def decode_instruction(self, pc: int) -> Tuple[int, InstructionType, int]:
-    #     """Alias for _decode_at (legacy API)."""
-    #     return self._decode_at(pc)
