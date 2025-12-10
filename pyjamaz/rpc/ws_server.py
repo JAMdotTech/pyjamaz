@@ -10,7 +10,7 @@ import websockets
 from pyjamaz.rpc.rpc import RPC_REQUESTS, RPC_TYPE_SUBSCRIBE, RPC_TYPE_UNSUBSCRIBE, jsonapi_response, jsonapi_parse, RPCCallException, jsonapi_ws_subscribed, \
     jsonapi_ws_response, RPC_ERROR, jsonapi_error
 from pyjamaz.rpc.ws_server_subscriptions import SubscriptionManager
-
+from pyjamaz.settings import DEBUG, RPC_SERVER_MAX_SIZE
 
 if typing.TYPE_CHECKING:
     from pyjamaz.app import PyjamazApp
@@ -49,7 +49,7 @@ class WebSocketServer:
                     try:
                         # Process message and send response
                         try:
-                            logging.debug(f"INCOMING MESSAGE: {message}")
+                            DEBUG and logging.debug(f"INCOMING MESSAGE: {message}")
 
                             req_id = None
                             req_id, rpc_call, params, rpc_type, _ = jsonapi_parse(message)
@@ -136,7 +136,8 @@ class WebSocketServer:
             self.server = await websockets.serve(
                 self.handle_client,
                 self.host,
-                self.port
+                self.port,
+                max_size=RPC_SERVER_MAX_SIZE
             )
 
             logging.info(f"🌐 RPC server started on ws://{self.host}:{self.port}")
@@ -157,18 +158,6 @@ class WebSocketServer:
 
         finally:
             await self.shutdown()
-
-
-    async def serve(self):
-        """Method to run server without blocking"""
-        self.server = await websockets.serve(
-            self.handle_client,
-            self.host,
-            self.port
-        )
-        logging.info(f"Server started on ws://{self.host}:{self.port}")
-        await self.shutdown_event.wait()
-
 
 async def start_rpc_server(server: WebSocketServer):
     try:

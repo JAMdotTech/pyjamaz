@@ -9,7 +9,7 @@ from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Block
-from pyjamaz.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR
+from pyjamaz.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR, base64_encode
 
 if typing.TYPE_CHECKING:
     from pyjamaz.rpc.ws_server import WebSocketServer
@@ -60,7 +60,7 @@ class SubscriptionBestBlock(WSubscription):
 
     def create_data(self, data: Any):
         return {
-            "header_hash": list(data.header.hash),
+            "header_hash": base64_encode(data.header.hash),
             "slot": data.header.timeslot,
         }
 
@@ -71,7 +71,7 @@ class SubscriptionFinalizedBlock(WSubscription):
 
     def create_data(self, data: Block):
         return {
-            "header_hash": list(data.header.hash),
+            "header_hash": base64_encode(data.header.hash),
             "slot": data.header.timeslot,
         }
 
@@ -82,9 +82,9 @@ class SubscriptionStatistics(WSubscription):
 
     def create_data(self, data: Any):
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": data
+            "value": base64_encode(data)
         }
 
 
@@ -99,9 +99,9 @@ class SubscriptionServiceAccount(WSubscription):
 
     def create_data(self, data: Any):
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": list(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
+            "value": base64_encode(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
         }
 
 
@@ -117,9 +117,9 @@ class SubscriptionStorageItem(WSubscription):
 
     def create_data(self, data: Any):
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": list(data[self.DATA_SERVICE_BLOB])
+            "value": base64_encode(data[self.DATA_SERVICE_BLOB])
         }
 
 
@@ -137,9 +137,9 @@ class SubscriptionPreimage(WSubscription):
     def create_data(self, data: Any):
         #return list(data[self.DATA_PREIMAGE_BLOB])
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": list(data[self.DATA_PREIMAGE_BLOB])
+            "value": base64_encode(data[self.DATA_PREIMAGE_BLOB])
         }
 
 
@@ -163,9 +163,9 @@ class SubscriptionPreimageAvailability(WSubscription):
     def create_data(self, data: Any):
         #return list(data[self.DATA_PREIMAGE_BLOB])
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": list(data[self.DATA_PREIMAGE_BLOB])
+            "value": base64_encode(data[self.DATA_PREIMAGE_BLOB])
         }
 
 

@@ -365,6 +365,9 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     """
     Returns status:I32 where status==0 on success, -1 on fault.
     """
+    # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
+    addr = addr & U32_MASK
+
     idx = I32(-1)
     for i in range(len(section_starts)):
         if section_starts[i] <= addr <= section_ends[i]:
@@ -431,6 +434,9 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
     """
     Returns (status:I32, value:U64) where status==0 on success, -1 on fault.
     """
+    # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
+    addr = addr & U32_MASK
+
     idx = I32(-1)
     for i in range(len(section_starts)):
         if section_starts[i] <= addr <= section_ends[i]:

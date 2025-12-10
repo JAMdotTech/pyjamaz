@@ -88,6 +88,7 @@ class AccumulateInvocationMutator(InvocationMutator):
 
             case HostCallGeneral.fetch.value:
                 # GP-0.6.6-eq:B.11 | Y
+                DEBUG and logging.debug(f'[ACCUM MUTATOR] hc_fetch: accumulation_inputs count={len(self.accumulation_inputs) if self.accumulation_inputs else 0}')
                 hc_fetch(
                     registers=registers,
                     memory=memory,
@@ -241,8 +242,6 @@ def pvm_invoke_accumulate(
 
     # GP-0.7.1-eq:B.13 (C)
     if marshalling_output.exit_condition.reason in [ExitReason.out_of_gas, ExitReason.panic]:
-        # Rollback pending changes in state storage
-        state_context.services.state_storage.checkpoint_rollback()
 
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.savepoint_context.state_context,
@@ -251,7 +250,7 @@ def pvm_invoke_accumulate(
             gas_used=marshalling_output.gas_used,
             preimages=marshalling_output.context.savepoint_context.preimages
         )
-        logging.info(f'😱 PVM accumulate failed: {marshalling_output.exit_condition.reason}')
+        logging.info(f'😱 PVM accumulate failed (s={service_id}): {marshalling_output.exit_condition.reason}')
     elif marshalling_output.exit_condition.reason == ExitReason.halt and len(marshalling_output.exit_condition.value) > 0:
         output = PvmAccumulateOutput(
             state_context=marshalling_output.context.context.state_context,

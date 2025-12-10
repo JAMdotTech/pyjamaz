@@ -11,7 +11,8 @@ from pyjamaz.graypaper_constants import CORE_COUNT
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkReport, AccumulationOperand, AccumulationInput, DeferredTransfer
-from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, BeefyCommitmentMap, TimeslotState, EntropyState
+from pyjamaz.models.state import AccumulationQueueWorkPackage, AccumulationStateComponents, BeefyCommitmentMap, \
+    TimeslotState, EntropyState, PendingChanges
 
 from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
 from pyjamaz.settings import USE_THREAD_POOL_ACCUMULATE, THREAD_POOL_MAX_WORKERS, DEBUG
@@ -359,6 +360,63 @@ def parallel_accumulation(
                 if service_id == pre_state_assigners[c]:
                     accumulation_state.authorizer_queues = output.state_context.authorizer_queues
 
+            # Apply pending changes in services to global transaction (d')
+
+            for (s_id, storage_hash), value in output.state_context.services.pending_changes.storage_items.items():
+                if value is None:
+                    output.state_context.services.delete_storage_item(s_id, storage_hash, save_to_tx=True)
+                else:
+                    output.state_context.services.store_storage_item(s_id, storage_hash, value, save_to_tx=True)
+
+                # TODO move signal logic
+                # if self.app_context.pubsub:
+                #     await self.app_context.pubsub.publish(
+                #         PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[service_id, storage_hash, value])
+                #     )
+
+            for (s_id, preimage_hash), value in output.state_context.services.pending_changes.preimages.items():
+                if value is None:
+                    output.state_context.services.delete_preimage(s_id, preimage_hash, save_to_tx=True)
+                else:
+                    output.state_context.services.store_preimage(s_id, value, save_to_tx=True)
+
+                # TODO move signal logic
+                # if self.app_context.pubsub:
+                #     await self.app_context.pubsub.publish(
+                #         PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[service_id, preimage_hash, value])
+                #     )
+
+            for (s_id, preimage_hash,
+                 preimage_length), value in output.state_context.services.pending_changes.preimages_availability.items():
+                if value is None:
+                    output.state_context.services.delete_preimage_availability(s_id, preimage_hash, preimage_length, save_to_tx=True)
+                else:
+                    output.state_context.services.store_preimage_availability(s_id, preimage_hash, preimage_length, value, save_to_tx=True)
+
+                # TODO move signal logic
+                # if self.app_context.pubsub:
+                #     await self.app_context.pubsub.publish(
+                #         PubSubSignal(
+                #             topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY,
+                #             data=[service_id, preimage_hash, preimage_length, value]
+                #         )
+                #     )
+
+            for s_id, service_account in output.state_context.services.pending_changes.service_accounts.items():
+                if service_account is None:
+                    output.state_context.services.delete_service_account(s_id, save_to_tx=True)
+                else:
+                    output.state_context.services.store_service_account(s_id, service_account, save_to_tx=True)
+
+                # TODO move signal logic
+                # if self.app_context.pubsub:
+                #     await self.app_context.pubsub.publish(
+                #         PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[service_id, service_account])
+                #     )
+
+            # Apply pending_changes to accumulation_state
+            accumulation_state.services.add_pending_changes(output.state_context.services.pending_changes)
+
     # Check if manager service modified a', v' and r' and then override
     for c in range(CORE_COUNT):
         if pre_state_assigners[c] != manager_assigners[c]:
@@ -438,7 +496,7 @@ def single_step_accumulation(
                 )
 
     state_context = deepcopy(accumulation_state)
-    state_context.services.services = {}
+    state_context.services.pending_changes = PendingChanges()
 
     return pvm_invoke_accumulate(
         state_context=state_context,

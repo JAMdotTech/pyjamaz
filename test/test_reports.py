@@ -10,7 +10,7 @@ from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
     ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState, \
-    ServiceAccount
+    ServiceAccount, PendingChanges
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
@@ -91,8 +91,8 @@ class TestReports(unittest.TestCase):
         )
 
         pre_services = ServicesState()
-
         pre_services.set_state_storage(self.app_context.state_storage)
+        pre_services.pending_changes = PendingChanges()
 
         for s in test_vector["pre_state"]["accounts"]:
             pre_services.store_service_account(s["id"], ServiceAccount.from_json({

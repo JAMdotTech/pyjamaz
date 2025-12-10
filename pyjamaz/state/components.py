@@ -38,7 +38,7 @@ from pyjamaz.models.state import TimeslotState, EntropyState, ValidatorPoolState
     AssurancesState, PrivilegedServicesState, DisputesState, ServicesState, StatisticsState, RecentBlock, Mmr, \
     SlotSealerSeries, BeefyCommitmentMap, ReportedWorkPackage, ActivityRecord, Assurance as AssuranceStateItem, \
     AccumulationHistoryState, ServiceAccount, AccumulationQueueState, AccumulationStateComponents, \
-    AccumulationQueueWorkPackage, ServiceActivityRecord
+    AccumulationQueueWorkPackage, ServiceActivityRecord, PendingChanges
 from pyjamaz.transport.pubsub import PubSubSignal
 from pyjamaz.utils import reorder_list_outside_in, list_has_duplicates, format_hash, log_execution_time
 
@@ -1869,7 +1869,8 @@ class Services(StateComponent):
                 # Store preimage
                 intermediate_state_after_accumulation.store_preimage(
                     service_account_id=preimage.requester,
-                    preimage_blob=preimage.blob
+                    preimage_blob=preimage.blob,
+                    save_to_tx=True
                 )
 
                 # Update availability information
@@ -1877,7 +1878,8 @@ class Services(StateComponent):
                     service_account_id=preimage.requester,
                     preimage_hash=preimage_hash,
                     preimage_length=preimage_length,
-                    value=[post_state_timeslot.number]
+                    value=[post_state_timeslot.number],
+                    save_to_tx=True
                 )
 
         return ServicesAfterPreimagesOutput(
@@ -1916,10 +1918,10 @@ class Services(StateComponent):
         ServicesAfterAccumulationOutput
             Output containing: intermediate state of ServicesState (δ†) and BeefyCommitmentMap (C).
         """
-        # TODO: check GP-0.7.1-eq:4.16; needs attention and refactoring
 
-        services = ServicesState(services={})
+        services = deepcopy(pre_state_services)
         services.set_state_storage(self.app_context.state_storage)
+        services.pending_changes = PendingChanges()
 
         accumulation_state = AccumulationStateComponents(
             services=services,
@@ -1960,7 +1962,7 @@ class Services(StateComponent):
                 try:
                     service_account = output.post_accumulation_state.services.retrieve_service_account(s)
                     service_account.last_accumulation_slot = post_state_timeslot.number
-                    output.post_accumulation_state.services.store_service_account(s, service_account)
+                    output.post_accumulation_state.services.store_service_account(s, service_account, save_to_tx=True)
                 except StateKeyNoResult:
                     pass
 
@@ -1976,7 +1978,7 @@ class Services(StateComponent):
         )
 
     def retrieve_state(self) -> ServicesState:
-        # State is retrieve per service
+        # State is retrieved per service
         return ServicesState(services={})
 
     async def store_state(self, state: ServicesState, transaction: Optional[Transaction] = None):
@@ -1992,53 +1994,7 @@ class Services(StateComponent):
         -------
 
         """
-
-        for (service_id, storage_hash), value in state.state_storage.pending_changes.storage_items.items():
-            if value is None:
-                state.delete_storage_item(service_id, storage_hash, commit=True)
-            else:
-                state.store_storage_item(service_id, storage_hash, value, commit=True)
-
-            if self.app_context.pubsub:
-                await self.app_context.pubsub.publish(
-                    PubSubSignal(topic=MESSAGE_TYPES.STORAGE_ITEM, data=[service_id, storage_hash, value])
-                )
-
-        for (service_id, preimage_hash), value in state.state_storage.pending_changes.preimages.items():
-            if value is None:
-                state.delete_preimage(service_id, preimage_hash, commit=True)
-            else:
-                state.store_preimage(service_id, value, commit=True)
-
-            if self.app_context.pubsub:
-                await self.app_context.pubsub.publish(
-                    PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[service_id, preimage_hash, value])
-                )
-
-        for (service_id, preimage_hash, preimage_length), value in state.state_storage.pending_changes.preimages_availability.items():
-            if value is None:
-                state.delete_preimage_availability(service_id, preimage_hash, preimage_length, commit=True)
-            else:
-                state.store_preimage_availability(service_id, preimage_hash, preimage_length, value, commit=True)
-
-            if self.app_context.pubsub:
-                await self.app_context.pubsub.publish(
-                    PubSubSignal(
-                        topic=MESSAGE_TYPES.PREIMAGE_AVAILABILITY,
-                        data=[service_id, preimage_hash, preimage_length, value]
-                    )
-                )
-
-        for service_id, service_account in state.state_storage.pending_changes.service_accounts.items():
-            if service_account is None:
-                state.delete_service_account(service_id, commit=True)
-            else:
-                state.store_service_account(service_id, service_account, commit=True)
-
-            if self.app_context.pubsub:
-                await self.app_context.pubsub.publish(
-                    PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[service_id, service_account])
-                )
+        pass
 
 
 class AccumulationQueue(StateComponent):

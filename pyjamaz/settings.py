@@ -2,7 +2,7 @@ import os
 
 TEST_SUITE = 'tiny' # tiny or full
 GP_VERSION = '0.7.2'
-APP_VERSION = '0.1.37'
+APP_VERSION = '0.1.39'
 
 FUZZER_VERSION = 1
 FUZZER_FEATURE_FORK = True
@@ -32,6 +32,8 @@ PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
 
 # Options: GRAYPAPER, CPYTHON, NUMBA_JIT, NUMBA_AOT
 PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "NUMBA_AOT")
+
+RPC_SERVER_MAX_SIZE = 30 * 1024 * 1024
 
 try:
     from pyjamaz.local_settings import *

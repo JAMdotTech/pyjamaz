@@ -87,7 +87,7 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
     services = Mock(spec=ServicesState)
     services.services = service_accounts or {}
 
-    def retrieve_service_account(service_id):
+    def retrieve_service_account(service_id, skip_pending_changes=True):
         if service_id in services.services:
             return services.services[service_id]
         raise StateKeyNoResult(f"Service account {service_id} not found")

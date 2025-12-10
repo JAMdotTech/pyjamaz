@@ -1079,7 +1079,8 @@ class PVMInterpreter:
             except PVMMemoryError:
                 self.log and self.log.exc(traceback.format_exc())
                 self.status = ExitReason.page_fault.value
-                self.exit_value = self.mem._mem_addr
+                # Align the fault address to page boundary: (address / pageSize) * pageSize
+                self.exit_value = (self.mem._mem_addr // PVM_PAGE_SIZE) * PVM_PAGE_SIZE
                 break
 
             except PanicError as panic_error:

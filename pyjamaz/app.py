@@ -35,7 +35,7 @@ from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchiv
     AccumulationQueue, AccumulationHistory, RecentAccumulationLog
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Guarantee, Credential, \
     Assurance
-from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState
+from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState, PendingChanges
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time
@@ -363,6 +363,7 @@ class PyjamazApp:
 
         # Set storage engine for services
         pre_state_services.set_state_storage(self.state_storage)
+        pre_state_services.pending_changes = PendingChanges()
 
         # Validate quality of dispute extrinsic data
         self.components.disputes.validate_extrinsic_disputes(
@@ -659,7 +660,7 @@ class PyjamazApp:
         if self.pubsub:
             await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.BEST_BLOCK, data=block))
             await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.FINALIZED_BLOCK, data=block))  # TODO: placeholder for now, move when implemented
-            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=list(self.working_state.statistics.to_jam_bytes().to_bytes())))
+            await self.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.STATISTICS, data=self.working_state.statistics.to_jam_bytes().to_bytes()))
 
     @log_execution_time
     async def add_ancestor_header(self, header: Header):
