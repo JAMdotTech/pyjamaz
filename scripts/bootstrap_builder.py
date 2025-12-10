@@ -1,10 +1,12 @@
 import asyncio
+import logging
 import os
 from typing import List
 
 from jamcodec.base import JamBytes
 
 from pyjamaz.hashing import blake2b_256_hash
+from pyjamaz.logger import setup_logging
 from pyjamaz.models.builder import Instruction, ServiceRegistry
 from pyjamaz.models.common import RefinementContext, WorkPackage, WorkItem, WorkItemExtrinsic, Preimage
 from pyjamaz.rpc.ws_client import WebsocketClient
@@ -22,8 +24,8 @@ async def get_service_registry(client) -> ServiceRegistry:
 
 async def create_empty_workpackage(client: WebsocketClient) -> WorkPackage:
     best_block = await client.bestBlock()
-    block_hash = best_block[0]
-    block_timeslot = best_block[1]
+    block_hash = best_block["header_hash"]
+    block_timeslot = best_block["slot"]
 
     state_root = await client.stateRoot(block_hash)
     beefy_root = await client.beefyRoot(block_hash)
@@ -66,11 +68,16 @@ async def create_bootservice_workpackage(client: WebsocketClient, instruction: I
     return work_package
 
 async def main():
+    setup_logging(logging.INFO)
+
     try:
         async with WebsocketClient(JAM_RPC_SERVER) as client:
             # Init vars
             bootstrap_service_id = 0
             registration = "test123"
+
+            # Get Parameters
+            parameters = await client.parameters()
 
             # Write to a binary file
             with open("test_service.pvm", "rb") as f:
@@ -117,15 +124,15 @@ async def main():
 
             work_package = await create_bootservice_workpackage(client, create_instruction, extrinsic)
 
-            print(f"Creating service '{preimage.program_name}'...")
+            logging.info(f"Creating service '{preimage.program_name}'...")
             await client.submitWorkPackage(0, work_package, extrinsic)
 
             new_service = await client.subscribeServiceValue(bootstrap_service_id,  b'created')
             async for data in new_service:
-                print("Waiting for new service ID ...")
+                logging.info("Waiting for new service ID ...")
                 if data:
                     new_service_id = int.from_bytes(data, byteorder='little')
-                    print(f'Service ID = {data[::-1].hex()} ({new_service_id})')
+                    logging.info(f'Service ID = {data[::-1].hex()} ({new_service_id})')
                     break
 
             # Provide preimage
@@ -133,7 +140,7 @@ async def main():
 
             sub_request = await client.subscribeServiceRequest(new_service_id, blake2b_256_hash(new_service_preimage), len(new_service_preimage))
             async for data in sub_request:
-                print(f"Waiting for preimage ... {data}")
+                logging.info(f"Waiting for preimage ... {data}")
                 if len(data) == 1:
                     break
 
@@ -154,19 +161,19 @@ async def main():
                     # service=service_registry.services[0][1].id
                 )
             )
-            print('Submitting work package for new service...')
+            logging.info('Submitting work package for new service...')
             await client.submitWorkPackage(0, work_package, extrinsic)
 
             last_value = await client.subscribeServiceValue(new_service_id, b'last')
-            print("Waiting for new last value ...")
+            logging.info("Waiting for new last value ...")
             async for data in last_value:
                 if data:
-                    print(f'Last value = {data}')
+                    logging.info(f'Last value = {data}')
                     break
 
-            print('✅ Done!')
+            logging.info('✅ Done!')
     except ConnectionRefusedError:
-        print(f'⚠️ Cannot connect to PyJAMaz RPC server @ {JAM_RPC_SERVER}')
+        logging.error(f'⚠️ Cannot connect to PyJAMaz RPC server @ {JAM_RPC_SERVER}')
 
 
 if __name__ == "__main__":

@@ -179,7 +179,7 @@ def rpcParameters(app, params):
 
 
 def rpcBestBlock(app, params):
-    return [base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)), app.working_state.timeslot.number]
+    return {"header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)), "slot": app.working_state.timeslot.number}
 
 
 def rpcFinalizedBlock(app, params):

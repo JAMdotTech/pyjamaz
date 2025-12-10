@@ -8,7 +8,7 @@ import asyncio
 from pyjamaz.models.common import WorkPackage
 from pyjamaz.models.state import ServiceAccount
 from pyjamaz.rpc.interface import RPCMethods
-from pyjamaz.rpc.rpc import generate_req_id, RPCCallException, jsonapi_request
+from pyjamaz.rpc.rpc import generate_req_id, RPCCallException, jsonapi_request, base64_decode, base64_encode
 
 
 class WebsocketClient(RPCMethods):
@@ -125,7 +125,7 @@ class WebsocketClient(RPCMethods):
         res = await self._send_and_wait("bestBlock", None)
         if not res:
             return None
-        res[0] = bytes(res[0])
+        res["header_hash"] = base64_decode(res["header_hash"])
         return res
 
     async def listServices(self) -> List[int]:
@@ -133,59 +133,61 @@ class WebsocketClient(RPCMethods):
 
 
     async def stateRoot(self, block_hash) -> bytes:
-        block_hash = list(block_hash)
+        block_hash = base64_encode(block_hash)
         res = await self._send_and_wait("stateRoot", [block_hash])
-        return bytes(res)
+        return base64_decode(res)
 
     async def beefyRoot(self, block_hash) -> bytes:
-        block_hash = list(block_hash)
+        block_hash = base64_encode(block_hash)
         res = await self._send_and_wait("beefyRoot", [block_hash])
-        return bytes(res)
+        return base64_decode(res)
 
     async def servicePreimage(self, block_hash: bytes, service_id: int, preimage_hash: bytes) -> Optional[bytes]:
         blob = await self._send_and_wait("servicePreimage", [block_hash, service_id, preimage_hash])
         if not blob:
             return None
-        return bytes(blob)
+        return base64_decode(blob)
 
 
     async def submitWorkPackage(self, core_idx: int, workpackage: WorkPackage, extrinsics: List[bytes]) -> None:
-        workpackage_blob = list(workpackage.to_jam_bytes().to_bytes())
-        extrinsics_blob = [list(extrinsics_item) for extrinsics_item in extrinsics]
+        workpackage_blob = base64_encode(workpackage.to_jam_bytes().to_bytes())
+        extrinsics_blob = [base64_encode(extrinsics_item) for extrinsics_item in extrinsics]
         return await self._send_and_wait("submitWorkPackage", [core_idx, workpackage_blob, extrinsics_blob])
 
 
     async def submitPreimage(self, service_id: int , preimage_blob: bytes) -> None:
-        preimage_blob = list(preimage_blob)
+        preimage_blob = base64_encode(preimage_blob)
         return await self._send_and_wait("submitPreimage", [service_id, preimage_blob])
 
     async def serviceValue(self, block_hash: bytes , service_id: int, storage_key: bytes) -> Optional[bytes]:
-        result = await self._send_and_wait("serviceValue", [list(block_hash), service_id, list(storage_key)])
+        result = await self._send_and_wait(
+            "serviceValue", [base64_encode(block_hash), service_id, base64_encode(storage_key)]
+        )
         if result is not None:
-            result = bytes(result)
+            result = base64_decode(result)
         return result
 
     async def serviceData(self, block_hash: bytes, service_id:int) -> Optional[ServiceAccount]:
-        blob = await self._send_and_wait("serviceData", [list(block_hash), service_id])
+        blob = await self._send_and_wait("serviceData", [base64_encode(block_hash), service_id])
         if not blob:
             return None
-        return ServiceAccount.from_serialized_bytes(bytes(blob))
+        return ServiceAccount.from_serialized_bytes(base64_decode(blob))
 
 
     async def serviceRequest(self, block_hash: bytes, service_id:int, preimage_hash: bytes, preimage_length: int) -> Optional[ServiceAccount]:
-        return await self._send_and_wait("serviceRequest", [list(block_hash), service_id, list(preimage_hash), preimage_length])
+        return await self._send_and_wait("serviceRequest", [base64_encode(block_hash), service_id, base64_encode(preimage_hash), preimage_length])
 
 
     async def subscribeServiceData(self, service_id):
-        return await self.subscribe("subscribeServiceData", [service_id], lambda x: ServiceAccount.from_serialized_bytes(bytes(x)))
+        return await self.subscribe("subscribeServiceData", [service_id], lambda x: ServiceAccount.from_serialized_bytes(base64_decode(x)))
 
 
     async def subscribeServiceValue(self, service_id, storage_item_key):
         def result_parser(result):
             if result.get('value') is not None:
-                return bytes(result.get('value'))
+                return base64_decode(result.get('value'))
             return None
-        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key), False], result_parser)
+        return await self.subscribe("subscribeServiceValue", [service_id, base64_encode(storage_item_key), False], result_parser)
 
 
     async def subscribeServiceRequest(self, service_id:int, preimage_hash: bytes, preimage_length: int):
@@ -193,5 +195,5 @@ class WebsocketClient(RPCMethods):
             if result.get('value') is not None:
                 return result.get('value')
             return None
-        return await self.subscribe("subscribeServiceRequest", [service_id, list(preimage_hash), preimage_length], result_parser)
+        return await self.subscribe("subscribeServiceRequest", [service_id, base64_encode(preimage_hash), preimage_length], result_parser)
 
