@@ -1651,3 +1651,29 @@ STORAGE_KEY_MAPPING = {
     # Recent beefy commitments
     bytes.fromhex('10000000000000000000000000000000000000000000000000000000000000'): BeefyCommitmentMap,
 }
+
+
+@dataclass
+class ParallelAccumulationOutput:
+    """
+    GP-0.7.1-eq:12.19
+    """
+    accumulation_state: AccumulationStateComponents
+    deferred_transfers: List[DeferredTransfer]
+    accumulation_commitment: BeefyCommitmentMap
+    accumulation_gas_utilized: Dict[int, int]
+
+
+@dataclass
+class FullAccumulationOutput:
+    """
+    GP-0.7.1-eq:12.28
+    """
+    # n
+    nr_work_results_accumulated: int
+    # e'
+    post_accumulation_state: AccumulationStateComponents
+    # θ
+    accumulation_commitment: BeefyCommitmentMap
+    # bold_u
+    accumulation_gas_utilized: Dict[int, int]

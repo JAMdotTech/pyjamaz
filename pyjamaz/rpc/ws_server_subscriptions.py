@@ -9,7 +9,8 @@ from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Block
-from pyjamaz.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR, base64_encode
+from pyjamaz.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR, base64_encode, \
+    base64_decode
 
 if typing.TYPE_CHECKING:
     from pyjamaz.rpc.ws_server import WebSocketServer
@@ -112,7 +113,7 @@ class SubscriptionStorageItem(WSubscription):
 
     def check_params(self, data: Any):
         if data:
-            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and bytes(self.params[self.PARAM_STORAGE_KEY]) == data[self.PARAM_STORAGE_KEY]
+            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and base64_decode(self.params[self.PARAM_STORAGE_KEY]) == data[self.PARAM_STORAGE_KEY]
         return True
 
     def create_data(self, data: Any):
@@ -156,7 +157,7 @@ class SubscriptionPreimageAvailability(WSubscription):
         #print("CHECKING PARAMS FOR subscribeServicePreimageAvailability",data,tt)
         if data:
             return (self.params[self.PARAM_SERVICE_ID] == data[self.DATA_SERVICE_ID] and
-                    bytes(self.params[self.PARAM_PREIMAGE_HASH]) == data[self.DATA_PREIMAGE_HASH] and
+                    base64_decode(self.params[self.PARAM_PREIMAGE_HASH]) == data[self.DATA_PREIMAGE_HASH] and
                     self.params[self.PARAM_PREIMAGE_LENGTH] == data[self.DATA_PREIMAGE_LENGTH])
         return True
 
@@ -165,7 +166,7 @@ class SubscriptionPreimageAvailability(WSubscription):
         return {
             "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": base64_encode(data[self.DATA_PREIMAGE_BLOB])
+            "value": data[self.DATA_PREIMAGE_BLOB]
         }
 
 

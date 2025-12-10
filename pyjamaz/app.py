@@ -555,7 +555,7 @@ class PyjamazApp:
             logging.info(f'📥 Accumulatable work-reports: {nr_acc_reports}')
 
         # Services Accumulation STF Block Data | GP-0.7.1-eq:4.18
-        services_after_accumulation_output = self.components.services.state_transition_accumulation(
+        services_after_accumulation_output = await self.components.services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_privileged_services=pre_state_privileged_services,
             pre_state_services=pre_state_services,
@@ -566,7 +566,7 @@ class PyjamazApp:
         )
 
         # Services After Preimages STF Block Data | GP-0.7.1-eq:4.18
-        services_after_preimages_output = self.components.services.state_transition_after_preimages(
+        services_after_preimages_output = await self.components.services.state_transition_after_preimages(
             extrinsic_preimages=block.extrinsic.preimages,
             intermediate_state_after_accumulation=services_after_accumulation_output.intermediate_state_after_accumulation,
             post_state_timeslot=timeslot_output.post_state

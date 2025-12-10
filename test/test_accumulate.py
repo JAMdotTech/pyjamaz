@@ -37,7 +37,7 @@ def reformat_work_report(work_report_data: dict) -> dict:
     }
     return work_report_data
 
-class TestAccumulate(unittest.TestCase):
+class TestAccumulate(unittest.IsolatedAsyncioTestCase):
 
 
     def setUp(self):
@@ -62,7 +62,7 @@ class TestAccumulate(unittest.TestCase):
             return json.load(f)
 
     @parameterized.expand(get_test_vector_files(file_filter=''))
-    def test_vector(self, name, test_file):
+    async def test_vector(self, name, test_file):
 
         test_vector = self.load_test_vector_data(test_file)
 
@@ -229,7 +229,7 @@ class TestAccumulate(unittest.TestCase):
 
         services = Services(self.block_context, self.app_context)
 
-        accumulation_output = services.state_transition_accumulation(
+        accumulation_output = await services.state_transition_accumulation(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
             pre_state_privileged_services=pre_privileged_services,
             post_state_timeslot=post_state_timeslot,

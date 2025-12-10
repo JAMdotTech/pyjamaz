@@ -27,7 +27,7 @@ def get_test_vector_files(file_filter: Optional[str] = None):
     return test_vectors
 
 
-class TestPreimages(unittest.TestCase):
+class TestPreimages(unittest.IsolatedAsyncioTestCase):
 
 
     def setUp(self):
@@ -45,7 +45,7 @@ class TestPreimages(unittest.TestCase):
             return json.load(f)
 
     @parameterized.expand(get_test_vector_files(file_filter=''))
-    def test_vector(self, name, test_file):
+    async def test_vector(self, name, test_file):
 
         test_vector = self.load_test_vector_data(test_file)
 
@@ -112,7 +112,7 @@ class TestPreimages(unittest.TestCase):
                 pre_state_services=pre_services,
             )
 
-            output = services.state_transition_after_preimages(
+            output = await services.state_transition_after_preimages(
                 extrinsic_preimages=extrinsic_preimages,
                 intermediate_state_after_accumulation=pre_services,
                 post_state_timeslot=post_state_timeslot,
