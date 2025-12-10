@@ -836,7 +836,7 @@ class GasModel:
         new_rob: List[RobEntry] = []
         returned_units = ExecUnits()
 
-        # Determine which slots become empty
+        # Determine which slots become empty (retired in order from the front)
         empty_up_to = -1
         for idx, entry in enumerate(state.rob):
             if entry.stage in (0, 4):
@@ -844,6 +844,7 @@ class GasModel:
             else:
                 break
 
+        # Process each ROB entry, updating stages and collecting returned units
         for idx, entry in enumerate(state.rob):
             stage = entry.stage
             cycles_left = entry.cycles_left
@@ -863,9 +864,14 @@ class GasModel:
                 dest_regs = set()
                 returned_units = self._add_exec_units(returned_units, entry.units)
 
-            new_rob.append(
-                RobEntry(stage=stage, cycles_left=cycles_left, units=entry.units, deps=set(entry.deps), dest_regs=dest_regs)
-            )
+            # only keep entries that are not fully retired (stage != 0)
+            # this allows new instructions to be decoded when slots free up
+            if stage != 0:
+                # adjust dependency indices since wre removing entries from the front
+                adjusted_deps = {d - (empty_up_to + 1) for d in entry.deps if d > empty_up_to}
+                new_rob.append(
+                    RobEntry(stage=stage, cycles_left=cycles_left, units=entry.units, deps=adjusted_deps, dest_regs=dest_regs)
+                )
 
         new_units = self._add_exec_units(state.units_free, returned_units)
         return GasState(
