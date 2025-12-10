@@ -443,6 +443,16 @@ def hc_fetch(
     w11 = registers[11]
     w12 = registers[12]
 
+    logger and logger.hc_log(
+        "FETCH input",
+        f"kind={w10} idx={w11} len={w12} "
+        f"acc_inputs={'none' if accumulation_inputs is None else len(accumulation_inputs)} "
+        f"extrinsics={'none' if extrinsics is None else len(extrinsics)} "
+        f"work_package={'yes' if work_package else 'no'} "
+        f"authorizer_output={'yes' if authorizer_output else 'no'} "
+        f"work_item_index={work_item_index}"
+    )
+
     def serialize_work_item(work_item: WorkItem) -> bytes:
         """
         Function S
@@ -571,12 +581,12 @@ def hc_fetch(
     elif bold_v is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
-        logger and logger.hc_log("FETCH NONE", f"kind={w10}")
+        logger and logger.hc_log("FETCH result", "NONE")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(bold_v)
         invocation_output.memory.write_bytes(o, bold_v[f:f+l])
-        logger and logger.hc_log("FETCH OK", f"kind={w10} value={bold_v[f:f+l].hex()}")
+        logger and logger.hc_log("FETCH result", f"OK wrote={l}bytes from len={len(bold_v)}")
 
 
 def hc_not_found(
