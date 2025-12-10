@@ -1,74 +1,130 @@
+"""
+Brain dump / annotated GP ref:
+
+Naive implementation of the Gas Cost Model (GCM) for the Polkadot Virtual Machine (PVM)
+This module implemenst the gas model (Appendix A.9/A.10) which simulates
+"a pipelined, out-of-order CPU microarchitecture to compute gas costs for basic blocks."
+
+IT basically predicts how many cycles each basic block takes by simulating CPU execution, taking parallel execution in account!
+This has simalarities with compilers; try to reorder instructions - to break dependency chains and let more work happen in parallel
+"""
+
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
-from pyjamaz.pvm.constants import InstructionType, Opcode as op, OpcodeNames, OpcodeScheme, TERMINATION_OPCODES
+from pyjamaz.pvm.constants import InstructionType, Opcode as op, OpcodeScheme, TERMINATION_OPCODES
 from pyjamaz.pvm.interpreters.graypaper.defs import pvm_Z, read_uint
+
+
+# =============================================================================
+# Section 1: Data Structures (GP A.45)
+# =============================================================================
+
+class RobStage(IntEnum):
+    """
+    ROB entry lifecycle stages (s_bar in GP notation).
+
+    Stage transitions:
+        DECODED(1) -> READY(2) -> EXECUTING(3) -> RETIRED(4) -> EMPTY(0)
+    """
+    EMPTY = 0       # Slot is free / entry has been removed
+    DECODED = 1     # Just decoded, waiting to become ready
+    READY = 2       # Ready to issue (dependencies resolved)
+    EXECUTING = 3   # Currently executing on functional units
+    RETIRED = 4     # Execution complete, waiting to commit in order
 
 
 @dataclass
 class ExecUnits:
-    # x̂ / x_hat
-    A: int = 0  # Arithmetic / ALU units; integer/bit-ops pipeline: add/sub/and/xor/shifts/compare, etc.
-    L: int = 0  # Load units; memory loads
-    S: int = 0  # Store units;memory stores
-    M: int = 0  # Multiply units; mul_* ops
-    D: int = 0  # Divide units; div_* / rem_*
+    """
+    Execution unit requirements/availability (x_hat / x_ring in GP notation).
+
+    Models the functional units of the virtual CPU:
+    - A: Arithmetic/ALU (add, sub, and, xor, shifts, compare, etc.)
+    - L: Load unit (memory loads)
+    - S: Store unit (memory stores)
+    - M: Multiply unit (mul_* operations)
+    - D: Divide unit (div_*, rem_* operations)
+    """
+    A: int = 0
+    L: int = 0
+    S: int = 0
+    M: int = 0
+    D: int = 0
 
 
 @dataclass
 class RobEntry:
     """
-    GP-0.7.1-eq:A.45 (vector from row 3 bundled)
-    Note:
-        re‑order buffer (ROB) is a hardware structure in out‑of‑order CPUs that:
-            - tracks all in‑flight instructions,
-            - lets them execute out of order, and
-            - then commits their results in program order so the CPU appears precise and sane.
-        See: https://en.wikipedia.org/wiki/Out-of-order_execution
+    Reorder Buffer entry tracking an in-flight instruction.
 
-        In short just a queue of in‑flight instructions;
-        Each RobEntry tracks:
-            - which stage it’s in (stage)
-            - how many cycles left (cycles_left)
-            - which functional units it uses (units)
-            - its dependencies on older entries (deps)
-            - and which registers it will eventually write (dest_regs)
+    GP notation mapping:
+    - stage:      s_bar[j] - lifecycle stage (see RobStage)
+    - cycles_left: c_bar[j] - remaining execution cycles
+    - deps:       p_bar[j] - indices of ROB entries we depend on (RAW hazards)
+    - dest_regs:  r_bar[j] - registers this instruction will write
+    - units:      x_bar[j] - execution units required
     """
-    #TODO: maak stage enum
-    stage: int # s_arrow; At which big step of its life-cycle is this instruction right now; 1: decoded, 2: ready to issue, 3: executing, 4: finishing / retiring, 0: free
-    cycles_left: int # c_arrow;
-    deps: Set[int]  # p_arrow; ROB indices of producers of our source regs (RAW hazards from s_hat with older r_hat)
-    dest_regs: Set[int] #r_arrwo; registers used
-    units: ExecUnits # x_arrow; tracks cost (A/L/S/M/D) for this instruction
+    stage: int
+    cycles_left: int
+    deps: Set[int]
+    dest_regs: Set[int]
+    units: ExecUnits
 
 
 @dataclass
-class GasState:
-    # GP-0.7.1-eq:A.45
-    i: Optional[int] # instruction index
-    c_cycles: int # c_dot (c˙); nr cycles procesed
-    n_rob: int  # n_dot (n˙); nr entries in the reordering buffer -> todo: missch overal len(state.rob) gebruiken
-    d_slots: int # d_dot (d˙); the nr of decode slots remaining (into the ROB)
-    e_slots: int # e_dot (e˙); the nr remaining instructions we can execute (out the ROB)
-    rob: List[RobEntry] # the reordening buffer, keeps track of decoded instructions (
-    units_free: ExecUnits # x_dot (x˙); how many of each unit type are still available this cycle.
+class PipelineState:
+    """
+    Complete pipeline simulation state (Xi in GP notation).
+
+    GP-0.7.1-eq:A.45 mapping:
+    - instruction_pc:   z - next instruction to decode (None when done decoding)
+    - cycle_count:      c_dot - total cycles elapsed
+    - decode_slots:     d_dot - decode slots remaining this cycle (reset to 4)
+    - issue_slots:      e_dot - issue slots remaining this cycle (reset to 5)
+    - rob:              s_bar (stages), c_bar (cycles remaining), p_bar dependencies), r_bar (dest regs), x_bar (exec units)
+    - units_available:  x_ring - execution units available this cycle
+    """
+    instruction_pc: Optional[int]
+    cycle_count: int
+    decode_slots: int
+    issue_slots: int
+    rob: List[RobEntry]
+    units_available: ExecUnits
 
 
 @dataclass
-class InstrCost:
+class InstructionCost:
     """
-    GP-0.7.1-eq:A.10 + A.48–A.50
+    Cost parameters for a single instruction type.
+
+    GP notation:
+    - latency_fn:  c_hat - execution latency in cycles
+    - decode_fn:   d_hat - decode bandwidth cost (slots consumed)
+    - units_fn:    x_hat - execution units required
     """
-    latency_fn: Callable[[int], int]        #ĉ : execution latency in cycles
-    decode_fn: Callable[[int], int]         #d̂ : decode bandwidth cost
-    units_fn: Callable[[int], ExecUnits]    #x̂ : ExecUnits usage vector (A,L,S,M,D)
-    
+    latency_fn: Callable[[int], int]
+    decode_fn: Callable[[int], int]
+    units_fn: Callable[[int], ExecUnits]
+
+
+# =============================================================================
+# Section 2: Gas Model Implementation
+# =============================================================================
 
 class GasModel:
     """
     Implements the graypaper gas model (Appendix A.9/A.10).
+
+    Simulates a pipelined out-of-order CPU to compute gas costs for basic blocks.
     """
+
+    # Pipeline configuration constants
+    MAX_ROB_SIZE = 32
+    DECODE_SLOTS_PER_CYCLE = 4
+    ISSUE_SLOTS_PER_CYCLE = 5
+    INITIAL_EXEC_UNITS = ExecUnits(A=4, L=4, S=4, M=1, D=1)
 
     def __init__(
         self,
@@ -77,10 +133,9 @@ class GasModel:
         inst_arg_len: List[int],
         opcode_scheme,
         opcode_enum,
-        mem_model: str = "L2HIT", #TODO: enum van maken
+        mem_model: str = "L2HIT",
         jump_table: Optional[List[int]] = None,
     ):
-        #TODO: clone voor nu... later herbruiken / optimizen
         self.code = code
         self.inst_pos = inst_pos
         self.inst_arg_len = inst_arg_len
@@ -89,7 +144,7 @@ class GasModel:
         self.mem_model = mem_model
         self.jump_table = jump_table or []
 
-        # !!!!TODO: temp extend with a synthetic trap to terminate when running past the end of the code blob
+        # Extend code with synthetic trap for clean termination
         self.sim_code = bytearray(self.code)
         self.inst_arg_len_sim = list(self.inst_arg_len)
         self.inst_pos_sim = dict(self.inst_pos)
@@ -99,232 +154,769 @@ class GasModel:
 
         self.cost_table = self._build_instruction_cost_table()
 
+    # =========================================================================
+    # Section 2.1: Main Entry Point - Block Gas Cost (GP A.46-A.47)
+    # =========================================================================
 
-    def skip_bytes(self, pc: int) -> int:
+    def compute_block_gas_cost(self, block_start_pc: int) -> int:
+        """
+        GP-0.7.1-eq:A.46-A.47
+
+        Simulate the pipeline for a basic block and return its gas cost.
+
+        The simulation runs until all instructions are decoded and the ROB drains.
+        Each step applies one of four transitions (A.46):
+            1. Xi_decode: Decode next instruction (if possible)
+            2. Xi_issue:  Issue a ready instruction (if possible)
+            3. Xi_tick:   Advance pipeline by one cycle
+            4. Terminate: When ROB is empty and no more instructions
+
+        Final gas cost (A.47): max(cycle_count - 3, 1)
+        """
+        state = self._create_initial_state(block_start_pc)
+        max_steps = 100000
+
+        for _ in range(max_steps):
+            # Termination: ROB empty and no more instructions to decode
+            if self._should_terminate(state):
+                break
+
+            # Handle PC beyond code bounds
+            if state.instruction_pc is not None and state.instruction_pc >= len(self.sim_code):
+                state = self._set_instruction_pc(state, None)
+
+            # GP A.46: Choose transition based on current state
+            if self._can_decode(state):
+                state = self._transition_decode(state)
+            elif self._can_issue(state):
+                state = self._transition_issue(state)
+            else:
+                state = self._transition_tick(state)
+
+        # GP A.47: Final gas cost
+        return max(state.cycle_count - 3, 1)
+
+    # =========================================================================
+    # Section 2.2: Initial State (GP A.45)
+    # =========================================================================
+
+    def _create_initial_state(self, start_pc: int) -> PipelineState:
+        """
+        GP-0.7.1-eq:A.45
+
+        Create initial pipeline state Xi_0(t) for block starting at start_pc.
+        """
+        return PipelineState(
+            instruction_pc=start_pc,
+            cycle_count=0,
+            decode_slots=self.DECODE_SLOTS_PER_CYCLE,
+            issue_slots=self.ISSUE_SLOTS_PER_CYCLE,
+            rob=[],
+            units_available=ExecUnits(
+                A=self.INITIAL_EXEC_UNITS.A,
+                L=self.INITIAL_EXEC_UNITS.L,
+                S=self.INITIAL_EXEC_UNITS.S,
+                M=self.INITIAL_EXEC_UNITS.M,
+                D=self.INITIAL_EXEC_UNITS.D,
+            ),
+        )
+
+    # =========================================================================
+    # Section 2.3: State Transition Conditions (GP A.46)
+    # =========================================================================
+
+    def _should_terminate(self, state: PipelineState) -> bool:
+        """Check if simulation should terminate (ROB empty, no more instructions)."""
+        return (
+            state.instruction_pc is None
+            and (not state.rob or all(e.stage == RobStage.EMPTY for e in state.rob))
+        )
+
+    def _can_decode(self, state: PipelineState) -> bool:
+        """
+        GP-0.7.1-eq:A.46 condition 1
+
+        Check if we can decode the next instruction:
+        - Have an instruction to decode
+        - ROB not full (< 32 entries)
+        - Have enough decode slots
+        """
+        if state.instruction_pc is None:
+            return False
+        if len(state.rob) >= self.MAX_ROB_SIZE:
+            return False
+
+        opcode = self.sim_code[state.instruction_pc]
+
+        # move_reg only needs 1 decode slot
+        if opcode == self.op.move_reg.value:
+            return state.decode_slots >= 1
+
+        cost = self.cost_table.get(opcode)
+        if cost is None:
+            return False
+
+        return cost.decode_fn(state.instruction_pc) <= state.decode_slots
+
+    def _can_issue(self, state: PipelineState) -> bool:
+        """
+        GP-0.7.1-eq:A.46 condition 2
+
+        Check if we can issue a ready instruction.
+        """
+        return (
+            self._find_ready_instruction(state) is not None
+            and state.issue_slots > 0
+        )
+
+    # =========================================================================
+    # Section 2.4: Decode Transition (GP A.48-A.50)
+    # =========================================================================
+
+    def _transition_decode(self, state: PipelineState) -> PipelineState:
+        """
+        GP-0.7.1-eq:A.48
+
+        Decode transition Xi':
+        - If move_reg: use Xi_mov (A.49) - no ROB entry
+        - Otherwise: use Xi_decode (A.50) - add ROB entry
+        """
+        if state.instruction_pc is None:
+            return state
+
+        pc = state.instruction_pc
+        opcode = self.sim_code[pc]
+
+        if opcode == self.op.move_reg.value:
+            return self._decode_move_reg(state, pc)
+        else:
+            return self._decode_normal(state, pc)
+
+    def _decode_move_reg(self, state: PipelineState, pc: int) -> PipelineState:
+        """
+        GP-0.7.1-eq:A.49
+
+        move_reg is handled by the frontend without adding a ROB entry.
+        It just updates register mappings in existing ROB entries.
+        """
+        src_regs = self.source_registers(pc)
+        dst_regs = self.dest_registers(pc)
+
+        # Update ROB entries based on register overlap
+        new_rob = []
+        for entry in state.rob:
+            if src_regs & entry.dest_regs:
+                # Source overlaps with entry's dest: union
+                new_dest = entry.dest_regs | dst_regs
+            elif dst_regs & entry.dest_regs:
+                # Dest overlaps with entry's dest: intersection with src
+                new_dest = entry.dest_regs & src_regs
+            else:
+                new_dest = entry.dest_regs
+
+            new_rob.append(RobEntry(
+                stage=entry.stage,
+                cycles_left=entry.cycles_left,
+                units=entry.units,
+                deps=set(entry.deps),
+                dest_regs=set(new_dest),
+            ))
+
+        return PipelineState(
+            instruction_pc=pc + self._skip_bytes(pc),
+            cycle_count=state.cycle_count,
+            decode_slots=state.decode_slots - 1,
+            issue_slots=state.issue_slots,
+            rob=new_rob,
+            units_available=state.units_available,
+        )
+
+    def _decode_normal(self, state: PipelineState, pc: int) -> PipelineState:
+        """
+        GP-0.7.1-eq:A.50
+
+        Decode a normal instruction and add it to the ROB.
+        """
+        opcode = self.sim_code[pc]
+        cost = self.cost_table.get(opcode)
+
+        if cost is None:
+            return self._set_instruction_pc(state, None)
+
+        src_regs = self.source_registers(pc)
+        dst_regs = self.dest_registers(pc)
+
+        # Get instruction costs
+        latency = cost.latency_fn(pc)      # c_hat
+        decode_cost = cost.decode_fn(pc)   # d_hat
+        exec_units = cost.units_fn(pc)     # x_hat
+
+        # Compute next PC (None for termination opcodes)
+        next_pc = None if opcode in TERMINATION_OPCODES else pc + self._skip_bytes(pc)
+
+        # Find dependencies: ROB entries whose dest_regs overlap with our src_regs
+        dependencies = {
+            idx for idx, entry in enumerate(state.rob)
+            if src_regs & entry.dest_regs
+        }
+
+        # Update existing ROB entries: remove our dst_regs from their dest_regs
+        new_rob = []
+        for entry in state.rob:
+            new_rob.append(RobEntry(
+                stage=entry.stage,
+                cycles_left=entry.cycles_left,
+                units=entry.units,
+                deps=set(entry.deps),
+                dest_regs=entry.dest_regs - dst_regs,
+            ))
+
+        # Add new ROB entry
+        new_rob.append(RobEntry(
+            stage=RobStage.DECODED,
+            cycles_left=latency,
+            units=exec_units,
+            deps=dependencies,
+            dest_regs=dst_regs,
+        ))
+
+        return PipelineState(
+            instruction_pc=next_pc,
+            cycle_count=state.cycle_count,
+            decode_slots=state.decode_slots - decode_cost,
+            issue_slots=state.issue_slots,
+            rob=new_rob,
+            units_available=state.units_available,
+        )
+
+    # =========================================================================
+    # Section 2.5: Issue Transition (GP A.51-A.52)
+    # =========================================================================
+
+    def _transition_issue(self, state: PipelineState) -> PipelineState:
+        """
+        GP-0.7.1-eq:A.51
+
+        Issue transition Xi'':
+        Move a ready instruction from READY to EXECUTING state.
+        """
+        ready_idx = self._find_ready_instruction(state)
+        if ready_idx is None or state.issue_slots <= 0:
+            return state
+
+        entry = state.rob[ready_idx]
+
+        # Update ROB entry to EXECUTING
+        new_rob = list(state.rob)
+        new_rob[ready_idx] = RobEntry(
+            stage=RobStage.EXECUTING,
+            cycles_left=entry.cycles_left,
+            units=entry.units,
+            deps=set(entry.deps),
+            dest_regs=set(entry.dest_regs),
+        )
+
+        # Consume execution units
+        new_units = self._subtract_units(state.units_available, entry.units)
+
+        return PipelineState(
+            instruction_pc=state.instruction_pc,
+            cycle_count=state.cycle_count,
+            decode_slots=state.decode_slots,
+            issue_slots=state.issue_slots - 1,
+            rob=new_rob,
+            units_available=new_units,
+        )
+
+    def _find_ready_instruction(self, state: PipelineState) -> Optional[int]:
+        """
+        GP-0.7.1-eq:A.52
+
+        Find the oldest ROB entry that is ready to issue:
+        - Stage is READY (2)
+        - Has enough execution units available
+        - All dependencies have finished (cycles_left <= 0)
+
+        Returns the ROB index, or None if no instruction is ready.
+        """
+        for idx, entry in enumerate(state.rob):
+            if entry.stage != RobStage.READY:
+                continue
+            if not self._has_enough_units(entry.units, state.units_available):
+                continue
+            if any(state.rob[dep].cycles_left > 0 for dep in entry.deps if dep < len(state.rob)):
+                continue
+            return idx
+        return None
+
+    # =========================================================================
+    # Section 2.6: Tick Transition (GP A.53)
+    # =========================================================================
+
+    def _transition_tick(self, state: PipelineState) -> PipelineState:
+        """
+        GP-0.7.1-eq:A.53
+
+        Tick transition Xi''':
+        Advance the pipeline by one cycle:
+        1. Retire completed instructions from the front of ROB
+        2. Update stages: DECODED(1)->READY(2), EXECUTING(3)->RETIRED(4) when done
+        3. Decrement cycles_left for EXECUTING entries
+        4. Return execution units from completed instructions
+        5. Increment cycle counter
+        6. Reset decode/issue slots for next cycle
+        """
+        returned_units = ExecUnits()
+
+        # Find how many entries to retire from the front
+        retire_count = 0
+        for entry in state.rob:
+            if entry.stage in (RobStage.EMPTY, RobStage.RETIRED):
+                retire_count += 1
+            else:
+                break
+
+        # Process each ROB entry
+        new_rob = []
+        for idx, entry in enumerate(state.rob):
+            new_stage = entry.stage
+            new_cycles = entry.cycles_left
+            new_dest_regs = set(entry.dest_regs)
+
+            # Stage transitions
+            if idx < retire_count:
+                new_stage = RobStage.EMPTY
+            elif entry.stage == RobStage.DECODED:
+                new_stage = RobStage.READY
+            elif entry.stage == RobStage.EXECUTING and entry.cycles_left == 0:
+                new_stage = RobStage.RETIRED
+
+            # Decrement cycles for executing instructions
+            if entry.stage == RobStage.EXECUTING and entry.cycles_left > 0:
+                new_cycles = entry.cycles_left - 1
+
+            # Return units and clear dest_regs when execution completes
+            if entry.stage == RobStage.EXECUTING and entry.cycles_left == 1:
+                new_dest_regs = set()
+                returned_units = self._add_units(returned_units, entry.units)
+
+            # Only keep non-retired entries
+            if new_stage != RobStage.EMPTY:
+                # Adjust dependency indices for removed entries
+                adjusted_deps = {d - retire_count for d in entry.deps if d >= retire_count}
+                new_rob.append(RobEntry(
+                    stage=new_stage,
+                    cycles_left=new_cycles,
+                    units=entry.units,
+                    deps=adjusted_deps,
+                    dest_regs=new_dest_regs,
+                ))
+
+        return PipelineState(
+            instruction_pc=state.instruction_pc,
+            cycle_count=state.cycle_count + 1,
+            decode_slots=self.DECODE_SLOTS_PER_CYCLE,
+            issue_slots=self.ISSUE_SLOTS_PER_CYCLE,
+            rob=new_rob,
+            units_available=self._add_units(state.units_available, returned_units),
+        )
+
+    # =========================================================================
+    # Section 3: Register Analysis (GP A.54)
+    # =========================================================================
+
+    def source_registers(self, pc: int) -> Set[int]:
+        """
+        s_hat(pc): Set of source registers read by instruction at pc.
+        Used for RAW dependency detection and P(a,b) calculation.
+        """
+        opcode, inst_type, _ = self._decode_at(pc)
+
+        match inst_type:
+            case InstructionType.none | InstructionType.imm | InstructionType.reg_ext_imm | InstructionType.imm_imm | InstructionType.offset:
+                return set()
+
+            case InstructionType.reg_imm:
+                r_a = min(12, self.sim_code[pc + 1] % 16)
+                if opcode in {self.op.jump_ind.value, self.op.store_u8.value,
+                             self.op.store_u16.value, self.op.store_u32.value, self.op.store_u64.value}:
+                    return {r_a}
+                return set()
+
+            case InstructionType.reg_imm_imm:
+                r_a = min(12, self.sim_code[pc + 1] % 16)
+                return {r_a}
+
+            case InstructionType.reg_imm_offset:
+                if opcode == self.op.load_imm_jump.value:
+                    return set()
+                r_a = min(12, self.sim_code[pc + 1] % 16)
+                return {r_a}
+
+            case InstructionType.reg_reg:
+                r_a = min(12, self.sim_code[pc + 1] // 16)
+                return {r_a}
+
+            case InstructionType.reg_reg_imm:
+                r_a = min(12, self.sim_code[pc + 1] % 16)
+                r_b = min(12, self.sim_code[pc + 1] // 16)
+                if opcode in {self.op.store_ind_u8.value, self.op.store_ind_u16.value,
+                             self.op.store_ind_u32.value, self.op.store_ind_u64.value}:
+                    return {r_a, r_b}
+                if opcode in {self.op.load_ind_u8.value, self.op.load_ind_i8.value,
+                             self.op.load_ind_u16.value, self.op.load_ind_i16.value,
+                             self.op.load_ind_u32.value, self.op.load_ind_i32.value,
+                             self.op.load_ind_u64.value}:
+                    return {r_b}
+                return {r_b}
+
+            case InstructionType.reg_reg_offset:
+                r_a = min(12, self.sim_code[pc + 1] % 16)
+                r_b = min(12, self.sim_code[pc + 1] // 16)
+                return {r_a, r_b}
+
+            case InstructionType.reg_reg_imm_imm:
+                r_b = min(12, self.sim_code[pc + 1] // 16)
+                return {r_b}
+
+            case InstructionType.reg_reg_reg:
+                r_a = min(12, self.sim_code[pc + 1] % 16)
+                r_b = min(12, self.sim_code[pc + 1] // 16)
+                return {r_a, r_b}
+
+        return set()
+
+    def dest_registers(self, pc: int) -> Set[int]:
+        """
+        r_hat(pc): Set of destination registers written by instruction at pc.
+        Used for WAW/WAR hazard detection.
+        """
+        opcode, inst_type, _ = self._decode_at(pc)
+
+        match inst_type:
+            case InstructionType.none | InstructionType.imm | InstructionType.imm_imm | InstructionType.offset:
+                return set()
+
+            case InstructionType.reg_ext_imm:
+                if pc + 1 >= len(self.sim_code):
+                    return set()
+                return {min(12, self.sim_code[pc + 1] % 16)}
+
+            case InstructionType.reg_imm:
+                if pc + 1 >= len(self.sim_code):
+                    return set()
+                if opcode in {self.op.jump_ind.value, self.op.store_u8.value,
+                             self.op.store_u16.value, self.op.store_u32.value, self.op.store_u64.value}:
+                    return set()
+                return {min(12, self.sim_code[pc + 1] % 16)}
+
+            case InstructionType.reg_imm_imm:
+                return set()
+
+            case InstructionType.reg_imm_offset:
+                if pc + 1 >= len(self.sim_code):
+                    return set()
+                if opcode == self.op.load_imm_jump.value:
+                    return {min(12, self.sim_code[pc + 1] % 16)}
+                return set()
+
+            case InstructionType.reg_reg:
+                if pc + 1 >= len(self.sim_code):
+                    return set()
+                return {min(12, self.sim_code[pc + 1] % 16)}
+
+            case InstructionType.reg_reg_imm:
+                if pc + 1 >= len(self.sim_code):
+                    return set()
+                if opcode in {self.op.store_ind_u8.value, self.op.store_ind_u16.value,
+                             self.op.store_ind_u32.value, self.op.store_ind_u64.value}:
+                    return set()
+                return {min(12, self.sim_code[pc + 1] % 16)}
+
+            case InstructionType.reg_reg_offset:
+                return set()
+
+            case InstructionType.reg_reg_imm_imm:
+                if pc + 1 >= len(self.sim_code):
+                    return set()
+                return {min(12, self.sim_code[pc + 1] % 16)}
+
+            case InstructionType.reg_reg_reg:
+                if pc + 2 >= len(self.sim_code):
+                    return set()
+                return {min(12, self.sim_code[pc + 2])}
+
+        return set()
+
+    def decode_cost_P(self, a: int, b: int, pc: int) -> int:
+        """
+        GP-0.7.1-eq:A.54
+
+        Decode cost helper P(a, b, pc):
+        Returns 'a' if source and dest registers overlap, otherwise 'b'.
+
+        This models the decode cost penalty when an instruction's destination
+        register is also one of its source registers.
+        """
+        if self.source_registers(pc) & self.dest_registers(pc):
+            return a
+        return b
+
+    # =========================================================================
+    # Section 4: Cost Parameters (GP A.55-A.56)
+    # =========================================================================
+
+    def memory_latency(self) -> int:
+        """
+        GP-0.7.1-eq:A.55
+
+        Memory access latency based on cache model:
+        - L2HIT: 25 cycles
+        - L3HIT: 37 cycles
+        """
+        return 25 if self.mem_model == "L2HIT" else 37
+
+    def branch_penalty(self, pc: int) -> int:
+        """
+        GP-0.7.1-eq:A.56
+
+        Branch misprediction penalty:
+        - 1 cycle if either fallthrough or target is 'unlikely' or 'trap'
+        - 20 cycles otherwise
+        """
+        fallthrough_pc = pc + self._skip_bytes(pc)
+        fallthrough_op = self.sim_code[fallthrough_pc] if fallthrough_pc < len(self.sim_code) else None
+
+        opcode = self.sim_code[pc]
+        target_pc = self._compute_branch_target(pc, opcode)
+        target_op = self.sim_code[target_pc] if target_pc and target_pc < len(self.sim_code) else None
+
+        trap_unlikely = {self.op.unlikely.value, self.op.trap.value}
+        if fallthrough_op in trap_unlikely or target_op in trap_unlikely:
+            return 1
+        return 20
+
+    # =========================================================================
+    # Section 5: Instruction Cost Table (GP A.10)
+    # =========================================================================
+
+    def _build_instruction_cost_table(self) -> Dict[int, InstructionCost]:
+        """Build the instruction cost table per GP Appendix A.10."""
+
+        def const(v: int) -> Callable[[int], int]:
+            return lambda pc: v
+
+        def units(A=0, L=0, S=0, M=0, D=0) -> Callable[[int], ExecUnits]:
+            return lambda pc: ExecUnits(A=A, L=L, S=S, M=M, D=D)
+
+        table: Dict[int, InstructionCost] = {}
+
+        # --- Arithmetic & Logical (64-bit) ---
+        for opc in (self.op._and.value, self.op.xor.value, self.op._or.value,
+                    self.op.add_64.value, self.op.sub_64.value):
+            table[opc] = InstructionCost(
+                latency_fn=const(1),
+                decode_fn=lambda pc, a=1, b=2: self.decode_cost_P(a, b, pc),
+                units_fn=units(A=1)
+            )
+
+        # --- Arithmetic & Logical (32-bit) ---
+        for opc in (self.op.add_32.value, self.op.sub_32.value):
+            table[opc] = InstructionCost(
+                latency_fn=const(2),
+                decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
+                units_fn=units(A=1)
+            )
+
+        # --- Immediate variants (64-bit) ---
+        for opc in (self.op.and_imm.value, self.op.xor_imm.value, self.op.or_imm.value,
+                    self.op.add_imm_64.value, self.op.shlo_r_imm_64.value, self.op.shar_r_imm_64.value,
+                    self.op.shlo_l_imm_64.value, self.op.rot_r_64_imm.value, self.op.reverse_bytes.value):
+            table[opc] = InstructionCost(
+                latency_fn=const(1),
+                decode_fn=lambda pc, a=1, b=2: self.decode_cost_P(a, b, pc),
+                units_fn=units(A=1)
+            )
+
+        # --- Immediate variants (32-bit) ---
+        for opc in (self.op.add_imm_32.value, self.op.shlo_r_imm_32.value, self.op.shar_r_imm_32.value,
+                    self.op.shlo_l_imm_32.value, self.op.rot_r_32_imm.value):
+            table[opc] = InstructionCost(
+                latency_fn=const(2),
+                decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
+                units_fn=units(A=1)
+            )
+
+        # --- Bit operations ---
+        for opc in (self.op.count_set_bits_64.value, self.op.count_set_bits_32.value,
+                    self.op.leading_zero_bits_64.value, self.op.leading_zero_bits_32.value,
+                    self.op.sign_extend_8.value, self.op.sign_extend_16.value, self.op.zero_extend_16.value):
+            table[opc] = InstructionCost(latency_fn=const(1), decode_fn=const(1), units_fn=units(A=1))
+
+        for opc in (self.op.trailing_zero_bits_64.value, self.op.trailing_zero_bits_32.value):
+            table[opc] = InstructionCost(latency_fn=const(2), decode_fn=const(1), units_fn=units(A=2))
+
+        # --- Shifts/Rotations (64-bit register) ---
+        table[self.op.shlo_l_64.value] = InstructionCost(
+            latency_fn=const(1),
+            decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
+            units_fn=units(A=1)
+        )
+        table[self.op.shlo_r_64.value] = InstructionCost(latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1))
+
+        for opc in (self.op.shar_r_64.value, self.op.rot_l_64.value, self.op.rot_r_64.value):
+            table[opc] = InstructionCost(
+                latency_fn=const(1),
+                decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
+                units_fn=units(A=1)
+            )
+
+        # --- Shifts/Rotations (32-bit register) ---
+        for opc in (self.op.shlo_l_32.value, self.op.shlo_r_32.value, self.op.shar_r_32.value,
+                    self.op.rot_l_32.value, self.op.rot_r_32.value):
+            table[opc] = InstructionCost(
+                latency_fn=const(2),
+                decode_fn=lambda pc, a=3, b=4: self.decode_cost_P(a, b, pc),
+                units_fn=units(A=1)
+            )
+
+        # --- Alt immediate shifts ---
+        for opc in (self.op.shlo_l_imm_alt_64.value, self.op.shlo_r_imm_alt_64.value,
+                    self.op.shar_r_imm_alt_64.value, self.op.rot_r_64_imm_alt.value):
+            table[opc] = InstructionCost(latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1))
+
+        for opc in (self.op.shlo_l_imm_alt_32.value, self.op.shlo_r_imm_alt_32.value,
+                    self.op.shar_r_imm_alt_32.value, self.op.rot_r_32_imm_alt.value):
+            table[opc] = InstructionCost(latency_fn=const(2), decode_fn=const(4), units_fn=units(A=1))
+
+        # --- Set/Compare ---
+        for opc in (self.op.set_lt_u.value, self.op.set_lt_s.value, self.op.set_lt_u_imm.value,
+                    self.op.set_lt_s_imm.value, self.op.set_gt_u_imm.value, self.op.set_gt_s_imm.value):
+            table[opc] = InstructionCost(latency_fn=const(3), decode_fn=const(3), units_fn=units(A=1))
+
+        # --- Conditional moves ---
+        table[self.op.cmov_iz.value] = InstructionCost(latency_fn=const(2), decode_fn=const(2), units_fn=units(A=1))
+        table[self.op.cmov_nz.value] = table[self.op.cmov_iz.value]
+        table[self.op.cmov_iz_imm.value] = InstructionCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
+        table[self.op.cmov_nz_imm.value] = table[self.op.cmov_iz_imm.value]
+
+        # --- Min/Max ---
+        for opc in (self.op._max.value, self.op.max_u.value, self.op._min.value, self.op.min_u.value):
+            table[opc] = InstructionCost(
+                latency_fn=const(3),
+                decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
+                units_fn=units(A=1)
+            )
+
+        # --- Memory loads ---
+        for opc in (self.op.load_ind_u8.value, self.op.load_ind_i8.value, self.op.load_ind_u16.value,
+                    self.op.load_ind_i16.value, self.op.load_ind_u32.value, self.op.load_ind_i32.value,
+                    self.op.load_ind_u64.value, self.op.load_u8.value, self.op.load_i8.value,
+                    self.op.load_u16.value, self.op.load_i16.value, self.op.load_u32.value,
+                    self.op.load_i32.value, self.op.load_u64.value):
+            table[opc] = InstructionCost(
+                latency_fn=lambda pc: self.memory_latency(),
+                decode_fn=const(1),
+                units_fn=units(A=1, L=1)
+            )
+
+        # --- Memory stores ---
+        for opc in (self.op.store_imm_ind_u8.value, self.op.store_imm_ind_u16.value,
+                    self.op.store_imm_ind_u32.value, self.op.store_imm_ind_u64.value,
+                    self.op.store_ind_u8.value, self.op.store_ind_u16.value,
+                    self.op.store_ind_u32.value, self.op.store_ind_u64.value,
+                    self.op.store_imm_u8.value, self.op.store_imm_u16.value,
+                    self.op.store_imm_u32.value, self.op.store_imm_u64.value,
+                    self.op.store_u8.value, self.op.store_u16.value,
+                    self.op.store_u32.value, self.op.store_u64.value):
+            table[opc] = InstructionCost(latency_fn=const(25), decode_fn=const(1), units_fn=units(A=1, S=1))
+
+        # --- Branches ---
+        for opc in (self.op.branch_eq.value, self.op.branch_ne.value, self.op.branch_lt_u.value,
+                    self.op.branch_lt_s.value, self.op.branch_ge_u.value, self.op.branch_ge_s.value,
+                    self.op.branch_eq_imm.value, self.op.branch_ne_imm.value, self.op.branch_lt_u_imm.value,
+                    self.op.branch_le_u_imm.value, self.op.branch_ge_u_imm.value, self.op.branch_gt_u_imm.value,
+                    self.op.branch_lt_s_imm.value, self.op.branch_le_s_imm.value, self.op.branch_ge_s_imm.value,
+                    self.op.branch_gt_s_imm.value):
+            table[opc] = InstructionCost(
+                latency_fn=lambda pc: self.branch_penalty(pc),
+                decode_fn=const(1),
+                units_fn=units(A=1)
+            )
+
+        # --- Division/Modulo ---
+        for opc in (self.op.div_u_32.value, self.op.div_s_32.value, self.op.rem_u_32.value,
+                    self.op.rem_s_32.value, self.op.div_u_64.value, self.op.div_s_64.value,
+                    self.op.rem_u_64.value, self.op.rem_s_64.value):
+            table[opc] = InstructionCost(latency_fn=const(60), decode_fn=const(4), units_fn=units(A=1, D=1))
+
+        # --- Boolean inversions ---
+        for opc in (self.op.and_inv.value, self.op.or_inv.value):
+            table[opc] = InstructionCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
+        table[self.op.xnor.value] = InstructionCost(
+            latency_fn=const(2),
+            decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
+            units_fn=units(A=1)
+        )
+
+        # --- Negate/add ---
+        table[self.op.neg_add_imm_64.value] = InstructionCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
+        table[self.op.neg_add_imm_32.value] = InstructionCost(latency_fn=const(3), decode_fn=const(4), units_fn=units(A=1))
+
+        # --- Immediates ---
+        table[self.op.load_imm.value] = InstructionCost(latency_fn=const(1), decode_fn=const(1), units_fn=units())
+        table[self.op.load_imm_64.value] = InstructionCost(latency_fn=const(1), decode_fn=const(2), units_fn=units())
+
+        # --- Multiplication ---
+        for opc in (self.op.mul_64.value, self.op.mul_imm_64.value):
+            table[opc] = InstructionCost(
+                latency_fn=const(3),
+                decode_fn=lambda pc, a=1, b=2: self.decode_cost_P(a, b, pc),
+                units_fn=units(A=1, M=1)
+            )
+        for opc in (self.op.mul_32.value, self.op.mul_imm_32.value):
+            table[opc] = InstructionCost(
+                latency_fn=const(4),
+                decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
+                units_fn=units(A=1, M=1)
+            )
+        for opc in (self.op.mul_upper_s_s.value, self.op.mul_upper_u_u.value, self.op.mul_upper_s_u.value):
+            lat = 6 if opc == self.op.mul_upper_s_u.value else 4
+            table[opc] = InstructionCost(latency_fn=const(lat), decode_fn=const(4), units_fn=units(A=1, M=1))
+
+        # --- Control flow & misc ---
+        table[self.op.trap.value] = InstructionCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
+        table[self.op.fallthrough.value] = InstructionCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
+        table[self.op.unlikely.value] = InstructionCost(latency_fn=const(40), decode_fn=const(1), units_fn=units())
+        table[self.op.jump.value] = InstructionCost(latency_fn=const(15), decode_fn=const(1), units_fn=units())
+        table[self.op.load_imm_jump.value] = InstructionCost(latency_fn=const(15), decode_fn=const(1), units_fn=units())
+        table[self.op.jump_ind.value] = InstructionCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
+        table[self.op.load_imm_jump_ind.value] = InstructionCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
+        table[self.op.ecalli.value] = InstructionCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
+        table[self.op.sbrk.value] = InstructionCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
+
+        return table
+
+    # =========================================================================
+    # Section 6: Helper Functions
+    # =========================================================================
+
+    def _skip_bytes(self, pc: int) -> int:
+        """Get the number of bytes to skip to reach the next instruction."""
         inst_index = self.inst_pos_sim.get(pc, 0)
         if inst_index >= len(self.inst_arg_len_sim):
             return 1
         return 1 + self.inst_arg_len_sim[inst_index]
 
-
-    def decode_instruction(self, pc: int) -> Tuple[int, InstructionType, int]:
+    def _decode_at(self, pc: int) -> Tuple[int, InstructionType, int]:
+        """Decode instruction at pc, returning (opcode, type, index)."""
         opcode = self.sim_code[pc]
         inst_type = self.opcode_scheme.get(opcode, InstructionType.none)
         inst_index = self.inst_pos_sim.get(pc, 0)
         return opcode, inst_type, inst_index
 
-
-    def s_hat(self, pc: int) -> Set[int]:
-        """
-        GP-0.7.1 (Appendix A.9/A.10)
-        ŝ / s_hat: set of *source* registers sˇ for the instruction at pc.
-        These are the registers that the instruction READS (used for RAW deps and P(a, b, pc)).
-        """
-        opcode, inst_type, inst_index = self.decode_instruction(pc)
-
-        match inst_type:
-            case InstructionType.none:
-                return set()
-
-            case InstructionType.imm:
-                return set()
-
-            case InstructionType.reg_ext_imm:
-                return set()
-
-            case InstructionType.imm_imm:
-                return set()
-
-            case InstructionType.offset:
-                return set()
-
-            case InstructionType.reg_imm:
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                if opcode == self.op.jump_ind.value:
-                    return {r_a}
-                if opcode in {
-                    self.op.store_u8.value,
-                    self.op.store_u16.value,
-                    self.op.store_u32.value,
-                    self.op.store_u64.value,
-                }:
-                    return {r_a}
-                return set()
-
-            case InstructionType.reg_imm_imm:
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                return {r_a}
-
-            case InstructionType.reg_imm_offset:
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                # load_imm_jump writes r_a but does not read it
-                if opcode == self.op.load_imm_jump.value:
-                    return set()
-                return {r_a}
-
-            case InstructionType.reg_reg:
-                r_a = min(12, self.sim_code[pc + 1] // 16)
-                if opcode == self.op.move_reg.value:
-                    return {r_a}
-                return {r_a}
-
-            case InstructionType.reg_reg_imm:
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                r_b = min(12, self.sim_code[pc + 1] // 16)
-                if opcode in {
-                    self.op.store_ind_u8.value,
-                    self.op.store_ind_u16.value,
-                    self.op.store_ind_u32.value,
-                    self.op.store_ind_u64.value,
-                }:
-                    return {r_a, r_b}
-                if opcode in {
-                    self.op.load_ind_u8.value,
-                    self.op.load_ind_i8.value,
-                    self.op.load_ind_u16.value,
-                    self.op.load_ind_i16.value,
-                    self.op.load_ind_u32.value,
-                    self.op.load_ind_i32.value,
-                    self.op.load_ind_u64.value,
-                }:
-                    return {r_b}
-
-                # Regular immediates read r_b
-                return {r_b}
-
-            case InstructionType.reg_reg_offset:
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                r_b = min(12, self.sim_code[pc + 1] // 16)
-                return {r_a, r_b}
-
-            case InstructionType.reg_reg_imm_imm:
-                r_b = min(12, self.sim_code[pc + 1] // 16)
-                return {r_b}
-
-            case InstructionType.reg_reg_reg:
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                r_b = min(12, self.sim_code[pc + 1] // 16)
-                return {r_a, r_b}
-
-        return set()
-
-
-    def r_hat(self, pc: int) -> Set[int]:
-        """
-        GP-0.7.1 (Appendix A.9/A.10)
-        r̂ / r_hat: set of *result* registers rˇ for the instruction at pc.
-        These are the registers that the instruction WRITES (dest_regs in the ROB).
-        """
-        opcode, inst_type, inst_index = self.decode_instruction(pc)
-
-        match inst_type:
-            case InstructionType.none:
-                return set()
-
-            case InstructionType.imm:
-                return set()
-
-            case InstructionType.reg_ext_imm:
-                if pc + 1 >= len(self.sim_code):
-                    return set()
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                return {r_a}
-
-            case InstructionType.imm_imm:
-                return set()
-
-            case InstructionType.offset:
-                return set()
-
-            case InstructionType.reg_imm:
-                if pc + 1 >= len(self.sim_code):
-                    return set()
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                if opcode in {
-                    self.op.jump_ind.value,
-                    self.op.store_u8.value,
-                    self.op.store_u16.value,
-                    self.op.store_u32.value,
-                    self.op.store_u64.value,
-                }:
-                    return set()
-                return {r_a}
-
-            case InstructionType.reg_imm_imm:
-                return set()
-
-            case InstructionType.reg_imm_offset:
-                if pc + 1 >= len(self.sim_code):
-                    return set()
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                if opcode == self.op.load_imm_jump.value:
-                    return {r_a}
-                return set()
-
-            case InstructionType.reg_reg:
-                if pc + 1 >= len(self.sim_code):
-                    return set()
-                r_d = min(12, self.sim_code[pc + 1] % 16)
-                if opcode == self.op.move_reg.value:
-                    return {r_d}
-                return {r_d}
-
-            case InstructionType.reg_reg_imm:
-                if pc + 1 >= len(self.sim_code):
-                    return set()
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                if opcode in {
-                    self.op.store_ind_u8.value,
-                    self.op.store_ind_u16.value,
-                    self.op.store_ind_u32.value,
-                    self.op.store_ind_u64.value,
-                }:
-                    return set()
-                return {r_a}
-
-            case InstructionType.reg_reg_offset:
-                return set()
-
-            case InstructionType.reg_reg_imm_imm:
-                if pc + 1 >= len(self.sim_code):
-                    return set()
-                r_a = min(12, self.sim_code[pc + 1] % 16)
-                return {r_a}
-
-            case InstructionType.reg_reg_reg:
-                if pc + 2 >= len(self.sim_code):
-                    return set()
-                r_d = min(12, self.sim_code[pc + 2])
-                return {r_d}
-
-        return set()
-
-
-    def P(self, a: int, b: int, pc: int) -> int:
-        """
-        GP-0.7.1-eq:A.54
-        Decode cost helper P(a, b, pc):
-        return a if sˇ(pc) ∩ rˇ(pc) ≠ ∅ (self-overlap), otherwise b.
-        """
-        return a if self.s_hat(pc) & self.r_hat(pc) else b
-
-
-    def memory_latency(self) -> int:
-        """
-        GP-0.7.1-eq:A.55
-        Return the memory latency m:
-        - 25 cycles for L2HIT
-        - 37 cycles for L3HIT
-        """
-        return 25 if self.mem_model == "L2HIT" else 37
-
-
-    def _compute_static_branch_target_pc(self, pc: int, opcode: int) -> Optional[int]:
-        """
-        Helper for GP-0.7.1-eq:A.56
-        Compute the static branch target PC for a branch instruction at pc, if applicable;
-        returns None for non-branch instructions.
-        """
+    def _compute_branch_target(self, pc: int, opcode: int) -> Optional[int]:
+        """Compute static branch target PC, or None for non-branches."""
         inst_type = self.opcode_scheme.get(opcode)
         inst_index = self.inst_pos_sim.get(pc, 0)
         if inst_index >= len(self.inst_arg_len_sim):
@@ -343,611 +935,47 @@ class GasModel:
 
         return None
 
-
-    def branch_penalty(self, pc: int) -> int:
-        """
-        GP-0.7.1-eq:A.56
-        Compute branch misprediction penalty b(pc):
-        - 1 cycle if either fall-through or branch target is an 'unlikely' or 'trap' opcode,
-        - 20 cycles otherwise.
-        """
-        inst_index = self.inst_pos_sim.get(pc, 0)
-        fallthrough_pc = pc + self.skip_bytes(pc)
-        fallthrough_opcode = self.sim_code[fallthrough_pc] if fallthrough_pc < len(self.sim_code) else None
-
-        opcode = self.sim_code[pc]
-        target_pc = self._compute_static_branch_target_pc(pc, opcode)
-        target_opcode = self.sim_code[target_pc] if target_pc is not None and target_pc < len(self.sim_code) else None
-
-        if fallthrough_opcode in (self.op.unlikely.value, self.op.trap.value) or target_opcode in (
-            self.op.unlikely.value,
-            self.op.trap.value,
-        ):
-            return 1
-        return 20
-
-
-    def _build_instruction_cost_table(self) -> Dict[int, InstrCost]:
-        """
-        GP-0.7.1 Appendix A.10
-        Build a table mapping opcode -> InstrCost(cˇ, dˇ, xˇ) according to the graypaper cost model.
-        """
-        def const(v: int) -> Callable[[int], int]:
-            return lambda pc: v
-
-        def units(A=0, L=0, S=0, M=0, D=0) -> Callable[[int], ExecUnits]:
-            return lambda pc: ExecUnits(A=A, L=L, S=S, M=M, D=D)
-
-        table: Dict[int, InstrCost] = {}
-
-        # Arithmetic & logical operations
-        for opcode in (self.op._and.value, self.op.xor.value, self.op._or.value):
-            table[opcode] = InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1)
-            )
-        for opcode in (self.op.add_64.value, self.op.sub_64.value):
-            table[opcode] = InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1)
-            )
-        for opcode in (self.op.add_32.value, self.op.sub_32.value):
-            table[opcode] = InstrCost(
-                latency_fn=const(2), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
-            )
-        for opcode in (self.op.and_imm.value, self.op.xor_imm.value, self.op.or_imm.value, self.op.add_imm_64.value):
-            table[opcode] = InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1)
-            )
-        table[self.op.shlo_r_imm_64.value] = InstrCost(
-            latency_fn=const(1), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1)
-        )
-        table[self.op.shar_r_imm_64.value] = table[self.op.shlo_r_imm_64.value]
-        table[self.op.shlo_l_imm_64.value] = table[self.op.shlo_r_imm_64.value]
-        table[self.op.rot_r_64_imm.value] = table[self.op.shlo_r_imm_64.value]
-        table[self.op.reverse_bytes.value] = table[self.op.shlo_r_imm_64.value]
-
-        # 32-bit immediates with higher decode cost
-        for opcode in (
-            self.op.add_imm_32.value,
-            self.op.shlo_r_imm_32.value,
-            self.op.shar_r_imm_32.value,
-            self.op.shlo_l_imm_32.value,
-            self.op.rot_r_32_imm.value,
-        ):
-            table[opcode] = InstrCost(
-                latency_fn=const(2), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
-            )
-
-        # Bit operations
-        for opcode in (
-            self.op.count_set_bits_64.value,
-            self.op.count_set_bits_32.value,
-            self.op.leading_zero_bits_64.value,
-            self.op.leading_zero_bits_32.value,
-            self.op.sign_extend_8.value,
-            self.op.sign_extend_16.value,
-            self.op.zero_extend_16.value,
-        ):
-            table[opcode] = InstrCost(latency_fn=const(1), decode_fn=const(1), units_fn=units(A=1))
-        for opcode in (self.op.trailing_zero_bits_64.value, self.op.trailing_zero_bits_32.value):
-            table[opcode] = InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units(A=2))
-
-        # 64-bit shifts/rotations
-        table[self.op.shlo_l_64.value] = InstrCost(
-            latency_fn=const(1), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
-        )
-        table[self.op.shlo_r_64.value] = InstrCost(
-            latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1)
-        )
-        for opcode in (self.op.shar_r_64.value,):
-            table[opcode] = InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
-            )
-        for opcode in (self.op.rot_l_64.value, self.op.rot_r_64.value):
-            table[opcode] = InstrCost(
-                latency_fn=const(1), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
-            )
-
-        # 32-bit shifts/rotations (register)
-        for opcode in (
-            self.op.shlo_l_32.value,
-            self.op.shlo_r_32.value,
-            self.op.shar_r_32.value,
-            self.op.rot_l_32.value,
-            self.op.rot_r_32.value,
-        ):
-            table[opcode] = InstrCost(
-                latency_fn=const(2), decode_fn=lambda pc, a=3, b=4: self.P(a, b, pc), units_fn=units(A=1)
-            )
-
-        # Alt immediates
-        for opcode in (
-            self.op.shlo_l_imm_alt_64.value,
-            self.op.shlo_r_imm_alt_64.value,
-            self.op.shar_r_imm_alt_64.value,
-            self.op.rot_r_64_imm_alt.value,
-        ):
-            table[opcode] = InstrCost(latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1))
-        for opcode in (
-            self.op.shlo_l_imm_alt_32.value,
-            self.op.shlo_r_imm_alt_32.value,
-            self.op.shar_r_imm_alt_32.value,
-            self.op.rot_r_32_imm_alt.value,
-        ):
-            table[opcode] = InstrCost(latency_fn=const(2), decode_fn=const(4), units_fn=units(A=1))
-
-        # Set/compare ops
-        for opcode in (
-            self.op.set_lt_u.value,
-            self.op.set_lt_s.value,
-            self.op.set_lt_u_imm.value,
-            self.op.set_lt_s_imm.value,
-            self.op.set_gt_u_imm.value,
-            self.op.set_gt_s_imm.value,
-        ):
-            table[opcode] = InstrCost(latency_fn=const(3), decode_fn=const(3), units_fn=units(A=1))
-
-        # Conditional moves
-        table[self.op.cmov_iz.value] = InstrCost(latency_fn=const(2), decode_fn=const(2), units_fn=units(A=1))
-        table[self.op.cmov_nz.value] = table[self.op.cmov_iz.value]
-        table[self.op.cmov_iz_imm.value] = InstrCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
-        table[self.op.cmov_nz_imm.value] = table[self.op.cmov_iz_imm.value]
-
-        # Min/Max
-        for opcode in (
-            self.op._max.value,
-            self.op.max_u.value,
-            self.op._min.value,
-            self.op.min_u.value,
-        ):
-            table[opcode] = InstrCost(
-                latency_fn=const(3), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
-            )
-
-        # Memory loads
-        load_opcodes = [
-            self.op.load_ind_u8.value,
-            self.op.load_ind_i8.value,
-            self.op.load_ind_u16.value,
-            self.op.load_ind_i16.value,
-            self.op.load_ind_u32.value,
-            self.op.load_ind_i32.value,
-            self.op.load_ind_u64.value,
-            self.op.load_u8.value,
-            self.op.load_i8.value,
-            self.op.load_u16.value,
-            self.op.load_i16.value,
-            self.op.load_u32.value,
-            self.op.load_i32.value,
-            self.op.load_u64.value,
-        ]
-        for opcode in load_opcodes:
-            table[opcode] = InstrCost(
-                latency_fn=lambda pc: self.memory_latency(), decode_fn=const(1), units_fn=units(A=1, L=1)
-            )
-
-        # Stores
-        store_opcodes = [
-            self.op.store_imm_ind_u8.value,
-            self.op.store_imm_ind_u16.value,
-            self.op.store_imm_ind_u32.value,
-            self.op.store_imm_ind_u64.value,
-            self.op.store_ind_u8.value,
-            self.op.store_ind_u16.value,
-            self.op.store_ind_u32.value,
-            self.op.store_ind_u64.value,
-            self.op.store_imm_u8.value,
-            self.op.store_imm_u16.value,
-            self.op.store_imm_u32.value,
-            self.op.store_imm_u64.value,
-            self.op.store_u8.value,
-            self.op.store_u16.value,
-            self.op.store_u32.value,
-            self.op.store_u64.value,
-        ]
-        for opcode in store_opcodes:
-            table[opcode] = InstrCost(
-                latency_fn=const(25), decode_fn=const(1), units_fn=units(A=1, S=1)
-            )
-
-        # Branches
-        branch_opcodes = [
-            self.op.branch_eq.value,
-            self.op.branch_ne.value,
-            self.op.branch_lt_u.value,
-            self.op.branch_lt_s.value,
-            self.op.branch_ge_u.value,
-            self.op.branch_ge_s.value,
-            self.op.branch_eq_imm.value,
-            self.op.branch_ne_imm.value,
-            self.op.branch_lt_u_imm.value,
-            self.op.branch_le_u_imm.value,
-            self.op.branch_ge_u_imm.value,
-            self.op.branch_gt_u_imm.value,
-            self.op.branch_lt_s_imm.value,
-            self.op.branch_le_s_imm.value,
-            self.op.branch_ge_s_imm.value,
-            self.op.branch_gt_s_imm.value,
-        ]
-        for opcode in branch_opcodes:
-            table[opcode] = InstrCost(
-                latency_fn=lambda pc: self.branch_penalty(pc), decode_fn=const(1), units_fn=units(A=1)
-            )
-
-        # Division/Modulo
-        for opcode in (
-            self.op.div_u_32.value,
-            self.op.div_s_32.value,
-            self.op.rem_u_32.value,
-            self.op.rem_s_32.value,
-            self.op.div_u_64.value,
-            self.op.div_s_64.value,
-            self.op.rem_u_64.value,
-            self.op.rem_s_64.value,
-        ):
-            table[opcode] = InstrCost(latency_fn=const(60), decode_fn=const(4), units_fn=units(A=1, D=1))
-
-        # Boolean inversions
-        for opcode in (self.op.and_inv.value, self.op.or_inv.value):
-            table[opcode] = InstrCost(
-                latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1)
-            )
-        table[self.op.xnor.value] = InstrCost(
-            latency_fn=const(2), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1)
+    def _set_instruction_pc(self, state: PipelineState, pc: Optional[int]) -> PipelineState:
+        """Create new state with updated instruction_pc."""
+        return PipelineState(
+            instruction_pc=pc,
+            cycle_count=state.cycle_count,
+            decode_slots=state.decode_slots,
+            issue_slots=state.issue_slots,
+            rob=state.rob,
+            units_available=state.units_available,
         )
 
-        # Negate/add
-        table[self.op.neg_add_imm_64.value] = InstrCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
-        table[self.op.neg_add_imm_32.value] = InstrCost(latency_fn=const(3), decode_fn=const(4), units_fn=units(A=1))
-
-        # Immediates
-        table[self.op.load_imm.value] = InstrCost(latency_fn=const(1), decode_fn=const(1), units_fn=units())
-        table[self.op.load_imm_64.value] = InstrCost(latency_fn=const(1), decode_fn=const(2), units_fn=units())
-
-        # Multiplication
-        for opcode in (self.op.mul_64.value, self.op.mul_imm_64.value):
-            table[opcode] = InstrCost(
-                latency_fn=const(3), decode_fn=lambda pc, a=1, b=2: self.P(a, b, pc), units_fn=units(A=1, M=1)
-            )
-        for opcode in (self.op.mul_32.value, self.op.mul_imm_32.value):
-            table[opcode] = InstrCost(
-                latency_fn=const(4), decode_fn=lambda pc, a=2, b=3: self.P(a, b, pc), units_fn=units(A=1, M=1)
-            )
-        for opcode in (
-            self.op.mul_upper_s_s.value,
-            self.op.mul_upper_u_u.value,
-            self.op.mul_upper_s_u.value,
-        ):
-            table[opcode] = InstrCost(latency_fn=const(4 if opcode != self.op.mul_upper_s_u.value else 6), decode_fn=const(4), units_fn=units(A=1, M=1))
-
-        # Control flow and misc
-        table[self.op.trap.value] = InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
-        table[self.op.fallthrough.value] = InstrCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
-        table[self.op.unlikely.value] = InstrCost(latency_fn=const(40), decode_fn=const(1), units_fn=units())
-        table[self.op.jump.value] = InstrCost(latency_fn=const(15), decode_fn=const(1), units_fn=units())
-        table[self.op.load_imm_jump.value] = InstrCost(latency_fn=const(15), decode_fn=const(1), units_fn=units())
-        table[self.op.jump_ind.value] = InstrCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
-        table[self.op.load_imm_jump_ind.value] = InstrCost(latency_fn=const(22), decode_fn=const(1), units_fn=units())
-        table[self.op.ecalli.value] = InstrCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
-        table[self.op.sbrk.value] = InstrCost(latency_fn=const(100), decode_fn=const(4), units_fn=units(A=1))
-
-        return table
-
-
-    def _add_exec_units(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
-        """Element-wise addition of execution units: a + b."""
+    def _add_units(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
+        """Element-wise addition of execution units."""
         return ExecUnits(A=a.A + b.A, L=a.L + b.L, S=a.S + b.S, M=a.M + b.M, D=a.D + b.D)
 
-
-    def _subtract_exec_units(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
-        """Element-wise subtraction of execution units: a - b."""
+    def _subtract_units(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
+        """Element-wise subtraction of execution units."""
         return ExecUnits(A=a.A - b.A, L=a.L - b.L, S=a.S - b.S, M=a.M - b.M, D=a.D - b.D)
 
-
-    def _has_enough_exec_units(self, required: ExecUnits, available: ExecUnits) -> bool:
-        """Return True iff required ≤ available for each ExecUnits component."""
-        return (
-            required.A <= available.A
-            and required.L <= available.L
-            and required.S <= available.S
-            and required.M <= available.M
-            and required.D <= available.D
-        )
+    def _has_enough_units(self, required: ExecUnits, available: ExecUnits) -> bool:
+        """Check if required <= available for all unit types."""
+        return (required.A <= available.A and required.L <= available.L and
+                required.S <= available.S and required.M <= available.M and required.D <= available.D)
 
 
-    def _create_initial_gas_state(self, start_pc: int) -> GasState:
-        """
-        GP-0.7.1-eq:A.45
-        Construct the initial pipeline / gas simulation state Ξ₀ for a basic block starting at start_pc.
-        """
-        return GasState(
-            i=start_pc,
-            c_cycles=0,
-            n_rob=0,
-            d_slots=4,
-            e_slots=5,
-            rob=[],
-            units_free=ExecUnits(A=4, L=4, S=4, M=1, D=1),
-        )
-
-
-    def _find_ready_rob_entry_index(self, state: GasState) -> Optional[int]:
-        """
-        GP-0.7.1-eq:A.52
-        Compute S(Ξₙ): return the index of the oldest ROB entry that is ready to issue
-        (stage == 2, enough execution units available, and all dependencies finished),
-        or None if no such entry exists.
-        """
-        for idx, entry in enumerate(state.rob):
-            if entry.stage != 2:
-                continue
-            if not self._has_enough_exec_units(entry.units, state.units_free):
-                continue
-            if any(state.rob[k].cycles_left > 0 for k in entry.deps):
-                continue
-            return idx
-        return None
-
-
-    def _decode_next_instruction_into_rob(self, state: GasState) -> GasState:
-        """
-        GP-0.7.1-eq:A.48–A.50
-        Decode front-end transition Ξ′:
-        - Special-case move_reg (Ξ^mov, Eq. A.49)
-        - Otherwise decode a generic instruction and append a ROB entry (Ξ^decode, Eq. A.50).
-        """
-        if state.i is None:
-            return state
-        pc = state.i
-        opcode, inst_type, _ = self.decode_instruction(pc)
-        cost = self.cost_table.get(opcode)
-
-        # Special-case move_reg: GP-0.7.1-eq:A.49
-        if opcode == self.op.move_reg.value:
-            src = self.s_hat(pc)
-            dst = self.r_hat(pc)
-            # Update existing ROB write sets according to overlaps
-            new_rob: List[RobEntry] = []
-            for entry in state.rob:
-                if src & entry.dest_regs:
-                    dest_regs = entry.dest_regs | dst
-                elif dst & entry.dest_regs:
-                    dest_regs = entry.dest_regs & src
-                else:
-                    dest_regs = entry.dest_regs
-                new_rob.append(
-                    RobEntry(
-                        stage=entry.stage,
-                        cycles_left=entry.cycles_left,
-                        units=entry.units,
-                        deps=set(entry.deps),
-                        dest_regs=set(dest_regs),
-                    )
-                )
-
-            return GasState(
-                i=pc + self.skip_bytes(pc),
-                c_cycles=state.c_cycles,
-                n_rob=state.n_rob,
-                d_slots=state.d_slots - 1,
-                e_slots=state.e_slots,
-                rob=new_rob,
-                units_free=state.units_free,
-            )
-
-        if cost is None:
-            return GasState(
-                i=None,
-                c_cycles=state.c_cycles,
-                n_rob=state.n_rob,
-                d_slots=state.d_slots,
-                e_slots=state.e_slots,
-                rob=state.rob,
-                units_free=state.units_free,
-            )
-
-        src = self.s_hat(pc)
-        dst = self.r_hat(pc)
-
-        c_hat = cost.latency_fn(pc)
-        d_hat = cost.decode_fn(pc)
-        x_hat = cost.units_fn(pc)
-
-        # next instruction pointer unless we hit termination (handled by main loop)
-        next_i = None if opcode in TERMINATION_OPCODES else pc + self.skip_bytes(pc)
-        new_d_slots = state.d_slots - d_hat
-        new_n_rob = state.n_rob + 1
-
-        # compute dependencies based on overlapping register writes
-        parents = {idx for idx, entry in enumerate(state.rob) if src & entry.dest_regs}
-
-        # remove new destinations from older entries
-        new_rob = []
-        for entry in state.rob:
-            new_rob.append(
-                RobEntry(
-                    stage=entry.stage,
-                    cycles_left=entry.cycles_left,
-                    units=entry.units,
-                    deps=set(entry.deps),
-                    dest_regs=entry.dest_regs - dst,
-                )
-            )
-
-        new_rob.append(
-            RobEntry(stage=1, cycles_left=c_hat, units=x_hat, deps=parents, dest_regs=dst)
-        )
-
-        return GasState(
-            i=next_i,
-            c_cycles=state.c_cycles,
-            n_rob=new_n_rob,
-            d_slots=new_d_slots,
-            e_slots=state.e_slots,
-            rob=new_rob,
-            units_free=state.units_free,
-        )
-
-
-    def _issue_ready_instruction_from_rob(self, state: GasState) -> GasState:
-        """
-        GP-0.7.1-eq:A.51
-        Issue transition Ξ″:
-        Move a ready ROB entry into the executing state (stage=3),
-        consume one execution slot e⁹, and reserve its execution units x⃗ from x⁹.
-        """
-        ready_idx = self._find_ready_rob_entry_index(state)
-        if ready_idx is None or state.e_slots <= 0:
-            return state
-
-        new_rob = list(state.rob)
-        entry = new_rob[ready_idx]
-        new_rob[ready_idx] = RobEntry(
-            stage=3,
-            cycles_left=entry.cycles_left,
-            units=entry.units,
-            deps=set(entry.deps),
-            dest_regs=set(entry.dest_regs),
-        )
-
-        new_units = self._subtract_exec_units(state.units_free, entry.units)
-        return GasState(
-            i=state.i,
-            c_cycles=state.c_cycles,
-            n_rob=state.n_rob,
-            d_slots=state.d_slots,
-            e_slots=state.e_slots - 1,
-            rob=new_rob,
-            units_free=new_units,
-        )
-
-
-    def _advance_pipeline_one_cycle(self, state: GasState) -> GasState:
-        """
-        GP-0.7.1-eq:A.53
-        Tick transition Ξ‴:
-        - Advance the pipeline by one cycle:
-          * retire completed instructions in order,
-          * update ROB stages (1→2, 3→4),
-          * decrement cycles_left for executing entries,
-          * return freed execution units to x⁹,
-        - increment global cycle counter c⁹,
-        - reset decode slots d⁹ and issue slots e⁹ for the next cycle.
-        """
-        new_rob: List[RobEntry] = []
-        returned_units = ExecUnits()
-
-        # Determine which slots become empty (retired in order from the front)
-        empty_up_to = -1
-        for idx, entry in enumerate(state.rob):
-            if entry.stage in (0, 4):
-                empty_up_to = idx
-            else:
-                break
-
-        # Process each ROB entry, updating stages and collecting returned units
-        for idx, entry in enumerate(state.rob):
-            stage = entry.stage
-            cycles_left = entry.cycles_left
-            dest_regs = set(entry.dest_regs)
-
-            if idx <= empty_up_to:
-                stage = 0
-            elif entry.stage == 1:
-                stage = 2
-            elif entry.stage == 3 and entry.cycles_left == 0:
-                stage = 4
-
-            if entry.stage == 3 and entry.cycles_left > 0:
-                cycles_left = entry.cycles_left - 1
-
-            if entry.stage == 3 and entry.cycles_left == 1:
-                dest_regs = set()
-                returned_units = self._add_exec_units(returned_units, entry.units)
-
-            # only keep entries that are not fully retired (stage != 0)
-            # this allows new instructions to be decoded when slots free up
-            if stage != 0:
-                # adjust dependency indices since wre removing entries from the front
-                adjusted_deps = {d - (empty_up_to + 1) for d in entry.deps if d > empty_up_to}
-                new_rob.append(
-                    RobEntry(stage=stage, cycles_left=cycles_left, units=entry.units, deps=adjusted_deps, dest_regs=dest_regs)
-                )
-
-        new_units = self._add_exec_units(state.units_free, returned_units)
-        return GasState(
-            i=state.i,
-            c_cycles=state.c_cycles + 1,
-            n_rob=state.n_rob,
-            d_slots=4,
-            e_slots=5,
-            rob=new_rob,
-            units_free=new_units,
-        )
-
-
-    def compute_block_gas_cost(self, block_start_pc: int) -> int:
-        """
-        GP-0.7.1-eq:A.46–A.47
-        Simulate the pipeline for a basic block starting at block_start_pc until the ROB drains
-        and return its gas cost ϱᵢ = max(c⁹(m) - 3, 1).
-
-        High level flow (each step is one pipeline cycle):
-            1. Decode up to d_slots instructions into ROB
-            2. Issue ready instructions up to e_slots, checking _has_enough_exec_units
-            3. Decrement cycles_left on executing ROB entries
-            4. Retire finished entries in order
-            5. c_cycles += 1
-
-        Each cycle has:
-            - 4-wide decode (d_slots = 4)
-            - up to 5 instructions that can execute per cycle (e_slots = 5)
-            - limited functional units (ExecUnits(A,L,S,M,D) = (4,4,4,1,1) per cycle)
-            - a reorder buffer (rob) that tracks instructions life cycle (RobEntry)
-        """
-        state = self._create_initial_gas_state(block_start_pc)
-        steps = 0
-        max_steps = 100000
-
-        while steps < max_steps:
-
-            # terminate when instruction pointer is None and ROB (symbol s_arrow/s⃗) is empty
-            if state.i is None and all(entry.stage == 0 for entry in state.rob):
-                break
-
-            if state.i is not None and state.i >= len(self.sim_code):
-                state = GasState(
-                    i=None,
-                    c_cycles=state.c_cycles,
-                    n_rob=state.n_rob,
-                    d_slots=state.d_slots,
-                    e_slots=state.e_slots,
-                    rob=state.rob,
-                    units_free=state.units_free,
-                )
-
-            opcode = self.sim_code[state.i] if state.i is not None else None
-            cost_entry = self.cost_table.get(opcode) if opcode is not None else None
-            can_decode = (
-                state.i is not None
-                and len(state.rob) < 32
-                and (
-                    (opcode == self.op.move_reg.value and state.d_slots >= 1)
-                    or (cost_entry is not None and cost_entry.decode_fn(state.i) <= state.d_slots)
-                )
-            )
-            ready_idx = self._find_ready_rob_entry_index(state)
-            can_issue = ready_idx is not None and state.e_slots > 0
-
-            if steps == 0 or can_decode:
-                state = self._decode_next_instruction_into_rob(state)
-            elif can_issue:
-                state = self._issue_ready_instruction_from_rob(state)
-            elif state.rob or state.i is not None:
-                state = self._advance_pipeline_one_cycle(state)
-            else:
-                break
-
-            steps += 1
-
-        # GP-0.7.1-eq:A.47
-        return max(state.c_cycles - 3, 1)
+    # def s_hat(self, pc: int) -> Set[int]:
+    #     """Alias for source_registers (legacy API)."""
+    #     return self.source_registers(pc)
+    #
+    # def r_hat(self, pc: int) -> Set[int]:
+    #     """Alias for dest_registers (legacy API)."""
+    #     return self.dest_registers(pc)
+    #
+    # def P(self, a: int, b: int, pc: int) -> int:
+    #     """Alias for decode_cost_P (legacy API)."""
+    #     return self.decode_cost_P(a, b, pc)
+    #
+    # def skip_bytes(self, pc: int) -> int:
+    #     """Alias for _skip_bytes (legacy API)."""
+    #     return self._skip_bytes(pc)
+    #
+    # def decode_instruction(self, pc: int) -> Tuple[int, InstructionType, int]:
+    #     """Alias for _decode_at (legacy API)."""
+    #     return self._decode_at(pc)
