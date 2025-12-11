@@ -1,3 +1,4 @@
+import bisect
 import traceback
 from typing import List, Dict
 
@@ -57,7 +58,7 @@ class PVMInterpreter:
 
         self.basic_block = {}
         self.basic_block_gas = {}
-        self.pc_block_start = {}
+        self.basic_block_starts_sorted = []
         self.current_block_start = None
         self.gas_model = None
 
@@ -189,21 +190,13 @@ class PVMInterpreter:
         basic_block_starts = {pc for pc in basic_block_starts if 0 <= pc <= self.code_length}
         self.basic_block = {pc: 0 for pc in basic_block_starts}
 
+        # Store sorted block starts for O(log n) lookup via binary search
+        self.basic_block_starts_sorted = sorted(basic_block_starts)
+
         # Calculate the gas per block
         self.basic_block_gas = {}
-        for start in sorted(basic_block_starts):
+        for start in self.basic_block_starts_sorted:
             self.basic_block_gas[start] = self.gas_model.compute_block_gas_cost(start)
-
-        # Note:
-        # Map every instruction pc to its containing basic block start for inbetween block charging.
-        # When the PVM starts or resumes at an arbitrary PC (not necessarily a block start), we need to charge gas for the containing block
-        self.pc_block_start = {}
-        current_start = None
-        for pc in opcode_positions:
-            if pc in basic_block_starts:
-                current_start = pc
-            if current_start is not None:
-                self.pc_block_start[pc] = current_start
 
 
     def get_jump_offset(self, pc: int, inst_index: int) -> int:
@@ -235,6 +228,10 @@ class PVMInterpreter:
         """Compute target for branch_*_imm and load_imm_jump opcodes (reg-imm-offset format)."""
         return pc + self.get_branch_imm_offset(pc, inst_index)
 
+    def get_block_start(self, pc: int) -> int:
+        """Find the basic block start for any PC via binary search. O(log n)."""
+        idx = bisect.bisect_right(self.basic_block_starts_sorted, pc) - 1
+        return self.basic_block_starts_sorted[idx] if idx >= 0 else 0
 
     def branch(self, b:int, C:bool):
         """
@@ -405,11 +402,8 @@ class PVMInterpreter:
             self.pc = int(self.pc) + self.skip_len
             self.inst_nr += 1
 
-            block_start = None
-            if self.pc in self.basic_block_gas:
-                block_start = self.pc
-            elif hasattr(self, "pc_block_start") and self.pc in self.pc_block_start:
-                block_start = self.pc_block_start[self.pc]
+            # Find containing basic block via binary search O(log n)
+            block_start = self.get_block_start(self.pc) if self.basic_block_starts_sorted else None
 
             if block_start is not None:
                 charge_block = False
