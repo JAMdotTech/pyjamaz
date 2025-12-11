@@ -1,5 +1,19 @@
 """
 Optional logging for the gas model
+
+- Debug gas mismatches; see exactly where timing differs from reference
+- Visualize parallelism; Out-of-order execution runs independent instructions concurrently
+- Spot hazards; = shows RAW dependencies stalling instructions
+
+Timeline Legend:
+    - D : Decode cycle
+    - = : Waiting (decoded but blocked on dependencies)
+    - e : Executing
+    - E : Execution complete
+    - - : Waiting to retire (in-order commit)
+    - R : Retire cycle
+    - . : Not yet decoded
+
 usage:
 
 from pyjamaz.pvm.gas_model import GasModel
@@ -13,7 +27,7 @@ timeline = tracker.get_timeline(block_pc)
 print(tracker.render_timeline(timeline, gas_model))
 
 # without logging
-gas_model = GasModel(...)  # No tracker
+gas_model = GasModel(...)
 cost = gas_model.compute_block_gas_cost(block_pc)
 """
 
@@ -222,8 +236,8 @@ class TimelineTracker:
 
 def disassemble(gas_model: 'GasModel', pc: int) -> str:
     """
-    disasembly of instruction at given pc
-    Returns a human-readable string like "r8 = r8 & 0x7" or "trap".
+    Disassembly of instruction at given pc.
+    Returns a human-readable string matching the graypaper TESTCASES.md format.
     """
     if pc >= len(gas_model.sim_code):
         return "invalid"
@@ -243,6 +257,9 @@ def disassemble(gas_model: 'GasModel', pc: int) -> str:
 
     # Simple cases - no arguments
     if inst_type == InstructionType.none:
+        # Match reference format: "trap" -> "invalid"
+        if op_name == "trap":
+            return "invalid"
         return op_name
 
     # Read register byte if present
@@ -262,6 +279,8 @@ def disassemble(gas_model: 'GasModel', pc: int) -> str:
             return f"r{r_a} = {op_name}"
 
         case InstructionType.reg_reg:
+            if op_name == "move_reg":
+                return f"r{r_a} = r{r_b}"
             return f"r{r_a} = {op_name} r{r_b}"
 
         case InstructionType.reg_reg_imm:

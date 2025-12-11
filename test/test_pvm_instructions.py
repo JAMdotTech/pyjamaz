@@ -13,7 +13,16 @@ from pyjamaz import settings
 from pyjamaz.pvm.types import PVMCode, PVMProgram
 from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.pvm import MemorySection, PVMInterpreter
-from pyjamaz.pvm.constants import ExitReason, MEM_W, MEM_R
+from pyjamaz.pvm.constants import ExitReason, MEM_W, MEM_R, OpcodeScheme, Opcode
+from pyjamaz.pvm.gas_model import GasModel
+from pyjamaz.pvm.gas_model_logger import TimelineTracker
+
+# Note: set to true to print timeline for mismatched blocks
+DEBUG_GAS_MISMATCHES = True
+
+# Set to a file path to log ALL block timelines (not just mismatches)
+# Example: GAS_LOG_FILE = "gas_timelines.log"
+GAS_LOG_FILE = "blabla.md"
 
 
 def load_test_vectors(directory):
@@ -35,8 +44,8 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    #@parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/'))
-    @parameterized.expand(load_test_vectors('../graypaper-gas/new-gas-cost-model-master/integration-tests/doom.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/gas_basic_consume_all.json'))
+    #@parameterized.expand(load_test_vectors('../graypaper-gas/new-gas-cost-model-master/integration-tests/doom.json'))
     def test_instruction(self, name, test_vector):
 
         import logging
@@ -128,20 +137,74 @@ class TestPolkaVMInstructions(unittest.TestCase):
             block_gas = {int(k): v for k, v in pvm.basic_block_gas.items()}
             expected_costs = test_vector["block-gas-costs"]
 
-            # Handle both formats: dict {"pc": cost} or array [{"pc": ..., "cost": ...}]
-            if isinstance(expected_costs, dict):
-                # Integration test format: {"0": 26, "27": 15, ...}
-                for pc_str, expected_cost in expected_costs.items():
-                    blk_pc = int(pc_str)
-                    self.assertIn(blk_pc, block_gas, f"{name}:\n Missing block {blk_pc} in basic block gas costs")
-                    self.assertEqual(expected_cost, block_gas[blk_pc], f"{name}:\n Block {blk_pc}: expected {expected_cost}, got {block_gas[blk_pc]}")
-            else:
-                # Standard test format: [{"pc": 0, "cost": 26}, ...]
-                for block in expected_costs:
-                    blk_pc = block["pc"]
-                    expected_cost = block["cost"]
-                    self.assertIn(blk_pc, block_gas, f"{name}:\n Missing block {blk_pc} in basic block gas costs")
-                    self.assertEqual(expected_cost, block_gas[blk_pc], f"{name}:\n Expected block gas costs: {expected_costs}, but got: {block_gas}")
+            # Create gas model for timeline rendering (when DEBUG or LOG_FILE enabled)
+            gas_model = None
+            log_file_handle = None
+            if DEBUG_GAS_MISMATCHES or GAS_LOG_FILE:
+                gas_model = GasModel(
+                    code=pvm.code,
+                    inst_pos=pvm.inst_pos,
+                    inst_arg_len=pvm.inst_arg_len,
+                    opcode_scheme=OpcodeScheme,
+                    opcode_enum=Opcode,
+                )
+                if GAS_LOG_FILE:
+                    log_file_handle = open(GAS_LOG_FILE, 'a')
+                    log_file_handle.write(f"\n{'='*80}\n")
+                    log_file_handle.write(f"Test: {name}\n")
+                    log_file_handle.write(f"{'='*80}\n\n")
+
+            def log_block_timeline(blk_pc, expected_cost, actual_cost, is_mismatch=False):
+                """Helper to log timeline to console and/or file."""
+                tracker = TimelineTracker()
+                gas_model.compute_block_gas_cost(blk_pc, timeline_tracker=tracker)
+                timeline = tracker.get_timeline(blk_pc)
+
+                status = "MISMATCH" if is_mismatch else "OK"
+                header = f"Block PC {blk_pc}: expected {expected_cost}, got {actual_cost} [{status}]"
+                body = (
+                    f"Total cycles: {timeline.total_cycles}, Gas cost: {timeline.gas_cost}\n"
+                    f"Timeline ({len(timeline.instructions)} instructions):\n"
+                    f"{tracker.render_timeline(timeline, gas_model)}\n"
+                )
+
+                # Print to console only on mismatch
+                if is_mismatch and DEBUG_GAS_MISMATCHES:
+                    print(f"\n{'='*80}")
+                    print(f"GAS {header}")
+                    print(f"{'='*80}")
+                    print(body)
+
+                # Log to file always (if enabled)
+                if log_file_handle:
+                    log_file_handle.write(f"{header}\n{'-'*40}\n{body}\n")
+
+            try:
+                # Handle both formats: dict {"pc": cost} or array [{"pc": ..., "cost": ...}]
+                if isinstance(expected_costs, dict):
+                    # Integration test format: {"0": 26, "27": 15, ...}
+                    for pc_str, expected_cost in expected_costs.items():
+                        blk_pc = int(pc_str)
+                        self.assertIn(blk_pc, block_gas, f"{name}:\n Missing block {blk_pc} in basic block gas costs")
+                        actual_cost = block_gas[blk_pc]
+                        is_mismatch = expected_cost != actual_cost
+                        if gas_model and (is_mismatch or GAS_LOG_FILE):
+                            log_block_timeline(blk_pc, expected_cost, actual_cost, is_mismatch)
+                        self.assertEqual(expected_cost, actual_cost, f"{name}:\n Block {blk_pc}: expected {expected_cost}, got {actual_cost}")
+                else:
+                    # Standard test format: [{"pc": 0, "cost": 26}, ...]
+                    for block in expected_costs:
+                        blk_pc = block["pc"]
+                        expected_cost = block["cost"]
+                        self.assertIn(blk_pc, block_gas, f"{name}:\n Missing block {blk_pc} in basic block gas costs")
+                        actual_cost = block_gas[blk_pc]
+                        is_mismatch = expected_cost != actual_cost
+                        if gas_model and (is_mismatch or GAS_LOG_FILE):
+                            log_block_timeline(blk_pc, expected_cost, actual_cost, is_mismatch)
+                        self.assertEqual(expected_cost, actual_cost, f"{name}:\n Block {blk_pc}: expected {expected_cost}, got {actual_cost}")
+            finally:
+                if log_file_handle:
+                    log_file_handle.close()
 
 # print some stats collected from logger
 # def tearDownModule():

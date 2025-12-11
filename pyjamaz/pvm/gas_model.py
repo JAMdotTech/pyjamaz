@@ -974,21 +974,21 @@ class GasModel:
     ######################## Section 6: Helper Functions
 
     def _skip_bytes(self, pc: int) -> int:
-        """Get the number of bytes to skip to reach the next instruction."""
+        # Get the number of bytes to skip to reach the next instruction
         inst_index = self.inst_pos_sim.get(pc, 0)
         if inst_index >= len(self.inst_arg_len_sim):
             return 1
         return 1 + self.inst_arg_len_sim[inst_index]
 
     def _decode_at(self, pc: int) -> Tuple[int, InstructionType, int]:
-        """Decode instruction at pc, returning (opcode, type, index)."""
+        # Decode instruction at pc, returning (opcode, type, index)
         opcode = self.sim_code[pc]
         inst_type = self.opcode_scheme.get(opcode, InstructionType.none)
         inst_index = self.inst_pos_sim.get(pc, 0)
         return opcode, inst_type, inst_index
 
     def _compute_branch_target(self, pc: int, opcode: int) -> Optional[int]:
-        """Compute static branch target PC, or None for non-branches."""
+        # Compute static branch target PC, or None for non-branches
         inst_type = self.opcode_scheme.get(opcode)
         inst_index = self.inst_pos_sim.get(pc, 0)
         if inst_index >= len(self.inst_arg_len_sim):
@@ -1008,7 +1008,6 @@ class GasModel:
         return None
 
     def _set_instruction_pc(self, state: PipelineState, pc: Optional[int]) -> PipelineState:
-        """Create new state with updated instruction_pc."""
         return PipelineState(
             instruction_pc=pc,
             cycle_count=state.cycle_count,
@@ -1019,14 +1018,12 @@ class GasModel:
         )
 
     def _add_units(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
-        """Element-wise addition of execution units."""
         return ExecUnits(A=a.A + b.A, L=a.L + b.L, S=a.S + b.S, M=a.M + b.M, D=a.D + b.D)
 
     def _subtract_units(self, a: ExecUnits, b: ExecUnits) -> ExecUnits:
-        """Element-wise subtraction of execution units."""
         return ExecUnits(A=a.A - b.A, L=a.L - b.L, S=a.S - b.S, M=a.M - b.M, D=a.D - b.D)
 
     def _has_enough_units(self, required: ExecUnits, available: ExecUnits) -> bool:
-        """Check if required <= available for all unit types."""
+        # Check if required <= available for all unit types
         return (required.A <= available.A and required.L <= available.L and
                 required.S <= available.S and required.M <= available.M and required.D <= available.D)
