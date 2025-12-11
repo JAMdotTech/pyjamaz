@@ -128,7 +128,7 @@ class PVMInterpreter:
                 if basic_block_index == -1:
                     basic_block_index = inst_bitmask_idx-1
 
-                if inst_bitmask_idx >= len(self.code):
+                if inst_bitmask_idx >= self.code_length:
                     instr = op.trap.value
                 else:
                     instr = self.code[inst_bitmask_idx-1]
@@ -152,7 +152,7 @@ class PVMInterpreter:
             return
 
         basic_block_starts = set(self.basic_block.keys()) | {0}
-        opcode_positions = sorted(k for k in self.inst_pos.keys() if k < len(self.code))
+        opcode_positions = sorted(k for k in self.inst_pos.keys() if k < self.code_length)
         for pc in opcode_positions:
             opcode = self.code[pc]
             inst_index = self.inst_pos.get(pc, 0)
@@ -162,7 +162,8 @@ class PVMInterpreter:
 
             if opcode in TERMINATION_OPCODES:
                 fallthrough = pc + skip
-                if fallthrough in self.inst_pos:
+                # Note: only add fallthrough if it's within original code (exclude synthetic trap)
+                if fallthrough in self.inst_pos and fallthrough < self.code_length:
                     basic_block_starts.add(fallthrough)
 
                 if opcode == op.jump.value:
@@ -212,8 +213,8 @@ class PVMInterpreter:
                     if target in self.inst_pos:
                         basic_block_starts.add(target)
 
-        # Note: keep leaders that fall within the code buffer (including the fallthrough slot at the end)
-        basic_block_starts = {pc for pc in basic_block_starts if 0 <= pc <= len(self.code)}
+        # Note: keep leaders that fall within the code buffer (including synthetic trap position for fallthrough at the end)
+        basic_block_starts = {pc for pc in basic_block_starts if 0 <= pc <= self.code_length}
         self.basic_block = {pc: 0 for pc in basic_block_starts}
 
         self.basic_block_gas = {}
@@ -247,8 +248,11 @@ class PVMInterpreter:
         self.gas = i64(0)
 
         self.name = program.name
-        self.code:bytearray = program.code.code
-        self.code_size: np.uint64 = u64(len(self.code))
+        # GP-0.7.2:A.4: extend code with a synthetic trap
+        self.code: bytearray = bytearray(program.code.code)
+        self.code_length: int = len(self.code)
+        self.code.append(op.trap.value)
+        self.code_size: np.uint64 = u64(self.code_length)
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
 
@@ -259,9 +263,13 @@ class PVMInterpreter:
         self.current_block_start = None
 
         self.inst_bitmask: List[bool] = program.code.opcode_bitmask
-        self.inst_pos: Dict[int,int] = {0: 0}
+        self.inst_pos: Dict[int, int] = {0: 0}
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
+        # GP-0.7.2-eq:A.4: extend the code with a synthetic trap
+        self.inst_pos[self.code_length] = len(self.inst_arg_len)
+        self.inst_arg_len.append(0)
+
         self.gas_model = GasModel(
             code=self.code,
             inst_pos=self.inst_pos,

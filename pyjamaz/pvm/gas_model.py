@@ -149,20 +149,14 @@ class GasModel:
         mem_model: str = "L2HIT",
         jump_table: Optional[List[int]] = None,
     ):
-        # Store only what we need (scheme and enum for lookups)
+        # Note: store references to interpreter data
+        self.sim_code = code
+        self.inst_pos_sim = inst_pos
+        self.inst_arg_len_sim = inst_arg_len
         self.opcode_scheme = opcode_scheme
         self.op = opcode_enum
         self.mem_model = mem_model
         self.jump_table = jump_table or []
-
-        # Create simulation code with synthetic trap for clean termination
-        # (originals not stored - only sim_* versions needed)
-        self.sim_code = bytearray(code)
-        self.inst_arg_len_sim = list(inst_arg_len)
-        self.inst_pos_sim = dict(inst_pos)
-        self.inst_pos_sim[len(code)] = len(self.inst_arg_len_sim)
-        self.inst_arg_len_sim.append(0)
-        self.sim_code.append(self.op.trap.value)
 
         self.cost_table = self._build_instruction_cost_table()
 
