@@ -35,7 +35,8 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/'))
+    #@parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/'))
+    @parameterized.expand(load_test_vectors('../graypaper-gas/new-gas-cost-model-master/integration-tests/doom.json'))
     def test_instruction(self, name, test_vector):
 
         import logging
@@ -64,10 +65,11 @@ class TestPolkaVMInstructions(unittest.TestCase):
             ExitReason.out_of_gas.value: "out-of-gas",
         }
 
-        current_pc = test_vector["initial-pc"]
-        current_gas = test_vector["initial-gas"]
+        # Integration tests (doom.json, etc.) only have program + block-gas-costs, no steps
+        current_pc = test_vector.get("initial-pc", 0)
+        current_gas = test_vector.get("initial-gas", 0)
 
-        for step in test_vector["steps"]:
+        for step in test_vector.get("steps", []):
             if "set-reg" in step:
                 reg = step["set-reg"]["reg"]
                 value = step["set-reg"]["value"]
@@ -124,11 +126,22 @@ class TestPolkaVMInstructions(unittest.TestCase):
         # Validate block gas costs when provided by the test vector.
         if "block-gas-costs" in test_vector:
             block_gas = {int(k): v for k, v in pvm.basic_block_gas.items()}
-            for block in test_vector["block-gas-costs"]:
-                blk_pc = block["pc"]
-                expected_cost = block["cost"]
-                self.assertIn(blk_pc, block_gas, f"{name}:\n Missing block {blk_pc} in basic block gas costs")
-                self.assertEqual(expected_cost, block_gas[blk_pc], f"{name}:\n Expected block gas costs: {test_vector['block-gas-costs']}, but got: {block_gas}")
+            expected_costs = test_vector["block-gas-costs"]
+
+            # Handle both formats: dict {"pc": cost} or array [{"pc": ..., "cost": ...}]
+            if isinstance(expected_costs, dict):
+                # Integration test format: {"0": 26, "27": 15, ...}
+                for pc_str, expected_cost in expected_costs.items():
+                    blk_pc = int(pc_str)
+                    self.assertIn(blk_pc, block_gas, f"{name}:\n Missing block {blk_pc} in basic block gas costs")
+                    self.assertEqual(expected_cost, block_gas[blk_pc], f"{name}:\n Block {blk_pc}: expected {expected_cost}, got {block_gas[blk_pc]}")
+            else:
+                # Standard test format: [{"pc": 0, "cost": 26}, ...]
+                for block in expected_costs:
+                    blk_pc = block["pc"]
+                    expected_cost = block["cost"]
+                    self.assertIn(blk_pc, block_gas, f"{name}:\n Missing block {blk_pc} in basic block gas costs")
+                    self.assertEqual(expected_cost, block_gas[blk_pc], f"{name}:\n Expected block gas costs: {expected_costs}, but got: {block_gas}")
 
 # print some stats collected from logger
 # def tearDownModule():

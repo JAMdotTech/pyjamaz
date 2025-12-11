@@ -7,6 +7,14 @@ out-of-order CPU microarchitecture to compute gas costs for basic blocks.
 It predicts how many cycles each basic block takes by simulating CPU execution,
 accounting for parallel execution of independent instructions.
 
+In out-of-order execution, there are three types of data hazards:
+
+Hazard | Name              | Description
+-------|-------------------|------------------------------------------------------------------------------
+RAW    | Read After Write  | Instruction reads a register before a previous instruction writes it
+WAW    | Write After Write | Two instructions write to the same register - order matters
+WAR    | Write After Read  | Instruction writes a register that a previous instruction still needs to read
+
 
 Section | GP Reference | Function(s)
 --------|--------------|-------------------------------------------------------------
@@ -24,15 +32,16 @@ Section | GP Reference | Function(s)
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from pyjamaz.pvm.constants import InstructionType, TERMINATION_OPCODES
 from pyjamaz.pvm.interpreters.graypaper.defs import pvm_Z, read_uint
 
+if TYPE_CHECKING:
+    from pyjamaz.pvm.gas_model_logger import TimelineTracker
 
-# =============================================================================
-# Section 1: Data Structures (GP A.45)
-# =============================================================================
+
+########################Section 1: Data Structures (GP A.45)#########################
 
 class RobStage(IntEnum):
     """
@@ -78,12 +87,14 @@ class RobEntry:
     - deps:       p_bar[j] - indices of ROB entries we depend on (RAW hazards)
     - dest_regs:  r_bar[j] - registers this instruction will write
     - units:      x_bar[j] - execution units required
+    - inst_pc:    (timeline tracking) original instruction PC
     """
     stage: int
     cycles_left: int
     deps: Set[int]
     dest_regs: Set[int]
     units: ExecUnits
+    inst_pc: int = -1  # For timeline tracking
 
 
 @dataclass
@@ -122,9 +133,7 @@ class InstructionCost:
     units_fn: Callable[[int], ExecUnits]
 
 
-# =============================================================================
-# Section 2: Gas Model Implementation
-# =============================================================================
+########################### Section 2: Gas Model Implementation ##########################
 
 class GasModel:
     """
@@ -160,11 +169,13 @@ class GasModel:
 
         self.cost_table = self._build_instruction_cost_table()
 
-    # =========================================================================
-    # Section 2.1: Main Entry Point - Block Gas Cost (GP A.46-A.47)
-    # =========================================================================
+    ################### Section 2.1: Main Entry Point - Block Gas Cost (GP A.46-A.47)
 
-    def compute_block_gas_cost(self, block_start_pc: int) -> int:
+    def compute_block_gas_cost(
+        self,
+        block_start_pc: int,
+        timeline_tracker: Optional['TimelineTracker'] = None
+    ) -> int:
         """
         GP-0.7.1-eq:A.46-A.47
 
@@ -182,6 +193,9 @@ class GasModel:
         state = self._create_initial_state(block_start_pc)
         max_steps = 100000
 
+        if timeline_tracker:
+            timeline_tracker.start_block(block_start_pc)
+
         for _ in range(max_steps):
             # Termination: ROB empty and no more instructions to decode
             if self._should_terminate(state):
@@ -193,18 +207,55 @@ class GasModel:
 
             # GP A.46: Choose transition based on current state
             if self._can_decode(state):
+                # Track decode event
+                if timeline_tracker:
+                    pc = state.instruction_pc
+                    opcode = self.sim_code[pc]
+                    is_move_reg = (opcode == self.op.move_reg.value)
+                    timeline_tracker.record_decode(pc, state.cycle_count, is_move_reg)
+
                 state = self._transition_decode(state)
+
             elif self._can_issue(state):
+                # Track issue event
+                if timeline_tracker:
+                    ready_idx = self._find_ready_instruction(state)
+                    if ready_idx is not None:
+                        entry = state.rob[ready_idx]
+                        timeline_tracker.record_issue(entry.inst_pc, state.cycle_count)
+
                 state = self._transition_issue(state)
+
             else:
+                # Track completions and retirements before tick
+                if timeline_tracker:
+                    for entry in state.rob:
+                        # Execution completing this tick (cycles_left goes from 1 to 0)
+                        if entry.stage == RobStage.EXECUTING and entry.cycles_left == 1:
+                            timeline_tracker.record_complete(entry.inst_pc, state.cycle_count + 1)
+
+                    # Count retirements from front
+                    retire_count = 0
+                    for entry in state.rob:
+                        if entry.stage in (RobStage.EMPTY, RobStage.RETIRED):
+                            retire_count += 1
+                        else:
+                            break
+
+                    # Record retire events
+                    for idx in range(retire_count):
+                        timeline_tracker.record_retire(state.rob[idx].inst_pc, state.cycle_count)
+
                 state = self._transition_tick(state)
+
+        # End tracking if enabled
+        if timeline_tracker:
+            timeline_tracker.end_block(block_start_pc, state.cycle_count)
 
         # GP A.47: Final gas cost
         return max(state.cycle_count - 3, 1)
 
-    # =========================================================================
-    # Section 2.2: Initial State (GP A.45)
-    # =========================================================================
+    ################# Section 2.2: Initial State (GP A.45)
 
     def _create_initial_state(self, start_pc: int) -> PipelineState:
         """
@@ -227,9 +278,7 @@ class GasModel:
             ),
         )
 
-    # =========================================================================
-    # Section 2.3: State Transition Conditions (GP A.46)
-    # =========================================================================
+    ################### Section 2.3: State Transition Conditions (GP A.46)
 
     def _should_terminate(self, state: PipelineState) -> bool:
         """Check if simulation should terminate (ROB empty, no more instructions)."""
@@ -275,9 +324,7 @@ class GasModel:
             and state.issue_slots > 0
         )
 
-    # =========================================================================
-    # Section 2.4: Decode Transition (GP A.48-A.50)
-    # =========================================================================
+    ##################### Section 2.4: Decode Transition (GP A.48-A.50)
 
     def _transition_decode(self, state: PipelineState) -> PipelineState:
         """
@@ -326,6 +373,7 @@ class GasModel:
                 units=entry.units,
                 deps=set(entry.deps),
                 dest_regs=set(new_dest),
+                inst_pc=entry.inst_pc,
             ))
 
         return PipelineState(
@@ -375,6 +423,7 @@ class GasModel:
                 units=entry.units,
                 deps=set(entry.deps),
                 dest_regs=entry.dest_regs - dst_regs,
+                inst_pc=entry.inst_pc,
             ))
 
         # Add new ROB entry
@@ -384,6 +433,7 @@ class GasModel:
             units=exec_units,
             deps=dependencies,
             dest_regs=dst_regs,
+            inst_pc=pc,
         ))
 
         return PipelineState(
@@ -395,9 +445,7 @@ class GasModel:
             units_available=state.units_available,
         )
 
-    # =========================================================================
-    # Section 2.5: Issue Transition (GP A.51-A.52)
-    # =========================================================================
+    ###################### Section 2.5: Issue Transition (GP A.51-A.52)
 
     def _transition_issue(self, state: PipelineState) -> PipelineState:
         """
@@ -420,6 +468,7 @@ class GasModel:
             units=entry.units,
             deps=set(entry.deps),
             dest_regs=set(entry.dest_regs),
+            inst_pc=entry.inst_pc,
         )
 
         # Consume execution units
@@ -455,9 +504,7 @@ class GasModel:
             return idx
         return None
 
-    # =========================================================================
-    # Section 2.6: Tick Transition (GP A.53)
-    # =========================================================================
+    ############################# Section 2.6: Tick Transition (GP A.53)
 
     def _transition_tick(self, state: PipelineState) -> PipelineState:
         """
@@ -516,6 +563,7 @@ class GasModel:
                     units=entry.units,
                     deps=adjusted_deps,
                     dest_regs=new_dest_regs,
+                    inst_pc=entry.inst_pc,
                 ))
 
         return PipelineState(
@@ -527,9 +575,7 @@ class GasModel:
             units_available=self._add_units(state.units_available, returned_units),
         )
 
-    # =========================================================================
-    # Section 3: Register Analysis
-    # =========================================================================
+    ############################# Section 3: Register Analysis
 
     def source_registers(self, pc: int) -> Set[int]:
         """
@@ -668,9 +714,7 @@ class GasModel:
             return a
         return b
 
-    # =========================================================================
-    # Section 4: Cost Parameters (GP A.55-A.56)
-    # =========================================================================
+    ###################### Section 4: Cost Parameters (GP A.55-A.56)
 
     def memory_latency(self) -> int:
         """
@@ -702,12 +746,10 @@ class GasModel:
             return 1
         return 20
 
-    # =========================================================================
-    # Section 5: Instruction Cost Table (GP A.10)
-    # =========================================================================
+    ############################ Section 5: Instruction Cost Table (GP A.10)
 
     def _build_instruction_cost_table(self) -> Dict[int, InstructionCost]:
-        """Build the instruction cost table per GP Appendix A.10."""
+        #GP-0.7.2-A.10 instruction cost tabkle
 
         def const(v: int) -> Callable[[int], int]:
             return lambda pc: v
@@ -717,7 +759,7 @@ class GasModel:
 
         table: Dict[int, InstructionCost] = {}
 
-        # --- Arithmetic & Logical (64-bit) ---
+        # Arithmetic & Logical (64-bit)
         for opc in (self.op._and.value, self.op.xor.value, self.op._or.value,
                     self.op.add_64.value, self.op.sub_64.value):
             table[opc] = InstructionCost(
@@ -726,7 +768,7 @@ class GasModel:
                 units_fn=units(A=1)
             )
 
-        # --- Arithmetic & Logical (32-bit) ---
+        # Arithmetic & Logical (32-bit)
         for opc in (self.op.add_32.value, self.op.sub_32.value):
             table[opc] = InstructionCost(
                 latency_fn=const(2),
@@ -734,7 +776,7 @@ class GasModel:
                 units_fn=units(A=1)
             )
 
-        # --- Immediate variants (64-bit) ---
+        # Immediate variants (64-bit)
         for opc in (self.op.and_imm.value, self.op.xor_imm.value, self.op.or_imm.value,
                     self.op.add_imm_64.value, self.op.shlo_r_imm_64.value, self.op.shar_r_imm_64.value,
                     self.op.shlo_l_imm_64.value, self.op.rot_r_64_imm.value, self.op.reverse_bytes.value):
@@ -744,7 +786,7 @@ class GasModel:
                 units_fn=units(A=1)
             )
 
-        # --- Immediate variants (32-bit) ---
+        # Immediate variants (32-bit)
         for opc in (self.op.add_imm_32.value, self.op.shlo_r_imm_32.value, self.op.shar_r_imm_32.value,
                     self.op.shlo_l_imm_32.value, self.op.rot_r_32_imm.value):
             table[opc] = InstructionCost(
@@ -753,7 +795,7 @@ class GasModel:
                 units_fn=units(A=1)
             )
 
-        # --- Bit operations ---
+        # Bit operations
         for opc in (self.op.count_set_bits_64.value, self.op.count_set_bits_32.value,
                     self.op.leading_zero_bits_64.value, self.op.leading_zero_bits_32.value,
                     self.op.sign_extend_8.value, self.op.sign_extend_16.value, self.op.zero_extend_16.value):
@@ -762,7 +804,7 @@ class GasModel:
         for opc in (self.op.trailing_zero_bits_64.value, self.op.trailing_zero_bits_32.value):
             table[opc] = InstructionCost(latency_fn=const(2), decode_fn=const(1), units_fn=units(A=2))
 
-        # --- Shifts/Rotations (64-bit register) ---
+        # Shifts/Rotations (64-bit register)
         table[self.op.shlo_l_64.value] = InstructionCost(
             latency_fn=const(1),
             decode_fn=lambda pc, a=2, b=3: self.decode_cost_P(a, b, pc),
@@ -777,7 +819,7 @@ class GasModel:
                 units_fn=units(A=1)
             )
 
-        # --- Shifts/Rotations (32-bit register) ---
+        # Shifts/Rotations (32-bit register)
         for opc in (self.op.shlo_l_32.value, self.op.shlo_r_32.value, self.op.shar_r_32.value,
                     self.op.rot_l_32.value, self.op.rot_r_32.value):
             table[opc] = InstructionCost(
@@ -786,7 +828,7 @@ class GasModel:
                 units_fn=units(A=1)
             )
 
-        # --- Alt immediate shifts ---
+        # Alt immediate shifts
         for opc in (self.op.shlo_l_imm_alt_64.value, self.op.shlo_r_imm_alt_64.value,
                     self.op.shar_r_imm_alt_64.value, self.op.rot_r_64_imm_alt.value):
             table[opc] = InstructionCost(latency_fn=const(1), decode_fn=const(3), units_fn=units(A=1))
@@ -795,18 +837,18 @@ class GasModel:
                     self.op.shar_r_imm_alt_32.value, self.op.rot_r_32_imm_alt.value):
             table[opc] = InstructionCost(latency_fn=const(2), decode_fn=const(4), units_fn=units(A=1))
 
-        # --- Set/Compare ---
+        # Set/Compare
         for opc in (self.op.set_lt_u.value, self.op.set_lt_s.value, self.op.set_lt_u_imm.value,
                     self.op.set_lt_s_imm.value, self.op.set_gt_u_imm.value, self.op.set_gt_s_imm.value):
             table[opc] = InstructionCost(latency_fn=const(3), decode_fn=const(3), units_fn=units(A=1))
 
-        # --- Conditional moves ---
+        # Conditional moves
         table[self.op.cmov_iz.value] = InstructionCost(latency_fn=const(2), decode_fn=const(2), units_fn=units(A=1))
         table[self.op.cmov_nz.value] = table[self.op.cmov_iz.value]
         table[self.op.cmov_iz_imm.value] = InstructionCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
         table[self.op.cmov_nz_imm.value] = table[self.op.cmov_iz_imm.value]
 
-        # --- Min/Max ---
+        # Min/Max
         for opc in (self.op._max.value, self.op.max_u.value, self.op._min.value, self.op.min_u.value):
             table[opc] = InstructionCost(
                 latency_fn=const(3),
@@ -814,7 +856,7 @@ class GasModel:
                 units_fn=units(A=1)
             )
 
-        # --- Memory loads ---
+        # Memory loads
         for opc in (self.op.load_ind_u8.value, self.op.load_ind_i8.value, self.op.load_ind_u16.value,
                     self.op.load_ind_i16.value, self.op.load_ind_u32.value, self.op.load_ind_i32.value,
                     self.op.load_ind_u64.value, self.op.load_u8.value, self.op.load_i8.value,
@@ -826,7 +868,7 @@ class GasModel:
                 units_fn=units(A=1, L=1)
             )
 
-        # --- Memory stores ---
+        # Memory stores
         for opc in (self.op.store_imm_ind_u8.value, self.op.store_imm_ind_u16.value,
                     self.op.store_imm_ind_u32.value, self.op.store_imm_ind_u64.value,
                     self.op.store_ind_u8.value, self.op.store_ind_u16.value,
@@ -837,7 +879,7 @@ class GasModel:
                     self.op.store_u32.value, self.op.store_u64.value):
             table[opc] = InstructionCost(latency_fn=const(25), decode_fn=const(1), units_fn=units(A=1, S=1))
 
-        # --- Branches ---
+        # Branches
         for opc in (self.op.branch_eq.value, self.op.branch_ne.value, self.op.branch_lt_u.value,
                     self.op.branch_lt_s.value, self.op.branch_ge_u.value, self.op.branch_ge_s.value,
                     self.op.branch_eq_imm.value, self.op.branch_ne_imm.value, self.op.branch_lt_u_imm.value,
@@ -850,13 +892,13 @@ class GasModel:
                 units_fn=units(A=1)
             )
 
-        # --- Division/Modulo ---
+        # Division/Modulo
         for opc in (self.op.div_u_32.value, self.op.div_s_32.value, self.op.rem_u_32.value,
                     self.op.rem_s_32.value, self.op.div_u_64.value, self.op.div_s_64.value,
                     self.op.rem_u_64.value, self.op.rem_s_64.value):
             table[opc] = InstructionCost(latency_fn=const(60), decode_fn=const(4), units_fn=units(A=1, D=1))
 
-        # --- Boolean inversions ---
+        # Boolean inversions
         for opc in (self.op.and_inv.value, self.op.or_inv.value):
             table[opc] = InstructionCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
         table[self.op.xnor.value] = InstructionCost(
@@ -865,15 +907,15 @@ class GasModel:
             units_fn=units(A=1)
         )
 
-        # --- Negate/add ---
+        # Negate/add
         table[self.op.neg_add_imm_64.value] = InstructionCost(latency_fn=const(2), decode_fn=const(3), units_fn=units(A=1))
         table[self.op.neg_add_imm_32.value] = InstructionCost(latency_fn=const(3), decode_fn=const(4), units_fn=units(A=1))
 
-        # --- Immediates ---
+        # Immediates
         table[self.op.load_imm.value] = InstructionCost(latency_fn=const(1), decode_fn=const(1), units_fn=units())
         table[self.op.load_imm_64.value] = InstructionCost(latency_fn=const(1), decode_fn=const(2), units_fn=units())
 
-        # --- Multiplication ---
+        # Multiplication
         for opc in (self.op.mul_64.value, self.op.mul_imm_64.value):
             table[opc] = InstructionCost(
                 latency_fn=const(3),
@@ -890,7 +932,7 @@ class GasModel:
             lat = 6 if opc == self.op.mul_upper_s_u.value else 4
             table[opc] = InstructionCost(latency_fn=const(lat), decode_fn=const(4), units_fn=units(A=1, M=1))
 
-        # --- Control flow & misc ---
+        # Control flow & misc
         table[self.op.trap.value] = InstructionCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
         table[self.op.fallthrough.value] = InstructionCost(latency_fn=const(2), decode_fn=const(1), units_fn=units())
         table[self.op.unlikely.value] = InstructionCost(latency_fn=const(40), decode_fn=const(1), units_fn=units())
@@ -903,9 +945,7 @@ class GasModel:
 
         return table
 
-    # =========================================================================
-    # Section 6: Helper Functions
-    # =========================================================================
+    ######################## Section 6: Helper Functions
 
     def _skip_bytes(self, pc: int) -> int:
         """Get the number of bytes to skip to reach the next instruction."""
