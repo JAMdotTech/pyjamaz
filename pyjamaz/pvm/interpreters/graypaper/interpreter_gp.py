@@ -401,7 +401,7 @@ class PVMInterpreter:
             self.pc = int(self.pc) + self.skip_len
             self.inst_nr += 1
 
-            # Find containing basic block via binary search O(log n)
+            # Find containing basic block
             block_start = self.get_block_start(self.pc) if self.basic_block_starts_sorted else None
 
             if block_start is not None:

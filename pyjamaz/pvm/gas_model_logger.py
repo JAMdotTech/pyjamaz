@@ -6,13 +6,13 @@ Optional logging for the gas model
 - Spot hazards; = shows RAW dependencies stalling instructions
 
 Timeline Legend:
-    - D : Decode cycle
-    - = : Waiting (decoded but blocked on dependencies)
-    - e : Executing
-    - E : Execution complete
-    - - : Waiting to retire (in-order commit)
-    - R : Retire cycle
-    - . : Not yet decoded
+    D   Decode cycle
+    =   Waiting (decoded but blocked on dependencies)
+    e   Executing
+    E   Execution complete
+    -   Waiting to retire (in-order commit)
+    R   Retire cycle
+    .   Not yet decoded
 
 usage:
 
@@ -154,9 +154,6 @@ class TimelineTracker:
         self._total_cycles.clear()
         self._current_block = None
 
-    # =========================================================================
-    # Rendering
-    # =========================================================================
 
     def render_timeline(self, timeline: BlockTimeline, gas_model: 'GasModel') -> str:
         """
@@ -225,14 +222,10 @@ class TimelineTracker:
                 chars.append('R')
             else:
                 # After retire
-                chars.append('-')
+                chars.append('.')
 
         return ''.join(chars)
 
-
-# =============================================================================
-# Disassembly Helper
-# =============================================================================
 
 def disassemble(gas_model: 'GasModel', pc: int) -> str:
     """
@@ -257,9 +250,6 @@ def disassemble(gas_model: 'GasModel', pc: int) -> str:
 
     # Simple cases - no arguments
     if inst_type == InstructionType.none:
-        # Match reference format: "trap" -> "invalid"
-        if op_name == "trap":
-            return "invalid"
         return op_name
 
     # Read register byte if present
@@ -270,24 +260,104 @@ def disassemble(gas_model: 'GasModel', pc: int) -> str:
     r_a = reg_byte % 16
     r_b = reg_byte // 16
 
+    # Operator symbol mapping for readable output
+    OP_SYMBOLS = {
+        # Arithmetic
+        "add_32": "+", "add_64": "+",
+        "sub_32": "-", "sub_64": "-",
+        "mul_32": "*", "mul_64": "*",
+        "div_u_32": "/", "div_u_64": "/",
+        "div_s_32": "/s", "div_s_64": "/s",
+        "rem_u_32": "%", "rem_u_64": "%",
+        "rem_s_32": "%s", "rem_s_64": "%s",
+        # Bitwise (note: _and, _or due to Python keywords)
+        "_and": "&", "_or": "|", "xor": "^",
+        "and_imm": "&", "or_imm": "|", "xor_imm": "^",
+        # Shifts
+        "shlo_l_32": "<<", "shlo_l_64": "<<",
+        "shlo_r_32": ">>>", "shlo_r_64": ">>>",
+        "shar_r_32": ">>", "shar_r_64": ">>",
+        "shlo_l_imm_32": "<<", "shlo_l_imm_64": "<<",
+        "shlo_r_imm_32": ">>>", "shlo_r_imm_64": ">>>",
+        "shar_r_imm_32": ">>", "shar_r_imm_64": ">>",
+    }
+
+    # Load type mapping
+    LOAD_TYPES = {
+        "load_ind_u8": "u8", "load_ind_i8": "i8",
+        "load_ind_u16": "u16", "load_ind_i16": "i16",
+        "load_ind_u32": "u32", "load_ind_i32": "i32",
+        "load_ind_u64": "u64",
+    }
+
+    # Store type mapping
+    STORE_TYPES = {
+        "store_ind_u8": "u8", "store_ind_u16": "u16",
+        "store_ind_u32": "u32", "store_ind_u64": "u64",
+    }
+
+    def reg_name(r: int) -> str:
+        """Convert register number to name."""
+        return f"r{r}"
+
+    def sign_extend_imm(value: int, byte_len: int) -> int:
+        """Sign-extend immediate to 64-bit for display."""
+        if byte_len > 0 and value >= (1 << (8 * byte_len - 1)):
+            # Negative value - sign extend to 64 bits
+            return value | (~((1 << (8 * byte_len)) - 1) & 0xffffffffffffffff)
+        return value
+
     # Format based on instruction type
     match inst_type:
         case InstructionType.reg_imm:
+            # Handle load_imm specially: "a3 = 0x1" instead of "a3 = load_imm(0x1)"
+            if op_name == "load_imm" and arg_len > 1:
+                imm = _read_imm(gas_model.sim_code, pc + 2, arg_len - 1)
+                return f"{reg_name(r_a)} = 0x{imm:x}"
             if arg_len > 1:
                 imm = _read_imm(gas_model.sim_code, pc + 2, arg_len - 1)
-                return f"r{r_a} = {op_name}(0x{imm:x})"
-            return f"r{r_a} = {op_name}"
+                return f"{reg_name(r_a)} = {op_name}(0x{imm:x})"
+            return f"{reg_name(r_a)} = {op_name}"
 
         case InstructionType.reg_reg:
             if op_name == "move_reg":
-                return f"r{r_a} = r{r_b}"
-            return f"r{r_a} = {op_name} r{r_b}"
+                return f"{reg_name(r_a)} = {reg_name(r_b)}"
+            # Use operator symbols where available
+            sym = OP_SYMBOLS.get(op_name, op_name)
+            return f"{reg_name(r_a)} = {reg_name(r_a)} {sym} {reg_name(r_b)}"
+
+        case InstructionType.reg_reg_reg:
+            # Three-register instructions: add_64, _or, _and, etc.
+            # Format: opcode, reg_byte1 (r_a=src1, r_b=src2), reg_byte2 (r_d=dest)
+            # Operation: reg[r_d] = reg[r_a] op reg[r_b]
+            r_d = 0
+            if pc + 2 < len(gas_model.sim_code):
+                r_d = min(12, gas_model.sim_code[pc + 2])
+            sym = OP_SYMBOLS.get(op_name, op_name)
+            return f"{reg_name(r_d)} = {reg_name(r_a)} {sym} {reg_name(r_b)}"
 
         case InstructionType.reg_reg_imm:
+            # Handle loads: "r9 = i16 [a0 + 0x6]"
+            if op_name in LOAD_TYPES:
+                load_type = LOAD_TYPES[op_name]
+                if arg_len > 1:
+                    offset = _read_imm(gas_model.sim_code, pc + 2, arg_len - 1)
+                    return f"{reg_name(r_a)} = {load_type} [{reg_name(r_b)} + 0x{offset:x}]"
+                return f"{reg_name(r_a)} = {load_type} [{reg_name(r_b)}]"
+            # Handle stores: "u8 [a0 + 0x2] = a3"
+            if op_name in STORE_TYPES:
+                store_type = STORE_TYPES[op_name]
+                if arg_len > 1:
+                    offset = _read_imm(gas_model.sim_code, pc + 2, arg_len - 1)
+                    return f"{store_type} [{reg_name(r_b)} + 0x{offset:x}] = {reg_name(r_a)}"
+                return f"{store_type} [{reg_name(r_b)}] = {reg_name(r_a)}"
+            # Use operator symbols where available, with sign-extended immediates
+            sym = OP_SYMBOLS.get(op_name, op_name)
             if arg_len > 1:
                 imm = _read_imm(gas_model.sim_code, pc + 2, arg_len - 1)
-                return f"r{r_a} = r{r_b} {op_name} 0x{imm:x}"
-            return f"r{r_a} = r{r_b} {op_name}"
+                imm_extended = sign_extend_imm(imm, arg_len - 1)
+                return f"{reg_name(r_a)} = {reg_name(r_b)} {sym} 0x{imm_extended:x}"
+            return f"{reg_name(r_a)} = {reg_name(r_b)} {sym}"
 
         case InstructionType.offset:
             offset = _read_signed_offset(gas_model.sim_code, pc + 1, arg_len)
@@ -296,11 +366,11 @@ def disassemble(gas_model: 'GasModel', pc: int) -> str:
         case InstructionType.reg_reg_offset:
             if arg_len > 1:
                 offset = _read_signed_offset(gas_model.sim_code, pc + 2, arg_len - 1)
-                return f"{op_name} {offset} if r{r_a} ? r{r_b}"
-            return f"{op_name} r{r_a}, r{r_b}"
+                return f"{op_name} {offset} if {reg_name(r_a)} ? {reg_name(r_b)}"
+            return f"{op_name} {reg_name(r_a)}, {reg_name(r_b)}"
 
         case InstructionType.reg_imm_offset:
-            return f"r{r_a} {op_name}"
+            return f"{reg_name(r_a)} {op_name}"
 
         case _:
             return op_name
@@ -323,13 +393,14 @@ def _read_signed_offset(code: bytes, offset: int, length: int) -> int:
     return value
 
 
-def render_block_timeline(gas_model: 'GasModel',
-                          block_pc: int,
-                          tracker: Optional[TimelineTracker] = None) -> str:
+def render_block_timeline(
+        gas_model: 'GasModel',
+        block_pc: int,
+        tracker: Optional[TimelineTracker] = None
+    ) -> str:
     if tracker is None:
         tracker = TimelineTracker()
 
-    # Compute with tracking
     gas_model.compute_block_gas_cost(block_pc, timeline_tracker=tracker)
     timeline = tracker.get_timeline(block_pc)
 

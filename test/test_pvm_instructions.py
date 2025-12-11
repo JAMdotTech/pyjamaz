@@ -44,7 +44,7 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/gas_basic_consume_all.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/gas_complex_1.json'))
     #@parameterized.expand(load_test_vectors('../graypaper-gas/new-gas-cost-model-master/integration-tests/doom.json'))
     def test_instruction(self, name, test_vector):
 
