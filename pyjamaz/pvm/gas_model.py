@@ -15,6 +15,10 @@ RAW    | Read After Write  | Instruction reads a register before a previous inst
 WAW    | Write After Write | Two instructions write to the same register - order matters
 WAR    | Write After Read  | Instruction writes a register that a previous instruction still needs to read
 
+See:
+    https://en.wikipedia.org/wiki/Data_dependency
+    https://en.wikipedia.org/wiki/Hazard_(computer_architecture)
+
 
 Section | GP Reference | Function(s)
 --------|--------------|-------------------------------------------------------------
@@ -81,7 +85,7 @@ class RobEntry:
     """
     Reorder Buffer entry tracking an in-flight instruction.
 
-    GP notation mapping:
+    GP mappings:
     - stage:      s_bar[j] - lifecycle stage (see RobStage)
     - cycles_left: c_bar[j] - remaining execution cycles
     - deps:       p_bar[j] - indices of ROB entries we depend on (RAW hazards)
@@ -350,19 +354,25 @@ class GasModel:
         GP-0.7.1-eq:A.49
 
         move_reg is handled by the frontend without adding a ROB entry.
-        It just updates register mappings in existing ROB entries.
+        It performs register renaming to handle WAR (Write After Read) hazards:
+        - If we read a register an in-flight instruction will write, propagate
+          our destination to track the dependency chain.
+        - If we write a register an in-flight instruction will write, the
+          earlier write's consumers now need our source instead (WAW resolution).
         """
         src_regs = self.source_registers(pc)
         dst_regs = self.dest_registers(pc)
 
-        # Update ROB entries based on register overlap
+        # Register renaming for WAR/WAW hazard resolution
         new_rob = []
         for entry in state.rob:
             if src_regs & entry.dest_regs:
-                # Source overlaps with entry's dest: union
+                # RAW: We read what they write - extend their dest to include ours
+                # (consumers of our dest now also depend on their result)
                 new_dest = entry.dest_regs | dst_regs
             elif dst_regs & entry.dest_regs:
-                # Dest overlaps with entry's dest: intersection with src
+                # WAW: We both write same register - their consumers need our source
+                # (register renaming: redirect their dest to our source)
                 new_dest = entry.dest_regs & src_regs
             else:
                 new_dest = entry.dest_regs
@@ -408,13 +418,17 @@ class GasModel:
         # Compute next PC (None for termination opcodes)
         next_pc = None if opcode in TERMINATION_OPCODES else pc + self._skip_bytes(pc)
 
-        # Find dependencies: ROB entries whose dest_regs overlap with our src_regs
+        # RAW (Read After Write) hazard detection:
+        # Find ROB entries whose dest_regs overlap with our src_regs.
+        # We must wait for these instructions to complete before executing.
         dependencies = {
             idx for idx, entry in enumerate(state.rob)
             if src_regs & entry.dest_regs
         }
 
-        # Update existing ROB entries: remove our dst_regs from their dest_regs
+        # WAW (Write After Write) hazard resolution:
+        # Remove our dst_regs from earlier entries' dest_regs since our write
+        # will supersede theirs (later write wins, earlier write becomes invisible).
         new_rob = []
         for entry in state.rob:
             new_rob.append(RobEntry(
@@ -422,7 +436,7 @@ class GasModel:
                 cycles_left=entry.cycles_left,
                 units=entry.units,
                 deps=set(entry.deps),
-                dest_regs=entry.dest_regs - dst_regs,
+                dest_regs=entry.dest_regs - dst_regs,  # WAW: our write supersedes
                 inst_pc=entry.inst_pc,
             ))
 
@@ -490,7 +504,7 @@ class GasModel:
         Find the oldest ROB entry that is ready to issue:
         - Stage is READY (2)
         - Has enough execution units available
-        - All dependencies have finished (cycles_left <= 0)
+        - All RAW dependencies have finished (cycles_left <= 0)
 
         Returns the ROB index, or None if no instruction is ready.
         """
@@ -499,6 +513,7 @@ class GasModel:
                 continue
             if not self._has_enough_units(entry.units, state.units_available):
                 continue
+            # RAW hazard enforcement: cannot issue until all dependencies complete
             if any(state.rob[dep].cycles_left > 0 for dep in entry.deps if dep < len(state.rob)):
                 continue
             return idx
@@ -580,7 +595,12 @@ class GasModel:
     def source_registers(self, pc: int) -> Set[int]:
         """
         s_hat(pc): Set of source registers read by instruction at pc.
-        Used for RAW dependency detection and decode_cost_P (A.54).
+
+        Used for:
+        - RAW (Read After Write) hazard detection: If this instruction reads
+          a register that an earlier executing instruction will write, we must
+          wait for that write to complete before executing.
+        - decode_cost_P (A.54): Decode cost penalty calculation.
         """
         opcode, inst_type, _ = self._decode_at(pc)
 
@@ -641,7 +661,13 @@ class GasModel:
     def dest_registers(self, pc: int) -> Set[int]:
         """
         r_hat(pc): Set of destination registers written by instruction at pc.
-        Used for WAW/WAR hazard detection.
+
+        Used for:
+        - WAW (Write After Write) hazard handling: When a new instruction writes
+          to a register, earlier instructions' writes to that register become
+          obsolete (the new write supersedes them).
+        - RAW detection (inverse): Earlier instructions writing to registers
+          that we read create dependencies we must track.
         """
         opcode, inst_type, _ = self._decode_at(pc)
 
