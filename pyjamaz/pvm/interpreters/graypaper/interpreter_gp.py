@@ -218,20 +218,19 @@ class PVMInterpreter:
 
 
     def get_branch_imm_offset(self, pc: int, inst_index: int) -> int:
-        """Get signed offset for branch_*_imm and load_imm_jump opcodes (reg-imm-offset format)."""
         l_x = int(min(4, (self.code[pc + 1] // 16) % 8))
         l_y = int(min(4, max(0, self.inst_arg_len[inst_index] - l_x - 1)))
         return pvm_Z(read_uint(self.code, pc + 2 + l_x, l_y), l_y)
 
 
     def get_branch_imm_target(self, pc: int, inst_index: int) -> int:
-        """Compute target for branch_*_imm and load_imm_jump opcodes (reg-imm-offset format)."""
         return pc + self.get_branch_imm_offset(pc, inst_index)
 
+
     def get_block_start(self, pc: int) -> int:
-        """Find the basic block start for any PC via binary search. O(log n)."""
         idx = bisect.bisect_right(self.basic_block_starts_sorted, pc) - 1
         return self.basic_block_starts_sorted[idx] if idx >= 0 else 0
+
 
     def branch(self, b:int, C:bool):
         """
