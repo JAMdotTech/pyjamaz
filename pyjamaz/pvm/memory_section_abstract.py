@@ -89,14 +89,9 @@ class AbstractMemorySection(ABC):
     def acl_set_pages(self, start_page: int, nr_pages: int, required_acl: int): ...
 
     @abstractmethod
-    def acl_find_failing_page(self, section_addr: int, length: int, required_acl: int) -> int:
+    def acl_check_pages(self, section_addr: int, length: int, required_acl: int) -> int:
         """
-        Find the first page that fails the ACL check.
-
-        Args:
-            section_addr: Offset within the section
-            length: Number of bytes to check
-            required_acl: Required ACL level (MEM_R or MEM_W)
+        Checks if pages pass the ACL check, if not, return first failing page
 
         Returns:
             Page number of the first failing page, or -1 if all pages pass

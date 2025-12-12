@@ -131,8 +131,8 @@ class MemorySection(AbstractMemorySection):
             self._acl[start_page + page_nr] = acl_level
 
 
-    def acl_find_failing_page(self, section_addr: int, length: int, required_acl: int) -> int:
-        """Find the first page that fails the ACL check."""
+    def acl_check_pages(self, section_addr: int, length: int, required_acl: int) -> int:
+        # checks if pages pass the ACL check
         if length <= 0:
             return -1
 

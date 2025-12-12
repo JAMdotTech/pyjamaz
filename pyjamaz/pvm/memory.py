@@ -122,7 +122,7 @@ class PVMMemory:
         section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
         if section.acl is not None and not section.acl_check(section_addr, length, MEM_W):
             # When an ACL check fails, report the base of the first failing page.
-            fault_page = section.acl_find_failing_page(section_addr, length, MEM_W)
+            fault_page = section.acl_check_pages(section_addr, length, MEM_W)
             if fault_page < 0:
                 fault_page = section_addr // PVM_PAGE_SIZE
             self._mem_addr = section.address + fault_page * PVM_PAGE_SIZE
@@ -151,7 +151,7 @@ class PVMMemory:
         section_addr = (addr - section.address) #% section.size  #TODO: not sure if % necesarry?
         if section.acl is not None and not section.acl_check(section_addr, length, MEM_R):
             # When an ACL check fails, report the base of the first failing page.
-            fault_page = section.acl_find_failing_page(section_addr, length, MEM_R)
+            fault_page = section.acl_check_pages(section_addr, length, MEM_R)
             if fault_page < 0:
                 fault_page = section_addr // PVM_PAGE_SIZE
             self._mem_addr = section.address + fault_page * PVM_PAGE_SIZE
