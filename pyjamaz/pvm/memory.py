@@ -95,7 +95,8 @@ class PVMMemory:
             raise PanicError(msg)
 
         if not self.section_offsets:
-            raise PVMMemoryError("Memory not initialized")
+            # Note: sections not mapped, return None for pagefault handling
+            return None
 
         for section in self.sections:
             if section.address <= addr <= section.paged_tail:
@@ -121,15 +122,9 @@ class PVMMemory:
         section_addr = (addr - section.address)  #% section.size #TODO: not sure if % necesarry?
         if section.acl is not None and not section.acl_check(section_addr, length, MEM_W):
             # When an ACL check fails, report the base of the first failing page.
-            start_page = section_addr // PVM_PAGE_SIZE
-            end_page = (section_addr + max(length - 1, 0)) // PVM_PAGE_SIZE
-            fault_page = None
-            for page in range(start_page, end_page + 1):
-                if page not in section._acl or section._acl[page] < MEM_W:
-                    fault_page = page
-                    break
-            if fault_page is None:
-                fault_page = start_page
+            fault_page = section.acl_find_failing_page(section_addr, length, MEM_W)
+            if fault_page < 0:
+                fault_page = section_addr // PVM_PAGE_SIZE
             self._mem_addr = section.address + fault_page * PVM_PAGE_SIZE
             raise PVMMemoryError(f"Memory address {addr} ACL write check failed")
 
@@ -156,15 +151,9 @@ class PVMMemory:
         section_addr = (addr - section.address) #% section.size  #TODO: not sure if % necesarry?
         if section.acl is not None and not section.acl_check(section_addr, length, MEM_R):
             # When an ACL check fails, report the base of the first failing page.
-            start_page = section_addr // PVM_PAGE_SIZE
-            end_page = (section_addr + max(length - 1, 0)) // PVM_PAGE_SIZE
-            fault_page = None
-            for page in range(start_page, end_page + 1):
-                if page not in section._acl or section._acl[page] < MEM_R:
-                    fault_page = page
-                    break
-            if fault_page is None:
-                fault_page = start_page
+            fault_page = section.acl_find_failing_page(section_addr, length, MEM_R)
+            if fault_page < 0:
+                fault_page = section_addr // PVM_PAGE_SIZE
             self._mem_addr = section.address + fault_page * PVM_PAGE_SIZE
             raise PVMMemoryError(f"Memory address {addr} ACL read check failed")
 

@@ -23,6 +23,10 @@ from pyjamaz import settings
 #     from .interpreters.numba.memory_section import *
 #     from .interpreters.numba.interpreter_numba_jit import PVMInterpreter
 
-from .interpreters.graypaper.defs import *
-from .interpreters.graypaper.memory_section import *
-from .interpreters.graypaper.interpreter_gp import *
+# from .interpreters.graypaper.defs import *
+# from .interpreters.graypaper.memory_section import *
+# from .interpreters.graypaper.interpreter_gp import *
+
+from .interpreters.cpython.defs import *
+from .interpreters.cpython.memory_section import *
+from .interpreters.cpython.interpreter_cpython import *

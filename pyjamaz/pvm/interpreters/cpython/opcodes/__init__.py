@@ -1,5 +1,5 @@
 from pyjamaz.pvm.constants import (
-    op_trap, op_fallthrough, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
+    op_trap, op_fallthrough, op_unlikely, op_ecalli, op_load_imm_64, op_store_imm_u8, op_store_imm_u16,
     op_store_imm_u32, op_store_imm_u64, op_jump, op_jump_ind, op_load_imm, op_load_u8,
     op_load_i8, op_load_u16, op_load_i16, op_load_u32, op_load_i32, op_load_u64,
     op_store_u8, op_store_u16, op_store_u32, op_store_u64, op_store_imm_ind_u8,
@@ -31,7 +31,7 @@ from pyjamaz.pvm.constants import (
 
 from ..opcodes.imm import _op_ecalli
 from ..opcodes.imm_imm import _op_store_imm_u8, _op_store_imm_u16, _op_store_imm_u32, _op_store_imm_u64
-from ..opcodes.none import _op_fallthrough, _op_invalid, _op_trap
+from ..opcodes.none import _op_fallthrough, _op_invalid, _op_trap, _op_unlikely
 from ..opcodes.offset import _op_jump
 from ..opcodes.reg_ext_imm import _op_load_imm_64
 from ..opcodes.reg_imm import _op_jump_ind, _op_load_imm, _op_load_u8, _op_load_i8, _op_load_u16, _op_load_i16, \
@@ -69,6 +69,7 @@ def _opcode_lut():
     # None
     O[op_trap] = _op_trap
     O[op_fallthrough] = _op_fallthrough
+    O[op_unlikely] = _op_unlikely
 
     # imm
     O[op_ecalli] = _op_ecalli

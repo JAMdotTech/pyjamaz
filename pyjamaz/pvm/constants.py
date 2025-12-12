@@ -685,6 +685,7 @@ inst_reg_reg_reg = InstructionType.reg_reg_reg.value
 
 op_trap = Opcode.trap.value
 op_fallthrough = Opcode.fallthrough.value
+op_unlikely = Opcode.unlikely.value
 op_ecalli = Opcode.ecalli.value
 op_load_imm_64 = Opcode.load_imm_64.value
 op_store_imm_u8 = Opcode.store_imm_u8.value

@@ -22,7 +22,7 @@ DEBUG_GAS_MISMATCHES = True
 
 # Set to a file path to log ALL block timelines (not just mismatches)
 # Example: GAS_LOG_FILE = "gas_timelines.log"
-GAS_LOG_FILE = "blabla.md"
+GAS_LOG_FILE = None  # "blabla.md"
 
 
 def load_test_vectors(directory):
@@ -44,8 +44,7 @@ def load_test_vectors(directory):
 
 class TestPolkaVMInstructions(unittest.TestCase):
 
-    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/gas_complex_1.json'))
-    #@parameterized.expand(load_test_vectors('../graypaper-gas/new-gas-cost-model-master/integration-tests/doom.json'))
+    @parameterized.expand(load_test_vectors('fixtures/pvm/gas-cost/'))
     def test_instruction(self, name, test_vector):
 
         import logging
