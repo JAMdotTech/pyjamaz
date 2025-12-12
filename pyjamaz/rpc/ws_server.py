@@ -80,9 +80,9 @@ class WebSocketServer:
                                 return jsonapi_error(req_id or e.req_id, e.reason, None)
 
                             if e.reason in RPC_ERROR:
-                                return jsonapi_error(req_id or e.req_id, RPC_ERROR[e.reason])
+                                return jsonapi_error(req_id or e.req_id, RPC_ERROR[e.reason], None)
                             else:
-                                return jsonapi_error(req_id or e.req_id, RPC_ERROR["PARSE_ERROR"])
+                                return jsonapi_error(req_id or e.req_id, RPC_ERROR["PARSE_ERROR"], None)
 
                         except Exception as e:
                             logging.error(f"Invalid message: {message}")

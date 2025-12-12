@@ -8,7 +8,8 @@ import asyncio
 from pyjamaz.models.common import WorkPackage
 from pyjamaz.models.state import ServiceAccount
 from pyjamaz.rpc.interface import RPCMethods
-from pyjamaz.rpc.rpc import generate_req_id, RPCCallException, jsonapi_request, base64_decode, base64_encode
+from pyjamaz.rpc.rpc import generate_req_id, RPCCallException, jsonapi_request
+from pyjamaz.utils import base64_encode, base64_decode
 
 
 class WebsocketClient(RPCMethods):

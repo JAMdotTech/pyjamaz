@@ -5,7 +5,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TypeVar, Optional, List, Callable
+from typing import TypeVar, Optional, List, Callable, Dict
 
 from bandersnatch_vrfs import ietf_vrf_sign, RingContext
 
@@ -22,7 +22,8 @@ from pyjamaz.graypaper_constants import CORE_COUNT, EPOCH_TIMESLOTS, \
     SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.app import StateDump, Trace
-from pyjamaz.models.common import WorkPackage, WorkReport
+from pyjamaz.models.common import WorkPackage, WorkReport, WorkPackageBundle, WorkPackageQueueItem, WorkPackageStatus, \
+    WorkPackageReportableStatus, WorkPackageReadyStatus, BlockDesc, WorkPackageReportedStatus
 from pyjamaz.refine import work_result_computation
 from pyjamaz.settings import SOLO_MODE, DEBUG
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
@@ -94,7 +95,7 @@ class PyjamazApp:
         self.block_extrinsic = BlockExtrinsicAccumulator(self.config.ring_data)
 
         # Refine
-        self.work_packages: List[WorkPackage] = []
+        self.work_package_queue: Dict[bytes, WorkPackageQueueItem] = {}
         self.work_package_extrinsics = WorkpackageExtrinsicAccumulator()
 
         self.working_state: Optional[JamState] = None
@@ -243,6 +244,7 @@ class PyjamazApp:
         )
         # Set storage engine for services
         jam_state.services.set_state_storage(self.state_storage)
+        jam_state.services.pending_changes = PendingChanges()
         return jam_state
 
     @log_execution_time
@@ -1028,11 +1030,17 @@ class PyjamazApp:
         return guarantors
 
     def add_work_package(self, work_package: WorkPackage, extrinsics: List[bytes]):
-        self.work_packages.append(work_package)
+
+        self.work_package_queue[work_package.hash()] = WorkPackageQueueItem(work_package=work_package, status=WorkPackageStatus(Reportable=WorkPackageReportableStatus(remaining_blocks=4)))
 
         self.work_package_extrinsics.add(work_package, extrinsics)
 
         logging.info(f"📥 Added work package to queue: {format_hash(work_package.hash())}")
+
+    def add_work_package_bundle(self, work_package_bundle: WorkPackageBundle):
+
+        self.add_work_package(work_package_bundle.work_package, work_package_bundle.extrinsic_data)
+
 
     async def process_work_package(self, work_package: WorkPackage) -> WorkReport:
         if self.get_core_assigment() is None:
@@ -1148,31 +1156,62 @@ class PyjamazApp:
         Process queued work packages and guarantee work reports.
         """
 
-        work_package = None
+        wp_queue_item = None
+        cleanup_queue = []
 
         # Clean up work packages
-        for idx in range(len(self.work_packages)):
-            w = self.work_packages[idx]
-            if not self.working_state.recent_history.get_recent_block(w.context.lookup_anchor):
-                del self.work_packages[idx]
-                logging.info(f"🗑️ Discarded outdated work package {format_hash(w.hash())}")
+        for h, w in self.work_package_queue.items():
+            if not self.working_state.recent_history.get_recent_block(w.work_package.context.lookup_anchor):
+                cleanup_queue.append(h)
+
+        for h in cleanup_queue:
+            del self.work_package_queue[h]
+            logging.info(f"🗑️ Discarded outdated work package {format_hash(h)}")
 
         # Find first authorized work package
-        for idx in range(len(self.work_packages)):
-            if self.working_state.authorizer_pools.is_authorized(self.work_packages[idx], self.get_core_assigment()):
-                work_package = self.work_packages.pop(idx)
-                break
+        for h, w in self.work_package_queue.items():
+            if w.status.enum_value()[0] == 'Reportable':
+                if self.working_state.authorizer_pools.is_authorized(w.work_package, self.get_core_assigment()):
+                    wp_queue_item = self.work_package_queue[h]
+                    break
 
-        if work_package is None:
+        if wp_queue_item is None:
+            # No reportable work package found, return
             return None
 
         try:
-            work_report = await self.process_work_package(work_package)
+            work_report = await self.process_work_package(wp_queue_item.work_package)
+            # Update WorkPackage status
+            wp_queue_item.status = WorkPackageStatus(Reported=WorkPackageReportedStatus(
+                reported_in=BlockDesc(
+                    slot=self.working_state.timeslot.number,
+                    header_hash=self.retrieve_block_hash(self.working_state.timeslot.number)
+                ),
+                core=self.get_core_assigment(),
+                report_hash=work_report.hash()
+            ))
+            if self.app_context.pubsub:
+                # Send signal
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(
+                        topic=MESSAGE_TYPES.WORK_PACKAGE_STATUS,
+                        data=[wp_queue_item.status.to_json()]
+                    )
+                )
             await self.guarantee_work_report(work_report, timeslot)
             return work_report
 
         except ProcessWorkpackageError as e:
-            logging.error(f"Error processing work package {format_hash(work_package.hash())}: {e}")
+            # Update WorkPackage status
+            wp_queue_item.status = WorkPackageStatus(Failed=str(e))
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(
+                        topic=MESSAGE_TYPES.WORK_PACKAGE_STATUS,
+                        data=[wp_queue_item.status.to_json()]
+                    )
+                )
+            logging.error(f"Error processing work package {format_hash(wp_queue_item.work_package.hash())}: {e}")
             return None
 
 

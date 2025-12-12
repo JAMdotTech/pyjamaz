@@ -171,4 +171,4 @@ class WorkpackageExtrinsicAccumulator:
             return None
 
     def clear(self, work_package: WorkPackage):
-        del self.extrinsic_data[work_package.hash()]
+        self.extrinsic_data.pop(work_package.hash(), None)

@@ -2,7 +2,7 @@ import inspect
 import itertools
 import logging
 import time
-from base64 import b32encode
+from base64 import b64encode, b64decode
 from functools import wraps
 from math import floor
 from typing import List, Optional
@@ -231,3 +231,11 @@ def log_execution_time(func):
             logging.info(f"⏱️ {_name(*args)} executed in {execution_time:.6f} seconds")
             return result
         return wrapper
+
+
+def base64_encode(data: bytes) -> str:
+    return b64encode(data).decode('ascii')
+
+
+def base64_decode(data: str) -> bytes:
+    return b64decode(data.encode('ascii'))

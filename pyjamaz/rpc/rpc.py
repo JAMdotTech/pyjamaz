@@ -1,21 +1,16 @@
 import json
 import logging
 import uuid
-from base64 import b64encode, b64decode
-from dataclasses import dataclass, field
-from typing import List, Tuple
 
 from jamcodec.base import JamBytes
-from jamcodec.mixins import Serializable
-from jamcodec.types import H256, U32, Vec, Bytes, Tuple as JamTuple
 
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.app import PyjamazApp
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.models.block import Preimage
 from pyjamaz.models.builder import ServiceRegistry
-from pyjamaz.models.common import WorkPackage
-
+from pyjamaz.models.common import WorkPackage, WorkPackageStatus
+from pyjamaz.utils import format_hash, base64_encode, base64_decode
 
 #TODO: enum
 RPC_TYPE_REQUEST = 1
@@ -28,13 +23,11 @@ RPC_ERROR = {
     "UNKNOWN_MESSAGE_TYPE": {"code": -32601, "msg": "Method not found"},
     "INVALID_PARAMS": {"code": -32602, "msg": "Invalid params"},
     "PARSE_ERROR": {"code": -32700, "msg": "Parse error"},
+    "UNKNOWN_SEGMENT": {
+        "code": 4000,
+        "msg": "Data recovery error: Data can not be recovered"
+    },
 }
-
-def base64_encode(data: bytes) -> str:
-    return b64encode(data).decode('ascii')
-
-def base64_decode(data: str) -> bytes:
-    return b64decode(data.encode('ascii'))
 
 
 class RPCCallException(Exception):
@@ -158,21 +151,19 @@ def rpcParameters(app, params):
             "availability_timeout": gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD,
             "val_count": gp_const.VALIDATOR_COUNT,
             "max_input": gp_const.MAXIMUM_SIZE_WORK_PACKAGE,
-            "max_refine_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
             "max_service_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
             "basic_piece_len": gp_const.SIZE_ERASURE_CODED_PIECES,
             "max_imports": gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE,
-            "max_authorizer_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
-            "max_is_authorized_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
+            "max_authorizer_code_size": gp_const.MAXIMUM_SIZE_IS_AUTH_CODE,
             # TODO not yet defined in JIP2
             "max_exports": gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE,
-            "max_refine_memory": 2**16,
-            "max_is_authorized_memory": 2**16,
+            # "max_refine_memory": 2**16,
+            # "max_is_authorized_memory": 2**16,
             "slot_period_sec": gp_const.SLOT_PERIOD,
             "epoch_tail_start": gp_const.TICKET_SUBMISSION_END_SLOT,
             "core_count": gp_const.CORE_COUNT,
-            "segment_piece_count": gp_const.SIZE_ERASURE_CODED_PIECES,
-            "max_report_elective_data": 0, # TODO
+            "segment_piece_count": gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE,
+            "max_report_elective_data": 49152, # TODO
             "transfer_memo_size": gp_const.TRANSFER_MEMO_SIZE,
         }
     }
@@ -255,7 +246,19 @@ def rpcSubmitWorkPackage(app: PyjamazApp, params):
     #TODO: should assign to a specific core
     ex = [base64_decode(x) for x in params[2]]
     wp = WorkPackage.from_jam_bytes(JamBytes(base64_decode(params[1])))
+    logging.debug(f'Received workpackage {format_hash(wp.work_package.hash())}')
     app.add_work_package(wp, ex)
+
+
+def rpcSubmitWorkPackageBundle(app: PyjamazApp, params):
+    #TODO: should assign to a specific core
+    data = JamBytes(base64_decode(params[1]))
+    # wpb = WorkPackageBundle.from_jam_bytes(data)
+    # extrinsics = Vec(Bytes).decode(data)
+    wp = WorkPackage.from_jam_bytes(data)
+    logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
+    app.add_work_package(wp, [])
+    # app.add_work_package_bundle(wpb)
 
 
 def rpcSubmitPreimage(app: PyjamazApp, params):
@@ -273,13 +276,9 @@ def rpcServiceRequest(app: PyjamazApp, params):
 
 def rpcFetchSegments(app: PyjamazApp, params):
     """
-    TODO:
-    "error": {
-        "code": 4000,
-        "message": "Data recovery error: Data can not be recovered"
-    }
+    TODO implement
     """
-    return []
+    raise RPCCallException("UNKNOWN_SEGMENT")
 
 
 def rpcSyncState(app: PyjamazApp, params):
@@ -370,6 +369,23 @@ def rpcSubscribeSyncStatus(app: PyjamazApp, params):
         return None
 
 
+def rpcSubscribeWorkPackageStatus(app: PyjamazApp, params):
+    # Note: initial response after subscription
+
+    hash = base64_decode(params[0])
+    anchor = base64_decode(params[1])
+    if hash in app.work_package_queue:
+        value = app.work_package_queue[hash].status.to_json()
+    else:
+        value = WorkPackageStatus(Failed='Not found').to_json()
+
+    return {
+        "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
+        "slot": app.working_state.timeslot.number,
+        "value": value #rpcServiceRequest(app, [None, params[0], params[1], params[2]])
+    }
+
+
 # Note: The actual (realtime) (un)subscription handlers are mapped in ws_server_subscriptions.py::SubscriptionManager
 RPC_REQUESTS = {
     "parameters": rpcParameters,
@@ -407,6 +423,7 @@ RPC_REQUESTS = {
 
     "beefyRoot": rpcBeefyRoot,
     "submitWorkPackage": rpcSubmitWorkPackage,
+    "submitWorkPackageBundle": rpcSubmitWorkPackageBundle,
     "submitPreimage": rpcSubmitPreimage,
     "listServices": rpcListServices,
     "fetchSegments": rpcFetchSegments,
@@ -414,6 +431,9 @@ RPC_REQUESTS = {
     "syncState": rpcSyncState,
     "subscribeSyncStatus": rpcSubscribeSyncStatus,
     "unsubscribeSyncStatus": None,
+
+    "subscribeWorkPackageStatus": rpcSubscribeWorkPackageStatus,
+    "unsubscribeWorkPackageStatus": None,
 }
 
 
