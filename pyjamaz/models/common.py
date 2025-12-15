@@ -12,7 +12,7 @@ from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map
 from pyjamaz.exceptions import BlockValidationError
 from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.merkle import WellBalancedMerkleTree
+from pyjamaz.merkle import ConstantDepthMerkleTree
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.utils import base64_encode
 
@@ -181,7 +181,7 @@ class ImportSegment(Serializable):
 @dataclass
 class WorkItem(Serializable):
     """
-    GP-0.7.1-eq:14.3 (blackboard_W) | Work item.
+    GP-0.7.2-eq:14.3 (blackboard_W) | Work item.
 
     Attributes
     ----------
@@ -535,7 +535,7 @@ class WorkPackageSpec(Serializable):
             hash=work_package.hash(),
             length=work_package.to_jam_bytes().length,
             erasure_root=bytes(32),
-            exports_root=WellBalancedMerkleTree(exported_segments).root(), # TODO replace with ConstantDepthMerkleTree
+            exports_root=ConstantDepthMerkleTree(exported_segments).root(),
             exports_count=len(exported_segments),
         )
 

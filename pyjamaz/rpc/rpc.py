@@ -10,6 +10,7 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.models.block import Preimage
 from pyjamaz.models.builder import ServiceRegistry
 from pyjamaz.models.common import WorkPackage, WorkPackageStatus
+from pyjamaz.settings import DEBUG
 from pyjamaz.utils import format_hash, base64_encode, base64_decode
 
 #TODO: enum
@@ -246,7 +247,7 @@ def rpcSubmitWorkPackage(app: PyjamazApp, params):
     #TODO: should assign to a specific core
     ex = [base64_decode(x) for x in params[2]]
     wp = WorkPackage.from_jam_bytes(JamBytes(base64_decode(params[1])))
-    logging.debug(f'Received workpackage {format_hash(wp.work_package.hash())}')
+    DEBUG and logging.debug(f'Received workpackage {format_hash(wp.hash())}')
     app.add_work_package(wp, ex)
 
 
@@ -256,7 +257,7 @@ def rpcSubmitWorkPackageBundle(app: PyjamazApp, params):
     # wpb = WorkPackageBundle.from_jam_bytes(data)
     # extrinsics = Vec(Bytes).decode(data)
     wp = WorkPackage.from_jam_bytes(data)
-    logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
+    DEBUG and logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
     app.add_work_package(wp, [])
     # app.add_work_package_bundle(wpb)
 
@@ -276,9 +277,20 @@ def rpcServiceRequest(app: PyjamazApp, params):
 
 def rpcFetchSegments(app: PyjamazApp, params):
     """
-    TODO implement
     """
-    raise RPCCallException("UNKNOWN_SEGMENT")
+    segment_root = base64_decode(params[0])
+    segments = app.segment_store.get(segment_root)
+    if segments is None:
+        raise RPCCallException("UNKNOWN_SEGMENT")
+
+    requested_segments = []
+    DEBUG and logging.debug(f'Requested segments: {format_hash(segment_root)} {params[1]}')
+
+    for requested_index in params[1]:
+        requested_segments.append(base64_encode(segments[requested_index]))
+
+    DEBUG and logging.debug(f'Requested segments: {requested_segments}')
+    return requested_segments
 
 
 def rpcSyncState(app: PyjamazApp, params):

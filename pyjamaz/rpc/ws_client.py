@@ -129,8 +129,9 @@ class WebsocketClient(RPCMethods):
         res["header_hash"] = base64_decode(res["header_hash"])
         return res
 
-    async def listServices(self) -> List[int]:
-        return await self._send_and_wait("listServices", None)
+    async def listServices(self, block_hash: bytes) -> List[int]:
+        block_hash = base64_encode(block_hash)
+        return await self._send_and_wait("listServices", [block_hash])
 
 
     async def stateRoot(self, block_hash) -> bytes:
@@ -149,6 +150,10 @@ class WebsocketClient(RPCMethods):
             return None
         return base64_decode(blob)
 
+    async def fetchSegments(self, segment_root: bytes, indices: list[int]) -> List[bytes]:
+        segment_root = base64_encode(segment_root)
+        segments = await self._send_and_wait("fetchSegments", [segment_root, indices])
+        return [base64_decode(s) for s in segments]
 
     async def submitWorkPackage(self, core_idx: int, workpackage: WorkPackage, extrinsics: List[bytes]) -> None:
         workpackage_blob = base64_encode(workpackage.to_jam_bytes().to_bytes())
@@ -198,3 +203,8 @@ class WebsocketClient(RPCMethods):
             return None
         return await self.subscribe("subscribeServiceRequest", [service_id, base64_encode(preimage_hash), preimage_length], result_parser)
 
+    async def subscribeBestBlock(self):
+        def result_parser(result):
+            result["header_hash"] = base64_decode(result["header_hash"])
+            return result
+        return await self.subscribe("subscribeBestBlock", [], result_parser)
