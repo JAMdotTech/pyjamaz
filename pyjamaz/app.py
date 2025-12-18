@@ -202,7 +202,7 @@ class PyjamazApp:
 
     def retrieve_ancestor_headers(self, block_hash: bytes) -> List[Header]:
         """
-        GP-0.7.1-eq:5.3 | We only require implementations to store headers of ancestors which were authored in the
+        GP-0.7.2-eq:5.3 | We only require implementations to store headers of ancestors which were authored in the
         previous (constant_L) = 24 hours of any block (bold_B) they wish to validate.
         """
         ancestor_headers = []
@@ -305,11 +305,11 @@ class PyjamazApp:
 
         # Validate quality of header data (initial stage)
 
-        # GP-0.7.0-eq:5.7
+        # GP-0.7.2-eq:5.7
         if not settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK and block.header.timeslot > self.current_timeslot():
             raise StateTransitionError(BlockValidationErrorCode.bad_slot)
 
-        #  GP-0.7.0-eq:5.4 | Check extrinsic hash
+        #  GP-0.7.2-eq:5.4 | Check extrinsic hash
         if block.header.extrinsic_hash != block.extrinsic.generate_extrinsic_hash():
             raise StateTransitionError(BlockValidationErrorCode.extrinsic_hash_mismatch)
 
@@ -320,7 +320,7 @@ class PyjamazApp:
             DEBUG and logging.debug(f"Parent hash {format_hash(block.header.parent)} does not has a valid ancestor")
             raise StateTransitionError(BlockValidationErrorCode.bad_slot)
 
-        # GP-0.7.0-eq:5.7
+        # GP-0.7.2-eq:5.7
         if block.header.timeslot <= parent_header.timeslot:
             raise StateTransitionError(BlockValidationErrorCode.bad_slot)
 
@@ -603,7 +603,7 @@ class PyjamazApp:
            beefy_commitment_map=services_after_accumulation_output.beefy_commitment_map
         )
 
-        # Accumulation History STF | GP-0.6.1-eq:???
+        # Accumulation History STF | GP-0.7.2-eq:4.16
         # TODO: general review of this section after 0.7.1
         accumulation_history_output = self.components.accumulation_history.state_transition(
             accumulatable_work_reports=self.block_context.accumulatable_work_reports,
@@ -611,7 +611,7 @@ class PyjamazApp:
             nr_work_results_accumulated=services_after_accumulation_output.nr_work_results_accumulated
         )
 
-        # Accumulation Queue STF | GP-0.6.1-eq:???
+        # Accumulation Queue STF | GP-0.7.2-eq:4.16
         # TODO: general review of this section after 0.7.1
         accumulation_queue_output = self.components.accumulation_queue.state_transition(
             queued_work_reports=self.block_context.queued_work_reports,

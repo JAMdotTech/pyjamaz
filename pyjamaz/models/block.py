@@ -325,42 +325,42 @@ class Guarantee(Serializable):
 @dataclass
 class Header(Serializable):
     """
-    GP-0.7.1-eq:5.1 (bold_H) | The header is a collection of metadata primarily concerned with cryptographic references
+    GP-0.7.2-eq:5.1 (bold_H) | The header is a collection of metadata primarily concerned with cryptographic references
     to the blockchain ancestors and the operands and results of the present transition.
 
-    Serialization: GP-0.7.1-eq:C.22,23
+    Serialization: GP-0.7.2-eq:C.22,23
 
     Attributes
     ----------
     parent: H256
-        GP-0.7.1-eq:5.2 (bold_H_P) |
+        GP-0.7.2-eq:5.2 (bold_H_P) |
         Hash of the header of the block's parent
     parent_state_root: H256
-        GP-0.7.1-eq:5.8 (bold_H_R) |
+        GP-0.7.2-eq:5.8 (bold_H_R) |
         Merkle root of the block's parent posterior state
     extrinsic_hash: H256
-        GP-0.7.1-eq:5.4 (bold_H_X) |
+        GP-0.7.2-eq:5.4 (bold_H_X) |
         Hash of the block's extrinsic data
     timeslot: U32
-        GP-0.7.1-eq:5.7,6.1 (bold_H_T,blackboard_N=U32) |
+        GP-0.7.2-eq:5.7,6.1 (bold_H_T,blackboard_N=U32) |
         Block's timeslot
     epoch_marker: EpochMark
-        GP-0.7.1-eq:5.10 (bold_H_E) |
+        GP-0.7.2-eq:5.10 (bold_H_E) |
         Optional block's epoch marker; fallback keys and entropy for next epoch
     tickets_marker: Option(Array(TicketBody,EPOCH_TIMESLOTS))
-        GP-0.7.1-eq:5.10 (bold_H_W) |
+        GP-0.7.2-eq:5.10 (bold_H_W) |
         Optional block's winning tickets marker; provides a series of 600 slot sealing tickets for the next epoch
     author_index: U16
-        GP-0.7.1-eq:5.9 (bold_H_I) |
+        GP-0.7.2-eq:5.9 (bold_H_I) |
         Index to identify the block author into the posterior state of the current validator set (kappa)
     entropy_source: Array(U8, 96)
-        GP-0.7.1-eq:6.17 (bold_H_V) |
+        GP-0.7.2-eq:6.17 (bold_H_V) |
         Entropy-yielding VRF signature
     offenders_marker: Vec(H256)
-        GP-0.7.1-eq:5.10 (bold_H_O) |
+        GP-0.7.2-eq:5.10 (bold_H_O) |
         List of Ed25519 keys for offenders
     seal: Array(U8, 96)
-        GP-0.7.1-eq:6.15,6.16 (bold_H_S) |
+        GP-0.7.2-eq:6.15,6.16 (bold_H_S) |
         Seal signature
     """
     parent: bytes = field(metadata={'codec': H256})
@@ -531,7 +531,7 @@ class Header(Serializable):
     @property
     def author_bandersnatch_key(self) -> Optional[bytes]:
         """
-        GP-0.7.1-eq:5.9 (bold_H_A) Derived author bandersnatch key from author index
+        GP-0.7.2-eq:5.9 (bold_H_A) Derived author bandersnatch key from author index
         Returns
         -------
         Optional[bytes]
@@ -540,7 +540,7 @@ class Header(Serializable):
 
     def set_author_bandersnatch_key(self, post_state_validator_pool: 'ValidatorPoolState'):
         """
-        GP-0.7.1-eq:5.9 (bold_H_A) | Derive author bandersnatch key from validator pool (κ')
+        GP-0.7.2-eq:5.9 (bold_H_A) | Derive author bandersnatch key from validator pool (κ')
 
         Parameters
         ----------
@@ -591,14 +591,14 @@ class Extrinsic(Serializable):
 
     def generate_extrinsic_hash(self) -> bytes:
         """
-        GP-0.7.1-eq:5.4,5.5,5.6
+        GP-0.7.2-eq:5.4,5.5,5.6
 
         Returns
         -------
         bytes
         """
 
-        # GP-0.7.1-eq:5.5
+        # GP-0.7.2-eq:5.5
         extrinsic_hash = blake2b_256_hash(bytes(Vec(TicketEnvelope.to_codec_def()).encode([
             t.to_jam_bytes() for t in self.tickets
         ])))
@@ -620,7 +620,7 @@ class Extrinsic(Serializable):
         ])))
         extrinsic_hash += blake2b_256_hash(bytes(self.disputes.to_jam_bytes()))
 
-        # GP-0.7.1-eq:5.4
+        # GP-0.7.2-eq:5.4
         return blake2b_256_hash(extrinsic_hash)
 
     @classmethod

@@ -95,16 +95,16 @@ class Entropy(StateComponent):
             pre_state_entropy: EntropyState
     ) -> EntropyOutput:
         """
-        GP-0.7.1-eq:6.22,6.23 (η') | State transition function for the state's entropy.
+        GP-0.7.2-eq:6.22,6.23 (η') | State transition function for the state's entropy.
 
         Parameters
         ----------
         header: Header
-            GP-0.7.1-eq:4.8 (bold_H)
+            GP-0.7.2-eq:4.8 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.7.1-eq:4.8 (τ)
+            GP-0.7.2-eq:4.8 (τ)
         pre_state_entropy: EntropyState
-            GP-0.7.1-eq:4.8 (η)
+            GP-0.7.2-eq:4.8 (η)
 
         Returns
         -------
@@ -114,13 +114,13 @@ class Entropy(StateComponent):
 
         post_state_entropy = deepcopy(pre_state_entropy)
 
-        # GP-0.7.1-eq:6.22 (η'[0]) | State transition for first index of the entropy.
+        # GP-0.7.2-eq:6.22 (η'[0]) | State transition for first index of the entropy.
         eta_0 = blake2b_256_hash(pre_state_entropy.entropy[0] + self.entropy_output(header))
 
-        # GP-0.7.1-eq:6.23 (η'[1-3]) | State transition for last three indices of the entropy.
+        # GP-0.7.2-eq:6.23 (η'[1-3]) | State transition for last three indices of the entropy.
         # State transition happen on epoch change.
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
-            # GP-0.7.1-eq:6.23 (`e > e'`) | When epoch changes
+            # GP-0.7.2-eq:6.23 (`e > e'`) | When epoch changes
             post_state_entropy.entropy = [eta_0] + pre_state_entropy.entropy[:3]
         else:
             post_state_entropy.entropy = [eta_0] + pre_state_entropy.entropy[1:]
@@ -189,18 +189,18 @@ class ValidatorPool(StateComponent):
             pre_state_safrole: SafroleState
     ) -> ValidatorPoolOutput:
         """
-        GP-0.7.1-eq:6.13 (κ') | State transition function for the state's current validator set. Occurs on epoch change.
+        GP-0.7.2-eq:6.13 (κ') | State transition function for the state's current validator set. Occurs on epoch change.
 
         Parameters
         ----------
         header: Header
-            GP-0.7.1-eq:4.9 (bold_H)
+            GP-0.7.2-eq:4.9 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.7.1-eq:4.9 (τ)
+            GP-0.7.2-eq:4.9 (τ)
         pre_state_validator_pool: ValidatorPoolState
-            GP-0.7.1-eq:4.9 (κ)
+            GP-0.7.2-eq:4.9 (κ)
         pre_state_safrole: SafroleState
-            GP-0.7.1-eq:4.9 (γ)
+            GP-0.7.2-eq:4.9 (γ)
 
         Returns
         -------
@@ -233,19 +233,19 @@ class ValidatorArchive(StateComponent):
             pre_state_validator_pool: ValidatorPoolState
     ) -> ValidatorArchiveOutput:
         """
-        GP-0.7.1-eq:6.13 (λ') | State transition function for the state's archived validator set. Occurs on epoch
+        GP-0.7.2-eq:6.13 (λ') | State transition function for the state's archived validator set. Occurs on epoch
         change.
 
         Parameters
         ----------
         header: Header
-            GP-0.7.1-eq:4.10 (bold_H)
+            GP-0.7.2-eq:4.10 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.7.1-eq:4.10 (τ)
+            GP-0.7.2-eq:4.10 (τ)
         pre_state_validator_archive: ValidatorArchiveState
-            GP-0.7.1-eq:4.10 (λ)
+            GP-0.7.2-eq:4.10 (λ)
         pre_state_validator_pool: ValidatorPoolState
-            GP-0.7.1-eq:4.10 (κ)
+            GP-0.7.2-eq:4.10 (κ)
 
         Returns
         -------
@@ -311,26 +311,26 @@ class Safrole(StateComponent):
             post_state_disputes: DisputesState
     ) -> SafroleOutput:
         """
-        GP-0.7.1-eq:6.13,6.15,6.16,6.24,6.34 (γ') | State transition function for the state's Safrole data.
+        GP-0.7.2-eq:6.13,6.15,6.16,6.24,6.34 (γ') | State transition function for the state's Safrole data.
 
         Parameters
         ----------
         header: Header
-            GP-0.7.1-eq:4.7 (bold_H)
+            GP-0.7.2-eq:4.7 (bold_H)
         pre_state_timeslot: TimeslotState
-            GP-0.7.1-eq:4.7 (τ)
+            GP-0.7.2-eq:4.7 (τ)
         extrinsic_tickets: List[TicketEnvelope]
-            GP-0.7.1-eq:4.7 (bold_E_T)
+            GP-0.7.2-eq:4.7 (bold_E_T)
         pre_state_safrole: SafroleState
-            GP-0.7.1-eq:4.7 (γ)
+            GP-0.7.2-eq:4.7 (γ)
         pre_state_validator_queue: ValidatorQueueState
-            GP-0.7.1-eq:4.7 (ι)
+            GP-0.7.2-eq:4.7 (ι)
         post_state_entropy: EntropyState
-            GP-0.7.1-eq:4.7 (η')
+            GP-0.7.2-eq:4.7 (η')
         post_state_validator_pool: ValidatorPoolState
-            GP-0.7.1-eq:4.7 (κ')
+            GP-0.7.2-eq:4.7 (κ')
         post_state_disputes: DisputesState
-            GP-0.7.1-eq:4.7 (ψ')
+            GP-0.7.2-eq:4.7 (ψ')
         Returns
         -------
         SafroleOutput
@@ -342,7 +342,7 @@ class Safrole(StateComponent):
 
         self.post_state_safrole = deepcopy(pre_state_safrole)
 
-        # GP-0.7.1-eq:6.30
+        # GP-0.7.2-eq:6.30
         if self.slot_phase_index(header.timeslot) < gp_const.TICKET_SUBMISSION_END_SLOT:
             # Min 0, max 16 tickets
             if len(extrinsic_tickets) > gp_const.MAXIMUM_EXTRINSIC_TICKETS:  # constant_K=16
@@ -356,7 +356,7 @@ class Safrole(StateComponent):
 
         if len(extrinsic_tickets) > 0:
 
-            # Check for duplicate ticket_data; GP-0.7.1-eq:6.32
+            # Check for duplicate ticket_data; GP-0.7.2-eq:6.32
             if list_has_duplicates(extrinsic_tickets):
                 raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
 
@@ -385,7 +385,7 @@ class Safrole(StateComponent):
 
                         # Check if ticket already exists
                         if ticket in self.post_state_safrole.ticket_accumulator:
-                            # GP-0.7.0-eq:6.33
+                            # GP-0.7.2-eq:6.33
                             raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                         else:
                             input_tickets[idx] = ticket
@@ -397,12 +397,12 @@ class Safrole(StateComponent):
 
                     # Check if ticket already exists
                     if ticket in self.post_state_safrole.ticket_accumulator:
-                        # GP-0.7.1-eq:6.33
+                        # GP-0.7.2-eq:6.33
                         raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
                     else:
                         input_tickets[idx] = ticket
 
-            # Check if tickets are in order: GP-0.7.1-eq:6.32
+            # Check if tickets are in order: GP-0.7.2-eq:6.32
             if not self.tickets_in_order(input_tickets):
                 raise StateTransitionError(SafroleErrorCode.bad_ticket_order)
 
@@ -413,9 +413,9 @@ class Safrole(StateComponent):
 
         if (not self.is_epoch_change(pre_state_timeslot.number, header.timeslot) and
                 self.slot_phase_index(header.timeslot) >= gp_const.TICKET_SUBMISSION_END_SLOT):
-            # Ticket mark only when accumulator is saturated # GP-0.7.1-eq:6.28
+            # Ticket mark only when accumulator is saturated # GP-0.7.2-eq:6.28
             if len(self.post_state_safrole.ticket_accumulator) == gp_const.EPOCH_TIMESLOTS:
-                # GP-0.7.1-eq:6.25
+                # GP-0.7.2-eq:6.25
                 tickets_mark = reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 DEBUG and logging.debug(f"Tickets Mark generated")
 
@@ -423,8 +423,8 @@ class Safrole(StateComponent):
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # Epoch change
 
-            # Update Validator keys for the following epoch. # GP-0.7.1-eq:6.13
-            # Apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.7.1-eq:6.14
+            # Update Validator keys for the following epoch. # GP-0.7.2-eq:6.13
+            # Apply key_nullifier-function (Φ). This function substitutes offenders with null keys. GP-0.7.2-eq:6.14
             self.post_state_safrole.validators = self.check_offenders(
                 validators=deepcopy(pre_state_validator_queue.validators),
                 offenders=post_state_disputes.offenders
@@ -448,7 +448,7 @@ class Safrole(StateComponent):
 
             # Update Sealing-key series of the current epoch.
             if self.enact_fallback_method(pre_state_timeslot.number, header.timeslot):
-                # Determine fallback keys according to # GP-0.7.1-eq:6.26
+                # Determine fallback keys according to # GP-0.7.2-eq:6.26
                 # TODO refactor to separate function F(r, k)
                 validators = []
                 for n in range(gp_const.EPOCH_TIMESLOTS):
@@ -470,17 +470,17 @@ class Safrole(StateComponent):
                 DEBUG and logging.debug(f"Used entropy: {post_state_entropy.entropy[2].hex()}")
                 DEBUG and logging.debug(f"New Series: {self.post_state_safrole.slot_sealer_series.to_json()}")
             else:
-                # When ticket accumulator is saturated and ticket mark is generated # GP-0.7.1-eq:6.24
+                # When ticket accumulator is saturated and ticket mark is generated # GP-0.7.2-eq:6.24
                 self.post_state_safrole.slot_sealer_series = SlotSealerSeries(
                     tickets=reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
                 )
                 DEBUG and logging.debug(f"New Slot Sealer Series with tickets")
 
-            # Update ring commitment using O(); GP-0.7.1-eq:6.13
+            # Update ring commitment using O(); GP-0.7.2-eq:6.13
             ring_context = RingContext(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
             self.post_state_safrole.ring_commitment = ring_context.commitment
 
-        # Add tickets to ticket accumulator, sort and limit: GP-0.7.1-eq:6.34,6.35
+        # Add tickets to ticket accumulator, sort and limit: GP-0.7.2-eq:6.34,6.35
         if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
             # Not checked by W3F test vectors
             self.post_state_safrole.ticket_accumulator = input_tickets
@@ -518,7 +518,7 @@ class Safrole(StateComponent):
 
     def check_offenders(self, validators: List[ValidatorData], offenders: List[bytes]):
         """
-        GP-0.7.1-eq:6.14
+        GP-0.7.2-eq:6.14
         """
         checked_validators = []
         for v in validators:
@@ -554,18 +554,18 @@ class AuthorizerPools(StateComponent):
             pre_state_authorizer_pools: AuthorizerPoolsState
     ) -> AuthorizerPoolsOutput:
         """
-        GP-0.7.1-eq:8.2,8.3 (α') | State transition function for the state's authorizer pools.
+        GP-0.7.2-eq:8.2,8.3 (α') | State transition function for the state's authorizer pools.
 
         Parameters
         ----------
         header: Header
-            GP-0.7.1-eq:4.19 (bold_H)
+            GP-0.7.2-eq:4.19 (bold_H)
         extrinsic_guarantees: List[Guarantee]
-            GP-0.7.1-eq:4.19 (bold_E_G)
+            GP-0.7.2-eq:4.19 (bold_E_G)
         post_state_authorizer_queues: AuthorizerQueuesState
-            GP-0.7.1-eq:4.19 (𝜙')
+            GP-0.7.2-eq:4.19 (𝜙')
         pre_state_authorizer_pools: AuthorizerPoolsState
-            GP-0.7.1-eq:4.19 (α)
+            GP-0.7.2-eq:4.19 (α)
 
         Returns
         -------
@@ -612,14 +612,14 @@ class RecentHistory(StateComponent):
             pre_state_recent_history: RecentHistoryState
     ) -> RecentHistoryIntermediateOutput:
         """
-        GP-0.7.1-eq:7.5 (β†_H) | Intermediate state transition function for the state's recent history.
+        GP-0.7.2-eq:7.5 (β†_H) | Intermediate state transition function for the state's recent history.
 
         Parameters
         ----------
         header: Header
-            GP-0.7.1-eq:4.6 (bold_H)
+            GP-0.7.2-eq:4.6 (bold_H)
         pre_state_recent_history: RecentHistoryState
-            GP-0.7.1-eq:4.6 (β_H)
+            GP-0.7.2-eq:4.6 (β_H)
 
         Returns
         -------
@@ -645,18 +645,18 @@ class RecentHistory(StateComponent):
             beefy_commitment_map: Union[BeefyCommitmentMap, bytes]
     ) -> RecentHistoryOutput:
         """
-        GP-0.7.1-eq:7.6,7.7,7.8 (β'B, β'H) | State transition function for the state's recent history.
+        GP-0.7.2-eq:7.6,7.7,7.8 (β'B, β'H) | State transition function for the state's recent history.
 
         Parameters
         ----------
         header: Header
-            GP-0.7.1-eq:4.17 (bold_H)
+            GP-0.7.2-eq:4.17 (bold_H)
         extrinsic_guarantees: List[Guarantee]
-            GP-0.7.1-eq:4.17 (bold_E_G)
+            GP-0.7.2-eq:4.17 (bold_E_G)
         intermediate_state_recent_history: RecentHistoryState
-            GP-0.7.1-eq:4.17 (β†_H)
+            GP-0.7.2-eq:4.17 (β†_H)
         beefy_commitment_map: Union[BeefyCommitmentMap, bytes]
-            GP-0.7.1-eq:4.17 (bold_C)
+            GP-0.7.2-eq:4.17 (bold_C)
 
         Returns
         -------
@@ -729,15 +729,15 @@ class Assurances(StateComponent):
             pre_state_assurances: AssurancesState
     ) -> AssurancesAfterDisputesOutput:
         """
-        GP-0.7.1-eq:10.15 (ρ†) | Intermediate state transition function for the state's assurances that processes
+        GP-0.7.2-eq:10.15 (ρ†) | Intermediate state transition function for the state's assurances that processes
         disputes extrinsic.
 
         Parameters
         ----------
         extrinsic_disputes: ExtrinsicDisputes
-            GP-0.7.1-eq:4.12 (bold_E_D)
+            GP-0.7.2-eq:4.12 (bold_E_D)
         pre_state_assurances: AssurancesState
-            GP-0.7.1-eq:4.12 (ρ)
+            GP-0.7.2-eq:4.12 (ρ)
 
         Returns
         -------
@@ -1311,14 +1311,14 @@ class Disputes(StateComponent):
             pre_state_disputes: DisputesState
     ) -> DisputesOutput:
         """
-        GP-0.7.1-eq:10.16,10.17,10.18,10.19 (ψ') | State transition function for the state's disputes.
+        GP-0.7.2-eq:10.16,10.17,10.18,10.19 (ψ') | State transition function for the state's disputes.
 
         Parameters
         ----------
         extrinsic_disputes: ExtrinsicDisputes
-            GP-0.7.1-eq:4.11 (bold_E_D)
+            GP-0.7.2-eq:4.11 (bold_E_D)
         pre_state_disputes: DisputesState
-            GP-0.7.1-eq:4.11 (ψ)
+            GP-0.7.2-eq:4.11 (ψ)
 
         Returns
         -------
@@ -1645,28 +1645,28 @@ class Statistics(StateComponent):
             header: Header
     ) -> StatisticsOutput:
         """
-        GP-0.7.1-eq:13.4,13.5,13.8,13.12 (π') | State transition function for the state's statistics.
+        GP-0.7.2-eq:13.4,13.5,13.8,13.12 (π') | State transition function for the state's statistics.
 
         Parameters
         ----------
         extrinsic_guarantees: List[Guarantee]
-            GP-0.7.1-eq:4.20 (bold_E_G)
+            GP-0.7.2-eq:4.20 (bold_E_G)
         extrinsic_preimages: List[Preimage]
-            GP-0.7.1-eq:4.20 (bold_E_P)
+            GP-0.7.2-eq:4.20 (bold_E_P)
         extrinsic_assurances: List[Assurance]
-            GP-0.7.1-eq:4.20 (bold_E_A)
+            GP-0.7.2-eq:4.20 (bold_E_A)
         extrinsic_tickets: List[TicketEnvelope]
-            GP-0.7.1-eq:4.20 (bold_E_T)
+            GP-0.7.2-eq:4.20 (bold_E_T)
         pre_state_timeslot: TimeslotState
-            GP-0.7.1-eq:4.20 (τ)
+            GP-0.7.2-eq:4.20 (τ)
         post_state_timeslot: TimeslotState
-            GP-0.7.1-eq:4.20 (τ')
+            GP-0.7.2-eq:4.20 (τ')
         post_state_validator_pool: ValidatorPoolState
-            GP-0.7.1-eq:4.20 (κ')
+            GP-0.7.2-eq:4.20 (κ')
         pre_state_statistics: StatisticsState
-            GP-0.7.1-eq:4.20 (π)
+            GP-0.7.2-eq:4.20 (π)
         header: Header
-            GP-0.7.1-eq:4.20 (bold_H)
+            GP-0.7.2-eq:4.20 (bold_H)
 
         Returns
         -------
@@ -1837,17 +1837,17 @@ class Services(StateComponent):
             post_state_timeslot: TimeslotState
     ) -> ServicesAfterPreimagesOutput:
         """
-        GP-0.7.1-eq:12.36 (δ') | Final state transition function after processing Preimages for the state's
+        GP-0.7.2-eq:12.36 (δ') | Final state transition function after processing Preimages for the state's
         services.
 
         Parameters
         ----------
         extrinsic_preimages: List[Preimage]
-            GP-0.7.1-eq:4.18 (bold_E_P)
+            GP-0.7.2-eq:4.18 (bold_E_P)
         intermediate_state_after_accumulation: ServicesState
-            GP-0.7.1-eq:4.18 (δ‡)
+            GP-0.7.2-eq:4.18 (δ‡)
         post_state_timeslot: TimeslotState
-            GP-0.7.1-eq:4.18 (τ')
+            GP-0.7.2-eq:4.18 (τ')
 
         Returns
         -------
@@ -1917,20 +1917,22 @@ class Services(StateComponent):
             post_state_entropy: EntropyState,
     ) -> ServicesAfterAccumulationOutput:
         """
-        GP-0.7.1-eq:12.25 (δ†) | State transition function for the state's services.
+        GP-0.7.2-eq:12.25 (δ†) | State transition function for the state's services.
 
         Parameters
         ----------
         accumulatable_work_reports: List[WorkReport]
-            GP-0.7.1-eq:4.16 (R*)
+            GP-0.7.2-eq:4.16 (R*)
         pre_state_services: ServicesState
-            GP-0.7.1-eq:4.16 (δ)
+            GP-0.7.2-eq:4.16 (δ)
         pre_state_privileged_services: PrivilegedServicesState
-            GP-0.7.1-eq:4.16 (χ)
+            GP-0.7.2-eq:4.16 (χ)
         pre_state_validator_queue: ValidatorQueueState
-            GP-0.7.1-eq:4.16 (ι)
+            GP-0.7.2-eq:4.16 (ι)
         pre_state_authorizer_queues: AuthorizerQueuesState
-            GP-0.7.1-eq:4.16 (𝜙)
+            GP-0.7.2-eq:4.16 (𝜙)
+        post_state_timeslot: TimeslotState
+            GP-0.7.2-eq:4.16 (τ)
 
         Returns
         -------

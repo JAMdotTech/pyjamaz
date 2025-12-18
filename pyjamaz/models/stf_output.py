@@ -16,12 +16,12 @@ from pyjamaz.models.state import SafroleState, ValidatorPoolState, TimeslotState
 @dataclass
 class TimeslotOutput(Serializable):
     """
-    GP-0.7.1-eq:4.5 (τ') | Output of Timeslot STF.
+    GP-0.7.2-eq:4.5 (τ') | Output of Timeslot STF.
 
     Attributes
     ----------
     post_state: TimeslotState
-        GP-0.7.1-eq:4.5 (τ') | Primary output of Timeslot STF.
+        GP-0.7.2-eq:4.5 (τ') | Primary output of Timeslot STF.
     """
     post_state: TimeslotState = field(metadata={'codec': TimeslotState.to_codec_def()})
 
@@ -61,14 +61,14 @@ class DisputesErrorCode(Serializable, enum.Enum):
 @dataclass
 class DisputesOutput(Serializable):
     """
-    GP-0.7.1-eq:4.11 (ψ') | Output of Disputes STF.
+    GP-0.7.2-eq:4.11 (ψ') | Output of Disputes STF.
 
     Attributes
     ----------
     post_state: DisputesState
-        GP-0.7.1-eq:4.11 (ψ') | Primary output of Disputes STF.
+        GP-0.7.2-eq:4.11 (ψ') | Primary output of Disputes STF.
     offenders_mark: Vec(H256)
-        GP-0.7.1-eq:10.20 (bold_H_O) | Secondary output of Disputes STF.
+        GP-0.7.2-eq:10.20 (bold_H_O) | Secondary output of Disputes STF.
     """
     post_state: DisputesState = field(metadata={'codec': DisputesState.to_codec_def()})
     offenders_mark: List[bytes] = field(default_factory=list, metadata={'codec': Vec(H256)})
