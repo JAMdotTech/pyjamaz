@@ -228,7 +228,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     """PyJAMaz: Python JAM Client"""
 
     # Setup logging
-    log_level = logging.DEBUG if verbose else logging.INFO
+    log_level = logging.DEBUG if verbose or DEBUG else logging.INFO
     # Note: Add packages that need a different logging level here
     log_package_overrides = {
         "pyjamaz.transport": log_level,

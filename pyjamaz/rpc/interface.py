@@ -20,7 +20,7 @@ class RPCMethods(ABC):
         pass
 
     @abstractmethod
-    def listServices(self):
+    def listServices(self, block_hash: bytes):
         pass
     #
     # @abstractmethod

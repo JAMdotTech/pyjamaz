@@ -5,7 +5,9 @@ from typing import List, Optional, Dict
 import websockets
 import asyncio
 
-from pyjamaz.models.common import WorkPackage
+from jamcodec.base import JamBytes
+
+from pyjamaz.models.common import WorkPackage, WorkPackageStatus
 from pyjamaz.models.state import ServiceAccount
 from pyjamaz.rpc.interface import RPCMethods
 from pyjamaz.rpc.rpc import generate_req_id, RPCCallException, jsonapi_request
@@ -129,8 +131,9 @@ class WebsocketClient(RPCMethods):
         res["header_hash"] = base64_decode(res["header_hash"])
         return res
 
-    async def listServices(self) -> List[int]:
-        return await self._send_and_wait("listServices", None)
+    async def listServices(self, block_hash: bytes) -> List[int]:
+        block_hash = base64_encode(block_hash)
+        return await self._send_and_wait("listServices", [block_hash])
 
 
     async def stateRoot(self, block_hash) -> bytes:
@@ -149,12 +152,20 @@ class WebsocketClient(RPCMethods):
             return None
         return base64_decode(blob)
 
+    async def fetchSegments(self, segment_root: bytes, indices: list[int]) -> List[bytes]:
+        segment_root = base64_encode(segment_root)
+        segments = await self._send_and_wait("fetchSegments", [segment_root, indices])
+        return [base64_decode(s) for s in segments]
 
     async def submitWorkPackage(self, core_idx: int, workpackage: WorkPackage, extrinsics: List[bytes]) -> None:
         workpackage_blob = base64_encode(workpackage.to_jam_bytes().to_bytes())
         extrinsics_blob = [base64_encode(extrinsics_item) for extrinsics_item in extrinsics]
         return await self._send_and_wait("submitWorkPackage", [core_idx, workpackage_blob, extrinsics_blob])
 
+    async def submitWorkPackageBundle(self, core_idx: int, workpackage: WorkPackage, imports: List[bytes], extrinsics: List[bytes]) -> None:
+        workpackage_blob = base64_encode(workpackage.to_jam_bytes().to_bytes())
+        extrinsics_blob = [base64_encode(extrinsics_item) for extrinsics_item in extrinsics]
+        return await self._send_and_wait("submitWorkPackageBundle", [core_idx, workpackage_blob])
 
     async def submitPreimage(self, service_id: int , preimage_blob: bytes) -> None:
         preimage_blob = base64_encode(preimage_blob)
@@ -179,6 +190,14 @@ class WebsocketClient(RPCMethods):
         return await self._send_and_wait("serviceRequest", [base64_encode(block_hash), service_id, base64_encode(preimage_hash), preimage_length])
 
 
+    async def workPackageStatus(self, block_hash: bytes, workpackage_hash: bytes, anchor: bytes) -> Optional[WorkPackageStatus]:
+        status = await self._send_and_wait("workPackageStatus", [
+            base64_encode(block_hash), base64_encode(workpackage_hash), base64_encode(anchor)
+        ])
+        if status is None:
+            return None
+        return WorkPackageStatus.from_json(status)
+
     async def subscribeServiceData(self, service_id):
         return await self.subscribe("subscribeServiceData", [service_id], lambda x: ServiceAccount.from_serialized_bytes(base64_decode(x)))
 
@@ -198,3 +217,19 @@ class WebsocketClient(RPCMethods):
             return None
         return await self.subscribe("subscribeServiceRequest", [service_id, base64_encode(preimage_hash), preimage_length], result_parser)
 
+    async def subscribeBestBlock(self):
+        def result_parser(result):
+            result["header_hash"] = base64_decode(result["header_hash"])
+            return result
+        return await self.subscribe("subscribeBestBlock", [], result_parser)
+
+    async def subscribeWorkPackageStatus(self, work_package_hash: bytes, anchor: bytes):
+
+        def result_parser(result):
+            if result['value'] is None:
+                return None
+            return WorkPackageStatus.from_json(result['value'])
+
+        return await self.subscribe("subscribeWorkPackageStatus", [
+            base64_encode(work_package_hash), base64_encode(anchor), False
+        ], result_parser)
