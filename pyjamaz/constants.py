@@ -48,6 +48,7 @@ class MESSAGE_TYPES(Enum):
     PREIMAGE_AVAILABILITY = "preimage_availability"
     BEST_BLOCK = "best_block"
     FINALIZED_BLOCK = "finalized_block"
+    WORK_PACKAGE_STATUS = "work_package_status"
 
 PVM_MARSHALLING_OFFSET_ACCUMULATE = 5
 PVM_MARSHALLING_OFFSET_TRANSFER = 10

@@ -677,7 +677,7 @@ async def replay_traces(
             process_state_diff(app.state_storage.as_list(), trace.post_state.keyvals, block_file)
 
             if nr < len(traces_files) and prompt:
-                response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                response = await click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
                 if response.lower() == 'q':
                     logging.info('✋ User aborted.')
                     break

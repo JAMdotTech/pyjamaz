@@ -14,6 +14,7 @@ from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import WellBalancedMerkleTree
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
+from pyjamaz.utils import base64_encode
 
 if typing.TYPE_CHECKING:
     from pyjamaz.models.state import ServicesState
@@ -290,6 +291,82 @@ class WorkPackage(Serializable):
 
 
 @dataclass
+class WorkPackageBundle(Serializable):
+    work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
+    extrinsic_data: List[bytes] = field(metadata={'codec': Vec(Bytes)})
+    # imported_segments: List[bytes] = field(metadata={'codec': Vec(Bytes)})
+    # justification_data: List[bytes] = field(metadata={'codec': Vec(Bytes)})
+
+
+@dataclass
+class BlockDesc(Serializable):
+    slot: int = field(metadata={'codec': U32})
+    header_hash: bytes = field(metadata={'codec': H256})
+
+    def serialize(self) -> dict:
+        return {
+            "slot": self.slot,
+            "header_hash": base64_encode(self.header_hash)
+        }
+
+
+@dataclass
+class WorkPackageReportableStatus(Serializable):
+    remaining_blocks: int = field(metadata={'codec': U16})
+
+
+@dataclass
+class WorkPackageReportedStatus(Serializable):
+    reported_in: BlockDesc = field(metadata={'codec': BlockDesc.to_codec_def()})
+    core: int = field(metadata={'codec': U16})
+    report_hash: bytes = field(metadata={'codec': H256})
+
+    def serialize(self) -> dict:
+        return {
+            "reported_in": self.reported_in.serialize(),
+            "core": self.core,
+            "report_hash": base64_encode(self.report_hash)
+        }
+
+
+
+@dataclass
+class WorkPackageReadyStatus(Serializable):
+    reported_in: BlockDesc = field(metadata={'codec': BlockDesc.to_codec_def()})
+    core: int = field(metadata={'codec': U16})
+    report_hash: bytes = field(metadata={'codec': H256})
+    ready_in: BlockDesc = field(metadata={'codec': BlockDesc.to_codec_def()})
+
+
+    def serialize(self) -> dict:
+        return {
+            "reported_in": self.reported_in.serialize(),
+            "core": self.core,
+            "report_hash": base64_encode(self.report_hash),
+            "ready_in": self.ready_in.to_json()
+        }
+
+@dataclass
+class WorkPackageStatus(Serializable):
+    Reportable: WorkPackageReportableStatus = field(default=None, metadata={'codec': WorkPackageReportableStatus.to_codec_def()})
+    Reported: WorkPackageReportedStatus = field(default=None, metadata={'codec': WorkPackageReportedStatus.to_codec_def()})
+    Ready: WorkPackageReadyStatus = field(default=None, metadata={'codec': WorkPackageReadyStatus.to_codec_def()})
+    Failed: str = field(default=None, metadata={'codec': String})
+
+    _codec_enum = True
+
+    def to_json(self) -> dict:
+        return {self.enum_value()[0]: self.enum_value()[1].serialize()}
+
+
+@dataclass
+class WorkPackageQueueItem(Serializable):
+    work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
+    status: WorkPackageStatus = field(metadata={'codec': WorkPackageStatus.to_codec_def()})
+
+
+
+@dataclass
 class WorkExecResult(Serializable):
     """
     GP-0.7.1-eq:11.7 (function_O = blackboard_E u blackboard_B) | Work result output or error of the execution of the code in the refine stage.
@@ -507,7 +584,8 @@ class WorkReport(Serializable):
         """
         return len(self.segment_root_lookup) + len(self.context.prerequisites)
 
-
+    def hash(self) -> bytes:
+        return blake2b_256_hash(self.to_jam_bytes().to_bytes())
 
 @dataclass
 class Assurance(Serializable):

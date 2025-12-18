@@ -87,7 +87,7 @@ def create_mock_services_state(service_accounts=None, storage_items=None, preima
     services = Mock(spec=ServicesState)
     services.services = service_accounts or {}
 
-    def retrieve_service_account(service_id):
+    def retrieve_service_account(service_id, skip_pending_changes=True):
         if service_id in services.services:
             return services.services[service_id]
         raise StateKeyNoResult(f"Service account {service_id} not found")
@@ -378,7 +378,7 @@ class TestHCGeneral(unittest.TestCase):
             self.assertEqual(
                 expected_mem["contents"],
                 hc_mem,
-                f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {hc_mem}"
+                f"{name}:\n Expected mem: {expected_mem['contents']}, but got: {[int(x) for x in hc_mem]}"
             )
 
         expected_exit_reason = test_vector.get("expected-exit-reason", "resume")

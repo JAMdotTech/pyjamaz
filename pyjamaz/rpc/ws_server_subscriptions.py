@@ -7,9 +7,10 @@ from websockets.legacy.server import WebSocketServerProtocol
 
 from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Block
+from pyjamaz.models.common import WorkPackageStatus, WorkPackageReportableStatus
 from pyjamaz.rpc.rpc import generate_req_id, jsonapi_ws_response, RPCCallException, RPC_ERROR
+from pyjamaz.utils import base64_encode, base64_decode
 
 if typing.TYPE_CHECKING:
     from pyjamaz.rpc.ws_server import WebSocketServer
@@ -60,7 +61,7 @@ class SubscriptionBestBlock(WSubscription):
 
     def create_data(self, data: Any):
         return {
-            "header_hash": list(data.header.hash),
+            "header_hash": base64_encode(data.header.hash),
             "slot": data.header.timeslot,
         }
 
@@ -71,7 +72,7 @@ class SubscriptionFinalizedBlock(WSubscription):
 
     def create_data(self, data: Block):
         return {
-            "header_hash": list(data.header.hash),
+            "header_hash": base64_encode(data.header.hash),
             "slot": data.header.timeslot,
         }
 
@@ -82,9 +83,9 @@ class SubscriptionStatistics(WSubscription):
 
     def create_data(self, data: Any):
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": data
+            "value": base64_encode(data)
         }
 
 
@@ -99,9 +100,9 @@ class SubscriptionServiceAccount(WSubscription):
 
     def create_data(self, data: Any):
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": list(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
+            "value": base64_encode(data[self.DATA_SERVICE_BLOB].to_jam_bytes().to_bytes())
         }
 
 
@@ -112,14 +113,14 @@ class SubscriptionStorageItem(WSubscription):
 
     def check_params(self, data: Any):
         if data:
-            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and bytes(self.params[self.PARAM_STORAGE_KEY]) == data[self.PARAM_STORAGE_KEY]
+            return self.params[self.PARAM_SERVICE_ID] == data[self.PARAM_SERVICE_ID] and base64_decode(self.params[self.PARAM_STORAGE_KEY]) == data[self.PARAM_STORAGE_KEY]
         return True
 
     def create_data(self, data: Any):
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": list(data[self.DATA_SERVICE_BLOB])
+            "value": base64_encode(data[self.DATA_SERVICE_BLOB])
         }
 
 
@@ -137,9 +138,9 @@ class SubscriptionPreimage(WSubscription):
     def create_data(self, data: Any):
         #return list(data[self.DATA_PREIMAGE_BLOB])
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": list(data[self.DATA_PREIMAGE_BLOB])
+            "value": base64_encode(data[self.DATA_PREIMAGE_BLOB])
         }
 
 
@@ -156,16 +157,16 @@ class SubscriptionPreimageAvailability(WSubscription):
         #print("CHECKING PARAMS FOR subscribeServicePreimageAvailability",data,tt)
         if data:
             return (self.params[self.PARAM_SERVICE_ID] == data[self.DATA_SERVICE_ID] and
-                    bytes(self.params[self.PARAM_PREIMAGE_HASH]) == data[self.DATA_PREIMAGE_HASH] and
+                    base64_decode(self.params[self.PARAM_PREIMAGE_HASH]) == data[self.DATA_PREIMAGE_HASH] and
                     self.params[self.PARAM_PREIMAGE_LENGTH] == data[self.DATA_PREIMAGE_LENGTH])
         return True
 
     def create_data(self, data: Any):
         #return list(data[self.DATA_PREIMAGE_BLOB])
         return {
-            "header_hash": list(self.app.get_best_header_hash()),
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": list(data[self.DATA_PREIMAGE_BLOB])
+            "value": data[self.DATA_PREIMAGE_BLOB]
         }
 
 
@@ -176,6 +177,21 @@ class SubscriptionSyncStatus(WSubscription):
 
     def create_data(self, data: Any):
         return "Completed" #"InProgress"
+
+
+class SubscribeWorkPackageStatus(WSubscription):
+
+    def check_params(self, data: Any):
+        # TODO
+        return True
+
+    def create_data(self, data: typing.Tuple[WorkPackageStatus]):
+        # TODO TMP
+        return {
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
+            "slot": self.app.working_state.timeslot.number,
+            "value": data[0]
+        }
 
 
 class SubscriptionManager:
@@ -189,6 +205,7 @@ class SubscriptionManager:
         "subscribePreimage": SubscriptionPreimage,
         "subscribeServiceRequest": SubscriptionPreimageAvailability,
         "subscribeSyncStatus": SubscriptionSyncStatus,  #TODO: hook to networking events
+        "subscribeWorkPackageStatus": SubscribeWorkPackageStatus,  #TODO: hook to networking events
     }
 
     def __init__(self, server: "WebSocketServer"):
@@ -205,6 +222,7 @@ class SubscriptionManager:
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.STORAGE_ITEM, self.broadcast_service_value)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.PREIMAGE, self.broadcast_preimage)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.PREIMAGE_AVAILABILITY, self.broadcast_preimage_availability)
+        self.server.app.pubsub.subscribe(MESSAGE_TYPES.WORK_PACKAGE_STATUS, self.broadcast_work_package_status)
 
     async def subscribe(self, ws: WebSocketServerProtocol, req_id, topic: str, params: Any) -> WSubscription:
         async with self._lock:
@@ -253,6 +271,9 @@ class SubscriptionManager:
 
     async def broadcast_preimage_availability(self, message):
         await self.broadcast("subscribeServiceRequest", message)
+
+    async def broadcast_work_package_status(self, message):
+        await self.broadcast("subscribeWorkPackageStatus", message)
 
     async def broadcast(self, topic: str, data):
         async with self._lock:

@@ -13,6 +13,10 @@ from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 
 
+U32_MAX = 2 ** 32
+U64_MAX = 2 ** 64
+
+
 def hc_gas(
         registers: List[int],
         memory: PVMMemory,
@@ -81,18 +85,19 @@ def hc_lookup(
     logger and logger.hc_regs(f"LOOKUP", "general")
     invocation_output.gas_limit -= 10
 
-    service_account_id = registers[7]
-    if service_account_id in (service_id, 2 ** 64 - 1):
+    reg7 = registers[7]
+    if reg7 == service_id or reg7 == U64_MAX - 1:
         service_account_id = service_id
         service_account = service
     else:
+        service_account_id = reg7 % U32_MAX
         try:
-            service_account = services.retrieve_service_account(registers[7])  # GP: bold_a
+            service_account = services.retrieve_service_account(service_account_id)  # GP: bold_a
         except StateKeyNoResult:
             service_account = None  # bold_a = ∅
 
-    preimage_hash = registers[8]  # GP: h (offset to read image hash from pvm mem)
-    o = registers[9]  # offset to write image data to in pvm mem
+    preimage_hash = registers[8] % U32_MAX  # GP: h (offset to read image hash from pvm mem)
+    o = registers[9] % U32_MAX  # offset to write image data to in pvm mem
 
     preimage_hash_unreadable = not memory.is_accessible(preimage_hash, 32, MEM_R) # GP: bold_v = ∇
     preimage_bytes = None # GP: bold_v = ∅
@@ -153,11 +158,11 @@ def hc_read(
     logger and logger.hc_regs(f"READ", "general")
     invocation_output.gas_limit -= 10
 
-    # gp: s*
-    if registers[7] == 2 ** 64 - 1:
+    reg7 = registers[7]
+    if reg7 == U64_MAX - 1:
         target_service_id = service_id
     else:
-        target_service_id = registers[7]
+        target_service_id = reg7 % U32_MAX
 
     # gp: bold_a
     # TODO not really necessary because retrieve_storage_item will raise StateKeyNoResult anyway, but here for GP ref
@@ -169,9 +174,9 @@ def hc_read(
     except StateKeyNoResult as e:
         service_account = None  # GP: bold_a = ∅
 
-    k_o = registers[8] # offset to read from memory
-    k_z = registers[9] # length to read from memory
-    o = registers[10]  # offset where to write to in pvm mem
+    k_o = registers[8] % U32_MAX  # offset to read from memory
+    k_z = registers[9] % U32_MAX  # length to read from memory
+    o = registers[10] % U32_MAX   # offset where to write to in pvm mem
 
     # GP: bold_v (storage_item)
     storage_key = None
@@ -238,15 +243,15 @@ def hc_write(
     logger and logger.hc_regs(f"WRITE", "general")
     invocation_output.gas_limit -= 10
 
-    k_o = registers[7]  # offset to read storage_item_key from memory
-    k_z = registers[8]  # length to read storage_item_key from memory
-    v_o = registers[9]  # offset to write storage_item_value from memory
-    v_z = registers[10] # length to write storage_item_value from memory
+    k_o = registers[7] % U32_MAX   # offset to read storage_item_key from memory
+    k_z = registers[8] % U32_MAX   # length to read storage_item_key from memory
+    v_o = registers[9] % U32_MAX   # offset to write storage_item_value from memory
+    v_z = registers[10] % U32_MAX  # length to write storage_item_value from memory
 
     k = None
     l = None
     si = None
-    service_account = deepcopy(service)
+    service_account = services.retrieve_service_account(service_id)
     storage_key_mem_error = False
     service_storage_item_mem_error = False
     service_storage_item = None
@@ -350,16 +355,20 @@ def hc_info(
     logger and logger.hc_regs(f"INFO", "general")
     invocation_output.gas_limit -= 10
 
+    reg7 = registers[7]
     # GP: bold_t
     try:
-        if registers[7] == 2 ** 64 - 1:
+        if reg7 == U64_MAX - 1:
+            # Note: when looking up our own service,we shoudl include pending changes
             service_account = services.retrieve_service_account(service_id)
         else:
-            service_account = services.retrieve_service_account(registers[7])
+            # Note: when looking up another service, skip pending changes (parallel accumulation isolation)
+            target_service_id = reg7 % U32_MAX
+            service_account = services.retrieve_service_account(target_service_id)
     except StateKeyNoResult:
         service_account = None  # GP: t = ∅
 
-    o = registers[8]
+    o = registers[8] % U32_MAX
 
     service_account_bytes = None  # GP: bold_v
     if service_account is not None:
@@ -376,8 +385,8 @@ def hc_info(
         service_account_bytes += U32.encode(service_account.last_accumulation_slot).to_bytes()
         service_account_bytes += U32.encode(service_account.parent_service).to_bytes()
 
-    f = min(registers[9], len(service_account_bytes or bytes()))    #TODO: CHECK: GP FOUT????
-    l = min(registers[10], len(service_account_bytes or bytes()) - f) #TODO: CHECK: GP FOUT????
+    f = min(registers[9], len(service_account_bytes or bytes()))
+    l = min(registers[10], len(service_account_bytes or bytes()) - f)
     mem_writable = memory.is_accessible(o, l, MEM_W)
 
     if not mem_writable:
@@ -436,12 +445,22 @@ def hc_fetch(
     logger and logger.hc_regs(f"FETCH", "general")
     invocation_output.gas_limit -= 10
 
-    w7 = registers[7]
-    w8 = registers[8]
-    w9 = registers[9]
-    w10 = registers[10]
-    w11 = registers[11]
-    w12 = registers[12]
+    w7 = registers[7] % U32_MAX   # writeAddr (memory address)
+    w8 = registers[8]              # first (UInt64)
+    w9 = registers[9]              # len (UInt64)
+    w10 = registers[10]            # kind (UInt64)
+    w11 = registers[11]            # index1 (UInt64)
+    w12 = registers[12]            # index2 (UInt64)
+
+    logger and logger.hc_log(
+        "FETCH input",
+        f"kind={w10} idx={w11} len={w12} "
+        f"acc_inputs={'none' if accumulation_inputs is None else len(accumulation_inputs)} "
+        f"extrinsics={'none' if extrinsics is None else len(extrinsics)} "
+        f"work_package={'yes' if work_package else 'no'} "
+        f"authorizer_output={'yes' if authorizer_output else 'no'} "
+        f"work_item_index={work_item_index}"
+    )
 
     def serialize_work_item(work_item: WorkItem) -> bytes:
         """
@@ -499,7 +518,7 @@ def hc_fetch(
                 U32.encode(gp_const.SIZE_ERASURE_CODED_PIECES) +
                 U32.encode(gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE) +
                 U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE) +
-                U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) +  # !!!!
+                U32.encode(gp_const.MAXIMUM_SIZE_ENCODED_WORK_REPORT) +
                 U32.encode(gp_const.SIZE_TRANSFER_MEMO) +
                 U32.encode(gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE) +
                 U32.encode(gp_const.TICKET_SUBMISSION_END_SLOT)
@@ -533,7 +552,7 @@ def hc_fetch(
         bold_v = work_package.to_jam_bytes().to_bytes()
 
     elif work_package is not None and w10 == 8:
-        bold_v = work_package.auth_code_hash + Bytes.encode(work_package.authorizer_config).to_bytes()
+        bold_v = work_package.authorizer_config
 
     elif work_package is not None and w10 == 9:
         bold_v = work_package.authorization
@@ -554,11 +573,18 @@ def hc_fetch(
     elif accumulation_inputs is not None and w10 == 14:
         encoded_inputs = [a.to_jam_bytes() for a in accumulation_inputs]
         bold_v = Vec(AccumulationInput.to_codec_def()).encode(encoded_inputs).to_bytes()
+        logger and logger.hc_log("FETCH DEBUG", f"kind=14 accumulation_inputs count={len(accumulation_inputs)} encoded_len={len(bold_v)}")
 
     elif accumulation_inputs is not None and w10 == 15 and w11 < len(accumulation_inputs):
         bold_v = accumulation_inputs[w11].to_jam_bytes().to_bytes()
+        logger and logger.hc_log("FETCH DEBUG", f"kind=15 index={w11} of {len(accumulation_inputs)} encoded_len={len(bold_v)}")
     else:
         bold_v = None
+        # Debug: log why we got None
+        if w10 == 14:
+            logger and logger.hc_log("FETCH DEBUG", f"kind=14 NONE: accumulation_inputs is {'None' if accumulation_inputs is None else f'len={len(accumulation_inputs)}'}")
+        elif w10 == 15:
+            logger and logger.hc_log("FETCH DEBUG", f"kind=15 NONE: accumulation_inputs is {'None' if accumulation_inputs is None else f'len={len(accumulation_inputs)}'} index={w11}")
 
     o = w7
     bold_v_len = len(bold_v) if bold_v is not None else 0
@@ -567,13 +593,16 @@ def hc_fetch(
 
     if not memory.is_accessible(o, l, MEM_W):
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        logger and logger.hc_log("FETCH PANIC", f"kind={w10}")
     elif bold_v is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
+        logger and logger.hc_log("FETCH result", f"NONE (index1={w11} index2={w12})")
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(bold_v)
         invocation_output.memory.write_bytes(o, bold_v[f:f+l])
+        logger and logger.hc_log("FETCH result", f"OK wrote={l}bytes from len={len(bold_v)}")
 
 
 def hc_not_found(

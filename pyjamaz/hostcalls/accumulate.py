@@ -18,6 +18,9 @@ from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.utils import format_hash
 
+U32_MAX = 2 ** 32
+U64_MAX = 2 ** 64
+
 
 def hc_bless(
         registers: List[int],
@@ -56,11 +59,11 @@ def hc_bless(
     invocation_output.gas_limit -= 10
 
     # Privileged services:
-    m = registers[7] # m: index of manager service (manager of chi(X))
-    a = registers[8] # a: address to read values of the assign services (authorization queue)
-    v = registers[9] # v: index of designate service (validator queue)
-    r = registers[10]  # r: index of registrar service
-    o = registers[11] # offset to read service indices and accompanying gas limits from
+    m = registers[7]  # m: index of manager service (manager of chi(X))
+    a = registers[8] % U32_MAX  # a: address to read values of the assign services (UInt32 for memory)
+    v = registers[9]  # v: index of designate service (validator queue)
+    r = registers[10] # r: index of registrar service
+    o = registers[11] % U32_MAX  # offset to read service indices (UInt32 for memory)
     n = registers[12] # number of entries in the auto_accumulate_services dictionary to read
 
     assigners = None # GP: bold_a
@@ -143,10 +146,9 @@ def hc_assign(
     logger and logger.hc_regs(f"ASSIGN", "accumulate")
     invocation_output.gas_limit -= 10
 
-    # Privileged services:
-    core_index = registers[7] # Core index to update (0..341)
-    o = registers[8] # memory offset
-    a = registers[9] # new assigner service
+    core_index = registers[7] % U32_MAX  # Core index to update (0..341)
+    o = registers[8] % U32_MAX  # memory offset (UInt32)
+    a = registers[9]  # new assigner service (UInt64)
 
     if memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MEM_R):
         authorization_queue = [] #GP: bold_c
@@ -218,7 +220,7 @@ def hc_designate(
     logger and logger.hc_regs(f"DESIGNATE", "accumulate")
     invocation_output.gas_limit -= 10
 
-    o = registers[7] # memory offset
+    o = registers[7] % U32_MAX  # memory offset (UInt32)
 
     if memory.is_accessible(o, 336 * VALIDATOR_COUNT, MEM_R):
         validator_queue = [] #GP: bold_v
@@ -283,7 +285,6 @@ def hc_checkpoint(
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
     x.savepoint_context = deepcopy(x.context)
-    x.context.state_context.services.state_storage.checkpoint()
 
 
 def hc_new(
@@ -312,12 +313,12 @@ def hc_new(
     logger and logger.hc_regs(f"NEW", "accumulate")
     invocation_output.gas_limit -= 10
 
-    o = registers[7]  # offset to read service data from
-    l = registers[8]  # size (byte length) of the code blob
-    g = registers[9]  # gas_limit_accumulate
-    m = registers[10] # gas_limit_on_transfer
-    f = registers[11] # deposit_offset
-    i = registers[12] # new public service ID
+    o = registers[7] % U32_MAX  # offset to read service data from (UInt32 for memory)
+    l = registers[8]   # size (byte length) of the code blob (UInt64)
+    g = registers[9]   # gas_limit_accumulate (UInt64)
+    m = registers[10]  # gas_limit_on_transfer (UInt64)
+    f = registers[11]  # deposit_offset (UInt64)
+    i = registers[12]  # new public service ID (UInt64)
 
     code_hash = None
     if 0 < l < 2**32 and memory.is_accessible(o, 32, MEM_R):
@@ -439,9 +440,9 @@ def hc_upgrade(
     logger and logger.hc_regs(f"UPGRADE", "accumulate")
     invocation_output.gas_limit -= 10
 
-    o = registers[7]  # offset for service codehash
-    g = registers[8]  # gas_limit_accumulate
-    m = registers[9]  # gas_limit_on_transfer
+    o = registers[7] % U32_MAX  # offset for service codehash (UInt32 for memory)
+    g = registers[8]  # gas_limit_accumulate (UInt64)
+    m = registers[9]  # gas_limit_on_transfer (UInt64)
 
     service_id = x.context.service_account_id
     service_account = x.context.state_context.services.retrieve_service_account(service_id)
@@ -499,18 +500,11 @@ def hc_transfer(
     None
     """
     logger and logger.hc_regs(f"TRANSFER", "accumulate")
-    gas_limit = registers[9] & ((1 << 64) - 1) # TODO: should wrap around??
-    gas_usage = 10 + registers[9]
-    if gas_usage > invocation_output.gas_limit:
-        # Note: keep gas negative (otherwise a int wrap around could make it positive again)
-        invocation_output.gas_limit = -1 #invocation_output.gas_limit - gas_usage
-    else:
-        invocation_output.gas_limit -= gas_usage
 
-    d = registers[7]     # destination
-    a = registers[8]     # amount
-    g = gas_limit        # gas_limit
-    o = registers[10]    # offset for memo
+    d = registers[7]     # destination (UInt64, will be truncated to ServiceIndex)
+    a = registers[8]     # amount (UInt64)
+    l = registers[9]     # gas_limit (UInt64)
+    o = registers[10] % U32_MAX  # offset for memo (UInt32 for memory)
 
     service_id = x.context.service_account_id
     service_account = x.context.state_context.services.retrieve_service_account(service_id)
@@ -527,7 +521,7 @@ def hc_transfer(
             receiver=d,
             amount=a,
             memo=m,
-            gas_limit=g,
+            gas_limit=l,
         )
         b = service_account.balance - a
     except PVMMemoryError:
@@ -536,21 +530,25 @@ def hc_transfer(
 
     if transfer is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        t = 0
 
     elif dest_service_account is None:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-        logger and logger.hc_log("TRANSFER WHO", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        t = 0
+        logger and logger.hc_log("TRANSFER WHO", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
-    elif g < dest_service_account.gas_limit_on_transfer:
+    elif l < dest_service_account.gas_limit_on_transfer:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.LOW.value
-        logger and logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        t = 0
+        logger and logger.hc_log("TRANSFER LOW", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
     elif b < service_account.threshold_balance:   # insufficient funds
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.CASH.value
-        logger and logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+        t = 0
+        logger and logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -560,7 +558,17 @@ def hc_transfer(
         x.context.deferred_transfers.append(transfer)
 
         x.context.state_context.services.store_service_account(service_id, service_account)
-        logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} gaslimit={transfer.gas_limit}")
+
+        t = l
+        logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
+
+    # Process gas usage
+    gas_usage = 10 + t
+    if gas_usage > invocation_output.gas_limit:
+        # Note: keep gas negative (otherwise a int wrap around could make it positive again)
+        invocation_output.gas_limit = -1  # invocation_output.gas_limit - gas_usage
+    else:
+        invocation_output.gas_limit -= gas_usage
 
 
 def hc_eject(
@@ -599,8 +607,8 @@ def hc_eject(
     logger and logger.hc_regs(f"EJECT", "accumulate")
     invocation_output.gas_limit -= 10
 
-    d = registers[7]
-    o = registers[8]
+    d = registers[7]  # destination service (UInt64)
+    o = registers[8] % U32_MAX  # memory offset (UInt32)
 
     # gp: h
     try:
@@ -690,8 +698,8 @@ def hc_query(
     logger and logger.hc_regs(f"QUERY", "accumulate")
     invocation_output.gas_limit -= 10
 
-    o = registers[7]    # memory offset
-    preimage_length = registers[8]    # preimage length
+    o = registers[7] % U32_MAX  # memory offset (UInt32)
+    preimage_length = registers[8]  # preimage length (UInt64)
 
     service_id = x.context.service_account_id
 
@@ -785,8 +793,8 @@ def hc_solicit(
     service_id = x.context.service_account_id
     service_account = x.context.state_context.services.retrieve_service_account(service_id) # GP: bold_a
 
-    o = registers[7]
-    preimage_length = registers[8]    # GP: z
+    o = registers[7] % U32_MAX  # memory offset (UInt32)
+    preimage_length = registers[8]    # GP: z (UInt64)
 
     #GP: h
     try:
@@ -881,8 +889,8 @@ def hc_forget(
     logger and logger.hc_regs(f"FORGET", "accumulate")
     invocation_output.gas_limit -= 10
 
-    o = registers[7]
-    preimage_length = registers[8]  #GP: z
+    o = registers[7] % U32_MAX  # memory offset (UInt32)
+    preimage_length = registers[8]  #GP: z (UInt64)
 
     state = x.context.state_context
     service_id = x.context.service_account_id

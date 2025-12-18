@@ -5,10 +5,11 @@ from os import path, makedirs
 from pyjamaz.models.state import TimeslotState
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Timeslot
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.storage import RocksDBStorageEngine, InMemoryStorageEngine, TransactionRolledBack
 
 
-class TestRocksDBStorage(unittest.TestCase):
+class TestRocksDBStorage(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -27,7 +28,9 @@ class TestRocksDBStorage(unittest.TestCase):
 
     async def test_state_storage(self):
 
-        timeslot = Timeslot(storage_engine=self.storage, block_context=BlockContext(), app_context=AppContext())
+        app_context = AppContext(state_storage=StateStorage(self.storage))
+
+        timeslot = Timeslot(block_context=BlockContext(), app_context=app_context)
 
         timeslot_state = TimeslotState(number=4)
 

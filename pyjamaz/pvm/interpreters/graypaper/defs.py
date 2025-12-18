@@ -32,18 +32,22 @@ def i64(x: int) -> np.int64:
 # Pvm helper functions:
 
 def rori64(x, shift_amount) -> np.uint64:
+    shift_amount = int(shift_amount) & 63
     return np.uint64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
 def roli64(x, shift_amount) -> np.uint64:
+    shift_amount = int(shift_amount) & 63
     return np.uint64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
 def rori32(x, shift_amount) -> np.uint32:
+    shift_amount = int(shift_amount) & 31
     return np.uint32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
 
 def roli32(x, shift_amount) -> np.uint32:
+    shift_amount = int(shift_amount) & 31
     return np.uint32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 

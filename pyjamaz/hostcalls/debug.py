@@ -1,6 +1,7 @@
 import logging
 from typing import List
 
+from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.pvm.memory import PVMMemory
@@ -36,3 +37,5 @@ def hc_log(
 
     logger and logger.hc_debug(log_level[0], log_level[1], None, service_id, target, message)
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+    invocation_output.gas_limit -= 10
+    invocation_output.registers[7] = HostCallResult.WHAT.value
