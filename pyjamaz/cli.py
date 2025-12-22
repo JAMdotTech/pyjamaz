@@ -766,7 +766,7 @@ async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt
         else:
             logging.error(f'🚽Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
             if prompt_on_diff:
-                response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                response = await click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
                 if response.lower() == 'q':
                     logging.info('✋ User aborted.')
                     break

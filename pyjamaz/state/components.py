@@ -998,7 +998,7 @@ class Assurances(StateComponent):
             if guarantee.report.core_index > len(intermediate_state_assurances_after_assurances.assurances):
                 raise StateTransitionError(GuaranteeErrorCode.bad_core_index)
 
-            if not self.are_guarentee_signatures_sorted(guarantee.signatures):
+            if not self.are_guarantors_unqiue_and_sorted(guarantee.signatures):
                 raise StateTransitionError(GuaranteeErrorCode.not_sorted_or_unique_guarantors)
 
             # GP-0.7.1-eq:11.23
@@ -1268,10 +1268,9 @@ class Assurances(StateComponent):
         return len(core_indices) != len(set(core_indices))
 
     @staticmethod
-    # TODO: typo in function name; incorrect
-    def are_guarentee_signatures_sorted(signatures: List[Credential]) -> bool:
+    def are_guarantors_unqiue_and_sorted(signatures: List[Credential]) -> bool:
         """
-        GP-0.7.1-eq:11.25 | Are signatures correctly sorted by validator index
+        GP-0.7.2-eq:11.25 | Are signatures unique and correctly sorted by validator index
 
         Parameters
         ----------
@@ -1281,9 +1280,11 @@ class Assurances(StateComponent):
         -------
         bool
         """
-        return all(
-            signatures[i].validator_index <= signatures[i + 1].validator_index for i in range(len(signatures) - 1)
-        )
+        for i, s in enumerate(signatures):
+            if i < len(signatures) - 1:
+                if s.validator_index >= signatures[i+1].validator_index:
+                    return False
+        return True
 
     def retrieve_state(self) -> AssurancesState:
         value = self.retrieve()
