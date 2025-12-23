@@ -48,20 +48,14 @@ class BlockValidation:
     ):
 
         # Check marker data
-        if header.tickets_marker is not None:
-            if header.slot_phase_index < TICKET_SUBMISSION_END_SLOT:
-                # ticket marker *cannot* be set before TICKET_SUBMISSION_END_SLOT
-                raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
-            elif header.tickets_marker != safrole_output.tickets_mark:
-                # If set, ticket marker *must* match STF aux output
-                raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
+        if header.tickets_marker != safrole_output.tickets_mark:
+            raise BlockValidationError(BlockValidationErrorCode.bad_ticket_marker_data)
 
         if header.epoch_marker != safrole_output.epoch_mark:
             raise BlockValidationError(BlockValidationErrorCode.bad_epoch_marker_data)
 
         if header.offenders_marker != disputes_output.offenders_mark:
             raise BlockValidationError(BlockValidationErrorCode.bad_offender_marker_data)
-
 
         # Validate seal
         entropy = post_entropy.entropy[3]
