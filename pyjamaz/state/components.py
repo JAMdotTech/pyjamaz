@@ -412,8 +412,9 @@ class Safrole(StateComponent):
         tickets_mark = None
 
         if (not self.is_epoch_change(pre_state_timeslot.number, header.timeslot) and
-                self.slot_phase_index(header.timeslot) >= gp_const.TICKET_SUBMISSION_END_SLOT):
-            # Ticket mark only when accumulator is saturated # GP-0.7.1-eq:6.28
+                self.slot_phase_index(pre_state_timeslot.number) < gp_const.TICKET_SUBMISSION_END_SLOT <=
+                self.slot_phase_index(header.timeslot)):
+            # Ticket mark only when accumulator is saturated # GP-0.7.2-eq:6.28
             if len(self.post_state_safrole.ticket_accumulator) == gp_const.EPOCH_TIMESLOTS:
                 # GP-0.7.1-eq:6.25
                 tickets_mark = reorder_list_outside_in(deepcopy(self.post_state_safrole.ticket_accumulator))
