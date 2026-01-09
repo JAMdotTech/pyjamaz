@@ -1701,7 +1701,9 @@ class Statistics(StateComponent):
             post_state.vals_current[assurance.validator_index].assurances += 1
 
         for reporter in self.block_context.reporters:
-            post_state.vals_current[self.retrieve_validator_index(reporter, post_state_validator_pool)].guarantees += 1
+            val_index = self.retrieve_validator_index(reporter, post_state_validator_pool)
+            if val_index is not None:
+                post_state.vals_current[val_index].guarantees += 1
 
         incoming_work_reports = [g.report for g in extrinsic_guarantees]
 
@@ -1751,11 +1753,11 @@ class Statistics(StateComponent):
         )
 
     @staticmethod
-    def retrieve_validator_index(ed25519_key: bytes, post_validator_pool: ValidatorPoolState) -> int:
+    def retrieve_validator_index(ed25519_key: bytes, post_validator_pool: ValidatorPoolState) -> Optional[int]:
         for validator_index, validator_data in enumerate(post_validator_pool.validators):
             if validator_data.ed25519 == ed25519_key:
                 return validator_index
-        raise StateTransitionError("Bandersnatch key not found in validator pool")
+        return None
 
 
     def retrieve_state(self) -> StatisticsState:
