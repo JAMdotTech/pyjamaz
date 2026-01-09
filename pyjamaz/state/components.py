@@ -2179,6 +2179,9 @@ class Services(StateComponent):
 
         deferred_transfers = []
 
+        deleted_service_ids = [] # bold_m
+        updated_service_ids = []
+
         for service_id, output in outputs:
             # Update gas usage (u)
             accumulation_gas_utilized[service_id] = output.gas_used
@@ -2280,21 +2283,31 @@ class Services(StateComponent):
 
             for s_id, service_account in output.state_context.services.pending_changes.service_accounts.items():
 
-                # Check if service account (still) exists
-                if output.state_context.services.service_exists(s_id, check_pending_changes=False):
-
-                    if service_account is None:
-                        output.state_context.services.delete_service_account(s_id, save_to_tx=True)
-                    else:
-                        output.state_context.services.store_service_account(s_id, service_account, save_to_tx=True)
-
-                    if self.app_context.pubsub:
-                        await self.app_context.pubsub.publish(
-                            PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[service_id, service_account])
-                        )
+                if service_account is None:
+                    deleted_service_ids.append(s_id)
+                else:
+                    updated_service_ids.append((s_id, service_account))
 
             # Apply pending_changes to accumulation_state
             accumulation_state.services.add_pending_changes(output.state_context.services.pending_changes)
+
+        # Apply pending deleted services
+        for s_id in deleted_service_ids:
+            accumulation_state.services.delete_service_account(s_id, save_to_tx=True)
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[s_id, None])
+                )
+
+        # Apply pending service account changes
+        for s_id, service_account in updated_service_ids:
+            if s_id not in deleted_service_ids:
+                accumulation_state.services.store_service_account(s_id, service_account, save_to_tx=True)
+
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(
+                        PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[s_id, service_account])
+                    )
 
         # Check if manager service modified a', v' and r' and then override
         for c in range(CORE_COUNT):
