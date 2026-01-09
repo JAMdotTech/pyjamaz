@@ -281,7 +281,13 @@ def hc_checkpoint(
     """
     logger and logger.hc_regs(f"CHECKPOINT", "accumulate")
     invocation_output.gas_limit -= 10
-    invocation_output.registers[7] = invocation_output.gas_limit
+    #invocation_output.registers[7] = invocation_output.gas_limit
+    gas_value = invocation_output.gas_limit
+    if gas_value < 0:
+        # Note: convert to two's complement
+        gas_value = (1 << 64) + gas_value
+    invocation_output.registers[7] = gas_value
+
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
     x.savepoint_context = deepcopy(x.context)
