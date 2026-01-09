@@ -174,13 +174,13 @@ class PVMDebugLog(PVMLogger):
         logging.debug(f"{msg} {reg_msg}")
 
     def sbrk(self, cur_size, new_size, growth, alloc_mem):
-        print(f"SBRK GROWN FROM {cur_size} TO {new_size} (growth {growth}, alloc mem: {alloc_mem})")
+        logging.debug(f"SBRK GROWN FROM {cur_size} TO {new_size} (growth {growth}, alloc mem: {alloc_mem})")
 
     def acl(self, cur_size, new_size, growth):
-        print(f"ACL GROWN FROM {cur_size} TO {new_size} (growth: {growth})")
+        logging.debug(f"ACL GROWN FROM {cur_size} TO {new_size} (growth: {growth})")
 
     def exc(self, exc_str):
-        print(f"PVM EXCEPTION:\n{exc_str}")
+        logging.debug(f"PVM EXCEPTION:\n{exc_str}")
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
         if not settings.PVM_DEBUG_OPCODES:

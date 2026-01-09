@@ -29,7 +29,7 @@ def hc_bless(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.7.1-section:B.7 (Ω_B) | Accumulate host function: bless.
+    GP-0.7.2-section:B.7 (Ω_B) | Accumulate host function: bless.
 
     Set the privileged services.
     manager: The ID of the service which may effectually call bless in the future.
@@ -76,7 +76,7 @@ def hc_bless(
         except PVMMemoryError:
             assigners = None   # bold_a = ∇
 
-    auto_accumulate_services = None #GP: bold_g
+    auto_accumulate_services = None #GP: bold_z
     if memory.is_accessible(o, 12 * n, MEM_R):
         try:
             auto_accumulate_services = {}
