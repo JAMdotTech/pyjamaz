@@ -2277,15 +2277,19 @@ class Services(StateComponent):
                     )
 
             for s_id, service_account in output.state_context.services.pending_changes.service_accounts.items():
-                if service_account is None:
-                    output.state_context.services.delete_service_account(s_id, save_to_tx=True)
-                else:
-                    output.state_context.services.store_service_account(s_id, service_account, save_to_tx=True)
 
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(
-                        PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[service_id, service_account])
-                    )
+                # Check if service account (still) exists
+                if output.state_context.services.service_exists(s_id, check_pending_changes=False):
+
+                    if service_account is None:
+                        output.state_context.services.delete_service_account(s_id, save_to_tx=True)
+                    else:
+                        output.state_context.services.store_service_account(s_id, service_account, save_to_tx=True)
+
+                    if self.app_context.pubsub:
+                        await self.app_context.pubsub.publish(
+                            PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[service_id, service_account])
+                        )
 
             # Apply pending_changes to accumulation_state
             accumulation_state.services.add_pending_changes(output.state_context.services.pending_changes)
