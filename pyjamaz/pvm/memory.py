@@ -89,13 +89,13 @@ class PVMMemory:
             DEBUG and logging.debug(msg)
             raise PVMMemoryError(msg)
 
-        if self._heap and addr >= self._heap.address and addr <= self._heap.paged_tail:
+        if self._heap and addr >= self._heap.address and addr <= self._heap.address + self._heap.size:
             return self._heap
-        elif self._stack and addr >= self._stack.address and addr <= self._stack.paged_tail:
+        elif self._stack and addr >= self._stack.address and addr <= self._stack.address + self._stack.size:
             return self._stack
-        elif self._rom and addr >= self._rom.address and addr <= self._rom.paged_tail:
+        elif self._rom and addr >= self._rom.address and addr <= self._rom.address + self._rom.size:
             return self._rom
-        elif self._args and addr >= self._args.address and addr <= self._args.paged_tail:
+        elif self._args and addr >= self._args.address and addr <= self._args.address + self._args.size:
             return self._args
         else:
             return None
