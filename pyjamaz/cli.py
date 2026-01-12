@@ -666,6 +666,7 @@ async def replay_traces(
 
         except (StateTransitionError, BlockValidationError) as e:
             logging.info(f"🛑 Block {format_hash(trace.block.header.hash)} raised error -> {e}")
+            app.state_storage.rollback()
 
         # Validate new state root
         if app.working_state.state_root == trace.post_state.state_root:

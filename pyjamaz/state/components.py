@@ -1701,7 +1701,9 @@ class Statistics(StateComponent):
             post_state.vals_current[assurance.validator_index].assurances += 1
 
         for reporter in self.block_context.reporters:
-            post_state.vals_current[self.retrieve_validator_index(reporter, post_state_validator_pool)].guarantees += 1
+            val_index = self.retrieve_validator_index(reporter, post_state_validator_pool)
+            if val_index is not None:
+                post_state.vals_current[val_index].guarantees += 1
 
         incoming_work_reports = [g.report for g in extrinsic_guarantees]
 
@@ -1751,11 +1753,11 @@ class Statistics(StateComponent):
         )
 
     @staticmethod
-    def retrieve_validator_index(ed25519_key: bytes, post_validator_pool: ValidatorPoolState) -> int:
+    def retrieve_validator_index(ed25519_key: bytes, post_validator_pool: ValidatorPoolState) -> Optional[int]:
         for validator_index, validator_data in enumerate(post_validator_pool.validators):
             if validator_data.ed25519 == ed25519_key:
                 return validator_index
-        raise StateTransitionError("Bandersnatch key not found in validator pool")
+        return None
 
 
     def retrieve_state(self) -> StatisticsState:
@@ -2177,6 +2179,9 @@ class Services(StateComponent):
 
         deferred_transfers = []
 
+        deleted_service_ids = [] # bold_m
+        updated_service_ids = []
+
         for service_id, output in outputs:
             # Update gas usage (u)
             accumulation_gas_utilized[service_id] = output.gas_used
@@ -2277,18 +2282,32 @@ class Services(StateComponent):
                     )
 
             for s_id, service_account in output.state_context.services.pending_changes.service_accounts.items():
-                if service_account is None:
-                    output.state_context.services.delete_service_account(s_id, save_to_tx=True)
-                else:
-                    output.state_context.services.store_service_account(s_id, service_account, save_to_tx=True)
 
-                if self.app_context.pubsub:
-                    await self.app_context.pubsub.publish(
-                        PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[service_id, service_account])
-                    )
+                if service_account is None:
+                    deleted_service_ids.append(s_id)
+                else:
+                    updated_service_ids.append((s_id, service_account))
 
             # Apply pending_changes to accumulation_state
             accumulation_state.services.add_pending_changes(output.state_context.services.pending_changes)
+
+        # Apply pending deleted services
+        for s_id in deleted_service_ids:
+            accumulation_state.services.delete_service_account(s_id, save_to_tx=True)
+            if self.app_context.pubsub:
+                await self.app_context.pubsub.publish(
+                    PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[s_id, None])
+                )
+
+        # Apply pending service account changes
+        for s_id, service_account in updated_service_ids:
+            if s_id not in deleted_service_ids:
+                accumulation_state.services.store_service_account(s_id, service_account, save_to_tx=True)
+
+                if self.app_context.pubsub:
+                    await self.app_context.pubsub.publish(
+                        PubSubSignal(topic=MESSAGE_TYPES.SERVICE_ACCOUNT, data=[s_id, service_account])
+                    )
 
         # Check if manager service modified a', v' and r' and then override
         for c in range(CORE_COUNT):

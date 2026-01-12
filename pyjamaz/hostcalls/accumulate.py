@@ -29,7 +29,7 @@ def hc_bless(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.7.1-section:B.7 (Ω_B) | Accumulate host function: bless.
+    GP-0.7.2-section:B.7 (Ω_B) | Accumulate host function: bless.
 
     Set the privileged services.
     manager: The ID of the service which may effectually call bless in the future.
@@ -76,7 +76,7 @@ def hc_bless(
         except PVMMemoryError:
             assigners = None   # bold_a = ∇
 
-    auto_accumulate_services = None #GP: bold_g
+    auto_accumulate_services = None #GP: bold_z
     if memory.is_accessible(o, 12 * n, MEM_R):
         try:
             auto_accumulate_services = {}
@@ -281,7 +281,13 @@ def hc_checkpoint(
     """
     logger and logger.hc_regs(f"CHECKPOINT", "accumulate")
     invocation_output.gas_limit -= 10
-    invocation_output.registers[7] = invocation_output.gas_limit
+    #invocation_output.registers[7] = invocation_output.gas_limit
+    gas_value = invocation_output.gas_limit
+    if gas_value < 0:
+        # Note: convert to two's complement
+        gas_value = (1 << 64) + gas_value
+    invocation_output.registers[7] = gas_value
+
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
     # TODO: optimize deepcopy?
     x.savepoint_context = deepcopy(x.context)
