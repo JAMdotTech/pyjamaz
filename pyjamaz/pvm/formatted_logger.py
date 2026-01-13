@@ -29,7 +29,7 @@ class PVMFormattedLog(PVMDebugLog):
 
         msg = f"{self._pvm_id}: {msg}"
         spacing = " " * (51 - len(str(msg)))
-        logging.debug(
+        logging.info(
             f"{msg}"
             f"{spacing}"
             f"{data}"
@@ -65,7 +65,7 @@ class PVMFormattedLog(PVMDebugLog):
             prefix_str = f"{log_lvl_name}{target_str}"
 
         spacing = " " * (31 - (len(prefix_str)))
-        logging.log(log_lvl, f'{prefix_str}{spacing}{message}')
+        logging.info(f'{prefix_str}{spacing}{message}')
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
         if settings.PVM_DEBUG:

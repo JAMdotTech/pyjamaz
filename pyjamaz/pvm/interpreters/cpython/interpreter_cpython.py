@@ -24,6 +24,7 @@ from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
+
 class PVMInterpreter:
     __slots__ = (
         'name', 'reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
@@ -95,8 +96,9 @@ class PVMInterpreter:
         self.opcodes = _opcode_lut()
 
         if logger:
-            from pyjamaz.pvm.debug_logger import PVMDebugLog
-            logger_cls = PVMDebugLog
+            #from pyjamaz.pvm.debug_logger import PVMDebugLog
+            from pyjamaz.pvm.formatted_logger import PVMFormattedLog
+            logger_cls = PVMFormattedLog
             self.log = logger_cls(pvm=self)
             self.log._pvm = self
             self.log._pvm_id = self.name

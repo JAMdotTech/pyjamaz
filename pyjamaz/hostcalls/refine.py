@@ -75,11 +75,14 @@ def hc_historical_lookup(
     l = min(registers[11], len(preimage or []) - f)
 
     if mem_inaccessible is True or not memory.is_accessible(o, l, MEM_W):
+        logger and logger.hc_log("HISTORICAL LOOKUP PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif preimage is None:
+        logger and logger.hc_log("HISTORICAL LOOKUP NONE", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.NONE.value
     else:
+        logger and logger.hc_log("HISTORICAL LOOKUP OK", reg7)
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(preimage)
         invocation_output.memory.write_bytes(o, preimage[f:f+l])
@@ -109,14 +112,17 @@ def hc_export(
         data_segment = memory.read_bytes(p, z, padding=EC_SEGMENT_SIZE)
 
     if data_segment is None:
+        logger and logger.hc_log("EXPORT PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif export_segment_offset + len(m_e.export_segments) >= MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE:
+        logger and logger.hc_log("EXPORT FULL", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.FULL.value
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = export_segment_offset + len(m_e.export_segments)
         m_e.export_segments.append(data_segment)
+        logger and logger.hc_log("EXPORT OK", invocation_output.registers[7])
 
 
 def hc_machine(
@@ -164,8 +170,10 @@ def hc_machine(
         n = keys[-1] + 1
 
     if program_blob is None:
+        logger and logger.hc_log("MACHINE PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif pvm_code is None:
+        logger and logger.hc_log("MACHINE HUH", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.HUH.value
     else:
@@ -176,6 +184,7 @@ def hc_machine(
             memory=PVMMemory(None, None, None, None),
             program_counter=i
         )
+        logger and logger.hc_log("MACHINE OK", n)
 
 
 def hc_peek(
@@ -201,8 +210,10 @@ def hc_peek(
     z = registers[10]  # length (UInt64)
 
     if not memory.is_accessible(o, z, MEM_W):
+        logger and logger.hc_log("PEEK PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif n not in m_e.inner_pvm_lookup:
+        logger and logger.hc_log("PEEK WHO", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
     elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_R):
@@ -212,7 +223,7 @@ def hc_peek(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
         invocation_output.memory.write_bytes(o, m_e.inner_pvm_lookup[n].memory.read_bytes(s, z))
-
+        logger and logger.hc_log("PEEK OK", invocation_output.registers[7])
 
 def hc_poke(
         registers: List[int],
@@ -237,17 +248,21 @@ def hc_poke(
     z = registers[10]  # length (UInt64)
 
     if not memory.is_accessible(s, z, MEM_R):
+        logger and logger.hc_log("POKE PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif n not in m_e.inner_pvm_lookup:
+        logger and logger.hc_log("POKE WHO", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
     elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_W):
+        logger and logger.hc_log("PEEK RESUME OOB", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OOB.value
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
         m_e.inner_pvm_lookup[n].memory.write_bytes(o, memory.read_bytes(s, z))
+        logger and logger.hc_log("POKE RESUME OK", "")
 
 
 def hc_pages(
@@ -285,12 +300,16 @@ def hc_pages(
     nr_bytes = c * PVM_PAGE_SIZE
 
     if mem is None:
+        logger and logger.hc_log("PAGES WHO", "")
         invocation_output.registers[7] = HostCallResult.WHO.value
     elif r > 4 or p < 16 or p+c >= 2**32 // PVM_PAGE_SIZE:
+        logger and logger.hc_log("PAGES HUH", "")
         invocation_output.registers[7] = HostCallResult.HUH.value
     elif r > 2 and not mem.is_accessible(addr, nr_bytes, MEM_R):
+        logger and logger.hc_log("PAGES HUH", "")
         invocation_output.registers[7] = HostCallResult.HUH.value
     else:
+        logger and logger.hc_log("PAGES OK", r)
         invocation_output.registers[7] = HostCallResult.OK.value
 
         if r == 0:
@@ -363,34 +382,41 @@ def hc_invoke(
 
 
     if gas is None:
+        logger and logger.hc_log("INVOKE PANIC GAS", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     elif pvm_program is None:
+        logger and logger.hc_log("INVOKE WHO", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
 
     elif pvm_exit_condition.reason == ExitReason.host_halt.value:
+        logger and logger.hc_log("INVOKE RESUME HOST",pvm_exit_condition.value)
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.HOST.value
         invocation_output.registers[8] = pvm_exit_condition.value
         update_inner_pvm(pvm.pc + 1)
 
     elif pvm_exit_condition.reason == ExitReason.page_fault.value:
+        logger and logger.hc_log("INVOKE RESUME FAULT", pvm_exit_condition.value)
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.FAULT.value
         invocation_output.registers[8] = pvm_exit_condition.value
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.out_of_gas.value:
+        logger and logger.hc_log("INVOKE OOG", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.OOG.value
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.panic.value:
+        logger and logger.hc_log("INVOKE PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.PANIC.value
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.halt.value:
+        logger and logger.hc_log("INVOKE HALT", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.HALT.value
         update_inner_pvm(pvm.pc)
@@ -415,6 +441,8 @@ def hc_expunge(
 
     # TODO not idiomatic -> convert to if registers[7] not in m_e.inner_pvm_lookup
     if not registers[7] in m_e.inner_pvm_lookup:
+        logger and logger.hc_log("EXPUNGE WHO", "")
         invocation_output.registers[7] = HostCallResult.WHO.value
     else:
+        logger and logger.hc_log("EXPUNGE OK", registers[7])
         del m_e.inner_pvm_lookup[registers[7]]
