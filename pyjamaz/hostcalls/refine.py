@@ -296,17 +296,14 @@ def hc_pages(
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
-    addr = p * PVM_PAGE_SIZE
-    nr_bytes = c * PVM_PAGE_SIZE
-
     if mem is None:
         logger and logger.hc_log("PAGES WHO", "")
         invocation_output.registers[7] = HostCallResult.WHO.value
     elif r > 4 or p < 16 or p+c >= 2**32 // PVM_PAGE_SIZE:
         logger and logger.hc_log("PAGES HUH", "")
         invocation_output.registers[7] = HostCallResult.HUH.value
-    elif r > 2 and not mem.is_accessible(addr, nr_bytes, MEM_R):
-        logger and logger.hc_log("PAGES HUH", "")
+    elif r > 2 and not mem.is_null(p, c):
+        logger and logger.hc_log("PAGES HUH (not null)", "")
         invocation_output.registers[7] = HostCallResult.HUH.value
     else:
         logger and logger.hc_log("PAGES OK", r)
@@ -323,8 +320,7 @@ def hc_pages(
 
         if r < 3:
             mem.zero(p, c, acl)
-        else:
-            mem.void(p, c, acl)
+        mem.alter_accessibility(p, c, acl)
 
 
 def hc_invoke(

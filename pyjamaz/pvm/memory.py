@@ -261,42 +261,62 @@ class PVMMemory:
 
 
     def zero(self, page_idx: int, nr_pages: int, acl: int):
+        """
+        Allocate and zero-initialize pages. Creates a MemorySection if none exists.
+        For inner PVMs (refine context), sections can be created at any valid address.
+        """
         mem_addr = page_idx * PVM_PAGE_SIZE
-        # TODO we assume acl should be set this way, cannot test right now
-        if not self.section_offsets and mem_addr == PVM_INIT_ZONE_SIZE:
-            if not self._rom:
-                self._rom = MemorySection(
-                    address=PVM_INIT_ZONE_SIZE,
-                    size=nr_pages * PVM_PAGE_SIZE,
-                    contents=bytes(nr_pages * PVM_PAGE_SIZE),
-                    acl=acl
-                )
-            section = self._rom
-        elif mem_addr == (2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(self._rom.contents)):
-            if not self._heap:
-                self._heap = MemorySection(
-                    address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(self._rom.contents)),
-                    size=nr_pages * PVM_PAGE_SIZE,
-                    contents=bytes(nr_pages * PVM_PAGE_SIZE),
-                    acl=acl
-                )
-            section = self._heap
-        elif self._stack is None and mem_addr >= (2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - (nr_pages * PVM_PAGE_SIZE)):
-            if not self._stack:
-                self._stack = MemorySection(
-                    address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - (nr_pages * PVM_PAGE_SIZE),
-                    size=nr_pages * PVM_PAGE_SIZE,
-                    contents=bytes(nr_pages * PVM_PAGE_SIZE),
-                    acl=acl
-                )
-            section = self._stack
-        else:
-            raise PVMMemoryError(f"Invalid void operation: MemorySection not found {mem_addr}")
+        nr_bytes = nr_pages * PVM_PAGE_SIZE
 
+        # Try to find an existing section or create a new one
+        section = self._find_or_create_section(mem_addr, nr_bytes, acl)
+
+        # Zero the memory and set ACL
+        local_offset = mem_addr - section.address
+        local_page = local_offset // PVM_PAGE_SIZE
+        section.acl_set_pages(local_page, nr_pages, acl)
+        section.contents[local_offset:local_offset + nr_bytes] = bytes(nr_bytes)
+
+
+    def _find_or_create_section(self, mem_addr: int, nr_bytes: int, acl: int) -> MemorySection:
+        """
+        Find an existing section containing the address, or create a new one.
+        For inner PVMs (empty sections list), create sections dynamically.
+        """
+        # Check if address falls within an existing section
+        for section in self.sections:
+            if section.address <= mem_addr < section.address + section.size:
+                # Extend section if needed
+                end_needed = mem_addr + nr_bytes
+                if end_needed > section.address + section.size:
+                    self._extend_section(section, end_needed - section.address)
+                return section
+
+        # No existing section - create a new one
+        # For inner PVMs, we allow sections anywhere (page >= 16)
+        new_section = MemorySection(
+            address=mem_addr,
+            size=nr_bytes,
+            contents=bytearray(nr_bytes),
+            acl=acl
+        )
+        self.sections.append(new_section)
         self.update_offsets()
-        addr = page_idx * PVM_PAGE_SIZE - section.address
-        section.acl_set_pages(addr // PVM_PAGE_SIZE, nr_pages, acl)
-        section.contents[addr:addr + nr_pages * PVM_PAGE_SIZE] = 0 #TODO: pvm specific const?
+        return new_section
+
+
+    def _extend_section(self, section: MemorySection, new_size: int):
+        """Extend a section's contents to accommodate more pages."""
+        if new_size > section.size:
+            old_contents = section.contents
+            old_size = len(old_contents)
+            section.contents = bytearray(new_size)
+            section.contents[:old_size] = old_contents
+            section.size = new_size
+            section.paged_tail = section.address + new_size
+            # Re-allocate ACL bitmap for new size
+            section.alloc_acl(section.acl, new_size)
+            self.update_offsets()
 
 
     def void(self, page_idx: int, nr_pages: int, acl: int):
@@ -309,7 +329,49 @@ class PVMMemory:
         page_nr = (mem_addr - section.address) // PVM_PAGE_SIZE
         section.acl_set_pages(page_nr, nr_pages, acl)
         offset = mem_addr - section.address
-        section.contents[offset:offset + nr_pages * PVM_PAGE_SIZE] = 0 #TODO: pvm specific const?
+        section.contents[offset:offset + nr_pages * PVM_PAGE_SIZE] = bytes(nr_pages * PVM_PAGE_SIZE)
+
+
+    def alter_accessibility(self, page_idx: int, nr_pages: int, acl: int):
+        """
+        Set accessibility for a range of pages (matching reference API).
+        Pages must already be allocated via zero().
+        """
+        mem_addr = page_idx * PVM_PAGE_SIZE
+
+        section = self.find_section(mem_addr)
+        if not section:
+            raise PVMMemoryError(f"Cannot alter accessibility: page {page_idx} not allocated")
+
+        local_page = (mem_addr - section.address) // PVM_PAGE_SIZE
+        section.acl_set_pages(local_page, nr_pages, acl)
+
+
+    def is_null(self, page_idx: int, nr_pages: int) -> bool:
+        """
+        Check if pages are in NULL (inaccessible) state.
+        Used by hc_pages for r > 2 validation (pages must be inaccessible before void operation).
+        Returns True if all pages are either unallocated or have MEM_I (inaccessible) ACL.
+        """
+        for p in range(page_idx, page_idx + nr_pages):
+            addr = p * PVM_PAGE_SIZE
+
+            try:
+                section = self.find_section(addr)
+            except (PanicError, PVMMemoryError):
+                section = None
+
+            if section is None:
+                continue  # Unallocated = NULL
+
+            # Check if this page has inaccessible ACL
+            local_addr = addr - section.address
+            if section.acl_check(local_addr, PVM_PAGE_SIZE, MEM_R):
+                return False
+            if section.acl_check(local_addr, PVM_PAGE_SIZE, MEM_W):
+                return False
+
+        return True
 
 
     @staticmethod
