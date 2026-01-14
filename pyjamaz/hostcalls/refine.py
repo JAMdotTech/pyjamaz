@@ -389,33 +389,33 @@ def hc_invoke(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
 
-    elif pvm_exit_condition.reason == ExitReason.host_halt.value:
+    elif pvm_exit_condition.reason == ExitReason.host_halt:
         logger and logger.hc_log("INVOKE RESUME HOST",pvm_exit_condition.value)
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.HOST.value
         invocation_output.registers[8] = pvm_exit_condition.value
-        update_inner_pvm(pvm.pc + 1)
+        update_inner_pvm(pvm.next_instruction())
 
-    elif pvm_exit_condition.reason == ExitReason.page_fault.value:
+    elif pvm_exit_condition.reason == ExitReason.page_fault:
         logger and logger.hc_log("INVOKE RESUME FAULT", pvm_exit_condition.value)
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.FAULT.value
         invocation_output.registers[8] = pvm_exit_condition.value
         update_inner_pvm(pvm.pc)
 
-    elif pvm_exit_condition.reason == ExitReason.out_of_gas.value:
+    elif pvm_exit_condition.reason == ExitReason.out_of_gas:
         logger and logger.hc_log("INVOKE OOG", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.OOG.value
         update_inner_pvm(pvm.pc)
 
-    elif pvm_exit_condition.reason == ExitReason.panic.value:
+    elif pvm_exit_condition.reason == ExitReason.panic:
         logger and logger.hc_log("INVOKE PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.PANIC.value
         update_inner_pvm(pvm.pc)
 
-    elif pvm_exit_condition.reason == ExitReason.halt.value:
+    elif pvm_exit_condition.reason == ExitReason.halt:
         logger and logger.hc_log("INVOKE HALT", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.HALT.value

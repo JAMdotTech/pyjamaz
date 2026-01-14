@@ -31,19 +31,8 @@ class AbstractMemorySection(ABC):
         if not contents:
             contents = []
 
-        psize = page_size(size)
-
-        if psize != size:
-            raise PVMMemoryError(f"Memory size is not paged: {size}")
-
         if size > settings.PVM_MAX_HEAP_SIZE:
             raise PVMMemoryError(f"Memory size too large: {size} > {settings.PVM_MAX_HEAP_SIZE}")
-
-        initial_contents_size = page_size(len(contents))
-        if initial_contents_size > size:
-            raise PVMMemoryError(f"Memory contents > size: {initial_contents_size} > {size}")
-
-        #paged_size = max(initial_contents_size, size)
 
         self.acl:int = acl
         self.address:int = address
@@ -52,10 +41,11 @@ class AbstractMemorySection(ABC):
         # Note: actual implementation depends on PVM implementation
         self.alloc_contents(contents)
 
-        self.paged_tail = address + psize
+        paged_size = page_size(len(contents))
+        self.paged_tail = address + paged_size
 
         # Note: actual implementation depends on PVM implementation
-        self.alloc_acl(acl, psize)
+        self.alloc_acl(acl, paged_size)
 
 
     def read_int(self, section_addr: int, length: int) -> int:
@@ -97,3 +87,13 @@ class AbstractMemorySection(ABC):
 
     @abstractmethod
     def acl_set_pages(self, start_page: int, nr_pages: int, required_acl: int): ...
+
+    @abstractmethod
+    def acl_check_pages(self, section_addr: int, length: int, required_acl: int) -> int:
+        """
+        Checks if pages pass the ACL check, if not, return first failing page
+
+        Returns:
+            Page number of the first failing page, or -1 if all pages pass
+        """
+        ...

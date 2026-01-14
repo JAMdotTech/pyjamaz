@@ -129,3 +129,19 @@ class MemorySection(AbstractMemorySection):
     def acl_set_pages(self, start_page: int, nr_pages: int, acl_level: int):
         for page_nr in range(nr_pages):
             self._acl[start_page + page_nr] = acl_level
+
+
+    def acl_check_pages(self, section_addr: int, length: int, required_acl: int) -> int:
+        # checks if pages pass the ACL check
+        if length <= 0:
+            return -1
+
+        last_offset = section_addr + length - 1
+        start_page = section_addr // PVM_PAGE_SIZE
+        end_page = last_offset // PVM_PAGE_SIZE
+
+        for page in range(start_page, end_page + 1):
+            if page not in self._acl or self._acl[page] < required_acl:
+                return page
+
+        return -1

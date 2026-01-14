@@ -327,7 +327,13 @@ class PVMInterpreter:
         elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
-            raise PVMMemoryError(f"mem_write: Memory address {addr} not found in any section")
+            # Fall back to PVMMemory for dynamically mapped sections
+            try:
+                self.mem.write_int(addr, value, bytes_to_write)
+            finally:
+                # Capture the memory address even when an exception is raised (e.g., for page fault address)
+                self._mem_addr = self.mem._mem_addr
+            return
 
         section = self.mem_sections[section_idx]
         section_offset = addr - self.mem_section_starts[section_idx]
@@ -362,7 +368,13 @@ class PVMInterpreter:
         elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
 
         if section_idx == -1 or self.mem_sections[section_idx] is None:
-            raise PVMMemoryError(f"mem_read: Memory address {addr} not found in any section")
+            # Fall back to PVMMemory for dynamically mapped sections
+            try:
+                result = self.mem.read_int(addr, bytes_to_read)
+                return result
+            finally:
+                # Capture the memory address even when an exception is raised (e.g., for page fault address)
+                self._mem_addr = self.mem._mem_addr
 
         section_offset = addr - self.mem_section_starts[section_idx]
 
