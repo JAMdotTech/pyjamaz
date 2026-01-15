@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 from math import ceil
 from dataclasses import dataclass, field
 from typing import List, T, Optional
@@ -7,6 +8,9 @@ from typing import List, T, Optional
 from pyjamaz.pvm import MemorySection
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W, MEM_RW, MEM_I
 from pyjamaz.pvm.exceptions import PanicError, PVMMemoryError, PVMError
+
+# ACL bitmap constants (must match memory_section.py)
+ACL_PAGES_PER_BITMAP = 32
 
 
 @dataclass
@@ -60,12 +64,12 @@ class PVMMemory:
         stack: MemorySection,
         arguments: MemorySection
     ):
-        # Track all mapped sections so find_section can support arbitrary mappings
         self.sections = []
         for section in (rom, heap, stack, arguments):
             if section:
                 self.sections.append(section)
 
+        # Note: this is the hardcoded layout that GP-??? describes, mapped here for convience
         self._rom = rom
         self._heap = heap
         self._stack = stack
@@ -99,7 +103,7 @@ class PVMMemory:
             return None
 
         for section in self.sections:
-            if section.address <= addr <= section.paged_tail:
+            if section.address <= addr <= (section.address + section.size):
                 return section
 
         return None
@@ -269,35 +273,55 @@ class PVMMemory:
         nr_bytes = nr_pages * PVM_PAGE_SIZE
 
         # Try to find an existing section or create a new one
-        section = self._find_or_create_section(mem_addr, nr_bytes, acl)
+        section = self.get_or_create_section(mem_addr, nr_bytes, acl)
 
         # Zero the memory and set ACL
         local_offset = mem_addr - section.address
         local_page = local_offset // PVM_PAGE_SIZE
         section.acl_set_pages(local_page, nr_pages, acl)
+        # TODO: helper functie maken per memory impl??
+        # Note: zero contents
         section.contents[local_offset:local_offset + nr_bytes] = bytes(nr_bytes)
 
 
-    def _find_or_create_section(self, mem_addr: int, nr_bytes: int, acl: int) -> MemorySection:
+    def get_or_create_section(self, mem_addr: int, nr_bytes: int, acl: int) -> MemorySection:
         """
         Find an existing section containing the address, or create a new one.
         For inner PVMs (empty sections list), create sections dynamically.
         """
-        # Check if address falls within an existing section
+        end_addr = mem_addr + nr_bytes
+
+        # Check if address falls within an existing section or is adjacent (for extension)
         for section in self.sections:
-            if section.address <= mem_addr < section.address + section.size:
-                # Extend section if needed
-                end_needed = mem_addr + nr_bytes
-                if end_needed > section.address + section.size:
-                    self._extend_section(section, end_needed - section.address)
+            section_end = section.address + section.size
+            # wthin section or exactly at the end (adjacent, for extension)
+            if section.address <= mem_addr <= section_end:
+                # xxtend section if needed
+                if end_addr > section_end:
+                    # check if extension would overlap with another section
+                    for other in self.sections:
+                        if other is not section:
+                            if section_end <= other.address < end_addr:
+                                raise PVMMemoryError(
+                                    f"Cannot extend section: overlaps with section at {other.address}"
+                                )
+                    self.grow_section(section, end_addr - section.address)
                 return section
 
-        # No existing section - create a new one
-        # For inner PVMs, we allow sections anywhere (page >= 16)
+        # check if new section would overlap with any existing section
+        for section in self.sections:
+            # check for any overlap
+            if not (end_addr <= section.address or mem_addr >= section.address + section.size):
+                raise PVMMemoryError(
+                    f"Cannot create section at {mem_addr}: would overlap with section at {section.address}"
+                )
+
+        # No existing section, for inner PVMs, we allow sections anywhere (page >= 16)
+        # TODO: helper, for now hardcoded to bytes, MemorySection will create appropriate internal representation
         new_section = MemorySection(
             address=mem_addr,
             size=nr_bytes,
-            contents=bytearray(nr_bytes),
+            contents=bytes(nr_bytes),
             acl=acl
         )
         self.sections.append(new_section)
@@ -305,43 +329,87 @@ class PVMMemory:
         return new_section
 
 
-    def _extend_section(self, section: MemorySection, new_size: int):
+    def grow_section(self, section: MemorySection, new_size: int):
         """Extend a section's contents to accommodate more pages."""
         if new_size > section.size:
-            old_contents = section.contents
-            old_size = len(old_contents)
-            section.contents = bytearray(new_size)
-            section.contents[:old_size] = old_contents
+            old_contents = bytes(section.contents)  # Copy old contents
+            old_size = section.size
+            old_nr_pages = old_size // PVM_PAGE_SIZE
+
+            # Preserve existing ACL data before reallocation (handle both implementations)
+            old_acl_bitmap = None
+            old_acl_dict = None
+            if hasattr(section, 'acl_bitmap') and section.acl_bitmap is not None and len(section.acl_bitmap) > 0:
+                old_acl_bitmap = section.acl_bitmap.copy()
+            if hasattr(section, '_acl') and section._acl:
+                old_acl_dict = section._acl.copy()
+
+            # Use alloc_contents to allocate the correct type for this implementation
             section.size = new_size
+            section.alloc_contents(old_contents)
             section.paged_tail = section.address + new_size
-            # Re-allocate ACL bitmap for new size
-            section.alloc_acl(section.acl, new_size)
+
+            new_nr_pages = new_size // PVM_PAGE_SIZE
+
+            # TODO: helper for pvm specific mem/acl implementations
+            if old_acl_bitmap is not None:
+                # TODO: CPYTHON/NUMBA implementation (bitmap)
+                new_bitmap_size = -(-new_nr_pages // ACL_PAGES_PER_BITMAP)  # ceil div
+                section.acl_bitmap = np.zeros(new_bitmap_size, dtype=np.uint64)
+                section.acl_bitmap[:len(old_acl_bitmap)] = old_acl_bitmap
+                if new_nr_pages > old_nr_pages:
+                    section.acl_set_pages(old_nr_pages, new_nr_pages - old_nr_pages, section.acl)
+            elif old_acl_dict is not None:
+                # TODO: GRAYPAPER implementation (dict)
+                section._acl = old_acl_dict
+                if new_nr_pages > old_nr_pages:
+                    section.acl_set_pages(old_nr_pages, new_nr_pages - old_nr_pages, section.acl)
+            else:
+                # No old ACL data, allocate fresh
+                section.alloc_acl(section.acl, new_size)
+
             self.update_offsets()
 
 
     def void(self, page_idx: int, nr_pages: int, acl: int):
         mem_addr = page_idx * PVM_PAGE_SIZE
+        nr_bytes = nr_pages * PVM_PAGE_SIZE
 
         section = self.find_section(mem_addr)
         if not section:
             raise PVMMemoryError(f"MemorySection not found {mem_addr}")
 
+        end_addr = mem_addr + nr_bytes
+        if end_addr > section.address + section.size:
+            raise PVMMemoryError(
+                f"void: range spans beyond section (end {end_addr} > section end {section.address + section.size})"
+            )
+
         page_nr = (mem_addr - section.address) // PVM_PAGE_SIZE
         section.acl_set_pages(page_nr, nr_pages, acl)
         offset = mem_addr - section.address
-        section.contents[offset:offset + nr_pages * PVM_PAGE_SIZE] = bytes(nr_pages * PVM_PAGE_SIZE)
+        # TODO: helper function to support every PVM impl
+        section.contents[offset:offset + nr_bytes] = bytes(nr_bytes)
 
 
-    def alter_accessibility(self, page_idx: int, nr_pages: int, acl: int):
+    def change_acl(self, page_idx: int, nr_pages: int, acl: int):
         """
         Set accessibility for a range of pages (matching reference API).
         Pages must already be allocated via zero().
         """
         mem_addr = page_idx * PVM_PAGE_SIZE
+        nr_bytes = nr_pages * PVM_PAGE_SIZE
 
         section = self.find_section(mem_addr)
         if not section:
             raise PVMMemoryError(f"Cannot alter accessibility: page {page_idx} not allocated")
+
+        # Validate that entire range is within this section
+        end_addr = mem_addr + nr_bytes
+        if end_addr > section.address + section.size:
+            raise PVMMemoryError(
+                f"change_acl: range spans beyond section (end {end_addr} > section end {section.address + section.size})"
+            )
 
         local_page = (mem_addr - section.address) // PVM_PAGE_SIZE
         section.acl_set_pages(local_page, nr_pages, acl)

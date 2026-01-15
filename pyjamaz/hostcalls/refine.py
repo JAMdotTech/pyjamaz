@@ -254,8 +254,8 @@ def hc_poke(
         logger and logger.hc_log("POKE WHO", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value
-    elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_W):
-        logger and logger.hc_log("PEEK RESUME OOB", "")
+    elif not m_e.inner_pvm_lookup[n].memory.is_accessible(o, z, MEM_W):
+        logger and logger.hc_log("POKE RESUME OOB", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OOB.value
     else:
@@ -299,11 +299,12 @@ def hc_pages(
     if mem is None:
         logger and logger.hc_log("PAGES WHO", "")
         invocation_output.registers[7] = HostCallResult.WHO.value
-    elif r > 4 or p < 16 or p+c >= 2**32 // PVM_PAGE_SIZE:
+    elif r > 4 or p < 16 or p + c > 2**32 // PVM_PAGE_SIZE:
         logger and logger.hc_log("PAGES HUH", "")
         invocation_output.registers[7] = HostCallResult.HUH.value
-    elif r > 2 and not mem.is_null(p, c):
-        logger and logger.hc_log("PAGES HUH (not null)", "")
+    elif r > 2 and mem.is_null(p, c):
+        # Note: for r > 2 (preserve operations), pages must already be accessible (not None) because we're preserving their content
+        logger and logger.hc_log("PAGES HUH (pages are null, cannot preserve)", "")
         invocation_output.registers[7] = HostCallResult.HUH.value
     else:
         logger and logger.hc_log("PAGES OK", r)
@@ -320,7 +321,7 @@ def hc_pages(
 
         if r < 3:
             mem.zero(p, c, acl)
-        mem.alter_accessibility(p, c, acl)
+        mem.change_acl(p, c, acl)
 
 
 def hc_invoke(
@@ -374,7 +375,10 @@ def hc_invoke(
             invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='little'))
 
         m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden!
-        m_e.inner_pvm_lookup[n].program_counter = pc
+        m_e.inner_pvm_lookup[n].program_counter = int(pc)
+
+    def next_pc_after_host() -> int:
+        return int(pvm.pc) + int(pvm.skip_len)
 
 
     if gas is None:
@@ -390,7 +394,7 @@ def hc_invoke(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.HOST.value
         invocation_output.registers[8] = pvm_exit_condition.value
-        update_inner_pvm(pvm.next_instruction())
+        update_inner_pvm(next_pc_after_host())
 
     elif pvm_exit_condition.reason == ExitReason.page_fault:
         logger and logger.hc_log("INVOKE RESUME FAULT", pvm_exit_condition.value)

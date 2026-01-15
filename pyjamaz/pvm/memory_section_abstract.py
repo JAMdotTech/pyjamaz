@@ -49,7 +49,7 @@ class AbstractMemorySection(ABC):
 
 
     def read_int(self, section_addr: int, length: int) -> int:
-        if section_addr + length > (self.paged_tail - self.address):  # len(section):
+        if section_addr + length > self.size:   #TODO: gebeurd dit nu overal goed?
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
             raise PVMMemoryError(msg)
@@ -59,7 +59,7 @@ class AbstractMemorySection(ABC):
 
     def write_int(self, section_addr: int, value: int, length: int):
 
-        if section_addr + length > (self.paged_tail - self.address):  # len(section):
+        if section_addr + length > self.size:  # TODO: pveral goed?
             msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
             logging.error(msg)
             raise PVMMemoryError(msg)
