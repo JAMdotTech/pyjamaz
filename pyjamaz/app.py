@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import TypeVar, Optional, List, Callable, Dict, Tuple
 
+import anyio
 from bandersnatch_vrfs import ietf_vrf_sign, RingContext
 
 from jamcodec.base import JamBytes
@@ -1057,12 +1058,15 @@ class PyjamazApp:
 
         # Set code
         work_package.set_authorization_code(self.working_state.services)
-        work_report = await self.work_result_computation(
-            work_package=work_package,
-            core_index=self.get_core_assigment(),
-            services_state=self.working_state.services,
-            extrinsics=extrinsics
+
+        work_report = await anyio.to_thread.run_sync(
+            self.work_result_computation,
+            work_package,
+            self.get_core_assigment(),
+            self.working_state.services,
+            extrinsics,
         )
+
         # Clean up work package extrinsics
         self.work_package_extrinsics.clear(work_package)
         DEBUG and logging.debug(f"Processed work package: {format_hash(work_package.hash())}")
@@ -1217,7 +1221,7 @@ class PyjamazApp:
             logging.error(f"Error processing work package {format_hash(wp_queue_item.work_package.hash())}: {e}")
             return None
 
-    async def work_result_computation(
+    def work_result_computation(
         self,
         work_package: WorkPackage,
         core_index: int,
@@ -1296,7 +1300,7 @@ class PyjamazApp:
 
         # store segments
         self.segment_store[exports_root] = all_export_segments
-        # Also store under work-package hash
+        # Also store under work-package hash (H^+) TODO check?
         self.segment_store[work_package.hash()] = all_export_segments
 
         package_spec = WorkPackageSpec.create_from_work_package(work_package, [], [], [], all_export_segments)

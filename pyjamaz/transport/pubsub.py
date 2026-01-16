@@ -21,15 +21,18 @@ class PubSub(object):
         #self.send_stream: MemoryObjectSendStream[Dict], self.receive_stream: MemoryObjectReceiveStream[Dict] = anyio.create_memory_object_stream[Dict](max_buffer_size=10)
         self.send_stream: MemoryObjectSendStream[PubSubSignal] = None
         self.receive_stream: MemoryObjectReceiveStream[PubSubSignal] = None
-        self.send_stream, self.receive_stream = anyio.create_memory_object_stream[PubSubSignal](max_buffer_size=10000)
+        # TODO fix nicer
+        self.send_stream, self.receive_stream = anyio.create_memory_object_stream[PubSubSignal](max_buffer_size=100000000)
         self.subscriptions: Dict[str, List[Callable]] = {}
         for msg_type in MESSAGE_TYPES:
             self.subscriptions[msg_type.value] = []
 
 
     async def publish(self, message: PubSubSignal) -> None:#topic: MESSAGE_TYPES, data: any) -> None:
-       await self.send_stream.send(message)
-
+        try:
+           self.send_stream.send_nowait(message)
+        except anyio.WouldBlock:
+            raise
 
     def subscribe(self, topic: MESSAGE_TYPES, callback: Callable,) -> None:
         if topic.value not in self.subscriptions:
