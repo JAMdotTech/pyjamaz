@@ -103,9 +103,24 @@ class PVMMemory:
             return None
 
         for section in self.sections:
-            if section.address <= addr <= (section.address + section.size):
+            if section.address <= addr < (section.address + section.size):
                 return section
 
+        # logging.info(
+        #     "PVMMemory.find_section: miss addr=%s page=%s sections=%s",
+        #     hex(addr),
+        #     hex(addr - (addr % PVM_PAGE_SIZE)),
+        #     [
+        #         {
+        #             "start": hex(s.address),
+        #             "end": hex(s.address + s.size),
+        #             "size": s.size,
+        #             "paged_tail": hex(s.paged_tail),
+        #             "acl": s.acl,
+        #         }
+        #         for s in self.sections
+        #     ],
+        # )
         return None
 
 
@@ -287,6 +302,14 @@ class PVMMemory:
         # TODO: helper functie maken per memory impl??
         # Note: zero contents
         section.contents[local_offset:local_offset + nr_bytes] = bytes(nr_bytes)
+        # logging.info(
+        #     "PVMMemory.zero: page_idx=%s nr_pages=%s acl=%s section_start=%s section_end=%s",
+        #     page_idx,
+        #     nr_pages,
+        #     acl,
+        #     hex(section.address),
+        #     hex(section.address + section.size),
+        # )
 
 
     def get_or_create_section(self, mem_addr: int, nr_bytes: int, acl: int) -> MemorySection:
@@ -310,7 +333,20 @@ class PVMMemory:
                                 raise PVMMemoryError(
                                     f"Cannot extend section: overlaps with section at {other.address}"
                                 )
+                    # logging.debug(
+                    #     "PVMMemory.get_or_create_section: extend section_start=%s old_end=%s new_end=%s",
+                    #     hex(section.address),
+                    #     hex(section_end),
+                    #     hex(end_addr),
+                    # )
                     self.grow_section(section, end_addr - section.address)
+                # logging.debug(
+                #     "PVMMemory.get_or_create_section: reuse section_start=%s end=%s mem_addr=%s size=%s",
+                #     hex(section.address),
+                #     hex(section.address + section.size),
+                #     hex(mem_addr),
+                #     nr_bytes,
+                # )
                 return section
 
         # check if new section would overlap with any existing section
@@ -331,6 +367,13 @@ class PVMMemory:
         )
         self.sections.append(new_section)
         self.update_offsets()
+        # logging.debug(
+        #     "PVMMemory.get_or_create_section: create section_start=%s end=%s size=%s acl=%s",
+        #     hex(new_section.address),
+        #     hex(new_section.address + new_section.size),
+        #     new_section.size,
+        #     acl,
+        # )
         return new_section
 
 
@@ -374,6 +417,14 @@ class PVMMemory:
                 section.alloc_acl(section.acl, new_size)
 
             self.update_offsets()
+            # logging.debug(
+            #     "PVMMemory.grow_section: section_start=%s old_size=%s new_size=%s old_pages=%s new_pages=%s",
+            #     hex(section.address),
+            #     old_size,
+            #     new_size,
+            #     old_nr_pages,
+            #     new_nr_pages,
+            # )
 
 
     def void(self, page_idx: int, nr_pages: int, acl: int):
@@ -418,6 +469,14 @@ class PVMMemory:
 
         local_page = (mem_addr - section.address) // PVM_PAGE_SIZE
         section.acl_set_pages(local_page, nr_pages, acl)
+        # logging.debug(
+        #     "PVMMemory.change_acl: page_idx=%s nr_pages=%s acl=%s section_start=%s section_end=%s",
+        #     page_idx,
+        #     nr_pages,
+        #     acl,
+        #     hex(section.address),
+        #     hex(section.address + section.size),
+        # )
 
 
     def is_null(self, page_idx: int, nr_pages: int) -> bool:
