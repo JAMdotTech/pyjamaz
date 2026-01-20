@@ -204,26 +204,29 @@ def hc_peek(
     """
     logger and logger.hc_regs(f"PEEK", "refine")
 
-    n = registers[7]  # pvm handle (UInt64)
-    o = registers[8] % U32_MAX  # outer dst address (UInt32 for memory access)
-    s = registers[9] % U32_MAX  # inner src address (UInt32 for inner memory)
-    z = registers[10]  # length (UInt64)
+    try:
+        n = registers[7]  # pvm handle (UInt64)
+        o = registers[8] % U32_MAX  # outer dst address (UInt32 for memory access)
+        s = registers[9] % U32_MAX  # inner src address (UInt32 for inner memory)
+        z = registers[10]  # length (UInt64)
 
-    if not memory.is_accessible(o, z, MEM_W):
-        logger and logger.hc_log("PEEK PANIC", "")
-        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-    elif n not in m_e.inner_pvm_lookup:
-        logger and logger.hc_log("PEEK WHO", "")
-        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = HostCallResult.WHO.value
-    elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_R):
-        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = HostCallResult.OOB.value
-    else:
-        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-        invocation_output.registers[7] = HostCallResult.OK.value
-        invocation_output.memory.write_bytes(o, m_e.inner_pvm_lookup[n].memory.read_bytes(s, z))
-        logger and logger.hc_log("PEEK OK", invocation_output.registers[7])
+        if not memory.is_accessible(o, z, MEM_W):
+            logger and logger.hc_log("PEEK PANIC", "")
+            invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+        elif n not in m_e.inner_pvm_lookup:
+            logger and logger.hc_log("PEEK WHO", "")
+            invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+            invocation_output.registers[7] = HostCallResult.WHO.value
+        elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_R):
+            invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+            invocation_output.registers[7] = HostCallResult.OOB.value
+        else:
+            invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+            invocation_output.registers[7] = HostCallResult.OK.value
+            invocation_output.memory.write_bytes(o, m_e.inner_pvm_lookup[n].memory.read_bytes(s, z))
+            logger and logger.hc_log("PEEK OK", invocation_output.registers[7])
+    except:
+        print(1)
 
 def hc_poke(
         registers: List[int],
@@ -346,7 +349,7 @@ def hc_invoke(
 
     gas = None
     reg = []
-    if memory.is_accessible(o, 112, MEM_W):
+    if memory.is_accessible(o, 112, MEM_R) and memory.is_accessible(o, 112, MEM_W):
         jam_bytes = JamBytes(memory.read_bytes(o, 112))
         gas = U64.decode(jam_bytes)
         for _ in range(13):

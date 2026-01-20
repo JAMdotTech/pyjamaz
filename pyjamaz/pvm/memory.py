@@ -103,13 +103,14 @@ class PVMMemory:
             return None
 
         for section in self.sections:
-            if section.address <= addr <= (section.address + section.size):
+            if section.address <= addr < (section.address + section.size):
                 return section
 
         return None
 
 
     def write_int(self, addr: int, value: int, length: int):
+        addr &= 0xFFFFFFFF
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
@@ -140,6 +141,7 @@ class PVMMemory:
 
 
     def read_int(self, addr: int, length: int):
+        addr &= 0xFFFFFFFF
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = addr
 
@@ -171,6 +173,7 @@ class PVMMemory:
     def is_accessible(self, address: int, length: int, mode: int) -> bool:
         if length == 0:
             return True
+        address &= 0xFFFFFFFF
 
         try:
             section = self.find_section(address)
@@ -184,7 +187,7 @@ class PVMMemory:
             raise PVMError(f"Invalid PVMMemory mode: {mode}")
 
         local_addr = address - section.address
-        if section.acl and not section.acl_check(local_addr, length, mode):
+        if section.acl is not None and not section.acl_check(local_addr, length, mode):
             return False
 
         bytes_required = local_addr + length
@@ -198,6 +201,7 @@ class PVMMemory:
     def read_bytes(self, address: int, length: int, padding:int = None) -> bytes:
         """
         """
+        address &= 0xFFFFFFFF
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = address
 
@@ -225,7 +229,7 @@ class PVMMemory:
 
         mem_bytes = bytes(section.contents[section_addr:section_addr+length])
         if padding and len(mem_bytes) < padding:
-            mem_bytes.ljust(padding, b'\0')
+            mem_bytes = mem_bytes.ljust(padding, b'\0')
 
         return mem_bytes
 
@@ -233,6 +237,7 @@ class PVMMemory:
     def write_bytes(self, address: int, content: bytes) -> None:
         """
         """
+        address &= 0xFFFFFFFF
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
         self._mem_addr = address
 
@@ -247,7 +252,7 @@ class PVMMemory:
             raise PVMMemoryError(f"MemorySection not found {address}")
 
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
-        if section.acl and not section.acl_check(section_addr, len(content), MEM_W):
+        if section.acl is not None and not section.acl_check(section_addr, len(content), MEM_W):
             raise PVMMemoryError(
                 f"Memory address {address} ACL check failed (offset={section_addr}, len={len(content)}, "
                 f"section_start={section.address}, paged_tail={section.paged_tail}, section_size={section.size})"

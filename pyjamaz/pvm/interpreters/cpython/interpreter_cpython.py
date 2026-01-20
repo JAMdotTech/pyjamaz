@@ -7,7 +7,14 @@ from typing import List, Dict
 
 from pyjamaz.pvm.exceptions import PVMMemoryError, PanicError
 from pyjamaz.pvm.memory_section_abstract import page_size
-from .memory_section import set_range_acl, check_acl, ACL_PAGES_PER_BITMAP
+from .memory_section import (
+    set_range_acl,
+    check_acl,
+    acl_bits,
+    acl_bitmap_idx,
+    acl_page_idx,
+    ACL_PAGES_PER_BITMAP,
+)
 
 from .defs import read_uint, write_uint, u64, u32, i64, u8
 from .opcodes import _opcode_lut
@@ -312,8 +319,30 @@ class PVMInterpreter:
         return new_heap_ptr
 
 
+    def find_err_page(self, acl_bitmap, section_offset: int, length: int, required_acl: int) -> int:
+        # Note: CPYTHON implements its own memory operations to be inlinded
+        if length <= 0:
+            return -1
+
+        last_offset = section_offset + length - 1
+        start_page = section_offset // PVM_PAGE_SIZE
+        end_page = last_offset // PVM_PAGE_SIZE
+        required_bits = acl_bits(required_acl)
+
+        for page in range(start_page, end_page + 1):
+            bitmap_idx = acl_bitmap_idx(page)
+            bitmap = int(acl_bitmap[bitmap_idx]) if bitmap_idx < len(acl_bitmap) else 0
+            shift = acl_page_idx(page)
+            bits = (bitmap >> shift) & 0b11
+            if (bits & required_bits) != required_bits:
+                return page
+
+        return -1
+
+
     def mem_write(self, opcode, addr, value):
         """Write to memory based on opcode"""
+        addr = u32(addr)
         bytes_to_write = self.mem_ops_bytes[opcode]
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -338,7 +367,21 @@ class PVMInterpreter:
         section = self.mem_sections[section_idx]
         section_offset = addr - self.mem_section_starts[section_idx]
 
-        if self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_W:
+        # Note: inlind acl checks to be more performant than the Graypaper version
+        acl_bitmap = self.mem_section_acl[section_idx]
+        if acl_bitmap is not None and len(acl_bitmap) > 0:
+            start_page = section_offset // PVM_PAGE_SIZE
+            last_offset = section_offset + bytes_to_write - 1
+            end_page = last_offset // PVM_PAGE_SIZE
+            nr_pages = end_page - start_page + 1
+            if not check_acl(acl_bitmap, start_page, nr_pages, self.mem_writable):
+                fail_page = self.find_err_page(acl_bitmap, section_offset, bytes_to_write, self.mem_writable)
+                if fail_page < 0:
+                    fail_page = start_page
+                self._mem_addr = self.mem_section_starts[section_idx] + (fail_page * PVM_PAGE_SIZE)
+                raise PVMMemoryError(f"Memory at address {addr} is not writable")
+        elif self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_W:
+            self._mem_addr = addr - (addr % PVM_PAGE_SIZE)
             raise PVMMemoryError(f"Memory at address {addr} is not writable")
 
         # Check bounds against the actual section size (not paged_tail)
@@ -356,6 +399,7 @@ class PVMInterpreter:
 
     def mem_read(self, opcode, addr):
         """Read from memory based on opcode"""
+        addr = u32(addr)
         bytes_to_read = self.mem_ops_bytes[opcode]
 
         # Always store the requested memory address so we can refer it after a PVMMemoryError fx
@@ -378,13 +422,48 @@ class PVMInterpreter:
 
         section_offset = addr - self.mem_section_starts[section_idx]
 
+        acl_bitmap = self.mem_section_acl[section_idx]
+        if acl_bitmap is not None and len(acl_bitmap) > 0:
+            start_page = section_offset // PVM_PAGE_SIZE
+            last_offset = section_offset + bytes_to_read - 1
+            end_page = last_offset // PVM_PAGE_SIZE
+            nr_pages = end_page - start_page + 1
+            if not check_acl(acl_bitmap, start_page, nr_pages, self.mem_readable):
+                fail_page = self.find_err_page(acl_bitmap, section_offset, bytes_to_read, self.mem_readable)
+                if fail_page < 0:
+                    fail_page = start_page
+                self._mem_addr = self.mem_section_starts[section_idx] + (fail_page * PVM_PAGE_SIZE)
+                raise PVMMemoryError(f"Memory at address {addr} is not readable")
+        elif self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_R:
+            self._mem_addr = addr - (addr % PVM_PAGE_SIZE)
+            raise PVMMemoryError(f"Memory at address {addr} is not readable")
+
         if section_offset + bytes_to_read > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
 
-        if self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_R:
-            raise PVMMemoryError(f"Memory at address {addr} is not writable")
-
         return read_uint(self.mv_sections[section_idx], section_offset, bytes_to_read)
+
+    #
+    # def mem_write(self, opcode, addr, value):
+    #     if opcode not in MemOps:
+    #         raise Exception(f"Invalid memory operation: {opcode}")
+    #
+    #     if not MemOps[opcode]["write"]:
+    #         raise Exception(f"Not a valid memory write operation: {opcode}")
+    #
+    #     bytes_to_write = MemOps[opcode]["bytes"]
+    #     self.mem.write_int(addr % self.mem.SIZE, value, bytes_to_write)
+    #
+    #
+    # def mem_read(self, opcode, addr):
+    #     if opcode not in MemOps:
+    #         raise Exception(f"Invalid memory operation: {opcode}")
+    #
+    #     if not MemOps[opcode]["read"]:
+    #         raise Exception(f"Not a valid memory read operation: {opcode}")
+    #
+    #     bytes_to_read = MemOps[opcode]["bytes"]
+    #     return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
 
 
     #GP-0.6.7-section:A.15
@@ -494,12 +573,12 @@ class PVMInterpreter:
             try:
                 op_funcs[opcode](self)
             except PVMMemoryError:
-                log_exc and log_exc(traceback.format_exc())
+                #log_exc and log_exc(traceback.format_exc())
                 status = exit_page_fault
                 self.exit_value = self._mem_addr
                 break
             except PanicError:
-                log_exc and log_exc(traceback.format_exc())
+                #log_exc and log_exc(traceback.format_exc())
                 status = exit_panic
                 break
 

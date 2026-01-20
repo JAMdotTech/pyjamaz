@@ -136,7 +136,8 @@ class PVMDebugLog(PVMLogger):
         )
 
     def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
-        logging.log(log_lvl, f"👀 {target_msg}@{service_id}\t\t{message}")
+        #logging.log(log_lvl, f"👀 {target_msg}@{service_id}\t\t{message}")
+        logging.info("👀 {target_msg}@{service_id}\t\t{message}")
 
     def pvm_hash(self):
         bytez = bytes()
