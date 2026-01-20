@@ -1041,10 +1041,6 @@ class PyjamazApp:
 
         logging.info(f"📥 Added work package to queue: {format_hash(work_package.hash())}")
 
-    def add_work_package_bundle(self, work_package_bundle: WorkPackageBundle):
-
-        self.add_work_package(work_package_bundle.work_package, work_package_bundle.extrinsic_data)
-
 
     async def process_work_package(self, work_package: WorkPackage) -> WorkReport:
         if self.get_core_assigment() is None:

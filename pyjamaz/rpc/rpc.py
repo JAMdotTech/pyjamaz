@@ -7,6 +7,7 @@ from jamcodec.base import JamBytes
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.app import PyjamazApp
 from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Preimage
 from pyjamaz.models.builder import ServiceRegistry
 from pyjamaz.models.common import WorkPackage, WorkPackageStatus
@@ -254,12 +255,23 @@ def rpcSubmitWorkPackage(app: PyjamazApp, params):
 def rpcSubmitWorkPackageBundle(app: PyjamazApp, params):
     #TODO: should assign to a specific core
     data = JamBytes(base64_decode(params[1]))
-    # wpb = WorkPackageBundle.from_jam_bytes(data)
-    # extrinsics = Vec(Bytes).decode(data)
+    extrinsics = []
+
     wp = WorkPackage.from_jam_bytes(data)
-    DEBUG and logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
-    app.add_work_package(wp, [])
-    # app.add_work_package_bundle(wpb)
+
+    for item in wp.items:
+        for extrinsic_item in item.extrinsic:
+            extrinsic_data = bytes(data.get_next_bytes(extrinsic_item.len))
+            # Check data
+            if blake2b_256_hash(extrinsic_data) != extrinsic_item.hash:
+                raise RPCCallException("Invalid extrinsic data")
+            extrinsics.append(extrinsic_data)
+
+    if data.get_remaining_length() > 0:
+        logging.warning(f'DATA LEFT IN WORKPACKAGE BUNDLE: {data.get_remaining_length()}')
+
+    # DEBUG and logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
+    app.add_work_package(wp, extrinsics)
 
 
 def rpcSubmitPreimage(app: PyjamazApp, params):
