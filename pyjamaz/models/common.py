@@ -1,4 +1,5 @@
 import typing
+import logging
 from base64 import b32encode
 from dataclasses import dataclass, field
 import socket
@@ -14,7 +15,7 @@ from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.merkle import ConstantDepthMerkleTree
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
-from pyjamaz.utils import base64_encode
+from pyjamaz.utils import base64_encode, format_hash
 
 if typing.TYPE_CHECKING:
     from pyjamaz.models.state import ServicesState
@@ -212,6 +213,12 @@ class WorkItem(Serializable):
     extrinsic: List[WorkItemExtrinsic] = field(metadata={'codec': Vec(WorkItemExtrinsic.to_codec_def())})
 
     def add_extrinsic(self, extrinsic_data: bytes):
+        logging.warning(
+            "WorkItem extrinsic added len=%s hash=%s head=%s",
+            len(extrinsic_data),
+            format_hash(blake2b_256_hash(extrinsic_data)),
+            extrinsic_data[:8].hex(),
+        )
         self.extrinsic.append(WorkItemExtrinsic(hash=blake2b_256_hash(extrinsic_data), len=len(extrinsic_data)))
 
 

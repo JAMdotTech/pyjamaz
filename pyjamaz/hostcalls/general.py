@@ -536,9 +536,19 @@ def hc_fetch(
         # AnyExtrinsic
         bold_v = extrinsics[w11][w12]
 
-    elif extrinsics is not None and work_item_index is not None and w10 == 4 and w11 < len(extrinsics[work_item_index]):
-        # OurExtrinsic
-        bold_v = extrinsics[work_item_index][w12]
+    elif (
+        extrinsics is not None
+        and work_item_index is not None
+        and w10 == 4
+        and work_item_index < len(extrinsics)
+        and w11 < len(extrinsics[work_item_index])
+    ):
+        extrinsic = extrinsics[work_item_index][w11]
+        logger and logger.hc_log(
+            "FETCH kind=4",
+            f"wi={work_item_index} idx={w11} len={'none' if extrinsic is None else len(extrinsic)}"
+        )
+        bold_v = extrinsic
 
     elif work_item_segs is not None and w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
         bold_v = work_item_segs[w11][w12]
@@ -585,6 +595,12 @@ def hc_fetch(
             logger and logger.hc_log("FETCH DEBUG", f"kind=14 NONE: accumulation_inputs is {'None' if accumulation_inputs is None else f'len={len(accumulation_inputs)}'}")
         elif w10 == 15:
             logger and logger.hc_log("FETCH DEBUG", f"kind=15 NONE: accumulation_inputs is {'None' if accumulation_inputs is None else f'len={len(accumulation_inputs)}'} index={w11}")
+        elif w10 == 4:
+            wi_len = "none" if extrinsics is None else len(extrinsics)
+            item_len = "n/a"
+            if extrinsics is not None and work_item_index is not None and work_item_index < len(extrinsics):
+                item_len = len(extrinsics[work_item_index])
+            logger and logger.hc_log("FETCH kind=4 NONE", f"wi={work_item_index} idx={w11} extrinsics={wi_len} item_len={item_len}")
 
     o = w7
     bold_v_len = len(bold_v) if bold_v is not None else 0

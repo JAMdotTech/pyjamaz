@@ -9,9 +9,9 @@ from pyjamaz.app import PyjamazApp
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.models.block import Preimage
 from pyjamaz.models.builder import ServiceRegistry
-from pyjamaz.models.common import WorkPackage, WorkPackageStatus
+from pyjamaz.models.common import WorkPackage, WorkPackageBundle, WorkPackageStatus
 from pyjamaz.settings import DEBUG
-from pyjamaz.utils import format_hash, base64_encode, base64_decode
+from pyjamaz.utils import format_hash, base64_encode, base64_decode, summarize_blobs
 
 #TODO: enum
 RPC_TYPE_REQUEST = 1
@@ -248,18 +248,180 @@ def rpcSubmitWorkPackage(app: PyjamazApp, params):
     ex = [base64_decode(x) for x in params[2]]
     wp = WorkPackage.from_jam_bytes(JamBytes(base64_decode(params[1])))
     DEBUG and logging.debug(f'Received workpackage {format_hash(wp.hash())}')
+    logging.warning(
+        "submitWorkPackage extrinsics %s count=%s summary=%s",
+        format_hash(wp.hash()),
+        len(ex),
+        summarize_blobs(ex),
+    )
     app.add_work_package(wp, ex)
 
 
 def rpcSubmitWorkPackageBundle(app: PyjamazApp, params):
     #TODO: should assign to a specific core
-    data = JamBytes(base64_decode(params[1]))
-    # wpb = WorkPackageBundle.from_jam_bytes(data)
-    # extrinsics = Vec(Bytes).decode(data)
-    wp = WorkPackage.from_jam_bytes(data)
-    DEBUG and logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
-    app.add_work_package(wp, [])
-    # app.add_work_package_bundle(wpb)
+    raw_data = base64_decode(params[1])
+
+    def scrub_param(param, max_str_len=512, max_list_len=20):
+        if isinstance(param, str):
+            if len(param) <= max_str_len:
+                return param
+            return f"{param[:256]}...{param[-256:]}"
+        if isinstance(param, list):
+            items = [scrub_param(p, max_str_len, max_list_len) for p in param[:max_list_len]]
+            if len(param) > max_list_len:
+                items.append("...truncated")
+            return items
+        if isinstance(param, dict):
+            return {k: scrub_param(v, max_str_len, max_list_len) for k, v in param.items()}
+        return param
+
+    def summarize_param(param):
+        if isinstance(param, str):
+            return f"str(len={len(param)})"
+        if isinstance(param, (bytes, bytearray)):
+            return f"bytes(len={len(param)})"
+        if isinstance(param, list):
+            return f"list(len={len(param)})"
+        if isinstance(param, dict):
+            return f"dict(keys={list(param.keys())})"
+        return type(param).__name__
+
+    def summarize_extrinsics_param(param):
+        if param is None:
+            return "none"
+        if isinstance(param, dict):
+            keys = list(param.keys())
+            items = param.get("extrinsics", param.get("extrinsic_data"))
+            if isinstance(items, list):
+                item_len = len(items)
+                first_len = len(items[0]) if items and isinstance(items[0], str) else None
+                return f"dict(keys={keys}, items={item_len}, first_len={first_len})"
+            return f"dict(keys={keys}, items_type={type(items).__name__})"
+        if isinstance(param, list):
+            first_len = len(param[0]) if param and isinstance(param[0], str) else None
+            return f"list(len={len(param)}, first_len={first_len})"
+        return summarize_param(param)
+
+    def decode_extrinsics_param(param):
+        if param is None:
+            return []
+        items = None
+        if isinstance(param, dict):
+            if "extrinsics" in param:
+                items = param["extrinsics"]
+            elif "extrinsic_data" in param:
+                items = param["extrinsic_data"]
+        else:
+            items = param
+
+        if not items:
+            return []
+        if not isinstance(items, list):
+            logging.warning("Unexpected extrinsics param type", extra={"type": type(items).__name__})
+            return []
+
+        extrinsics = []
+        for idx, item in enumerate(items):
+            try:
+                extrinsics.append(base64_decode(item))
+            except Exception as exc:
+                logging.warning("Failed to decode extrinsic from bundle params", extra={"index": idx}, exc_info=exc)
+        return extrinsics
+
+    try:
+        logging.warning(
+            "submitWorkPackageBundle params: %s",
+            json.dumps(scrub_param(params), sort_keys=True),
+        )
+        wpb = WorkPackageBundle.from_jam_bytes(JamBytes(raw_data))
+        DEBUG and logging.debug(
+            f'Received workpackage bundle {format_hash(wpb.work_package.hash())} extrinsics={len(wpb.extrinsic_data)}'
+        )
+        logging.warning(
+            "submitWorkPackageBundle decoded extrinsics %s count=%s summary=%s",
+            format_hash(wpb.work_package.hash()),
+            len(wpb.extrinsic_data),
+            summarize_blobs(wpb.extrinsic_data),
+        )
+        app.add_work_package_bundle(wpb)
+    except Exception as exc:
+        extrinsics_param = None
+        if len(params) >= 4:
+            extrinsics_param = params[3]
+        elif len(params) >= 3:
+            extrinsics_param = params[2]
+        summary = {
+            "params_len": len(params),
+            "params_types": [summarize_param(p) for p in params],
+            "core_idx": params[0] if params else None,
+            "workpackage_b64_len": len(params[1]) if len(params) > 1 and isinstance(params[1], str) else None,
+            "raw_len": len(raw_data),
+            "raw_head": raw_data[:16].hex(),
+            "extrinsics_param": summarize_extrinsics_param(extrinsics_param),
+        }
+        logging.warning("submitWorkPackageBundle payload summary: %s", json.dumps(summary, sort_keys=True))
+        logging.warning("Failed to decode work package bundle; falling back to work package", exc_info=exc)
+        wp = WorkPackage.from_jam_bytes(JamBytes(raw_data))
+        extrinsics = decode_extrinsics_param(extrinsics_param)
+        logging.warning(
+            "submitWorkPackageBundle fallback extrinsics %s count=%s summary=%s",
+            format_hash(wp.hash()),
+            len(extrinsics),
+            summarize_blobs(extrinsics),
+        )
+        DEBUG and logging.debug(
+            f'Received workpackage bundle as workpackage {format_hash(wp.hash())} extrinsics={len(extrinsics)}'
+        )
+        app.add_work_package(wp, extrinsics)
+
+
+def rpcSubmitWorkPackageExtrinsics(app: PyjamazApp, params):
+    if len(params) < 2:
+        raise RPCCallException(RPC_ERROR["INVALID_PARAMS"])
+
+    def decode_hash_param(param):
+        if isinstance(param, bytes):
+            return param
+        if isinstance(param, str):
+            try:
+                return base64_decode(param)
+            except Exception:
+                hex_str = param[2:] if param.startswith("0x") else param
+                return bytes.fromhex(hex_str)
+        raise RPCCallException(RPC_ERROR["INVALID_PARAMS"])
+
+    def decode_extrinsics_param(param):
+        if param is None:
+            return []
+        items = None
+        if isinstance(param, dict):
+            if "extrinsics" in param:
+                items = param["extrinsics"]
+            elif "extrinsic_data" in param:
+                items = param["extrinsic_data"]
+        else:
+            items = param
+
+        if not items:
+            return []
+        if not isinstance(items, list):
+            raise RPCCallException(RPC_ERROR["INVALID_PARAMS"])
+
+        extrinsics = []
+        for item in items:
+            extrinsics.append(base64_decode(item))
+        return extrinsics
+
+    work_package_hash = decode_hash_param(params[0])
+    extrinsics = decode_extrinsics_param(params[1])
+    logging.warning(
+        "submitWorkPackageExtrinsics %s count=%s summary=%s",
+        format_hash(work_package_hash),
+        len(extrinsics),
+        summarize_blobs(extrinsics),
+    )
+    app.work_package_extrinsics.add_by_hash(work_package_hash, extrinsics)
+    return True
 
 
 def rpcSubmitPreimage(app: PyjamazApp, params):
@@ -439,6 +601,7 @@ RPC_REQUESTS = {
     "beefyRoot": rpcBeefyRoot,
     "submitWorkPackage": rpcSubmitWorkPackage,
     "submitWorkPackageBundle": rpcSubmitWorkPackageBundle,
+    "submitWorkPackageExtrinsics": rpcSubmitWorkPackageExtrinsics,
     "submitPreimage": rpcSubmitPreimage,
     "listServices": rpcListServices,
     "fetchSegments": rpcFetchSegments,
@@ -450,6 +613,3 @@ RPC_REQUESTS = {
     "subscribeWorkPackageStatus": rpcSubscribeWorkPackageStatus,
     "unsubscribeWorkPackageStatus": None,
 }
-
-
-

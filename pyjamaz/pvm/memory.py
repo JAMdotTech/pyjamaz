@@ -244,7 +244,7 @@ class PVMMemory:
 
         mem_bytes = bytes(section.contents[section_addr:section_addr+length])
         if padding and len(mem_bytes) < padding:
-            mem_bytes.ljust(padding, b'\0')
+            mem_bytes = mem_bytes.ljust(padding, b'\0')
 
         return mem_bytes
 

@@ -42,7 +42,7 @@ from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Gu
 from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState, PendingChanges
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
-from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time, flatten_list
+from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time, flatten_list, summarize_blobs, summarize_declared_extrinsics
 from pyjamaz.validation import BlockValidation
 
 T = TypeVar('T')
@@ -1037,6 +1037,17 @@ class PyjamazApp:
 
         self.work_package_queue[work_package.hash()] = WorkPackageQueueItem(work_package=work_package, status=WorkPackageStatus(Reportable=WorkPackageReportableStatus(remaining_blocks=4)))
 
+        logging.warning(
+            "Adding work package extrinsics %s count=%s summary=%s",
+            format_hash(work_package.hash()),
+            len(extrinsics),
+            summarize_blobs(extrinsics),
+        )
+        logging.warning(
+            "Work package declared extrinsics %s summary=%s",
+            format_hash(work_package.hash()),
+            summarize_declared_extrinsics(work_package),
+        )
         self.work_package_extrinsics.add(work_package, extrinsics)
 
         logging.info(f"📥 Added work package to queue: {format_hash(work_package.hash())}")
@@ -1055,6 +1066,29 @@ class PyjamazApp:
             [self.work_package_extrinsics.get(work_package, x.hash, x.len) for x in w.extrinsic]
             for w in work_package.items
         ]
+        missing_total = 0
+        for wi_idx, item_extrinsics in enumerate(extrinsics):
+            missing_indices = [idx for idx, blob in enumerate(item_extrinsics) if blob is None]
+            if missing_indices:
+                missing_total += len(missing_indices)
+                logging.warning(
+                    "Missing extrinsics for work item",
+                    extra={
+                        "work_package": format_hash(work_package.hash()),
+                        "work_item_index": wi_idx,
+                        "missing_indices": missing_indices,
+                        "expected_count": len(item_extrinsics),
+                    }
+                )
+        if missing_total:
+            logging.warning(
+                "Missing extrinsics for work package",
+                extra={
+                    "work_package": format_hash(work_package.hash()),
+                    "missing_total": missing_total,
+                    "work_items": len(work_package.items),
+                }
+            )
 
         # Set code
         work_package.set_authorization_code(self.working_state.services)
