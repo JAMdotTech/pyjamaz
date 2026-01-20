@@ -210,6 +210,8 @@ def hc_peek(
         s = registers[9] % U32_MAX  # inner src address (UInt32 for inner memory)
         z = registers[10]  # length (UInt64)
 
+        logger and logger.hc_log("PEEK start", f'n={n} o={o} s={s} z={z}')
+
         if not memory.is_accessible(o, z, MEM_W):
             logger and logger.hc_log("PEEK PANIC", "")
             invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
@@ -218,6 +220,7 @@ def hc_peek(
             invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
             invocation_output.registers[7] = HostCallResult.WHO.value
         elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_R):
+            logger and logger.hc_log("PEEK OOB", f"s={s} z={z}")
             invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
             invocation_output.registers[7] = HostCallResult.OOB.value
         else:

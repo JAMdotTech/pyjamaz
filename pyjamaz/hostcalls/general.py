@@ -602,7 +602,7 @@ def hc_fetch(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(bold_v)
         invocation_output.memory.write_bytes(o, bold_v[f:f+l])
-        logger and logger.hc_log("FETCH result", f"OK wrote={l}bytes from len={len(bold_v)}")
+        logger and logger.hc_log("FETCH result", f"OK kind={w10} wrote={l}bytes f={f} l={l} from len={len(bold_v)}")
 
 
 def hc_not_found(
