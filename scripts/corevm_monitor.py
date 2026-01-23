@@ -59,9 +59,8 @@ async def main(args):
 
             # Get service info
             service_data = await client.serviceData(best_block["header_hash"], service_id)
-            service_account = service_data["service"] if isinstance(service_data, dict) else service_data
 
-            if service_account is None:
+            if service_data is None:
                 logging.error(f'Service {service_id} not found')
                 return
 
@@ -79,22 +78,6 @@ async def main(args):
             async for best_block in best_block_sub:
 
                 logging.info(f'Best block = {best_block}')
-
-                service_info = await client.serviceData(
-                    best_block["header_hash"], service_id, include_exports=True
-                )
-                exports = service_info.get("exports", []) if isinstance(service_info, dict) else []
-                for export in exports:
-                    export_root = base64_decode(export["exports_root"])
-                    export_offset = export["export_offset"]
-                    export_count = export["export_count"]
-                    logging.info(
-                        f'Exports root={export["exports_root"]} offset={export_offset} count={export_count}'
-                    )
-                    if export_count > 0:
-                        indices = list(range(export_offset, export_offset + min(export_count, 1)))
-                        segments = await client.fetchSegments(export_root, indices)
-                        logging.info(f'Export segment[{indices[0]}] = {segments[0].hex()}')
 
                 value = await client.serviceValue(best_block["header_hash"], service_id, key2)
                 logging.info(f'Key = {key2.hex()} Value = {value}')
