@@ -69,8 +69,8 @@ class PVMInterpreter:
 
         if logger:
             self.program = program
-            from pyjamaz.pvm.debug_logger import PVMDebugLog
-            logger_cls = PVMDebugLog
+            from pyjamaz.pvm.formatted_logger import PVMFormattedLog
+            logger_cls = PVMFormattedLog
             self.log = logger_cls(pvm=self)
             self.log._pvm = self
             self.log._pvm_id = self.name

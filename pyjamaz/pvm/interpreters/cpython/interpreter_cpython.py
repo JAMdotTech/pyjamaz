@@ -578,7 +578,7 @@ class PVMInterpreter:
                 self.exit_value = self._mem_addr
                 break
             except PanicError:
-                #log_exc and log_exc(traceback.format_exc())
+                log_exc and log_exc(traceback.format_exc())
                 status = exit_panic
                 break
 
