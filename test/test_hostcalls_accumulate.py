@@ -25,10 +25,9 @@ from pyjamaz.hostcalls.accumulate import (
     hc_provide
 )
 
-from pyjamaz.pvm.debug_logger import PVMDebugLog
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory, MemorySection
-from pyjamaz.pvm.constants import ExitCondition, ExitReason, PVM_PAGE_SIZE, MEM_R, MEM_W
+from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory
+from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_R, MEM_W
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.models.state import ServiceAccount, ServicesState, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState, ValidatorQueueState
 from pyjamaz.exceptions import StateKeyNoResult
@@ -50,6 +49,43 @@ def load_test_vectors(directory):
                     test_vectors.append((filename, test_vector))
 
     return test_vectors
+
+
+def _build_segments(initial_page_map, initial_memory):
+    segments = []
+    for page_map in initial_page_map or []:
+        segments.append({
+            "address": page_map["address"],
+            "length": page_map["length"],
+            "acl": MEM_W if page_map["is-writable"] else MEM_R,
+            "contents": bytearray(page_map["length"]),
+        })
+
+    for mem_block in initial_memory or []:
+        addr = mem_block["address"]
+        data = bytes(mem_block["contents"])
+        if not data:
+            continue
+
+        remaining = len(data)
+        cursor = 0
+        while remaining > 0:
+            segment = next(
+                (seg for seg in segments if seg["address"] <= addr < seg["address"] + seg["length"]),
+                None
+            )
+            if segment is None:
+                raise ValueError(f"Initial memory block not covered by page map at address {addr}")
+            seg_off = addr - segment["address"]
+            chunk = min(segment["length"] - seg_off, remaining)
+            if chunk <= 0:
+                raise ValueError(f"Invalid page map for memory block at address {addr}")
+            segment["contents"][seg_off:seg_off + chunk] = data[cursor:cursor + chunk]
+            addr += chunk
+            cursor += chunk
+            remaining -= chunk
+
+    return segments
 
 
 def create_mock_service_account(
@@ -177,62 +213,25 @@ class TestHCAccumulate(unittest.TestCase):
         )
         pvm_regs = test_vector["initial-registers"]
 
-        mem_rom = None
-        mem_heap = None
-        mem_pages = []
-        heap_pages = []
-
-        for page_map in test_vector["initial-page-map"]:
-            page = MemorySection(
-                address=page_map["address"],
-                size=page_map["length"],
-                acl=MEM_W if page_map["is-writable"] else MEM_R,
-                contents=[0] * page_map["length"]
-            )
-            if page_map["address"] < 2 * 65536:
-                mem_rom = page
-            else:
-                heap_pages.append(page)
-            mem_pages.append(page)
-
-        # For tests with multiple heap pages, we need to combine them into one
-        if len(heap_pages) == 1:
-            mem_heap = heap_pages[0]
-        elif len(heap_pages) > 1:
-            # Find the lowest address and total size
-            min_addr = min(p.address for p in heap_pages)
-            max_addr = max(p.address + p.size for p in heap_pages)
-            total_size = max_addr - min_addr
-
-            # Create a combined heap section
-            combined_contents = [0] * total_size
-            mem_heap = MemorySection(
-                address=min_addr,
-                size=total_size,
-                acl=MEM_W,  # Default to writable for combined heap
-                contents=combined_contents
+        segments = _build_segments(
+            test_vector.get("initial-page-map", []),
+            test_vector.get("initial-memory", []),
+        )
+        pvm_memory = PVMMemory()
+        for segment in segments:
+            pvm_memory.add_segment(
+                segment["address"],
+                segment["length"],
+                segment["acl"],
+                bytes(segment["contents"]),
             )
 
-        pvm_memory = PVMMemory(mem_rom, mem_heap, None, None)
-
-        # For tests with specific memory access requirements, update ACL after creation
-        if len(heap_pages) > 1:
-            for page in heap_pages:
-                # Copy the original page's ACL settings
-                start_page = page.address // PVM_PAGE_SIZE
-                end_page = (page.address + page.size - 1) // PVM_PAGE_SIZE
-                for pg in range(start_page, end_page + 1):
-                    pvm_memory._acl[pg] = page.acl.value
-
-        for mem_block in test_vector["initial-memory"]:
-            page = pvm_memory.find_section(mem_block["address"])
-            mem = page.contents
-
-            if len(mem_block["contents"]) > len(mem):
-                raise ValueError(f"TOO BIG TO FIT IN HERE :D")
-            offset = mem_block["address"] - page.address
-            for idx, byt in enumerate(mem_block["contents"]):
-                mem[offset + idx] = np.uint8(byt)
+        heap_segments = [seg for seg in segments if seg["address"] >= 2 * 65536]
+        if heap_segments:
+            heap_base = min(seg["address"] for seg in heap_segments)
+            heap_end = max(seg["address"] + seg["length"] for seg in heap_segments)
+            pvm_memory.heap_base = heap_base
+            pvm_memory.heap_ptr = heap_end
 
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
         pvm = PVMInterpreter(pvm_program)
@@ -245,7 +244,7 @@ class TestHCAccumulate(unittest.TestCase):
         )
 
         hostcall = test_vector["hostcall"]
-        logger = PVMDebugLog(pvm)
+        logger = None
 
         services_data = test_vector.get("context", {}).get("services", {})
         service_accounts = {}
@@ -436,10 +435,8 @@ class TestHCAccumulate(unittest.TestCase):
         )
 
         for expected_mem in test_vector.get("expected-memory", []):
-            page = invocation_output.memory.find_section(expected_mem["address"])
-            mem_offset = expected_mem["address"] - page.address
             mem_len = len(expected_mem["contents"])
-            hc_mem = page.contents.tolist()[mem_offset:mem_offset + mem_len]
+            hc_mem = list(invocation_output.memory.read_bytes(expected_mem["address"], mem_len))
             self.assertEqual(
                 expected_mem["contents"],
                 hc_mem,

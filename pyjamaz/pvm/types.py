@@ -9,7 +9,6 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger, Bytes
 
-from pyjamaz.pvm import MemorySection
 from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W
 from pyjamaz.pvm.memory_section_abstract import page_size
@@ -93,38 +92,29 @@ class PVMProgram(Serializable):
             heap_mem_pages: int,
             stack_mem_size: int
     ) -> PVMMemory:
-
-        _rom = MemorySection(
-            address=PVM_INIT_ZONE_SIZE,
-            size=page_size(len(rom_contents)),
-            contents=rom_contents,
-            acl=MEM_R
-        )
+        rom_start = PVM_INIT_ZONE_SIZE
+        rom_size = page_size(len(rom_contents))
 
         # If PVM_MIN_HEAP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
         heap_mem_size = max(page_size(settings.PVM_MIN_HEAP_SIZE), page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
-        _heap = MemorySection(
-            address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
-            size=heap_mem_size,
-            contents=heap_contents,
-            acl=MEM_W
-        )
+        heap_start = (2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents))
 
-        _stack = MemorySection(
-            address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - page_size(stack_mem_size),
-            size=page_size(stack_mem_size),
-            contents=bytes(page_size(stack_mem_size)),    #TODO: hoeft niet dubbel hier
-            acl=MEM_W
-        )
+        stack_size = page_size(stack_mem_size)
+        stack_start = 2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - stack_size
 
-        _arguments = MemorySection(
-            address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            size=page_size(len(argument_contents)),
-            contents=argument_contents,
-            acl=MEM_R
-        )
+        args_start = 2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE
+        args_size = page_size(len(argument_contents))
 
-        return PVMMemory(rom=_rom, heap=_heap, stack=_stack, arguments=_arguments)
+        mem = PVMMemory()
+        mem.add_segment(rom_start, rom_size, MEM_R, rom_contents)
+        mem.add_segment(heap_start, heap_mem_size, MEM_W, heap_contents)
+        mem.add_segment(stack_start, stack_size, MEM_W, bytes(stack_size))
+        mem.add_segment(args_start, args_size, MEM_R, argument_contents)
+
+        mem.heap_base = heap_start
+        mem.heap_ptr = heap_start + heap_mem_size
+        mem.stack_base = stack_start
+        return mem
 
     @staticmethod
     def init_registers(arguments: bytes) -> List[int]:

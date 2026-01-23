@@ -92,8 +92,10 @@ async def main(args):
                     logging.info(f'Fetch segments..')
 
                     # Fetch segment
-                    segments = await client.fetchSegments(value[0:32], [0])
-                    logging.info(segments)
+                    #segments = await client.fetchSegments(value[0:32], [x for x in range(4000)])
+                    segments = await client.fetchSegments(value[0:32], [1500])
+                    logging.info(f"{value[0:32]}")
+                    logging.info(segments[0].hex())
 
 
 
