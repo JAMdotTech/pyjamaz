@@ -28,7 +28,7 @@ from pyjamaz.models.app import StateDump, Trace
 from pyjamaz.models.common import WorkPackage, WorkReport, WorkPackageBundle, WorkPackageQueueItem, WorkPackageStatus, \
     WorkPackageReportableStatus, WorkPackageReadyStatus, BlockDesc, WorkPackageReportedStatus, WorkExecResult, \
     WorkDigest, WorkPackageSpec
-from pyjamaz.settings import SOLO_MODE, DEBUG
+from pyjamaz.settings import SOLO_MODE, DEBUG, SKIP_VALIDATE_GUARANTEES
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
@@ -103,6 +103,9 @@ class PyjamazApp:
         self.segment_store: Dict[bytes, List[bytes]] = {}
 
         self.working_state: Optional[JamState] = None
+
+        # TODO TEMP
+        self.nr_timeslots_processed = 0
 
         # Note:
         # For the import block function, we allow the option to provide a custom function (for example to augment with
@@ -514,20 +517,22 @@ class PyjamazApp:
         )
 
         # Validate quality of guarantees extrinsic data
-        self.components.assurances.validate_guarantees(
-            extrinsic_guarantees=block.extrinsic.guarantees,
-            pre_services_state=pre_state_services,
-            intermediate_state_recent_history=recent_history_intermediate_output.intermediate_state,
-            pre_authorizer_pools=pre_state_authorizer_pools,
-            intermediate_state_assurances_after_assurances=assurances_after_assurances_output.intermediate_state_after_assurances,
-            post_state_validator_pool=validator_pool_output.post_state,
-            header=block.header,
-            pre_accumulation_history=pre_state_accumulation_history,
-            post_entropy=entropy_output.post_state,
-            post_state_timeslot=timeslot_output.post_state,
-            post_state_validator_archive=validator_archive_output.post_state,
-            post_state_disputes=disputes_output.post_state
-        )
+
+        if not SKIP_VALIDATE_GUARANTEES:
+            self.components.assurances.validate_guarantees(
+                extrinsic_guarantees=block.extrinsic.guarantees,
+                pre_services_state=pre_state_services,
+                intermediate_state_recent_history=recent_history_intermediate_output.intermediate_state,
+                pre_authorizer_pools=pre_state_authorizer_pools,
+                intermediate_state_assurances_after_assurances=assurances_after_assurances_output.intermediate_state_after_assurances,
+                post_state_validator_pool=validator_pool_output.post_state,
+                header=block.header,
+                pre_accumulation_history=pre_state_accumulation_history,
+                post_entropy=entropy_output.post_state,
+                post_state_timeslot=timeslot_output.post_state,
+                post_state_validator_archive=validator_archive_output.post_state,
+                post_state_disputes=disputes_output.post_state
+            )
 
         # Assurances After Guarantees STF Block Data | GP-0.7.1-eq:4.14
         assurances_output = self.components.assurances.state_transition_after_guarantees(
@@ -853,7 +858,8 @@ class PyjamazApp:
         )
 
     def current_timeslot(self) -> int:
-        return int(time.time() - self.config.common_era) // SLOT_PERIOD
+        self.nr_timeslots_processed += 1
+        return int(time.time() - self.config.common_era) // SLOT_PERIOD + (self.nr_timeslots_processed * 400)
 
     def slot_phase_index(self, timeslot: int) -> int:
         """

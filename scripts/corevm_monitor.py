@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 import os
+import json
 from typing import List
 
 from jamcodec.base import JamBytes
@@ -17,35 +18,6 @@ from pyjamaz.utils import base64_decode
 JAM_RPC_SERVER = os.getenv('JAM_RPC_SERVER', "ws://127.0.0.1:19800")
 
 
-async def create_empty_workpackage(client: WebsocketClient) -> WorkPackage:
-    best_block = await client.bestBlock()
-    block_hash = best_block["header_hash"]
-    block_timeslot = best_block["slot"]
-
-    state_root = await client.stateRoot(block_hash)
-    beefy_root = await client.beefyRoot(block_hash)
-
-    context = RefinementContext(
-        anchor=block_hash,
-        state_root=state_root,
-        beefy_root=beefy_root,
-        lookup_anchor=block_hash,
-        lookup_anchor_slot=block_timeslot,
-        prerequisites=[]
-    )
-
-    work_package = WorkPackage(
-        authorization=b'',
-        auth_code_host=0,
-        auth_code_hash=bytes.fromhex('f8d86b97d65319a078e5840f1614c296a5254217794dcc910e72ca174e3c2e86'),
-        authorizer_config=b'',
-        context=context,
-        items=[]
-    )
-
-    return work_package
-
-
 async def main(args):
     setup_logging(logging.INFO)
 
@@ -54,7 +26,7 @@ async def main(args):
 
             # Init vars
             # service_id = int.from_bytes(bytes.fromhex(args.service_id.zfill(8)), byteorder='big')
-            service_id = int.from_bytes(bytes.fromhex('42f3dbc3'.zfill(8)), byteorder='big')
+            service_id = int.from_bytes(bytes.fromhex('30e06bde'.zfill(8)), byteorder='big')
 
             best_block = await client.bestBlock()
 
@@ -102,6 +74,24 @@ async def main(args):
                     logging.info(f"Segment IDs: {segment_ids}")
 
                     segments = await client.fetchSegments(segment_root, segment_ids)
+                    logging.info('Segment [0] = ' + segments[0].hex() + '')
+
+                    block_number = best_block.get("slot")
+
+                    output_dir = os.path.join(os.getcwd(), "segments")
+                    os.makedirs(output_dir, exist_ok=True)
+                    output_path = os.path.join(output_dir, f"{block_number}_segments.json")
+
+                    payload = {
+                        "key3_value": key3_value.hex(),
+                        "segment_root": segment_root.hex(),
+                        "min_segment_id": int(min_segment_id),
+                        "segments": [s.hex() for s in segments],
+                    }
+                    with open(output_path, "w", encoding="utf-8") as handle:
+                        json.dump(payload, handle, indent=2)
+
+
 
 
 
