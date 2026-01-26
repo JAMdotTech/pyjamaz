@@ -179,10 +179,19 @@ class WebsocketClient(RPCMethods):
             result = base64_decode(result)
         return result
 
-    async def serviceData(self, block_hash: bytes, service_id:int) -> Optional[ServiceAccount]:
-        blob = await self._send_and_wait("serviceData", [base64_encode(block_hash), service_id])
+    async def serviceData(self, block_hash: bytes, service_id: int, include_exports: bool = False):
+        params = [base64_encode(block_hash), service_id]
+        if include_exports:
+            params.append(True)
+        blob = await self._send_and_wait("serviceData", params)
         if not blob:
             return None
+        if isinstance(blob, dict):
+            service_blob = blob.get("service")
+            service = None
+            if service_blob:
+                service = ServiceAccount.from_serialized_bytes(base64_decode(service_blob))
+            return {"service": service, "exports": blob.get("exports", [])}
         return ServiceAccount.from_serialized_bytes(base64_decode(blob))
 
 

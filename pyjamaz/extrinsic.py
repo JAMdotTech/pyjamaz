@@ -11,7 +11,7 @@ from pyjamaz.models.common import TicketBody, WorkPackage
 from pyjamaz.models.state import ServicesState
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
-from pyjamaz.utils import vrf_input_ticket_seal, format_hash
+from pyjamaz.utils import vrf_input_ticket_seal, format_hash, summarize_blobs
 
 
 class BlockExtrinsicAccumulator:
@@ -160,7 +160,29 @@ class WorkpackageExtrinsicAccumulator:
         self.extrinsic_data: Dict[bytes, Dict[bytes, bytes]] = {}
 
     def add(self, work_package: WorkPackage, extrinsics: List[bytes]):
-        self.extrinsic_data[work_package.hash()] = {blake2b_256_hash(e): e for e in extrinsics}
+        work_package_hash = work_package.hash()
+        self.add_by_hash(work_package_hash, extrinsics)
+        logging.warning(
+            "Storing extrinsics for work package %s count=%s summary=%s",
+            format_hash(work_package_hash),
+            len(extrinsics),
+            summarize_blobs(extrinsics),
+        )
+
+    def add_by_hash(self, work_package_hash: bytes, extrinsics: List[bytes]):
+        existing = self.extrinsic_data.get(work_package_hash, {})
+        existing_count = len(existing)
+        new_entries = {blake2b_256_hash(e): e for e in extrinsics}
+        if new_entries:
+            existing.update(new_entries)
+        self.extrinsic_data[work_package_hash] = existing
+        logging.warning(
+            "Extrinsics cache update %s existing=%s added=%s total=%s",
+            format_hash(work_package_hash),
+            existing_count,
+            len(new_entries),
+            len(existing),
+        )
 
     def get(self, work_package: WorkPackage, extrinsic_hash: bytes, extrinsic_length: int) -> Optional[bytes]:
         extrinsic = self.extrinsic_data.get(work_package.hash(), {}).get(extrinsic_hash, None)

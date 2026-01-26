@@ -114,6 +114,15 @@ def hc_export(
     if data_segment is None:
         logger and logger.hc_log("EXPORT PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+    else:
+        nonzero = any(data_segment)
+        logger and logger.hc_log(
+            "EXPORT DATA",
+            f"len={len(data_segment)} nonzero={'yes' if nonzero else 'no'} head={data_segment[:16].hex()}"
+        )
+
+    if data_segment is None:
+        return
     elif export_segment_offset + len(m_e.export_segments) >= MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE:
         logger and logger.hc_log("EXPORT FULL", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)

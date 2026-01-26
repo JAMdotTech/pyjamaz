@@ -536,9 +536,15 @@ def hc_fetch(
         # AnyExtrinsic
         bold_v = extrinsics[w11][w12]
 
-    elif extrinsics is not None and work_item_index is not None and w10 == 4 and w11 < len(extrinsics[work_item_index]):
-        # OurExtrinsic
-        bold_v = extrinsics[work_item_index][w11]
+    elif (
+        extrinsics is not None
+        and work_item_index is not None
+        and w10 == 4
+        and work_item_index < len(extrinsics)
+        and w11 < len(extrinsics[work_item_index])
+    ):
+        extrinsic = extrinsics[work_item_index][w11]
+        bold_v = extrinsic
 
     elif work_item_segs is not None and w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
         bold_v = work_item_segs[w11][w12]

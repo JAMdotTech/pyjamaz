@@ -160,6 +160,61 @@ def format_hash(hash: bytes) -> str:
     return f'0x{hash[:4].hex()}...{hash[-4:].hex()}'
 
 
+def summarize_blobs(blobs: Optional[List[bytes]], max_items: int = 5, prefix_len: int = 8):
+    if blobs is None:
+        return "none"
+
+    summary = []
+    for idx, blob in enumerate(blobs[:max_items]):
+        if blob is None:
+            summary.append(f"{idx}:none")
+            continue
+        try:
+            blob_hash = blake2b_256_hash(blob)
+            head = blob[:prefix_len].hex()
+            summary.append(f"{idx}:len={len(blob)} hash={format_hash(blob_hash)} head={head}")
+        except Exception as exc:
+            summary.append(f"{idx}:error={type(exc).__name__}")
+
+    if len(blobs) > max_items:
+        summary.append(f"...{len(blobs) - max_items} more")
+
+    return summary
+
+
+def summarize_declared_extrinsics(work_package, max_items: int = 5, max_per_item: int = 3):
+    if work_package is None:
+        return "none"
+
+    summary = []
+    items = getattr(work_package, "items", []) or []
+    for wi_idx, item in enumerate(items[:max_items]):
+        extrinsics = getattr(item, "extrinsic", []) or []
+        if not extrinsics:
+            summary.append(f"{wi_idx}:count=0")
+            continue
+
+        ex_summaries = []
+        for ex_idx, ex in enumerate(extrinsics[:max_per_item]):
+            try:
+                ex_hash = format_hash(ex.hash)
+                ex_len = ex.len
+            except Exception:
+                ex_hash = "?"
+                ex_len = "?"
+            ex_summaries.append(f"{ex_idx}:{ex_hash}:{ex_len}")
+
+        if len(extrinsics) > max_per_item:
+            ex_summaries.append(f"...{len(extrinsics) - max_per_item} more")
+
+        summary.append(f"{wi_idx}:count={len(extrinsics)} items={ex_summaries}")
+
+    if len(items) > max_items:
+        summary.append(f"...{len(items) - max_items} more")
+
+    return summary
+
+
 def quic_peer_id(ed25519_public_key: bytes) -> str:
     peer_id = 'e'
 
