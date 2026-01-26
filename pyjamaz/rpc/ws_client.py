@@ -242,3 +242,18 @@ class WebsocketClient(RPCMethods):
         return await self.subscribe("subscribeWorkPackageStatus", [
             base64_encode(work_package_hash), base64_encode(anchor), False
         ], result_parser)
+
+    async def subscribeExportSegments(self, service_id: int):
+        def result_parser(result):
+            if not result:
+                return None
+            value = result.get("value")
+            if not value:
+                return None
+            if value.get("work_package_hash"):
+                value["work_package_hash"] = base64_decode(value["work_package_hash"])
+            if value.get("segment"):
+                value["segment"] = base64_decode(value["segment"])
+            return value
+
+        return await self.subscribe("subscribeExportSegments", [service_id], result_parser)

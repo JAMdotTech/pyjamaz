@@ -1230,6 +1230,24 @@ class PyjamazApp:
         TODO finish
         """
 
+        export_segment_callback = None
+        if self.app_context.pubsub:
+            def export_segment_callback(payload):
+                if not self.app_context.pubsub:
+                    return
+                try:
+                    anyio.from_thread.run(
+                        self.app_context.pubsub.publish,
+                        PubSubSignal(topic=MESSAGE_TYPES.EXPORT_SEGMENT, data=payload),
+                    )
+                except RuntimeError:
+                    try:
+                        self.app_context.pubsub.send_stream.send_nowait(
+                            PubSubSignal(topic=MESSAGE_TYPES.EXPORT_SEGMENT, data=payload)
+                        )
+                    except Exception:
+                        pass
+
         segment_root_lookup_keys = {h for w in work_package.items for (h, n) in w.import_segments}
 
         # Collect import segments
@@ -1261,7 +1279,8 @@ class PyjamazApp:
                 work_items_import_segments=import_segments,
                 export_segment_offset=export_segment_offset,
                 services_state=services_state,
-                extrinsics=extrinsics
+                extrinsics=extrinsics,
+                export_segment_callback=export_segment_callback
             )
 
             if total_digest_size + len(refine_output.work_exec_result.ok or b'') > MAXIMUM_SIZE_ENCODED_WORK_REPORT:

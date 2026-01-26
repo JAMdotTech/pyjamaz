@@ -94,7 +94,11 @@ def hc_export(
         m_e: RefineInvocationContext,
         export_segment_offset: int, #GP: c_cedie
         invocation_output: InvocationMutationOutput,
-        logger: PVMLogger):
+        logger: PVMLogger,
+        export_segment_callback=None,
+        service_id: int | None = None,
+        work_item_index: int | None = None,
+        work_package_hash: bytes | None = None):
 
     """
     Export a segment of data into the JAM Data Lake.
@@ -132,6 +136,19 @@ def hc_export(
         invocation_output.registers[7] = export_segment_offset + len(m_e.export_segments)
         m_e.export_segments.append(data_segment)
         logger and logger.hc_log("EXPORT OK", invocation_output.registers[7])
+        if export_segment_callback:
+            export_index = export_segment_offset + len(m_e.export_segments) - 1
+            export_segment_callback(
+                {
+                    "service_id": service_id,
+                    "work_package_hash": work_package_hash,
+                    "work_item_index": work_item_index,
+                    "export_segment_offset": export_segment_offset,
+                    "segment_index": len(m_e.export_segments) - 1,
+                    "export_index": export_index,
+                    "segment": data_segment,
+                }
+            )
 
 
 def hc_machine(

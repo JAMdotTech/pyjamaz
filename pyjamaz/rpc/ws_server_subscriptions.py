@@ -179,6 +179,32 @@ class SubscriptionSyncStatus(WSubscription):
         return "Completed" #"InProgress"
 
 
+class SubscriptionExportSegments(WSubscription):
+    PARAM_SERVICE_ID = 0
+
+    def check_params(self, data: Any):
+        if data:
+            return self.params[self.PARAM_SERVICE_ID] == data.get("service_id")
+        return True
+
+    def create_data(self, data: Any):
+        work_package_hash = data.get("work_package_hash")
+        segment = data.get("segment")
+        return {
+            "header_hash": base64_encode(self.app.get_best_header_hash()),
+            "slot": self.app.working_state.timeslot.number,
+            "value": {
+                "service_id": data.get("service_id"),
+                "work_package_hash": base64_encode(work_package_hash) if work_package_hash else None,
+                "work_item_index": data.get("work_item_index"),
+                "export_segment_offset": data.get("export_segment_offset"),
+                "segment_index": data.get("segment_index"),
+                "export_index": data.get("export_index"),
+                "segment": base64_encode(segment) if segment else None,
+            },
+        }
+
+
 class SubscribeWorkPackageStatus(WSubscription):
 
     def check_params(self, data: Any):
@@ -206,6 +232,7 @@ class SubscriptionManager:
         "subscribeServiceRequest": SubscriptionPreimageAvailability,
         "subscribeSyncStatus": SubscriptionSyncStatus,  #TODO: hook to networking events
         "subscribeWorkPackageStatus": SubscribeWorkPackageStatus,  #TODO: hook to networking events
+        "subscribeExportSegments": SubscriptionExportSegments,
     }
 
     def __init__(self, server: "WebSocketServer"):
@@ -223,6 +250,7 @@ class SubscriptionManager:
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.PREIMAGE, self.broadcast_preimage)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.PREIMAGE_AVAILABILITY, self.broadcast_preimage_availability)
         self.server.app.pubsub.subscribe(MESSAGE_TYPES.WORK_PACKAGE_STATUS, self.broadcast_work_package_status)
+        self.server.app.pubsub.subscribe(MESSAGE_TYPES.EXPORT_SEGMENT, self.broadcast_export_segment)
 
     async def subscribe(self, ws: WebSocketServerProtocol, req_id, topic: str, params: Any) -> WSubscription:
         async with self._lock:
@@ -274,6 +302,9 @@ class SubscriptionManager:
 
     async def broadcast_work_package_status(self, message):
         await self.broadcast("subscribeWorkPackageStatus", message)
+
+    async def broadcast_export_segment(self, message):
+        await self.broadcast("subscribeExportSegments", message)
 
     async def broadcast(self, topic: str, data):
         async with self._lock:

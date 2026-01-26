@@ -20,6 +20,10 @@ class RPCMethods(ABC):
         pass
 
     @abstractmethod
+    def subscribeExportSegments(self):
+        pass
+
+    @abstractmethod
     def listServices(self, block_hash: bytes):
         pass
     #

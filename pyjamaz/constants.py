@@ -49,6 +49,7 @@ class MESSAGE_TYPES(Enum):
     BEST_BLOCK = "best_block"
     FINALIZED_BLOCK = "finalized_block"
     WORK_PACKAGE_STATUS = "work_package_status"
+    EXPORT_SEGMENT = "export_segment"
 
 PVM_MARSHALLING_OFFSET_ACCUMULATE = 5
 PVM_MARSHALLING_OFFSET_TRANSFER = 10

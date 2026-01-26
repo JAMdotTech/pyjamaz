@@ -397,7 +397,8 @@ class RefineInvocationMutator(InvocationMutator):
         timeslot: int,
         work_item_index: int,
         work_package: WorkPackage,
-        extrinsics: List[List[bytes]]
+        extrinsics: List[List[bytes]],
+        export_segment_callback=None
     ):
         self.authorizer_output = authorizer_output
         self.work_items_import_segments = work_items_import_segments
@@ -407,7 +408,9 @@ class RefineInvocationMutator(InvocationMutator):
         self.timeslot = timeslot
         self.work_item_index = work_item_index
         self.work_package = work_package
+        self.work_package_hash = work_package.hash()
         self.extrinsics = extrinsics
+        self.export_segment_callback = export_segment_callback
 
     def execute(
             self,
@@ -473,7 +476,11 @@ class RefineInvocationMutator(InvocationMutator):
                     m_e=invocation_context,
                     export_segment_offset=self.export_segment_offset,
                     invocation_output=ctx_out,
-                    logger=_pvm.log
+                    logger=_pvm.log,
+                    export_segment_callback=self.export_segment_callback,
+                    service_id=self.service_account_id,
+                    work_item_index=self.work_item_index,
+                    work_package_hash=self.work_package_hash,
                 )
 
             case HostCallRefine.machine.value:
@@ -545,7 +552,8 @@ def pvm_invoke_refine(
     work_items_import_segments: List[List[bytes]],
     export_segment_offset: int,
     services_state: ServicesState,
-    extrinsics: List[List[bytes]]
+    extrinsics: List[List[bytes]],
+    export_segment_callback=None
 ) -> PvmRefineOutput:
     """
     GP-0.7.1-eq:B.5 (Ψ_R) | the refine service-account invocation function
@@ -624,7 +632,8 @@ def pvm_invoke_refine(
             timeslot=work_package.context.lookup_anchor_slot,
             work_package=work_package,
             work_item_index=work_item_index,
-            extrinsics=extrinsics
+            extrinsics=extrinsics,
+            export_segment_callback=export_segment_callback
         )
     )
 

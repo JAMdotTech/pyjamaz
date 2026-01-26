@@ -15,7 +15,6 @@ import pygame
 import pyjamaz
 from pyjamaz.logger import setup_logging
 from pyjamaz.rpc.ws_client import WebsocketClient
-from pyjamaz.utils import base64_decode
 
 JAM_RPC_SERVER = os.getenv("JAM_RPC_SERVER", "ws://127.0.0.1:19800")
 
@@ -28,7 +27,6 @@ SEGMENT_SIZE = 4104
 SEGMENT_HEADER_SIZE = 8
 SEGMENT_PAYLOAD_SIZE = SEGMENT_SIZE - SEGMENT_HEADER_SIZE
 SEGMENTS_PER_FRAME = FRAME_BYTES // SEGMENT_PAYLOAD_SIZE
-SEGMENT_BATCH_SIZE = 64
 DISPLAY_UPDATE_EVERY = 8
 
 
@@ -63,43 +61,12 @@ def blit_segment(frame_rgba: bytearray, payload: bytes, dst_offset: int):
         view[dst_offset + i + 3] = 255
 
 
-async def render_exports(
-    client: WebsocketClient,
-    export_root: bytes,
-    export_offset: int,
-    export_count: int,
-    frame_rgba: bytearray,
-    frame_surface: pygame.Surface,
-    screen: pygame.Surface,
-    stop_event: asyncio.Event,
-    frame_counter: dict,
-):
-    segment_index = 0
-    for start in range(export_offset, export_offset + export_count, SEGMENT_BATCH_SIZE):
-        if stop_event.is_set():
-            return False
-        end = min(start + SEGMENT_BATCH_SIZE, export_offset + export_count)
-        indices = list(range(start, end))
-        segments = await client.fetchSegments(export_root, indices)
-        for segment in segments:
-            if stop_event.is_set():
-                return False
-            payload = segment[SEGMENT_HEADER_SIZE:SEGMENT_HEADER_SIZE + SEGMENT_PAYLOAD_SIZE]
-            if len(payload) < SEGMENT_PAYLOAD_SIZE:
-                payload = payload.ljust(SEGMENT_PAYLOAD_SIZE, b"\x00")
-            dst_offset = (segment_index % SEGMENTS_PER_FRAME) * SEGMENT_PAYLOAD_SIZE
-            blit_segment(frame_rgba, payload, dst_offset)
-            segment_index += 1
-            if segment_index % SEGMENTS_PER_FRAME == 0:
-                frame_counter["count"] += 1
-                pygame.display.set_caption(f"PVM Doom Viewer - frame {frame_counter['count']}")
-            if segment_index % DISPLAY_UPDATE_EVERY == 0:
-                screen.blit(frame_surface, (0, 0))
-                pygame.display.flip()
-        await asyncio.sleep(0)
-    screen.blit(frame_surface, (0, 0))
-    pygame.display.flip()
-    return True
+# async def log_best_blocks(client: WebsocketClient, stop_event: asyncio.Event):
+#     best_block_sub = await client.subscribeBestBlock()
+#     async for best_block in best_block_sub:
+#         if stop_event.is_set():
+#             break
+#         logging.info("Best block = %s", best_block)
 
 
 async def main(args):
@@ -109,7 +76,7 @@ async def main(args):
     frame_surface = pygame.image.frombuffer(frame_rgba, (FRAME_WIDTH, FRAME_HEIGHT), "RGBA")
     stop_event = asyncio.Event()
     pump_task = asyncio.create_task(pygame_pump(stop_event))
-    seen_exports = set()
+    #best_block_task = None
     frame_counter = {"count": 0}
     logging.info("pyjamaz module path: %s", pyjamaz.__file__)
 
@@ -118,82 +85,83 @@ async def main(args):
             # Init vars
             service_id = int.from_bytes(bytes.fromhex(args.service_id.zfill(8)), byteorder='big')
 
-            best_block = await client.bestBlock()
+            # best_block = await client.bestBlock()
+            # if best_block:
+            #     services = await client.listServices(best_block["header_hash"])
+            #     if services is not None and service_id not in services:
+            #         logging.warning("Service %s not present in listServices response", service_id)
+            # else:
+            #     logging.warning("No best block yet; skipping listServices check")
+            #
+            # best_block_task = asyncio.create_task(log_best_blocks(client, stop_event))
+            export_sub = await client.subscribeExportSegments(service_id)
+            logging.info("Waiting for export segments ...")
 
-            services = await client.listServices(best_block["header_hash"])
+            current_stream_key = None
+            current_frame_index = -1
+            update_ticks = 0
 
-            # Get service info
-            service_data = await client.serviceData(best_block["header_hash"], service_id)
-            service_account = service_data["service"] if isinstance(service_data, dict) else service_data
-
-            if service_account is None:
-                logging.error(f'Service {service_id} not found')
-                return
-
-            best_block_sub = await client.subscribeBestBlock()
-            logging.info("Waiting for best block ...")
-            async for best_block in best_block_sub:
+            async for export in export_sub:
                 if stop_event.is_set():
                     break
+                if export is None:
+                    continue
 
-                logging.info(f'Best block = {best_block}')
-
-                service_info = await client.serviceData(
-                    best_block["header_hash"], service_id, include_exports=True
+                stream_key = (
+                    export["work_package_hash"],
+                    export["work_item_index"],
+                    export["export_segment_offset"],
                 )
-                if isinstance(service_info, dict):
-                    exports = service_info.get("exports", [])
-                    logging.info("serviceData exports=%d", len(exports))
-                else:
-                    exports = []
-                    logging.warning(
-                        "serviceData did not return exports (type=%s); include_exports may be unsupported",
-                        type(service_info).__name__,
-                    )
-                for export in exports:
-                    export_key = (export["exports_root"], export["export_offset"], export["export_count"])
-                    if export_key in seen_exports:
-                        continue
-                    seen_exports.add(export_key)
-                    export_root = base64_decode(export["exports_root"])
-                    export_offset = export["export_offset"]
-                    export_count = export["export_count"]
-                    expected_frames = export_count // SEGMENTS_PER_FRAME
-                    remainder = export_count % SEGMENTS_PER_FRAME
+                if stream_key != current_stream_key:
+                    current_stream_key = stream_key
+                    current_frame_index = -1
+                    frame_rgba[:] = b"\x00" * FRAME_BYTES
                     logging.info(
-                        "Exports root=%s offset=%s count=%s frames=%s remainder=%s",
-                        export["exports_root"],
-                        export_offset,
-                        export_count,
-                        expected_frames,
-                        remainder,
+                        "New export stream wp=%s item=%s offset=%s",
+                        export["work_package_hash"].hex(),
+                        export["work_item_index"],
+                        export["export_segment_offset"],
                     )
-                    if export_count > 0:
-                        frame_rgba[:] = b"\x00" * FRAME_BYTES
-                        ok = await render_exports(
-                            client,
-                            export_root,
-                            export_offset,
-                            export_count,
-                            frame_rgba,
-                            frame_surface,
-                            screen,
-                            stop_event,
-                            frame_counter,
-                        )
-                        if not ok:
-                            break
-                if not exports:
-                    logging.info(
-                        "No exports for block slot=%s hash=%s",
-                        best_block["slot"],
-                        best_block["header_hash"].hex(),
-                    )
+
+                segment_index = export.get("segment_index")
+                if segment_index is None:
+                    segment_index = export["export_index"] - export["export_segment_offset"]
+                frame_index = segment_index // SEGMENTS_PER_FRAME
+                frame_segment_index = segment_index % SEGMENTS_PER_FRAME
+
+                if frame_index != current_frame_index and frame_segment_index == 0:
+                    current_frame_index = frame_index
+                    frame_rgba[:] = b"\x00" * FRAME_BYTES
+                    logging.info("Frame %s start", current_frame_index)
+
+                segment_bytes = export.get("segment")
+                if not segment_bytes:
+                    logging.warning("Export segment missing bytes for index=%s", export.get("export_index"))
+                    continue
+                payload = segment_bytes[SEGMENT_HEADER_SIZE:SEGMENT_HEADER_SIZE + SEGMENT_PAYLOAD_SIZE]
+                if len(payload) < SEGMENT_PAYLOAD_SIZE:
+                    payload = payload.ljust(SEGMENT_PAYLOAD_SIZE, b"\x00")
+                dst_offset = frame_segment_index * SEGMENT_PAYLOAD_SIZE
+                blit_segment(frame_rgba, payload, dst_offset)
+
+                update_ticks += 1
+                if update_ticks % DISPLAY_UPDATE_EVERY == 0:
+                    screen.blit(frame_surface, (0, 0))
+                    pygame.display.flip()
+
+                if frame_segment_index == SEGMENTS_PER_FRAME - 1:
+                    frame_counter["count"] += 1
+                    pygame.display.set_caption(f"PVM Doom Viewer - frame {frame_counter['count']}")
+                    screen.blit(frame_surface, (0, 0))
+                    pygame.display.flip()
+                    logging.info("Frame %s complete", current_frame_index)
 
     except ConnectionRefusedError:
         logging.error(f'⚠️ Cannot connect to JAM RPC server @ {JAM_RPC_SERVER}')
     finally:
         stop_event.set()
+        # if best_block_task:
+        #     best_block_task.cancel()
         await pump_task
         pygame.quit()
 

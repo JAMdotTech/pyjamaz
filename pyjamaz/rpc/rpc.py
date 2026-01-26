@@ -461,6 +461,11 @@ def rpcSubscribeWorkPackageStatus(app: PyjamazApp, params):
     }
 
 
+def rpcSubscribeExportSegments(app: PyjamazApp, params):
+    # Note: initial response after subscription
+    return None
+
+
 # Note: The actual (realtime) (un)subscription handlers are mapped in ws_server_subscriptions.py::SubscriptionManager
 RPC_REQUESTS = {
     "parameters": rpcParameters,
@@ -509,5 +514,7 @@ RPC_REQUESTS = {
 
     "subscribeWorkPackageStatus": rpcSubscribeWorkPackageStatus,
     "unsubscribeWorkPackageStatus": None,
-}
 
+    "subscribeExportSegments": rpcSubscribeExportSegments,
+    "unsubscribeExportSegments": None,
+}
