@@ -1230,6 +1230,7 @@ class PyjamazApp:
         TODO finish
         """
 
+        #TODO: tmp hack for doom fb blit
         export_segment_callback = None
         if self.app_context.pubsub:
             def export_segment_callback(payload):

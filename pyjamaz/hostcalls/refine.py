@@ -119,10 +119,10 @@ def hc_export(
         logger and logger.hc_log("EXPORT PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
     else:
-        nonzero = any(data_segment)
+        has_segmewnt = any(data_segment)
         logger and logger.hc_log(
             "EXPORT DATA",
-            f"len={len(data_segment)} nonzero={'yes' if nonzero else 'no'} head={data_segment[:16].hex()}"
+            f"len={len(data_segment)} nonzero={'yes' if has_segmewnt else 'no'} head={data_segment[:16].hex()}"
         )
 
     if data_segment is None:
@@ -136,6 +136,7 @@ def hc_export(
         invocation_output.registers[7] = export_segment_offset + len(m_e.export_segments)
         m_e.export_segments.append(data_segment)
         logger and logger.hc_log("EXPORT OK", invocation_output.registers[7])
+        #TODO: tmp hack to send framebuffer data
         if export_segment_callback:
             export_index = export_segment_offset + len(m_e.export_segments) - 1
             export_segment_callback(

@@ -194,60 +194,12 @@ def rpcParent(app, params):
         raise RPCCallException(RPC_ERROR["INVALID_PARAMS"])
 
 
-def _service_exports_from_reports(reports, service_id):
-    exports = []
-    for report in reports:
-        if not report.results:
-            continue
-        offset = 0
-        for digest in report.results:
-            count = digest.refine_load.exports if digest.refine_load else 0
-            if digest.service_id == service_id and count:
-                exports.append(
-                    {
-                        "work_package_hash": base64_encode(report.package_spec.hash),
-                        "work_report_hash": base64_encode(report.hash()),
-                        "exports_root": base64_encode(report.package_spec.exports_root),
-                        "export_offset": offset,
-                        "export_count": count,
-                        "exports_total": report.package_spec.exports_count,
-                    }
-                )
-            offset += count
-    return exports
-
-
 def rpcServiceData(app, params):
-    include_exports = len(params) > 2 and bool(params[2])
     try:
         service = app.working_state.services.retrieve_service_account(params[1])
-        service_blob = base64_encode(service.to_serialized_bytes())
+        return base64_encode(service.to_serialized_bytes())
     except StateKeyNoResult:
         return None
-
-    if not include_exports:
-        return service_blob
-
-    block_hash = None
-    try:
-        block_hash = base64_decode(params[0]) if params and params[0] else None
-    except Exception:
-        block_hash = None
-
-    exports = []
-    if block_hash:
-        block = app.retrieve_block_by_hash(block_hash)
-        if block:
-            exports = _service_exports_from_reports(
-                [g.report for g in block.extrinsic.guarantees],
-                params[1],
-            )
-
-    if not exports:
-        reports = app.block_context.available_work_reports or []
-        exports = _service_exports_from_reports(reports, params[1])
-
-    return {"service": service_blob, "exports": exports}
 
 
 def rpcListServices(app: PyjamazApp, params):

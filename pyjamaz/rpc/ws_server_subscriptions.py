@@ -179,6 +179,7 @@ class SubscriptionSyncStatus(WSubscription):
         return "Completed" #"InProgress"
 
 
+#TODO: tmp hack for doom framebuffer blitting
 class SubscriptionExportSegments(WSubscription):
     PARAM_SERVICE_ID = 0
 

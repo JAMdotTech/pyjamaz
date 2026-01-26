@@ -637,15 +637,9 @@ def pvm_invoke_refine(
         )
     )
 
+    #TODO
+    #gas_limit = GAS_INVOKE
     gas_limit = work_item.refine_gas_limit
-    logging.info(
-        "Refine gas config | wp=%s item=%s service=%s item_gas=%s invoke_gas=%s",
-        format_hash(work_package_hash),
-        work_item_index,
-        service_account_id,
-        work_item.refine_gas_limit,
-        gas_limit
-    )
 
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=preimage.serialized_program,

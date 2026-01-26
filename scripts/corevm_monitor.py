@@ -5,16 +5,17 @@ import os
 import sys
 from pathlib import Path
 
-# Ensure repo root is on sys.path when running as a script.
+import pyjamaz
+from pyjamaz.logger import setup_logging
+from pyjamaz.rpc.ws_client import WebsocketClient
+
+import pygame
+
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import pygame
-
-import pyjamaz
-from pyjamaz.logger import setup_logging
-from pyjamaz.rpc.ws_client import WebsocketClient
 
 JAM_RPC_SERVER = os.getenv("JAM_RPC_SERVER", "ws://127.0.0.1:19800")
 
@@ -23,7 +24,7 @@ FRAME_HEIGHT = 400
 BYTES_PER_PIXEL = 4
 FRAME_BYTES = FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL
 SEGMENT_SIZE = 4104
-# Doom exports 4104-byte segments; the first 8 bytes are treated as a header.
+# Note: Doom exports 4104-byte segments..the frist 8 bytes are treated as a header
 SEGMENT_HEADER_SIZE = 8
 SEGMENT_PAYLOAD_SIZE = SEGMENT_SIZE - SEGMENT_HEADER_SIZE
 SEGMENTS_PER_FRAME = FRAME_BYTES // SEGMENT_PAYLOAD_SIZE
