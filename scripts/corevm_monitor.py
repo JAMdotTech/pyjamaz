@@ -5,6 +5,7 @@ import os
 from typing import List
 
 from jamcodec.base import JamBytes
+from jamcodec.types import Vec, U32, U16, Array
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.logger import setup_logging
@@ -50,8 +51,10 @@ async def main(args):
 
     try:
         async with WebsocketClient(JAM_RPC_SERVER) as client:
+
             # Init vars
-            service_id = int.from_bytes(bytes.fromhex(args.service_id.zfill(8)), byteorder='big')
+            # service_id = int.from_bytes(bytes.fromhex(args.service_id.zfill(8)), byteorder='big')
+            service_id = int.from_bytes(bytes.fromhex('42f3dbc3'.zfill(8)), byteorder='big')
 
             best_block = await client.bestBlock()
 
@@ -69,9 +72,9 @@ async def main(args):
 
 
             # Check storage items
-            key1 = b'\x03'
-            key2 = b'\x04'
-            key3 = b'\x05'
+            key3 = b'\x03'
+            key4 = b'\x04'
+            key5 = b'\x05'
 
             best_block_sub = await client.subscribeBestBlock()
             logging.info("Waiting for best block ...")
@@ -79,23 +82,27 @@ async def main(args):
 
                 logging.info(f'Best block = {best_block}')
 
-                value = await client.serviceValue(best_block["header_hash"], service_id, key2)
-                logging.info(f'Key = {key2.hex()} Value = {value}')
+                key3_value = await client.serviceValue(best_block["header_hash"], service_id, key3)
+                logging.info(f'Key = {key3.hex()} Value = {key3_value.hex() if key3_value else "None"}')
 
-                value = await client.serviceValue(best_block["header_hash"], service_id, key3)
-                logging.info(f'Key = {key3.hex()} Value = {value}')
+                key4_value = await client.serviceValue(best_block["header_hash"], service_id, key4)
+                logging.info(f'Key = {key4.hex()} Value = {key4_value.hex() if key4_value else "None"}')
 
-                value = await client.serviceValue(best_block["header_hash"], service_id, key1)
-                logging.info(f'Key = {key1.hex()} Value = {value}')
+                key5_value = await client.serviceValue(best_block["header_hash"], service_id, key5)
+                logging.info(f'Key = {key5.hex()} Value = {key5_value.hex() if key5_value else "None"}')
 
-                if value is not None:
+                if key3_value is not None:
                     logging.info(f'Fetch segments..')
 
-                    # Fetch segment
-                    #segments = await client.fetchSegments(value[0:32], [x for x in range(4000)])
-                    segments = await client.fetchSegments(value[0:32], [1500])
-                    logging.info(f"{value[0:32]}")
-                    logging.info(segments[0].hex())
+                    # Fetch segments
+                    segment_root = key3_value[0:32]
+                    logging.info(f"Segment root: {segment_root.hex()}")
+                    min_segment_id = U32.decode(JamBytes(key3_value[41:45]))
+                    segment_ids = list(range(min_segment_id, min_segment_id + 2273))
+                    logging.info(f"Segment IDs: {segment_ids}")
+
+                    segments = await client.fetchSegments(segment_root, segment_ids)
+
 
 
 
