@@ -7,6 +7,7 @@ from typing import Dict, List, Callable, Any
 from anyio.streams.memory import MemoryObjectSendStream, MemoryObjectReceiveStream
 
 from pyjamaz.constants import MESSAGE_TYPES
+from pyjamaz.settings import DEBUG
 
 
 @dataclass
@@ -30,7 +31,8 @@ class PubSub(object):
 
     async def publish(self, message: PubSubSignal) -> None:#topic: MESSAGE_TYPES, data: any) -> None:
         try:
-           self.send_stream.send_nowait(message)
+            self.send_stream.send_nowait(message)
+            DEBUG and logging.debug(f"[PubSub] [{message.topic}] -> {message.data}")
         except anyio.WouldBlock:
             raise
 
