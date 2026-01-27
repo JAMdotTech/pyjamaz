@@ -67,7 +67,7 @@ class AppConfig:
     storage_engine: StorageEngine
     common_era: int
     keys: Optional[Keys] = field(default=None)
-    create_traces: bool = field(default=False)
+    create_traces: str = field(default=None)
 
 
 class PyjamazApp:
@@ -103,9 +103,6 @@ class PyjamazApp:
         self.segment_store: Dict[bytes, List[bytes]] = {}
 
         self.working_state: Optional[JamState] = None
-
-        # TODO TEMP
-        self.nr_timeslots_processed = 0
 
         # Note:
         # For the import block function, we allow the option to provide a custom function (for example to augment with
@@ -858,8 +855,7 @@ class PyjamazApp:
         )
 
     def current_timeslot(self) -> int:
-        self.nr_timeslots_processed += 1
-        return int(time.time() - self.config.common_era) // SLOT_PERIOD + (self.nr_timeslots_processed * 400)
+        return int(time.time() - self.config.common_era) // SLOT_PERIOD
 
     def slot_phase_index(self, timeslot: int) -> int:
         """
@@ -1313,7 +1309,8 @@ class PyjamazApp:
             core_index=core_index,
             authorizer_hash=work_package.authorizer_hash(),
             auth_output=auth_output.work_exec_result.ok,
-            segment_root_lookup={work_package.hash(): package_spec.exports_root}, # TODO
+            # segment_root_lookup={work_package.hash(): package_spec.exports_root}, # TODO
+            segment_root_lookup={}, # TODO
             results=[o[0] for o in refine_outputs],
             auth_gas_used=auth_output.gas_used
         )

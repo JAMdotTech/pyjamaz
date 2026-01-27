@@ -2,7 +2,6 @@ from pyjamaz import settings
 
 if settings.PVM_INTERPRETER == "GRAYPAPER":
     from .interpreters.graypaper.defs import *
-    from .interpreters.graypaper.memory_section import *
     from .interpreters.graypaper.interpreter_gp import *
 elif settings.PVM_INTERPRETER == "CPYTHON":
     from .interpreters.cpython.defs import *
