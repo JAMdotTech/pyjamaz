@@ -1313,7 +1313,7 @@ class PyjamazApp:
             core_index=core_index,
             authorizer_hash=work_package.authorizer_hash(),
             auth_output=auth_output.work_exec_result.ok,
-            segment_root_lookup={}, # TODO
+            segment_root_lookup={work_package.hash(): package_spec.exports_root}, # TODO
             results=[o[0] for o in refine_outputs],
             auth_gas_used=auth_output.gas_used
         )

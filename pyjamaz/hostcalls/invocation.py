@@ -631,7 +631,7 @@ def pvm_invoke_refine(
     marshalling_output = pvm_invocation.pvm_invoke_marshalling(
         serialized_program=preimage.serialized_program,
         start_offset=PVM_MARSHALLING_OFFSET_REFINE,
-        gas_limit=GAS_INVOKE,
+        gas_limit=work_item.refine_gas_limit,
         argument_data=argument_data,
         program_name=preimage.program_name
     )

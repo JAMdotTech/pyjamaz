@@ -538,7 +538,7 @@ class WorkPackageSpec(Serializable):
             hash=work_package.hash(),
             length=work_package.to_jam_bytes().length,
             erasure_root=bytes(32),
-            exports_root=ConstantDepthMerkleTree(exported_segments).root(),
+            exports_root=ConstantDepthMerkleTree(exported_segments).root(), #todo pass not calc
             exports_count=len(exported_segments),
         )
 
