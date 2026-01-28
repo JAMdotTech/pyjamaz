@@ -291,7 +291,7 @@ def rpcFetchSegments(app: PyjamazApp, params):
     """
     """
     segment_root = base64_decode(params[0])
-    segments = app.segment_store.get(segment_root)
+    segments = app.d3l_store.get(segment_root)
     if segments is None:
         raise RPCCallException("UNKNOWN_SEGMENT")
 

@@ -17,7 +17,6 @@ import asyncclick as click
 from asyncclick import BadParameter, MissingParameter
 
 from jamcodec.base import JamBytes
-from pyjamaz import settings
 
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
@@ -25,7 +24,7 @@ from pyjamaz.exceptions import StateKeyNoResult, StateTransitionError, BlockVali
 
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace, TraceGenesis
+from pyjamaz.models.app import Trace, TraceGenesis, D3LItem
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
@@ -224,7 +223,8 @@ async def main():
 @click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
 @click.option('--fuzzer', 'fuzzer', is_flag=True, help="Validate trace with fuzzer target")
 @click.option('--fuzzer-socket-path', 'fuzzer_socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
-async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path):
+@click.option('--d3l-path', 'd3l_path', type=click.Path())
+async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path, d3l_path):
     """PyJAMaz: Python JAM Client"""
 
     # Setup logging
@@ -275,6 +275,19 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
 
     app.network_bootstrap = network_bootstrap
     common_era_time = datetime.fromtimestamp(app.config.common_era, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    if d3l_path:
+        app.config.d3l_path = d3l_path
+        segment_files = await anyio.to_thread.run_sync(
+            lambda: sorted({f for f in list(Path(d3l_path).rglob("*.bin"))}),
+        )
+        for nr, segment_file in enumerate(segment_files, start=1):
+            d3l_item = D3LItem.from_jam_bytes(JamBytes(segment_file.read_bytes()))
+
+            app.d3l_store[d3l_item.segment_root] = d3l_item.segments
+
+            DEBUG and logging.debug(f"Retrieved {len(d3l_item.segments)} segments with root {d3l_item.segment_root} from {segment_file.name}")
+        logging.info(f"Imported D3L from {d3l_path}")
 
     logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
     logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
@@ -410,6 +423,9 @@ async def timeslot_ticker(app: PyjamazApp):
 
                 parent_header_hash = app.retrieve_block_hash(app.working_state.timeslot.number)
 
+                if parent_header_hash is None:
+                    raise ValueError(f'No parent block found for timeslot #{app.working_state.timeslot.number}')
+
                 # Finalize parent
                 await app.finalize(parent_header_hash)
 
@@ -498,6 +514,7 @@ async def init_certificate(db_path, seed):
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
 @click.option('--chainspec', 'chainspec', type=click.Choice(['dev', 'docker']), help="Chainspec to use as genesis", default='dev', show_default=True)
 @click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
+@click.option('--import-trace', 'import_trace', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def init(
@@ -506,6 +523,7 @@ async def init(
         seed,
         chainspec,
         verbose,
+        import_trace
 ):
     """
     Clears all existing data and initializes the JAM client.
@@ -536,34 +554,65 @@ async def init(
         block_importer=import_block_cli
     )
 
-    # Load chainspec
-    with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
-        chainspec_data = json.load(fp)
+    if import_trace:
 
-    # Store state data
-    for k, v in chainspec_data["genesis_state"].items():
-        app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
+        trace = Trace.from_jam_bytes(JamBytes(Path(import_trace).read_bytes()))
 
-    # Create genesis block
-    genesis_block = Block(
-        header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
-        extrinsic=Extrinsic.default()
-    )
+        # Update state from trace post-state
+        for k, v in trace.post_state.keyvals:
+            app.state_db.put(bytes(k), bytes(v))
 
-    # Store genesis block
-    await app.store_block(genesis_block)
-    # Store finalized head
-    await app.store_finalized_head(genesis_block.header.hash)
-    # Set finalized head in state storage
-    app.state_storage.set_finalized_header(genesis_block.header)
+        # Add stub parent as ancestor
+        stub_parent = Header.default()
+        stub_parent.hash = trace.block.header.parent
+        stub_parent.timeslot = max(0, trace.block.header.timeslot - 1)
+        await app.store_block_header(stub_parent)
+        await app.add_ancestor_header(stub_parent)
 
-    click.echo(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
+        # Store block
+        await app.store_block(trace.block)
+        await app.add_ancestor_header(trace.block.header)
+        # Store finalized head
+        await app.store_finalized_head(trace.block.header.hash)
+        # Set finalized head in state storage
+        app.state_storage.set_finalized_header(trace.block.header)
+
+        click.echo(f'📦 State successfully import from trace file {import_trace}')
+
+        logging.debug("Initializating app..")
+        await app.initialize(trace.block.header)
+
+    else:
+        # Load chainspec
+        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
+            chainspec_data = json.load(fp)
+
+        # Store state data
+        for k, v in chainspec_data["genesis_state"].items():
+            app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
+
+        # Create genesis block
+        genesis_block = Block(
+            header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
+            extrinsic=Extrinsic.default()
+        )
+
+        # Store genesis block
+        await app.store_block(genesis_block)
+        # Store finalized head
+        await app.store_finalized_head(genesis_block.header.hash)
+        # Set finalized head in state storage
+        app.state_storage.set_finalized_header(genesis_block.header)
+
+        click.echo(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
+
+        logging.debug("Initializating app..")
+        await app.initialize(genesis_block.header)
 
     # Initialize certificate
     await init_certificate(db_path, seed)
 
-    logging.debug("Initializating app..")
-    await app.initialize(genesis_block.header)
+
 
     click.echo(f"✅ Initialization complete.")
     click.echo(f'🌲 State trie root: {format_hash(app.working_state.state_root)}')

@@ -24,7 +24,7 @@ from pyjamaz.graypaper_constants import CORE_COUNT, EPOCH_TIMESLOTS, \
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.hostcalls.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
 from pyjamaz.merkle import ConstantDepthMerkleTree
-from pyjamaz.models.app import StateDump, Trace
+from pyjamaz.models.app import StateDump, Trace, D3LItem
 from pyjamaz.models.common import WorkPackage, WorkReport, WorkPackageBundle, WorkPackageQueueItem, WorkPackageStatus, \
     WorkPackageReportableStatus, WorkPackageReadyStatus, BlockDesc, WorkPackageReportedStatus, WorkExecResult, \
     WorkDigest, WorkPackageSpec
@@ -68,6 +68,7 @@ class AppConfig:
     common_era: int
     keys: Optional[Keys] = field(default=None)
     create_traces: str = field(default=None)
+    d3l_path: str = field(default=None)
 
 
 class PyjamazApp:
@@ -76,7 +77,9 @@ class PyjamazApp:
 
         self.state_db: StorageEngine = config.storage_engine.namespace(b"state")
         self.block_db: StorageEngine = config.storage_engine.namespace(b"block")
-        self.app_db: StorageEngine = config.storage_engine.namespace(b"app")
+        # TODO finish
+        self.d3l_db: StorageEngine = config.storage_engine.namespace(b"d3l")
+
         self.network_bootstrap: bool = False
         self.import_queue: List[Block] = []
         self.pubsub:PubSub = None
@@ -100,7 +103,9 @@ class PyjamazApp:
         # Refine
         self.work_package_queue: Dict[bytes, WorkPackageQueueItem] = {}
         self.work_package_extrinsics = WorkpackageExtrinsicAccumulator()
-        self.segment_store: Dict[bytes, List[bytes]] = {}
+
+        # TODO make file based in shared folder
+        self.d3l_store: Dict[bytes, List[bytes]] = {}
 
         self.working_state: Optional[JamState] = None
 
@@ -985,7 +990,7 @@ class PyjamazApp:
     async def create_state_dump(self) -> StateDump:
         return StateDump(
             state_root=self.working_state.state_root,
-            keyvals=[(k, v) for k, v in self.state_db.as_list()]
+            keyvals=[(k, v) for k, v in self.state_storage.as_list()]
         )
 
     async def store_trace(self, pre_state: StateDump, block: Block, traces_dir: str):
@@ -1235,7 +1240,7 @@ class PyjamazApp:
         segment_root_lookup_keys = {h for w in work_package.items for (h, n) in w.import_segments}
 
         # Collect import segments
-        import_segments = [self.segment_store.get(r) for r in segment_root_lookup_keys]
+        import_segments = [self.d3l_store.get(r) for r in segment_root_lookup_keys]
 
         auth_output = pvm_invoke_is_authorized(work_package, core_index)
 
@@ -1292,16 +1297,31 @@ class PyjamazApp:
             refine_outputs.append((work_result, export_segments))
 
         # TODO inefficient: refactor refine_outputs to work_results and all_export_segments ?
-        all_export_segments = flatten_list([o[1] for o in refine_outputs])
+        all_export_segments: list[bytes] = flatten_list([o[1] for o in refine_outputs])
 
         exports_root = ConstantDepthMerkleTree(all_export_segments).root()
 
         # store segments
-        self.segment_store[exports_root] = all_export_segments
+        self.d3l_store[exports_root] = all_export_segments
         # Also store under work-package hash (H^+) TODO check?
-        self.segment_store[work_package.hash()] = all_export_segments
+        self.d3l_store[work_package.hash()] = all_export_segments
 
-        package_spec = WorkPackageSpec.create_from_work_package(work_package, [], [], [], all_export_segments)
+        if self.config.d3l_path and len(all_export_segments) > 0:
+            try:
+                with open(os.path.join(self.config.d3l_path, f'{self.working_state.timeslot.number}-{exports_root.hex()}.bin'), 'wb') as file:
+                    d3l_item = D3LItem(
+                        segments = all_export_segments,
+                        segment_root = exports_root
+                    )
+                    file.write(d3l_item.to_jam_bytes().to_bytes())
+
+            except Exception as e:
+                logging.error(f"Error storing D3L segments: {e}")
+                pass
+
+        package_spec = WorkPackageSpec.create_from_work_package(
+            work_package, [], [], [], all_export_segments, exports_root
+        )
 
         return WorkReport(
             package_spec=package_spec,
@@ -1309,7 +1329,6 @@ class PyjamazApp:
             core_index=core_index,
             authorizer_hash=work_package.authorizer_hash(),
             auth_output=auth_output.work_exec_result.ok,
-            # segment_root_lookup={work_package.hash(): package_spec.exports_root}, # TODO
             segment_root_lookup={}, # TODO
             results=[o[0] for o in refine_outputs],
             auth_gas_used=auth_output.gas_used

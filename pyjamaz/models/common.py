@@ -526,7 +526,7 @@ class WorkPackageSpec(Serializable):
     @classmethod
     def create_from_work_package(cls,
                                  work_package: WorkPackage, extrinsic_data: List[bytes], imported_segments: List[bytes],
-                                 justification_data: List[bytes], exported_segments: List[bytes],
+                                 justification_data: List[bytes], exported_segments: List[bytes], exports_root: bytes
                                  ) -> "WorkPackageSpec":
         """
         GP-0.7.1-eq:14.17 function_A | creates an availability specifier from a workpackage
@@ -538,7 +538,7 @@ class WorkPackageSpec(Serializable):
             hash=work_package.hash(),
             length=work_package.to_jam_bytes().length,
             erasure_root=bytes(32),
-            exports_root=ConstantDepthMerkleTree(exported_segments).root(), #todo pass not calc
+            exports_root=exports_root,
             exports_count=len(exported_segments),
         )
 

@@ -4,6 +4,7 @@ from typing import Tuple, List, Type
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable, T
 from jamcodec.types import H256, Tuple as JamTuple, Vec, Bytes, Array, U8
+from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE
 
 from pyjamaz.models.block import Block, Header
 from pyjamaz.utils import log_execution_time
@@ -36,3 +37,9 @@ class Trace(Serializable):
 class TraceGenesis(Serializable):
     header: Header = field(metadata={'codec': Header.to_codec_def()})
     state: StateDump = field(metadata={'codec': StateDump.to_codec_def()})
+
+
+@dataclass
+class D3LItem(Serializable):
+    segment_root: bytes = field(metadata={'codec': H256})
+    segments: List[bytes] = field(metadata={'codec': Vec(Array(U8, EC_SEGMENT_SIZE))})
