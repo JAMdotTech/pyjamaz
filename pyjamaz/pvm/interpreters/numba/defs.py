@@ -350,7 +350,7 @@ def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
     raise Exception("read_uint: unsupported length")
 
 
-@njit(int32(
+@njit(types.Tuple((int32, uint64))(
     uint64,        # addr
     uint64,        # value
     uint8,         # bytes_to_write
@@ -361,10 +361,13 @@ def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
 ), cache=NUMBA_CACHE)
 def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays,
-                  section_access) -> I32:
+                  section_access) -> (I32, U64):
     """
-    Returns status:I32 where status==0 on success, -1 on fault.
+    Returns (status:I32, fault_addr:U64) where status==0 on success, -1 on fault.
+    fault_addr is set to the first failing byte address (page aligned) on fault.
     """
+    PAGE_MASK = U64(0xFFFFFFFFFFFFF000)  # Mask for page alignment (4096 = 0x1000)
+
     # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
     addr = addr & U32_MASK
 
@@ -374,18 +377,21 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
             idx = I32(i)
             break
     if idx < 0:
-        return I32(-1)
+        return I32(-1), addr & PAGE_MASK
 
     access = section_access[idx]
     if access >= 0 and access < MEM_W:
-        return I32(-1)
+        return I32(-1), addr & PAGE_MASK
 
     start = U64(section_starts[idx])
     off = addr - start
 
     a = section_arrays[idx]  # uint8[::1]
-    if off + U64(bytes_to_write) > U64(len(a)):
-        return I32(-1)
+    section_len = U64(len(a))
+    if off + U64(bytes_to_write) > section_len:
+        # First failing byte is at start + section_len
+        fault_addr = start + section_len
+        return I32(-1), fault_addr & PAGE_MASK
 
     # Mask value for <8 byte writes
     if bytes_to_write < U8(8):
@@ -415,9 +421,9 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
         a[base + 6] = U8((value >> U64(48)) & U64(0xFF))
         a[base + 7] = U8((value >> U64(56)) & U64(0xFF))
     else:
-        return I32(-1)
+        return I32(-1), addr & PAGE_MASK
 
-    return I32(0)
+    return I32(0), U64(0)
 
 
 @njit(types.Tuple((int32, uint64))(
@@ -432,8 +438,11 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
                  section_starts, section_ends, section_arrays,
                  section_access) -> (I32, U64):
     """
-    Returns (status:I32, value:U64) where status==0 on success, -1 on fault.
+    Returns (status:I32, value_or_fault:U64) where status==0 on success, -1 on fault.
+    On fault, second element is the page aligned fault address.
     """
+    PAGE_MASK = U64(0xFFFFFFFFFFFFF000)  # Mask for page alignment (4096 = 0x1000)
+
     # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
     addr = addr & U32_MASK
 
@@ -443,18 +452,21 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
             idx = I32(i)
             break
     if idx < 0:
-        return I32(-1), U64(0)
+        return I32(-1), addr & PAGE_MASK
 
     access = section_access[idx]
     if access >= 0 and access < MEM_R:
-        return I32(-1), U64(0)
+        return I32(-1), addr & PAGE_MASK
 
     start = U64(section_starts[idx])
     off = addr - start
 
     a = section_arrays[idx]  # uint8[::1] array
-    if off + U64(bytes_to_read) > U64(len(a)):
-        return I32(-1), U64(0)
+    section_len = U64(len(a))
+    if off + U64(bytes_to_read) > section_len:
+        # First failing byte is at start + section_len
+        fault_addr = start + section_len
+        return I32(-1), fault_addr & PAGE_MASK
     base = int(off)
 
     if bytes_to_read == U8(1):
