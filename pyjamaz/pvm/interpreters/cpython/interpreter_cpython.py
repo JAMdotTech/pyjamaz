@@ -399,11 +399,13 @@ class PVMInterpreter:
         section_offset = addr - self.mem_section_starts[section_idx]
 
         if self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_W:
+            self._mem_addr = addr - (addr % PVM_PAGE_SIZE)
             raise PVMMemoryError(f"Memory at address {addr} is not writable")
 
         # Check bounds against the actual section size (not paged_tail)
         # The section might be larger than paged_tail if it has been extended
         if section_offset + bytes_to_write > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
+            self._mem_addr = self.mem_section_ends[section_idx]
             raise PVMMemoryError(f"Memory write at {addr} would overflow section")
 
         # Apply modulus for values less than 8 bytes
@@ -439,9 +441,11 @@ class PVMInterpreter:
         section_offset = addr - self.mem_section_starts[section_idx]
 
         if section_offset + bytes_to_read > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
+            self._mem_addr = self.mem_section_ends[section_idx]
             raise PVMMemoryError(f"Memory read at {addr} would overflow section")
 
         if self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_R:
+            self._mem_addr = addr - (addr % PVM_PAGE_SIZE)
             raise PVMMemoryError(f"Memory at address {addr} is not writable")
 
         return read_uint(self.mv_sections[section_idx], section_offset, bytes_to_read)
@@ -596,7 +600,10 @@ class PVMInterpreter:
             except PVMMemoryError:
                 log_exc and log_exc(traceback.format_exc())
                 status = exit_page_fault
-                self.exit_value = self._mem_addr
+                fault_addr = self._mem_addr
+                if fault_addr is not None and fault_addr >= 0:
+                    fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
+                self.exit_value = fault_addr
                 skip_len = 0  # Don't skip on resume - re-execute the faulting instruction
                 break
             except PanicError:

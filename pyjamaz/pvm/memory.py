@@ -128,6 +128,14 @@ class PVMMemory:
             self._mem_addr = section.address + fault_page * PVM_PAGE_SIZE
             raise PVMMemoryError(f"Memory address {addr} ACL write check failed")
 
+        if section_addr + length > (section.paged_tail - section.address):
+            # Report the base of the first failing page (paged_tail is page aligned)
+            self._mem_addr = section.paged_tail
+            raise PVMMemoryError(
+                f"MemorySection {section.address + section_addr} overflow: {length} "
+                f"(tail: {section.paged_tail} - size: {section.size})"
+            )
+
         self._section = section
         self._section_addr = section_addr
 
@@ -156,6 +164,14 @@ class PVMMemory:
                 fault_page = section_addr // PVM_PAGE_SIZE
             self._mem_addr = section.address + fault_page * PVM_PAGE_SIZE
             raise PVMMemoryError(f"Memory address {addr} ACL read check failed")
+
+        if section_addr + length > (section.paged_tail - section.address):
+            # Report the base of the first failing page (paged_tail is page aligned)
+            self._mem_addr = section.paged_tail
+            raise PVMMemoryError(
+                f"MemorySection {section.address + section_addr} overflow: {length} "
+                f"(tail: {section.paged_tail} - size: {section.size})"
+            )
 
         self._section = section
         self._section_addr = section_addr
@@ -207,6 +223,11 @@ class PVMMemory:
 
         section_addr = (address - section.address)  #% section.size  #TODO: not sure if % necesarry?
         if section.acl is not None and not section.acl_check(section_addr, length, MEM_R):
+            # When an ACL check fails, report the base of the first failing page.
+            fault_page = section.acl_check_pages(section_addr, length, MEM_R)
+            if fault_page < 0:
+                fault_page = section_addr // PVM_PAGE_SIZE
+            self._mem_addr = section.address + fault_page * PVM_PAGE_SIZE
             raise PVMMemoryError(
                 f"Memory address {address} ACL read check failed (offset={section_addr}, len={length}, "
                 f"section_start={section.address}, paged_tail={section.paged_tail}, section_size={section.size})"
@@ -214,6 +235,7 @@ class PVMMemory:
 
         section_bytes = (section.size - section_addr)
         if section_bytes < length:
+            self._mem_addr = section.address + section.size
             raise PVMMemoryError(
                 f"Heap overflow {length} > {section_bytes} (offset={section_addr}, section_size={section.size}, "
                 f"section_start={section.address}, paged_tail={section.paged_tail})"
@@ -244,6 +266,11 @@ class PVMMemory:
 
         section_addr = (address - section.address) #% section.size  #TODO: not sure if % necesarry?
         if section.acl and not section.acl_check(section_addr, len(content), MEM_W):
+            # When an ACL check fails, report the base of the first failing page.
+            fault_page = section.acl_check_pages(section_addr, len(content), MEM_W)
+            if fault_page < 0:
+                fault_page = section_addr // PVM_PAGE_SIZE
+            self._mem_addr = section.address + fault_page * PVM_PAGE_SIZE
             raise PVMMemoryError(
                 f"Memory address {address} ACL check failed (offset={section_addr}, len={len(content)}, "
                 f"section_start={section.address}, paged_tail={section.paged_tail}, section_size={section.size})"
@@ -252,6 +279,7 @@ class PVMMemory:
         section_bytes = (section.size - section_addr)
 
         if section_bytes < len(content):
+            self._mem_addr = section.address + section.size
             raise PVMMemoryError(
                 f"Heap overflow {len(content)} > {section_bytes} (offset={section_addr}, section_size={section.size}, "
                 f"section_start={section.address}, paged_tail={section.paged_tail})"
