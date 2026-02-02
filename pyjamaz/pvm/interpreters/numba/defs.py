@@ -104,40 +104,58 @@ def roli32_jit(x: U32, shift_amount: U32) -> U32:
 @njit(int64(int64, int64), cache=NUMBA_CACHE)
 def pvm_smod_jit(a: I64, b: I64) -> I64:
     """
-    Signed modulo operation.
+    Signed modulo operation (truncated modulo).
     Returns a % b with sign of a preserved.
     Special case: if b == 0, returns a.
     """
     if b == 0:
         return a
 
-    if a >= 0:
-        if b >= 0:
-            return a % b
-        else:
-            return a % (-b)
-    else:
-        if b >= 0:
-            return -((-a) % b)
-        else:
-            return -((-a) % (-b))
+    # Python's % gives remainder with sign of divisor (b)
+    # For truncated modulo, we need sign of dividend (a)
+    r = a % b
+
+    # If remainder is non zero and has different sign from a, adjust
+    # For truncated modulo, remainder should have same sign as dividend (a)
+    # Pythons % gives sign of divisor (b), so we need to adjust
+    if r != I64(0):
+        if a < 0 and r > 0:
+            # r has wrong sign (positive), subtract |b| to make it negative
+            return r - b  # b is positive here, so r - b is more negative
+        elif a > 0 and r < 0:
+            # Since b is negative here, -b is positive, so r - b adds |b|
+            return r - b
+
+    return r
 
 
 @njit(int64(int64, int64), cache=NUMBA_CACHE)
 def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
     """
     Truncated division (rounds toward zero).
+    Uses floor division with adjustment to avoid overflow when negating INT64_MIN.
     """
     if a >= 0:
         if b > 0:
+            # Both positive: floor division = truncated division
             return a // b
         else:
-            return -(a // (-b))
+            # a >= 0, b < 0: result is negative or zero
+            # Floor division rounds toward -infinity, truncated rounds toward zero
+            # Need to add 1 if there's a remainder (to make result less negative)
+            q = a // b
+            return q + I64(1) if a % b != I64(0) else q
     else:
         if b > 0:
-            return -((-a) // b)
+            # a < 0, b > 0: result is negative
+            # Floor division rounds toward -infinity, truncated rounds toward zero
+            # Need to add 1 if there's a remainder (to make result less negative)
+            q = a // b
+            return q + I64(1) if a % b != I64(0) else q
         else:
-            return (-a) // (-b)
+            # Both negative: result is positive
+            # Floor division works correctly for positive results
+            return a // b
 
 
 @njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
@@ -363,13 +381,18 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
                   section_starts, section_ends, section_arrays,
                   section_access) -> (I32, U64):
     """
-    Returns (status:I32, fault_addr:U64) where status==0 on success, -1 on fault.
-    fault_addr is set to the first failing byte address (page aligned) on fault.
+    Returns (status:I32, fault_addr:U64) where status==0 on success, -1 on page fault, -2 on panic.
+    fault_addr is set to the first failing byte address (page aligned) on page fault.
+    GP-0.7.2-eq:A.7 - Addresses below 2^16 are invalid and cause panic.
     """
     PAGE_MASK = U64(0xFFFFFFFFFFFFF000)  # Mask for page alignment (4096 = 0x1000)
 
-    # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
+    # GP-??: addresses must wrap around 32-bit address space
     addr = addr & U32_MASK
+
+    # Check for invalid address (below 2^16)
+    if addr < U64(65536):
+        return I32(-2), U64(0)  # Panic - invalid address
 
     idx = I32(-1)
     for i in range(len(section_starts)):
@@ -438,12 +461,18 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
                  section_starts, section_ends, section_arrays,
                  section_access) -> (I32, U64):
     """
-    Returns (status:I32, value_or_fault:U64) where status==0 on success, -1 on fault.
-    On fault, second element is the page aligned fault address.
+    Returns (status:I32, value_or_fault:U64) where status==0 on success, -1 on page-fault, -2 on panic.
+    On success, second element is the read value.
+    On page fault, second element is the page aligned fault address.
+    GP-0.7.2-eq:A.7 - Addresses below 2^16 are invalid and cause panic.
     """
     PAGE_MASK = U64(0xFFFFFFFFFFFFF000)  # Mask for page alignment (4096 = 0x1000)
 
-    # GP: ⌊addr⌋_{2^32} - addresses must wrap around 32-bit address space
+    # Check for invalid address (below 2^16)
+    if addr < U64(65536):
+        return I32(-2), U64(0)  # Panic - invalid address
+
+    # GP-??: addresses must wrap around 32-bit address space
     addr = addr & U32_MASK
 
     idx = I32(-1)
@@ -488,4 +517,4 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
                         (U64(a[base + 6]) << U64(48)) |
                         (U64(a[base + 7]) << U64(56)))
     else:
-        return I32(-1), U64(0)
+        return I32(-1), addr & PAGE_MASK

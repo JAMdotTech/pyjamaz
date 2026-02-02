@@ -486,6 +486,7 @@ class PVMInterpreter:
                 if fault_addr is not None and fault_addr >= 0:
                     fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
                 self.exit_value = fault_addr
+                skip_len = 0  # Note: we shouldnt skip on resume and reexecute the faulting instruction
                 break
             except PanicError:
                 log_exc and log_exc(traceback.format_exc())
