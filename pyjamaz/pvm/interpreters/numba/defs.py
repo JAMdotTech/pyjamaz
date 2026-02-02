@@ -387,7 +387,7 @@ def mem_write_jit(addr: U64, value: U64, bytes_to_write: U8,
     """
     PAGE_MASK = U64(0xFFFFFFFFFFFFF000)  # Mask for page alignment (4096 = 0x1000)
 
-    # GP-??: addresses must wrap around 32-bit address space
+    # GP-??: addresses must wrap around 32bit address space
     addr = addr & U32_MASK
 
     # Check for invalid address (below 2^16)
@@ -472,7 +472,7 @@ def mem_read_jit(addr: U64, bytes_to_read: U8,
     if addr < U64(65536):
         return I32(-2), U64(0)  # Panic - invalid address
 
-    # GP-??: addresses must wrap around 32-bit address space
+    # GP-??: addresses must wrap around 32bit address space
     addr = addr & U32_MASK
 
     idx = I32(-1)

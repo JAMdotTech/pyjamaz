@@ -1079,7 +1079,7 @@ class PVMInterpreter:
             except PVMMemoryError:
                 self.log and self.log.exc(traceback.format_exc())
                 self.status = ExitReason.page_fault.value
-                # Align the fault address to page boundary: (address / pageSize) * pageSize
+                # Note: Align the fault address to page boundary: (address / pageSize) * pageSize
                 #self.exit_value = (self.mem._mem_addr // PVM_PAGE_SIZE) * PVM_PAGE_SIZE
                 fault_addr = self.mem._mem_addr
                 if fault_addr is not None and fault_addr >= 0:
