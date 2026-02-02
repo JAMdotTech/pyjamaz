@@ -566,12 +566,9 @@ def hc_transfer(
         logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
     # Process gas usage
-    gas_usage = t
-    if gas_usage > invocation_output.gas_limit:
-        # Note: keep gas negative (otherwise a int wrap around could make it positive again)
-        invocation_output.gas_limit = -1  # invocation_output.gas_limit - gas_usage
-    else:
-        invocation_output.gas_limit -= gas_usage
+    invocation_output.gas_limit -= t
+    if invocation_output.gas_limit < 0:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.out_of_gas)
 
 
 @hostcall(10)
