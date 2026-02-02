@@ -554,6 +554,15 @@ def hc_transfer(
         logger and logger.hc_log("TRANSFER CASH", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
     else:
+        t = l
+
+        # Process additional gas usage
+        invocation_output.gas_limit -= t
+        if invocation_output.gas_limit < 0:
+            invocation_output.exit_condition = ExitCondition(reason=ExitReason.out_of_gas)
+            logger and logger.hc_log("TRANSFER OOG", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
+            return
+
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
 
@@ -562,13 +571,7 @@ def hc_transfer(
 
         x.context.state_context.services.store_service_account(service_id, service_account)
 
-        t = l
         logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
-
-    # Process gas usage
-    invocation_output.gas_limit -= t
-    if invocation_output.gas_limit < 0:
-        invocation_output.exit_condition = ExitCondition(reason=ExitReason.out_of_gas)
 
 
 @hostcall(10)
