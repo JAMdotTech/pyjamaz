@@ -207,7 +207,7 @@
   
     
   
-  Types
+  Type Definitions
 
         </a>
       </li>
@@ -249,7 +249,7 @@
   
     
   
-  Graypaper
+  Graypaper References
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Types
+    Type Definitions
   </span>
   
 
@@ -716,7 +716,7 @@
         
   
   <span class="md-ellipsis">
-    Authorizer Queues (φ)
+    Authorizer Queues (𝜙)
   </span>
   
 
@@ -939,7 +939,7 @@
       
   
   <span class="md-ellipsis">
-    Graypaper
+    Graypaper References
   </span>
   
 
@@ -1091,87 +1091,142 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1551</span>
-<span class="normal">1552</span>
-<span class="normal">1553</span>
-<span class="normal">1554</span>
-<span class="normal">1555</span>
-<span class="normal">1556</span>
-<span class="normal">1557</span>
-<span class="normal">1558</span>
-<span class="normal">1559</span>
-<span class="normal">1560</span>
-<span class="normal">1561</span>
-<span class="normal">1562</span>
-<span class="normal">1563</span>
-<span class="normal">1564</span>
-<span class="normal">1565</span>
-<span class="normal">1566</span>
-<span class="normal">1567</span>
-<span class="normal">1568</span>
-<span class="normal">1569</span>
-<span class="normal">1570</span>
-<span class="normal">1571</span>
-<span class="normal">1572</span>
-<span class="normal">1573</span>
-<span class="normal">1574</span>
-<span class="normal">1575</span>
-<span class="normal">1576</span>
-<span class="normal">1577</span>
-<span class="normal">1578</span>
-<span class="normal">1579</span>
-<span class="normal">1580</span>
-<span class="normal">1581</span>
-<span class="normal">1582</span>
-<span class="normal">1583</span>
-<span class="normal">1584</span>
-<span class="normal">1585</span>
-<span class="normal">1586</span>
-<span class="normal">1587</span>
-<span class="normal">1588</span>
-<span class="normal">1589</span>
-<span class="normal">1590</span>
-<span class="normal">1591</span>
-<span class="normal">1592</span>
-<span class="normal">1593</span>
-<span class="normal">1594</span>
-<span class="normal">1595</span>
-<span class="normal">1596</span>
-<span class="normal">1597</span>
-<span class="normal">1598</span>
-<span class="normal">1599</span>
-<span class="normal">1600</span>
-<span class="normal">1601</span>
-<span class="normal">1602</span>
-<span class="normal">1603</span>
-<span class="normal">1604</span>
-<span class="normal">1605</span>
-<span class="normal">1606</span>
-<span class="normal">1607</span>
-<span class="normal">1608</span>
-<span class="normal">1609</span>
-<span class="normal">1610</span>
-<span class="normal">1611</span>
-<span class="normal">1612</span>
-<span class="normal">1613</span>
-<span class="normal">1614</span>
-<span class="normal">1615</span>
-<span class="normal">1616</span>
-<span class="normal">1617</span>
-<span class="normal">1618</span>
-<span class="normal">1619</span>
-<span class="normal">1620</span>
-<span class="normal">1621</span>
-<span class="normal">1622</span>
-<span class="normal">1623</span>
-<span class="normal">1624</span>
-<span class="normal">1625</span>
-<span class="normal">1626</span>
-<span class="normal">1627</span>
-<span class="normal">1628</span>
-<span class="normal">1629</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Statistics</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1633</span>
+<span class="normal">1634</span>
+<span class="normal">1635</span>
+<span class="normal">1636</span>
+<span class="normal">1637</span>
+<span class="normal">1638</span>
+<span class="normal">1639</span>
+<span class="normal">1640</span>
+<span class="normal">1641</span>
+<span class="normal">1642</span>
+<span class="normal">1643</span>
+<span class="normal">1644</span>
+<span class="normal">1645</span>
+<span class="normal">1646</span>
+<span class="normal">1647</span>
+<span class="normal">1648</span>
+<span class="normal">1649</span>
+<span class="normal">1650</span>
+<span class="normal">1651</span>
+<span class="normal">1652</span>
+<span class="normal">1653</span>
+<span class="normal">1654</span>
+<span class="normal">1655</span>
+<span class="normal">1656</span>
+<span class="normal">1657</span>
+<span class="normal">1658</span>
+<span class="normal">1659</span>
+<span class="normal">1660</span>
+<span class="normal">1661</span>
+<span class="normal">1662</span>
+<span class="normal">1663</span>
+<span class="normal">1664</span>
+<span class="normal">1665</span>
+<span class="normal">1666</span>
+<span class="normal">1667</span>
+<span class="normal">1668</span>
+<span class="normal">1669</span>
+<span class="normal">1670</span>
+<span class="normal">1671</span>
+<span class="normal">1672</span>
+<span class="normal">1673</span>
+<span class="normal">1674</span>
+<span class="normal">1675</span>
+<span class="normal">1676</span>
+<span class="normal">1677</span>
+<span class="normal">1678</span>
+<span class="normal">1679</span>
+<span class="normal">1680</span>
+<span class="normal">1681</span>
+<span class="normal">1682</span>
+<span class="normal">1683</span>
+<span class="normal">1684</span>
+<span class="normal">1685</span>
+<span class="normal">1686</span>
+<span class="normal">1687</span>
+<span class="normal">1688</span>
+<span class="normal">1689</span>
+<span class="normal">1690</span>
+<span class="normal">1691</span>
+<span class="normal">1692</span>
+<span class="normal">1693</span>
+<span class="normal">1694</span>
+<span class="normal">1695</span>
+<span class="normal">1696</span>
+<span class="normal">1697</span>
+<span class="normal">1698</span>
+<span class="normal">1699</span>
+<span class="normal">1700</span>
+<span class="normal">1701</span>
+<span class="normal">1702</span>
+<span class="normal">1703</span>
+<span class="normal">1704</span>
+<span class="normal">1705</span>
+<span class="normal">1706</span>
+<span class="normal">1707</span>
+<span class="normal">1708</span>
+<span class="normal">1709</span>
+<span class="normal">1710</span>
+<span class="normal">1711</span>
+<span class="normal">1712</span>
+<span class="normal">1713</span>
+<span class="normal">1714</span>
+<span class="normal">1715</span>
+<span class="normal">1716</span>
+<span class="normal">1717</span>
+<span class="normal">1718</span>
+<span class="normal">1719</span>
+<span class="normal">1720</span>
+<span class="normal">1721</span>
+<span class="normal">1722</span>
+<span class="normal">1723</span>
+<span class="normal">1724</span>
+<span class="normal">1725</span>
+<span class="normal">1726</span>
+<span class="normal">1727</span>
+<span class="normal">1728</span>
+<span class="normal">1729</span>
+<span class="normal">1730</span>
+<span class="normal">1731</span>
+<span class="normal">1732</span>
+<span class="normal">1733</span>
+<span class="normal">1734</span>
+<span class="normal">1735</span>
+<span class="normal">1736</span>
+<span class="normal">1737</span>
+<span class="normal">1738</span>
+<span class="normal">1739</span>
+<span class="normal">1740</span>
+<span class="normal">1741</span>
+<span class="normal">1742</span>
+<span class="normal">1743</span>
+<span class="normal">1744</span>
+<span class="normal">1745</span>
+<span class="normal">1746</span>
+<span class="normal">1747</span>
+<span class="normal">1748</span>
+<span class="normal">1749</span>
+<span class="normal">1750</span>
+<span class="normal">1751</span>
+<span class="normal">1752</span>
+<span class="normal">1753</span>
+<span class="normal">1754</span>
+<span class="normal">1755</span>
+<span class="normal">1756</span>
+<span class="normal">1757</span>
+<span class="normal">1758</span>
+<span class="normal">1759</span>
+<span class="normal">1760</span>
+<span class="normal">1761</span>
+<span class="normal">1762</span>
+<span class="normal">1763</span>
+<span class="normal">1764</span>
+<span class="normal">1765</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Statistics</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">13</span>
 
+    <span class="nd">@log_execution_time</span>
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
@@ -1185,40 +1240,42 @@
             <span class="n">header</span><span class="p">:</span> <span class="n">Header</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatisticsOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.5.0-eq:13.3,13.4 (π&#39;) | State transition function for the state&#39;s statistics.</span>
+<span class="sd">        GP-0.7.2-eq:13.4,13.5,13.8,13.12 (π&#39;) | State transition function for the state&#39;s statistics.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">            GP-0.5.0-eq:4.20 (bold_E_G)</span>
+<span class="sd">            GP-0.7.2-eq:4.20 (bold_E_G)</span>
 <span class="sd">        extrinsic_preimages: List[Preimage]</span>
-<span class="sd">            GP-0.5.0-eq:4.20 (bold_E_P)</span>
+<span class="sd">            GP-0.7.2-eq:4.20 (bold_E_P)</span>
 <span class="sd">        extrinsic_assurances: List[Assurance]</span>
-<span class="sd">            GP-0.5.0-eq:4.20 (bold_E_A)</span>
+<span class="sd">            GP-0.7.2-eq:4.20 (bold_E_A)</span>
 <span class="sd">        extrinsic_tickets: List[TicketEnvelope]</span>
-<span class="sd">            GP-0.5.0-eq:4.20 (bold_E_T)</span>
+<span class="sd">            GP-0.7.2-eq:4.20 (bold_E_T)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
-<span class="sd">            GP-0.5.0-eq:4.20 (τ)</span>
+<span class="sd">            GP-0.7.2-eq:4.20 (τ)</span>
 <span class="sd">        post_state_timeslot: TimeslotState</span>
-<span class="sd">            GP-0.5.0-eq:4.20 (τ&#39;)</span>
+<span class="sd">            GP-0.7.2-eq:4.20 (τ&#39;)</span>
 <span class="sd">        post_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            GP-0.5.0-eq:4.20 (κ&#39;)</span>
+<span class="sd">            GP-0.7.2-eq:4.20 (κ&#39;)</span>
 <span class="sd">        pre_state_statistics: StatisticsState</span>
-<span class="sd">            GP-0.5.0-eq:4.20 (π)</span>
+<span class="sd">            GP-0.7.2-eq:4.20 (π)</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            GP-0.5.0-eq:4.20 (bold_H)</span>
+<span class="sd">            GP-0.7.2-eq:4.20 (bold_H)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        StatisticsOutput</span>
 <span class="sd">            Output containing: Posterior state of StatisticsState (π&#39;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># TODO: check input parameters: remove tau_prime and add bold_S</span>
+
         <span class="n">post_state</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_statistics</span><span class="p">)</span>
 
-        <span class="c1"># GP-0.5.0-eq:13.3</span>
+        <span class="c1"># GP-0.7.2-eq:13.4 | Shift statistics after epoch change</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-            <span class="n">post_state</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="n">post_state</span><span class="o">.</span><span class="n">current</span>
-            <span class="n">post_state</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="p">[</span><span class="n">ActivityRecord</span><span class="p">(</span>
+            <span class="n">post_state</span><span class="o">.</span><span class="n">vals_last</span> <span class="o">=</span> <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span>
+            <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span> <span class="o">=</span> <span class="p">[</span><span class="n">ActivityRecord</span><span class="p">(</span>
                 <span class="n">blocks</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
                 <span class="n">tickets</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
                 <span class="n">pre_images</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
@@ -1227,23 +1284,74 @@
                 <span class="n">assurances</span><span class="o">=</span><span class="mi">0</span>
             <span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gp_const</span><span class="o">.</span><span class="n">VALIDATOR_COUNT</span><span class="p">)]</span>
 
-        <span class="c1"># GP-0.5.0-eq:13.4</span>
-        <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">blocks</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">tickets</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">)</span>
-        <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">pre_images</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_preimages</span><span class="p">)</span>
-        <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">pre_images_size</span> <span class="o">+=</span> <span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">blob</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">extrinsic_preimages</span><span class="p">])</span>
+        <span class="c1"># GP-0.7.2-eq:13.5 | Update validator stats</span>
+        <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">blocks</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">tickets</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">)</span>
+        <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">pre_images</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_preimages</span><span class="p">)</span>
+        <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">pre_images_size</span> <span class="o">+=</span> <span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">blob</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">extrinsic_preimages</span><span class="p">])</span>
 
         <span class="k">for</span> <span class="n">assurance</span> <span class="ow">in</span> <span class="n">extrinsic_assurances</span><span class="p">:</span>
-            <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">assurance</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">assurances</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">assurance</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">assurances</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="c1"># TODO replace with bold_R (self.block_context.reporters)</span>
-        <span class="k">for</span> <span class="n">guarantee</span> <span class="ow">in</span> <span class="n">extrinsic_guarantees</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">signature</span> <span class="ow">in</span> <span class="n">guarantee</span><span class="o">.</span><span class="n">signatures</span><span class="p">:</span>
-                <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">signature</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">guarantees</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">reporter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_context</span><span class="o">.</span><span class="n">reporters</span><span class="p">:</span>
+            <span class="n">val_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve_validator_index</span><span class="p">(</span><span class="n">reporter</span><span class="p">,</span> <span class="n">post_state_validator_pool</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">val_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">val_index</span><span class="p">]</span><span class="o">.</span><span class="n">guarantees</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">incoming_work_reports</span> <span class="o">=</span> <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">report</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">extrinsic_guarantees</span><span class="p">]</span>
+
+        <span class="c1"># GP-0.7.2-eq:13.8 | Update core statistics</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gp_const</span><span class="o">.</span><span class="n">CORE_COUNT</span><span class="p">):</span>
+            <span class="n">post_state</span><span class="o">.</span><span class="n">cores</span><span class="p">[</span><span class="n">c</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="n">core_index</span><span class="o">=</span><span class="n">c</span><span class="p">,</span>
+                <span class="n">incoming_work_reports</span><span class="o">=</span><span class="n">incoming_work_reports</span><span class="p">,</span>
+                <span class="n">available_work_reports</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">block_context</span><span class="o">.</span><span class="n">available_work_reports</span><span class="p">,</span>
+                <span class="n">extrinsic_assurances</span><span class="o">=</span><span class="n">extrinsic_assurances</span>
+            <span class="p">)</span>
+
+        <span class="n">post_state</span><span class="o">.</span><span class="n">services</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># GP-0.7.2-eq:13.12 | Determine affected services</span>
+        <span class="n">services</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">service_id</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">incoming_work_reports</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">w</span><span class="o">.</span><span class="n">results</span><span class="p">]</span>
+        <span class="n">services</span> <span class="o">+=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">requester</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">extrinsic_preimages</span><span class="p">]</span>
+        <span class="n">services</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_context</span><span class="o">.</span><span class="n">accumulation_statistics</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+
+        <span class="c1"># GP-0.7.2-eq:13.7 | Update service statistics</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">services</span><span class="p">)):</span>
+            <span class="n">activity_record</span> <span class="o">=</span> <span class="n">ServiceActivityRecord</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">extrinsic_preimages</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requester</span> <span class="o">==</span> <span class="n">s</span><span class="p">:</span>
+                    <span class="n">activity_record</span><span class="o">.</span><span class="n">provided_count</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">activity_record</span><span class="o">.</span><span class="n">provided_size</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">blob</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">incoming_work_reports</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">w</span><span class="o">.</span><span class="n">results</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">service_id</span> <span class="o">==</span> <span class="n">s</span><span class="p">:</span>
+                        <span class="n">activity_record</span><span class="o">.</span><span class="n">refinement_count</span> <span class="o">+=</span> <span class="mi">1</span>
+                        <span class="n">activity_record</span><span class="o">.</span><span class="n">refinement_gas_used</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">gas_used</span>
+                        <span class="n">activity_record</span><span class="o">.</span><span class="n">imports</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">imports</span>
+                        <span class="n">activity_record</span><span class="o">.</span><span class="n">extrinsic_count</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">extrinsic_count</span>
+                        <span class="n">activity_record</span><span class="o">.</span><span class="n">extrinsic_size</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">extrinsic_size</span>
+                        <span class="n">activity_record</span><span class="o">.</span><span class="n">exports</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">exports</span>
+
+            <span class="n">accumulation_stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_context</span><span class="o">.</span><span class="n">accumulation_statistics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">accumulation_stats</span><span class="p">:</span>
+                <span class="n">activity_record</span><span class="o">.</span><span class="n">accumulate_count</span> <span class="o">+=</span> <span class="n">accumulation_stats</span><span class="o">.</span><span class="n">nr_work_reports_accumulated</span>
+                <span class="n">activity_record</span><span class="o">.</span><span class="n">accumulate_gas_used</span> <span class="o">+=</span> <span class="n">accumulation_stats</span><span class="o">.</span><span class="n">total_gas_utilized</span>
+
+            <span class="n">post_state</span><span class="o">.</span><span class="n">services</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">activity_record</span>
 
         <span class="k">return</span> <span class="n">StatisticsOutput</span><span class="p">(</span>
             <span class="n">post_state</span><span class="o">=</span><span class="n">post_state</span>
         <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">retrieve_validator_index</span><span class="p">(</span><span class="n">ed25519_key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">post_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">validator_index</span><span class="p">,</span> <span class="n">validator_data</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">post_validator_pool</span><span class="o">.</span><span class="n">validators</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">validator_data</span><span class="o">.</span><span class="n">ed25519</span> <span class="o">==</span> <span class="n">ed25519_key</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">validator_index</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
 
     <span class="k">def</span> <span class="nf">retrieve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatisticsState</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">()</span>
@@ -1274,7 +1382,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.5.0-eq:13.3,13.4 (π') | State transition function for the state's statistics.</p>
+        <p>GP-0.7.2-eq:13.4,13.5,13.8,13.12 (π') | State transition function for the state's statistics.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1295,7 +1403,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (bold_E_G)</p>
+                <p>GP-0.7.2-eq:4.20 (bold_E_G)</p>
               </div>
             </td>
             <td>
@@ -1309,7 +1417,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (bold_E_P)</p>
+                <p>GP-0.7.2-eq:4.20 (bold_E_P)</p>
               </div>
             </td>
             <td>
@@ -1323,7 +1431,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (bold_E_A)</p>
+                <p>GP-0.7.2-eq:4.20 (bold_E_A)</p>
               </div>
             </td>
             <td>
@@ -1337,7 +1445,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (bold_E_T)</p>
+                <p>GP-0.7.2-eq:4.20 (bold_E_T)</p>
               </div>
             </td>
             <td>
@@ -1351,7 +1459,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (τ)</p>
+                <p>GP-0.7.2-eq:4.20 (τ)</p>
               </div>
             </td>
             <td>
@@ -1365,7 +1473,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (τ')</p>
+                <p>GP-0.7.2-eq:4.20 (τ')</p>
               </div>
             </td>
             <td>
@@ -1379,7 +1487,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (κ')</p>
+                <p>GP-0.7.2-eq:4.20 (κ')</p>
               </div>
             </td>
             <td>
@@ -1393,7 +1501,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (π)</p>
+                <p>GP-0.7.2-eq:4.20 (π)</p>
               </div>
             </td>
             <td>
@@ -1407,7 +1515,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (bold_H)</p>
+                <p>GP-0.7.2-eq:4.20 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1442,78 +1550,125 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1554</span>
-<span class="normal">1555</span>
-<span class="normal">1556</span>
-<span class="normal">1557</span>
-<span class="normal">1558</span>
-<span class="normal">1559</span>
-<span class="normal">1560</span>
-<span class="normal">1561</span>
-<span class="normal">1562</span>
-<span class="normal">1563</span>
-<span class="normal">1564</span>
-<span class="normal">1565</span>
-<span class="normal">1566</span>
-<span class="normal">1567</span>
-<span class="normal">1568</span>
-<span class="normal">1569</span>
-<span class="normal">1570</span>
-<span class="normal">1571</span>
-<span class="normal">1572</span>
-<span class="normal">1573</span>
-<span class="normal">1574</span>
-<span class="normal">1575</span>
-<span class="normal">1576</span>
-<span class="normal">1577</span>
-<span class="normal">1578</span>
-<span class="normal">1579</span>
-<span class="normal">1580</span>
-<span class="normal">1581</span>
-<span class="normal">1582</span>
-<span class="normal">1583</span>
-<span class="normal">1584</span>
-<span class="normal">1585</span>
-<span class="normal">1586</span>
-<span class="normal">1587</span>
-<span class="normal">1588</span>
-<span class="normal">1589</span>
-<span class="normal">1590</span>
-<span class="normal">1591</span>
-<span class="normal">1592</span>
-<span class="normal">1593</span>
-<span class="normal">1594</span>
-<span class="normal">1595</span>
-<span class="normal">1596</span>
-<span class="normal">1597</span>
-<span class="normal">1598</span>
-<span class="normal">1599</span>
-<span class="normal">1600</span>
-<span class="normal">1601</span>
-<span class="normal">1602</span>
-<span class="normal">1603</span>
-<span class="normal">1604</span>
-<span class="normal">1605</span>
-<span class="normal">1606</span>
-<span class="normal">1607</span>
-<span class="normal">1608</span>
-<span class="normal">1609</span>
-<span class="normal">1610</span>
-<span class="normal">1611</span>
-<span class="normal">1612</span>
-<span class="normal">1613</span>
-<span class="normal">1614</span>
-<span class="normal">1615</span>
-<span class="normal">1616</span>
-<span class="normal">1617</span>
-<span class="normal">1618</span>
-<span class="normal">1619</span>
-<span class="normal">1620</span>
-<span class="normal">1621</span>
-<span class="normal">1622</span>
-<span class="normal">1623</span>
-<span class="normal">1624</span>
-<span class="normal">1625</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1636</span>
+<span class="normal">1637</span>
+<span class="normal">1638</span>
+<span class="normal">1639</span>
+<span class="normal">1640</span>
+<span class="normal">1641</span>
+<span class="normal">1642</span>
+<span class="normal">1643</span>
+<span class="normal">1644</span>
+<span class="normal">1645</span>
+<span class="normal">1646</span>
+<span class="normal">1647</span>
+<span class="normal">1648</span>
+<span class="normal">1649</span>
+<span class="normal">1650</span>
+<span class="normal">1651</span>
+<span class="normal">1652</span>
+<span class="normal">1653</span>
+<span class="normal">1654</span>
+<span class="normal">1655</span>
+<span class="normal">1656</span>
+<span class="normal">1657</span>
+<span class="normal">1658</span>
+<span class="normal">1659</span>
+<span class="normal">1660</span>
+<span class="normal">1661</span>
+<span class="normal">1662</span>
+<span class="normal">1663</span>
+<span class="normal">1664</span>
+<span class="normal">1665</span>
+<span class="normal">1666</span>
+<span class="normal">1667</span>
+<span class="normal">1668</span>
+<span class="normal">1669</span>
+<span class="normal">1670</span>
+<span class="normal">1671</span>
+<span class="normal">1672</span>
+<span class="normal">1673</span>
+<span class="normal">1674</span>
+<span class="normal">1675</span>
+<span class="normal">1676</span>
+<span class="normal">1677</span>
+<span class="normal">1678</span>
+<span class="normal">1679</span>
+<span class="normal">1680</span>
+<span class="normal">1681</span>
+<span class="normal">1682</span>
+<span class="normal">1683</span>
+<span class="normal">1684</span>
+<span class="normal">1685</span>
+<span class="normal">1686</span>
+<span class="normal">1687</span>
+<span class="normal">1688</span>
+<span class="normal">1689</span>
+<span class="normal">1690</span>
+<span class="normal">1691</span>
+<span class="normal">1692</span>
+<span class="normal">1693</span>
+<span class="normal">1694</span>
+<span class="normal">1695</span>
+<span class="normal">1696</span>
+<span class="normal">1697</span>
+<span class="normal">1698</span>
+<span class="normal">1699</span>
+<span class="normal">1700</span>
+<span class="normal">1701</span>
+<span class="normal">1702</span>
+<span class="normal">1703</span>
+<span class="normal">1704</span>
+<span class="normal">1705</span>
+<span class="normal">1706</span>
+<span class="normal">1707</span>
+<span class="normal">1708</span>
+<span class="normal">1709</span>
+<span class="normal">1710</span>
+<span class="normal">1711</span>
+<span class="normal">1712</span>
+<span class="normal">1713</span>
+<span class="normal">1714</span>
+<span class="normal">1715</span>
+<span class="normal">1716</span>
+<span class="normal">1717</span>
+<span class="normal">1718</span>
+<span class="normal">1719</span>
+<span class="normal">1720</span>
+<span class="normal">1721</span>
+<span class="normal">1722</span>
+<span class="normal">1723</span>
+<span class="normal">1724</span>
+<span class="normal">1725</span>
+<span class="normal">1726</span>
+<span class="normal">1727</span>
+<span class="normal">1728</span>
+<span class="normal">1729</span>
+<span class="normal">1730</span>
+<span class="normal">1731</span>
+<span class="normal">1732</span>
+<span class="normal">1733</span>
+<span class="normal">1734</span>
+<span class="normal">1735</span>
+<span class="normal">1736</span>
+<span class="normal">1737</span>
+<span class="normal">1738</span>
+<span class="normal">1739</span>
+<span class="normal">1740</span>
+<span class="normal">1741</span>
+<span class="normal">1742</span>
+<span class="normal">1743</span>
+<span class="normal">1744</span>
+<span class="normal">1745</span>
+<span class="normal">1746</span>
+<span class="normal">1747</span>
+<span class="normal">1748</span>
+<span class="normal">1749</span>
+<span class="normal">1750</span>
+<span class="normal">1751</span>
+<span class="normal">1752</span>
+<span class="normal">1753</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@log_execution_time</span>
+<span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
         <span class="n">extrinsic_preimages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Preimage</span><span class="p">],</span>
@@ -1526,40 +1681,42 @@
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatisticsOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:13.3,13.4 (π&#39;) | State transition function for the state&#39;s statistics.</span>
+<span class="sd">    GP-0.7.2-eq:13.4,13.5,13.8,13.12 (π&#39;) | State transition function for the state&#39;s statistics.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (bold_E_G)</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (bold_E_G)</span>
 <span class="sd">    extrinsic_preimages: List[Preimage]</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (bold_E_P)</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (bold_E_P)</span>
 <span class="sd">    extrinsic_assurances: List[Assurance]</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (bold_E_A)</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (bold_E_A)</span>
 <span class="sd">    extrinsic_tickets: List[TicketEnvelope]</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (bold_E_T)</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (bold_E_T)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (τ)</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (τ)</span>
 <span class="sd">    post_state_timeslot: TimeslotState</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (τ&#39;)</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (τ&#39;)</span>
 <span class="sd">    post_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (κ&#39;)</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (κ&#39;)</span>
 <span class="sd">    pre_state_statistics: StatisticsState</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (π)</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (π)</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (bold_H)</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (bold_H)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    StatisticsOutput</span>
 <span class="sd">        Output containing: Posterior state of StatisticsState (π&#39;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># TODO: check input parameters: remove tau_prime and add bold_S</span>
+
     <span class="n">post_state</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_statistics</span><span class="p">)</span>
 
-    <span class="c1"># GP-0.5.0-eq:13.3</span>
+    <span class="c1"># GP-0.7.2-eq:13.4 | Shift statistics after epoch change</span>
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-        <span class="n">post_state</span><span class="o">.</span><span class="n">last</span> <span class="o">=</span> <span class="n">post_state</span><span class="o">.</span><span class="n">current</span>
-        <span class="n">post_state</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="p">[</span><span class="n">ActivityRecord</span><span class="p">(</span>
+        <span class="n">post_state</span><span class="o">.</span><span class="n">vals_last</span> <span class="o">=</span> <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span>
+        <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span> <span class="o">=</span> <span class="p">[</span><span class="n">ActivityRecord</span><span class="p">(</span>
             <span class="n">blocks</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
             <span class="n">tickets</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
             <span class="n">pre_images</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
@@ -1568,19 +1725,62 @@
             <span class="n">assurances</span><span class="o">=</span><span class="mi">0</span>
         <span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gp_const</span><span class="o">.</span><span class="n">VALIDATOR_COUNT</span><span class="p">)]</span>
 
-    <span class="c1"># GP-0.5.0-eq:13.4</span>
-    <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">blocks</span> <span class="o">+=</span> <span class="mi">1</span>
-    <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">tickets</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">)</span>
-    <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">pre_images</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_preimages</span><span class="p">)</span>
-    <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">pre_images_size</span> <span class="o">+=</span> <span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">blob</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">extrinsic_preimages</span><span class="p">])</span>
+    <span class="c1"># GP-0.7.2-eq:13.5 | Update validator stats</span>
+    <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">blocks</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">tickets</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_tickets</span><span class="p">)</span>
+    <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">pre_images</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">extrinsic_preimages</span><span class="p">)</span>
+    <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">header</span><span class="o">.</span><span class="n">author_index</span><span class="p">]</span><span class="o">.</span><span class="n">pre_images_size</span> <span class="o">+=</span> <span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">blob</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">extrinsic_preimages</span><span class="p">])</span>
 
     <span class="k">for</span> <span class="n">assurance</span> <span class="ow">in</span> <span class="n">extrinsic_assurances</span><span class="p">:</span>
-        <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">assurance</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">assurances</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">assurance</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">assurances</span> <span class="o">+=</span> <span class="mi">1</span>
 
-    <span class="c1"># TODO replace with bold_R (self.block_context.reporters)</span>
-    <span class="k">for</span> <span class="n">guarantee</span> <span class="ow">in</span> <span class="n">extrinsic_guarantees</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">signature</span> <span class="ow">in</span> <span class="n">guarantee</span><span class="o">.</span><span class="n">signatures</span><span class="p">:</span>
-            <span class="n">post_state</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="n">signature</span><span class="o">.</span><span class="n">validator_index</span><span class="p">]</span><span class="o">.</span><span class="n">guarantees</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">reporter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_context</span><span class="o">.</span><span class="n">reporters</span><span class="p">:</span>
+        <span class="n">val_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve_validator_index</span><span class="p">(</span><span class="n">reporter</span><span class="p">,</span> <span class="n">post_state_validator_pool</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">val_index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">post_state</span><span class="o">.</span><span class="n">vals_current</span><span class="p">[</span><span class="n">val_index</span><span class="p">]</span><span class="o">.</span><span class="n">guarantees</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">incoming_work_reports</span> <span class="o">=</span> <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">report</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">extrinsic_guarantees</span><span class="p">]</span>
+
+    <span class="c1"># GP-0.7.2-eq:13.8 | Update core statistics</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gp_const</span><span class="o">.</span><span class="n">CORE_COUNT</span><span class="p">):</span>
+        <span class="n">post_state</span><span class="o">.</span><span class="n">cores</span><span class="p">[</span><span class="n">c</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="n">core_index</span><span class="o">=</span><span class="n">c</span><span class="p">,</span>
+            <span class="n">incoming_work_reports</span><span class="o">=</span><span class="n">incoming_work_reports</span><span class="p">,</span>
+            <span class="n">available_work_reports</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">block_context</span><span class="o">.</span><span class="n">available_work_reports</span><span class="p">,</span>
+            <span class="n">extrinsic_assurances</span><span class="o">=</span><span class="n">extrinsic_assurances</span>
+        <span class="p">)</span>
+
+    <span class="n">post_state</span><span class="o">.</span><span class="n">services</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># GP-0.7.2-eq:13.12 | Determine affected services</span>
+    <span class="n">services</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">service_id</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">incoming_work_reports</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">w</span><span class="o">.</span><span class="n">results</span><span class="p">]</span>
+    <span class="n">services</span> <span class="o">+=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">requester</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">extrinsic_preimages</span><span class="p">]</span>
+    <span class="n">services</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_context</span><span class="o">.</span><span class="n">accumulation_statistics</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+
+    <span class="c1"># GP-0.7.2-eq:13.7 | Update service statistics</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">services</span><span class="p">)):</span>
+        <span class="n">activity_record</span> <span class="o">=</span> <span class="n">ServiceActivityRecord</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">extrinsic_preimages</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requester</span> <span class="o">==</span> <span class="n">s</span><span class="p">:</span>
+                <span class="n">activity_record</span><span class="o">.</span><span class="n">provided_count</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">activity_record</span><span class="o">.</span><span class="n">provided_size</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">blob</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">incoming_work_reports</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">w</span><span class="o">.</span><span class="n">results</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">service_id</span> <span class="o">==</span> <span class="n">s</span><span class="p">:</span>
+                    <span class="n">activity_record</span><span class="o">.</span><span class="n">refinement_count</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">activity_record</span><span class="o">.</span><span class="n">refinement_gas_used</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">gas_used</span>
+                    <span class="n">activity_record</span><span class="o">.</span><span class="n">imports</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">imports</span>
+                    <span class="n">activity_record</span><span class="o">.</span><span class="n">extrinsic_count</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">extrinsic_count</span>
+                    <span class="n">activity_record</span><span class="o">.</span><span class="n">extrinsic_size</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">extrinsic_size</span>
+                    <span class="n">activity_record</span><span class="o">.</span><span class="n">exports</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">refine_load</span><span class="o">.</span><span class="n">exports</span>
+
+        <span class="n">accumulation_stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_context</span><span class="o">.</span><span class="n">accumulation_statistics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">accumulation_stats</span><span class="p">:</span>
+            <span class="n">activity_record</span><span class="o">.</span><span class="n">accumulate_count</span> <span class="o">+=</span> <span class="n">accumulation_stats</span><span class="o">.</span><span class="n">nr_work_reports_accumulated</span>
+            <span class="n">activity_record</span><span class="o">.</span><span class="n">accumulate_gas_used</span> <span class="o">+=</span> <span class="n">accumulation_stats</span><span class="o">.</span><span class="n">total_gas_utilized</span>
+
+        <span class="n">post_state</span><span class="o">.</span><span class="n">services</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">activity_record</span>
 
     <span class="k">return</span> <span class="n">StatisticsOutput</span><span class="p">(</span>
         <span class="n">post_state</span><span class="o">=</span><span class="n">post_state</span>
@@ -1720,10 +1920,6 @@
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
-      
-        <script src="../../javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

@@ -207,7 +207,7 @@
   
     
   
-  Types
+  Type Definitions
 
         </a>
       </li>
@@ -249,7 +249,7 @@
   
     
   
-  Graypaper
+  Graypaper References
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Types
+    Type Definitions
   </span>
   
 
@@ -564,7 +564,7 @@
             
   
   <span class="md-ellipsis">
-    Graypaper
+    Graypaper References
   </span>
   
 
@@ -574,7 +574,7 @@
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
-            Graypaper
+            Graypaper References
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -1506,285 +1506,28 @@
   
 
 
-<p><span class="arithmatex">\( \newcommand\eg{e.g.\@\xspace}
- \newcommand\Eg{E.g.\@\xspace}
- \newcommand\ie{i.e.\@\xspace}
- \newcommand\Ie{I.e.\@\xspace}
- %\newcommand\etc{\&amp;c.\@\xspace}
- \newcommand\nb{\textsc{nb}\@\xspace}
- \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\,\mathsf{R}\,}
- \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
- \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
- \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
- \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
- \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
- \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
- \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
- \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
- \newcommand{\token}[1]{\text{#1}} %%
- \renewcommand{\H}{\mathbb{H}}
- \newcommand{\N}{\mathbb{N}}
- \newcommand{\Y}{\mathbb{Y}}
- \newcommand{\Z}{\mathbb{Z}}
- \newcommand{\G}{\mathbb{G}}
- %\newcommand{\orderedin}{\ensuremath{\mathrel{\mathrlap{&lt;}{\scalebox{0.95}[1]{$-$}}}}}
- \newcommand{\using}{\text{let }}
- \newcommand{\where}{ \text{where }}
- \newcommand{\also}{ \text{and }}
- \newcommand{\otherwise}{\text{otherwise}}
- \newcommand{\otherwhen}{\text{otherwise if }}
- \newcommand{\when}{\text{if }}
- \newcommand{\exc}{\text{except }}
- \newcommand{\oog}{\infty}
- \newcommand{\error}{\nabla}
- \newcommand{\panic}{\lightning}
- \newcommand{\badexports}{\circledcirc}
- \newcommand{\host}{\hbar}
- \newcommand{\halt}{\blacksquare}
- \newcommand{\fault}{\text{\raisebox{6pt}{\rotatebox{180}{\textsf{F}}}}}
- \newcommand{\none}{\emptyset}\newcommand{\subifnone}{\mathcal{U}}
- \newcommand{\disjoint}{\downspoon}
- \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
- \newcommand{\suchthat}{\text{ such that }}
- \newcommand{\keys}[1]{\mathcal{K}(#1)}
- %\let\originalleft\left
- %\let\originalright\right
- \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
- \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\updownarrow#1}
- %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
- \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
- \newcommand{\se}{\mathcal{E}}
- \newcommand{\de}{\mathcal{E}^{-1}}
- \newcommand{\is}[2]{#1\tricolon#2}
- \newcommand{\isa}[2]{#1\in #2}
- \newcommand{\ts}{,\,}
- \newcommand{\lseq}{[} %%
- \newcommand{\rseq}{]} %%
- \newcommand{\ltup}{(} %%
- \newcommand{\rtup}{)} %%
- %\newcommand{\ltuple}{\!\left\lgroup}
- %\newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\bm}{} %%
- \newcommand{\ltuple}{(} %%
- \newcommand{\rtuple}{)} %%
- \newcommand{\sq}[1]{[#1]]}
- \newcommand{\seq}[1]{[#1]}
- \newcommand{\tup}[1]{(#1)}
- \newcommand{\tuple}[1]{(#1)}
- \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
- \newcommand{\ceil}[1]{\lceil#1\rceil} %%
- \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
- \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
- \newcommand{\transpose}{{}^\text{T}}
- \newcommand{\joined}{\wideparen}
- \newcommand{\ang}[1]{\langle#1\rangle}
- \newcommand{\goodset}{\psi_\mathbf{g}}
- \newcommand{\badset}{\psi_\mathbf{b}}
- \newcommand{\wonkyset}{\psi_\mathbf{w}}
- \newcommand{\offenders}{\psi_\mathbf{o}}
- \newcommand{\xttickets}{\mathbf{E}_T}
- \newcommand{\xtdisputes}{\mathbf{E}_D}
- \newcommand{\xtguarantees}{\mathbf{E}_G}
- \newcommand{\xtassurances}{\mathbf{E}_A}
- \newcommand{\xtpreimages}{\mathbf{E}_P}
- \newcommand{\accumulated}{\xi}
- \newcommand{\ready}{\vartheta}
- \newcommand{\partialstate}{\mathbb{U}}
- \newcommand{\defxfer}{\mathbb{T}}
- \newcommand{\defxfers}{\seq{\defxfer}}
- \newcommand{\beefycommitmap}{\mathbf{C}}
- \newcommand{\accountspre}{\delta}
- \newcommand{\accountspostacc}{\delta^\dagger}
- \newcommand{\accountspostxfer}{\delta^\ddagger}
- \newcommand{\accountspostpreimage}{\delta'}
- \newcommand{\gascounter}{\varrho}
- \newcommand{\registers}{\omega}
- \newcommand{\memory}{\mu}
- \newcommand{\concat}{\frown} %%!!
- \)</span>
-<span class="arithmatex">\( \newcommand{\newavailabilityspecifier}{A}
- \newcommand{\itemtoresult}{C}
- \newcommand{\countupexports}{I}
- \newcommand{\importsegmentdata}{S}
- \newcommand{\justifysegmentdata}{J}
- \newcommand{\pagedproofs}{P}
- \newcommand{\marshallrefine}{R}
- \newcommand{\extrinsicdata}{X}
- \newcommand{\wpX}{p}
- \newcommand{\wiX}{w}
- \newcommand{\equationfourteenpointone}{\G \equiv \Y_{\mathsf{W}_G}}
- \newcommand{\equationfourteenpointtwo}{
-     \mathbb{P} \equiv \tuple{
-         \isa{\wp¬authtoken}{\Y},\
-         \isa{\wp¬authcodehost}{\N_S},\
-         \isa{\wp¬authcodehash}{\H},\
-         \isa{\wp¬authparam}{\Y},\
-         \isa{\wp¬context}{\mathbb{X}},\
-         \isa{\wp¬workitems}{\seq{\mathbb{I}}_{1:\mathsf{I}}}
-     }
- }
- \newcommand{\equationfourteenpointthree}{
-     \mathbb{I} \equiv \tuple{\begin{aligned}
-         \isa{s}{\N_S},
-         \isa{c}{\H},
-         \isa{\mathbf{y}}{\Y},
-         \isa{g}{\N_G},
-         \isa{a}{\N_G},
-         \isa{\wi¬exportsegments}{\N}, \\
-         \isa{\wi¬importsegments}{\seq{\tuple{\H \cup (\H^\boxplus),\N}}},
-         \isa{\wi¬extrinsics}{\seq{(\H, \N)}}
-     \end{aligned}}
- }
- \newcommand{\equationfourteenpointfour}{
-     \forall \wpX \in \mathbb{P}:
-     \sum_{\wiX \in \wpX_\wp¬workitems} \wiX_\wi¬exportsegments \le \mathsf{W}_M \ \wedge\
-     \sum_{\wiX \in \wpX_\wp¬workitems} |\wiX_\wi¬importsegments| \le \mathsf{W}_M
- }
- \newcommand{\equationfourteenpointfive}{
-     \begin{align}
-         \begin{aligned}
-             \forall \wpX \in \mathbb{P}: \Big(|p_\mathbf{j}| + |p_\mathbf{p}| +
-             \!\!\sum_{\wiX \in \wpX_\wp¬workitems}\!\!S(\wiX)\Big) \le \mathsf{W}_B \\
-             \where S(\wiX \in \mathbb{I}) \equiv |\wiX_\mathbf{y}| + |\wiX_\wi¬importsegments|\cdot\mathsf{W}_G + \!\!\!\!\!\!\sum_{(h, l) \in \wiX_\wi¬extrinsics} \!\!\!l
-         \end{aligned}
-     \end{align}
- }
- \newcommand{\equationfourteenpointsix}{\mathsf{W}_B \equiv 12\cdot2^{20}}
- \newcommand{\equationfourteenpointseven}{
-     \forall \wpX \in \mathbb{P}:\ \;
-     \sum_{\wiX \in \wpX_\wp¬workitems}(\wiX_a) &lt; \mathsf{G}_A
-     \quad\wedge\ \;
-     \sum_{\wiX \in \wpX_\wp¬workitems}(\wiX_r) &lt; \mathsf{G}_R
- }
- \newcommand{\equationfourteenpointeight}{
-     \itemtoresult\colon\left\{\begin{aligned}
-         (\mathbb{I}, \Y \cup \mathbb{J}) \to \mathbb{L}\\
-         ((s, c, \mathbf{y}, a), \mathbf{o}) \mapsto (s, c, \mathcal{H}(\mathbf{y}), \is{g}{a}, \mathbf{o})
-     \end{aligned}\right.
- }
- \newcommand{\equationfourteenpointnine}{
-     \forall \wpX \in \mathbb{P}: \left\{\,\begin{aligned}
-         \wpX_\wp¬authorizer \equiv \mathcal{H}(\wpX_\wp¬authcode \concat \wpX_\wp¬authparam) \\
-         \wpX_\wp¬authcode \equiv \Lambda(\delta[\wpX_\wp¬authcodehost], (\wpX_\wp¬context)_t, \wpX_\wp¬authcodehash) \\
-         \wpX_\wp¬authcode \in \Y
-     \end{aligned}\right.
- }
- \newcommand{\equationfourteenpointten}{
-     pagedproofs\colon\left\{\begin{aligned}
-         \seq{\G} \to \,\seq{\G} \\
-         \mathbf{s} \mapsto \,\sq{
-             \mathcal{P}_l(\se(
-             \var{\mathcal{J}_6(\mathbf{s}, i)},
-             \var{\mathcal{L}_6(\mathbf{s}, i)}
-             ))
-             \mid i \orderedin \N_{\ceil{\nicefrac{|\mathbf{s}|}{64}}}
-         } \\
-         \where l = \mathsf{W}_G
-     \end{aligned}\right.
- }
- \newcommand{\equationfourteenpointeleven}{
-     \!\!\Xi \colon \left\{\begin{aligned}
-         (\mathbb{P}, \N_\mathsf{C}) \to \mathbb{W} \\
-         (\wpX, c) \mapsto \begin{cases}
-             \error \when \mathbf{o} \not\in \Y \\
-             \tup{s, \is{x}{\wpX_\wp¬context}, c, \is{a}{\wpX_\wp¬authorizer}, \mathbf{o}, \mathbf{l}, \mathbf{r}} \!\!\!\!\!\otherwise
-         \end{cases}
-     \end{aligned}\right.\!\!\!\!\!\!\!
-     \begin{align*}
-         \keys{\mathbf{l}} \equiv \,\{ h \mid w \in p_\mathbf{w}, (h^\boxplus, n) \in w_\mathbf{i} \} \ ,\quad |\mathbf{l}| \le 8\\
-         \mathbf{o} = \,\Psi_I(\wpX, c) \ ,\quad \overline{\mathbf{i}} = [\importsegmentdata(w, \mathbf{l}) \mid w \orderedin \wpX_\wp¬workitems] \\
-         (\mathbf{r}, \overline{\mathbf{e}}) = \,\transpose[
-         (\itemtoresult(\wpX_\wp¬workitems[j], r), \mathbf{e})
-         \mid
-         (r, \mathbf{e}) = \countupexports(\wpX, j),\,
-         j \orderedin \N_{|\wpX_\wp¬workitems|}
-         ] \\
-         \countupexports(\wpX, j) \equiv \,\begin{cases}
-             (r, \mathbf{e}) \when |\mathbf{e}| = w_e \\
-             (r, [\mathbb{G}_0, \mathbb{G}_0, \dots]_{\dots w_e}) \otherwhen r \not\in \mathbb{Y} \\
-             (\badexports, [\mathbb{G}_0, \mathbb{G}_0, \dots]_{\dots w_e}) \otherwise \\
-             \multicolumn{2}{l}{\where (r, \mathbf{e}) = \Psi_R(
-               j, \wpX, \mathbf{o}, \overline{\mathbf{i}}, \ell
-             )
-         }\\
-         \multicolumn{2}{l}{\also \ell = \sum_{k &lt; j}\wpX_\wp¬workitems[k]_\wi¬exportsegments}
-         \end{cases}
-     \end{align*}
- }
- \newcommand{\equationfourteenpointtwelve}{
-     L(r \in \H\cup\H^\boxplus) \equiv \begin{cases}
-         r \when r \in \H \\
-         \mathbf{l}[h] \when \exists h \in \H: r = h^\boxplus
-     \end{cases}
- }
- \newcommand{\equationfourteenpointthirteen}{\forall (h \mapsto e) \in \mathbf{l} : \exists p, c \in \mathbb{P}, \N_\mathsf{C} : \mathcal{H}(p) = h \wedge (\Xi(p, c)_s)_e = e}
- \newcommand{\equationfourteenpointfourteen}{
-     \begin{aligned}
-         \extrinsicdata(\wiX \in \mathbb{I}) \equiv [\mathbf{d} \mid (\mathcal{H}(\mathbf{d}), |\mathbf{d}|) \orderedin \wiX_\wi¬extrinsics] \\
-         \importsegmentdata(\wiX \in \mathbb{I}) \equiv [\mathbf{s}[n] \mid \mathcal{M}(\mathbf{s}) = L(r), (r, n) \orderedin \wiX_\wi¬importsegments] \\
-         \justifysegmentdata(\wiX \in \mathbb{I}) \equiv [\var{\mathcal{J}_0(\mathbf{s}, n)} \mid \mathcal{M}(\mathbf{s}) = L(r), (r, n) \orderedin \wiX_\wi¬importsegments]
-     \end{aligned}
- }
- \newcommand{\equationfourteenpointfifteen}{
-     s = \newavailabilityspecifier(
-         \mathcal{H}(\wpX),
-         \se(
-             \wpX,
-             \extrinsicdata^\#(\wpX_\wp¬workitems),
-             \importsegmentdata^\#(\wpX_\wp¬workitems),
-             \justifysegmentdata^\#(\wpX_\wp¬workitems)
-         ),
-         \wideparen{\overline{\mathbf{e}}}
-     )
- }
- \newcommand{\equationfourteenpointsixteen}{
-     newavailabilityspecifier\colon\left\{\,\begin{aligned}
-         \tuple{\H, \Y, \seq{\G}} \to \mathbb{S}\\
-         \tup{h, \mathbf{b},\,\mathbf{s}} \mapsto \tup{
-             h,\,
-             \is{l}{|\mathbf{b}|},\,
-             u,\,
-             \is{e}{\mathcal{M}(\mathbf{s})},\,
-             \is{n}{|\mathbf{s}|}
-         }
-     \end{aligned}\right.\!\!\!\!\!
-     \begin{align*}
-         \where u = \mathcal{M}_B(
-             [\wideparen{\mathbf{x}} \mid \mathbf{x} \orderedin \transpose[\mathbf{b}^\clubsuit, \mathbf{s}^\clubsuit]]
-         )\\
-         \also \mathbf{b}^\clubsuit = \mathcal{H}^\#(\mathcal{C}_{\ceil{\nicefrac{|\mathbf{b}|}{\mathsf{W}_E}}}(\mathcal{P}_{\mathsf{W}_E}(\mathbf{b})))\\
-         \also \mathbf{s}^\clubsuit = \mathcal{M}_B^\#(\transpose\mathcal{C}^\#_6(\mathbf{s} \concat \pagedproofs(\mathbf{s})))
-     \end{align*}
- }
- \newcommand{\equationfourteenpointseventeen}{
-     \mathcal{P}_{n \in \N_{1\dots}}\colon\left\{\begin{aligned}
-         \Y \to \Y_{k\cdot n}\\
-         \mathbf{x} \mapsto \mathbf{x} \concat [0, 0, ...]_{((|x|+n - 1) \bmod n) + 1 \dots n}
-     \end{aligned}\right.
- }
- \)</span></p>
 <h1 id="14-work-packages-and-work-reports">14. Work Packages and Work Reports<a class="headerlink" href="#14-work-packages-and-work-reports" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.6.2. </p>
+This section has been updated to match Graypaper version 0.5.0. </p>
 <h2 id="142-segments-and-the-manifest">14.2. Segments and the Manifest<a class="headerlink" href="#142-segments-and-the-manifest" title="Permanent link">&para;</a></h2>
 <h3 id="1421-segments-imports-and-exports">14.2.1. Segments, Imports and Exports<a class="headerlink" href="#1421-segments-imports-and-exports" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="14.1">(14.1)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointone\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.1</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1792,51 +1535,62 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="14.2">(14.2)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointtwo\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.2</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.3">(14.3)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointthree\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.3</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.4">(14.4)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointfour\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.4</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.5">(14.5)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointfive\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.5</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.6">(14.6)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointsix\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.6</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.7">(14.7)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointseven\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.7</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.8">(14.8)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointeight\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td><a name="14.9">(14.9)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointnine\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.8</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1844,16 +1598,20 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="14.10">(14.10)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointten\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.9</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1861,41 +1619,48 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="14.11">(14.11)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointeleven\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.10</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.12">(14.12)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointtwelve\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.11</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.13">(14.13)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointthirteen\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.12</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.14">(14.14)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointfourteen\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.13</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="14.15">(14.15)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointfifteen\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td><a name="14.16">(14.16)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointsixteen\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.14</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1903,16 +1668,27 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="14.17">(14.17)</a></td>
-<td><span class="arithmatex">\(\equationfourteenpointseventeen\)</span></td>
-<td>[TODO]</td>
+<td>Equation 14.15</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+</tr>
+<tr>
+<td>Equation 14.16</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -2038,10 +1814,6 @@ This section has been updated to match Graypaper version 0.6.2. </p>
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
-      
-        <script src="../../javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

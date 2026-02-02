@@ -207,7 +207,7 @@
   
     
   
-  Types
+  Type Definitions
 
         </a>
       </li>
@@ -249,7 +249,7 @@
   
     
   
-  Graypaper
+  Graypaper References
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Types
+    Type Definitions
   </span>
   
 
@@ -770,7 +770,7 @@
         
   
   <span class="md-ellipsis">
-    Authorizer Queues (φ)
+    Authorizer Queues (𝜙)
   </span>
   
 
@@ -939,7 +939,7 @@
       
   
   <span class="md-ellipsis">
-    Graypaper
+    Graypaper References
   </span>
   
 
@@ -1091,17 +1091,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">42</span>
-<span class="normal">43</span>
-<span class="normal">44</span>
-<span class="normal">45</span>
-<span class="normal">46</span>
-<span class="normal">47</span>
-<span class="normal">48</span>
-<span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">52</span>
 <span class="normal">53</span>
 <span class="normal">54</span>
 <span class="normal">55</span>
@@ -1122,20 +1112,32 @@
 <span class="normal">70</span>
 <span class="normal">71</span>
 <span class="normal">72</span>
-<span class="normal">73</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Timeslot</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span>
+<span class="normal">76</span>
+<span class="normal">77</span>
+<span class="normal">78</span>
+<span class="normal">79</span>
+<span class="normal">80</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span>
+<span class="normal">84</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Timeslot</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">11</span>
 
+    <span class="nd">@log_execution_time</span>
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">header</span><span class="p">:</span> <span class="n">Header</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeslotOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.5.0-eq:6.1 (τ&#39;) | State transition function for the state&#39;s timeslot.</span>
+<span class="sd">        GP-0.7.2-eq:6.1 (τ&#39;) | State transition function for the state&#39;s timeslot.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            GP-0.5.0-eq:4.5 (bold_H)</span>
+<span class="sd">            GP-0.7.2-eq:4.5 (bold_H)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1180,7 +1182,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.5.0-eq:6.1 (τ') | State transition function for the state's timeslot.</p>
+        <p>GP-0.7.2-eq:6.1 (τ') | State transition function for the state's timeslot.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1201,7 +1203,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.5 (bold_H)</p>
+                <p>GP-0.7.2-eq:4.5 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1236,17 +1238,7 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">45</span>
-<span class="normal">46</span>
-<span class="normal">47</span>
-<span class="normal">48</span>
-<span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">55</span>
 <span class="normal">56</span>
 <span class="normal">57</span>
 <span class="normal">58</span>
@@ -1258,17 +1250,29 @@
 <span class="normal">64</span>
 <span class="normal">65</span>
 <span class="normal">66</span>
-<span class="normal">67</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span>
+<span class="normal">71</span>
+<span class="normal">72</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span>
+<span class="normal">76</span>
+<span class="normal">77</span>
+<span class="normal">78</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@log_execution_time</span>
+<span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeslotOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:6.1 (τ&#39;) | State transition function for the state&#39;s timeslot.</span>
+<span class="sd">    GP-0.7.2-eq:6.1 (τ&#39;) | State transition function for the state&#39;s timeslot.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        GP-0.5.0-eq:4.5 (bold_H)</span>
+<span class="sd">        GP-0.7.2-eq:4.5 (bold_H)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1346,13 +1350,13 @@
         
         
           
-          <a href="../phi/" class="md-footer__link md-footer__link--next" aria-label="Next: Authorizer Queues (φ)">
+          <a href="../phi/" class="md-footer__link md-footer__link--next" aria-label="Next: Authorizer Queues (𝜙)">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Authorizer Queues (φ)
+                Authorizer Queues (𝜙)
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1416,10 +1420,6 @@
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
-      
-        <script src="../../javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

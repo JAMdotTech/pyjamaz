@@ -207,7 +207,7 @@
   
     
   
-  Types
+  Type Definitions
 
         </a>
       </li>
@@ -249,7 +249,7 @@
   
     
   
-  Graypaper
+  Graypaper References
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Types
+    Type Definitions
   </span>
   
 
@@ -564,7 +564,7 @@
             
   
   <span class="md-ellipsis">
-    Graypaper
+    Graypaper References
   </span>
   
 
@@ -574,7 +574,7 @@
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
-            Graypaper
+            Graypaper References
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -1536,294 +1536,49 @@
   
 
 
-<p><span class="arithmatex">\( \newcommand\eg{e.g.\@\xspace}
- \newcommand\Eg{E.g.\@\xspace}
- \newcommand\ie{i.e.\@\xspace}
- \newcommand\Ie{I.e.\@\xspace}
- %\newcommand\etc{\&amp;c.\@\xspace}
- \newcommand\nb{\textsc{nb}\@\xspace}
- \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\,\mathsf{R}\,}
- \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
- \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
- \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
- \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
- \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
- \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
- \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
- \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
- \newcommand{\token}[1]{\text{#1}} %%
- \renewcommand{\H}{\mathbb{H}}
- \newcommand{\N}{\mathbb{N}}
- \newcommand{\Y}{\mathbb{Y}}
- \newcommand{\Z}{\mathbb{Z}}
- \newcommand{\G}{\mathbb{G}}
- %\newcommand{\orderedin}{\ensuremath{\mathrel{\mathrlap{&lt;}{\scalebox{0.95}[1]{$-$}}}}}
- \newcommand{\using}{\text{let }}
- \newcommand{\where}{ \text{where }}
- \newcommand{\also}{ \text{and }}
- \newcommand{\otherwise}{\text{otherwise}}
- \newcommand{\otherwhen}{\text{otherwise if }}
- \newcommand{\when}{\text{if }}
- \newcommand{\exc}{\text{except }}
- \newcommand{\oog}{\infty}
- \newcommand{\error}{\nabla}
- \newcommand{\panic}{\lightning}
- \newcommand{\badexports}{\circledcirc}
- \newcommand{\host}{\hbar}
- \newcommand{\halt}{\blacksquare}
- \newcommand{\fault}{\text{\raisebox{6pt}{\rotatebox{180}{\textsf{F}}}}}
- \newcommand{\none}{\emptyset}\newcommand{\subifnone}{\mathcal{U}}
- \newcommand{\disjoint}{\downspoon}
- \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
- \newcommand{\suchthat}{\text{ such that }}
- \newcommand{\keys}[1]{\mathcal{K}(#1)}
- %\let\originalleft\left
- %\let\originalright\right
- \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
- \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\updownarrow#1}
- %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
- \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
- \newcommand{\se}{\mathcal{E}}
- \newcommand{\de}{\mathcal{E}^{-1}}
- \newcommand{\is}[2]{#1\tricolon#2}
- \newcommand{\isa}[2]{#1\in #2}
- \newcommand{\ts}{,\,}
- \newcommand{\lseq}{[} %%
- \newcommand{\rseq}{]} %%
- \newcommand{\ltup}{(} %%
- \newcommand{\rtup}{)} %%
- %\newcommand{\ltuple}{\!\left\lgroup}
- %\newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\bm}{} %%
- \newcommand{\ltuple}{(} %%
- \newcommand{\rtuple}{)} %%
- \newcommand{\sq}[1]{[#1]]}
- \newcommand{\seq}[1]{[#1]}
- \newcommand{\tup}[1]{(#1)}
- \newcommand{\tuple}[1]{(#1)}
- \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
- \newcommand{\ceil}[1]{\lceil#1\rceil} %%
- \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
- \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
- \newcommand{\transpose}{{}^\text{T}}
- \newcommand{\joined}{\wideparen}
- \newcommand{\ang}[1]{\langle#1\rangle}
- \newcommand{\goodset}{\psi_\mathbf{g}}
- \newcommand{\badset}{\psi_\mathbf{b}}
- \newcommand{\wonkyset}{\psi_\mathbf{w}}
- \newcommand{\offenders}{\psi_\mathbf{o}}
- \newcommand{\xttickets}{\mathbf{E}_T}
- \newcommand{\xtdisputes}{\mathbf{E}_D}
- \newcommand{\xtguarantees}{\mathbf{E}_G}
- \newcommand{\xtassurances}{\mathbf{E}_A}
- \newcommand{\xtpreimages}{\mathbf{E}_P}
- \newcommand{\accumulated}{\xi}
- \newcommand{\ready}{\vartheta}
- \newcommand{\partialstate}{\mathbb{U}}
- \newcommand{\defxfer}{\mathbb{T}}
- \newcommand{\defxfers}{\seq{\defxfer}}
- \newcommand{\beefycommitmap}{\mathbf{C}}
- \newcommand{\accountspre}{\delta}
- \newcommand{\accountspostacc}{\delta^\dagger}
- \newcommand{\accountspostxfer}{\delta^\ddagger}
- \newcommand{\accountspostpreimage}{\delta'}
- \newcommand{\gascounter}{\varrho}
- \newcommand{\registers}{\omega}
- \newcommand{\memory}{\mu}
- \newcommand{\concat}{\frown} %%!!
- \)</span>
-<span class="arithmatex">\( \newcommand{\equationcpointone}{\se(\none) \equiv []}
- \newcommand{\equationcpointtwo}{\se(x \in \Y) \equiv x}
- \newcommand{\equationcpointthree}{\se(\tup{a, b, \dots}) \equiv \se(a) \concat \se(b) \concat \dots}
- \newcommand{\equationcpointfour}{\se(a, b, \dots) \equiv \se(\tup{a, b, \dots})}
- \newcommand{\equationcpointfive}{
-     \se_{l \in \N}\colon\left\{\begin{aligned}
-         \N_{2^{8l}} \to \Y_l \\
-         x \mapsto \begin{cases}
-             [] \when l = 0 \\
-             [x \bmod 256] \concat \se_{l - 1}\left(\left\lfloor \frac{x}{256} \right\rfloor\right) \otherwise
-         \end{cases}
-     \end{aligned}\right.
- }
- \newcommand{\equationcpointsix}{
-     \se\colon\left\{\begin{aligned}
-         \N_{2^{64}} \to \Y_{1:9} \\
-         x \mapsto \begin{cases}
-             [0] \when x = 0 \\
-             \left[2^8-2^{8-l} + \ffrac{x}{2^{8l}}\right] \concat \se_l(x \bmod 2^{8l}) \when \exists l \in \N_8 : 2^{7l} \le x &lt; 2^{7(l+1)} \\
-             [2^8-1] \concat \se_8(x) \otherwhen x &lt; 2^{64} \\
-         \end{cases}
-     \end{aligned}\right.
- }
- \newcommand{\equationcpointseven}{\se([i_0, i_1, ...]) \equiv \se(i_0) \concat \se(i_1) \concat \dots}
- \newcommand{\equationcpointeight}{\var{x} \equiv \tup{|x|, x}\text{ thus }\se(\var{x}) \equiv \se(|x|)\concat\se(x)}
- \newcommand{\equationcpointnine}{
-     \begin{align}
-         \maybe{x} \equiv \begin{cases}
-             0 \when x = \none \\
-             (1, x) \otherwise
-         \end{cases}
-     \end{align}
- }
- \newcommand{\equationcpointten}{
-     \begin{align}
-         \se(b \in \mathbb{B}) \equiv \begin{cases}
-             [] \when b = [] \\
-             \left[\sum\limits_{i=0}^{\min(8, |b|)}{b_i\cdot 2^i}\right] \concat \se(b_{8\dots}) \otherwise
-         \end{cases}
-     \end{align}
- }
- \newcommand{\equationcpointeleven}{\forall K, V: \se(d \in \dict{K}{V}) \equiv \se(\var{\orderby{k}{\tup{\se(k), \se(d[k])} \mid k \in \keys{d}}})}
- \newcommand{\equationcpointtwelve}{\se(\{a, b, c, \dots\}) \equiv \se(a) \concat \se(b) \concat \se(c) \concat \dots \where a &lt; b &lt; c &lt; \dots}
- \newcommand{\equationcpointthirteen}{
-     \begin{align}
-         \se(\mathbf{B}) = \se\,\left\lparen
-             \mathbf{H},\ \se_T(\xttickets),\ \se_P(\xtpreimages),\ \se_G(\xtguarantees),\ \se_A(\xtassurances),\ \se_D(\xtdisputes)
-         \right\rparen
-     \end{align}
- }
- \newcommand{\equationcpointfourteen}{
-     \begin{align}
-         \se_T(\xttickets) = \se(\var{\xttickets})
-     \end{align}
- }
- \newcommand{\equationcpointfifteen}{
-     \begin{align}
-         \se_P(\xtpreimages) = \se(\var{[\tup{s, \var{p}} \mid \tup{s, p} \orderedin \xtpreimages]})
-     \end{align}
- }
- \newcommand{\equationcpointsixteen}{
-     \begin{align}
-         \se_G(\xtguarantees) = \se(\var{[\tup{w, \se_4(t), \var{a}} \mid \tup{w, t, a} \orderedin \xtguarantees]})
-     \end{align}
- }
- \newcommand{\equationcpointseventeen}{
-     \begin{align}
-         \se_A(\xtassurances) = \se(\var{[\tup{a, f, \se_2(v), s} \mid \tup{a, f, v, s} \orderedin \xtassurances]})
-     \end{align}
- }
- \newcommand{\equationcpointeighteen}{
-     \begin{align}
-         \se_D((\mathbf{v}, \mathbf{c}, \mathbf{f})) = \se(\var{[(r, \se_4(a), [(v, \se_2(i), s) \mid (v, i, s) \orderedin \mathbf{j}]) \mid (r, a, \mathbf{j}) \orderedin \mathbf{v}]}, \var{\mathbf{c}}, \var{\mathbf{f}})
-     \end{align}
- }
- \newcommand{\equationcpointnineteen}{
-     \begin{align}
-         \se(\mathbf{H}) = \se_U(\mathbf{H})\concat\se(\mathbf{H}_s)
-     \end{align}
- }
- \newcommand{\equationcpointtwenty}{
-     \begin{align}
-         \se_U(\mathbf{H}) = \se(\mathbf{H}_p,\mathbf{H}_r,\mathbf{H}_x)\concat\se_4(\mathbf{H}_t)\concat\se(\maybe{\mathbf{H}_e},\maybe{\mathbf{H}_w},\var{\mathbf{H}_o},\se_2(\mathbf{H}_i),\mathbf{H}_v)
-     \end{align}
- }
- \newcommand{\equationcpointtwentyone}{
-     \begin{align}
-         \se(x \in \mathbb{X}) \equiv \se(x_a, x_s, x_b, x_l)\concat\se_4(x_t)\concat\se(\var{x_\mathbf{p}})
-     \end{align}
- }
- \newcommand{\equationcpointtwentytwo}{
-     \begin{align}
-         \se(x \in \mathbb{S}) \equiv \se(x_h) \concat \se_4(x_l)\concat\se(x_u, x_e) \concat \se_2(x_n)
-     \end{align}
- }
- \newcommand{\equationcpointtwentythree}{
-     \begin{align}
-         \se(x \in \mathbb{L}) \equiv \se_4(x_s)\concat\se(x_c, x_l)\concat\se_8(x_g)\concat\se(O(x_\mathbf{o}))
-     \end{align}
- }
- \newcommand{\equationcpointtwentyfour}{
-     \begin{align}
-         \se(x \in \mathbb{W}) \equiv \se(x_s, x_x, x_c, x_a, \var{x_\mathbf{o}}, \var{x_\mathbf{l}}, \var{x_\mathbf{r}})
-     \end{align}
- }
- \newcommand{\equationcpointtwentyfive}{
-     \begin{align}
-         \se(x \in \mathbb{P}) \equiv \se(\var{x_\wp¬authtoken}, \se_4(x_\wp¬authcodehost), x_\wp¬authcodehash, \var{x_\wp¬authparam}, x_\wp¬context, \var{x_\wp¬workitems})
-     \end{align}
- }
- \newcommand{\equationcpointtwentysix}{
-     \begin{align}
-         \se(x \in \mathbb{I}) \equiv \se(
-             \se_4(x_s),
-             x_c,
-             \var{x_\mathbf{y}},
-             \se_8(x_g),
-             \se_8(x_a),
-             \var{\se_I^\#(x_\mathbf{i})},
-             \var{\sq{(h, \se_4(i)) \mid (h, i) \orderedin x_\mathbf{x}}},
-             \se_2(x_e)
-         )
-     \end{align}
- }
- \newcommand{\equationcpointtwentyseven}{
-     \begin{align}
-         \se(x \in \mathbb{C}) \equiv \se(x_\mathbf{y}, x_r)
-     \end{align}
- }
- \newcommand{\equationcpointtwentyeight}{
-     \begin{align}
-         \se(x \in \defxfer) \equiv \se(\se_4(x_s), \se_4(x_d), \se_8(x_a), \se(x_m), \se_8(x_g))
-     \end{align}
- }
- \newcommand{\equationcpointtwentynine}{
-     \begin{align}
-         O(o \in \mathbb{J} \cup \Y) \equiv \begin{cases}
-             (0, \var{o}) \when o \in \Y \\
-             1 \when o = \infty \\
-             2 \when o = \panic \\
-             3 \when o = \badexports \\
-             4 \when o = \token{BAD} \\
-             5 \when o = \token{BIG} \\
-         \end{cases}
-     \end{align}
- }
- \newcommand{\equationcpointthirty}{
-     \begin{align}
-         \se_I(h \in \H \cup \H^\boxplus, i \in \N_{2^{15}}) \equiv \begin{cases}
-             (h, \se_2(i)) \when h \in \H\\
-             (r, \se_2(i + 2^{15})) \when \exists r \in \H, h = r^\boxplus
-         \end{cases}
-     \end{align}
- }
- \)</span></p>
 <h1 id="appendix-c-serialization-codec">Appendix C. Serialization Codec<a class="headerlink" href="#appendix-c-serialization-codec" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.6.2.</p>
+This section has been updated to match Graypaper version 0.5.0.</p>
 <h2 id="c1-common-terms">C.1. Common Terms<a class="headerlink" href="#c1-common-terms" title="Permanent link">&para;</a></h2>
 <h3 id="c11-trivial-encodings">C.1.1. Trivial Encodings<a class="headerlink" href="#c11-trivial-encodings" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="C.1">(C.1)</a></td>
-<td><span class="arithmatex">\(\equationcpointone\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.1</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.2">(C.2)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwo\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.2</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.3">(C.3)</a></td>
-<td><span class="arithmatex">\(\equationcpointthree\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.3</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.4">(C.4)</a></td>
-<td><span class="arithmatex">\(\equationcpointfour\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.4</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1831,21 +1586,27 @@ This section has been updated to match Graypaper version 0.6.2.</p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="C.5">(C.5)</a></td>
-<td><span class="arithmatex">\(\equationcpointfive\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.5</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.6">(C.6)</a></td>
-<td><span class="arithmatex">\(\equationcpointsix\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.6</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1853,16 +1614,20 @@ This section has been updated to match Graypaper version 0.6.2.</p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="C.7">(C.7)</a></td>
-<td><span class="arithmatex">\(\equationcpointseven\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.7</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1870,21 +1635,27 @@ This section has been updated to match Graypaper version 0.6.2.</p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="C.8">(C.8)</a></td>
-<td><span class="arithmatex">\(\equationcpointeight\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.8</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.9">(C.9)</a></td>
-<td><span class="arithmatex">\(\equationcpointnine\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.9</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1892,16 +1663,20 @@ This section has been updated to match Graypaper version 0.6.2.</p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="C.10">(C.10)</a></td>
-<td><span class="arithmatex">\(\equationcpointten\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.10</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1909,16 +1684,20 @@ This section has been updated to match Graypaper version 0.6.2.</p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="C.11">(C.11)</a></td>
-<td><span class="arithmatex">\(\equationcpointeleven\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.11</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1926,16 +1705,20 @@ This section has been updated to match Graypaper version 0.6.2.</p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="C.12">(C.12)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwelve\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.12</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1943,101 +1726,132 @@ This section has been updated to match Graypaper version 0.6.2.</p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="C.13">(C.13)</a></td>
-<td><span class="arithmatex">\(\equationcpointthirteen\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.13</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.14">(C.14)</a></td>
-<td><span class="arithmatex">\(\equationcpointfourteen\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.14</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.15">(C.15)</a></td>
-<td><span class="arithmatex">\(\equationcpointfifteen\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.15</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.16">(C.16)</a></td>
-<td><span class="arithmatex">\(\equationcpointsixteen\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.16</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.17">(C.17)</a></td>
-<td><span class="arithmatex">\(\equationcpointseventeen\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.17</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.18">(C.18)</a></td>
-<td><span class="arithmatex">\(\equationcpointeighteen\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.18</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.19">(C.19)</a></td>
-<td><span class="arithmatex">\(\equationcpointnineteen\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.19</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.20">(C.20)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwenty\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.20</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.21">(C.21)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwentyone\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.21</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.22">(C.22)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwentytwo\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.22</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.23">(C.23)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwentythree\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.23</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.24">(C.24)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwentyfour\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.24</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.25">(C.25)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwentyfive\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.25</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.26">(C.26)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwentysix\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.26</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.27">(C.27)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwentyseven\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.27</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.28">(C.28)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwentyeight\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.28</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="C.29">(C.29)</a></td>
-<td><span class="arithmatex">\(\equationcpointtwentynine\)</span></td>
-<td>[TODO]</td>
-</tr>
-<tr>
-<td><a name="C.30">(C.30)</a></td>
-<td><span class="arithmatex">\(\equationcpointthirty\)</span></td>
-<td>[TODO]</td>
+<td>Equation C.29</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -2163,10 +1977,6 @@ This section has been updated to match Graypaper version 0.6.2.</p>
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
-      
-        <script src="../../javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

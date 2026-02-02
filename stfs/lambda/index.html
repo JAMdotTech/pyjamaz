@@ -207,7 +207,7 @@
   
     
   
-  Types
+  Type Definitions
 
         </a>
       </li>
@@ -249,7 +249,7 @@
   
     
   
-  Graypaper
+  Graypaper References
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Types
+    Type Definitions
   </span>
   
 
@@ -770,7 +770,7 @@
         
   
   <span class="md-ellipsis">
-    Authorizer Queues (φ)
+    Authorizer Queues (𝜙)
   </span>
   
 
@@ -939,7 +939,7 @@
       
   
   <span class="md-ellipsis">
-    Graypaper
+    Graypaper References
   </span>
   
 
@@ -1091,25 +1091,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">224</span>
 <span class="normal">225</span>
 <span class="normal">226</span>
 <span class="normal">227</span>
@@ -1133,9 +1115,29 @@
 <span class="normal">245</span>
 <span class="normal">246</span>
 <span class="normal">247</span>
-<span class="normal">248</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorArchive</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">ValidatorArchive</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">9</span>
 
+    <span class="nd">@log_execution_time</span>
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
@@ -1144,19 +1146,19 @@
             <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorArchiveOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.5.0-eq:6.13 (λ&#39;) | State transition function for the state&#39;s archived validator set. Occurs on epoch</span>
+<span class="sd">        GP-0.7.2-eq:6.13 (λ&#39;) | State transition function for the state&#39;s archived validator set. Occurs on epoch</span>
 <span class="sd">        change.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            GP-0.5.0-eq:4.11 (bold_H)</span>
+<span class="sd">            GP-0.7.2-eq:4.10 (bold_H)</span>
 <span class="sd">        pre_state_timeslot: TimeslotState</span>
-<span class="sd">            GP-0.5.0-eq:4.11 (τ)</span>
+<span class="sd">            GP-0.7.2-eq:4.10 (τ)</span>
 <span class="sd">        pre_state_validator_archive: ValidatorArchiveState</span>
-<span class="sd">            GP-0.5.0-eq:4.11 (λ)</span>
+<span class="sd">            GP-0.7.2-eq:4.10 (λ)</span>
 <span class="sd">        pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">            GP-0.5.0-eq:4.11 (κ)</span>
+<span class="sd">            GP-0.7.2-eq:4.10 (κ)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1166,7 +1168,7 @@
         <span class="n">post_state_validator_archive</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_archive</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-            <span class="c1"># Update prior epoch validators GP-0.5.0-eq:6.13</span>
+            <span class="c1"># Update prior epoch validators GP-0.7.2-eq:6.13</span>
             <span class="n">post_state_validator_archive</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_validator_pool</span><span class="o">.</span><span class="n">validators</span>
 
         <span class="k">return</span> <span class="n">ValidatorArchiveOutput</span><span class="p">(</span>
@@ -1202,7 +1204,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.5.0-eq:6.13 (λ') | State transition function for the state's archived validator set. Occurs on epoch
+        <p>GP-0.7.2-eq:6.13 (λ') | State transition function for the state's archived validator set. Occurs on epoch
 change.</p>
 
 
@@ -1224,7 +1226,7 @@ change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.11 (bold_H)</p>
+                <p>GP-0.7.2-eq:4.10 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1238,7 +1240,7 @@ change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.11 (τ)</p>
+                <p>GP-0.7.2-eq:4.10 (τ)</p>
               </div>
             </td>
             <td>
@@ -1252,7 +1254,7 @@ change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.11 (λ)</p>
+                <p>GP-0.7.2-eq:4.10 (λ)</p>
               </div>
             </td>
             <td>
@@ -1266,7 +1268,7 @@ change.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.11 (κ)</p>
+                <p>GP-0.7.2-eq:4.10 (κ)</p>
               </div>
             </td>
             <td>
@@ -1301,25 +1303,7 @@ change.</p>
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">227</span>
 <span class="normal">228</span>
 <span class="normal">229</span>
 <span class="normal">230</span>
@@ -1336,7 +1320,27 @@ change.</p>
 <span class="normal">241</span>
 <span class="normal">242</span>
 <span class="normal">243</span>
-<span class="normal">244</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@log_execution_time</span>
+<span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
         <span class="n">pre_state_timeslot</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="p">,</span>
@@ -1344,19 +1348,19 @@ change.</p>
         <span class="n">pre_state_validator_pool</span><span class="p">:</span> <span class="n">ValidatorPoolState</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidatorArchiveOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:6.13 (λ&#39;) | State transition function for the state&#39;s archived validator set. Occurs on epoch</span>
+<span class="sd">    GP-0.7.2-eq:6.13 (λ&#39;) | State transition function for the state&#39;s archived validator set. Occurs on epoch</span>
 <span class="sd">    change.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        GP-0.5.0-eq:4.11 (bold_H)</span>
+<span class="sd">        GP-0.7.2-eq:4.10 (bold_H)</span>
 <span class="sd">    pre_state_timeslot: TimeslotState</span>
-<span class="sd">        GP-0.5.0-eq:4.11 (τ)</span>
+<span class="sd">        GP-0.7.2-eq:4.10 (τ)</span>
 <span class="sd">    pre_state_validator_archive: ValidatorArchiveState</span>
-<span class="sd">        GP-0.5.0-eq:4.11 (λ)</span>
+<span class="sd">        GP-0.7.2-eq:4.10 (λ)</span>
 <span class="sd">    pre_state_validator_pool: ValidatorPoolState</span>
-<span class="sd">        GP-0.5.0-eq:4.11 (κ)</span>
+<span class="sd">        GP-0.7.2-eq:4.10 (κ)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1366,7 +1370,7 @@ change.</p>
     <span class="n">post_state_validator_archive</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_validator_archive</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_epoch_change</span><span class="p">(</span><span class="n">pre_state_timeslot</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span><span class="p">):</span>
-        <span class="c1"># Update prior epoch validators GP-0.5.0-eq:6.13</span>
+        <span class="c1"># Update prior epoch validators GP-0.7.2-eq:6.13</span>
         <span class="n">post_state_validator_archive</span><span class="o">.</span><span class="n">validators</span> <span class="o">=</span> <span class="n">pre_state_validator_pool</span><span class="o">.</span><span class="n">validators</span>
 
     <span class="k">return</span> <span class="n">ValidatorArchiveOutput</span><span class="p">(</span>
@@ -1507,10 +1511,6 @@ change.</p>
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
-      
-        <script src="../../javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

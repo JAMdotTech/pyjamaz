@@ -207,7 +207,7 @@
   
     
   
-  Types
+  Type Definitions
 
         </a>
       </li>
@@ -249,7 +249,7 @@
   
     
   
-  Graypaper
+  Graypaper References
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Types
+    Type Definitions
   </span>
   
 
@@ -770,7 +770,7 @@
         
   
   <span class="md-ellipsis">
-    Authorizer Queues (φ)
+    Authorizer Queues (𝜙)
   </span>
   
 
@@ -939,7 +939,7 @@
       
   
   <span class="md-ellipsis">
-    Graypaper
+    Graypaper References
   </span>
   
 
@@ -1091,65 +1091,67 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">488</span>
-<span class="normal">489</span>
-<span class="normal">490</span>
-<span class="normal">491</span>
-<span class="normal">492</span>
-<span class="normal">493</span>
-<span class="normal">494</span>
-<span class="normal">495</span>
-<span class="normal">496</span>
-<span class="normal">497</span>
-<span class="normal">498</span>
-<span class="normal">499</span>
-<span class="normal">500</span>
-<span class="normal">501</span>
-<span class="normal">502</span>
-<span class="normal">503</span>
-<span class="normal">504</span>
-<span class="normal">505</span>
-<span class="normal">506</span>
-<span class="normal">507</span>
-<span class="normal">508</span>
-<span class="normal">509</span>
-<span class="normal">510</span>
-<span class="normal">511</span>
-<span class="normal">512</span>
-<span class="normal">513</span>
-<span class="normal">514</span>
-<span class="normal">515</span>
-<span class="normal">516</span>
-<span class="normal">517</span>
-<span class="normal">518</span>
-<span class="normal">519</span>
-<span class="normal">520</span>
-<span class="normal">521</span>
-<span class="normal">522</span>
-<span class="normal">523</span>
-<span class="normal">524</span>
-<span class="normal">525</span>
-<span class="normal">526</span>
-<span class="normal">527</span>
-<span class="normal">528</span>
-<span class="normal">529</span>
-<span class="normal">530</span>
-<span class="normal">531</span>
-<span class="normal">532</span>
-<span class="normal">533</span>
-<span class="normal">534</span>
-<span class="normal">535</span>
-<span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
-<span class="normal">539</span>
-<span class="normal">540</span>
-<span class="normal">541</span>
-<span class="normal">542</span>
-<span class="normal">543</span>
-<span class="normal">544</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">AuthorizerPools</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span>
+<span class="normal">550</span>
+<span class="normal">551</span>
+<span class="normal">552</span>
+<span class="normal">553</span>
+<span class="normal">554</span>
+<span class="normal">555</span>
+<span class="normal">556</span>
+<span class="normal">557</span>
+<span class="normal">558</span>
+<span class="normal">559</span>
+<span class="normal">560</span>
+<span class="normal">561</span>
+<span class="normal">562</span>
+<span class="normal">563</span>
+<span class="normal">564</span>
+<span class="normal">565</span>
+<span class="normal">566</span>
+<span class="normal">567</span>
+<span class="normal">568</span>
+<span class="normal">569</span>
+<span class="normal">570</span>
+<span class="normal">571</span>
+<span class="normal">572</span>
+<span class="normal">573</span>
+<span class="normal">574</span>
+<span class="normal">575</span>
+<span class="normal">576</span>
+<span class="normal">577</span>
+<span class="normal">578</span>
+<span class="normal">579</span>
+<span class="normal">580</span>
+<span class="normal">581</span>
+<span class="normal">582</span>
+<span class="normal">583</span>
+<span class="normal">584</span>
+<span class="normal">585</span>
+<span class="normal">586</span>
+<span class="normal">587</span>
+<span class="normal">588</span>
+<span class="normal">589</span>
+<span class="normal">590</span>
+<span class="normal">591</span>
+<span class="normal">592</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span>
+<span class="normal">600</span>
+<span class="normal">601</span>
+<span class="normal">602</span>
+<span class="normal">603</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">AuthorizerPools</span><span class="p">(</span><span class="n">StateComponent</span><span class="p">):</span>
     <span class="n">component_id</span> <span class="o">=</span> <span class="mi">1</span>
 
+    <span class="nd">@log_execution_time</span>
     <span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
@@ -1158,18 +1160,18 @@
             <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        GP-0.5.4-eq:8.2,8.3 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
+<span class="sd">        GP-0.7.2-eq:8.2,8.3 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        header: Header</span>
-<span class="sd">            GP-0.5.4-eq:4.19 (bold_H)</span>
+<span class="sd">            GP-0.7.2-eq:4.19 (bold_H)</span>
 <span class="sd">        extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">            GP-0.5.4-eq:4.19 (bold_E_G)</span>
+<span class="sd">            GP-0.7.2-eq:4.19 (bold_E_G)</span>
 <span class="sd">        post_state_authorizer_queues: AuthorizerQueuesState</span>
-<span class="sd">            GP-0.5.4-eq:4.19 (φ&#39;)</span>
+<span class="sd">            GP-0.7.2-eq:4.19 (𝜙&#39;)</span>
 <span class="sd">        pre_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">            GP-0.5.4-eq:4.19 (α)</span>
+<span class="sd">            GP-0.7.2-eq:4.19 (α)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1178,7 +1180,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">post_state_authorizer_pools</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_authorizer_pools</span><span class="p">)</span>
 
-        <span class="c1"># GP-0.5.4-eq:8.3 | Remove used authorizations</span>
+        <span class="c1"># GP-0.7.2-eq:8.3 | Remove used authorizations</span>
         <span class="k">for</span> <span class="n">guarantee</span> <span class="ow">in</span> <span class="n">extrinsic_guarantees</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">post_state_authorizer_pools</span><span class="o">.</span><span class="n">authorizer_pools</span><span class="p">[</span><span class="n">guarantee</span><span class="o">.</span><span class="n">report</span><span class="o">.</span><span class="n">core_index</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span>
@@ -1187,7 +1189,7 @@
             <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">GuaranteeErrorCode</span><span class="o">.</span><span class="n">core_unauthorized</span><span class="p">)</span>
 
-        <span class="c1"># GP-0.5.4-eq:8.2 | Update authorizations from queue</span>
+        <span class="c1"># GP-0.7.2-eq:8.2 | Update authorizations from queue</span>
         <span class="k">for</span> <span class="n">core_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gp_const</span><span class="o">.</span><span class="n">CORE_COUNT</span><span class="p">):</span>
             <span class="n">offset</span> <span class="o">=</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span> <span class="o">%</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">MAXIMUM_AUTHORIZATION_QUEUE_ITEMS</span>
 
@@ -1230,7 +1232,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>GP-0.5.4-eq:8.2,8.3 (α') | State transition function for the state's authorizer pools.</p>
+        <p>GP-0.7.2-eq:8.2,8.3 (α') | State transition function for the state's authorizer pools.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1251,7 +1253,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.4-eq:4.19 (bold_H)</p>
+                <p>GP-0.7.2-eq:4.19 (bold_H)</p>
               </div>
             </td>
             <td>
@@ -1265,7 +1267,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.4-eq:4.19 (bold_E_G)</p>
+                <p>GP-0.7.2-eq:4.19 (bold_E_G)</p>
               </div>
             </td>
             <td>
@@ -1279,7 +1281,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.4-eq:4.19 (φ')</p>
+                <p>GP-0.7.2-eq:4.19 (𝜙')</p>
               </div>
             </td>
             <td>
@@ -1293,7 +1295,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.4-eq:4.19 (α)</p>
+                <p>GP-0.7.2-eq:4.19 (α)</p>
               </div>
             </td>
             <td>
@@ -1328,56 +1330,58 @@
 
             <details class="quote">
               <summary>Source code in <code>pyjamaz\state\components.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">491</span>
-<span class="normal">492</span>
-<span class="normal">493</span>
-<span class="normal">494</span>
-<span class="normal">495</span>
-<span class="normal">496</span>
-<span class="normal">497</span>
-<span class="normal">498</span>
-<span class="normal">499</span>
-<span class="normal">500</span>
-<span class="normal">501</span>
-<span class="normal">502</span>
-<span class="normal">503</span>
-<span class="normal">504</span>
-<span class="normal">505</span>
-<span class="normal">506</span>
-<span class="normal">507</span>
-<span class="normal">508</span>
-<span class="normal">509</span>
-<span class="normal">510</span>
-<span class="normal">511</span>
-<span class="normal">512</span>
-<span class="normal">513</span>
-<span class="normal">514</span>
-<span class="normal">515</span>
-<span class="normal">516</span>
-<span class="normal">517</span>
-<span class="normal">518</span>
-<span class="normal">519</span>
-<span class="normal">520</span>
-<span class="normal">521</span>
-<span class="normal">522</span>
-<span class="normal">523</span>
-<span class="normal">524</span>
-<span class="normal">525</span>
-<span class="normal">526</span>
-<span class="normal">527</span>
-<span class="normal">528</span>
-<span class="normal">529</span>
-<span class="normal">530</span>
-<span class="normal">531</span>
-<span class="normal">532</span>
-<span class="normal">533</span>
-<span class="normal">534</span>
-<span class="normal">535</span>
-<span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
-<span class="normal">539</span>
-<span class="normal">540</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">549</span>
+<span class="normal">550</span>
+<span class="normal">551</span>
+<span class="normal">552</span>
+<span class="normal">553</span>
+<span class="normal">554</span>
+<span class="normal">555</span>
+<span class="normal">556</span>
+<span class="normal">557</span>
+<span class="normal">558</span>
+<span class="normal">559</span>
+<span class="normal">560</span>
+<span class="normal">561</span>
+<span class="normal">562</span>
+<span class="normal">563</span>
+<span class="normal">564</span>
+<span class="normal">565</span>
+<span class="normal">566</span>
+<span class="normal">567</span>
+<span class="normal">568</span>
+<span class="normal">569</span>
+<span class="normal">570</span>
+<span class="normal">571</span>
+<span class="normal">572</span>
+<span class="normal">573</span>
+<span class="normal">574</span>
+<span class="normal">575</span>
+<span class="normal">576</span>
+<span class="normal">577</span>
+<span class="normal">578</span>
+<span class="normal">579</span>
+<span class="normal">580</span>
+<span class="normal">581</span>
+<span class="normal">582</span>
+<span class="normal">583</span>
+<span class="normal">584</span>
+<span class="normal">585</span>
+<span class="normal">586</span>
+<span class="normal">587</span>
+<span class="normal">588</span>
+<span class="normal">589</span>
+<span class="normal">590</span>
+<span class="normal">591</span>
+<span class="normal">592</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@log_execution_time</span>
+<span class="k">def</span> <span class="nf">state_transition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">header</span><span class="p">:</span> <span class="n">Header</span><span class="p">,</span>
         <span class="n">extrinsic_guarantees</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Guarantee</span><span class="p">],</span>
@@ -1385,18 +1389,18 @@
         <span class="n">pre_state_authorizer_pools</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthorizerPoolsOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.4-eq:8.2,8.3 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
+<span class="sd">    GP-0.7.2-eq:8.2,8.3 (α&#39;) | State transition function for the state&#39;s authorizer pools.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    header: Header</span>
-<span class="sd">        GP-0.5.4-eq:4.19 (bold_H)</span>
+<span class="sd">        GP-0.7.2-eq:4.19 (bold_H)</span>
 <span class="sd">    extrinsic_guarantees: List[Guarantee]</span>
-<span class="sd">        GP-0.5.4-eq:4.19 (bold_E_G)</span>
+<span class="sd">        GP-0.7.2-eq:4.19 (bold_E_G)</span>
 <span class="sd">    post_state_authorizer_queues: AuthorizerQueuesState</span>
-<span class="sd">        GP-0.5.4-eq:4.19 (φ&#39;)</span>
+<span class="sd">        GP-0.7.2-eq:4.19 (𝜙&#39;)</span>
 <span class="sd">    pre_state_authorizer_pools: AuthorizerPoolsState</span>
-<span class="sd">        GP-0.5.4-eq:4.19 (α)</span>
+<span class="sd">        GP-0.7.2-eq:4.19 (α)</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1405,7 +1409,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state_authorizer_pools</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">pre_state_authorizer_pools</span><span class="p">)</span>
 
-    <span class="c1"># GP-0.5.4-eq:8.3 | Remove used authorizations</span>
+    <span class="c1"># GP-0.7.2-eq:8.3 | Remove used authorizations</span>
     <span class="k">for</span> <span class="n">guarantee</span> <span class="ow">in</span> <span class="n">extrinsic_guarantees</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">post_state_authorizer_pools</span><span class="o">.</span><span class="n">authorizer_pools</span><span class="p">[</span><span class="n">guarantee</span><span class="o">.</span><span class="n">report</span><span class="o">.</span><span class="n">core_index</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span>
@@ -1414,7 +1418,7 @@
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">StateTransitionError</span><span class="p">(</span><span class="n">GuaranteeErrorCode</span><span class="o">.</span><span class="n">core_unauthorized</span><span class="p">)</span>
 
-    <span class="c1"># GP-0.5.4-eq:8.2 | Update authorizations from queue</span>
+    <span class="c1"># GP-0.7.2-eq:8.2 | Update authorizations from queue</span>
     <span class="k">for</span> <span class="n">core_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gp_const</span><span class="o">.</span><span class="n">CORE_COUNT</span><span class="p">):</span>
         <span class="n">offset</span> <span class="o">=</span> <span class="n">header</span><span class="o">.</span><span class="n">timeslot</span> <span class="o">%</span> <span class="n">gp_const</span><span class="o">.</span><span class="n">MAXIMUM_AUTHORIZATION_QUEUE_ITEMS</span>
 
@@ -1562,10 +1566,6 @@
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
-      
-        <script src="../../javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

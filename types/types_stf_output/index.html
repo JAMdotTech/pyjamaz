@@ -209,7 +209,7 @@
   
     
   
-  Types
+  Type Definitions
 
         </a>
       </li>
@@ -249,7 +249,7 @@
   
     
   
-  Graypaper
+  Graypaper References
 
         </a>
       </li>
@@ -386,7 +386,7 @@
             
   
   <span class="md-ellipsis">
-    Types
+    Type Definitions
   </span>
   
 
@@ -396,7 +396,7 @@
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
-            Types
+            Type Definitions
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -411,7 +411,7 @@
         
   
   <span class="md-ellipsis">
-    Block Context
+    Block Types
   </span>
   
 
@@ -432,7 +432,7 @@
         
   
   <span class="md-ellipsis">
-    State Components
+    State Types
   </span>
   
 
@@ -620,15 +620,6 @@
   <a href="#pyjamaz.models.stf_output.ServicesAfterPreimagesOutput" class="md-nav__link">
     <span class="md-ellipsis">
       ServicesAfterPreimagesOutput
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pyjamaz.models.stf_output.ServicesAfterTransfersOutput" class="md-nav__link">
-    <span class="md-ellipsis">
-      ServicesAfterTransfersOutput
     </span>
   </a>
   
@@ -840,7 +831,7 @@
       
   
   <span class="md-ellipsis">
-    Graypaper
+    Graypaper References
   </span>
   
 
@@ -1065,15 +1056,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pyjamaz.models.stf_output.ServicesAfterTransfersOutput" class="md-nav__link">
-    <span class="md-ellipsis">
-      ServicesAfterTransfersOutput
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#pyjamaz.models.stf_output.ServicesAfterAccumulationOutput" class="md-nav__link">
     <span class="md-ellipsis">
       ServicesAfterAccumulationOutput
@@ -1171,7 +1153,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.5 (τ') | Output of Timeslot STF.</p>
+        <p>GP-0.7.2-eq:4.5 (τ') | Output of Timeslot STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1191,7 +1173,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.5 (τ') | Primary output of Timeslot STF.</p>
+                <p>GP-0.7.2-eq:4.5 (τ') | Primary output of Timeslot STF.</p>
               </div>
             </td>
           </tr>
@@ -1213,12 +1195,12 @@
 <span class="normal">26</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">TimeslotOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.5 (τ&#39;) | Output of Timeslot STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.5 (τ&#39;) | Output of Timeslot STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state: TimeslotState</span>
-<span class="sd">        GP-0.5.0-eq:4.5 (τ&#39;) | Primary output of Timeslot STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.5 (τ&#39;) | Primary output of Timeslot STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">TimeslotState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">TimeslotState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -1264,7 +1246,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.9 (η') | Output of Entropy STF.</p>
+        <p>GP-0.7.2-eq:4.8 (η') | Output of Entropy STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1284,7 +1266,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.9 (η') | Primary output of Entropy STF.</p>
+                <p>GP-0.7.2-eq:4.8 (η') | Primary output of Entropy STF.</p>
               </div>
             </td>
           </tr>
@@ -1306,12 +1288,12 @@
 <span class="normal">39</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">EntropyOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.9 (η&#39;) | Output of Entropy STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.8 (η&#39;) | Output of Entropy STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state: EntropyState</span>
-<span class="sd">        GP-0.5.0-eq:4.9 (η&#39;) | Primary output of Entropy STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.8 (η&#39;) | Primary output of Entropy STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">EntropyState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">EntropyState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -1357,7 +1339,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.12 (ψ') | Output of Disputes STF.</p>
+        <p>GP-0.7.2-eq:4.11 (ψ') | Output of Disputes STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1377,7 +1359,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.12 (ψ') | Primary output of Disputes STF.</p>
+                <p>GP-0.7.2-eq:4.11 (ψ') | Primary output of Disputes STF.</p>
               </div>
             </td>
           </tr>
@@ -1388,7 +1370,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:10.20 (bold_H_o) | Secondary output of Disputes STF.</p>
+                <p>GP-0.7.2-eq:10.20 (bold_H_O) | Secondary output of Disputes STF.</p>
               </div>
             </td>
           </tr>
@@ -1397,9 +1379,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">59</span>
-<span class="normal">60</span>
-<span class="normal">61</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">61</span>
 <span class="normal">62</span>
 <span class="normal">63</span>
 <span class="normal">64</span>
@@ -1410,17 +1390,19 @@
 <span class="normal">69</span>
 <span class="normal">70</span>
 <span class="normal">71</span>
-<span class="normal">72</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">72</span>
+<span class="normal">73</span>
+<span class="normal">74</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">DisputesOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.12 (ψ&#39;) | Output of Disputes STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.11 (ψ&#39;) | Output of Disputes STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state: DisputesState</span>
-<span class="sd">        GP-0.5.0-eq:4.12 (ψ&#39;) | Primary output of Disputes STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.11 (ψ&#39;) | Primary output of Disputes STF.</span>
 <span class="sd">    offenders_mark: Vec(H256)</span>
-<span class="sd">        GP-0.5.0-eq:10.20 (bold_H_o) | Secondary output of Disputes STF.</span>
+<span class="sd">        GP-0.7.2-eq:10.20 (bold_H_O) | Secondary output of Disputes STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">DisputesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">DisputesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
     <span class="n">offenders_mark</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Vec</span><span class="p">(</span><span class="n">H256</span><span class="p">)})</span>
@@ -1467,7 +1449,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.11 (λ') | Output of ValidatorArchive STF.</p>
+        <p>GP-0.7.2-eq:4.10 (λ') | Output of ValidatorArchive STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1487,7 +1469,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.11 (λ') | Primary output of ValidatorArchive STF.</p>
+                <p>GP-0.7.2-eq:4.10 (λ') | Primary output of ValidatorArchive STF.</p>
               </div>
             </td>
           </tr>
@@ -1496,9 +1478,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">77</span>
 <span class="normal">78</span>
 <span class="normal">79</span>
 <span class="normal">80</span>
@@ -1506,15 +1486,17 @@
 <span class="normal">82</span>
 <span class="normal">83</span>
 <span class="normal">84</span>
-<span class="normal">85</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">85</span>
+<span class="normal">86</span>
+<span class="normal">87</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ValidatorArchiveOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.11 (λ&#39;) | Output of ValidatorArchive STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.10 (λ&#39;) | Output of ValidatorArchive STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state: ValidatorArchiveState</span>
-<span class="sd">        GP-0.5.0-eq:4.11 (λ&#39;) | Primary output of ValidatorArchive STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.10 (λ&#39;) | Primary output of ValidatorArchive STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">ValidatorArchiveState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">ValidatorArchiveState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -1560,7 +1542,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.10 (κ') | Output of ValidatorPool STF.</p>
+        <p>GP-0.7.2-eq:4.9 (κ') | Output of ValidatorPool STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1580,7 +1562,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.10 (κ') | Primary output of ValidatorPool STF.</p>
+                <p>GP-0.7.2-eq:4.9 (κ') | Primary output of ValidatorPool STF.</p>
               </div>
             </td>
           </tr>
@@ -1589,25 +1571,25 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">88</span>
-<span class="normal">89</span>
-<span class="normal">90</span>
-<span class="normal">91</span>
-<span class="normal">92</span>
-<span class="normal">93</span>
-<span class="normal">94</span>
-<span class="normal">95</span>
-<span class="normal">96</span>
-<span class="normal">97</span>
-<span class="normal">98</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ValidatorPoolOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.10 (κ&#39;) | Output of ValidatorPool STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.9 (κ&#39;) | Output of ValidatorPool STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state:ValidatorPoolState</span>
-<span class="sd">        GP-0.5.0-eq:4.10 (κ&#39;) | Primary output of ValidatorPool STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.9 (κ&#39;) | Primary output of ValidatorPool STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">ValidatorPoolState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">ValidatorPoolState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -1653,7 +1635,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.6 (β†) | Output of RecentHistoryIntermediate STF.</p>
+        <p>GP-0.7.2-eq:4.6 (β†) | Output of RecentHistoryIntermediate STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1673,7 +1655,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.6 (β†) | Primary output of RecentHistoryIntermediate STF.</p>
+                <p>GP-0.7.2-eq:4.6 (β†) | Primary output of RecentHistoryIntermediate STF.</p>
               </div>
             </td>
           </tr>
@@ -1682,9 +1664,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">101</span>
-<span class="normal">102</span>
-<span class="normal">103</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">103</span>
 <span class="normal">104</span>
 <span class="normal">105</span>
 <span class="normal">106</span>
@@ -1692,15 +1672,17 @@
 <span class="normal">108</span>
 <span class="normal">109</span>
 <span class="normal">110</span>
-<span class="normal">111</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">RecentHistoryIntermediateOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.6 (β†) | Output of RecentHistoryIntermediate STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.6 (β†) | Output of RecentHistoryIntermediate STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    intermediate_state:RecentHistoryState</span>
-<span class="sd">        GP-0.5.0-eq:4.6 (β†) | Primary output of RecentHistoryIntermediate STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.6 (β†) | Primary output of RecentHistoryIntermediate STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">intermediate_state</span><span class="p">:</span> <span class="n">RecentHistoryState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -1746,7 +1728,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.7 (β') | Output of RecentHistory STF.</p>
+        <p>GP-0.7.2-eq:4.17 (β') | Output of RecentHistory STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1766,7 +1748,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.7 (β') | Primary output of RecentHistory STF.</p>
+                <p>GP-0.7.2-eq:4.17 (β') | Primary output of RecentHistory STF.</p>
               </div>
             </td>
           </tr>
@@ -1775,9 +1757,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">116</span>
 <span class="normal">117</span>
 <span class="normal">118</span>
 <span class="normal">119</span>
@@ -1785,15 +1765,17 @@
 <span class="normal">121</span>
 <span class="normal">122</span>
 <span class="normal">123</span>
-<span class="normal">124</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">RecentHistoryOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.7 (β&#39;) | Output of RecentHistory STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.17 (β&#39;) | Output of RecentHistory STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state:RecentHistoryState</span>
-<span class="sd">        GP-0.5.0-eq:4.7 (β&#39;) | Primary output of RecentHistory STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.17 (β&#39;) | Primary output of RecentHistory STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">RecentHistoryState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">RecentHistoryState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -1839,7 +1821,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.8 (γ') | Output of Safrole STF.</p>
+        <p>GP-0.7.2-eq:4.7 (γ') | Output of Safrole STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1859,7 +1841,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.8 (γ') | Primary output of Safrole STF.</p>
+                <p>GP-0.7.2-eq:4.7 (γ') | Primary output of Safrole STF.</p>
               </div>
             </td>
           </tr>
@@ -1870,7 +1852,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.27 (bold_H_e) | Secondary output of Safrole STF.</p>
+                <p>GP-0.7.2-eq:6.27 (bold_H_E) | Secondary output of Safrole STF.</p>
               </div>
             </td>
           </tr>
@@ -1881,7 +1863,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.28 (bold_H_w) | Secondary output of Safrole STF.</p>
+                <p>GP-0.7.2-eq:6.28 (bold_H_W) | Secondary output of Safrole STF.</p>
               </div>
             </td>
           </tr>
@@ -1890,9 +1872,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">140</span>
 <span class="normal">141</span>
 <span class="normal">142</span>
 <span class="normal">143</span>
@@ -1910,19 +1890,21 @@
 <span class="normal">155</span>
 <span class="normal">156</span>
 <span class="normal">157</span>
-<span class="normal">158</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">SafroleOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.8 (γ&#39;) | Output of Safrole STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.7 (γ&#39;) | Output of Safrole STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state: SafroleState</span>
-<span class="sd">        GP-0.5.0-eq:4.8 (γ&#39;) | Primary output of Safrole STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.7 (γ&#39;) | Primary output of Safrole STF.</span>
 <span class="sd">    epoch_mark: Option(EpochMark)</span>
-<span class="sd">        GP-0.5.0-eq:4.27 (bold_H_e) | Secondary output of Safrole STF.</span>
+<span class="sd">        GP-0.7.2-eq:6.27 (bold_H_E) | Secondary output of Safrole STF.</span>
 <span class="sd">    tickets_mark: Option(Array(TicketBody, EPOCH_TIMESLOTS))</span>
-<span class="sd">        GP-0.5.0-eq:4.28 (bold_H_w) | Secondary output of Safrole STF.</span>
+<span class="sd">        GP-0.7.2-eq:6.28 (bold_H_W) | Secondary output of Safrole STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">SafroleState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">SafroleState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
     <span class="n">epoch_mark</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EpochMark</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
@@ -1974,7 +1956,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.19 (α') | Output of AuthorizerPools STF.</p>
+        <p>GP-0.7.2-eq:4.19 (α') | Output of AuthorizerPools STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1994,7 +1976,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.19 (α') | Primary output of AuthorizerPools STF.</p>
+                <p>GP-0.7.2-eq:4.19 (α') | Primary output of AuthorizerPools STF.</p>
               </div>
             </td>
           </tr>
@@ -2003,9 +1985,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">163</span>
 <span class="normal">164</span>
 <span class="normal">165</span>
 <span class="normal">166</span>
@@ -2013,15 +1993,17 @@
 <span class="normal">168</span>
 <span class="normal">169</span>
 <span class="normal">170</span>
-<span class="normal">171</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AuthorizerPoolsOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.19 (α&#39;) | Output of AuthorizerPools STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.19 (α&#39;) | Output of AuthorizerPools STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state:AuthorizerPoolsState</span>
-<span class="sd">        GP-0.5.0-eq:4.19 (α&#39;) | Primary output of AuthorizerPools STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.19 (α&#39;) | Primary output of AuthorizerPools STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">AuthorizerPoolsState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -2067,7 +2049,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.13 (ρ†) | Output of AssurancesAfterDisputes STF.</p>
+        <p>GP-0.7.2-eq:4.12 (ρ†) | Output of AssurancesAfterDisputes STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -2087,7 +2069,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.13 (ρ†) | Primary output of AssurancesAfterDisputes STF.</p>
+                <p>GP-0.7.2-eq:4.12 (ρ†) | Primary output of AssurancesAfterDisputes STF.</p>
               </div>
             </td>
           </tr>
@@ -2096,9 +2078,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">174</span>
-<span class="normal">175</span>
-<span class="normal">176</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">176</span>
 <span class="normal">177</span>
 <span class="normal">178</span>
 <span class="normal">179</span>
@@ -2106,15 +2086,17 @@
 <span class="normal">181</span>
 <span class="normal">182</span>
 <span class="normal">183</span>
-<span class="normal">184</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AssurancesAfterDisputesOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.13 (ρ†) | Output of AssurancesAfterDisputes STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.12 (ρ†) | Output of AssurancesAfterDisputes STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    intermediate_state_after_disputes:AssurancesState</span>
-<span class="sd">        GP-0.5.0-eq:4.13 (ρ†) | Primary output of AssurancesAfterDisputes STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.12 (ρ†) | Primary output of AssurancesAfterDisputes STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">intermediate_state_after_disputes</span><span class="p">:</span> <span class="n">AssurancesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -2160,7 +2142,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.14 (ρ‡) | Output of AssurancesAfterAssurances STF.</p>
+        <p>GP-0.7.2-eq:4.13 (ρ‡) | Output of AssurancesAfterAssurances STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -2180,7 +2162,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.14 (ρ‡) | Primary output of AssurancesAfterAssurances STF.</p>
+                <p>GP-0.7.2-eq:4.13 (ρ‡) | Primary output of AssurancesAfterAssurances STF.</p>
               </div>
             </td>
           </tr>
@@ -2191,7 +2173,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.2-eq:11.17 (bold_W) | Items removed from ρ† to get ρ'</p>
+                <p>GP-0.7.2-eq:11.17 (bold_R) | Items removed from ρ† to get ρ'</p>
               </div>
             </td>
           </tr>
@@ -2200,9 +2182,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">187</span>
-<span class="normal">188</span>
-<span class="normal">189</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">189</span>
 <span class="normal">190</span>
 <span class="normal">191</span>
 <span class="normal">192</span>
@@ -2213,17 +2193,19 @@
 <span class="normal">197</span>
 <span class="normal">198</span>
 <span class="normal">199</span>
-<span class="normal">200</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AssurancesAfterAssurancesOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.14 (ρ‡) | Output of AssurancesAfterAssurances STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.13 (ρ‡) | Output of AssurancesAfterAssurances STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    intermediate_state_after_assurances: AssurancesState</span>
-<span class="sd">        GP-0.5.0-eq:4.14 (ρ‡) | Primary output of AssurancesAfterAssurances STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.13 (ρ‡) | Primary output of AssurancesAfterAssurances STF.</span>
 <span class="sd">    reported: List[WorkReport]</span>
-<span class="sd">        GP-0.5.2-eq:11.17 (bold_W) | Items removed from ρ† to get ρ&#39;</span>
+<span class="sd">        GP-0.7.2-eq:11.17 (bold_R) | Items removed from ρ† to get ρ&#39;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">intermediate_state_after_assurances</span><span class="p">:</span> <span class="n">AssurancesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
     <span class="n">reported</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">WorkReport</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Vec</span><span class="p">(</span><span class="n">WorkReport</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">())})</span>
@@ -2270,7 +2252,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.15 (ρ') | Output of AssurancesAfterGuarantees STF.</p>
+        <p>GP-0.7.2-eq:4.14 (ρ') | Output of AssurancesAfterGuarantees STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -2290,7 +2272,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.15 (ρ') | Primary output of AssurancesAfterGuarantees STF.</p>
+                <p>GP-0.7.2-eq:4.14 (ρ') | Primary output of AssurancesAfterGuarantees STF.</p>
               </div>
             </td>
           </tr>
@@ -2301,7 +2283,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.2-eq:11.29 (bold_w) | The set of work reports in the current extrinsic</p>
+                <p>GP-0.7.2-eq:11.29 (bold_r) | The set of work reports in the current extrinsic</p>
               </div>
             </td>
           </tr>
@@ -2312,7 +2294,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.2-eq:11.27 (bold_R) | Ed25519 keys of validators in the current extrinsic</p>
+                <p>GP-0.7.2-eq:11.27 (bold_G) | Ed25519 keys of validators in the current extrinsic</p>
               </div>
             </td>
           </tr>
@@ -2321,9 +2303,7 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">211</span>
 <span class="normal">212</span>
 <span class="normal">213</span>
 <span class="normal">214</span>
@@ -2337,19 +2317,21 @@
 <span class="normal">222</span>
 <span class="normal">223</span>
 <span class="normal">224</span>
-<span class="normal">225</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AssurancesAfterGuaranteesOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.15 (ρ&#39;) | Output of AssurancesAfterGuarantees STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.14 (ρ&#39;) | Output of AssurancesAfterGuarantees STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state: AssurancesState</span>
-<span class="sd">        GP-0.5.0-eq:4.15 (ρ&#39;) | Primary output of AssurancesAfterGuarantees STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.14 (ρ&#39;) | Primary output of AssurancesAfterGuarantees STF.</span>
 <span class="sd">    reported: List[ReportedPackage]</span>
-<span class="sd">        GP-0.5.2-eq:11.29 (bold_w) | The set of work reports in the current extrinsic</span>
+<span class="sd">        GP-0.7.2-eq:11.29 (bold_r) | The set of work reports in the current extrinsic</span>
 <span class="sd">    reporters: List[bytes]</span>
-<span class="sd">        GP-0.5.2-eq:11.27 (bold_R) | Ed25519 keys of validators in the current extrinsic</span>
+<span class="sd">        GP-0.7.2-eq:11.27 (bold_G) | Ed25519 keys of validators in the current extrinsic</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">AssurancesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">AssurancesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
     <span class="n">reported</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ReportedPackage</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Vec</span><span class="p">(</span><span class="n">ReportedPackage</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">())})</span>
@@ -2397,7 +2379,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.20 (π') | Output of Statistics STF.</p>
+        <p>GP-0.7.2-eq:4.20 (π') | Output of Statistics STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -2417,7 +2399,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.20 (π') | Primary output of Statistics STF.</p>
+                <p>GP-0.7.2-eq:4.20 (π') | Primary output of Statistics STF.</p>
               </div>
             </td>
           </tr>
@@ -2426,25 +2408,25 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">262</span>
-<span class="normal">263</span>
-<span class="normal">264</span>
-<span class="normal">265</span>
-<span class="normal">266</span>
-<span class="normal">267</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">267</span>
 <span class="normal">268</span>
 <span class="normal">269</span>
 <span class="normal">270</span>
 <span class="normal">271</span>
-<span class="normal">272</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">StatisticsOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.20 (π&#39;) | Output of Statistics STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.20 (π&#39;) | Output of Statistics STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state:StatisticsState</span>
-<span class="sd">        GP-0.5.0-eq:4.20 (π&#39;) | Primary output of Statistics STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.20 (π&#39;) | Primary output of Statistics STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">StatisticsState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">StatisticsState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -2519,19 +2501,18 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">280</span>
-<span class="normal">281</span>
-<span class="normal">282</span>
-<span class="normal">283</span>
-<span class="normal">284</span>
-<span class="normal">285</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">285</span>
 <span class="normal">286</span>
 <span class="normal">287</span>
 <span class="normal">288</span>
 <span class="normal">289</span>
 <span class="normal">290</span>
-<span class="normal">291</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
-<span class="c1"># TODO: Possibly deprecated since GP-0.5.0</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ServicesAfterPreimagesOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.5.0-eq:4.?? (δ&#39;) | Output of ServicesAfterPreimages STF.</span>
@@ -2541,100 +2522,8 @@
 <span class="sd">    post_state:ServicesState</span>
 <span class="sd">        GP-0.5.0-eq:4.?? (δ&#39;) | Primary output of ServicesAfterPreimages STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># TODO: deprecated?</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">ServicesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">ServicesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
-</code></pre></div></td></tr></table></div>
-              </details>
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="pyjamaz.models.stf_output.ServicesAfterTransfersOutput" class="doc doc-heading">
-            <code>ServicesAfterTransfersOutput</code>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
-  </span>
-
-<a href="#pyjamaz.models.stf_output.ServicesAfterTransfersOutput" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
-
-
-        <p>GP-0.5.0-eq:4.17 (δ‡) | Output of ServicesAfterTransfers STF.</p>
-
-
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="pyjamaz.models.stf_output.ServicesAfterTransfersOutput.intermediate_state_after_transfers">intermediate_state_after_transfers</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="pyjamaz.models.state.ServicesState" href="../types_state/#pyjamaz.models.state.ServicesState">ServicesState</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.17 (δ‡) | Primary output of ServicesAfterTransfers STF.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-              <details class="quote">
-                <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">294</span>
-<span class="normal">295</span>
-<span class="normal">296</span>
-<span class="normal">297</span>
-<span class="normal">298</span>
-<span class="normal">299</span>
-<span class="normal">300</span>
-<span class="normal">301</span>
-<span class="normal">302</span>
-<span class="normal">303</span>
-<span class="normal">304</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">ServicesAfterTransfersOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.17 (δ‡) | Output of ServicesAfterTransfers STF.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    intermediate_state_after_transfers: ServicesState</span>
-<span class="sd">        GP-0.5.0-eq:4.17 (δ‡) | Primary output of ServicesAfterTransfers STF.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">intermediate_state_after_transfers</span><span class="p">:</span> <span class="n">ServicesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">ServicesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -2731,7 +2620,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.6.1-eq:12.22 (φ') | Posterior state of authorizer queues</p>
+                <p>GP-0.6.1-eq:12.22 (𝜙') | Posterior state of authorizer queues</p>
               </div>
             </td>
           </tr>
@@ -2758,13 +2647,13 @@
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="pyjamaz.models.stf_output.ServicesAfterAccumulationOutput.deferred_transfers">deferred_transfers</span></code></td>
+            <td><code><span title="pyjamaz.models.stf_output.ServicesAfterAccumulationOutput.accumulation_gas_utilized">accumulation_gas_utilized</span></code></td>
             <td>
-                  <code><span title="typing.List">List</span>[<a class="autorefs autorefs-internal" title="pyjamaz.models.state.DeferredTransfer" href="../types_state/#pyjamaz.models.state.DeferredTransfer">DeferredTransfer</a>]</code>
+                  <code><span title="typing.Dict">Dict</span>[int, int]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.6.1-eq:12.21 (bold_t) | Number of work results accumulated</p>
+                <p>GP-0.6.4-eq:12.21 (bold_u) | accumulation gas utilized per service</p>
               </div>
             </td>
           </tr>
@@ -2773,7 +2662,15 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">307</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
 <span class="normal">308</span>
 <span class="normal">309</span>
 <span class="normal">310</span>
@@ -2795,14 +2692,7 @@
 <span class="normal">326</span>
 <span class="normal">327</span>
 <span class="normal">328</span>
-<span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">329</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">ServicesAfterAccumulationOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GP-0.5.0-eq:4.18 (δ†) | Output of Services STF.</span>
@@ -2816,22 +2706,23 @@
 <span class="sd">    post_state_validator_queue: ValidatorQueueState</span>
 <span class="sd">        GP-0.6.1-eq:12.22 (ι&#39;) | Posterior state of validator queue</span>
 <span class="sd">    post_state_authorizer_queues: AuthorizerQueuesState</span>
-<span class="sd">        GP-0.6.1-eq:12.22 (φ&#39;) | Posterior state of authorizer queues</span>
+<span class="sd">        GP-0.6.1-eq:12.22 (𝜙&#39;) | Posterior state of authorizer queues</span>
 <span class="sd">    beefy_commitment_map: BeefyCommitmentMap</span>
 <span class="sd">        GP-0.6.1-eq:12.21 (C) | Secondary output of Services STF, BeefyCommitmentMap.</span>
 <span class="sd">    nr_work_results_accumulated: int</span>
 <span class="sd">        GP-0.6.1-eq:12.21 (n) | Number of work results accumulated</span>
-<span class="sd">    deferred_transfers: List[DeferredTransfer]</span>
-<span class="sd">        GP-0.6.1-eq:12.21 (bold_t) | Number of work results accumulated</span>
+<span class="sd">    accumulation_gas_utilized: Dict[int, int]</span>
+<span class="sd">        GP-0.6.4-eq:12.21 (bold_u) | accumulation gas utilized per service</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># TODO: deprecated?</span>
     <span class="n">intermediate_state_after_accumulation</span><span class="p">:</span> <span class="n">ServicesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">ServicesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
     <span class="n">post_state_privileged_services</span><span class="p">:</span> <span class="n">PrivilegedServicesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">PrivilegedServicesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
     <span class="n">post_state_validator_queue</span><span class="p">:</span> <span class="n">ValidatorQueueState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">ValidatorQueueState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
     <span class="n">post_state_authorizer_queues</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">AuthorizerQueuesState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
     <span class="n">beefy_commitment_map</span><span class="p">:</span> <span class="n">BeefyCommitmentMap</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">BeefyCommitmentMap</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
     <span class="n">nr_work_results_accumulated</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">U32</span><span class="p">})</span>
-    <span class="n">deferred_transfers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">DeferredTransfer</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Vec</span><span class="p">(</span><span class="n">DeferredTransfer</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">())})</span>
+    <span class="n">accumulation_gas_utilized</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">Map</span><span class="p">(</span><span class="n">U32</span><span class="p">,</span> <span class="n">U64</span><span class="p">)})</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -2875,7 +2766,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.0-eq:4.17 (ξ') | Output of Accumulation History STF.</p>
+        <p>GP-0.7.2-eq:4.16 (ξ') | Output of Accumulation History STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -2895,7 +2786,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.0-eq:4.17 (ξ') | Primary output of AccumulationHistory STF.</p>
+                <p>GP-0.7.2-eq:4.16 (ξ') | Primary output of AccumulationHistory STF.</p>
               </div>
             </td>
           </tr>
@@ -2904,25 +2795,25 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">339</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
 <span class="normal">340</span>
 <span class="normal">341</span>
-<span class="normal">342</span>
-<span class="normal">343</span>
-<span class="normal">344</span>
-<span class="normal">345</span>
-<span class="normal">346</span>
-<span class="normal">347</span>
-<span class="normal">348</span>
-<span class="normal">349</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">342</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AccumulationHistoryOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.0-eq:4.17 (ξ&#39;) | Output of Accumulation History STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.16 (ξ&#39;) | Output of Accumulation History STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state: AccumulationHistoryState</span>
-<span class="sd">        GP-0.5.0-eq:4.17 (ξ&#39;) | Primary output of AccumulationHistory STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.16 (ξ&#39;) | Primary output of AccumulationHistory STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">AccumulationHistoryState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">AccumulationHistoryState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -2968,7 +2859,7 @@
               Bases: <code><span title="jamcodec.mixins.Serializable">Serializable</span></code></p>
 
 
-        <p>GP-0.5.4-eq:4.17 (θ) | Output of Accumulation Queue STF.</p>
+        <p>GP-0.7.2-eq:4.16 (θ') | Output of Accumulation Queue STF.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -2988,7 +2879,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GP-0.5.4-eq:4.17 (θ') | Primary output of AccumulationQueue STF.</p>
+                <p>GP-0.7.2-eq:4.16 (θ') | Primary output of AccumulationQueue STF.</p>
               </div>
             </td>
           </tr>
@@ -2997,25 +2888,25 @@
 
               <details class="quote">
                 <summary>Source code in <code>pyjamaz\models\stf_output.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">352</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span>
+<span class="normal">352</span>
 <span class="normal">353</span>
 <span class="normal">354</span>
-<span class="normal">355</span>
-<span class="normal">356</span>
-<span class="normal">357</span>
-<span class="normal">358</span>
-<span class="normal">359</span>
-<span class="normal">360</span>
-<span class="normal">361</span>
-<span class="normal">362</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">355</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">AccumulationQueueOutput</span><span class="p">(</span><span class="n">Serializable</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    GP-0.5.4-eq:4.17 (θ) | Output of Accumulation Queue STF.</span>
+<span class="sd">    GP-0.7.2-eq:4.16 (θ&#39;) | Output of Accumulation Queue STF.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    post_state: ServicesState</span>
-<span class="sd">        GP-0.5.4-eq:4.17 (θ&#39;) | Primary output of AccumulationQueue STF.</span>
+<span class="sd">        GP-0.7.2-eq:4.16 (θ&#39;) | Primary output of AccumulationQueue STF.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">post_state</span><span class="p">:</span> <span class="n">AccumulationQueueState</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;codec&#39;</span><span class="p">:</span> <span class="n">AccumulationQueueState</span><span class="o">.</span><span class="n">to_codec_def</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
@@ -3084,7 +2975,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../types_state/" class="md-footer__link md-footer__link--prev" aria-label="Previous: State Components">
+          <a href="../types_state/" class="md-footer__link md-footer__link--prev" aria-label="Previous: State Types">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3094,7 +2985,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                State Components
+                State Types
               </div>
             </div>
           </a>
@@ -3171,10 +3062,6 @@
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
-      
-        <script src="../../javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

@@ -207,7 +207,7 @@
   
     
   
-  Types
+  Type Definitions
 
         </a>
       </li>
@@ -249,7 +249,7 @@
   
     
   
-  Graypaper
+  Graypaper References
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Types
+    Type Definitions
   </span>
   
 
@@ -564,7 +564,7 @@
             
   
   <span class="md-ellipsis">
-    Graypaper
+    Graypaper References
   </span>
   
 
@@ -574,7 +574,7 @@
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
-            Graypaper
+            Graypaper References
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -818,15 +818,6 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#90-general" class="md-nav__link">
-    <span class="md-ellipsis">
-      9.0. General
-    </span>
-  </a>
-  
-</li>
       
         <li class="md-nav__item">
   <a href="#91-code-and-gas" class="md-nav__link">
@@ -1401,15 +1392,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#90-general" class="md-nav__link">
-    <span class="md-ellipsis">
-      9.0. General
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#91-code-and-gas" class="md-nav__link">
     <span class="md-ellipsis">
       9.1. Code and Gas
@@ -1500,201 +1482,40 @@
   
 
 
-<p><span class="arithmatex">\( \newcommand\eg{e.g.\@\xspace}
- \newcommand\Eg{E.g.\@\xspace}
- \newcommand\ie{i.e.\@\xspace}
- \newcommand\Ie{I.e.\@\xspace}
- %\newcommand\etc{\&amp;c.\@\xspace}
- \newcommand\nb{\textsc{nb}\@\xspace}
- \newcommand\rem{\ \text{\scriptsize{\%}}\ }
- \newcommand\remainder{\,\mathsf{R}\,}
- \newcommand\fold{\ \thicksim\mathchoice{\!\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}{\!\!\!\!\!\!}\int}
- \newcommand{\powset}[2][{}]{\wp\langle#2\rangle_{#1}} %%
- \newcommand{\sig}[2]{\mathbb{E}_{#1}\langle#2\rangle}
- \newcommand{\bandersnatch}[3]{\bar{\mathbb{F}}_{#1}^{#3}\langle#2\rangle}
- \newcommand{\bandersig}[3]{\mathbb{F}_{#1}^{#3}\langle#2\rangle}
- \newcommand{\banderout}[1]{\mathcal{Y}(#1)}
- \newcommand{\dict}[2]{\mathbb{D}\langle #1\to#2\rangle}
- \newcommand{\order}[1]{\left[#1\right]}
- \newcommand{\orderby}[2]{\left[#1\,\mid\lwavy\,#2\right]} %%
- \newcommand{\orderuniqby}[2]{\left[#1\,\mid\lWavy\,#2\right]} %%
- \newcommand{\token}[1]{\text{#1}} %%
- \renewcommand{\H}{\mathbb{H}}
- \newcommand{\N}{\mathbb{N}}
- \newcommand{\Y}{\mathbb{Y}}
- \newcommand{\Z}{\mathbb{Z}}
- \newcommand{\G}{\mathbb{G}}
- %\newcommand{\orderedin}{\ensuremath{\mathrel{\mathrlap{&lt;}{\scalebox{0.95}[1]{$-$}}}}}
- \newcommand{\using}{\text{let }}
- \newcommand{\where}{ \text{where }}
- \newcommand{\also}{ \text{and }}
- \newcommand{\otherwise}{\text{otherwise}}
- \newcommand{\otherwhen}{\text{otherwise if }}
- \newcommand{\when}{\text{if }}
- \newcommand{\exc}{\text{except }}
- \newcommand{\oog}{\infty}
- \newcommand{\error}{\nabla}
- \newcommand{\panic}{\lightning}
- \newcommand{\badexports}{\circledcirc}
- \newcommand{\host}{\hbar}
- \newcommand{\halt}{\blacksquare}
- \newcommand{\fault}{\text{\raisebox{6pt}{\rotatebox{180}{\textsf{F}}}}}
- \newcommand{\none}{\emptyset}\newcommand{\subifnone}{\mathcal{U}}
- \newcommand{\disjoint}{\downspoon}
- \newcommand{\Jam}{\raisebox{-1.2pt}{J}\textsc{am}\@\xspace}
- \newcommand{\suchthat}{\text{ such that }}
- \newcommand{\keys}[1]{\mathcal{K}(#1)}
- %\let\originalleft\left
- %\let\originalright\right
- \renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
- \renewcommand{\right}{\aftergroup\egroup\originalright}
- \newcommand{\var}[1]{\updownarrow#1}
- %\newcommand{\var}[1]{\left\updownarrow#1\right.\!}
- \newcommand{\maybe}[1]{\mathord{\text{¿}}#1}
- \newcommand{\se}{\mathcal{E}}
- \newcommand{\de}{\mathcal{E}^{-1}}
- \newcommand{\is}[2]{#1\tricolon#2}
- \newcommand{\isa}[2]{#1\in #2}
- \newcommand{\ts}{,\,}
- \newcommand{\lseq}{[} %%
- \newcommand{\rseq}{]} %%
- \newcommand{\ltup}{(} %%
- \newcommand{\rtup}{)} %%
- %\newcommand{\ltuple}{\!\left\lgroup}
- %\newcommand{\rtuple}{\right\rgroup\!}
- \newcommand{\bm}{} %%
- \newcommand{\ltuple}{(} %%
- \newcommand{\rtuple}{)} %%
- \newcommand{\sq}[1]{[#1]]}
- \newcommand{\seq}[1]{[#1]}
- \newcommand{\tup}[1]{(#1)}
- \newcommand{\tuple}[1]{(#1)}
- \newcommand{\floor}[1]{\lfloor#1\rfloor} %%
- \newcommand{\ceil}[1]{\lceil#1\rceil} %%
- \newcommand{\fnfrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
- \newcommand{\ffrac}[2]{\lfloor\frac{#1}{#2}\rfloor} %%
- \newcommand{\transpose}{{}^\text{T}}
- \newcommand{\joined}{\wideparen}
- \newcommand{\ang}[1]{\langle#1\rangle}
- \newcommand{\goodset}{\psi_\mathbf{g}}
- \newcommand{\badset}{\psi_\mathbf{b}}
- \newcommand{\wonkyset}{\psi_\mathbf{w}}
- \newcommand{\offenders}{\psi_\mathbf{o}}
- \newcommand{\xttickets}{\mathbf{E}_T}
- \newcommand{\xtdisputes}{\mathbf{E}_D}
- \newcommand{\xtguarantees}{\mathbf{E}_G}
- \newcommand{\xtassurances}{\mathbf{E}_A}
- \newcommand{\xtpreimages}{\mathbf{E}_P}
- \newcommand{\accumulated}{\xi}
- \newcommand{\ready}{\vartheta}
- \newcommand{\partialstate}{\mathbb{U}}
- \newcommand{\defxfer}{\mathbb{T}}
- \newcommand{\defxfers}{\seq{\defxfer}}
- \newcommand{\beefycommitmap}{\mathbf{C}}
- \newcommand{\accountspre}{\delta}
- \newcommand{\accountspostacc}{\delta^\dagger}
- \newcommand{\accountspostxfer}{\delta^\ddagger}
- \newcommand{\accountspostpreimage}{\delta'}
- \newcommand{\gascounter}{\varrho}
- \newcommand{\registers}{\omega}
- \newcommand{\memory}{\mu}
- \newcommand{\concat}{\frown} %%!!
- \)</span>
-<span class="arithmatex">\( \newcommand{\equationninepointone}{\N_S \equiv \N_{2^{32}}}
- \newcommand{\equationninepointtwo}{\delta \in \dict{\N_S}{\mathbb{A}}}
- \newcommand{\equationninepointthree}{
-     \mathbb{A} \equiv \ltuple\
-         \begin{aligned}
-             \mathbf{s} \in \dict{\H}{\Y}\,, \mathbf{p} \in \dict{\H}{\Y}\ ,\\
-             \mathbf{l} \in \dict{\ltuple\H\ts\N_L\rtuple}{\seq{\N_T}_{:3}}\ ,\\
-             c \in \H\,,b \in \N_B\ , g \in \N_G\ , m \in \N_G
-         \end{aligned}
-     \rtuple
- }
- \newcommand{\equationninepointfour}{
-     \forall \mathbf{a} \in \mathbb{A} : \mathbf{a}_\mathbf{c} \equiv
-     \begin{cases}
-         \mathbf{a}_\mathbf{p}[\mathbf{a}_c] \when \mathbf{a}_c \in \mathbf{a}_\mathbf{p} \\
-         \none \otherwise
-     \end{cases}
- }
- \newcommand{\equationninepointfive}{
-     \begin{aligned}
-         \Lambda\colon \{\
-         \begin{aligned}
-             (\mathbb{A}, \N_{\mathbf{H}_t - C_D\dots\mathbf{H}_t}, \mathbb{H}) \to \mathbb{Y}\bm{?} \\
-             (\mathbf{a}, t, \mathcal{H}(\mathbf{p})) \mapsto v : v \in \{ \mathbf{p}, \none \}
-         \end{aligned}.
-     \end{aligned}
- }
- \newcommand{\equationninepointsix}{
-     \forall a \in \mathbb{A}, (h \mapsto \mathbf{p}) \in a_\mathbf{p} \Rightarrow
-         h = \mathcal{H}(\mathbf{p})\wedge
-         \tup{h \ts |\mathbf{p}|} \in \keys{a_\mathbf{l}}
-     }
- \newcommand{\equationninepointseven}{
-     \begin{aligned}\label{eq:historicallookup}
-         \Lambda\colon (\mathbb{A}, \N_T, \H) \to \Y\bm{?} \\
-         \Lambda(\mathbf{a}, t, h) \equiv \begin{cases}
-             \mathbf{a}_\mathbf{p}[h]\!\!\!\! \when h \in \keys{\mathbf{a}_\mathbf{p}} \wedge I(\mathbf{a}_\mathbf{l}[h, |\mathbf{a}_\mathbf{p}[h]|], t) \!\!\!\!\! \\
-             \none \otherwise
-         \end{cases}\\
-         \where I(\mathbf{l}, t) = \begin{cases}
-             \bot \when [] = \mathbf{l} \\
-             x \le t \when [x] = \mathbf{l} \\
-             x \le t &lt; y \when [x, y] = \mathbf{l} \\
-             x \le t &lt; y \vee z \le t \when [x, y, z] = \mathbf{l} \\
-         \end{cases}
-     \end{aligned}
- }
- \newcommand{\equationninepointeight}{
-     \begin{align}
-         \forall a \in \mathcal{V}(\delta):\ \begin{cases}
-             a_i \in \N_{2^{32}} \equiv 2\cdot|\,a_\mathbf{l}\,| + |\,a_\mathbf{s}\,| \\
-             a_o \in \N_{2^{64}} \equiv \sum\limits_{\,(h, z) \in \keys{a_\mathbf{l}}\,} 81 + z \\
-             \phantom{\equiv} + \sum\limits_{x \in \mathcal{V}(a_\mathbf{s})} 32 + |x| \\
-             a_t \in \N_B \equiv \mathsf{B}_S + \mathsf{B}_I \cdot a_i + \mathsf{B}_L \cdot a_o
-         \end{cases}
-     \end{align}
- }
- \newcommand{\equationninepointnine}{
-     \begin{align}
-         \chi \equiv \tuple{
-             \isa{\chi_m}{\N_S} \ts
-             \isa{\chi_a}{\N_S} \ts
-             \isa{\chi_v}{\N_S} \ts
-             \isa{\chi_\mathbf{g}}{\dict{\N_S}{\N_G}}
-         }
-     \end{align}
- }
- \)</span></p>
 <h1 id="9-service-accounts">9. Service Accounts<a class="headerlink" href="#9-service-accounts" title="Permanent link">&para;</a></h1>
 <p>The aim of this section is to provide a detailed implementation reference on Graypaper equation definitions.
-This section has been updated to match Graypaper version 0.6.2. </p>
-<h2 id="90-general">9.0. General<a class="headerlink" href="#90-general" title="Permanent link">&para;</a></h2>
+This section has been updated to match Graypaper version 0.5.0. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="9.1">(9.1)</a></td>
-<td><span class="arithmatex">\(\equationninepointone\)</span></td>
-<td>[TODO]</td>
+<td>Equation 9.1</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="9.2">(9.2)</a></td>
-<td><span class="arithmatex">\(\equationninepointtwo\)</span></td>
-<td>[TODO]</td>
+<td>Equation 9.2</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 <tr>
-<td><a name="9.3">(9.3)</a></td>
-<td><span class="arithmatex">\(\equationninepointthree\)</span></td>
-<td>[TODO]</td>
+<td>Equation 9.3</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1702,16 +1523,20 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="9.4">(9.4)</a></td>
-<td><span class="arithmatex">\(\equationninepointfour\)</span></td>
-<td>[TODO]</td>
+<td>Equation 9.4</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1719,16 +1544,20 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="9.5">(9.5)</a></td>
-<td><span class="arithmatex">\(\equationninepointfive\)</span></td>
-<td>[TODO]</td>
+<td>Equation 9.5</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1736,16 +1565,20 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="9.6">(9.6)</a></td>
-<td><span class="arithmatex">\(\equationninepointsix\)</span></td>
-<td>[TODO]</td>
+<td>Equation 9.6</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1753,16 +1586,20 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="9.7">(9.7)</a></td>
-<td><span class="arithmatex">\(\equationninepointseven\)</span></td>
-<td>[TODO]</td>
+<td>Equation 9.7</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1770,16 +1607,20 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="9.8">(9.8)</a></td>
-<td><span class="arithmatex">\(\equationninepointeight\)</span></td>
-<td>[TODO]</td>
+<td>Equation 9.8</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1787,16 +1628,20 @@ This section has been updated to match Graypaper version 0.6.2. </p>
 <table>
 <thead>
 <tr>
-<th>Graypaper</th>
-<th>Equation</th>
-<th>Implementation</th>
+<th>Graypaper Reference</th>
+<th style="text-align: right;">Stub</th>
+<th style="text-align: right;">Implementation</th>
+<th style="text-align: right;">Conformance</th>
+<th style="text-align: right;">Documentation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a name="9.9">(9.9)</a></td>
-<td><span class="arithmatex">\(\equationninepointnine\)</span></td>
-<td>[TODO]</td>
+<td>Equation 9.9</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
+<td style="text-align: right;">0%</td>
 </tr>
 </tbody>
 </table>
@@ -1922,10 +1767,6 @@ This section has been updated to match Graypaper version 0.6.2. </p>
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
-      
-        <script src="../../javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

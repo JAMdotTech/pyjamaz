@@ -207,7 +207,7 @@
   
     
   
-  Types
+  Type Definitions
 
         </a>
       </li>
@@ -247,7 +247,7 @@
   
     
   
-  Graypaper
+  Graypaper References
 
         </a>
       </li>
@@ -382,7 +382,7 @@
       
   
   <span class="md-ellipsis">
-    Types
+    Type Definitions
   </span>
   
 
@@ -560,7 +560,7 @@
       
   
   <span class="md-ellipsis">
-    Graypaper
+    Graypaper References
   </span>
   
 
@@ -1637,8 +1637,8 @@ mnemonic or URI containing soft and hard derivation paths. With these Keypairs d
 <span class="sd">        -------</span>
 <span class="sd">        bytes</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">private_key</span> <span class="o">==</span> <span class="nb">bytes</span><span class="p">(</span><span class="mi">32</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot sign, private key is not set&quot;</span><span class="p">)</span>
+        <span class="c1"># if self.private_key == bytes(32):</span>
+        <span class="c1">#     raise ValueError(&quot;Cannot sign, private key is not set&quot;)</span>
 
         <span class="k">return</span> <span class="n">ed25519_zebra</span><span class="o">.</span><span class="n">ed_sign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">private_key</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
 
@@ -1871,8 +1871,8 @@ mnemonic or URI containing soft and hard derivation paths. With these Keypairs d
 <span class="sd">    -------</span>
 <span class="sd">    bytes</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">private_key</span> <span class="o">==</span> <span class="nb">bytes</span><span class="p">(</span><span class="mi">32</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot sign, private key is not set&quot;</span><span class="p">)</span>
+    <span class="c1"># if self.private_key == bytes(32):</span>
+    <span class="c1">#     raise ValueError(&quot;Cannot sign, private key is not set&quot;)</span>
 
     <span class="k">return</span> <span class="n">ed25519_zebra</span><span class="o">.</span><span class="n">ed_sign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">private_key</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -2133,10 +2133,6 @@ mnemonic or URI containing soft and hard derivation paths. With these Keypairs d
     
     
       <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
-      
-        <script src="../../javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>
