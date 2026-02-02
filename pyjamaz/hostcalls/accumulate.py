@@ -16,12 +16,14 @@ from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
+from pyjamaz.hostcalls import hostcall
 from pyjamaz.utils import format_hash
 
 U32_MAX = 2 ** 32
 U64_MAX = 2 ** 64
 
 
+@hostcall(10)
 def hc_bless(
         registers: List[int],
         memory: PVMMemory,
@@ -55,8 +57,6 @@ def hc_bless(
     None
     """
     logger and logger.hc_regs(f"BLESS", "accumulate")
-
-    invocation_output.gas_limit -= 10
 
     # Privileged services:
     m = registers[7]  # m: index of manager service (manager of chi(X))
@@ -114,6 +114,7 @@ def hc_bless(
         logger and logger.hc_log("BLESS OK", f"m={m} a={a} v={v} r={r}")
 
 
+@hostcall(10)
 def hc_assign(
         registers: List[int],
         memory: PVMMemory,
@@ -144,8 +145,6 @@ def hc_assign(
     None
     """
     logger and logger.hc_regs(f"ASSIGN", "accumulate")
-    invocation_output.gas_limit -= 10
-
     core_index = registers[7] % U32_MAX  # Core index to update (0..341)
     o = registers[8] % U32_MAX  # memory offset (UInt32)
     a = registers[9]  # new assigner service (UInt64)
@@ -190,6 +189,7 @@ def hc_assign(
         logger and logger.hc_log("ASSIGN OK", f"c={core_index} o={o} a={a}")
 
 
+@hostcall(10)
 def hc_designate(
         registers: List[int],
         memory: PVMMemory,
@@ -218,8 +218,6 @@ def hc_designate(
     None
     """
     logger and logger.hc_regs(f"DESIGNATE", "accumulate")
-    invocation_output.gas_limit -= 10
-
     o = registers[7] % U32_MAX  # memory offset (UInt32)
 
     if memory.is_accessible(o, 336 * VALIDATOR_COUNT, MEM_R):
@@ -251,6 +249,7 @@ def hc_designate(
         logger and logger.hc_log("DESIGNATE OK", f"o={o}")
 
 
+@hostcall(10)
 def hc_checkpoint(
         registers: List[int],
         memory: PVMMemory,
@@ -280,7 +279,6 @@ def hc_checkpoint(
     None
     """
     logger and logger.hc_regs(f"CHECKPOINT", "accumulate")
-    invocation_output.gas_limit -= 10
     #invocation_output.registers[7] = invocation_output.gas_limit
     gas_value = invocation_output.gas_limit
     if gas_value < 0:
@@ -293,6 +291,7 @@ def hc_checkpoint(
     x.savepoint_context = deepcopy(x.context)
 
 
+@hostcall(10)
 def hc_new(
         registers: List[int],
         memory: PVMMemory,
@@ -317,8 +316,6 @@ def hc_new(
     None
     """
     logger and logger.hc_regs(f"NEW", "accumulate")
-    invocation_output.gas_limit -= 10
-
     o = registers[7] % U32_MAX  # offset to read service data from (UInt32 for memory)
     l = registers[8]   # size (byte length) of the code blob (UInt64)
     g = registers[9]   # gas_limit_accumulate (UInt64)
@@ -413,6 +410,7 @@ def hc_new(
         logger and logger.hc_log("NEW OK", f"old_service={service_id} code_hash={code_hash} code_len={l}")
 
 
+@hostcall(10)
 def hc_upgrade(
         registers: List[int],
         memory: PVMMemory,
@@ -444,8 +442,6 @@ def hc_upgrade(
     None
     """
     logger and logger.hc_regs(f"UPGRADE", "accumulate")
-    invocation_output.gas_limit -= 10
-
     o = registers[7] % U32_MAX  # offset for service codehash (UInt32 for memory)
     g = registers[8]  # gas_limit_accumulate (UInt64)
     m = registers[9]  # gas_limit_on_transfer (UInt64)
@@ -473,6 +469,7 @@ def hc_upgrade(
         logger and logger.hc_log("UPGRADE OK", f"code_hash={code_hash} ")
 
 
+@hostcall(10)
 def hc_transfer(
         registers: List[int],
         memory: PVMMemory,
@@ -569,14 +566,12 @@ def hc_transfer(
         logger and logger.hc_log("TRANSFER OK", f"sender={transfer.sender} receiver={transfer.receiver} amount={transfer.amount} t={t}")
 
     # Process gas usage
-    gas_usage = 10 + t
-    if gas_usage > invocation_output.gas_limit:
-        # Note: keep gas negative (otherwise a int wrap around could make it positive again)
-        invocation_output.gas_limit = -1  # invocation_output.gas_limit - gas_usage
-    else:
-        invocation_output.gas_limit -= gas_usage
+    invocation_output.gas_limit -= t
+    if invocation_output.gas_limit < 0:
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.out_of_gas)
 
 
+@hostcall(10)
 def hc_eject(
         registers: List[int],
         memory: PVMMemory,
@@ -611,8 +606,6 @@ def hc_eject(
     None
     """
     logger and logger.hc_regs(f"EJECT", "accumulate")
-    invocation_output.gas_limit -= 10
-
     d = registers[7]  # destination service (UInt64)
     o = registers[8] % U32_MAX  # memory offset (UInt32)
 
@@ -672,6 +665,7 @@ def hc_eject(
         logger and logger.hc_log("EJECT HUH", f"preimage_availability={preimage_availability} d={d} preimage_hash={preimage_hash.hex()} l={l} updated_balance={updated_balance}")
 
 
+@hostcall(10)
 def hc_query(
         registers: List[int],
         memory: PVMMemory,
@@ -702,8 +696,6 @@ def hc_query(
     None
     """
     logger and logger.hc_regs(f"QUERY", "accumulate")
-    invocation_output.gas_limit -= 10
-
     o = registers[7] % U32_MAX  # memory offset (UInt32)
     preimage_length = registers[8]  # preimage length (UInt64)
 
@@ -762,6 +754,7 @@ def hc_query(
         logger and logger.hc_log("QUERY PANIC", f"")
 
 
+@hostcall(10)
 def hc_solicit(
         registers: List[int],
         memory: PVMMemory,
@@ -793,7 +786,6 @@ def hc_solicit(
     None
     """
     logger and logger.hc_regs(f"SOLICIT", "accumulate")
-    invocation_output.gas_limit -= 10
 
     state = x.context.state_context
     service_id = x.context.service_account_id
@@ -861,6 +853,7 @@ def hc_solicit(
         logger and logger.hc_log("SOLICIT OK", f"h={preimage_hash.hex()} newvalue={preimage_availability}")
 
 
+@hostcall(10)
 def hc_forget(
         registers: List[int],
         memory: PVMMemory,
@@ -893,8 +886,6 @@ def hc_forget(
     None
     """
     logger and logger.hc_regs(f"FORGET", "accumulate")
-    invocation_output.gas_limit -= 10
-
     o = registers[7] % U32_MAX  # memory offset (UInt32)
     preimage_length = registers[8]  #GP: z (UInt64)
 
@@ -966,6 +957,7 @@ def hc_forget(
         logger and logger.hc_log("FORGET OK", f"preimage_hash={preimage_hash.hex()}")
 
 
+@hostcall(10)
 def hc_yield(
         registers: List[int],
         memory: PVMMemory,
@@ -996,7 +988,6 @@ def hc_yield(
     None
     """
     logger and logger.hc_regs(f"YIELD", "accumulate")
-    invocation_output.gas_limit -= 10
     o = registers[7]
 
     # gp: h
@@ -1015,6 +1006,7 @@ def hc_yield(
         logger and logger.hc_log("YIELD OK", f"invocation_data={invocation_data.hex()}")
 
 
+@hostcall(10)
 def hc_provide(
         registers: List[int],
         memory: PVMMemory,
@@ -1044,8 +1036,6 @@ def hc_provide(
     """
 
     logger and logger.hc_regs(f"PROVIDE", "accumulate")
-    invocation_output.gas_limit -= 10
-
     preimage_address = registers[8] # GP: o
     preimage_length = registers[9]  # GP: z
 
