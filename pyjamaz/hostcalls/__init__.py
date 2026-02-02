@@ -1,31 +1,25 @@
-from functools import wraps
 import inspect
-from typing import Callable, TypeVar
+import logging
 
+from pyjamaz.pvm.exceptions import PanicError
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 
-R = TypeVar("R")
 
+def hostcall(cost: int):
 
-def hostcall(cost: int) -> Callable[[Callable[..., R]], Callable[..., R]]:
-    """
-    Decorator for hostcalls to charge a fixed gas cost and halt on OOG.
-    """
-    if cost < 0:
-        raise ValueError("hostcall cost must be non-negative")
+    def hostcall_inner(func):
 
-    def decorator(func: Callable[..., R]) -> Callable[..., R]:
-        signature = inspect.signature(func)
-        param_names = list(signature.parameters.keys())
-        invocation_output_index = (
-            param_names.index("invocation_output")
-            if "invocation_output" in signature.parameters
-            else None
-        )
+        def hc_wrapped(*args, **kwargs):
 
-        @wraps(func)
-        def wrapper(*args, **kwargs):
+            #invocation_output = kwargs.get("invocation_output")
+            signature = inspect.signature(func)
+            param_names = list(signature.parameters.keys())
+            invocation_output_index = (
+                param_names.index("invocation_output")
+                if "invocation_output" in signature.parameters
+                else None
+            )
             if "invocation_output" in kwargs:
                 invocation_output = kwargs["invocation_output"]
             elif invocation_output_index is not None and len(args) > invocation_output_index:
@@ -38,15 +32,16 @@ def hostcall(cost: int) -> Callable[[Callable[..., R]], Callable[..., R]]:
                 )
 
             if invocation_output is None:
-                raise RuntimeError("hostcall could not locate invocation_output")
+                raise PanicError("hostcall could not locate invocation_output")
 
             invocation_output.gas_limit -= cost
             if invocation_output.gas_limit < 0:
+                logging.debug(f"hostcall {func} gas_limit reached")
                 invocation_output.exit_condition = ExitCondition(reason=ExitReason.out_of_gas)
                 return None
 
             return func(*args, **kwargs)
 
-        return wrapper
+        return hc_wrapped
 
-    return decorator
+    return hostcall_inner
