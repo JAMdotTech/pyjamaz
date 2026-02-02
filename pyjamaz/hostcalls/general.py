@@ -23,7 +23,7 @@ def hc_gas(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.7.1-section:B.5 (Ω_G) | General host function: gas.
+    GP-0.7.2-section:B.5 (Ω_G) | General host function: gas.
 
     Query the gas left.
     Returns the remaining gas in register 7.
@@ -60,7 +60,7 @@ def hc_lookup(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.7.1-section:B.5 (Ω_L) | General host function: lookup.
+    GP-0.7.2-section:B.5 (Ω_L) | General host function: lookup.
 
     Make a lookup into the service's preimage store.
     hash: The hash of the preimage to look up.
@@ -137,7 +137,7 @@ def hc_read(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.7.1-section:B.5 (Ω_R) | General host function: read.
+    GP-0.7.2-section:B.5 (Ω_R) | General host function: read.
 
     Puts a Service StorageItem blob into PVM memory
 
@@ -222,7 +222,7 @@ def hc_write(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.7.1-section:B.5 (Ω_W) | General host function: write.
+    GP-0.7.2-section:B.5 (Ω_W) | General host function: write.
 
     Writes/deletes a Service StorageItem blob
 
@@ -334,7 +334,7 @@ def hc_info(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.7.1-section:B.5 (Ω_I) | General host function: info.
+    GP-0.7.2-section:B.5 (Ω_I) | General host function: info.
 
     Writes ServiceAccount into PVM memory
 
@@ -416,7 +416,7 @@ def hc_fetch(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
-    GP-0.7.1-section:B.5 (Ω_F) | General host function: fetch.
+    GP-0.7.2-section:B.5 (Ω_F) | General host function: fetch.
 
     Fetch the data defined by this Fetch into the given target buffer.
     target: The buffer to write the fetched data into.

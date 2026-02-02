@@ -83,7 +83,7 @@ class PVMMemory:
             logging.error(msg)
             raise PVMMemoryError(msg)
 
-        #GP-0.6.2-eq:A.7
+        #GP-0.7.2-eq:A.7
         if addr < 2**16:
             msg = "Invalid memory access"
             DEBUG and logging.debug(msg)
@@ -327,6 +327,6 @@ class PVMMemory:
     @staticmethod
     def zone_size(items: int) -> int:
         """
-        GP-0.6.2-eq:A.38 (Z)
+        GP-0.7.2-eq:A.40 (Z)
         """
         return PVM_INIT_ZONE_SIZE * ceil(items / PVM_INIT_ZONE_SIZE)
