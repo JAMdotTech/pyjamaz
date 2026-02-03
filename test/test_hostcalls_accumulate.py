@@ -239,7 +239,7 @@ class TestHCAccumulate(unittest.TestCase):
 
         invocation_output = InvocationMutationOutput(
             exit_condition=ExitCondition(reason=ExitReason.resume),
-            gas_limit=1000000,  # Start with plenty of gas
+            gas_limit=test_vector.get("initial-gas", 1000000),
             registers=np.array(pvm_regs, dtype=np.uint64),
             memory=deepcopy(pvm_memory)
         )
@@ -452,6 +452,14 @@ class TestHCAccumulate(unittest.TestCase):
             invocation_output.exit_condition.reason.name.lower(),
             f"{name}: Expected exit reason {expected_exit_reason}, but got {invocation_output.exit_condition.reason.name.lower()}"
         )
+
+        # Check expected gas limit if specified
+        if "expected-gas-limit" in test_vector:
+            self.assertEqual(
+                test_vector["expected-gas-limit"],
+                invocation_output.gas_limit,
+                f"{name}: Expected gas limit {test_vector['expected-gas-limit']}, but got {invocation_output.gas_limit}"
+            )
 
         # additionally, heck expected privileged services if provided
         if "expected-privileged-services" in test_vector:

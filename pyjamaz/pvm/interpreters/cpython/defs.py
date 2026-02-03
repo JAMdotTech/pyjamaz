@@ -45,11 +45,13 @@ def i64(x: int) -> int:
 
 # Pvm helper functions:
 def rori64(x, shift_amount):
+    x = x & 0xFFFFFFFFFFFFFFFF
     shift_amount = int(shift_amount) & 63
     return ((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
 
 def roli64(x, shift_amount):
+    x = x & 0xFFFFFFFFFFFFFFFF
     shift_amount = int(shift_amount) & 63
     return ((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF
 
@@ -65,11 +67,13 @@ def rotr32(x, s):
     return ((x >> s) | (x << (32 - s))) & MASK32
 
 def rori32(x, shift_amount):
+    x = x & 0xFFFFFFFF
     shift_amount = int(shift_amount) & 31
     return ((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF
 
 
 def roli32(x, shift_amount):
+    x = x & 0xFFFFFFFF
     shift_amount = int(shift_amount) & 31
     return ((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF
 

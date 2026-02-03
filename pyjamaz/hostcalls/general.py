@@ -11,12 +11,14 @@ from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.pvm.memory import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
+from pyjamaz.hostcalls import hostcall
 
 
 U32_MAX = 2 ** 32
 U64_MAX = 2 ** 64
 
 
+@hostcall(10)
 def hc_gas(
         registers: List[int],
         memory: PVMMemory,
@@ -40,17 +42,11 @@ def hc_gas(
     None
     """
     logger and logger.hc_regs(f"GAS", "general")
-    invocation_output.gas_limit -= 10
-
-    gas_value = invocation_output.gas_limit
-    if gas_value < 0:
-        # Note: convert to two's complement
-        gas_value = (1 << 64) + gas_value
-
-    invocation_output.registers[7] = gas_value
+    invocation_output.registers[7] = invocation_output.gas_limit
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
 
+@hostcall(10)
 def hc_lookup(
         registers: List[int],
         memory: PVMMemory,
@@ -83,8 +79,6 @@ def hc_lookup(
     None
     """
     logger and logger.hc_regs(f"LOOKUP", "general")
-    invocation_output.gas_limit -= 10
-
     reg7 = registers[7]
     if reg7 == service_id or reg7 == U64_MAX - 1:
         service_account_id = service_id
@@ -128,6 +122,7 @@ def hc_lookup(
         logger and logger.hc_log("LOOKUP OK",
                            f"s={service_account_id} h={preimage_hash} len(v)={len(preimage_bytes)} write_bytes({o},{o + l})")
 
+@hostcall(10)
 def hc_read(
         registers: List[int],
         memory: PVMMemory,
@@ -156,8 +151,6 @@ def hc_read(
     None
     """
     logger and logger.hc_regs(f"READ", "general")
-    invocation_output.gas_limit -= 10
-
     reg7 = registers[7]
     if reg7 == U64_MAX - 1:
         target_service_id = service_id
@@ -213,6 +206,7 @@ def hc_read(
                            f"s={target_service_id} k={storage_key.hex()} len={len(storage_item)} write_bytes({o}, {o + l})")
 
 
+@hostcall(10)
 def hc_write(
         registers: List[int],
         memory: PVMMemory,
@@ -241,8 +235,6 @@ def hc_write(
     None
     """
     logger and logger.hc_regs(f"WRITE", "general")
-    invocation_output.gas_limit -= 10
-
     k_o = registers[7] % U32_MAX   # offset to read storage_item_key from memory
     k_z = registers[8] % U32_MAX   # length to read storage_item_key from memory
     v_o = registers[9] % U32_MAX   # offset to write storage_item_value from memory
@@ -325,6 +317,7 @@ def hc_write(
         logger and logger.hc_log("WRITE storage",f"a_o={service_account.footprint_storage_bytes} a_i={service_account.footprint_storage_items}")
 
 
+@hostcall(10)
 def hc_info(
         registers: List[int],
         memory: PVMMemory,
@@ -353,8 +346,6 @@ def hc_info(
     None
     """
     logger and logger.hc_regs(f"INFO", "general")
-    invocation_output.gas_limit -= 10
-
     reg7 = registers[7]
     # GP: bold_t
     try:
@@ -403,6 +394,7 @@ def hc_info(
         logger and logger.hc_log("INFO OK", f"s={service_id} bytes={len(service_account_bytes)}")
 
 
+@hostcall(10)
 def hc_fetch(
         registers: List[int],
         memory: PVMMemory,
@@ -443,7 +435,6 @@ def hc_fetch(
     """
 
     logger and logger.hc_regs(f"FETCH", "general")
-    invocation_output.gas_limit -= 10
 
     w7 = registers[7] % U32_MAX   # writeAddr (memory address)
     w8 = registers[8]              # first (UInt64)
@@ -605,10 +596,10 @@ def hc_fetch(
         logger and logger.hc_log("FETCH result", f"OK wrote={l}bytes from len={len(bold_v)}")
 
 
+@hostcall(10)
 def hc_not_found(
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     logger and logger.hc_regs(f"NOT_FOUND", "general")
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-    invocation_output.gas_limit -= 10
     invocation_output.registers[7] = HostCallResult.WHAT.value
