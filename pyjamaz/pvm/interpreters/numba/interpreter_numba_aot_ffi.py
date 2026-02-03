@@ -211,7 +211,7 @@ if __name__ == '__main__':
     d.riscv_div_jit.compile(int64(int64, int64))
     d.pvm_Z_inv_jit.compile(uint64(int64, uint8))
     d.read_uint_jit.compile(uint64(uint8[::1], uint32, uint8))
-    d.mem_write_jit.compile(int32(uint64,uint64,uint8, uint64[::1],uint64[::1],u8_array_list,int32[::1]))
+    d.mem_write_jit.compile(types.Tuple((int32, uint64))(uint64,uint64,uint8, uint64[::1],uint64[::1],u8_array_list,int32[::1]))
     d.mem_read_jit.compile(types.Tuple((int32, uint64))(uint64,uint8,uint64[::1],uint64[::1],u8_array_list,int32[::1]))
 
     #cc.compile()

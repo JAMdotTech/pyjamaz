@@ -14,12 +14,14 @@ from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.hostcalls.constants import HostCallResult, InnerPVMResult
 from pyjamaz.hostcalls.models import RefineInvocationContext, IntegratedPVM
+from pyjamaz.hostcalls import hostcall
 from pyjamaz.settings import PVM_DEBUGGER
 
 U32_MAX = 2 ** 32
 U64_MAX = 2 ** 64
 
 
+@hostcall(10)
 def hc_historical_lookup(
         registers: List[int],
         memory: PVMMemory,
@@ -38,8 +40,6 @@ def hc_historical_lookup(
     haal preimage op adv serviceaccount, timeslot en preimagehash en schrijf (deels?) deze weg in memory
     """
     logger and logger.hc_regs(f"HISTORICAL_LOOKUP", "refine")
-    invocation_output.gas_limit -= 10
-
     try:
         service_account = services.retrieve_service_account(service_id)
     except StateKeyNoResult:
@@ -88,6 +88,7 @@ def hc_historical_lookup(
         invocation_output.memory.write_bytes(o, preimage[f:f+l])
 
 
+@hostcall(10)
 def hc_export(
         registers: List[int],
         memory: PVMMemory,
@@ -125,6 +126,7 @@ def hc_export(
         logger and logger.hc_log("EXPORT OK", invocation_output.registers[7])
 
 
+@hostcall(10)
 def hc_machine(
         registers: List[int],
         memory: PVMMemory,
@@ -187,6 +189,7 @@ def hc_machine(
         logger and logger.hc_log("MACHINE OK", n)
 
 
+@hostcall(10)
 def hc_peek(
         registers: List[int],
         memory: PVMMemory,
@@ -231,6 +234,7 @@ def hc_peek(
     except:
         print(1)
 
+@hostcall(10)
 def hc_poke(
         registers: List[int],
         memory: PVMMemory,
@@ -271,6 +275,7 @@ def hc_poke(
         logger and logger.hc_log("POKE RESUME OK", "")
 
 
+@hostcall(10)
 def hc_pages(
         registers: List[int],
         memory: PVMMemory,
@@ -330,6 +335,7 @@ def hc_pages(
         mem.change_acl(p, c, acl)
 
 
+@hostcall(10)
 def hc_invoke(
         registers: List[int],
         memory: PVMMemory,
@@ -428,6 +434,7 @@ def hc_invoke(
         update_inner_pvm(pvm.pc)
 
 
+@hostcall(10)
 def hc_expunge(
         registers: List[int],
         memory: PVMMemory,
