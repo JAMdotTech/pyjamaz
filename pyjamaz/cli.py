@@ -287,7 +287,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             app.d3l_store[d3l_item.segment_root] = d3l_item.segments
 
             DEBUG and logging.debug(f"Retrieved {len(d3l_item.segments)} segments with root {d3l_item.segment_root} from {segment_file.name}")
-        logging.info(f"Imported D3L from {d3l_path}")
+        logging.info(f"💿 Imported D3L from {d3l_path}")
 
     logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
     logging.info(f'🧾 Graypaper version: {GP_VERSION} ')

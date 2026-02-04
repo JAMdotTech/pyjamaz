@@ -374,6 +374,7 @@ def hc_invoke(
         """
         Invokes general PVM function (Ψ) on an inner PVM
         """
+        logger and logger.hc_log("INVOKE START", f"gas={gas} reg={reg} pc={m_e.inner_pvm_lookup[n].program_counter}")
         pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger=PVM_DEBUGGER)
         pvm.invoke(
             m_e.inner_pvm_lookup[n].program_counter,
@@ -396,6 +397,7 @@ def hc_invoke(
     if gas is None:
         logger and logger.hc_log("INVOKE PANIC GAS", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+
     elif pvm_program is None:
         logger and logger.hc_log("INVOKE WHO", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -416,7 +418,7 @@ def hc_invoke(
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.out_of_gas:
-        logger and logger.hc_log("INVOKE OOG", "")
+        logger and logger.hc_log("INVOKE OOG", f"gas={pvm.gas} reg={pvm.reg} pc={m_e.inner_pvm_lookup[n].program_counter}")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.OOG.value
         update_inner_pvm(pvm.pc)
