@@ -243,7 +243,8 @@ class PVMInterpreter:
     def invoke(
         self,
         pc: int,
-        gas: int
+        gas: int,
+        log=False,
     ):
         self.pc = np.uint32(pc)
         self.gas = np.int64(gas)
@@ -259,6 +260,10 @@ class PVMInterpreter:
                 self.status = ExitReason.out_of_gas.value
                 self.exit_value = None
                 break
+
+            if log:
+                with open("pvm_log.txt", "a") as f:
+                    f.write(f'{self.pc} {self.gas} {[int(r) for r in self.reg]}\n')
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
