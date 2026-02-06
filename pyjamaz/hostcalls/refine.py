@@ -397,7 +397,7 @@ def hc_invoke(
     def update_inner_pvm(pc: int):
         invocation_output.memory.write_bytes(o, int(pvm.gas).to_bytes(8, byteorder='little'))
         for idx in range(13):
-            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='little'))
+            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.prev_reg[idx]).to_bytes(8, byteorder='little'))
 
         m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden!
         m_e.inner_pvm_lookup[n].program_counter = int(pc)
@@ -431,11 +431,12 @@ def hc_invoke(
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.out_of_gas:
-        logger and logger.hc_log("INVOKE OOG", f"gas={pvm.gas} reg={[int(r) for r in pvm.reg]} pc={pvm.pc}")
+        logger and logger.hc_log("INVOKE OOG", f"gas={pvm.gas} reg={[int(r) for r in pvm.prev_reg]} pc={pvm.pc}")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.OOG.value
         # TODO @matthijs check this, why invoke always forward one pc before exec? the regs seem to match the next pc?
-        update_inner_pvm(next_pc_after_host())
+        # update_inner_pvm(next_pc_after_host())
+        update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.panic:
         logger and logger.hc_log("INVOKE PANIC", "")
