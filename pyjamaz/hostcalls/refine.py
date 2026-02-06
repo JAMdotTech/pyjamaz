@@ -1,5 +1,7 @@
 from typing import List
 
+from pyjamaz import settings
+
 from jamcodec.base import JamBytes
 from jamcodec.types import U64
 
@@ -366,7 +368,7 @@ def hc_invoke(
         # TODO removeme
         global gas_hack
         if gas_hack:
-            gas += 75
+            gas -= 3
             gas_hack = False
 
         for _ in range(13):
@@ -383,11 +385,12 @@ def hc_invoke(
         Invokes general PVM function (Ψ) on an inner PVM
         """
         logger and logger.hc_log("INVOKE START", f"gas={gas} reg={reg} pc={m_e.inner_pvm_lookup[n].program_counter}")
+
         pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger=PVM_DEBUGGER)
         pvm.invoke(
             m_e.inner_pvm_lookup[n].program_counter,
             gas,
-            False
+            True
         )
         pvm_exit_condition = pvm.get_exit_condition()
 
@@ -424,6 +427,7 @@ def hc_invoke(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.FAULT.value
         invocation_output.registers[8] = pvm_exit_condition.value
+        pvm.gas += 1
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.out_of_gas:
