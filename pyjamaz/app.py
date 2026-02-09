@@ -69,6 +69,7 @@ class AppConfig:
     keys: Optional[Keys] = field(default=None)
     create_traces: str = field(default=None)
     d3l_path: str = field(default=None)
+    replay_blocks: object = field(default=None)
 
 
 class PyjamazApp:
