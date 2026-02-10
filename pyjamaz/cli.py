@@ -441,10 +441,10 @@ async def timeslot_ticker(app: PyjamazApp):
                 else:
                     block = await app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
 
-                if app.pubsub:
-                    await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+                    if app.pubsub:
+                        await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
 
-                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
+                    logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                 DEBUG and logging.debug(traceback.format_exc())
