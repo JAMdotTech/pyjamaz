@@ -23,7 +23,7 @@ class StateStorage:
         self.change_sets: Dict[bytes, Dict[bytes, typing.Union[bytes, ItemStatus]]] = {}
         self.transaction: Dict[bytes, typing.Union[bytes, ItemStatus]] = {}
         self.parents: Dict[bytes, Optional[bytes]] = {}
-        # GP-0.7.0-eq:5.3 (A)
+        # GP-0.7.2-eq:5.3 (A)
         self.ancestors: Dict[bytes, Header] = {}
 
     def add_ancestor(self, header: Header):
@@ -32,7 +32,7 @@ class StateStorage:
 
     def get_parent(self, header: Header) -> Optional[Header]:
         """
-        GP-0.7.0-eq:5.2 (P)
+        GP-0.7.2-eq:5.2 (P)
 
         Parameters
         ----------

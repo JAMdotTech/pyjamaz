@@ -487,7 +487,7 @@ def invoke_native(
             local_state[3] = gas
             local_state[4] = start_time  # Will be converted to float in log function
 
-        # GP-0.6.7-section:A.5.1
+        # GP-0.7.2-section:A.5.1
         if inst_type == inst_none:  # InstructionType.none
             if opcode == op_trap:
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
@@ -499,7 +499,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.2
+        # GP-0.7.2-section:A.5.2
         elif inst_type == inst_imm:  # InstructionType.imm
             l_x = min(4, inst_arg_len[inst_index])
             v_x = pvm_X_jit(read_uint_jit(code, pc + 1, l_x), l_x)
@@ -512,7 +512,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.3
+        # GP-0.7.2-section:A.5.3
         elif inst_type == inst_reg_ext_imm:  # InstructionType.reg_ext_imm
             r_a = min(12, code[pc + 1] % 16)
             v_x = read_uint_jit(code, pc + 2, 8)
@@ -524,7 +524,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.4
+        # GP-0.7.2-section:A.5.4
         elif inst_type == inst_imm_imm:
             l_x = min(4, code[pc + 1] % 8)
             l_y = min(4, max(0, inst_arg_len[inst_index] - l_x - 1))
@@ -567,7 +567,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.5
+        # GP-0.7.2-section:A.5.5
         elif inst_type == inst_offset:
             l_x = min(4, inst_arg_len[inst_index])
             v_x = pvm_Z_jit(read_uint_jit(code, pc + 1, l_x), l_x)
@@ -579,7 +579,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.6
+        # GP-0.7.2-section:A.5.6
         elif inst_type == inst_reg_imm:
             r_a = min(12, code[pc + 1] % 16)
             l_x = min(4, max(0, inst_arg_len[inst_index] - 1))
@@ -704,7 +704,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.7
+        # GP-0.7.2-section:A.5.7
         elif inst_type == inst_reg_imm_imm:
             r_a = min(12, code[pc + 1] % 16)
             w_a = reg[r_a]
@@ -755,7 +755,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.8
+        # GP-0.7.2-section:A.5.8
         elif inst_type == inst_reg_imm_offset:
 
             r_a = min(12, code[pc + 1] % 16)
@@ -856,7 +856,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.9
+        # GP-0.7.2-section:A.5.9
         elif inst_type == inst_reg_reg:
 
             r_d = min(12, code[pc + 1] % 16)
@@ -937,7 +937,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.10
+        # GP-0.7.2-section:A.5.10
         elif inst_type == inst_reg_reg_imm:
 
             r_a = min(12, code[pc + 1] % 16)
@@ -1194,7 +1194,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.11
+        # GP-0.7.2-section:A.5.11
         elif inst_type == inst_reg_reg_offset:
 
             r_a = min(12, code[pc + 1] % 16)
@@ -1257,7 +1257,7 @@ def invoke_native(
                 # Invalid opcode
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.12
+        # GP-0.7.2-section:A.5.12
         elif inst_type == inst_reg_reg_imm_imm:
             r_a = min(12, code[pc + 1] % 16)
             r_b = code[pc + 1] // 16
@@ -1286,7 +1286,7 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-        # GP-0.6.7-section:A.5.13
+        # GP-0.7.2-section:A.5.13
         elif inst_type == inst_reg_reg_reg:
 
             r_a = min(12, code[pc + 1] % 16)
@@ -1722,7 +1722,7 @@ class PVMInterpreter:
                 if inst_bitmask_idx > len(inst_bitmask) - 1:
                     is_opcode = True
 
-            # GP-0.6.2-eq:A.19 (l)
+            # GP-0.7.2-eq:A.20 (l)
             self.inst_arg_len.append(inst_args)
             inst_nr += 1
             # Note: only add to inst_pos if this position has an opcode in the bitmask

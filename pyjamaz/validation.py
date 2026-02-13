@@ -22,7 +22,7 @@ class BlockValidation:
     @staticmethod
     def is_epoch_change(pre_slotnumber: int, post_slotnumber: int) -> bool:
         """
-        GP-0.7.1-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+        GP-0.7.2-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
 
         Returns
         -------

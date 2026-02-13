@@ -36,19 +36,19 @@ class State(Serializable):
 @dataclass
 class TimeslotState(State, Serializable):
     """
-    GP-0.7.1-eq:6.1 (τ) | The most recent block's slot index, combined with helper functions.
+    GP-0.7.2-eq:6.1 (τ) | The most recent block's slot index, combined with helper functions.
 
     Attributes
     ----------
     number: U32
-        GP-0.7.1-eq:6.1 (τ) | The most recent block's slot index.
+        GP-0.7.2-eq:6.1 (τ) | The most recent block's slot index.
     """
     # Todo: consider renaming number to timeslot
     number: int = field(metadata={'codec': U32})
 
     def epoch_number(self) -> int:
         """
-        GP-0.7.1-eq:6.2 (e) | Function that returns the epoch index.
+        GP-0.7.2-eq:6.2 (e) | Function that returns the epoch index.
 
         Returns
         -------
@@ -60,7 +60,7 @@ class TimeslotState(State, Serializable):
 
     def slot_phase_index(self) -> int:
         """
-        GP-0.7.1-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot.
+        GP-0.7.2-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot.
 
         Returns
         -------
@@ -74,12 +74,12 @@ class TimeslotState(State, Serializable):
 @dataclass
 class EntropyState(State, Serializable):
     """
-    GP-0.7.1-eq:6.21 (η) | Entropy partition of the overall state.
+    GP-0.7.2-eq:6.21 (η) | Entropy partition of the overall state.
 
     Attributes
     ----------
     entropy: Array(H256,4)
-        GP-0.7.1-eq:6.21 (η) | η[0] serves as an entropy accumulator during the current epoch. η[1], η[2], η[3] retain
+        GP-0.7.2-eq:6.21 (η) | η[0] serves as an entropy accumulator during the current epoch. η[1], η[2], η[3] retain
         three historical values of the accumulator at the point of each of the three most recently ended epochs
         respectively.
     """
@@ -107,18 +107,18 @@ class SlotSealerSeries(Serializable):
 @dataclass
 class SafroleState(State, Serializable):
     """
-    GP-0.7.1-eq:6.3 (γ) | Safrole partition of the overall state.
+    GP-0.7.2-eq:6.3 (γ) | Safrole partition of the overall state.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.7.1-eq:6.7 (γ_P) | A fixed size set of keys and metadata for validators of the next epoch.
+        GP-0.7.2-eq:6.7 (γ_P) | A fixed size set of keys and metadata for validators of the next epoch.
     ring_commitment: Array(U8,144)
-        GP-0.7.1-eq:6.4 (γ_Z) | Bandersnatch ring commitment.
+        GP-0.7.2-eq:6.4 (γ_Z) | Bandersnatch ring commitment.
     slot_sealer_series: SlotSealerSeries
-        GP-0.7.1-eq:6.5 (γ_S) | Sealing-key series of the current epoch.
+        GP-0.7.2-eq:6.5 (γ_S) | Sealing-key series of the current epoch.
     ticket_accumulator: TicketBody
-        GP-0.7.1-eq:6.5 (γ_A) | Sealing-key contest ticket accumulator.
+        GP-0.7.2-eq:6.5 (γ_A) | Sealing-key contest ticket accumulator.
     """
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
     ring_commitment: bytes = field(metadata={'codec': Array(U8, 144)})
@@ -129,12 +129,12 @@ class SafroleState(State, Serializable):
 @dataclass
 class ValidatorQueueState(State, Serializable):
     """
-    GP-0.7.1-eq:6.7 (ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
+    GP-0.7.2-eq:6.7 (ι) | Validator keys and metadata to be drawn from next by the Safrole protocol.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.7.1-eq:6.7 (ι) | A fixed size set of validator keys and metadata to be drawn from next by the Safrole
+        GP-0.7.2-eq:6.7 (ι) | A fixed size set of validator keys and metadata to be drawn from next by the Safrole
         protocol.
     """
     # Todo: review and annotate: ValidatorData
@@ -144,12 +144,12 @@ class ValidatorQueueState(State, Serializable):
 @dataclass
 class ValidatorPoolState(State, Serializable):
     """
-    GP-0.7.1-eq:6.7 (κ) | Keys and metadata for validators of the current epoch.
+    GP-0.7.2-eq:6.7 (κ) | Keys and metadata for validators of the current epoch.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.7.1-eq:6.7 (κ) | A fixed size set of keys and metadata for validators of the current epoch.
+        GP-0.7.2-eq:6.7 (κ) | A fixed size set of keys and metadata for validators of the current epoch.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -158,12 +158,12 @@ class ValidatorPoolState(State, Serializable):
 @dataclass
 class ValidatorArchiveState(State, Serializable):
     """
-    GP-0.7.1-eq:6.7 (λ) | Keys and metadata for validators of the previous epoch.
+    GP-0.7.2-eq:6.7 (λ) | Keys and metadata for validators of the previous epoch.
 
     Attributes
     ----------
     validators: Array(ValidatorData,constant_V)
-        GP-0.7.1-eq:6.7 (λ) | A fixed size set of keys and metadata for validators of the previous epoch.
+        GP-0.7.2-eq:6.7 (λ) | A fixed size set of keys and metadata for validators of the previous epoch.
     """
     # Todo: review and annotate: ValidatorData
     validators: List[ValidatorData] = field(metadata={'codec': Array(ValidatorData.to_codec_def(), VALIDATOR_COUNT)})
@@ -172,12 +172,12 @@ class ValidatorArchiveState(State, Serializable):
 @dataclass
 class AuthorizerPoolsState(State, Serializable):
     """
-    GP-0.7.1-eq:8.1 (α) | A collections of pools of authorizations for all cores.
+    GP-0.7.2-eq:8.1 (α) | A collections of pools of authorizations for all cores.
 
     Attributes
     ----------
     authorizer_pools: Array(Vec(H256),constant_C)
-        GP-0.7.1-eq:8.1 (α) | A collections of pools of authorizations for all cores.
+        GP-0.7.2-eq:8.1 (α) | A collections of pools of authorizations for all cores.
     """
     authorizer_pools: List[List[bytes]] = field(metadata={'codec': Array(Vec(H256), CORE_COUNT)})
 
@@ -195,13 +195,13 @@ class AuthorizerPoolsState(State, Serializable):
 @dataclass
 class Mmr(Serializable):
     """
-    GP-0.7.1-eq:E.8,E.9 (bold_b) | A Merkle Mountain Range.
+    GP-0.7.2-eq:E.8,E.9 (bold_b) | A Merkle Mountain Range.
 
     Attributes
     ----------
 
     peaks: Vec(Option(H256))
-        GP-0.7.1-eq:7.3 (β_B) | A collection of optional peaks in a Merkle Mountain Range
+        GP-0.7.2-eq:7.3 (β_B) | A collection of optional peaks in a Merkle Mountain Range
     """
     # TODO: double check β_B
     peaks: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
@@ -215,15 +215,15 @@ class Mmr(Serializable):
 @dataclass
 class ReportedWorkPackage(Serializable):
     """
-    GP-0.7.1-eq:7.2 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
+    GP-0.7.2-eq:7.2 (bold_p) | A collection of hashes for each work-report made into the MMR, limited to the number
     of cores (constant_c=341)
 
     Attributes
     ----------
     hash: H256
-        GP-0.7.1-eq:7.2 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+        GP-0.7.2-eq:7.2 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
     exports_root: H256
-        GP-0.7.1-eq:7.2 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
+        GP-0.7.2-eq:7.2 (blackboard_H in dictionary) | The segment_tree_lookup_item key.
     """
     hash: bytes = field(metadata={'codec': H256})
     exports_root: bytes = field(metadata={'codec': H256})
@@ -232,19 +232,19 @@ class ReportedWorkPackage(Serializable):
 @dataclass
 class RecentBlock(Serializable):
     """
-    GP-0.7.1-eq:7.2 (β_H) | A single item in the RecentHistory partition of the overall state.
+    GP-0.7.2-eq:7.2 (β_H) | A single item in the RecentHistory partition of the overall state.
 
     Attributes
     ----------
 
     header_hash: H256
-        GP-0.7.1-eq:7.2 (h, blackboard_H) | Header hash of the recent block.
+        GP-0.7.2-eq:7.2 (h, blackboard_H) | Header hash of the recent block.
     beefy_root: H256
-        GP-0.7.1-eq:7.2 (b) | Beefy root of the recent block.
+        GP-0.7.2-eq:7.2 (b) | Beefy root of the recent block.
     state_root: H256
-        GP-0.7.1-eq:7.2 (s, blackboard_H) | State root of the recent block.
+        GP-0.7.2-eq:7.2 (s, blackboard_H) | State root of the recent block.
     reported: Vec(ReportedWorkPackage)
-        GP-0.7.1-eq:7.2 (bold_p) | A collection of ReportedWorkPackage for each work-report made into the MMR, limited
+        GP-0.7.2-eq:7.2 (bold_p) | A collection of ReportedWorkPackage for each work-report made into the MMR, limited
         to the number of cores (constant_c=341)
     """
     header_hash: bytes = field(metadata={'codec': H256})
@@ -262,15 +262,15 @@ class RecentBlock(Serializable):
 @dataclass
 class RecentHistoryState(State, Serializable):
     """
-    GP-0.7.1-eq:7.1 (β) | RecentHistory partition of the overall state
+    GP-0.7.2-eq:7.1 (β) | RecentHistory partition of the overall state
 
     Attributes
     ----------
     recent_blocks: Vec(RecentBlock)
-        GP-0.7.1-eq:7.1 (β_H) | A collection of items in the RecentHistory partition of the overall state of
+        GP-0.7.2-eq:7.1 (β_H) | A collection of items in the RecentHistory partition of the overall state of
         up to constant_H (8) items.
     accumulation_output_log: Vec(Option(H256))
-        GP-0.7.1-eq:7.1 (β_B) | A collection of optional peaks in a Merkle Mountain Range.
+        GP-0.7.2-eq:7.1 (β_B) | A collection of optional peaks in a Merkle Mountain Range.
     """
     recent_blocks: List[RecentBlock] = field(metadata={'codec': Vec(RecentBlock.to_codec_def())})
     accumulation_output_log: List[Optional[bytes]] = field(metadata={'codec': Vec(Option(H256))})
@@ -327,39 +327,39 @@ class PreimageAvailabilityMap(StorageMap):
 @dataclass
 class ServiceAccount(Serializable):
     """
-    GP-0.7.1-eq:9.3 (blackboard_A) | A service account.
+    GP-0.7.2-eq:9.3 (blackboard_A) | A service account.
 
     Attributes
     ----------
     code_hash: H256
-        GP-0.7.1-eq:9.3 (c) | Hash of the service account's code
+        GP-0.7.2-eq:9.3 (c) | Hash of the service account's code
     balance: U64
-        GP-0.7.1-eq:9.3 (b) | Balance of a service account
+        GP-0.7.2-eq:9.3 (b) | Balance of a service account
     gas_limit_accumulate: U64
-        GP-0.7.1-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
+        GP-0.7.2-eq:9.3 (g) | Minimum gas required to execute the Accumulate entry-point of the service account's code.
     gas_limit_on_transfer: U64
-        GP-0.7.1-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
+        GP-0.7.2-eq:9.3 (m) | Minimum gas required to execute the On-Transfer entry-point of the service account's code.
     footprint_storage_bytes: U64
-        GP-0.7.1-eq:9.8 (o) | Storage footprint of the service account. The total number of bytes used in storage.
+        GP-0.7.2-eq:9.8 (o) | Storage footprint of the service account. The total number of bytes used in storage.
     footprint_storage_items: U32
-        GP-0.7.1-eq:9.8 (i) | Storage footprint of the service account. The number of items in storage.
+        GP-0.7.2-eq:9.8 (i) | Storage footprint of the service account. The number of items in storage.
     threshold_balance: U64
-        GP-0.7.1-eq:9.8 (t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
+        GP-0.7.2-eq:9.8 (t) | Minimum or threshold balance needed for the ServiceAccount in terms of its storage
         footprint.
     deposit_offset: U32
-        GP-0.7.1-eq:9.3 (f) | Gratis deposit offset.
+        GP-0.7.2-eq:9.3 (f) | Gratis deposit offset.
     creation_slot: U32
-        GP-0.7.1-eq:9.3 (r) | Timeslot when created
+        GP-0.7.2-eq:9.3 (r) | Timeslot when created
     last_accumulation_slot: U64
-        GP-0.7.1-eq:9.3 (a) | Timeslot when last accumulated
+        GP-0.7.2-eq:9.3 (a) | Timeslot when last accumulated
     parent_service: U64
-        GP-0.7.1-eq:9.3 (p) | Parent service.
+        GP-0.7.2-eq:9.3 (p) | Parent service.
     storage_items: Dict(H256,Bytes)
-        GP-0.7.1-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
+        GP-0.7.2-eq:9.3 (bold_s) | Storage items dict. Provides storage item data for storage item hash.
     preimages: Dict(H256,Bytes)
-        GP-0.7.1-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
+        GP-0.7.2-eq:9.3 (bold_p) | Preimages dict. Provides preimage data for preimage hash (including: code_hash)
     preimage_availability: Dict(Tuple(H256,U32), Vec<U32>)
-        GP-0.7.1-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
+        GP-0.7.2-eq:9.3 (bold_l) | Preimages availability dict. Provides historical status of preimage availability.
     """
     # Remark: Only the following field need to be serialized/deserialized
     code_hash: bytes = field(metadata={'codec': H256})
@@ -381,7 +381,7 @@ class ServiceAccount(Serializable):
 
     @property
     def threshold_balance(self):
-        # GP-0.7.1-eq:9.8 (a_t)
+        # GP-0.7.2-eq:9.8 (a_t)
         return max(0,
             MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * self.footprint_storage_items +
             MINIMUM_BALANCE_OCTET * self.footprint_storage_bytes - self.deposit_offset
@@ -390,7 +390,7 @@ class ServiceAccount(Serializable):
     @classmethod
     def from_serialized_bytes(cls, serialized_bytes: bytes) -> 'ServiceAccount':
         """
-        GP-0.7.1-eq:D.2 deserializes bytes into a ServiceAccount
+        GP-0.7.2-eq:D.2 deserializes bytes into a ServiceAccount
 
         Parameters
         ----------
@@ -423,7 +423,7 @@ class ServiceAccount(Serializable):
 
     def to_serialized_bytes(self) -> bytes:
         """
-        GP-0.7.1-eq:D.2 Serialize a ServiceAccount to bytes.
+        GP-0.7.2-eq:D.2 Serialize a ServiceAccount to bytes.
 
         Returns
         -------
@@ -457,34 +457,34 @@ class ServiceAccount(Serializable):
 
     def update_footprint_add_storage_item(self, key_len: int, value_len: int) -> None:
         """
-        GP-0.7.1-eq:9.8
+        GP-0.7.2-eq:9.8
         """
         self.footprint_storage_items += 1
         self.footprint_storage_bytes += 34 + key_len + value_len
 
     def update_footprint_remove_storage_item(self, key_len: int, value_len: int) -> None:
         """
-        GP-0.7.1-eq:9.8
+        GP-0.7.2-eq:9.8
         """
         self.footprint_storage_items -= 1
         self.footprint_storage_bytes -= 34 + key_len + value_len
 
     def update_footprint_update_storage_item(self, old_value_len: int, new_value_len: int) -> None:
         """
-        GP-0.7.1-eq:9.8
+        GP-0.7.2-eq:9.8
         """
         self.footprint_storage_bytes += new_value_len - old_value_len
 
     def update_footprint_add_preimage(self, size: int) -> None:
         """
-        GP-0.7.1-eq:9.8
+        GP-0.7.2-eq:9.8
         """
         self.footprint_storage_items += 2
         self.footprint_storage_bytes += 81 + size
 
     def update_footprint_remove_preimage(self, size: int) -> None:
         """
-        GP-0.7.1-eq:9.8
+        GP-0.7.2-eq:9.8
         """
         self.footprint_storage_items -= 2
         self.footprint_storage_bytes -= 81 + size
@@ -520,12 +520,12 @@ class PendingChanges:
 @dataclass
 class ServicesState(State, Serializable):
     """
-    GP-0.7.1-eq:9.2 (δ) | Services partition of the overall state.
+    GP-0.7.2-eq:9.2 (δ) | Services partition of the overall state.
 
     Attributes
     ----------
     services: Dict(U32,ServiceAccount)
-        GP-0.7.1-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
+        GP-0.7.2-eq:9.1,9.2 (δ, blackboard_N_S, blackboard_A) | Services dict. Provides service account data for a
         service account index.
     """
     services: Union[Dict[int, ServiceAccount], ServiceAccountMap] = field(
@@ -701,12 +701,12 @@ class ServicesState(State, Serializable):
 
         return preimage
 
-    #GP-0.7.1-eq:9.7 (historical lookup)
+    #GP-0.7.2-eq:9.7 (historical lookup)
     def historical_preimage_lookup(self, service_account_id: int, timeslot: int, preimage_hash: bytes) -> Optional[bytes]:
         """
         historical lookup
-        GP-0.7.1-eq:9.5
-        GP-0.7.1-eq:9.7
+        GP-0.7.2-eq:9.5
+        GP-0.7.2-eq:9.7
 
 
         Parameters
@@ -725,7 +725,7 @@ class ServicesState(State, Serializable):
             preimage = self.retrieve_preimage(service_account_id, preimage_hash)
             preimage_availability = self.retrieve_preimage_availability(service_account_id, preimage_hash, len(preimage))
 
-            # GP-0.6.4-eq:9.7
+            # GP-0.7.2-eq:9.7
             def is_preimage_available() -> bool:
                 if len(preimage_availability) == 0:
                     return False
@@ -748,7 +748,7 @@ class ServicesState(State, Serializable):
 
     def is_preimage_needed(self, preimage: Preimage) -> bool:
         """
-        GP-0.7.1-eq:12.35 | Is preimage needed
+        GP-0.7.2-eq:12.35 | Is preimage needed
 
         Parameters
         ----------
@@ -1014,12 +1014,12 @@ class ServicesState(State, Serializable):
 @dataclass
 class AssurancesState(State, Serializable):
     """
-    GP-0.7.1-eq:11.1 (ρ) | Assurances partition of the overall state.
+    GP-0.7.2-eq:11.1 (ρ) | Assurances partition of the overall state.
 
     Attributes
     ----------
     assurances: Vec(Option(Assurance))
-        GP-0.7.1-eq:11.1 (ρ) | A collection of optional assurances per core.
+        GP-0.7.2-eq:11.1 (ρ) | A collection of optional assurances per core.
     """
     assurances: List[Optional[Assurance]] = field(
         metadata={'codec': Array(Option(Assurance.to_codec_def()), CORE_COUNT)}
@@ -1029,12 +1029,12 @@ class AssurancesState(State, Serializable):
 @dataclass
 class AuthorizerQueuesState(State, Serializable):
     """
-    GP-0.7.1-eq:8.1 (𝜙) | A collections of queues of authorizations for all cores.
+    GP-0.7.2-eq:8.1 (𝜙) | A collections of queues of authorizations for all cores.
 
     Attributes
     ----------
     authorizer_queues: Array(Array(H256,constant_Q),constant_C)
-        GP-0.7.1-eq:8.1 (𝜙) | A collections of queues of authorizations for all cores.
+        GP-0.7.2-eq:8.1 (𝜙) | A collections of queues of authorizations for all cores.
     """
     authorizer_queues: List[List[bytes]] = field(
         metadata={'codec': Array(Array(H256, MAXIMUM_AUTHORIZATION_QUEUE_ITEMS), CORE_COUNT)}
@@ -1044,23 +1044,23 @@ class AuthorizerQueuesState(State, Serializable):
 @dataclass
 class PrivilegedServicesState(State, Serializable):
     """
-    GP-0.7.1-eq:9.9 (χ) | The PrivilegedServices partition of the overall state.
+    GP-0.7.2-eq:9.9 (χ) | The PrivilegedServices partition of the overall state.
 
     Attributes
     ----------
     manager: U32
-        GP-0.7.1-eq:9.9 (χ_M) | The service index of the manager service. I.e. the service that allows state transitions
+        GP-0.7.2-eq:9.9 (χ_M) | The service index of the manager service. I.e. the service that allows state transitions
         of PrivilegedServices (χ).
     assigners: Array(U32, Constant_C)
-        GP-0.7.1-eq:9.9 (χ_A) | The service index of the assign service. I.e. the service that allows state transitions
+        GP-0.7.2-eq:9.9 (χ_A) | The service index of the assign service. I.e. the service that allows state transitions
         of AuthorizerQueue (𝜙).
     delegator: U32
-        GP-0.7.1-eq:9.9 (χ_V) | The service index of the designate service. I.e. the service that allows state
+        GP-0.7.2-eq:9.9 (χ_V) | The service index of the designate service. I.e. the service that allows state
         transitions of ValidatorQueue (ι).
     registrar: U32
-        GP-0.7.1-eq:9.9 (χ_R) | The service index of the registrar service.
+        GP-0.7.2-eq:9.9 (χ_R) | The service index of the registrar service.
     always_accumulators: Dict(U32,U64)
-        GP-0.7.1-eq:9.9 (χ_Z) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
+        GP-0.7.2-eq:9.9 (χ_Z) | Auto Accumulate Services dict. Provides gas limit data for a service account index.
     """
     manager: int = field(metadata={'codec': U32})
     assigners: List[int] = field(metadata={'codec': Array(U32, CORE_COUNT)})
@@ -1072,18 +1072,18 @@ class PrivilegedServicesState(State, Serializable):
 @dataclass
 class DisputesState(State, Serializable):
     """
-    GP-0.7.1-eq:10.1 (ψ) | A collection of judgements of validators over the validity of work reports.
+    GP-0.7.2-eq:10.1 (ψ) | A collection of judgements of validators over the validity of work reports.
 
     Attributes
     ----------
     good_set: Vec(H256)
-        GP-0.7.1-eq:10.1,10.16 (ψ_G) | A collection of work reports hashes with a good verdict.
+        GP-0.7.2-eq:10.1,10.16 (ψ_G) | A collection of work reports hashes with a good verdict.
     bad_set: Vec(H256)
-        GP-0.7.1-eq:10.1,10.17 (ψ_B) | A collection of work reports hashes with a bad verdict.
+        GP-0.7.2-eq:10.1,10.17 (ψ_B) | A collection of work reports hashes with a bad verdict.
     wonky_set: Vec(H256)
-        GP-0.7.1-eq:10.1,10.18 (ψ_W) | A collection of work reports hashes with a wonky verdict.
+        GP-0.7.2-eq:10.1,10.18 (ψ_W) | A collection of work reports hashes with a wonky verdict.
     offenders: Vec(H256)
-        GP-0.7.1-eq:10.1,10.19 (ψ_O) | A collection Edwards 25519 keys for validators found guilty of offending.
+        GP-0.7.2-eq:10.1,10.19 (ψ_O) | A collection Edwards 25519 keys for validators found guilty of offending.
     """
     good_set: List[bytes] = field(metadata={'codec': Vec(H256)})
     bad_set: List[bytes] = field(metadata={'codec': Vec(H256)})
@@ -1094,22 +1094,22 @@ class DisputesState(State, Serializable):
 @dataclass
 class ActivityRecord(Serializable):
     """
-    GP-0.7.1-eq:13.2 (π_V,π_L) | A set of cumulative metrics for a single validator in a single epochs.
+    GP-0.7.2-eq:13.2 (π_V,π_L) | A set of cumulative metrics for a single validator in a single epochs.
 
     Attributes
     ----------
     blocks: U32
-        GP-0.7.1-eq:13.2 (b) | The number of blocks produced by the validator.
+        GP-0.7.2-eq:13.2 (b) | The number of blocks produced by the validator.
     tickets: U32
-        GP-0.7.1-eq:13.2 (t) | The number of tickets introduced by the validator.
+        GP-0.7.2-eq:13.2 (t) | The number of tickets introduced by the validator.
     pre_images: U32
-        GP-0.7.1-eq:13.2 (p) | The number of preimages introduced by the validator.
+        GP-0.7.2-eq:13.2 (p) | The number of preimages introduced by the validator.
     pre_images_size: U32
-        GP-0.7.1-eq:13.2 (d) | The number of total number of bytes across all preimages introduced by the validator.
+        GP-0.7.2-eq:13.2 (d) | The number of total number of bytes across all preimages introduced by the validator.
     guarantees: U32
-        GP-0.7.1-eq:13.2 (g) | The number of reports guaranteed by the validator.
+        GP-0.7.2-eq:13.2 (g) | The number of reports guaranteed by the validator.
     assurances: U32
-        GP-0.7.1-eq:13.2 (a) | The number of availability assurances made by the validator.
+        GP-0.7.2-eq:13.2 (a) | The number of availability assurances made by the validator.
     """
     blocks: int = field(metadata={'codec': U32})
     tickets: int = field(metadata={'codec': U32})
@@ -1122,26 +1122,26 @@ class ActivityRecord(Serializable):
 @dataclass
 class CoreActivityRecord(Serializable):
     """
-    GP-0.7.1-eq:13.6 (π_C) | Core activity statistics
+    GP-0.7.2-eq:13.6 (π_C) | Core activity statistics
 
     Attributes
     ----------
     da_load: VarInt64
-        GP-0.7.1-eq:13.6 (d) | Amount of bytes which are placed into either Audits or Segments DA.
+        GP-0.7.2-eq:13.6 (d) | Amount of bytes which are placed into either Audits or Segments DA.
     popularity: VarInt64
-        GP-0.7.1-eq:13.6 (p) | Number of validators which formed super-majority for assurance.
+        GP-0.7.2-eq:13.6 (p) | Number of validators which formed super-majority for assurance.
     imports: VarInt64
-        GP-0.7.1-eq:13.6 (i) | Number of segments imported from DA made by core for reported work.
+        GP-0.7.2-eq:13.6 (i) | Number of segments imported from DA made by core for reported work.
     exports: VarInt64
-        GP-0.7.1-eq:13.6 (x) | Number of segments exported into DA made by core for reported work.
+        GP-0.7.2-eq:13.6 (x) | Number of segments exported into DA made by core for reported work.
     extrinsic_size: VarInt64
-        GP-0.7.1-eq:13.6 (z) | Total size of extrinsic data used by core for reported work.
+        GP-0.7.2-eq:13.6 (z) | Total size of extrinsic data used by core for reported work.
     extrinsic_count: VarInt64
-        GP-0.7.1-eq:13.6 (e) | Total number of extrinsics used by core for reported work.
+        GP-0.7.2-eq:13.6 (e) | Total number of extrinsics used by core for reported work.
     bundle_size: VarInt64
-        GP-0.7.1-eq:13.6 (l) | The work-bundle size. This is the size of data being placed into Audits DA by the core.
+        GP-0.7.2-eq:13.6 (l) | The work-bundle size. This is the size of data being placed into Audits DA by the core.
     gas_used: VarInt64
-         GP-0.7.1-eq:13.6 (u) | Total gas consumed by core for reported work. Includes all refinement and authorizations
+         GP-0.7.2-eq:13.6 (u) | Total gas consumed by core for reported work. Includes all refinement and authorizations
     """
     da_load: int = field(metadata={'codec': VarInt64})
     popularity: int = field(metadata={'codec': VarInt64})
@@ -1159,7 +1159,7 @@ class CoreActivityRecord(Serializable):
                extrinsic_assurances: List['ExtrinsicAssurance']
     ):
         """
-         GP-0.7.1-eq:13.8 | Updating core stats for specified core
+         GP-0.7.2-eq:13.8 | Updating core stats for specified core
         """
         self.gas_used = 0
         self.imports = 0
@@ -1181,7 +1181,7 @@ class CoreActivityRecord(Serializable):
 
     def update_from_incoming_work_reports(self, core_index: int, incoming_work_reports: List[WorkReport]):
         """
-        GP-0.7.1-eq:13.9 (R) | Updating core stats using incoming work-reports (bold_I) in extrinsic data (GP-0.7.0-eq:11.28)
+        GP-0.7.2-eq:13.9 (R) | Updating core stats using incoming work-reports (bold_I) in extrinsic data (GP-0.7.0-eq:11.28)
         """
         for w in incoming_work_reports:
             if w.core_index == core_index:
@@ -1195,7 +1195,7 @@ class CoreActivityRecord(Serializable):
 
     def update_from_available_work_reports(self, core_index: int, available_work_reports: List[WorkReport]):
         """
-        GP-0.7.1-eq:13.11 (D) | Updating core stats using available work-reports (bold_R) (GP-0.7.0-eq:11.16)
+        GP-0.7.2-eq:13.11 (D) | Updating core stats using available work-reports (bold_R) (GP-0.7.0-eq:11.16)
         """
         self.da_load = sum([
             w.package_spec.length + EC_SEGMENT_SIZE * ceil(w.package_spec.exports_count * 65/64)
@@ -1205,30 +1205,30 @@ class CoreActivityRecord(Serializable):
 @dataclass
 class ServiceActivityRecord(Serializable):
     """
-    GP-0.7.1-eq:13.7 (π_S) | A collection of statistics for all validators for two epochs.
+    GP-0.7.2-eq:13.7 (π_S) | A collection of statistics for all validators for two epochs.
 
     Attributes
     ----------
     provided_count: VarInt64
-        GP-0.7.1-eq:13.7 (p_0) | Number of preimages provided to this service.
+        GP-0.7.2-eq:13.7 (p_0) | Number of preimages provided to this service.
     provided_size: VarInt64
-        GP-0.7.1-eq:13.7 (p_1)| Total size of preimages provided to this service.
+        GP-0.7.2-eq:13.7 (p_1)| Total size of preimages provided to this service.
     refinement_count: VarInt64
-        GP-0.7.1-eq:13.7 (r_0)| Number of work-items refined by service for reported work.
+        GP-0.7.2-eq:13.7 (r_0)| Number of work-items refined by service for reported work.
     refinement_gas_used: VarInt64
-        GP-0.7.1-eq:13.7 (r_1)| Amount of gas used for refinement by service for reported work.
+        GP-0.7.2-eq:13.7 (r_1)| Amount of gas used for refinement by service for reported work.
     imports: VarInt64
-        GP-0.7.1-eq:13.7 (i) | Number of segments imported from the DL by service for reported work.
+        GP-0.7.2-eq:13.7 (i) | Number of segments imported from the DL by service for reported work.
     extrinsic_count: VarInt64
-        GP-0.7.1-eq:13.7 (x) | Total number of extrinsics used by service for reported work.
+        GP-0.7.2-eq:13.7 (x) | Total number of extrinsics used by service for reported work.
     extrinsic_size: VarInt64
-        GP-0.7.1-eq:13.7 (z) | Total size of extrinsics used by service for reported work.
+        GP-0.7.2-eq:13.7 (z) | Total size of extrinsics used by service for reported work.
     exports: VarInt64
-        GP-0.7.1-eq:13.7 (e) | Number of segments exported into the DL by service for reported work.
+        GP-0.7.2-eq:13.7 (e) | Number of segments exported into the DL by service for reported work.
     accumulate_count: VarInt64
-        GP-0.7.1-eq:13.7 (a_0) | Number of work-items accumulated by service.
+        GP-0.7.2-eq:13.7 (a_0) | Number of work-items accumulated by service.
     accumulate_gas_used: VarInt64
-        GP-0.7.1-eq:13.7 (a_1) | Amount of gas used for accumulation by service.
+        GP-0.7.2-eq:13.7 (a_1) | Amount of gas used for accumulation by service.
     """
     provided_count: int = field(metadata={'codec': VarInt64}, default=0)
     provided_size: int = field(metadata={'codec': VarInt64}, default=0)
@@ -1245,19 +1245,19 @@ class ServiceActivityRecord(Serializable):
 @dataclass
 class StatisticsState(State, Serializable):
     """
-    GP-0.7.1-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
+    GP-0.7.2-eq:13.1 (π) | A collection of statistics for all validators for two epochs.
 
     Attributes
     ----------
 
     vals_current: Array(Statistic,constant_V)
-        GP-0.7.1-eq:13.1 (π_V) | A collection of statistics for all validators for current epoch.
+        GP-0.7.2-eq:13.1 (π_V) | A collection of statistics for all validators for current epoch.
     vals_last: Array(Statistic,constant_V)
-        GP-0.7.1-eq:13.1 (π_L) | A collection of statistics for all validators for last epoch.
+        GP-0.7.2-eq:13.1 (π_L) | A collection of statistics for all validators for last epoch.
     cores: Array(Statistic,constant_C)
-        GP-0.7.1-eq:13.1 (π_C) | Core activity statistics for last block.
+        GP-0.7.2-eq:13.1 (π_C) | Core activity statistics for last block.
     services: Map(U32, ServiceActivityRecord)
-        GP-0.7.1-eq:13.1 (π_S) | Service activity statistics for last block.
+        GP-0.7.2-eq:13.1 (π_S) | Service activity statistics for last block.
     """
     vals_current: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
     vals_last: List[ActivityRecord] = field(metadata={'codec': Array(ActivityRecord.to_codec_def(), VALIDATOR_COUNT)})
@@ -1282,14 +1282,14 @@ class StatisticsState(State, Serializable):
 @dataclass
 class AccumulationQueueWorkPackage(Serializable):
     """
-    GP-0.7.1-eq:13.1 (ω) | A not yet accumulated work package.
+    GP-0.7.2-eq:13.1 (ω) | A not yet accumulated work package.
 
     Attributes
     ----------
     report: WorkReport
-        GP-0.7.1-eq:12.3 (blackboard_R) | Work Report.
+        GP-0.7.2-eq:12.3 (blackboard_R) | Work Report.
     dependencies: Vec(H256)
-        GP-0.7.1-eq:12.3 ({blackboard_H}) | Set of Work Package hashes.
+        GP-0.7.2-eq:12.3 ({blackboard_H}) | Set of Work Package hashes.
     """
     report: WorkReport = field(metadata={'codec': WorkReport.to_codec_def()})
     dependencies: List[bytes] = field(metadata={'codec': Vec(H256)})
@@ -1298,13 +1298,13 @@ class AccumulationQueueWorkPackage(Serializable):
 @dataclass
 class AccumulationQueueState(State, Serializable):
     """
-    GP-0.7.1-eq:12.3 (ω) | A collection of unaccumulated work packages.
+    GP-0.7.2-eq:12.3 (ω) | A collection of unaccumulated work packages.
 
     Attributes
     ----------
 
     accumulation_queue: Array(Vec(AccumulationQueueWorkPackage),constant_E)
-        GP-0.7.1-eq:12.3 (ω) | A collection of unaccumulated work packages.
+        GP-0.7.2-eq:12.3 (ω) | A collection of unaccumulated work packages.
     """
     accumulation_queue: List[List[AccumulationQueueWorkPackage]] = field(
         metadata={'codec': Array(Vec(AccumulationQueueWorkPackage.to_codec_def()), EPOCH_TIMESLOTS)}
@@ -1314,13 +1314,13 @@ class AccumulationQueueState(State, Serializable):
 @dataclass
 class AccumulationHistoryState(State, Serializable):
     """
-    GP-0.7.1-eq:12.1 (ξ) | A history of what has been accumulated.
+    GP-0.7.2-eq:12.1 (ξ) | A history of what has been accumulated.
 
     Attributes
     ----------
 
     accumulation_history: Array(Vec(H256),constant_E)
-        GP-0.7.1-eq:12.1 (ξ) | A history of what has been accumulated.
+        GP-0.7.2-eq:12.1 (ξ) | A history of what has been accumulated.
     """
     accumulation_history: List[List[bytes]] = field(
         metadata={'codec': Array(Vec(H256), EPOCH_TIMESLOTS)}
@@ -1334,12 +1334,12 @@ class TupleMap(Map):
 @dataclass
 class BeefyCommitmentMap(State, Serializable):
     """
-    GP-0.7.1-eq:7.4 (θ) | Service-indexed commitment to the accumulation output
+    GP-0.7.2-eq:7.4 (θ) | Service-indexed commitment to the accumulation output
 
     Attributes
     ----------
     beefy_commitment_map: List[Tuple[int, bytes]]
-        GP-0.7.1-eq:7.4 (θ) | Beefy Commitment Map dictionary. Provides accumulation
+        GP-0.7.2-eq:7.4 (θ) | Beefy Commitment Map dictionary. Provides accumulation
         result TreeRoot for accumulated services.
     """
     beefy_commitment_map: Set[Tuple[int, bytes]] = field(default_factory=set, metadata={'codec': TupleMap(U32, H256)})
@@ -1352,7 +1352,7 @@ class BeefyCommitmentMap(State, Serializable):
 
     def get_accumulate_root(self) -> bytes:
         """
-        GP-0.7.1-eq:7.6,7.7 (r) | The accumulation-result tree root of the beefy commitment map.
+        GP-0.7.2-eq:7.6,7.7 (r) | The accumulation-result tree root of the beefy commitment map.
 
         Returns
         -------
@@ -1366,46 +1366,46 @@ class BeefyCommitmentMap(State, Serializable):
 @dataclass
 class JamState(State, Serializable):
     """
-    GP-0.7.1-eq:4.4 (σ) | Logically partitioned state into several largely independent segments which can help both
+    GP-0.7.2-eq:4.4 (σ) | Logically partitioned state into several largely independent segments which can help both
     visual clutter within the protocol description and provide formality over elements of computation which may be
     simultaneously calculated (i.e. parallelized).
 
     Attributes
     ----------
     authorizer_pools: AuthorizerPoolsState
-        GP-0.7.1-eq:4.4 (α) | AuthorizerPool partition of the overall state
+        GP-0.7.2-eq:4.4 (α) | AuthorizerPool partition of the overall state
     recent_history: RecentHistoryState
-        GP-0.7.1-eq:4.4 (β) | RecentHistory partition of the overall state
+        GP-0.7.2-eq:4.4 (β) | RecentHistory partition of the overall state
     safrole: SafroleState
-        GP-0.7.1-eq:4.4 (γ) | Safrole partition of the overall state
+        GP-0.7.2-eq:4.4 (γ) | Safrole partition of the overall state
     services: ServicesState
-        GP-0.7.1-eq:4.4 (δ) | Services partition of the overall state
+        GP-0.7.2-eq:4.4 (δ) | Services partition of the overall state
     entropy: EntropyState
-        GP-0.7.1-eq:4.4 (η) | Entropy partition of the overall state
+        GP-0.7.2-eq:4.4 (η) | Entropy partition of the overall state
     validator_queue: ValidatorQueueState
-        GP-0.7.1-eq:4.4 (ι) | ValidatorQueue partition of the overall state
+        GP-0.7.2-eq:4.4 (ι) | ValidatorQueue partition of the overall state
     validator_pool: ValidatorPoolState
-        GP-0.7.1-eq:4.4 (κ) | ValidatorPool partition of the overall state
+        GP-0.7.2-eq:4.4 (κ) | ValidatorPool partition of the overall state
     validator_archive: ValidatorArchiveState
-        GP-0.7.1-eq:4.4 (λ) | ValidatorArchive partition of the overall state
+        GP-0.7.2-eq:4.4 (λ) | ValidatorArchive partition of the overall state
     assurances: AssurancesState
-        GP-0.7.1-eq:4.4 (ρ) | Assurances partition of the overall state
+        GP-0.7.2-eq:4.4 (ρ) | Assurances partition of the overall state
     timeslot: TimeslotState
-        GP-0.7.1-eq:4.4 (τ) | Timeslot partition of the overall state
+        GP-0.7.2-eq:4.4 (τ) | Timeslot partition of the overall state
     authorizer_queues: AuthorizerQueuesState
-        GP-0.7.1-eq:4.4 (𝜙) | AuthorizerQueue partition of the overall state
+        GP-0.7.2-eq:4.4 (𝜙) | AuthorizerQueue partition of the overall state
     privileged_services: PrivilegedServicesState
-        GP-0.7.1-eq:4.4 (χ) | PrivilegedServices partition of the overall state
+        GP-0.7.2-eq:4.4 (χ) | PrivilegedServices partition of the overall state
     disputes: DisputesState
-        GP-0.7.1-eq:4.4 (ψ) | Disputes partition of the overall state
+        GP-0.7.2-eq:4.4 (ψ) | Disputes partition of the overall state
     statistics: StatisticsState
-        GP-0.7.1-eq:4.4 (π) | Statistics partition of the overall state
+        GP-0.7.2-eq:4.4 (π) | Statistics partition of the overall state
     accumulation_queue: AccumulationQueueState
-        GP-0.7.1-eq:4.4 (ω) | AccumulationQueue partition of the overall state
+        GP-0.7.2-eq:4.4 (ω) | AccumulationQueue partition of the overall state
     accumulation_history: AccumulationHistoryState
-        GP-0.7.1-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
+        GP-0.7.2-eq:4.4 (ξ) | AccumulationHistory partition of the overall state
     recent_accumulation_outputs: BeefyCommitmentMap
-        GP-0.7.1-eq:4.4 (θ) | The most recent Accumulation outputs
+        GP-0.7.2-eq:4.4 (θ) | The most recent Accumulation outputs
     """
     authorizer_pools: AuthorizerPoolsState = field(metadata={'codec': AuthorizerPoolsState.to_codec_def()})
     recent_history: RecentHistoryState = field(metadata={'codec': RecentHistoryState.to_codec_def()})
@@ -1508,13 +1508,13 @@ class JamState(State, Serializable):
 @dataclass
 class DeferredTransfers(Serializable):
     """
-    GP-0.7.1-eq:12.23 (Vec(blackboard_X)) | A collection of deferred transfers.
+    GP-0.7.2-eq:12.23 (Vec(blackboard_X)) | A collection of deferred transfers.
 
     Attributes
     ----------
 
     deferred_transfers: Vec(DeferredTransfer)
-        GP-0.7.1-eq:12.23 (Vec(blackboard_X)) | A collection of deferred transfers.
+        GP-0.7.2-eq:12.23 (Vec(blackboard_X)) | A collection of deferred transfers.
     """
     deferred_transfers: List[DeferredTransfer] = field(metadata={'codec': Vec(DeferredTransfer.to_codec_def())})
 
@@ -1522,18 +1522,18 @@ class DeferredTransfers(Serializable):
 @dataclass
 class AccumulationStateComponents(Serializable):
     """
-    GP-0.7.1-eq:12.16 (blackboard_S) | State components which are needed and mutable by the accumulation process.
+    GP-0.7.2-eq:12.16 (blackboard_S) | State components which are needed and mutable by the accumulation process.
 
     Attributes
     ----------
     services: ServicesState
-        GP-0.7.1-eq:12.16 (bold_d) | Dictionary with services state.
+        GP-0.7.2-eq:12.16 (bold_d) | Dictionary with services state.
     validator_queue: ValidatorQueueState
-        GP-0.7.1-eq:12.16 (bold_i) | Validator Queue state.
+        GP-0.7.2-eq:12.16 (bold_i) | Validator Queue state.
     authorizer_queues: AuthorizerQueuesState
-        GP-0.7.1-eq:12.16 (bold_q) | Authorizer Queues state.
+        GP-0.7.2-eq:12.16 (bold_q) | Authorizer Queues state.
     privileged_services: PrivilegedServicesState
-        GP-0.7.1-eq:9.9 (bold_x) | Privileged Services state.
+        GP-0.7.2-eq:9.9 (bold_x) | Privileged Services state.
     """
     # TODO: structure change in 0.7.0 split up privileged services
     services: ServicesState = field(metadata={'codec': ServicesState.to_codec_def()})
@@ -1544,7 +1544,7 @@ class AccumulationStateComponents(Serializable):
 
     def check_service_id(self, service_id: int) -> int:
         """
-        GP-0.7.1-eq:B.14 | Find an unused service id
+        GP-0.7.2-eq:B.14 | Find an unused service id
         """
         try:
             self.services.retrieve_service_account(service_id)
@@ -1558,7 +1558,7 @@ class AccumulationStateComponents(Serializable):
 
     def to_invocation_context(self, service_account_id: int, entropy: bytes, timeslot: int) -> 'AccumulateInvocationContext':
         """
-        GP-0.7.1-eq:B.10 (I)
+        GP-0.7.2-eq:B.10 (I)
 
         entropy: eta_0
         timeslot: int post_state
@@ -1597,7 +1597,7 @@ class AccumulationStateComponents(Serializable):
 @dataclass
 class AccumulateContextItem:
     """
-    GP-0.7.1-eq:B.7 (blackboard_L) | Invocation Result Context
+    GP-0.7.2-eq:B.7 (blackboard_L) | Invocation Result Context
 
     TODO check service_account_id in state_context.services
     """
@@ -1612,10 +1612,10 @@ class AccumulateContextItem:
 @dataclass
 class AccumulateInvocationContext(InvocationContext):
     """
-    GP-0.7.1-eq:B.8 (blackboard_L) | Invocation Result Context
+    GP-0.7.2-eq:B.8 (blackboard_L) | Invocation Result Context
     """
-    context: AccumulateContextItem           # GP-0.7.0-eq:B.11 X_x
-    savepoint_context: AccumulateContextItem # GP-0.7.0-eq:B.11 X_y
+    context: AccumulateContextItem           # GP-0.7.2-eq:B.11 X_x
+    savepoint_context: AccumulateContextItem # GP-0.7.2-eq:B.11 X_y
     timeslot: int # TODO how to make available?
 
 
@@ -1658,7 +1658,7 @@ STORAGE_KEY_MAPPING = {
 @dataclass
 class ParallelAccumulationOutput:
     """
-    GP-0.7.1-eq:12.19
+    GP-0.7.2-eq:12.19
     """
     accumulation_state: AccumulationStateComponents
     deferred_transfers: List[DeferredTransfer]
@@ -1669,7 +1669,7 @@ class ParallelAccumulationOutput:
 @dataclass
 class FullAccumulationOutput:
     """
-    GP-0.7.1-eq:12.28
+    GP-0.7.2-eq:12.25
     """
     # n
     nr_work_results_accumulated: int

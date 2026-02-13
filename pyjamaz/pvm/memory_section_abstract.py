@@ -14,7 +14,7 @@ from pyjamaz.pvm.exceptions import PVMMemoryError
 
 def page_size(bytes: int) -> int:
     """
-    GP-0.6.2-eq:A.38 (P)
+    GP-0.7.2-eq:A.40 (P)
     """
     return PVM_PAGE_SIZE * ceil(bytes / PVM_PAGE_SIZE)
 

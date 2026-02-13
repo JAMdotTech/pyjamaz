@@ -18,7 +18,7 @@ T = TypeVar('T')
 
 def state_key_constructor_service_account(service_account_id: int) -> bytes:
     """
-    GP-0.7.1-eq:D.1 | State key constructor for a service account
+    GP-0.7.2-eq:D.1 | State key constructor for a service account
 
     Parameters
     ----------
@@ -41,7 +41,7 @@ def state_key_constructor_service_account(service_account_id: int) -> bytes:
 
 def state_key_constructor_service_account_value(service_account_id: int, value: bytes) -> bytes:
     """
-    GP-0.7.1-eq:D.1 | State key constructor for a service account value
+    GP-0.7.2-eq:D.1 | State key constructor for a service account value
 
     Parameters
     ----------
@@ -68,7 +68,7 @@ def state_key_constructor_service_account_value(service_account_id: int, value: 
 
 def state_key_constructor_storage_item(service_account_id: int, storage_item_key: bytes) -> bytes:
     """
-    GP-0.7.1-eq:D.2 | State key constructor for a storage item hash
+    GP-0.7.2-eq:D.2 | State key constructor for a storage item hash
 
     Parameters
     ----------
@@ -86,7 +86,7 @@ def state_key_constructor_storage_item(service_account_id: int, storage_item_key
 
 def state_key_constructor_preimage(service_account_id: int, preimage_hash: bytes) -> bytes:
     """
-    GP-0.7.1-eq:D.2 | State key constructor for a preimage hash
+    GP-0.7.2-eq:D.2 | State key constructor for a preimage hash
 
     Parameters
     ----------
@@ -109,7 +109,7 @@ def state_key_constructor_preimage_availability(
         service_account_id: int, preimage_hash: bytes, preimage_length: int
 ) -> bytes:
     """
-    GP-0.7.1-eq:D.2 | State key constructor for a preimage availability
+    GP-0.7.2-eq:D.2 | State key constructor for a preimage availability
 
     Parameters
     ----------
@@ -140,7 +140,7 @@ class StateComponent:
 
     def _state_key_constructor_component(self) -> bytes:
         """
-        GP-0.7.1-eq:D.1,D.2 Only wellknown storage keys
+        GP-0.7.2-eq:D.1,D.2 Only wellknown storage keys
         """
         try:
             return WELL_KNOWN_STORAGE_KEYS[self.component_id]
@@ -166,7 +166,7 @@ class StateComponent:
     @staticmethod
     def is_epoch_change(pre_slotnumber: int, post_slotnumber: int) -> bool:
         """
-        GP-0.7.1-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+        GP-0.7.2-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
 
         Returns
         -------
@@ -178,7 +178,7 @@ class StateComponent:
     @staticmethod
     def slot_phase_index(slot_number: int) -> int:
         """
-        GP-0.7.1-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot
+        GP-0.7.2-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot
 
         Returns
         -------
@@ -191,7 +191,7 @@ class StateComponent:
     @staticmethod
     def epoch_number(slot_number: int) -> int:
         """
-        GP-0.7.1-eq:6.2 (e) | Function that returns the epoch index
+        GP-0.7.2-eq:6.2 (e) | Function that returns the epoch index
 
         Returns
         -------
