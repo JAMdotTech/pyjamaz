@@ -8,7 +8,7 @@ pip install .
 ```
 
 ## Run fuzzer target
-```pycon
+```bash
 pyjamaz fuzzer target
 ```
 
