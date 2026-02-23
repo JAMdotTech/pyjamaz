@@ -61,7 +61,7 @@ from pyjamaz.pvm.constants import (
 )
 
 from pyjamaz.pvm.types import PVMProgram
-from pyjamaz.pvm.memory import PVMMemory
+from pyjamaz.pvm.interpreters.graypaper.memory import PVMMemory
 
 
 @njit(uint32(

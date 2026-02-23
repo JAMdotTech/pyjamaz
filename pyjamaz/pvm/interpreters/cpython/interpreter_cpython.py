@@ -27,7 +27,7 @@ from pyjamaz.pvm.constants import (
     PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W,
 )
 from pyjamaz.pvm.types import PVMProgram
-from pyjamaz.pvm.memory import PVMMemory
+from .memory import PVMMemory
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
@@ -212,10 +212,23 @@ class PVMInterpreter:
 
     def _link_memory(self, memory):
         """Initialize memory sections as numpy arrays"""
-        # Store memory sections as numpy arrays with their boundaries
+        # Store memory sections as shared memoryviews with their boundaries.
+        self.ROM_ADDR = 0xFFFFFFFF
+        self.ROM_END = -1
+        self.HEAP_ADDR = 0xFFFFFFFF
+        self.HEAP_END = -1
+        self.STACK_ADDR = 0xFFFFFFFF
+        self.STACK_END = -1
+        self.ARG_ADDR = 0xFFFFFFFF
+        self.ARG_END = -1
+
         mem_section_starts = []
         mem_section_ends = []  # This will use paged_tail, not size
         mem_section_size = []
+        mem_section_access = []
+        mem_section_acl = []
+        mem_sections = []
+        mv_sections = [None, None, None, None]
 
         self.mv_code = memoryview(self.code)
 
@@ -223,38 +236,50 @@ class PVMInterpreter:
         for idx, section in enumerate([memory._rom, memory._heap, memory._stack, memory._args]):
 
             if section:
+                section_view = memory.view(section.address, section.size)
+                section.contents = section_view
+
+                section_end = int(section.paged_tail)
+                if idx == 1:
+                    # Keep the CPYTHON heap break aligned with canonical memory semantics.
+                    section_end = int(memory.heap_ptr)
+
                 if idx == 0:
                     self.ROM_ADDR = int(section.address)
-                    self.ROM_END = int(section.paged_tail)
+                    self.ROM_END = section_end
                 if idx == 1:
                     self.HEAP_ADDR = int(section.address)
-                    self.HEAP_END = int(section.paged_tail)
+                    self.HEAP_END = section_end
                 if idx == 2:
                     self.STACK_ADDR = int(section.address)
-                    self.STACK_END = int(section.paged_tail)
+                    self.STACK_END = section_end
                 if idx == 3:
                     self.ARG_ADDR = int(section.address)
-                    self.ARG_END = int(section.paged_tail)
+                    self.ARG_END = section_end
 
-                self.mem_section_access.append(section.acl)
-                self.mem_section_acl.append(section.acl_bitmap)
-                self.mem_sections.append(section.contents)
+                mem_section_access.append(section.acl)
+                mem_section_acl.append(section.acl_bitmap)
+                mem_sections.append(section_view)
                 mem_section_starts.append(section.address)
-                mem_section_ends.append(section.paged_tail)
+                mem_section_ends.append(section_end)
                 mem_section_size.append(section.size)
-                self.mv_sections[idx] = memoryview(section.contents)
+                mv_sections[idx] = section_view
             else:
-                self.mem_section_access.append(None)
-                self.mem_section_acl.append(None)
-                self.mem_sections.append(None)
+                mem_section_access.append(None)
+                mem_section_acl.append(None)
+                mem_sections.append(None)
                 mem_section_starts.append(0)
                 mem_section_ends.append(0)
                 mem_section_size.append(0)
-                self.mv_sections[idx] = None
+                mv_sections[idx] = None
 
+        self.mem_section_access = mem_section_access
+        self.mem_section_acl = mem_section_acl
+        self.mem_sections = mem_sections
         self.mem_section_starts = mem_section_starts
         self.mem_section_ends = mem_section_ends
         self.mem_section_size = mem_section_size
+        self.mv_sections = mv_sections
 
 
     def _sync_memory(self):
@@ -265,11 +290,15 @@ class PVMInterpreter:
                 self.mem._heap.size = len(self.mem_sections[1])
                 self.mem._heap.paged_tail = self.mem_section_ends[1]
                 self.mem._heap.acl_bitmap = self.mem_section_acl[1]
-            self.mem._mem_addr = self._mem_addr
+            self.mem.heap_ptr = self.mem_section_ends[1]
+        self.mem._mem_addr = self._mem_addr
 
 
     def _sbrk(self, size):
         heap = self.mem_sections[1]
+        if heap is None:
+            return 0
+
         cur_size = len(heap)
 
         if size == 0:
@@ -277,7 +306,8 @@ class PVMInterpreter:
 
         current_heap_ptr = self.mem_section_ends[1]
         new_heap_ptr = current_heap_ptr + size
-        if new_heap_ptr >= self.mem_section_starts[2]:
+        stack_start = self.mem_section_starts[2]
+        if stack_start and new_heap_ptr >= stack_start:
             return 0
 
         next_page_boundary = page_size(current_heap_ptr)
@@ -287,19 +317,22 @@ class PVMInterpreter:
 
         if new_heap_ptr > next_page_boundary:
             # Only grow when we exceed pre-allocated heap mem
-            if new_heap_end - self.mem_section_starts[1] > cur_size:
-                # Calculate the total new size based on page boundaries
-                new_size = cur_size + growth
-                new_buf = bytearray(new_size)
-                new_buf[:cur_size] = heap
-                self.mem_sections[1] = new_buf
-                self.mv_sections[1] = memoryview(self.mem_sections[1])
+            heap_start = self.mem_section_starts[1]
+            new_size = new_heap_end - heap_start
+            if new_size > cur_size:
+                # Keep heap storage as a shared zero-copy view into canonical mmap memory.
+                self.mem_sections[1] = self.mem.view(heap_start, new_size)
+                self.mv_sections[1] = self.mem_sections[1]
+                self.mem_section_size[1] = new_size
+                if self.mem._heap:
+                    self.mem._heap.contents = self.mem_sections[1]
+                    self.mem._heap.size = new_size
 
                 # Note: when using bitmaps, we only need to allocate a new bitmap when we allocate new pages
                 # Create ACL of new pages
                 prev_page_count = cur_size // PVM_PAGE_SIZE
                 new_page_count = new_size // PVM_PAGE_SIZE
-                bitmap_count = len(self.mem_section_acl[1])
+                bitmap_count = len(self.mem_section_acl[1]) if self.mem_section_acl[1] is not None else 0
                 # note: ceil div: -(-a // b)
                 bitmaps_required = -(-new_page_count // ACL_PAGES_PER_BITMAP)
 
@@ -308,14 +341,23 @@ class PVMInterpreter:
                     if bitmap_count > 0:
                         extended[:bitmap_count] = self.mem_section_acl[1]
                     self.mem_section_acl[1] = extended
+                    if self.mem._heap:
+                        self.mem._heap.acl_bitmap = extended
                     self.log and self.log.acl(bitmap_count, bitmaps_required, bitmaps_required - bitmap_count)
 
-                if new_page_count > prev_page_count and len(self.mem_section_acl[1]):
+                if new_page_count > prev_page_count:
                     pages_to_enable = new_page_count - prev_page_count
-                    set_range_acl(self.mem_section_acl[1], prev_page_count, pages_to_enable, self.mem_writable)
+                    if self.mem_section_acl[1] is not None and len(self.mem_section_acl[1]):
+                        set_range_acl(self.mem_section_acl[1], prev_page_count, pages_to_enable, self.mem_writable)
+
+                    abs_start_page = (heap_start // PVM_PAGE_SIZE) + prev_page_count
+                    self.mem.change_acl(abs_start_page, pages_to_enable, self.mem_writable)
 
         self.mem_section_ends[1] = new_heap_ptr
         self.HEAP_END = new_heap_ptr
+        if self.mem._heap:
+            self.mem._heap.paged_tail = new_heap_ptr
+        self.mem.heap_ptr = new_heap_ptr
         return new_heap_ptr
 
 
@@ -345,56 +387,10 @@ class PVMInterpreter:
         addr = u32(addr)
         bytes_to_write = self.mem_ops_bytes[opcode]
 
-        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
-        self._mem_addr = addr
-
-        # Find the memory section
-        section_idx = -1
-        if self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
-        elif self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
-        elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
-        elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
-
-        if section_idx == -1 or self.mem_sections[section_idx] is None:
-            # Fall back to PVMMemory for dynamically mapped sections
-            try:
-                self.mem.write_int(addr, value, bytes_to_write)
-            finally:
-                # Capture the memory address even when an exception is raised (e.g., for page fault address)
-                self._mem_addr = self.mem._mem_addr
-            return
-
-        section = self.mem_sections[section_idx]
-        section_offset = addr - self.mem_section_starts[section_idx]
-
-        # Note: inlind acl checks to be more performant than the Graypaper version
-        acl_bitmap = self.mem_section_acl[section_idx]
-        if acl_bitmap is not None and len(acl_bitmap) > 0:
-            start_page = section_offset // PVM_PAGE_SIZE
-            last_offset = section_offset + bytes_to_write - 1
-            end_page = last_offset // PVM_PAGE_SIZE
-            nr_pages = end_page - start_page + 1
-            if not check_acl(acl_bitmap, start_page, nr_pages, self.mem_writable):
-                fail_page = self.find_err_page(acl_bitmap, section_offset, bytes_to_write, self.mem_writable)
-                if fail_page < 0:
-                    fail_page = start_page
-                self._mem_addr = self.mem_section_starts[section_idx] + (fail_page * PVM_PAGE_SIZE)
-                raise PVMMemoryError(f"Memory at address {addr} is not writable")
-        elif self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_W:
-            self._mem_addr = addr - (addr % PVM_PAGE_SIZE)
-            raise PVMMemoryError(f"Memory at address {addr} is not writable")
-
-        # Check bounds against the actual section size (not paged_tail)
-        # The section might be larger than paged_tail if it has been extended
-        if section_offset + bytes_to_write > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
-            raise PVMMemoryError(f"Memory write at {addr} would overflow section")
-
-        # Apply modulus for values less than 8 bytes
-        if bytes_to_write < 8:
-            value = value % (2 ** (bytes_to_write * 8))
-
-        # Write bytes in little-endian order
-        return write_uint(section, section_offset, bytes_to_write, value)
+        try:
+            self.mem.write_int(addr, value, bytes_to_write)
+        finally:
+            self._mem_addr = self.mem._mem_addr
 
 
     def mem_read(self, opcode, addr):
@@ -402,46 +398,10 @@ class PVMInterpreter:
         addr = u32(addr)
         bytes_to_read = self.mem_ops_bytes[opcode]
 
-        # Always store the requested memory address so we can refer it after a PVMMemoryError fx
-        self._mem_addr = addr
-
-        section_idx = -1
-        if self.HEAP_ADDR <= addr <= self.HEAP_END: section_idx = 1
-        elif self.STACK_ADDR <= addr <= self.STACK_END: section_idx = 2
-        elif self.ROM_ADDR <= addr <= self.ROM_END: section_idx = 0
-        elif self.ARG_ADDR <= addr <= self.ARG_END: section_idx = 3
-
-        if section_idx == -1 or self.mem_sections[section_idx] is None:
-            # Fall back to PVMMemory for dynamically mapped sections
-            try:
-                result = self.mem.read_int(addr, bytes_to_read)
-                return result
-            finally:
-                # Capture the memory address even when an exception is raised (e.g., for page fault address)
-                self._mem_addr = self.mem._mem_addr
-
-        section_offset = addr - self.mem_section_starts[section_idx]
-
-        acl_bitmap = self.mem_section_acl[section_idx]
-        if acl_bitmap is not None and len(acl_bitmap) > 0:
-            start_page = section_offset // PVM_PAGE_SIZE
-            last_offset = section_offset + bytes_to_read - 1
-            end_page = last_offset // PVM_PAGE_SIZE
-            nr_pages = end_page - start_page + 1
-            if not check_acl(acl_bitmap, start_page, nr_pages, self.mem_readable):
-                fail_page = self.find_err_page(acl_bitmap, section_offset, bytes_to_read, self.mem_readable)
-                if fail_page < 0:
-                    fail_page = start_page
-                self._mem_addr = self.mem_section_starts[section_idx] + (fail_page * PVM_PAGE_SIZE)
-                raise PVMMemoryError(f"Memory at address {addr} is not readable")
-        elif self.mem_section_access[section_idx] is not None and self.mem_section_access[section_idx] < MEM_R:
-            self._mem_addr = addr - (addr % PVM_PAGE_SIZE)
-            raise PVMMemoryError(f"Memory at address {addr} is not readable")
-
-        if section_offset + bytes_to_read > (self.mem_section_ends[section_idx]-self.mem_section_starts[section_idx]): #len(section):
-            raise PVMMemoryError(f"Memory read at {addr} would overflow section")
-
-        return read_uint(self.mv_sections[section_idx], section_offset, bytes_to_read)
+        try:
+            return self.mem.read_int(addr, bytes_to_read)
+        finally:
+            self._mem_addr = self.mem._mem_addr
 
     #
     # def mem_write(self, opcode, addr, value):

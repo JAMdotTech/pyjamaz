@@ -14,7 +14,7 @@ from pyjamaz.hostcalls.models import AccumulateInvocationContext
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_R
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
-from pyjamaz.pvm.memory import PVMMemory
+from pyjamaz.pvm.types import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.hostcalls import hostcall
 from pyjamaz.utils import format_hash

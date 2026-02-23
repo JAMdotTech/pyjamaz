@@ -8,8 +8,7 @@ from jamcodec.base import JamBytes
 from parameterized import parameterized
 
 from pyjamaz import settings
-from pyjamaz.pvm.types import PVMCode, PVMProgram
-from pyjamaz.pvm.memory import PVMMemory
+from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.constants import ExitReason, MEM_W, MEM_R
 

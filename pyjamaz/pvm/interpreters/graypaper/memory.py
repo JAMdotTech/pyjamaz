@@ -4,7 +4,7 @@ from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, MEM_R, MEM_
 from pyjamaz.pvm.exceptions import PVMMemoryError, PVMError
 
 if TYPE_CHECKING:
-    from pyjamaz.pvm.interpreters.graypaper.memory_section import MemorySection
+    from pyjamaz.pvm.interpreters.cpython.memory_section import MemorySection
 
 # Page-based memory constants
 ADDR_MOD = 2**32

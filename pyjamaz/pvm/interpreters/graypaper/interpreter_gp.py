@@ -38,7 +38,7 @@ from .defs import (
 )
 
 from pyjamaz.pvm.types import PVMProgram
-from pyjamaz.pvm.memory import PVMMemory
+from .memory import PVMMemory
 
 
 class PVMInterpreter:

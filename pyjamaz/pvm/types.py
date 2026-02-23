@@ -9,10 +9,14 @@ from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger, Bytes
 
-from pyjamaz.pvm.memory import PVMMemory
+from pyjamaz import settings
+
+if settings.PVM_INTERPRETER == "CPYTHON":
+    from pyjamaz.pvm.interpreters.cpython.memory import PVMMemory
+else:
+    from pyjamaz.pvm.interpreters.graypaper.memory import PVMMemory
 from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W
 from pyjamaz.pvm.memory_section_abstract import page_size
-from pyjamaz import settings
 
 
 @dataclass
@@ -105,11 +109,21 @@ class PVMProgram(Serializable):
         args_start = 2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE
         args_size = page_size(len(argument_contents))
 
-        mem = PVMMemory()
-        mem.add_segment(rom_start, rom_size, MEM_R, rom_contents)
-        mem.add_segment(heap_start, heap_mem_size, MEM_W, heap_contents)
-        mem.add_segment(stack_start, stack_size, MEM_W, bytes(stack_size))
-        mem.add_segment(args_start, args_size, MEM_R, argument_contents)
+        if settings.PVM_INTERPRETER == "CPYTHON":
+            from pyjamaz.pvm.interpreters.cpython.memory_section import MemorySection
+
+            mem = PVMMemory(
+                rom=MemorySection(address=rom_start, size=rom_size, contents=rom_contents, acl=MEM_R),
+                heap=MemorySection(address=heap_start, size=heap_mem_size, contents=heap_contents, acl=MEM_W),
+                stack=MemorySection(address=stack_start, size=stack_size, contents=bytes(stack_size), acl=MEM_W),
+                arguments=MemorySection(address=args_start, size=args_size, contents=argument_contents, acl=MEM_R),
+            )
+        else:
+            mem = PVMMemory()
+            mem.add_segment(rom_start, rom_size, MEM_R, rom_contents)
+            mem.add_segment(heap_start, heap_mem_size, MEM_W, heap_contents)
+            mem.add_segment(stack_start, stack_size, MEM_W, bytes(stack_size))
+            mem.add_segment(args_start, args_size, MEM_R, argument_contents)
 
         mem.heap_base = heap_start
         mem.heap_ptr = heap_start + heap_mem_size
