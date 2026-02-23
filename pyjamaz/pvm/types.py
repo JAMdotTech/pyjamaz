@@ -167,7 +167,23 @@ class AbstractMemory(ABC):
     def is_null(self, page_idx: int, nr_pages: int) -> bool: ...
 
 
-PVMMemory = AbstractMemory
+def _resolve_pvm_memory_class():
+    if settings.PVM_INTERPRETER == "CPYTHON":
+        from pyjamaz.pvm.interpreters.cpython.memory import PVMMemory as _PVMMemoryImpl
+        return _PVMMemoryImpl
+    if settings.PVM_INTERPRETER in {"GRAYPAPER", "NUMBA_JIT", "NUMBA_AOT_COMPILE", "NUMBA_AOT"}:
+        from pyjamaz.pvm.interpreters.graypaper.memory import PVMMemory as _PVMMemoryImpl
+        return _PVMMemoryImpl
+    raise ValueError(f"Unknown PVM_INTERPRETER: {settings.PVM_INTERPRETER}")
+
+
+class PVMMemory:
+    @staticmethod
+    def zone_size(items: int) -> int:
+        return AbstractMemory.zone_size(items)
+
+    def __new__(cls, *args, **kwargs):
+        return _resolve_pvm_memory_class()(*args, **kwargs)
 
 
 @dataclass

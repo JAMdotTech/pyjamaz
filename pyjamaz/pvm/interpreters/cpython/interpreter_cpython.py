@@ -25,6 +25,7 @@ from pyjamaz.pvm.constants import (
     OpcodeNames,
     OpcodeScheme,
     Opcode,
+    TERMINATION_OPCODES,
     ExitCondition,
     PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W,
 )
@@ -36,6 +37,30 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
 class PVMInterpreter:
+    @staticmethod
+    def alloc_memory(
+        rom_start: int,
+        rom_size: int,
+        rom_contents: bytes,
+        heap_start: int,
+        heap_size: int,
+        heap_contents: bytes,
+        stack_start: int,
+        stack_size: int,
+        argument_start: int,
+        argument_size: int,
+        argument_contents: bytes,
+    ) -> PVMMemory:
+        mem = PVMMemory()
+        mem.add_segment(rom_start, rom_size, MEM_R, rom_contents)
+        mem.add_segment(heap_start, heap_size, MEM_W, heap_contents)
+        mem.add_segment(stack_start, stack_size, MEM_W)
+        mem.add_segment(argument_start, argument_size, MEM_R, argument_contents)
+        mem.heap_base = heap_start
+        mem.heap_ptr = heap_start + heap_size
+        mem.stack_base = stack_start
+        return mem
+
     __slots__ = (
         'name', 'reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
         'code', 'code_size', 'code_length', 'jump_table', 'inst_bitmask', 'inst_pos',
@@ -87,7 +112,7 @@ class PVMInterpreter:
         self.mem_section_access = []
         self.mem_section_acl = []
         self.mem_section_starts = []
-        self.memdsd_section_ends = []
+        self.mem_section_ends = []
         self.mem_section_size = []
 
         self._mem_addr: int = -1
@@ -248,8 +273,25 @@ class PVMInterpreter:
 
         # Calculate the gas per block
         self.basic_block_gas = {}
-        for start in self.basic_block_starts_sorted:
-            self.basic_block_gas[start] = TODO:set to nr instructions in block #TODO: self.gas_model.compute_block_gas_cost(start)
+        block_starts = self.basic_block_starts_sorted
+        code_size = int(self.code_size)
+
+        for idx, start in enumerate(block_starts):
+            block_end = block_starts[idx + 1] if idx + 1 < len(block_starts) else code_size
+
+            instruction_count = 0
+            pc = start
+            while pc < block_end:
+                inst_index = self.inst_pos.get(pc)
+                if inst_index is None:
+                    raise Exception("huh")
+                instruction_count += 1
+                if self.code[pc] in TERMINATION_OPCODES:
+                    #print(f"BASIC BLOCK: {pc}={instruction_count}")
+                    break
+                pc += self.inst_arg_len[inst_index] + 1
+
+            self.basic_block_gas[start] = instruction_count
 
     def get_block_start(self, pc: int) -> int:
         """Find the basic block that contains the given PC using binary search."""
