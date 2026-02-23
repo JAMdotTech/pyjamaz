@@ -1,31 +1,29 @@
 from math import ceil
-from typing import Dict, Optional, Sequence, Union, TYPE_CHECKING
-from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, MEM_R, MEM_W, MEM_RW, MEM_I
+from typing import Dict, Optional, Sequence, Union
+from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, MEM_R, MEM_W, MEM_RW, MEM_I
 from pyjamaz.pvm.exceptions import PVMMemoryError, PVMError
-
-if TYPE_CHECKING:
-    from pyjamaz.pvm.interpreters.cpython.memory_section import MemorySection
-
-# Page-based memory constants
-ADDR_MOD = 2**32
-PAGE_SIZE = PVM_PAGE_SIZE
-_PAGE_SHIFT = PAGE_SIZE.bit_length() - 1
-_PAGE_MASK = PAGE_SIZE - 1
-_ADDR_MASK = ADDR_MOD - 1
-_PAGE_CACHE_LIMIT = 16
-_ZERO_PAGE = bytes(PAGE_SIZE)
+from pyjamaz.pvm.types import (
+    AbstractMemory,
+    AbstractMemorySection,
+    PAGE_SIZE,
+    _ADDR_MASK,
+    _PAGE_CACHE_LIMIT,
+    _PAGE_MASK,
+    _PAGE_SHIFT,
+    _ZERO_PAGE,
+)
 
 
-class PVMMemory:
+class PVMMemory(AbstractMemory):
 
     SIZE: int = 2**32
 
     def __init__(
         self,
-        rom=None,
-        heap=None,
-        stack=None,
-        arguments=None,
+        rom: Optional[AbstractMemorySection] = None,
+        heap: Optional[AbstractMemorySection] = None,
+        stack: Optional[AbstractMemorySection] = None,
+        arguments: Optional[AbstractMemorySection] = None,
         logger=None,
     ):
         self.pages: Dict[int, bytearray] = {}
@@ -98,7 +96,7 @@ class PVMMemory:
             self.write(start_page + local_page, contents[start:end])
 
 
-    def load_section(self, section: "MemorySection") -> None:
+    def load_section(self, section: AbstractMemorySection) -> None:
         base_page = section.address >> _PAGE_SHIFT
 
         if section.size:
@@ -164,7 +162,7 @@ class PVMMemory:
 
         end = address + length
 
-        # Single-page fast path
+        # Note: in most cases were reading from just one page:
         if (address >> _PAGE_SHIFT) == ((end - 1) >> _PAGE_SHIFT):
             pg = address >> _PAGE_SHIFT
             if pg not in self.pages_r:
@@ -179,8 +177,8 @@ class PVMMemory:
                 data = data.ljust(padding, b"\0")
             return data
 
-        # Multi-page path: validate page ACLs and collect zero-copy slices,
-        # then materialize once via join.
+        # Note: but in some cases we need to read bytes from multiple in that case we
+        # validate page ACLs and collect mem slices and then join these if all ok
         start_page = address >> _PAGE_SHIFT
         end_page = (end - 1) >> _PAGE_SHIFT
         parts = []

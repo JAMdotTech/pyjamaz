@@ -53,7 +53,7 @@ from pyjamaz.pvm.constants import (
     op_shar_r_64, op_and, op_xor, op_or, op_mul_upper_s_s, op_mul_upper_u_u,
     op_mul_upper_s_u, op_set_lt_u, op_set_lt_s, op_cmov_iz, op_cmov_nz, op_rot_l_64,
     op_rot_l_32, op_rot_r_64, op_rot_r_32, op_and_inv, op_or_inv, op_xnor, op_max,
-    op_max_u, op_min, op_min_u, MEM_W,
+    op_max_u, op_min, op_min_u, MEM_R, MEM_W,
 
     inst_none, inst_imm, inst_reg_ext_imm, inst_imm_imm, inst_offset, inst_reg_imm,
     inst_reg_imm_imm, inst_reg_imm_offset, inst_reg_reg, inst_reg_reg_imm,
@@ -1532,6 +1532,30 @@ def invoke_native(
 
 
 class PVMInterpreter:
+
+    @staticmethod
+    def alloc_memory(
+        rom_start: int,
+        rom_size: int,
+        rom_contents: bytes,
+        heap_start: int,
+        heap_size: int,
+        heap_contents: bytes,
+        stack_start: int,
+        stack_size: int,
+        argument_start: int,
+        argument_size: int,
+        argument_contents: bytes,
+    ) -> PVMMemory:
+        mem = PVMMemory()
+        mem.add_segment(rom_start, rom_size, MEM_R, rom_contents)
+        mem.add_segment(heap_start, heap_size, MEM_W, heap_contents)
+        mem.add_segment(stack_start, stack_size, MEM_W, bytes(stack_size))
+        mem.add_segment(argument_start, argument_size, MEM_R, argument_contents)
+        mem.heap_base = heap_start
+        mem.heap_ptr = heap_start + heap_size
+        mem.stack_base = stack_start
+        return mem
 
     def __init__(self, program: PVMProgram, logger=None):
 

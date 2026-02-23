@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 
 from pyjamaz.pvm.exceptions import InvalidOpcode, PVMMemoryError, PanicError
-from pyjamaz.pvm.memory_section_abstract import page_size
+from pyjamaz.pvm.types import page_size
 
 from pyjamaz.pvm.constants import (
     Opcode as op,
@@ -15,7 +15,8 @@ from pyjamaz.pvm.constants import (
     ExitReason,
     MemOps,
     OpcodeNames,
-    ExitCondition, MEM_W,
+    ExitCondition,
+    MEM_R, MEM_W,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
@@ -42,6 +43,30 @@ from .memory import PVMMemory
 
 
 class PVMInterpreter:
+
+    @staticmethod
+    def alloc_memory(
+        rom_start: int,
+        rom_size: int,
+        rom_contents: bytes,
+        heap_start: int,
+        heap_size: int,
+        heap_contents: bytes,
+        stack_start: int,
+        stack_size: int,
+        argument_start: int,
+        argument_size: int,
+        argument_contents: bytes,
+    ) -> PVMMemory:
+        mem = PVMMemory()
+        mem.add_segment(rom_start, rom_size, MEM_R, rom_contents)
+        mem.add_segment(heap_start, heap_size, MEM_W, heap_contents)
+        mem.add_segment(stack_start, stack_size, MEM_W, bytes(stack_size))
+        mem.add_segment(argument_start, argument_size, MEM_R, argument_contents)
+        mem.heap_base = heap_start
+        mem.heap_ptr = heap_start + heap_size
+        mem.stack_base = stack_start
+        return mem
 
     def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name

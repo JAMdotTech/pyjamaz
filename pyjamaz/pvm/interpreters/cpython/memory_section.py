@@ -4,7 +4,7 @@ import numpy as np
 import numpy.typing as npt
 
 from pyjamaz.pvm.exceptions import PVMMemoryError
-from pyjamaz.pvm.memory_section_abstract import AbstractMemorySection
+from pyjamaz.pvm.types import AbstractMemorySection
 
 from pyjamaz.pvm.constants import PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W, MEM_RW
 

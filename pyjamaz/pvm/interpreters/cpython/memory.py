@@ -1,33 +1,31 @@
 import mmap
 
 from math import ceil
-from typing import Optional, Sequence, TYPE_CHECKING, Union
+from typing import Optional, Sequence, Union
 
-from pyjamaz.pvm.constants import MEM_I, MEM_R, MEM_RW, MEM_W, PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE
+from pyjamaz.pvm.interpreters.cpython.memory_section import MemorySection
+from pyjamaz.pvm.constants import MEM_I, MEM_R, MEM_RW, MEM_W, PVM_INIT_ZONE_SIZE
 from pyjamaz.pvm.exceptions import PVMError, PVMMemoryError
-
-if TYPE_CHECKING:
-    from .memory_section import MemorySection
-
-
-# Page-based memory constants
-ADDR_MOD = 2**32
-PAGE_SIZE = PVM_PAGE_SIZE
-_PAGE_SHIFT = PAGE_SIZE.bit_length() - 1
-_PAGE_MASK = PAGE_SIZE - 1
-_ADDR_MASK = ADDR_MOD - 1
-_MAX_PAGE_IDX = (ADDR_MOD // PAGE_SIZE) - 1
+from pyjamaz.pvm.types import (
+    AbstractMemory,
+    AbstractMemorySection,
+    PAGE_SIZE,
+    _ADDR_MASK,
+    _MAX_PAGE_IDX,
+    _PAGE_MASK,
+    _PAGE_SHIFT,
+)
 
 
-class PVMMemory:
+class PVMMemory(AbstractMemory):
     SIZE: int = 2**32
 
     def __init__(
         self,
-        rom: Optional["MemorySection"] = None,
-        heap: Optional["MemorySection"] = None,
-        stack: Optional["MemorySection"] = None,
-        arguments: Optional["MemorySection"] = None,
+        rom: Optional[MemorySection] = None,
+        heap: Optional[MemorySection] = None,
+        stack: Optional[MemorySection] = None,
+        arguments: Optional[MemorySection] = None,
         logger=None,
     ):
         self._mm = mmap.mmap(-1, self.SIZE)
@@ -42,10 +40,10 @@ class PVMMemory:
         self.heap_ptr: int = 0
         self.logger = logger
 
-        self._rom: Optional["MemorySection"] = rom
-        self._heap: Optional["MemorySection"] = heap
-        self._stack: Optional["MemorySection"] = stack
-        self._args: Optional["MemorySection"] = arguments
+        self._rom: Optional[MemorySection] = rom
+        self._heap: Optional[MemorySection] = heap
+        self._stack: Optional[MemorySection] = stack
+        self._args: Optional[MemorySection] = arguments
 
         for section in (rom, heap, stack, arguments):
             if section:
@@ -111,7 +109,7 @@ class PVMMemory:
 
         self._mv[address:address + data_len] = memoryview(contents)[:data_len]
 
-    def load_section(self, section: "MemorySection") -> None:
+    def load_section(self, section: MemorySection) -> None:
         base_page = section.address >> _PAGE_SHIFT
 
         if section.size:
@@ -140,7 +138,7 @@ class PVMMemory:
 
         end = address + length
 
-        # Single-page fast path
+        # Note: in most cases were reading from just one page:
         if (address >> _PAGE_SHIFT) == ((end - 1) >> _PAGE_SHIFT):
             pg = address >> _PAGE_SHIFT
             if pg > _MAX_PAGE_IDX or pg not in self.pages_r:
@@ -153,7 +151,8 @@ class PVMMemory:
                 data = data.ljust(padding, b"\0")
             return data
 
-        # Multi-page path: validate ACL page-by-page first, then perform one bulk copy.
+        # Note: but in some cases we need to read bytes from multiple in that case we
+        # validate page ACLs and collect mem slices and then join these if all ok
         scan_addr = address
         while scan_addr < end:
             pg = scan_addr >> _PAGE_SHIFT

@@ -6,7 +6,7 @@ from array import array
 from typing import List, Dict
 
 from pyjamaz.pvm.exceptions import PVMMemoryError, PanicError
-from pyjamaz.pvm.memory_section_abstract import page_size
+from pyjamaz.pvm.types import page_size
 from .memory_section import (
     set_range_acl,
     check_acl,
@@ -44,6 +44,34 @@ class PVMInterpreter:
         'mem_inaccesible', 'mem_readable', 'mem_writable', 'mv_code',
         'mv_sections', 'log', 'opcodes', 'program',
     )
+
+    @staticmethod
+    def alloc_memory(
+        rom_start: int,
+        rom_size: int,
+        rom_contents: bytes,
+        heap_start: int,
+        heap_size: int,
+        heap_contents: bytes,
+        stack_start: int,
+        stack_size: int,
+        argument_start: int,
+        argument_size: int,
+        argument_contents: bytes,
+    ) -> PVMMemory:
+        from .memory_section import MemorySection
+
+        mem = PVMMemory(
+            rom=MemorySection(address=rom_start, size=rom_size, contents=rom_contents, acl=MEM_R),
+            heap=MemorySection(address=heap_start, size=heap_size, contents=heap_contents, acl=MEM_W),
+            stack=MemorySection(address=stack_start, size=stack_size, contents=bytes(stack_size), acl=MEM_W),
+            arguments=MemorySection(address=argument_start, size=argument_size, contents=argument_contents, acl=MEM_R),
+        )
+
+        mem.heap_base = heap_start
+        mem.heap_ptr = heap_start + heap_size
+        mem.stack_base = stack_start
+        return mem
 
     def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name

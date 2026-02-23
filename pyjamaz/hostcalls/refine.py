@@ -183,7 +183,7 @@ def hc_machine(
         invocation_output.registers[7] = n
         m_e.inner_pvm_lookup[n] = IntegratedPVM(
             code=pvm_code,
-            memory=PVMMemory(None, None, None, None),
+            memory=type(memory)(),
             program_counter=i
         )
         logger and logger.hc_log("MACHINE OK", n)
