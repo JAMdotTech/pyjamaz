@@ -179,27 +179,28 @@ class PVMMemory:
                 data = data.ljust(padding, b"\0")
             return data
 
-        out = bytearray(length)
-        out_mv = memoryview(out)
-        cursor = 0
-
-        while address < end:
-            pg = address >> _PAGE_SHIFT
-            page_off = address & _PAGE_MASK
-            chunk = min(PAGE_SIZE - page_off, end - address)
+        # Multi-page path: validate page ACLs and collect zero-copy slices,
+        # then materialize once via join.
+        start_page = address >> _PAGE_SHIFT
+        end_page = (end - 1) >> _PAGE_SHIFT
+        parts = []
+        for pg in range(start_page, end_page + 1):
+            page_start = pg << _PAGE_SHIFT
+            seg_start = address if pg == start_page else page_start
+            seg_end = end if pg == end_page else page_start + PAGE_SIZE
 
             if pg not in self.pages_r:
+                fault_addr = seg_start
                 if self.logger:
-                    self.logger.debug(f"Not allowed to read {address}(Page={pg})")
-                self._page_fault(pg, address, "read")
+                    self.logger.debug(f"Not allowed to read {fault_addr}(Page={pg})")
+                self._page_fault(pg, fault_addr, "read")
 
+            page_off = seg_start - page_start
+            chunk = seg_end - seg_start
             src_page = self.page_content(pg, create=False)
-            out_mv[cursor:cursor + chunk] = src_page[page_off:page_off + chunk]
+            parts.append(memoryview(src_page)[page_off:page_off + chunk])
 
-            address += chunk
-            cursor += chunk
-
-        data = bytes(out)
+        data = b"".join(parts)
         if padding and len(data) < padding:
             data = data.ljust(padding, b"\0")
         return data
@@ -209,7 +210,7 @@ class PVMMemory:
         if not content:
             return
 
-        data_bytes = content if isinstance(content, (bytes, bytearray)) else bytes(content)
+        data_bytes = content if isinstance(content, (bytes, bytearray, memoryview)) else bytes(content)
         address = int(address) & _ADDR_MASK
         self._mem_addr = address
 
@@ -229,22 +230,29 @@ class PVMMemory:
             dst_page[page_off:page_off + length] = data_bytes
             return
 
-        in_mv = memoryview(data_bytes)
-        cursor = 0
-        while address < end:
-            pg = address >> _PAGE_SHIFT
-            page_off = address & _PAGE_MASK
-            chunk = min(PAGE_SIZE - page_off, end - address)
+        start_page = address >> _PAGE_SHIFT
+        end_page = (end - 1) >> _PAGE_SHIFT
 
+        # Multi-page path: validate first to avoid partial writes on faults.
+        for pg in range(start_page, end_page + 1):
+            page_start = pg << _PAGE_SHIFT
+            fault_addr = address if pg == start_page else page_start
             if pg not in self.pages_w:
                 if self.logger:
-                    self.logger.debug(f"Not allowed to write {address}(Page={pg})")
-                self._page_fault(pg, address, "write")
+                    self.logger.debug(f"Not allowed to write {fault_addr}(Page={pg})")
+                self._page_fault(pg, fault_addr, "write")
+
+        in_mv = data_bytes if isinstance(data_bytes, memoryview) else memoryview(data_bytes)
+        cursor = 0
+        for pg in range(start_page, end_page + 1):
+            page_start = pg << _PAGE_SHIFT
+            seg_start = address if pg == start_page else page_start
+            seg_end = end if pg == end_page else page_start + PAGE_SIZE
+            page_off = seg_start - page_start
+            chunk = seg_end - seg_start
 
             dst_page = self.page_content(pg, create=True)
             dst_page[page_off:page_off + chunk] = in_mv[cursor:cursor + chunk]
-
-            address += chunk
             cursor += chunk
 
         return

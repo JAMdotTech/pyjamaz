@@ -153,26 +153,21 @@ class PVMMemory:
                 data = data.ljust(padding, b"\0")
             return data
 
-        out = bytearray(length)
-        out_mv = memoryview(out)
-        cursor = 0
-
-        while address < end:
-            pg = address >> _PAGE_SHIFT
-            page_off = address & _PAGE_MASK
-            chunk = min(PAGE_SIZE - page_off, end - address)
+        # Multi-page path: validate ACL page-by-page first, then perform one bulk copy.
+        scan_addr = address
+        while scan_addr < end:
+            pg = scan_addr >> _PAGE_SHIFT
+            page_off = scan_addr & _PAGE_MASK
+            chunk = min(PAGE_SIZE - page_off, end - scan_addr)
 
             if pg > _MAX_PAGE_IDX or pg not in self.pages_r:
                 if self.logger:
-                    self.logger.debug(f"Not allowed to read {address}(Page={pg})")
-                self._page_fault(pg, address, "read")
+                    self.logger.debug(f"Not allowed to read {scan_addr}(Page={pg})")
+                self._page_fault(pg, scan_addr, "read")
 
-            out_mv[cursor:cursor + chunk] = self._mv[address:address + chunk]
+            scan_addr += chunk
 
-            address += chunk
-            cursor += chunk
-
-        data = bytes(out)
+        data = bytes(self._mv[address:end])
         if padding and len(data) < padding:
             data = data.ljust(padding, b"\0")
         return data
@@ -199,22 +194,21 @@ class PVMMemory:
             self._mv[address:address + length] = data_bytes
             return
 
-        in_mv = memoryview(data_bytes)
-        cursor = 0
-        while address < end:
-            pg = address >> _PAGE_SHIFT
-            page_off = address & _PAGE_MASK
-            chunk = min(PAGE_SIZE - page_off, end - address)
+        # Multi-page path: validate ACL page-by-page first, then perform one bulk write.
+        scan_addr = address
+        while scan_addr < end:
+            pg = scan_addr >> _PAGE_SHIFT
+            page_off = scan_addr & _PAGE_MASK
+            chunk = min(PAGE_SIZE - page_off, end - scan_addr)
 
             if pg > _MAX_PAGE_IDX or pg not in self.pages_w:
                 if self.logger:
-                    self.logger.debug(f"Not allowed to write {address}(Page={pg})")
-                self._page_fault(pg, address, "write")
+                    self.logger.debug(f"Not allowed to write {scan_addr}(Page={pg})")
+                self._page_fault(pg, scan_addr, "write")
 
-            self._mv[address:address + chunk] = in_mv[cursor:cursor + chunk]
+            scan_addr += chunk
 
-            address += chunk
-            cursor += chunk
+        self._mv[address:end] = data_bytes
 
     def read_int(self, addr: int, length: int) -> int:
         if length <= 0:
