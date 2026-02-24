@@ -7,8 +7,8 @@ import numpy as np
 import numpy.typing as npt
 
 from pyjamaz import settings
-from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.types import PVMProgram, PVMMemory
+from pyjamaz.pvm import PVMInterpreter, PVMMemory
+from pyjamaz.pvm.types import PVMProgram
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
 from pyjamaz.settings import DEBUG
 

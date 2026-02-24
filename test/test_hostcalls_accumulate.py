@@ -25,8 +25,8 @@ from pyjamaz.hostcalls.accumulate import (
     hc_provide
 )
 
-from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.types import PVMCode, PVMProgram, PVMMemory
+from pyjamaz.pvm import PVMInterpreter, PVMMemory
+from pyjamaz.pvm.types import PVMCode, PVMProgram
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_R, MEM_W
 from pyjamaz.pvm.invocation import InvocationMutationOutput
 from pyjamaz.models.state import ServiceAccount, ServicesState, PrivilegedServicesState, AccumulationStateComponents, AuthorizerQueuesState, ValidatorQueueState

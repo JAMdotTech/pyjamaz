@@ -8,7 +8,7 @@ from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_
 from pyjamaz.models.state import ServicesState
 from pyjamaz.pvm import PVMInterpreter
 from pyjamaz.pvm.types import PVMProgram, PVMCode
-from pyjamaz.pvm.types import PVMMemory
+from pyjamaz.pvm import PVMMemory
 from pyjamaz.pvm.constants import ExitReason, ExitCondition, MEM_W, MEM_R, MEM_I
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger

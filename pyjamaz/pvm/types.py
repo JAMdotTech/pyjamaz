@@ -167,25 +167,6 @@ class AbstractMemory(ABC):
     def is_null(self, page_idx: int, nr_pages: int) -> bool: ...
 
 
-def _resolve_pvm_memory_class():
-    if settings.PVM_INTERPRETER == "CPYTHON":
-        from pyjamaz.pvm.interpreters.cpython.memory import PVMMemory as _PVMMemoryImpl
-        return _PVMMemoryImpl
-    if settings.PVM_INTERPRETER in {"GRAYPAPER", "NUMBA_JIT", "NUMBA_AOT_COMPILE", "NUMBA_AOT"}:
-        from pyjamaz.pvm.interpreters.graypaper.memory import PVMMemory as _PVMMemoryImpl
-        return _PVMMemoryImpl
-    raise ValueError(f"Unknown PVM_INTERPRETER: {settings.PVM_INTERPRETER}")
-
-
-class PVMMemory:
-    @staticmethod
-    def zone_size(items: int) -> int:
-        return AbstractMemory.zone_size(items)
-
-    def __new__(cls, *args, **kwargs):
-        return _resolve_pvm_memory_class()(*args, **kwargs)
-
-
 @dataclass
 class PVMCode(Serializable):
     # GP-6.4:eq:A.2 (deblob)
@@ -247,7 +228,7 @@ class PVMProgram(Serializable):
     # ω
     registers: List[int]
     # µ
-    memory: PVMMemory
+    memory: AbstractMemory
 
     name: str = ''
 
@@ -262,9 +243,9 @@ class PVMProgram(Serializable):
             argument_contents: bytes,
             heap_mem_pages: int,
             stack_mem_size: int
-    ) -> PVMMemory:
+    ) -> "PVMMemory":
         # Note: Import lazily to avoid module initialization cycles.
-        from pyjamaz.pvm import PVMInterpreter
+        from pyjamaz.pvm import PVMInterpreter, PVMMemory
 
         rom_start = PVM_INIT_ZONE_SIZE
         rom_size = page_size(len(rom_contents))
@@ -311,6 +292,7 @@ class PVMProgram(Serializable):
         """
         GP-0.7.1-eq:A.37 (function_Y)
         """
+        from pyjamaz.pvm import PVMMemory
 
         # GP-0.7.0-eq:A.41
         if len(argument_contents) > PVM_INPUT_DATA_SIZE:
