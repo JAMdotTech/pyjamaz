@@ -29,7 +29,7 @@ class PVMFormattedLog(PVMDebugLog):
 
         msg = f"{self._pvm_id}: {msg}"
         spacing = " " * (51 - len(str(msg)))
-        logging.info(
+        logging.debug(
             f"{msg}"
             f"{spacing}"
             f"{data}"

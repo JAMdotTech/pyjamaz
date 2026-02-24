@@ -4,6 +4,7 @@ from typing import List, Dict
 import math
 import numpy as np
 import numpy.typing as npt
+from numpy import copy
 
 from pyjamaz.pvm.exceptions import InvalidOpcode, PVMMemoryError, PanicError
 from pyjamaz.pvm.types import page_size
@@ -71,6 +72,7 @@ class PVMInterpreter:
     def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
+        self.prev_reg: npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
@@ -268,7 +270,8 @@ class PVMInterpreter:
     def invoke(
         self,
         pc: int,
-        gas: int
+        gas: int,
+        log=False,
     ):
         self.pc = np.uint32(pc)
         self.gas = np.int64(gas)
@@ -284,6 +287,12 @@ class PVMInterpreter:
                 self.status = ExitReason.out_of_gas.value
                 self.exit_value = None
                 break
+            #TODO temp hack @matthijs fix nicer
+            self.prev_reg = self.reg.copy()
+
+            if log:
+                with open("pvm_log.txt", "a") as f:
+                    f.write(f'{self.pc} {self.gas} {[int(r) for r in self.reg]}\n')
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len

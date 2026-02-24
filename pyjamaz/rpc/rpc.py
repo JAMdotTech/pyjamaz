@@ -291,15 +291,15 @@ def rpcFetchSegments(app: PyjamazApp, params):
     """
     """
     segment_root = base64_decode(params[0])
-    segments = app.d3l_store.get(segment_root)
-    if segments is None:
+    d3l_entry = app.d3l_store.retrieve_segments(segment_root)
+    if d3l_entry is None:
         raise RPCCallException("UNKNOWN_SEGMENT")
 
     requested_segments = []
     DEBUG and logging.debug(f'Requested segments: {format_hash(segment_root)} {params[1]}')
 
     for requested_index in params[1]:
-        requested_segments.append(base64_encode(segments[requested_index]))
+        requested_segments.append(base64_encode(d3l_entry.segments[requested_index]))
 
     return requested_segments
 
