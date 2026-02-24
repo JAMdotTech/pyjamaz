@@ -520,12 +520,20 @@ class PVMInterpreter:
         skip_len = self.skip_len
         inst_nr = self.inst_nr
 
+        prev_regs = [u64(0)] * 13
+
         if log:
             log.pvm_counters()
             log.pvm_header()
             log_exc = log.exc
 
         while status == exit_resume:
+
+            prev_gas = gas_local
+            prev_pc = pc_local
+            prev_regs[:] = self.reg
+            prev_skip_len = skip_len
+            prev_inst_nr = inst_nr
 
             if gas_local <= 0:
                 status = exit_oom
@@ -567,11 +575,24 @@ class PVMInterpreter:
                 if fault_addr is not None and fault_addr >= 0:
                     fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
                 self.exit_value = fault_addr
-                skip_len = 0  # Note: we shouldnt skip on resume and reexecute the faulting instruction
+                #skip_len = 0  # Note: we shouldnt skip on resume and reexecute the faulting instruction
+
+                gas_local = prev_gas
+                pc_local = prev_pc
+                skip_len = prev_skip_len
+                inst_nr = prev_inst_nr
+                self.reg = prev_regs
                 break
+
             except PanicError:
                 log_exc and log_exc(traceback.format_exc())
                 status = exit_panic
+
+                gas_local = prev_gas
+                pc_local = prev_pc
+                skip_len = prev_skip_len
+                inst_nr = prev_inst_nr
+                self.reg = prev_regs
                 break
 
             gas_local = self.gas
