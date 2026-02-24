@@ -8,7 +8,6 @@ from pyjamaz.pvm.constants import MEM_I, MEM_R, MEM_RW, MEM_W, PVM_INIT_ZONE_SIZ
 from pyjamaz.pvm.exceptions import PVMError, PVMMemoryError
 from pyjamaz.pvm.types import (
     AbstractMemory,
-    AbstractMemorySection,
     PAGE_SIZE,
     _ADDR_MASK,
     _MAX_PAGE_IDX,
@@ -274,6 +273,65 @@ class PVMMemory(AbstractMemory):
             if pg in self.pages_r or pg in self.pages_w:
                 return False
         return True
+
+    @staticmethod
+    def clone_section(source: Optional[MemorySection]) -> Optional[MemorySection]:
+        if source is None:
+            return None
+
+        data_len = max(0, int(source.paged_tail) - int(source.address))
+        section_data = b""
+        if data_len > 0:
+            section_data = bytes(source.contents[:data_len])
+
+        cloned = MemorySection(
+            address=int(source.address),
+            size=int(source.size),
+            contents=section_data,
+            acl=source.acl,
+        )
+        cloned.paged_tail = int(source.paged_tail)
+        if hasattr(source, "acl_bitmap") and source.acl_bitmap is not None:
+            cloned.acl_bitmap = source.acl_bitmap.copy()
+        return cloned
+
+    def clone(self) -> "PVMMemory":
+        # Note: used to clone a CPython PVMMemory instance,
+        #       needs custom logic for cloning since we use mmaped memory views
+        rom = self.clone_section(self._rom)
+        heap = self.clone_section(self._heap)
+        stack = self.clone_section(self._stack)
+        args = self.clone_section(self._args)
+
+        cloned = PVMMemory(rom=rom, heap=heap, stack=stack, arguments=args, logger=self.logger)
+        cloned.heap_base = self.heap_base
+        cloned.stack_base = self.stack_base
+        cloned.heap_ptr = self.heap_ptr
+        cloned._mem_addr = self._mem_addr
+
+        cloned.pages_r = set(self.pages_r)
+        cloned.pages_w = set(self.pages_w)
+        for page_idx in (cloned.pages_r | cloned.pages_w):
+            start = int(page_idx) * PAGE_SIZE
+            end = start + PAGE_SIZE
+            cloned._mv[start:end] = self._mv[start:end]
+
+        for section in (cloned._rom, cloned._heap, cloned._stack, cloned._args):
+            if section:
+                section.contents = cloned.view(section.address, section.size)
+
+        return cloned
+
+    def __copy__(self):
+        return self.clone()
+
+    def __deepcopy__(self, memo):
+        existing = memo.get(id(self))
+        if existing is not None:
+            return existing
+        cloned = self.clone()
+        memo[id(self)] = cloned
+        return cloned
 
     @staticmethod
     def zone_size(items: int) -> int:

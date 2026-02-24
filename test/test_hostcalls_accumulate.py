@@ -2,7 +2,6 @@ import json
 import os
 import unittest
 from unittest.mock import Mock, MagicMock, ANY
-from copy import deepcopy
 from os import path
 
 import numpy as np
@@ -240,7 +239,7 @@ class TestHCAccumulate(unittest.TestCase):
             exit_condition=ExitCondition(reason=ExitReason.resume),
             gas_limit=test_vector.get("initial-gas", 1000000),
             registers=np.array(pvm_regs, dtype=np.uint64),
-            memory=deepcopy(pvm_memory)
+            memory=pvm_memory.clone()
         )
 
         hostcall = test_vector["hostcall"]
