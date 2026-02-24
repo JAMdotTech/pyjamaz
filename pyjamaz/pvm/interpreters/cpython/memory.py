@@ -8,7 +8,6 @@ from pyjamaz.pvm.constants import MEM_I, MEM_R, MEM_RW, MEM_W, PVM_INIT_ZONE_SIZ
 from pyjamaz.pvm.exceptions import PVMError, PVMMemoryError
 from pyjamaz.pvm.types import (
     AbstractMemory,
-    AbstractMemorySection,
     PAGE_SIZE,
     _ADDR_MASK,
     _MAX_PAGE_IDX,
