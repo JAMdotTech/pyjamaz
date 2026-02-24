@@ -327,6 +327,36 @@ class PVMMemory(AbstractMemory):
                 return False
         return True
 
+    def clone(self) -> "PVMMemory":
+        # Note: we manually clone graypaper PVMMemory, a ntive deepcopy could work (but needs extra copy for the pages_cache)
+        #       so we implement this method mostly to stay consistent with CPython's PVMmemory
+        cloned = PVMMemory(logger=self.logger)
+        cloned.pages = {page_idx: bytearray(page) for page_idx, page in self.pages.items()}
+        cloned.pages_r = set(self.pages_r)
+        cloned.pages_w = set(self.pages_w)
+        cloned._mem_addr = self._mem_addr
+        cloned.heap_base = self.heap_base
+        cloned.stack_base = self.stack_base
+        cloned.heap_ptr = self.heap_ptr
+
+        for page_idx in self._page_cache.keys():
+            page = cloned.pages.get(page_idx)
+            if page is not None and len(cloned._page_cache) < _PAGE_CACHE_LIMIT:
+                cloned._page_cache[page_idx] = page
+
+        return cloned
+
+    def __copy__(self):
+        return self.clone()
+
+    def __deepcopy__(self, memo):
+        existing = memo.get(id(self))
+        if existing is not None:
+            return existing
+        cloned = self.clone()
+        memo[id(self)] = cloned
+        return cloned
+
 
     @staticmethod
     def zone_size(items: int) -> int:
