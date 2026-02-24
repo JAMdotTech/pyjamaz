@@ -25,7 +25,7 @@ from pyjamaz.exceptions import StateKeyNoResult, StateTransitionError, BlockVali
 
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace, TraceGenesis, D3LItem
+from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
@@ -146,7 +146,8 @@ async def initialize_app(
         custom_db_path=None,
         record_traces=None,
         pubsub=True,
-        block_importer=None
+        block_importer=None,
+        d3l_path=None
 ) -> PyjamazApp:
 
     # Load SRS
@@ -179,7 +180,8 @@ async def initialize_app(
         storage_engine=storage_engine,
         keys=keys,
         common_era=common_era,
-        create_traces=record_traces
+        create_traces=record_traces,
+        d3l_path=d3l_path
     )
 
     if block_importer:
@@ -265,7 +267,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             custom_db_path=custom_db_path,
             record_traces=record_traces,
             storage_engine=STORAGE_ENGINE,
-            block_importer=import_block_cli
+            block_importer=import_block_cli,
+            d3l_path=d3l_path
         )
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
@@ -278,25 +281,14 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     app.network_bootstrap = network_bootstrap
     common_era_time = datetime.fromtimestamp(app.config.common_era, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    if d3l_path:
-        app.config.d3l_path = d3l_path
-        segment_files = await anyio.to_thread.run_sync(
-            lambda: sorted({f for f in list(Path(d3l_path).rglob("*.bin"))}),
-        )
-        for nr, segment_file in enumerate(segment_files, start=1):
-            d3l_item = D3LItem.from_jam_bytes(JamBytes(segment_file.read_bytes()))
-
-            app.d3l_store[d3l_item.segment_root] = d3l_item.segments
-
-            DEBUG and logging.debug(f"Retrieved {len(d3l_item.segments)} segments with root {d3l_item.segment_root} from {segment_file.name}")
-        logging.info(f"💿 Imported D3L from {d3l_path}")
-
     if replay_blocks:
         app.config.replay_blocks = TimeslotSelector(replay_blocks)
 
     logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
     logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
     logging.info(f'💾 Storage path: {db_path}')
+    if d3l_path:
+        logging.info(f"💿 D3L path set to {d3l_path}")
     logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
     logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
     logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')

@@ -40,6 +40,6 @@ class TraceGenesis(Serializable):
 
 
 @dataclass
-class D3LItem(Serializable):
+class D3LEntry(Serializable):
     segment_root: bytes = field(metadata={'codec': H256})
     segments: List[bytes] = field(metadata={'codec': Vec(Array(U8, EC_SEGMENT_SIZE))})
