@@ -34,7 +34,7 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 class PVMInterpreter:
     __slots__ = (
-        'name', 'reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
+        'name', 'reg', 'prev_reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
         'code', 'code_size', 'jump_table', 'inst_bitmask', 'inst_pos',
         'inst_arg_len', 'mv_inst_arg_len', 'mem', 'status', 'exit_value',
         'mem_ops_bytes', 'mem_sections', 'mem_section_access', 'mem_section_acl',
@@ -77,6 +77,7 @@ class PVMInterpreter:
         self.name = program.name
         self.program = program
         self.reg = [u64(0)] * 13
+        self.prev_reg = [u64(0)] * 13
         self.inst_nr = u32(0)
         self.pc = u32(0)
         self.opcode:int = 0
@@ -520,8 +521,6 @@ class PVMInterpreter:
         skip_len = self.skip_len
         inst_nr = self.inst_nr
 
-        prev_regs = [u64(0)] * 13
-
         if log:
             log.pvm_counters()
             log.pvm_header()
@@ -531,7 +530,7 @@ class PVMInterpreter:
 
             prev_gas = gas_local
             prev_pc = pc_local
-            prev_regs[:] = self.reg
+            self.prev_reg[:] = self.reg
             prev_skip_len = skip_len
             prev_inst_nr = inst_nr
 
@@ -575,24 +574,34 @@ class PVMInterpreter:
                 if fault_addr is not None and fault_addr >= 0:
                     fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
                 self.exit_value = fault_addr
-                #skip_len = 0  # Note: we shouldnt skip on resume and reexecute the faulting instruction
+                prev_skip_len = 0  # Note: we shouldnt skip on resume and reexecute the faulting instruction
 
-                gas_local = prev_gas
-                pc_local = prev_pc
-                skip_len = prev_skip_len
-                inst_nr = prev_inst_nr
-                self.reg = prev_regs
+                gas_local = self.gas
+                pc_local = self.pc
+                skip_len = self.skip_len
+                inst_nr = self.inst_nr
+
+                # gas_local = prev_gas
+                # pc_local = prev_pc
+                # skip_len = prev_skip_len
+                # inst_nr = prev_inst_nr
+                # self.reg = self.prev_reg
                 break
 
             except PanicError:
                 log_exc and log_exc(traceback.format_exc())
                 status = exit_panic
 
-                gas_local = prev_gas
-                pc_local = prev_pc
-                skip_len = prev_skip_len
-                inst_nr = prev_inst_nr
-                self.reg = prev_regs
+                gas_local = self.gas
+                pc_local = self.pc
+                skip_len = self.skip_len
+                inst_nr = self.inst_nr
+
+                # gas_local = prev_gas
+                # pc_local = prev_pc
+                # skip_len = prev_skip_len
+                # inst_nr = prev_inst_nr
+                # self.reg = self.prev_reg
                 break
 
             gas_local = self.gas

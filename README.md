@@ -97,3 +97,10 @@ mkdocs serve
 # Resources
 * https://hackmd.io/@polkadot/jamsdk#JAM-Client-Tooling
 * https://github.com/polkadot-fellows/JIPs
+
+# Doom 
+
+* clean init and run in solo mode
+* ./jamt vm new ./doom.corevm 1000000000 --gas 1000000
+* /corevm-builder xxxxxxxx
+* Check for `DEBUG@corevm::service          Accumulated package 0x746b30c8e7b2329e...`

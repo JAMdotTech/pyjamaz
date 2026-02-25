@@ -389,8 +389,7 @@ def hc_invoke(
         pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger=PVM_DEBUGGER)
         pvm.invoke(
             m_e.inner_pvm_lookup[n].program_counter,
-            gas,
-            True
+            gas
         )
         pvm_exit_condition = pvm.get_exit_condition()
 
