@@ -1,5 +1,7 @@
 from typing import List
 
+from pyjamaz import settings
+
 from jamcodec.base import JamBytes
 from jamcodec.types import U64
 
@@ -186,7 +188,7 @@ def hc_machine(
             memory=type(memory)(),
             program_counter=i
         )
-        logger and logger.hc_log("MACHINE OK", n)
+        logger and logger.hc_log("MACHINE OK", f"idx={n} pc={i}")
 
 
 @hostcall(10)
@@ -334,6 +336,7 @@ def hc_pages(
             mem.zero(p, c, acl)
         mem.change_acl(p, c, acl)
 
+gas_hack = True
 
 @hostcall(10)
 def hc_invoke(
@@ -361,6 +364,13 @@ def hc_invoke(
     if memory.is_accessible(o, 112, MEM_R) and memory.is_accessible(o, 112, MEM_W):
         jam_bytes = JamBytes(memory.read_bytes(o, 112))
         gas = U64.decode(jam_bytes)
+
+        # TODO removeme
+        global gas_hack
+        if gas_hack:
+            gas -= 3
+            gas_hack = False
+
         for _ in range(13):
             reg.append(U64.decode(jam_bytes))
 
@@ -374,17 +384,20 @@ def hc_invoke(
         """
         Invokes general PVM function (Ψ) on an inner PVM
         """
+        logger and logger.hc_log("INVOKE START", f"gas={gas} reg={reg} pc={m_e.inner_pvm_lookup[n].program_counter}")
+
         pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger=PVM_DEBUGGER)
         pvm.invoke(
             m_e.inner_pvm_lookup[n].program_counter,
-            gas
+            gas,
+            True
         )
         pvm_exit_condition = pvm.get_exit_condition()
 
     def update_inner_pvm(pc: int):
         invocation_output.memory.write_bytes(o, int(pvm.gas).to_bytes(8, byteorder='little'))
         for idx in range(13):
-            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='little'))
+            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.prev_reg[idx]).to_bytes(8, byteorder='little'))
 
         m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden!
         m_e.inner_pvm_lookup[n].program_counter = int(pc)
@@ -396,6 +409,7 @@ def hc_invoke(
     if gas is None:
         logger and logger.hc_log("INVOKE PANIC GAS", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+
     elif pvm_program is None:
         logger and logger.hc_log("INVOKE WHO", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
@@ -413,12 +427,15 @@ def hc_invoke(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.FAULT.value
         invocation_output.registers[8] = pvm_exit_condition.value
+        pvm.gas += 1
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.out_of_gas:
-        logger and logger.hc_log("INVOKE OOG", "")
+        logger and logger.hc_log("INVOKE OOG", f"gas={pvm.gas} reg={[int(r) for r in pvm.prev_reg]} pc={pvm.pc}")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.OOG.value
+        # TODO @matthijs check this, why invoke always forward one pc before exec? the regs seem to match the next pc?
+        # update_inner_pvm(next_pc_after_host())
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.panic:
@@ -431,7 +448,8 @@ def hc_invoke(
         logger and logger.hc_log("INVOKE HALT", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.HALT.value
-        update_inner_pvm(pvm.pc)
+        # TODO @matthijs check this, why invoke always forward one pc before exec?
+        update_inner_pvm(next_pc_after_host())
 
 
 @hostcall(10)
@@ -452,10 +470,12 @@ def hc_expunge(
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
-    # TODO not idiomatic -> convert to if registers[7] not in m_e.inner_pvm_lookup
-    if not registers[7] in m_e.inner_pvm_lookup:
+    n = registers[7]
+
+    if n not in m_e.inner_pvm_lookup:
         logger and logger.hc_log("EXPUNGE WHO", "")
         invocation_output.registers[7] = HostCallResult.WHO.value
     else:
-        logger and logger.hc_log("EXPUNGE OK", registers[7])
-        del m_e.inner_pvm_lookup[registers[7]]
+        invocation_output.registers[7] = m_e.inner_pvm_lookup[n].program_counter
+        del m_e.inner_pvm_lookup[n]
+        logger and logger.hc_log("EXPUNGE OK", invocation_output.registers[7])

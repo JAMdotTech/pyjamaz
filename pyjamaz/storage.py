@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import Optional
 
 from jamcodec.base import JamBytes
@@ -212,3 +214,43 @@ class RocksDBStorageEngine(StorageEngine):
 
     def as_dict(self):
         return dict(self.db)
+
+
+class FileStorageEngine(StorageEngine):
+
+    def __init__(self, file_path: str):
+        super().__init__()
+        self.file_path = file_path
+
+
+    def put(self, key: bytes, value: bytes):
+        with open(os.path.join(self.file_path, f'{key.hex()}.bin'), 'wb') as f:
+            f.write(value)
+
+    def get(self, key: bytes) -> bytes:
+        with open(os.path.join(self.file_path, f'{key.hex()}.bin'), 'rb') as f:
+            return f.read()
+
+    def delete(self, key: bytes):
+        file_path = Path(self.file_path) / key.hex()
+
+        if file_path.exists():
+            file_path.unlink()
+
+    def close(self):
+        pass
+
+    def destroy(self):
+        raise NotImplementedError
+
+    def transaction(self) -> RocksDBTransaction:
+        raise NotImplementedError
+
+    def namespace(self, prefix: bytes) -> 'RocksDBStorageEngine':
+        raise NotImplementedError
+
+    def as_list(self):
+        raise NotImplementedError
+
+    def as_dict(self):
+        raise NotImplementedError

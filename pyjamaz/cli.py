@@ -1,3 +1,4 @@
+import bisect
 import logging
 import traceback
 from asyncio import CancelledError
@@ -24,7 +25,7 @@ from pyjamaz.exceptions import StateKeyNoResult, StateTransitionError, BlockVali
 
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace, TraceGenesis, D3LItem
+from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
@@ -145,7 +146,8 @@ async def initialize_app(
         custom_db_path=None,
         record_traces=None,
         pubsub=True,
-        block_importer=None
+        block_importer=None,
+        d3l_path=None
 ) -> PyjamazApp:
 
     # Load SRS
@@ -178,7 +180,8 @@ async def initialize_app(
         storage_engine=storage_engine,
         keys=keys,
         common_era=common_era,
-        create_traces=record_traces
+        create_traces=record_traces,
+        d3l_path=d3l_path
     )
 
     if block_importer:
@@ -224,7 +227,8 @@ async def main():
 @click.option('--fuzzer', 'fuzzer', is_flag=True, help="Validate trace with fuzzer target")
 @click.option('--fuzzer-socket-path', 'fuzzer_socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
 @click.option('--d3l-path', 'd3l_path', type=click.Path())
-async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path, d3l_path):
+@click.option('--replay-blocks', 'replay_blocks', type=click.Path())
+async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path, d3l_path, replay_blocks):
     """PyJAMaz: Python JAM Client"""
 
     # Setup logging
@@ -263,7 +267,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             custom_db_path=custom_db_path,
             record_traces=record_traces,
             storage_engine=STORAGE_ENGINE,
-            block_importer=import_block_cli
+            block_importer=import_block_cli,
+            d3l_path=d3l_path
         )
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
@@ -276,22 +281,14 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     app.network_bootstrap = network_bootstrap
     common_era_time = datetime.fromtimestamp(app.config.common_era, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    if d3l_path:
-        app.config.d3l_path = d3l_path
-        segment_files = await anyio.to_thread.run_sync(
-            lambda: sorted({f for f in list(Path(d3l_path).rglob("*.bin"))}),
-        )
-        for nr, segment_file in enumerate(segment_files, start=1):
-            d3l_item = D3LItem.from_jam_bytes(JamBytes(segment_file.read_bytes()))
-
-            app.d3l_store[d3l_item.segment_root] = d3l_item.segments
-
-            DEBUG and logging.debug(f"Retrieved {len(d3l_item.segments)} segments with root {d3l_item.segment_root} from {segment_file.name}")
-        logging.info(f"Imported D3L from {d3l_path}")
+    if replay_blocks:
+        app.config.replay_blocks = TimeslotSelector(replay_blocks)
 
     logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
     logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
     logging.info(f'💾 Storage path: {db_path}')
+    if d3l_path:
+        logging.info(f"💿 D3L path set to {d3l_path}")
     logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
     logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
     logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
@@ -429,12 +426,17 @@ async def timeslot_ticker(app: PyjamazApp):
                 # Finalize parent
                 await app.finalize(parent_header_hash)
 
-                block = await app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
+                if app.config.replay_blocks:
+                    block = app.config.replay_blocks.find_next(timeslot)
+                    if block:
+                        await app.import_block(block)
+                else:
+                    block = await app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
 
-                if app.pubsub:
-                    await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+                    if app.pubsub:
+                        await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
 
-                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
+                    logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                 DEBUG and logging.debug(traceback.format_exc())
@@ -959,6 +961,41 @@ def write_storage_key_diff(storage_key: bytes, mine: Optional[bytes], theirs: Op
         if theirs is not None:
             theirs_file = trace_file.parent / f'{trace_file.name}-{storage_key[0:4].hex()}-theirs.txt'
             theirs_file.write_text(theirs.hex())
+
+
+class TimeslotSelector:
+    def __init__(self, folder_path):
+        folder = Path(folder_path)
+
+        self.timeslots = []
+        self.file_map = {}
+
+        for file in folder.glob("*.bin"):
+            try:
+                ts = int(file.stem)
+                self.timeslots.append(ts)
+                self.file_map[ts] = file
+            except ValueError:
+                continue
+
+        self.timeslots.sort()
+
+    def find_next(self, target_timeslot) -> Optional[Block]:
+        if not self.timeslots:
+            return None
+
+        idx = bisect.bisect_right(self.timeslots, target_timeslot)
+
+        if idx >= len(self.timeslots):
+            idx = 0
+
+        ts = self.timeslots.pop(idx)
+        file_path = self.file_map.pop(ts)
+
+        with open(file_path, "rb") as f:
+            data = f.read()
+            trace = Trace.from_jam_bytes(JamBytes(data))
+            return trace.block
 
 if __name__ == '__main__':
     main(_anyio_backend="asyncio")
