@@ -60,8 +60,9 @@ from pyjamaz.pvm.constants import (
     inst_reg_reg_offset, inst_reg_reg_imm_imm, inst_reg_reg_reg, MemOps, ExitCondition, OpcodeNames
 )
 
-from pyjamaz.pvm.types import PVMProgram
-from pyjamaz.pvm.interpreters.graypaper.memory import PVMMemory
+from pyjamaz.pvm.types import PVMProgram, page_size
+from pyjamaz.pvm.interpreters.numba.memory_section import MemorySection
+from pyjamaz.pvm.interpreters.numba.memory import PVMMemory
 
 
 @njit(uint32(
@@ -177,56 +178,50 @@ def sbrk_jit(
         heap_arr = section_arrays[1]
         base_start = section_starts[1]
         desired_len = int(new_heap_end - base_start)
-        cur_len = len(heap_arr)
+        capacity = len(heap_arr)
 
-        if desired_len > cur_len:
-            reserve_len = desired_len
-            new_arr = np.empty(reserve_len, dtype=U8)
-            if cur_len > 0:
-                new_arr[:cur_len] = heap_arr[:cur_len]
-            new_arr[cur_len:reserve_len] = 0
-            section_arrays[1] = new_arr
-            #heap_arr = new_arr
-            grew_bytes = I64(growth)
+        # Note: heap storage is expected to be pre-mapped to the max dynamic range
+        if desired_len > capacity:
+            return U64(0), I64(0)
 
-            # Ensure ACL bitmaps cover the extended heap size
-            acl_array = acl_bitmaps[1]
-            bitmap_count = len(acl_array)
-            prev_page_count = cur_len // PVM_PAGE_SIZE
-            new_page_count = reserve_len // PVM_PAGE_SIZE
-            bitmaps_required = -(-new_page_count // ACL_PAGES_PER_BITMAP)
+        grew_bytes = I64(growth)
+        current_len = int(current_heap_ptr - base_start)
+        if desired_len > current_len:
+            heap_arr[current_len:desired_len] = 0
 
-            if bitmaps_required > bitmap_count:
-                extended = np.zeros(bitmaps_required, dtype=np.uint64)
-                if bitmap_count > 0:
-                    extended[:bitmap_count] = acl_array
-                acl_array = extended
-                acl_bitmaps[1] = acl_array
-            else:
-                acl_array = acl_bitmaps[1]
+        # Ensure ACL bitmaps cover and enable the newly allocated pages
+        acl_array = acl_bitmaps[1]
+        bitmap_count = len(acl_array)
+        prev_page_count = int((next_page_boundary - base_start) // PVM_PAGE_SIZE)
+        new_page_count = desired_len // PVM_PAGE_SIZE
+        bitmaps_required = -(-new_page_count // ACL_PAGES_PER_BITMAP)
 
-            if new_page_count > prev_page_count and len(acl_array) > 0:
-                pages_to_enable = new_page_count - prev_page_count
-                perm = int(mem_writable)
-                if perm == MEM_WRITABLE:
-                    required_bits = 0b11
-                elif perm == MEM_READABLE:
-                    required_bits = 0b01
-                else:
-                    required_bits = 0
-
-                if required_bits != 0:
-                    for page in range(prev_page_count, prev_page_count + pages_to_enable):
-                        bitmap_idx = page // ACL_PAGES_PER_BITMAP
-                        shift = (ACL_PAGES_PER_BITMAP - 1 - (page % ACL_PAGES_PER_BITMAP)) * 2
-                        mask = np.uint64(0b11 << shift)
-                        bits = np.uint64(required_bits << shift)
-                        acl_array[bitmap_idx] = np.uint64((acl_array[bitmap_idx] & ~mask) | bits)
+        if bitmaps_required > bitmap_count:
+            extended = np.zeros(bitmaps_required, dtype=np.uint64)
+            if bitmap_count > 0:
+                extended[:bitmap_count] = acl_array
+            acl_array = extended
+            acl_bitmaps[1] = acl_array
         else:
-            grew_bytes = I64(growth)
-            current_len = int(current_heap_ptr - base_start)
-            if desired_len > current_len:
-                heap_arr[current_len:desired_len] = 0
+            acl_array = acl_bitmaps[1]
+
+        if new_page_count > prev_page_count and len(acl_array) > 0:
+            pages_to_enable = new_page_count - prev_page_count
+            perm = int(mem_writable)
+            if perm == MEM_WRITABLE:
+                required_bits = 0b11
+            elif perm == MEM_READABLE:
+                required_bits = 0b01
+            else:
+                required_bits = 0
+
+            if required_bits != 0:
+                for page in range(prev_page_count, prev_page_count + pages_to_enable):
+                    bitmap_idx = page // ACL_PAGES_PER_BITMAP
+                    shift = (ACL_PAGES_PER_BITMAP - 1 - (page % ACL_PAGES_PER_BITMAP)) * 2
+                    mask = np.uint64(0b11 << shift)
+                    bits = np.uint64(required_bits << shift)
+                    acl_array[bitmap_idx] = np.uint64((acl_array[bitmap_idx] & ~mask) | bits)
 
     return new_heap_ptr, grew_bytes
 
@@ -392,6 +387,7 @@ def log(opcode_names, local_state, regs, mem, mem_starts, mem_ends):
     boolean,         # logging_enabled
     types.ListType(types.unicode_type),  # opcode_names list
 
+    uint64[::1],     # prev_registers_out
     uint64[::1],     # registers_out
     int64[::1],      # state_out
     int64[::1],      # heap_grew_out
@@ -421,6 +417,7 @@ def invoke_native(
         logging,
         opcode_names,
 
+        prev_registers_out,
         registers_out,
         state_out,
         heap_grew_out
@@ -440,6 +437,7 @@ def invoke_native(
 
     # Copy registers
     reg = registers_in.copy()
+    prev_registers_out[:] = reg
 
     timing_enabled = False
     start_time = 0.0    # Note: only used when timing_enabled == True to measure time per opcode
@@ -449,6 +447,7 @@ def invoke_native(
         local_state = np.empty(5, dtype=np.int64)
 
     while status == EXIT_RESUME:
+        prev_registers_out[:] = reg
 
         # Note: enable when we want to run perf checks
         # if logging and timing_enabled:
@@ -867,19 +866,23 @@ def invoke_native(
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
             elif opcode == op_sbrk:
-                size = reg[r_a]
-                current_heap_ptr = heap_info[0]
-                next_section_start = heap_info[1]
-                mem_writable_value = I64(heap_info[2])
+                # Note: if there is no heap section (fx inner pvm), sbrk returns 0
+                if len(section_arrays) <= 1 or len(mem_section_starts) <= 1 or len(mem_section_ends) <= 1:
+                    reg[r_d] = U64(0)
+                else:
+                    size = reg[r_a]
+                    current_heap_ptr = heap_info[0]
+                    next_section_start = heap_info[1]
+                    mem_writable_value = I64(heap_info[2])
 
-                new_heap_ptr, grew_bytes = sbrk_jit(size, current_heap_ptr, next_section_start, mem_writable_value, section_arrays, mem_section_starts, acl_bitmaps)
-                reg[r_d] = new_heap_ptr
+                    new_heap_ptr, grew_bytes = sbrk_jit(size, current_heap_ptr, next_section_start, mem_writable_value, section_arrays, mem_section_starts, acl_bitmaps)
+                    reg[r_d] = new_heap_ptr
 
-                if new_heap_ptr != U64(0):
-                    heap_info[0] = new_heap_ptr
-                    mem_section_ends[1] = new_heap_ptr
-                    if grew_bytes > I64(0):
-                        heap_grew_out[0] += grew_bytes
+                    if new_heap_ptr != U64(0):
+                        heap_info[0] = new_heap_ptr
+                        mem_section_ends[1] = new_heap_ptr
+                        if grew_bytes > I64(0):
+                            heap_grew_out[0] += grew_bytes
 
                 if logging: log(opcode_names, local_state, reg, section_arrays, mem_section_starts, mem_section_ends)
 
@@ -1547,11 +1550,12 @@ class PVMInterpreter:
         argument_size: int,
         argument_contents: bytes,
     ) -> PVMMemory:
-        mem = PVMMemory()
-        mem.add_segment(rom_start, rom_size, MEM_R, rom_contents)
-        mem.add_segment(heap_start, heap_size, MEM_W, heap_contents)
-        mem.add_segment(stack_start, stack_size, MEM_W, bytes(stack_size))
-        mem.add_segment(argument_start, argument_size, MEM_R, argument_contents)
+        mem = PVMMemory(
+            rom=MemorySection(address=rom_start, size=rom_size, contents=rom_contents, acl=MEM_R),
+            heap=MemorySection(address=heap_start, size=heap_size, contents=heap_contents, acl=MEM_W),
+            stack=MemorySection(address=stack_start, size=stack_size, contents=bytes(stack_size), acl=MEM_W),
+            arguments=MemorySection(address=argument_start, size=argument_size, contents=argument_contents, acl=MEM_R),
+        )
         mem.heap_base = heap_start
         mem.heap_ptr = heap_start + heap_size
         mem.stack_base = stack_start
@@ -1561,6 +1565,7 @@ class PVMInterpreter:
 
         self.name = program.name
         self.reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
+        self.prev_reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
         self.inst_nr:U32 = U32(0)
         self.pc:U32 = U32(0)
         self.opcode:int = 0
@@ -1604,6 +1609,7 @@ class PVMInterpreter:
 
         for idx, val in enumerate(program.registers):
             self.reg[idx] = U64(val)
+        self.prev_reg[:] = self.reg
 
         self.status = ExitReason.resume.value
 
@@ -1642,7 +1648,6 @@ class PVMInterpreter:
         self._jit_section_arrays_cache = None
         self._jit_section_access_cache = None
         self._jit_acl_bitmaps_cache = None
-        self._jit_acl_bitmaps_cache = None
 
         self.jump_table_array = np.array(self.jump_table, dtype=np.int32)
 
@@ -1650,9 +1655,110 @@ class PVMInterpreter:
         current_heap_end = self.mem_section_ends[1] if len(self.mem_section_ends) > 1 else 0
         self.heap_info = np.array([
             current_heap_end,  # current heap end
-            self.mem_section_starts[2] if len(self.mem_section_starts) > 2 else 0xFFFFFFFF,  # next section start
+            self.next_heap_section_start(),
             MEM_WRITABLE  # writable permission value
         ], dtype=np.uint64)
+
+
+    # @staticmethod
+    # def _ensure_uint8_array(buffer) -> npt.NDArray[np.uint8]:
+    #     if isinstance(buffer, np.ndarray):
+    #         arr = buffer
+    #         if arr.dtype != np.uint8:
+    #             arr = arr.astype(np.uint8, copy=False)
+    #         if arr.ndim != 1:
+    #             arr = arr.reshape(-1)
+    #         if not arr.flags.c_contiguous:
+    #             arr = np.ascontiguousarray(arr, dtype=np.uint8)
+    #         return arr
+    #
+    #     if isinstance(buffer, memoryview):
+    #         view = buffer.cast("B") if buffer.format != "B" else buffer
+    #         arr = np.frombuffer(view, dtype=np.uint8)
+    #         if arr.ndim != 1:
+    #             arr = arr.reshape(-1)
+    #         if not arr.flags.c_contiguous:
+    #             arr = np.ascontiguousarray(arr, dtype=np.uint8)
+    #         return arr
+    #
+    #     if isinstance(buffer, (bytes, bytearray)):
+    #         arr = np.frombuffer(buffer, dtype=np.uint8)
+    #         return arr if arr.flags.writeable else arr.copy()
+    #
+    #     arr = np.asarray(buffer, dtype=np.uint8)
+    #     if arr.ndim != 1:
+    #         arr = arr.reshape(-1)
+    #     if not arr.flags.c_contiguous:
+    #         arr = np.ascontiguousarray(arr, dtype=np.uint8)
+    #     return arr if arr.flags.writeable else arr.copy()
+    #
+    #
+    # @staticmethod
+    # def _ensure_uint64_array(buffer) -> npt.NDArray[np.uint64]:
+    #     if isinstance(buffer, np.ndarray):
+    #         arr = buffer
+    #         if arr.dtype != np.uint64:
+    #             arr = arr.astype(np.uint64, copy=False)
+    #         if arr.ndim != 1:
+    #             arr = arr.reshape(-1)
+    #         if not arr.flags.c_contiguous:
+    #             arr = np.ascontiguousarray(arr, dtype=np.uint64)
+    #         return arr
+    #
+    #     arr = np.asarray(buffer, dtype=np.uint64)
+    #     if arr.ndim != 1:
+    #         arr = arr.reshape(-1)
+    #     if not arr.flags.c_contiguous:
+    #         arr = np.ascontiguousarray(arr, dtype=np.uint64)
+    #     return arr
+
+    def get_heap_capacity(self, memory: PVMMemory, heap_section: MemorySection) -> int:
+        heap_start = int(heap_section.address)
+        next_section_start = PVMMemory.SIZE
+
+        candidates = [memory._rom, memory._stack, memory._args]
+        if hasattr(memory, "sections") and memory.sections:
+            candidates.extend(memory.sections)
+
+        for section in candidates:
+            if section is None:
+                continue
+            section_start = int(section.address)
+            if section_start > heap_start and section_start < next_section_start:
+                next_section_start = section_start
+
+        if next_section_start <= heap_start or next_section_start >= PVMMemory.SIZE:
+            return int(heap_section.size)
+
+        return max(int(heap_section.size), int(next_section_start - heap_start))
+
+
+    def next_heap_section_start(self) -> np.uint64:
+        if len(self.mem_section_starts) <= 1:
+            return np.uint64(0xFFFFFFFF)
+
+        heap_start = int(self.mem_section_starts[1])
+        next_section_start = PVMMemory.SIZE
+
+        for idx, section_start in enumerate(self.mem_section_starts):
+            if idx == 1:
+                continue
+            addr = int(section_start)
+            if addr > heap_start and addr < next_section_start:
+                next_section_start = addr
+
+        if next_section_start >= PVMMemory.SIZE:
+            return np.uint64(0xFFFFFFFF)
+        return np.uint64(next_section_start)
+
+
+    def convert_to_numpy(self, memory: PVMMemory, section: MemorySection, length: int) -> npt.NDArray[np.uint8]:
+        arr = memory.view_array(int(section.address), int(length))
+        if arr.ndim != 1:
+            arr = arr.reshape(-1)
+        if not arr.flags.c_contiguous:
+            arr = np.ascontiguousarray(arr, dtype=np.uint8)
+        return arr
 
 
     def _link_memory(self, memory):
@@ -1670,16 +1776,27 @@ class PVMInterpreter:
         seen_addresses = set()
 
         # Access the actual memory sections (rom, heap, stack, args)
-        for section in [memory._rom, memory._heap, memory._stack, memory._args]:
+        for idx, section in enumerate([memory._rom, memory._heap, memory._stack, memory._args]):
             if section:
                 seen_addresses.add(section.address)
-                contents = section.contents #_ensure_uint8_array(section.contents)
+
+                view_len = int(section.size)
+                section_end = int(section.paged_tail)
+                if idx == 1:
+                    section_end = int(memory.heap_ptr)
+                    view_len = self.get_heap_capacity(memory, section)
+                contents = self.convert_to_numpy(memory, section, view_len)
+                section.contents = contents
+                # section_end = int(section.paged_tail)
+                # contents = section.contents #self._ensure_uint8_array(section.contents)
+                # section.contents = contents
+
                 self.mem_sections.append(contents)
-                acl_bitmap = section.acl_bitmap #_ensure_uint64_array(section.acl_bitmap)
+                acl_bitmap = section.acl_bitmap #self._ensure_uint64_array(section.acl_bitmap)
                 self.mem_section_acl.append(acl_bitmap)
                 self.mem_section_access.append(section.acl if hasattr(section, "acl") else None)
                 mem_section_starts.append(section.address)
-                mem_section_ends.append(section.paged_tail)
+                mem_section_ends.append(section_end)
                 mem_section_size.append(section.size)
             else:
                 self.mem_sections.append(None)
@@ -1694,14 +1811,78 @@ class PVMInterpreter:
             for section in memory.sections:
                 if section and section.address not in seen_addresses:
                     seen_addresses.add(section.address)
-                    contents = section.contents
+                    contents = self.convert_to_numpy(memory, section, int(section.size))
+                    #contents = section.contents #self._ensure_uint8_array(section.contents)
+                    section.contents = contents
                     self.mem_sections.append(contents)
-                    acl_bitmap = section.acl_bitmap if hasattr(section, 'acl_bitmap') else None
+                    acl_bitmap = section.acl_bitmap if hasattr(section, 'acl_bitmap') else None #self._ensure_uint64_array(section.acl_bitmap) if hasattr(section, 'acl_bitmap') else None
                     self.mem_section_acl.append(acl_bitmap)
                     self.mem_section_access.append(section.acl if hasattr(section, "acl") else None)
                     mem_section_starts.append(section.address)
                     mem_section_ends.append(section.paged_tail)
                     mem_section_size.append(section.size)
+
+        # Note: CPYTHON memory tracks accessibility in page ACL sets (pages_r/pages_w). For inner PVM pages
+        # allocated via hc_pages this can be the only source of truth, so synthesize JIT-visible sections from it.
+        pages_r = getattr(memory, "pages_r", None)
+        if pages_r:
+            pages_w = getattr(memory, "pages_w", set())
+
+            def addr_is_covered(addr: int) -> bool:
+                for start, end in zip(mem_section_starts, mem_section_ends):
+                    s = int(start)
+                    e = int(end)
+                    if e <= s:
+                        continue
+                    if s <= addr < e:
+                        return True
+                return False
+
+            readable_pages = sorted(int(pg) for pg in pages_r)
+            idx = 0
+            while idx < len(readable_pages):
+                page = readable_pages[idx]
+                addr = page * PVM_PAGE_SIZE
+
+                # Already represented by an explicit section.
+                if addr_is_covered(addr):
+                    idx += 1
+                    continue
+
+                acl = MEM_W if page in pages_w else MEM_R
+                run_start = page
+                run_end = page
+                idx += 1
+
+                # Extend run while pages are contiguous, uncovered, and have same ACL class.
+                while idx < len(readable_pages):
+                    nxt = readable_pages[idx]
+                    nxt_addr = nxt * PVM_PAGE_SIZE
+                    if nxt != run_end + 1:
+                        break
+                    if addr_is_covered(nxt_addr):
+                        break
+                    nxt_acl = MEM_W if nxt in pages_w else MEM_R
+                    if nxt_acl != acl:
+                        break
+                    run_end = nxt
+                    idx += 1
+
+                section_start = run_start * PVM_PAGE_SIZE
+                section_size = (run_end - run_start + 1) * PVM_PAGE_SIZE
+                contents = memory.view_array(section_start, section_size)
+                #contents = np.frombuffer(memory.view(section_start, section_size), dtype=np.uint8)
+                if contents.ndim != 1:
+                    contents = contents.reshape(-1)
+                if not contents.flags.c_contiguous:
+                    contents = np.ascontiguousarray(contents, dtype=np.uint8)
+
+                self.mem_sections.append(contents)
+                self.mem_section_acl.append(np.zeros(0, dtype=np.uint64))
+                self.mem_section_access.append(acl)
+                mem_section_starts.append(section_start)
+                mem_section_ends.append(section_start + section_size)
+                mem_section_size.append(section_size)
 
         self.mem_section_starts = np.array(mem_section_starts, dtype=U32)
         self.mem_section_ends = np.array(mem_section_ends, dtype=U32)
@@ -1711,6 +1892,7 @@ class PVMInterpreter:
         self._jit_section_ends_cache = None
         self._jit_section_arrays_cache = None
         self._jit_section_access_cache = None
+        self._jit_acl_bitmaps_cache = None
 
 
     def create_instruction_lookup(self):
@@ -1810,14 +1992,14 @@ class PVMInterpreter:
 
             start_addr = np.uint64(self.mem_section_starts[i])
             end_addr = np.uint64(self.mem_section_ends[i])
-            buf = section #_ensure_uint8_array(section)
+            buf = section #self._ensure_uint8_array(section)
             self.mem_sections[i] = buf
 
             acl_buf = self.mem_section_acl[i]
             if acl_buf is None:
                 acl_arr = np.zeros(0, dtype=np.uint64)
             else:
-                acl_arr = acl_buf #_ensure_uint64_array(acl_buf)
+                acl_arr = acl_buf #self._ensure_uint64_array(acl_buf)
             self.mem_section_acl[i] = acl_arr
 
             starts.append(start_addr)
@@ -1857,13 +2039,29 @@ class PVMInterpreter:
 
     def _sync_memory(self):
         # Sync memory state back to original PVMMemory and MemorySection objects after execution
-        if self.mem_sections and self.mem_section_starts[1]:
-            self.mem._heap.contents = self.mem_sections[1]
-            self.mem._heap.size = len(self.mem_sections[1])
-            self.mem._heap.paged_tail = self.mem_section_ends[1]
+        if (self.mem_sections and
+                len(self.mem_section_starts) > 1 and
+                int(self.mem_section_starts[1]) != 0 and
+                self.mem._heap):
+            heap_start = int(self.mem_section_starts[1])
+            heap_ptr = int(self.mem_section_ends[1])
+            logical_heap_size = max(0, heap_ptr - heap_start)
+            paged_heap_size = page_size(logical_heap_size) if logical_heap_size > 0 else 0
+
+            if paged_heap_size > int(self.mem._heap.size):
+                self.mem._heap.size = paged_heap_size
+
+            heap_arr = self.mem_sections[1]
+            if heap_arr is not None:
+                content_len = min(len(heap_arr), int(self.mem._heap.size))
+                self.mem._heap.contents = heap_arr[:content_len]
+
+            self.mem._heap.paged_tail = heap_ptr
+            self.mem.heap_ptr = heap_ptr
             if self.mem_section_acl and len(self.mem_section_acl) > 1:
                 self.mem._heap.acl_bitmap = self.mem_section_acl[1]
-            self.mem._mem_addr = self._mem_addr
+
+        self.mem._mem_addr = self._mem_addr
 
 
 
@@ -1908,10 +2106,16 @@ class PVMInterpreter:
         # Note: re-link memory to pick up any sections added via map_section() after init
         self._link_memory(self.mem)
 
+        if len(self.mem_section_ends) > 1:
+            self.heap_info[0] = np.uint64(self.mem_section_ends[1])
+        self.heap_info[1] = self.next_heap_section_start()
+        heap_ptr_before = int(self.heap_info[0])
+
         # Prepare memory arrays for JIT
         mem_section_starts, mem_section_ends, section_arrays, section_access, acl_bitmaps = self._prepare_memory_for_jit()
 
         registers_out = np.zeros(13, dtype=np.uint64)
+        prev_registers_out = np.zeros(13, dtype=np.uint64)
         # state_out holds: [status, pc, gas, inst_nr, exit_value, skip_len, error_code]
         state_out = np.array([0, 0, 0, 0, 0, 0, 0], dtype=np.int64)
         heap_grew_out = np.array([0], dtype=np.int64)
@@ -1945,12 +2149,14 @@ class PVMInterpreter:
             self.opcode_names,
 
             # Outputs
+            prev_registers_out,
             registers_out,
             state_out,
             heap_grew_out
         )
 
         # Update state from outputs
+        self.prev_reg[:] = prev_registers_out
         self.reg[:] = registers_out
         self.status = int(state_out[STATE_STATUS])
         pc_out_val = np.uint32(state_out[STATE_PC])
@@ -1998,12 +2204,19 @@ class PVMInterpreter:
             self.mem_section_ends[1] = self.heap_info[0]
 
         # Always sync the heap buffer reference from the JIT to avoid losing writes.
-        # growth_bytes = int(heap_grew_out[0])
         if section_arrays is not None and len(section_arrays) > 1:
             self.mem_sections[1] = section_arrays[1]
             self._jit_mem_cache_dirty = True
         if acl_bitmaps is not None and len(acl_bitmaps) > 1:
             self.mem_section_acl[1] = acl_bitmaps[1]
             self._jit_mem_cache_dirty = True
+
+        growth_bytes = int(heap_grew_out[0])
+        if growth_bytes > 0 and hasattr(self.mem, "change_acl"):
+            first_new_page_addr = ((heap_ptr_before + PVM_PAGE_SIZE - 1) >> PVM_PAGE_SHIFT) << PVM_PAGE_SHIFT
+            start_page = first_new_page_addr // PVM_PAGE_SIZE
+            grown_pages = growth_bytes // PVM_PAGE_SIZE
+            if grown_pages > 0:
+                self.mem.change_acl(start_page, grown_pages, MEM_W)
 
         self._sync_memory()

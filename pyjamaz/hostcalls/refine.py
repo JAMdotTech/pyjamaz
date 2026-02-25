@@ -209,32 +209,37 @@ def hc_peek(
     """
     logger and logger.hc_regs(f"PEEK", "refine")
 
-    try:
-        n = registers[7]  # pvm handle (UInt64)
-        o = registers[8] % U32_MAX  # outer dst address (UInt32 for memory access)
-        s = registers[9] % U32_MAX  # inner src address (UInt32 for inner memory)
-        z = registers[10]  # length (UInt64)
+    n = registers[7]  # pvm handle (UInt64)
+    o = registers[8] % U32_MAX  # outer dst address (UInt32 for memory access)
+    s = registers[9] % U32_MAX  # inner src address (UInt32 for inner memory)
+    z = registers[10]  # length (UInt64)
 
-        logger and logger.hc_log("PEEK start", f'n={n} o={o} s={s} z={z}')
+    logger and logger.hc_log("PEEK start", f'n={n} o={o} s={s} z={z}')
 
-        if not memory.is_accessible(o, z, MEM_W):
-            logger and logger.hc_log("PEEK PANIC", "")
+    if not memory.is_accessible(o, z, MEM_W):
+        logger and logger.hc_log("PEEK PANIC", "")
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+    elif n not in m_e.inner_pvm_lookup:
+        logger and logger.hc_log("PEEK WHO", "")
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.WHO.value
+    elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_R):
+        logger and logger.hc_log("PEEK OOB", f"s={s} z={z}")
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OOB.value
+    else:
+        try:
+            data = m_e.inner_pvm_lookup[n].memory.read_bytes(s, z)
+            invocation_output.memory.write_bytes(o, data)
+        except PVMMemoryError:
+            logger and logger.hc_log("PEEK PANIC", "huhhhhh!!???")
             invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-        elif n not in m_e.inner_pvm_lookup:
-            logger and logger.hc_log("PEEK WHO", "")
-            invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-            invocation_output.registers[7] = HostCallResult.WHO.value
-        elif not m_e.inner_pvm_lookup[n].memory.is_accessible(s, z, MEM_R):
-            logger and logger.hc_log("PEEK OOB", f"s={s} z={z}")
-            invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-            invocation_output.registers[7] = HostCallResult.OOB.value
-        else:
-            invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
-            invocation_output.registers[7] = HostCallResult.OK.value
-            invocation_output.memory.write_bytes(o, m_e.inner_pvm_lookup[n].memory.read_bytes(s, z))
-            logger and logger.hc_log("PEEK OK", invocation_output.registers[7])
-    except:
-        print(1)
+            return
+
+        invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
+        invocation_output.registers[7] = HostCallResult.OK.value
+        logger and logger.hc_log("PEEK OK", invocation_output.registers[7])
+
 
 @hostcall(10)
 def hc_poke(
@@ -271,9 +276,16 @@ def hc_poke(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OOB.value
     else:
+        try:
+            data = memory.read_bytes(s, z)
+            m_e.inner_pvm_lookup[n].memory.write_bytes(o, data)
+        except PVMMemoryError:
+            logger and logger.hc_log("POKE PANIC", "huhhhh???")
+            invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
+            return
+
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
-        m_e.inner_pvm_lookup[n].memory.write_bytes(o, memory.read_bytes(s, z))
         logger and logger.hc_log("POKE RESUME OK", "")
 
 
@@ -332,9 +344,13 @@ def hc_pages(
         else:
             raise ValueError('invalid r')
 
-        if r < 3:
-            mem.zero(p, c, acl)
-        mem.change_acl(p, c, acl)
+        try:
+            if r < 3:
+                mem.zero(p, c, acl)
+            mem.change_acl(p, c, acl)
+        except PVMMemoryError:
+            logger and logger.hc_log("PAGES PANIC", "huhhhhh???")
+            invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
 
 gas_hack = True
 
