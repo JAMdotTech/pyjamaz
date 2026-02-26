@@ -243,7 +243,7 @@ class PVMProgram(Serializable):
             argument_contents: bytes,
             heap_mem_pages: int,
             stack_mem_size: int
-    ) -> "PVMMemory":
+    ) -> "AbstractMemory":
         # Note: Import lazily to avoid module initialization cycles.
         from pyjamaz.pvm import PVMInterpreter, PVMMemory
 
