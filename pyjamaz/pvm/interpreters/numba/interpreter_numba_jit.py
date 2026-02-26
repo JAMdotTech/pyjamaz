@@ -1638,8 +1638,6 @@ class PVMInterpreter:
                 if opcode_val < len(self.opcode_names):
                     self.opcode_names[opcode_val] = str(opcode_name)
 
-
-
         # Note: native (jit) caches, which we sync this back to the python side
         self._prepare_jit_data()
         self._jit_mem_cache_dirty = True
@@ -1659,58 +1657,6 @@ class PVMInterpreter:
             MEM_WRITABLE  # writable permission value
         ], dtype=np.uint64)
 
-
-    # @staticmethod
-    # def _ensure_uint8_array(buffer) -> npt.NDArray[np.uint8]:
-    #     if isinstance(buffer, np.ndarray):
-    #         arr = buffer
-    #         if arr.dtype != np.uint8:
-    #             arr = arr.astype(np.uint8, copy=False)
-    #         if arr.ndim != 1:
-    #             arr = arr.reshape(-1)
-    #         if not arr.flags.c_contiguous:
-    #             arr = np.ascontiguousarray(arr, dtype=np.uint8)
-    #         return arr
-    #
-    #     if isinstance(buffer, memoryview):
-    #         view = buffer.cast("B") if buffer.format != "B" else buffer
-    #         arr = np.frombuffer(view, dtype=np.uint8)
-    #         if arr.ndim != 1:
-    #             arr = arr.reshape(-1)
-    #         if not arr.flags.c_contiguous:
-    #             arr = np.ascontiguousarray(arr, dtype=np.uint8)
-    #         return arr
-    #
-    #     if isinstance(buffer, (bytes, bytearray)):
-    #         arr = np.frombuffer(buffer, dtype=np.uint8)
-    #         return arr if arr.flags.writeable else arr.copy()
-    #
-    #     arr = np.asarray(buffer, dtype=np.uint8)
-    #     if arr.ndim != 1:
-    #         arr = arr.reshape(-1)
-    #     if not arr.flags.c_contiguous:
-    #         arr = np.ascontiguousarray(arr, dtype=np.uint8)
-    #     return arr if arr.flags.writeable else arr.copy()
-    #
-    #
-    # @staticmethod
-    # def _ensure_uint64_array(buffer) -> npt.NDArray[np.uint64]:
-    #     if isinstance(buffer, np.ndarray):
-    #         arr = buffer
-    #         if arr.dtype != np.uint64:
-    #             arr = arr.astype(np.uint64, copy=False)
-    #         if arr.ndim != 1:
-    #             arr = arr.reshape(-1)
-    #         if not arr.flags.c_contiguous:
-    #             arr = np.ascontiguousarray(arr, dtype=np.uint64)
-    #         return arr
-    #
-    #     arr = np.asarray(buffer, dtype=np.uint64)
-    #     if arr.ndim != 1:
-    #         arr = arr.reshape(-1)
-    #     if not arr.flags.c_contiguous:
-    #         arr = np.ascontiguousarray(arr, dtype=np.uint64)
-    #     return arr
 
     def get_heap_capacity(self, memory: PVMMemory, heap_section: MemorySection) -> int:
         heap_start = int(heap_section.address)
@@ -1787,12 +1733,9 @@ class PVMInterpreter:
                     view_len = self.get_heap_capacity(memory, section)
                 contents = self.convert_to_numpy(memory, section, view_len)
                 section.contents = contents
-                # section_end = int(section.paged_tail)
-                # contents = section.contents #self._ensure_uint8_array(section.contents)
-                # section.contents = contents
 
                 self.mem_sections.append(contents)
-                acl_bitmap = section.acl_bitmap #self._ensure_uint64_array(section.acl_bitmap)
+                acl_bitmap = section.acl_bitmap
                 self.mem_section_acl.append(acl_bitmap)
                 self.mem_section_access.append(section.acl if hasattr(section, "acl") else None)
                 mem_section_starts.append(section.address)
@@ -1812,10 +1755,9 @@ class PVMInterpreter:
                 if section and section.address not in seen_addresses:
                     seen_addresses.add(section.address)
                     contents = self.convert_to_numpy(memory, section, int(section.size))
-                    #contents = section.contents #self._ensure_uint8_array(section.contents)
                     section.contents = contents
                     self.mem_sections.append(contents)
-                    acl_bitmap = section.acl_bitmap if hasattr(section, 'acl_bitmap') else None #self._ensure_uint64_array(section.acl_bitmap) if hasattr(section, 'acl_bitmap') else None
+                    acl_bitmap = section.acl_bitmap if hasattr(section, 'acl_bitmap') else None
                     self.mem_section_acl.append(acl_bitmap)
                     self.mem_section_access.append(section.acl if hasattr(section, "acl") else None)
                     mem_section_starts.append(section.address)
@@ -1871,7 +1813,7 @@ class PVMInterpreter:
                 section_start = run_start * PVM_PAGE_SIZE
                 section_size = (run_end - run_start + 1) * PVM_PAGE_SIZE
                 contents = memory.view_array(section_start, section_size)
-                #contents = np.frombuffer(memory.view(section_start, section_size), dtype=np.uint8)
+
                 if contents.ndim != 1:
                     contents = contents.reshape(-1)
                 if not contents.flags.c_contiguous:
@@ -1992,14 +1934,14 @@ class PVMInterpreter:
 
             start_addr = np.uint64(self.mem_section_starts[i])
             end_addr = np.uint64(self.mem_section_ends[i])
-            buf = section #self._ensure_uint8_array(section)
+            buf = section
             self.mem_sections[i] = buf
 
             acl_buf = self.mem_section_acl[i]
             if acl_buf is None:
                 acl_arr = np.zeros(0, dtype=np.uint64)
             else:
-                acl_arr = acl_buf #self._ensure_uint64_array(acl_buf)
+                acl_arr = acl_buf
             self.mem_section_acl[i] = acl_arr
 
             starts.append(start_addr)

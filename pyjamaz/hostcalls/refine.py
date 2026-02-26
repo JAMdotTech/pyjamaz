@@ -228,13 +228,8 @@ def hc_peek(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OOB.value
     else:
-        try:
-            data = m_e.inner_pvm_lookup[n].memory.read_bytes(s, z)
-            invocation_output.memory.write_bytes(o, data)
-        except PVMMemoryError:
-            logger and logger.hc_log("PEEK PANIC", "huhhhhh!!???")
-            invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-            return
+        data = m_e.inner_pvm_lookup[n].memory.read_bytes(s, z)
+        invocation_output.memory.write_bytes(o, data)
 
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
@@ -276,13 +271,8 @@ def hc_poke(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OOB.value
     else:
-        try:
-            data = memory.read_bytes(s, z)
-            m_e.inner_pvm_lookup[n].memory.write_bytes(o, data)
-        except PVMMemoryError:
-            logger and logger.hc_log("POKE PANIC", "huhhhh???")
-            invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
-            return
+        data = memory.read_bytes(s, z)
+        m_e.inner_pvm_lookup[n].memory.write_bytes(o, data)
 
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.OK.value
@@ -341,8 +331,6 @@ def hc_pages(
             acl = MEM_R
         elif r == 2 or r == 4:
             acl = MEM_W
-        else:
-            raise ValueError('invalid r')
 
         try:
             if r < 3:
