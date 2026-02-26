@@ -287,12 +287,12 @@ class PVMInterpreter:
                 self.status = ExitReason.out_of_gas.value
                 self.exit_value = None
                 break
-            #TODO temp hack @matthijs fix nicer
-            self.prev_reg = self.reg.copy()
 
-            if log:
-                with open("pvm_log.txt", "a") as f:
-                    f.write(f'{self.pc} {self.gas} {[int(r) for r in self.reg]}\n')
+            self.prev_reg[:] = self.reg
+
+            # if log:
+            #     with open("pvm_log.txt", "a") as f:
+            #         f.write(f'{self.pc} {self.gas} {[int(r) for r in self.reg]}\n')
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
