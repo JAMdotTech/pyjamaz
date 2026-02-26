@@ -215,7 +215,7 @@ class PVMMemory(AbstractMemory):
         length = len(data_bytes)
         end = address + length
 
-        # Single-page fast path
+        # Note: single page fast path (most cases)
         if (address >> _PAGE_SHIFT) == ((end - 1) >> _PAGE_SHIFT):
             pg = address >> _PAGE_SHIFT
             if pg not in self.pages_w:
@@ -231,7 +231,7 @@ class PVMMemory(AbstractMemory):
         start_page = address >> _PAGE_SHIFT
         end_page = (end - 1) >> _PAGE_SHIFT
 
-        # Multi-page path: validate first to avoid partial writes on faults.
+        # Note: multipage path (when reading acorss page boundaries): validate first to avoid partial writes on faults.
         for pg in range(start_page, end_page + 1):
             page_start = pg << _PAGE_SHIFT
             fault_addr = address if pg == start_page else page_start
@@ -240,7 +240,7 @@ class PVMMemory(AbstractMemory):
                     self.logger.debug(f"Not allowed to write {fault_addr}(Page={pg})")
                 self._page_fault(pg, fault_addr, "write")
 
-        in_mv = data_bytes if isinstance(data_bytes, memoryview) else memoryview(data_bytes)
+        in_mv = memoryview(data_bytes)
         cursor = 0
         for pg in range(start_page, end_page + 1):
             page_start = pg << _PAGE_SHIFT
