@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-# GP-0.7.1-eq:B.1
+# GP-0.7.2-section:B.1
 class HostCallResult(Enum):
     NONE = 2 ** 64 - 1
     WHAT = 2 ** 64 - 2
@@ -14,7 +14,7 @@ class HostCallResult(Enum):
     HUH = 2 ** 64 - 9
     OK  = 0
 
-# GP-0.7.1-eq:B.1
+# GP-0.7.2-section:B.1
 class InnerPVMResult(Enum):
     HALT = 0
     PANIC = 1
@@ -26,7 +26,7 @@ class HostCallDebug(Enum):
     log            = 100
 
 
-# GP-0.7.1-section:B.5
+# GP-0.7.2-section:B.5
 class HostCallGeneral(Enum):
     gas               = 0  #ΩG
     fetch             = 1  #ΩY
@@ -36,7 +36,7 @@ class HostCallGeneral(Enum):
     info              = 5  #ΩI
 
 
-#GP-0.7.1-section:B.7
+#GP-0.7.2-section:B.7
 class HostCallAccumulate(Enum):
     bless                  = 14  #ΩB
     assign                 = 15  #ΩA
@@ -53,7 +53,7 @@ class HostCallAccumulate(Enum):
     provide                = 26  #Ω♈︎
 
 
-#GP-0.7.1-section:B.6
+#GP-0.7.2-section:B.6
 class HostCallRefine(Enum):
     historical_lookup      = 6  #ΩH
     export                 = 7  #ΩE

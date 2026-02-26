@@ -233,7 +233,7 @@ class PVMProgram(Serializable):
     name: str = ''
 
     """
-    GP-0.7.1-eq:A.42 | Initializing of memory pages
+    GP-0.7.2-eq:A.42 | Initializing of memory pages
     """
 
     @staticmethod
@@ -277,7 +277,7 @@ class PVMProgram(Serializable):
     @staticmethod
     def init_registers(arguments: bytes) -> List[int]:
         """
-        GP-0.7.1-eq:A.43
+        GP-0.7.2-eq:A.43
         """
         regs = [0] * 13
         regs[0] = 2**32 - 2**16
@@ -290,11 +290,11 @@ class PVMProgram(Serializable):
     @classmethod
     def from_serialized_bytes(cls, serialized_program: bytes, argument_contents: bytes, name: Optional[str]) -> Optional['PVMProgram']:
         """
-        GP-0.7.1-eq:A.37 (function_Y)
+        GP-0.7.2-eq:A.37 (function_Y)
         """
         from pyjamaz.pvm import PVMMemory
 
-        # GP-0.7.0-eq:A.41
+        # GP-0.7.2-eq:A.41
         if len(argument_contents) > PVM_INPUT_DATA_SIZE:
             return None
 
@@ -311,17 +311,17 @@ class PVMProgram(Serializable):
 
                         metadata = Bytes.decode(jam_bytes)
 
-            # GP-0.7.1-eq:A.38 (|o|)
+            # GP-0.7.2-eq:A.38 (|o|)
             pvm_rom_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')
-            # GP-0.7.1-eq:A.38 (|w|)
+            # GP-0.7.2-eq:A.38 (|w|)
             pvm_heap_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')
-            # GP-0.7.1-eq:A.38 (z)
+            # GP-0.7.2-eq:A.38 (z)
             heap_mem_pages = int.from_bytes(jam_bytes.get_next_bytes(2), byteorder='little')
-            # GP-0.7.1-eq:A.38 (s)
+            # GP-0.7.2-eq:A.38 (s)
             stack_mem_size = int.from_bytes(jam_bytes.get_next_bytes(3), byteorder='little')
-            # GP-0.7.1-eq:A.38 (o)
+            # GP-0.7.2-eq:A.38 (o)
             pvm_rom_contents = jam_bytes.get_next_bytes(pvm_rom_size)
-            # GP-0.7.1-eq:A.38 (w)
+            # GP-0.7.2-eq:A.38 (w)
             pvm_heap_contents = jam_bytes.get_next_bytes(pvm_heap_size)
 
             pvm_code_size = int.from_bytes(jam_bytes.get_next_bytes(4), byteorder='little')
@@ -330,7 +330,7 @@ class PVMProgram(Serializable):
             if settings.DEBUG and override_heap_mem_pages:
                 heap_mem_pages = override_heap_mem_pages
 
-            # GP-0.7.1-eq:A.42
+            # GP-0.7.2-eq:A.42
             if (5 * PVM_INIT_ZONE_SIZE +
                 PVMMemory.zone_size(pvm_rom_size) +
                 PVMMemory.zone_size(pvm_heap_size + heap_mem_pages * PVM_PAGE_SIZE) +
@@ -363,7 +363,7 @@ class PVMProgram(Serializable):
 
     def to_serialized_bytes(self) -> bytes:
         """
-        GP-0.7.1-eq:A.37 (Y)
+        GP-0.7.2-eq:A.37 (Y)
         """
         #TODO!!!!!!!!!!!!!!
         # data = bytes()

@@ -7,7 +7,7 @@ from pyjamaz.models.state import AccumulationQueueWorkPackage
 
 def work_report_dependencies(work_report: WorkReport) -> AccumulationQueueWorkPackage:
     """
-    GP-0.7.1-eq:12.6 (D) | Create a dependency graph of work report dependencies
+    GP-0.7.2-eq:12.6 (D) | Create a dependency graph of work report dependencies
 
     Parameters
     ----------
@@ -28,7 +28,7 @@ def edit_queue(
         accumulated_packages: List[bytes]
 ) -> List[AccumulationQueueWorkPackage]:
     """
-    GP-0.7.1-eq:12.7 (E) | Queue editing function
+    GP-0.7.2-eq:12.7 (E) | Queue editing function
 
     Parameters
     ----------
@@ -54,7 +54,7 @@ def edit_queue(
 
 def work_report_mapping(work_reports: List[WorkReport]) -> Set[bytes]:
     """
-    GP-0.7.1-eq:12.9 (P) | Extracts hashes from given work reports
+    GP-0.7.2-eq:12.9 (P) | Extracts hashes from given work reports
 
     Parameters
     ----------
@@ -69,7 +69,7 @@ def work_report_mapping(work_reports: List[WorkReport]) -> Set[bytes]:
 
 def priority_queue(work_report_queue: List[AccumulationQueueWorkPackage]) -> List[WorkReport]:
     """
-    GP-0.7.1-eq:12.8 (Q) | Accumulate priority queue function
+    GP-0.7.2-eq:12.8 (Q) | Accumulate priority queue function
 
     Parameters
     ----------

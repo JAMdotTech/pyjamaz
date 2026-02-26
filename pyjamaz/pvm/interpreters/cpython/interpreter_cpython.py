@@ -177,7 +177,7 @@ class PVMInterpreter:
                 if inst_bitmask_idx > len(inst_bitmask) - 1:
                     is_opcode = True
 
-            # GP-0.6.2-eq:A.19 (l)
+            # GP-0.7.2-eq:A.20 (l)
             self.inst_arg_len.append(inst_args)
             inst_nr += 1
             self.inst_pos[inst_bitmask_idx - 1] = inst_nr
@@ -187,7 +187,7 @@ class PVMInterpreter:
 
     def branch(self, b:int, C:bool):
         """
-        #GP-0.6.4-eq:A.17
+        #GP-0.7.2-eq:A.17
         """
         if C:
             inst_pos = self.pc + b
@@ -455,7 +455,7 @@ class PVMInterpreter:
     #     return self.mem.read_int(addr % self.mem.SIZE, bytes_to_read)
 
 
-    #GP-0.6.7-section:A.15
+    #GP-0.7.2-section:A.18
     def djump(self, a: int):
         if a == 2 ** 32 - 2 ** 16:
             self.status = ExitReason.halt.value

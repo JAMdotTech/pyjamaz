@@ -58,7 +58,7 @@ class PVMLogger(ABC):
 
 class InvocationContext:
     """
-    GP-0.7.1-eq:A.35 (X)
+    GP-0.7.2-eq:A.35 (X)
     """
     pass
 
@@ -66,7 +66,7 @@ class InvocationContext:
 @dataclass
 class InvocationMutationOutput:
     """
-    GP-0.7.1-eq:A.35
+    GP-0.7.2-eq:A.35
     """
     exit_condition: ExitCondition
     gas_limit: int
@@ -76,7 +76,7 @@ class InvocationMutationOutput:
 
 class InvocationMutator:
     """
-    GP-0.7.1-eq:A.36 (Ω⟨X⟩) Abstract class for mutator functions
+    GP-0.7.2-eq:A.36 (Ω⟨X⟩) Abstract class for mutator functions
     """
     def execute(
             self,
@@ -135,7 +135,7 @@ class PVMInvocation:
             gas_limit: int,                        # ρ
     ) -> PvMHostCallOutput:
         """
-        GP-0.7.1-eq:A.35 (Ψ_H) | Hostcall definition
+        GP-0.7.2-eq:A.35 (Ψ_H) | Hostcall definition
         """
 
         while True:
@@ -211,7 +211,7 @@ class PVMInvocation:
             program_name: Optional[str],
     ) -> PvmMarshallingOutput:
         """
-        GP-0.7.1-eq:A.44 (Ψ_M) | Marshalling invocation function
+        GP-0.7.2-eq:A.44 (Ψ_M) | Marshalling invocation function
         """
 
         self.pvm_program = PVMProgram.from_serialized_bytes(
@@ -234,7 +234,7 @@ class PVMInvocation:
             gas_limit=gas_limit
         )
 
-        # GP-0.6.2-eq:A.43
+        # GP-0.7.2-eq:A.44
         if output.exit_condition.reason not in (ExitReason.halt, ExitReason.out_of_gas):
             output.exit_condition = ExitCondition(reason=ExitReason.panic)
 

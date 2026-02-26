@@ -70,7 +70,8 @@ jobs:
           echo "BASE=$BASE"
           mv "$WHEEL" "dist/$BASE"
           echo "RENAMED_WHEEL=dist/$BASE" >> $GITHUB_ENV
-
+      - name: Install setuptools
+        run: python -m pip install setuptools
       - name: Compile .py to .pyc inside the wheel
         run: python -m pyc_wheel "$RENAMED_WHEEL"
 

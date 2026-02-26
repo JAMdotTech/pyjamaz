@@ -34,19 +34,19 @@ class PvmIsAuthorizedOutput:
 @dataclass
 class PvmRefineOutput:
     work_exec_result: WorkExecResult # r
-    export_segments: List[bytes]     # bold_e GP-0.6.6-eq:B.6 [blackboard_G]
+    export_segments: List[bytes]     # bold_e GP-0.7.2-eq:B.6 [blackboard_G]
     gas_used: int                    # u
 
 
 @dataclass
 class AccumulateContextItem:
     """
-    GP-0.6.2-eq:B.6 (X) | Invocation Result Context
+    GP-0.7.2-eq:B.7 (blackboard_L) | Invocation Result Context
 
     TODO check service_account_id in state_context.services
     """
     service_account_id: int  # s
-    state_context: AccumulationStateComponents  # u
+    state_context: AccumulationStateComponents  # e
     new_service_account_id: int  # i
     deferred_transfers: List[DeferredTransfer]  # t
     invocation_output: Optional[bytes]  # y
@@ -56,10 +56,10 @@ class AccumulateContextItem:
 @dataclass
 class AccumulateInvocationContext(InvocationContext):
     """
-    GP-0.6.4-eq:B.7 (X) | Invocation Result Context
+    GP-0.7.2-eq:B.7 (blackboard_L) | Invocation Result Context
     """
-    context: AccumulateContextItem           # GP-0.6.4-eq:B.11 X_x
-    savepoint_context: AccumulateContextItem # GP-0.6.4-eq:B.11 X_y
+    context: AccumulateContextItem           # GP-0.7.2-eq:B.11 x
+    savepoint_context: AccumulateContextItem # GP-0.7.2-eq:B.11 y
     timeslot: int # TODO how to make available?
 
     @classmethod
@@ -126,24 +126,24 @@ class IsAuthorizedPvmArguments(Serializable):
 
 @dataclass
 class RefinePvmArguments(Serializable):
-    core_index: int = field(metadata={'codec': VarInt64})  # GP-0.7.1-eq:B.5 c
-    work_item_index: int = field(metadata={'codec': VarInt64})  # GP-0.7.1-eq:B.5 i
-    service_id: int = field(metadata={'codec': VarInt64})  # GP-0.7.1-eq:B.5 w_s
-    payload_blob: bytes = field(metadata={'codec': Bytes}) # GP-0.7.1-eq:B.5 w_y
-    work_package_hash: bytes = field(metadata={'codec': H256}) # GP-0.7.1-eq:B.5 H(p)
+    core_index: int = field(metadata={'codec': VarInt64})  # GP-0.7.2-eq:B.5 c
+    work_item_index: int = field(metadata={'codec': VarInt64})  # GP-0.7.2-eq:B.5 i
+    service_id: int = field(metadata={'codec': VarInt64})  # GP-0.7.2-eq:B.5 w_s
+    payload_blob: bytes = field(metadata={'codec': Bytes}) # GP-0.7.2-eq:B.5 w_y
+    work_package_hash: bytes = field(metadata={'codec': H256}) # GP-0.7.2-eq:B.5 H(p)
 
 
 @dataclass
 class IntegratedPVM:
     """
-    GP-0.6.4-eq:B.4 bold_M
+    GP-0.7.2-eq:B.4 blackboard_G
     """
-    code: PVMCode              # GP-0.6.4-eq:B.6 bold_p
-    memory: PVMMemory            # GP-0.6.4-eq:B.6 bold_u
-    program_counter: int     # GP-0.6.4-eq:B.6 italic_i
+    code: PVMCode              # GP-0.7.2-eq:B.4 bold_p
+    memory: PVMMemory            # GP-0.7.2-eq:B.4 bold_u
+    program_counter: int     # GP-0.7.2-eq:B.4 italic_i
 
 
 @dataclass
 class RefineInvocationContext(InvocationContext):
-    inner_pvm_lookup: Dict[int, IntegratedPVM]   # GP-0.6.4-eq:B.6 bold_M
-    export_segments: List[bytes]                   # GP-0.6.4-eq:B.6 bold_e
+    inner_pvm_lookup: Dict[int, IntegratedPVM]   # GP-0.7.2-eq:B.6 bold_m
+    export_segments: List[bytes]                   # GP-0.7.2-eq:B.6 bold_e

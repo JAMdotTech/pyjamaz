@@ -7,100 +7,25 @@ a Python implementation of the [JAM protocol](https://graypaper.com/).
 pip install .
 ```
 
-## Using Docker to run JAM testnet 
-
-### Initialize
+## Run fuzzer target
 ```bash
-docker compose -p testnet -f docker-compose-init.yml up --build --remove-orphans
-```
-### Start in Console Mode
-```bash
-docker compose -p testnet up --build --remove-orphans
-```
-### Start in Detached Mode
-```bash
-docker compose -p testnet up -d --build --remove-orphans
-```
-### Stop
-```bash
-docker compose -p testnet down --remove-orphans
+pyjamaz fuzzer target
 ```
 
-### Build and publish multi-arch Docker image
+## Build and publish multi-arch Docker image
 ```bash
 docker buildx create --name multiarch-builder --use
 docker buildx inspect --bootstrap
 docker buildx build --platform linux/amd64,linux/arm64 -t jamdottech/pyjamaz -t jamdottech/pyjamaz:vX.Y.Z-gpX.Y.Z --push .
 ```
 
-### Start fuzzer target from Docker image
-```bash
-docker run -it jamdottech/pyjamaz fuzzer_target --seed 0x0000000000000000000000000000000000000000000000000000000000000000  --socket_path /tmp/jam_target.sock --force-overwrite
-```
+## JAM prize M1 accounts
+* Polkadot: 146CmUoArEi1E2AogKCU5gkhBSN6BLDzxecFSCDAgVyEshra
+* Kusama: DBPAKp9B2gpBr9YmvqXyewYkR4ZwTn9uJDt64zGcVjZeiGi
 
-## Using the CLI
+## Fellowship M1 nominations
+* Fellowship Rank III nomination: [Arjan Zijderveld](https://github.com/arjanz)
+* Fellowship Rank II nomination: [Matthijs Blaas](https://github.com/matthijsb)
 
-### Generate validator data for use in genesis.json
-
-```bash
-pyjamaz keys generate 0x0000000000000000000000000000000000000000000000000000000000000000 127.0.0.1 9000
-
-```
-
-### Initialize node 
-
-```bash
-pyjamaz init --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --chainspec dev
-```
-
-### Run node
-
-```bash
-pyjamaz run --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000
-```
-
-### Run and record each block as a replayable file in given folder
-
-```bash
-pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --record-trace ./data/trace
-```
-
-### Replay and validate recorded traces in a folder
-
-```bash
-pyjamaz fuzzer traces ./test/fixtures/traces/pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000
-```
-
-### Run as fuzzer target
-
-```bash
-pyjamaz fuzzer target --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --db-path /tmp/fuzzer --force-overwrite --socket_path /tmp/jam_target.sock
-```
-
-### Connect to a fuzzer target 
-```bash
-pyjamaz --seed 0x0000000000000000000000000000000000000000000000000000000000000000 --host 0.0.0.0 --port 9000 --fuzzer --fuzzer-socket-path /tmp/jam_target.sock
-```
-
-## Run documentation
-
-```bash
-pip install ".[dev]"
-mkdocs serve
-```
-
-## Wheel containing only compiled code
-* `pip install pyc_wheel`
-* `python -m build --wheel`
-* `python3 -m pyc_wheel dist/pyjamaz-0.1.4-py3-none-any.whl`
-
-# Resources
-* https://hackmd.io/@polkadot/jamsdk#JAM-Client-Tooling
-* https://github.com/polkadot-fellows/JIPs
-
-# Doom 
-
-* clean init and run in solo mode
-* ./jamt vm new ./doom.corevm 1000000000 --gas 1000000
-* /corevm-builder xxxxxxxx
-* Check for `DEBUG@corevm::service          Accumulated package 0x746b30c8e7b2329e...`
+## License
+https://github.com/JAMdotTech/pyjamaz/blob/main/LICENSE

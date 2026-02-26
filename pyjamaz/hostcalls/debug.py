@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 from pyjamaz.hostcalls.constants import HostCallResult
+from pyjamaz.pvm.memory import PVMMemoryError
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.pvm import PVMMemory
@@ -33,9 +34,15 @@ def hc_log(
     if registers[8] == 0 or registers[9] == 0:
         target = ""
     else:
-        target = memory.read_bytes(registers[8], registers[9]).decode("utf-8")
+        try:
+            target = memory.read_bytes(registers[8], registers[9]).decode("utf-8")
+        except (UnicodeDecodeError, PVMMemoryError):
+            target = '<decode-error>'
 
-    message = memory.read_bytes(registers[10], registers[11]).decode("utf-8")
+    try:
+        message = memory.read_bytes(registers[10], registers[11]).decode("utf-8")
+    except (UnicodeDecodeError, PVMMemoryError):
+        message = '<decode-error>'
 
     logger and logger.hc_debug(log_level[0], log_level[1], None, service_id, target, message)
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
