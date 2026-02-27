@@ -4,9 +4,10 @@ from typing import List, Dict
 import math
 import numpy as np
 import numpy.typing as npt
+from numpy import copy
 
 from pyjamaz.pvm.exceptions import InvalidOpcode, PVMMemoryError, PanicError
-from pyjamaz.pvm.memory_section_abstract import page_size
+from pyjamaz.pvm.types import page_size
 
 from pyjamaz.pvm.constants import (
     Opcode as op,
@@ -15,12 +16,14 @@ from pyjamaz.pvm.constants import (
     ExitReason,
     MemOps,
     OpcodeNames,
-    ExitCondition, MEM_W,
+    ExitCondition,
+    MEM_R, MEM_W,
 )
 
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR, PVM_PAGE_SIZE
 
 from .defs import (
+    MASK32,
     pvm_Z,
     pvm_X,
     pvm_Z_inv,
@@ -37,14 +40,39 @@ from .defs import (
 )
 
 from pyjamaz.pvm.types import PVMProgram
-from pyjamaz.pvm.memory import PVMMemory
+from .memory import PVMMemory
 
 
 class PVMInterpreter:
 
+    @staticmethod
+    def alloc_memory(
+        rom_start: int,
+        rom_size: int,
+        rom_contents: bytes,
+        heap_start: int,
+        heap_size: int,
+        heap_contents: bytes,
+        stack_start: int,
+        stack_size: int,
+        argument_start: int,
+        argument_size: int,
+        argument_contents: bytes,
+    ) -> PVMMemory:
+        mem = PVMMemory()
+        mem.add_segment(rom_start, rom_size, MEM_R, rom_contents)
+        mem.add_segment(heap_start, heap_size, MEM_W, heap_contents)
+        mem.add_segment(stack_start, stack_size, MEM_W, bytes(stack_size))
+        mem.add_segment(argument_start, argument_size, MEM_R, argument_contents)
+        mem.heap_base = heap_start
+        mem.heap_ptr = heap_start + heap_size
+        mem.stack_base = stack_start
+        return mem
+
     def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
+        self.prev_reg: npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
@@ -68,8 +96,8 @@ class PVMInterpreter:
 
         if logger:
             self.program = program
-            from pyjamaz.pvm.debug_logger import PVMDebugLog
-            logger_cls = PVMDebugLog
+            from pyjamaz.pvm.formatted_logger import PVMFormattedLog
+            logger_cls = PVMFormattedLog
             self.log = logger_cls(pvm=self)
             self.log._pvm = self
             self.log._pvm_id = self.name
@@ -194,29 +222,25 @@ class PVMInterpreter:
 
     def _sbrk(self, size):
         if size == 0:
-            return self.mem._heap.paged_tail
+            return self.mem.heap_ptr
 
-        current_heap_ptr = self.mem._heap.paged_tail
+        current_heap_ptr = self.mem.heap_ptr
         new_heap_ptr = current_heap_ptr + size
-        if new_heap_ptr >= self.mem._stack.address:
+        if self.mem.stack_base is not None and new_heap_ptr >= self.mem.stack_base:
             return 0
 
         next_page_boundary = page_size(current_heap_ptr)
         growth = page_size(new_heap_ptr) - next_page_boundary
         self.log and self.log.sbrk(current_heap_ptr, next_page_boundary, growth, new_heap_ptr > next_page_boundary)
 
-        if new_heap_ptr > next_page_boundary:
-            # Extend the heap contents to accommodate the growth
-            self.mem._heap.contents.extend(b"\x00" * growth)
-            self.mem._heap.size = len(self.mem._heap.contents)
+        if growth > 0:
+            start_page = next_page_boundary // PVM_PAGE_SIZE
+            pages = math.ceil(growth / PVM_PAGE_SIZE)
+            self.mem.change_acl(start_page, pages, MEM_W)
+            self.log and self.log.acl(current_heap_ptr // PVM_PAGE_SIZE, start_page, pages)
 
-        # Create ACL of new pages
-        next_page_nr = math.ceil((current_heap_ptr - self.mem._heap.address) / PVM_PAGE_SIZE)
-        pages = math.ceil(growth / PVM_PAGE_SIZE)
-        self.mem._heap.acl_set_pages(next_page_nr, pages, MEM_W)
-        self.mem._heap.paged_tail = new_heap_ptr
-        self.log and self.log.acl((current_heap_ptr - self.mem._heap.address) // PVM_PAGE_SIZE, next_page_nr, pages)
-        return self.mem._heap.paged_tail
+        self.mem.heap_ptr = new_heap_ptr
+        return self.mem.heap_ptr
 
 
     def get_exit_condition(self) -> ExitCondition:
@@ -246,7 +270,8 @@ class PVMInterpreter:
     def invoke(
         self,
         pc: int,
-        gas: int
+        gas: int,
+        log=False,
     ):
         self.pc = np.uint32(pc)
         self.gas = np.int64(gas)
@@ -262,6 +287,12 @@ class PVMInterpreter:
                 self.status = ExitReason.out_of_gas.value
                 self.exit_value = None
                 break
+
+            self.prev_reg[:] = self.reg
+
+            # if log:
+            #     with open("pvm_log.txt", "a") as f:
+            #         f.write(f'{self.pc} {self.gas} {[int(r) for r in self.reg]}\n')
 
             self.gas -= 1
             self.pc = int(self.pc) + self.skip_len
@@ -339,7 +370,7 @@ class PVMInterpreter:
                                 self.mem_write(opcode, v_x, v_y % 2 ** 16)
                                 self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 2)})
                             case op.store_imm_u32.value:
-                                self.mem_write(opcode, v_x, v_y % 2 ** 32)
+                                self.mem_write(opcode, v_x, int(v_y) & MASK32)
                                 self.log and self.log(imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(v_x, 4)})
                             case op.store_imm_u64.value:
                                 self.mem_write(opcode, v_x, v_y)
@@ -373,7 +404,7 @@ class PVMInterpreter:
 
                         match opcode:
                             case op.jump_ind.value:
-                                self.skip_len = self.djump(u32(self.reg[r_a]+v_x))
+                                self.skip_len = self.djump((int(self.reg[r_a]) + int(v_x)) & MASK32)
                                 self.log and self.log(reg1=r_a, imm1=v_x, context={"skip_len": self.skip_len})
 
                             case op.load_imm.value:
@@ -417,7 +448,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 2)})
 
                             case op.store_u32.value:
-                                self.mem_write(opcode, v_x, self.reg[r_a] % 2**32)
+                                self.mem_write(opcode, v_x, int(self.reg[r_a]) & MASK32)
                                 self.log and self.log(reg1=r_a, imm1=v_x, context={"u'_vx": self.mem.read_int(v_x, 4)})
 
                             case op.store_u64.value:
@@ -453,7 +484,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 2)})
 
                             case op.store_imm_ind_u32.value:
-                                self.mem_write(opcode, w_a + v_x, v_y % 2**32)
+                                self.mem_write(opcode, w_a + v_x, int(v_y) & MASK32)
                                 self.log and self.log(reg1=r_a, imm1=v_x, imm2=v_y, context={"u'_vx": self.mem.read_int(w_a + v_x, 4)})
 
                             case op.store_imm_ind_u64.value:
@@ -546,7 +577,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.count_set_bits_32.value:
-                                self.reg[r_d] = np.bitwise_count(u32(self.reg[r_a]))
+                                self.reg[r_d] = np.bitwise_count(int(self.reg[r_a]) & MASK32)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.leading_zero_bits_64.value:
@@ -555,7 +586,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.leading_zero_bits_32.value:
-                                self.reg[r_d] = count_leading_zeroes(u32(self.reg[r_a]), 32)
+                                self.reg[r_d] = count_leading_zeroes(int(self.reg[r_a]) & MASK32, 32)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.trailing_zero_bits_64.value:
@@ -563,7 +594,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.trailing_zero_bits_32.value:
-                                self.reg[r_d] = count_trailing_zeroes(u32(self.reg[r_a]), 32)
+                                self.reg[r_d] = count_trailing_zeroes(int(self.reg[r_a]) & MASK32, 32)
                                 self.log and self.log(reg1=r_d, reg2=r_a, context={"w'_d": self.reg[r_d]})
 
                             case op.sign_extend_8.value:
@@ -608,8 +639,8 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**16, "w_b": w_b})
 
                             case op.store_ind_u32.value:
-                                self.mem_write(opcode, w_b + v_x, w_a % 2**32)
-                                self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a % 2**32, "w_b": w_b})
+                                self.mem_write(opcode, w_b + v_x, int(w_a) & MASK32)
+                                self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": int(w_a) & MASK32, "w_b": w_b})
 
                             case op.store_ind_u64.value:
                                 self.mem_write(opcode, w_b + v_x, w_a)
@@ -644,7 +675,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_a": w_a, "w_b": w_b})
 
                             case op.add_imm_32.value:
-                                self.reg[r_a] = pvm_X((w_b + v_x) % 2**32, 4)
+                                self.reg[r_a] = pvm_X((int(w_b) + int(v_x)) & MASK32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                             case op.and_imm.value:
@@ -660,7 +691,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                             case op.mul_imm_32.value:
-                                self.reg[r_a] = pvm_X((w_b * v_x) % 2**32, 4)
+                                self.reg[r_a] = pvm_X((int(w_b) * int(v_x)) & MASK32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                             case op.set_lt_u_imm.value:
@@ -672,19 +703,19 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                             case op.shlo_l_imm_32.value:
-                                self.reg[r_a] = pvm_X((w_b * 2**(v_x % 32)) % 2 ** 32, 4)
+                                self.reg[r_a] = pvm_X((int(w_b) << (int(v_x) & 31)) & MASK32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                             case op.shlo_r_imm_32.value:
-                                self.reg[r_a] = pvm_X(int(w_b % 2 ** 32) // int(2 ** (v_x % 32)), 4)
+                                self.reg[r_a] = pvm_X((int(w_b) & MASK32) >> (int(v_x) & 31), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b})
 
                             case op.shar_r_imm_32.value:
-                                self.reg[r_a] = pvm_Z_inv(pvm_Z(w_b % 2 ** 32, 4) // int(2 ** (v_x % 32)), 8)
+                                self.reg[r_a] = pvm_Z_inv(pvm_Z(int(w_b) & MASK32, 4) >> (int(v_x) & 31), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.neg_add_imm_32.value:
-                                self.reg[r_a] = pvm_X((v_x + 2**32 - w_b) % 2**32, 4)
+                                self.reg[r_a] = pvm_X((int(v_x) + (1 << 32) - int(w_b)) & MASK32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.set_gt_u_imm.value:
@@ -696,15 +727,15 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.shlo_l_imm_alt_32.value:
-                                self.reg[r_a] = pvm_X((v_x * (2 ** (w_b % 32))) % 2**32, 4)
+                                self.reg[r_a] = pvm_X((int(v_x) << (int(w_b) & 31)) & MASK32, 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.shlo_r_imm_alt_32.value:
-                                self.reg[r_a] = pvm_X(int(v_x % 2**32) // int(2 ** (w_b % 32)), 4)
+                                self.reg[r_a] = pvm_X((int(v_x) & MASK32) >> (int(w_b) & 31), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.shar_r_imm_alt_32.value:
-                                self.reg[r_a] = pvm_Z_inv(pvm_Z(v_x % 2**32, 4) // int(2 ** (w_b % 32)), 8)
+                                self.reg[r_a] = pvm_Z_inv(pvm_Z(int(v_x) & MASK32, 4) >> (int(w_b) & 31), 8)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.cmov_iz_imm.value:
@@ -762,11 +793,11 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.rot_r_32_imm.value:
-                                self.reg[r_a] = pvm_X(rori32(u32(w_b), u32(v_x)), 4)
+                                self.reg[r_a] = pvm_X(rori32(int(w_b) & MASK32, int(v_x)), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case op.rot_r_32_imm_alt.value:
-                                self.reg[r_a] = pvm_X(rori32(u32(v_x), u32(w_b)), 4)
+                                self.reg[r_a] = pvm_X(rori32(int(v_x) & MASK32, int(w_b)), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, context={"w_b": w_b, "w'_a": self.reg[r_a]})
 
                             case _:
@@ -830,7 +861,7 @@ class PVMInterpreter:
 
                             case op.load_imm_jump_ind.value:
                                 self.reg[r_a] = v_x
-                                self.skip_len = self.djump(int(w_b + v_y) % 2**32)
+                                self.skip_len = self.djump((int(w_b) + int(v_y)) & MASK32)
                                 self.log and self.log(reg1=r_a, reg2=r_b, imm1=v_x, imm2=v_y, context={"skip_len": self.skip_len})
 
                             case _:
@@ -848,28 +879,29 @@ class PVMInterpreter:
 
                         match opcode:
                             case op.add_32.value:
-                                self.reg[r_d] = pvm_X((w_a + w_b) % 2**32, 4)
+                                self.reg[r_d] = pvm_X((int(w_a) + int(w_b)) & MASK32, 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.sub_32.value:
-                                self.reg[r_d] = pvm_X((w_a + 2**32 - (w_b % 2**32)) % 2**32, 4)
+                                self.reg[r_d] = pvm_X(((int(w_a) & MASK32) - (int(w_b) & MASK32)) & MASK32, 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.mul_32.value:
-                                self.reg[r_d] = pvm_X((w_a * w_b) % 2**32, 4)
+                                self.reg[r_d] = pvm_X((int(w_a) * int(w_b)) & MASK32, 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.div_u_32.value:
-                                if self.reg[r_b] == 0:
+                                wb32 = int(w_b) & MASK32
+                                if wb32 == 0:
                                     self.reg[r_d] = 2**64-1
                                 else:
-                                    self.reg[r_d] = pvm_X(w_a % 2**32 // int(w_b % 2**32), 4)
+                                    self.reg[r_d] = pvm_X((int(w_a) & MASK32) // wb32, 4)
 
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.div_s_32.value:
-                                a = i32(pvm_Z(w_a % 2**32, 4))
-                                b = i32(pvm_Z(w_b % 2**32, 4))
+                                a = i32(pvm_Z(int(w_a) & MASK32, 4))
+                                b = i32(pvm_Z(int(w_b) & MASK32, 4))
 
                                 if b == 0:
                                     self.reg[r_d] = 2**64-1
@@ -881,16 +913,17 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.rem_u_32.value:
-                                if w_b % 2**32 == 0:
-                                    self.reg[r_d] = pvm_X(w_a % 2**32, 4)
+                                wb32 = int(w_b) & MASK32
+                                if wb32 == 0:
+                                    self.reg[r_d] = pvm_X(int(w_a) & MASK32, 4)
                                 else:
-                                    self.reg[r_d] = pvm_X((w_a % 2**32) % (w_b % 2**32), 4)
+                                    self.reg[r_d] = pvm_X((int(w_a) & MASK32) % wb32, 4)
 
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.rem_s_32.value:
-                                a = pvm_Z(w_a % 2**32, 4)
-                                b = pvm_Z(w_b % 2**32, 4)
+                                a = pvm_Z(int(w_a) & MASK32, 4)
+                                b = pvm_Z(int(w_b) & MASK32, 4)
 
                                 if b == 0:
                                     self.reg[r_d] = pvm_Z_inv(a, 8)
@@ -902,15 +935,15 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.shlo_l_32.value:
-                                self.reg[r_d] = pvm_X((w_a * 2**(w_b % 32)) % 2**32, 4)
+                                self.reg[r_d] = pvm_X((int(w_a) << (int(w_b) & 31)) & MASK32, 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.shlo_r_32.value:
-                                self.reg[r_d] = pvm_X(int(w_a % 2**32) // int(2**(w_b % 32)), 4)
+                                self.reg[r_d] = pvm_X((int(w_a) & MASK32) >> (int(w_b) & 31), 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.shar_r_32.value:
-                                self.reg[r_d] = pvm_Z_inv(pvm_Z(w_a % 2**32, 4) // int(2**(w_b % 32)),8)
+                                self.reg[r_d] = pvm_Z_inv(pvm_Z(int(w_a) & MASK32, 4) >> (int(w_b) & 31), 8)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.add_64.value:
@@ -1026,7 +1059,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.rot_l_32.value:
-                                self.reg[r_d] = pvm_X(roli32(u32(w_a), w_b % 32), 4)
+                                self.reg[r_d] = pvm_X(roli32(int(w_a) & MASK32, int(w_b)), 4)
                                 self.log and self.log(reg1=r_a, reg2=r_b, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.rot_r_64.value:
@@ -1034,7 +1067,7 @@ class PVMInterpreter:
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.rot_r_32.value:
-                                self.reg[r_d] = pvm_X(rori32(u32(w_a), w_b % 32), 4)
+                                self.reg[r_d] = pvm_X(rori32(int(w_a) & MASK32, int(w_b)), 4)
                                 self.log and self.log(reg1=r_d, reg2=r_a, reg3=r_d, context={"w'_d": self.reg[r_d]})
 
                             case op.and_inv.value:
@@ -1077,7 +1110,7 @@ class PVMInterpreter:
                         raise InvalidOpcode(f"Invalid instruction type: {inst_type}")
 
             except PVMMemoryError:
-                self.log and self.log.exc(traceback.format_exc())
+                #self.log and self.log.exc(traceback.format_exc())
                 self.status = ExitReason.page_fault.value
                 # Note: Align the fault address to page boundary: (address / pageSize) * pageSize
                 #self.exit_value = (self.mem._mem_addr // PVM_PAGE_SIZE) * PVM_PAGE_SIZE

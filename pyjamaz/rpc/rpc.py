@@ -7,9 +7,11 @@ from jamcodec.base import JamBytes
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.app import PyjamazApp
 from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Preimage
 from pyjamaz.models.builder import ServiceRegistry
 from pyjamaz.models.common import WorkPackage, WorkPackageStatus
+from pyjamaz.settings import DEBUG
 from pyjamaz.utils import format_hash, base64_encode, base64_decode
 
 #TODO: enum
@@ -246,19 +248,30 @@ def rpcSubmitWorkPackage(app: PyjamazApp, params):
     #TODO: should assign to a specific core
     ex = [base64_decode(x) for x in params[2]]
     wp = WorkPackage.from_jam_bytes(JamBytes(base64_decode(params[1])))
-    logging.debug(f'Received workpackage {format_hash(wp.work_package.hash())}')
+    DEBUG and logging.debug(f'Received workpackage {format_hash(wp.hash())}')
     app.add_work_package(wp, ex)
 
 
 def rpcSubmitWorkPackageBundle(app: PyjamazApp, params):
     #TODO: should assign to a specific core
     data = JamBytes(base64_decode(params[1]))
-    # wpb = WorkPackageBundle.from_jam_bytes(data)
-    # extrinsics = Vec(Bytes).decode(data)
+    extrinsics = []
+
     wp = WorkPackage.from_jam_bytes(data)
-    logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
-    app.add_work_package(wp, [])
-    # app.add_work_package_bundle(wpb)
+
+    for item in wp.items:
+        for extrinsic_item in item.extrinsic:
+            extrinsic_data = bytes(data.get_next_bytes(extrinsic_item.len))
+            # Check data
+            if blake2b_256_hash(extrinsic_data) != extrinsic_item.hash:
+                raise RPCCallException("Invalid extrinsic data")
+            extrinsics.append(extrinsic_data)
+
+    if data.get_remaining_length() > 0:
+        logging.warning(f'DATA LEFT IN WORKPACKAGE BUNDLE: {data.get_remaining_length()}')
+
+    # DEBUG and logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
+    app.add_work_package(wp, extrinsics)
 
 
 def rpcSubmitPreimage(app: PyjamazApp, params):
@@ -276,9 +289,19 @@ def rpcServiceRequest(app: PyjamazApp, params):
 
 def rpcFetchSegments(app: PyjamazApp, params):
     """
-    TODO implement
     """
-    raise RPCCallException("UNKNOWN_SEGMENT")
+    segment_root = base64_decode(params[0])
+    d3l_entry = app.d3l_store.retrieve_segments(segment_root)
+    if d3l_entry is None:
+        raise RPCCallException("UNKNOWN_SEGMENT")
+
+    requested_segments = []
+    DEBUG and logging.debug(f'Requested segments: {format_hash(segment_root)} {params[1]}')
+
+    for requested_index in params[1]:
+        requested_segments.append(base64_encode(d3l_entry.segments[requested_index]))
+
+    return requested_segments
 
 
 def rpcSyncState(app: PyjamazApp, params):
@@ -372,10 +395,10 @@ def rpcSubscribeSyncStatus(app: PyjamazApp, params):
 def rpcSubscribeWorkPackageStatus(app: PyjamazApp, params):
     # Note: initial response after subscription
 
-    hash = base64_decode(params[0])
+    work_package_hash = base64_decode(params[0])
     anchor = base64_decode(params[1])
-    if hash in app.work_package_queue:
-        value = app.work_package_queue[hash].status.to_json()
+    if work_package_hash in app.work_package_queue:
+        value = app.work_package_queue[work_package_hash].status.to_json()
     else:
         value = WorkPackageStatus(Failed='Not found').to_json()
 

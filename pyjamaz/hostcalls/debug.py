@@ -2,10 +2,10 @@ import logging
 from typing import List
 
 from pyjamaz.hostcalls.constants import HostCallResult
-from pyjamaz.pvm.memory import PVMMemoryError
+from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
-from pyjamaz.pvm.memory import PVMMemory
+from pyjamaz.pvm import PVMMemory
 from pyjamaz.hostcalls import hostcall
 
 

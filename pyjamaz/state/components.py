@@ -1885,7 +1885,7 @@ class Services(StateComponent):
 
                 if self.app_context.pubsub:
                     await self.app_context.pubsub.publish(
-                        PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[preimage.requester, preimage_hash, preimage.blob])
+                        PubSubSignal(topic=MESSAGE_TYPES.PREIMAGE, data=[preimage.requester, preimage_hash])
                     )
 
                 # Update availability information

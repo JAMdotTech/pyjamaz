@@ -4,6 +4,9 @@ from pyjamaz.pvm.exceptions import UIntValueError
 
 # Type definitions
 
+MASK32 = (1 << 32) - 1
+
+
 def u8(x: int) -> np.uint8:
     return np.uint8(x)
 

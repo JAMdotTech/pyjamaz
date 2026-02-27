@@ -9,7 +9,7 @@ from pyjamaz.models.state import ServiceAccount, ServicesState
 from pyjamaz.pvm.constants import ExitCondition, ExitReason, MEM_W, MEM_R
 from pyjamaz.pvm.exceptions import PVMMemoryError
 from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
-from pyjamaz.pvm.memory import PVMMemory
+from pyjamaz.pvm import PVMMemory
 from pyjamaz.hostcalls.constants import HostCallResult
 from pyjamaz.hostcalls import hostcall
 
@@ -529,7 +529,7 @@ def hc_fetch(
 
     elif extrinsics is not None and work_item_index is not None and w10 == 4 and w11 < len(extrinsics[work_item_index]):
         # OurExtrinsic
-        bold_v = extrinsics[work_item_index][w12]
+        bold_v = extrinsics[work_item_index][w11]
 
     elif work_item_segs is not None and w10 == 5 and w11 < len(work_item_segs) and w12 < len(work_item_segs[w11]):
         bold_v = work_item_segs[w11][w12]
@@ -593,7 +593,7 @@ def hc_fetch(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = len(bold_v)
         invocation_output.memory.write_bytes(o, bold_v[f:f+l])
-        logger and logger.hc_log("FETCH result", f"OK wrote={l}bytes from len={len(bold_v)}")
+        logger and logger.hc_log("FETCH result", f"OK kind={w10} wrote={l}bytes f={f} l={l} from len={len(bold_v)}")
 
 
 @hostcall(10)

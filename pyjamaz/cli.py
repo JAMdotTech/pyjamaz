@@ -1,3 +1,4 @@
+import bisect
 import logging
 import traceback
 from asyncio import CancelledError
@@ -17,7 +18,6 @@ import asyncclick as click
 from asyncclick import BadParameter, MissingParameter
 
 from jamcodec.base import JamBytes
-from pyjamaz import settings
 
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
@@ -146,7 +146,8 @@ async def initialize_app(
         custom_db_path=None,
         record_traces=None,
         pubsub=True,
-        block_importer=None
+        block_importer=None,
+        d3l_path=None
 ) -> PyjamazApp:
 
     # Load SRS
@@ -179,7 +180,8 @@ async def initialize_app(
         storage_engine=storage_engine,
         keys=keys,
         common_era=common_era,
-        create_traces=record_traces
+        create_traces=record_traces,
+        d3l_path=d3l_path
     )
 
     if block_importer:
@@ -224,11 +226,13 @@ async def main():
 @click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
 @click.option('--fuzzer', 'fuzzer', is_flag=True, help="Validate trace with fuzzer target")
 @click.option('--fuzzer-socket-path', 'fuzzer_socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
-async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path):
+@click.option('--d3l-path', 'd3l_path', type=click.Path())
+@click.option('--replay-blocks', 'replay_blocks', type=click.Path())
+async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path, d3l_path, replay_blocks):
     """PyJAMaz: Python JAM Client"""
 
     # Setup logging
-    log_level = logging.DEBUG if verbose else logging.INFO
+    log_level = logging.DEBUG if verbose or DEBUG else logging.INFO
     # Note: Add packages that need a different logging level here
     log_package_overrides = {
         "pyjamaz.transport": log_level,
@@ -263,7 +267,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             custom_db_path=custom_db_path,
             record_traces=record_traces,
             storage_engine=STORAGE_ENGINE,
-            block_importer=import_block_cli
+            block_importer=import_block_cli,
+            d3l_path=d3l_path
         )
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
@@ -276,9 +281,14 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     app.network_bootstrap = network_bootstrap
     common_era_time = datetime.fromtimestamp(app.config.common_era, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
+    if replay_blocks:
+        app.config.replay_blocks = TimeslotSelector(replay_blocks)
+
     logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
     logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
     logging.info(f'💾 Storage path: {db_path}')
+    if d3l_path:
+        logging.info(f"💿 D3L path set to {d3l_path}")
     logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
     logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
     logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
@@ -410,15 +420,23 @@ async def timeslot_ticker(app: PyjamazApp):
 
                 parent_header_hash = app.retrieve_block_hash(app.working_state.timeslot.number)
 
+                if parent_header_hash is None:
+                    raise ValueError(f'No parent block found for timeslot #{app.working_state.timeslot.number}')
+
                 # Finalize parent
                 await app.finalize(parent_header_hash)
 
-                block = await app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
+                if app.config.replay_blocks:
+                    block = app.config.replay_blocks.find_next(timeslot)
+                    if block:
+                        await app.import_block(block)
+                else:
+                    block = await app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
 
-                if app.pubsub:
-                    await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+                    if app.pubsub:
+                        await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
 
-                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
+                    logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
                 DEBUG and logging.debug(traceback.format_exc())
@@ -498,6 +516,7 @@ async def init_certificate(db_path, seed):
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
 @click.option('--chainspec', 'chainspec', type=click.Choice(['dev', 'docker']), help="Chainspec to use as genesis", default='dev', show_default=True)
 @click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
+@click.option('--import-trace', 'import_trace', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def init(
@@ -506,6 +525,7 @@ async def init(
         seed,
         chainspec,
         verbose,
+        import_trace
 ):
     """
     Clears all existing data and initializes the JAM client.
@@ -536,34 +556,65 @@ async def init(
         block_importer=import_block_cli
     )
 
-    # Load chainspec
-    with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
-        chainspec_data = json.load(fp)
+    if import_trace:
 
-    # Store state data
-    for k, v in chainspec_data["genesis_state"].items():
-        app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
+        trace = Trace.from_jam_bytes(JamBytes(Path(import_trace).read_bytes()))
 
-    # Create genesis block
-    genesis_block = Block(
-        header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
-        extrinsic=Extrinsic.default()
-    )
+        # Update state from trace post-state
+        for k, v in trace.post_state.keyvals:
+            app.state_db.put(bytes(k), bytes(v))
 
-    # Store genesis block
-    await app.store_block(genesis_block)
-    # Store finalized head
-    await app.store_finalized_head(genesis_block.header.hash)
-    # Set finalized head in state storage
-    app.state_storage.set_finalized_header(genesis_block.header)
+        # Add stub parent as ancestor
+        stub_parent = Header.default()
+        stub_parent.hash = trace.block.header.parent
+        stub_parent.timeslot = max(0, trace.block.header.timeslot - 1)
+        await app.store_block_header(stub_parent)
+        await app.add_ancestor_header(stub_parent)
 
-    click.echo(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
+        # Store block
+        await app.store_block(trace.block)
+        await app.add_ancestor_header(trace.block.header)
+        # Store finalized head
+        await app.store_finalized_head(trace.block.header.hash)
+        # Set finalized head in state storage
+        app.state_storage.set_finalized_header(trace.block.header)
+
+        click.echo(f'📦 State successfully import from trace file {import_trace}')
+
+        logging.debug("Initializating app..")
+        await app.initialize(trace.block.header)
+
+    else:
+        # Load chainspec
+        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
+            chainspec_data = json.load(fp)
+
+        # Store state data
+        for k, v in chainspec_data["genesis_state"].items():
+            app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
+
+        # Create genesis block
+        genesis_block = Block(
+            header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
+            extrinsic=Extrinsic.default()
+        )
+
+        # Store genesis block
+        await app.store_block(genesis_block)
+        # Store finalized head
+        await app.store_finalized_head(genesis_block.header.hash)
+        # Set finalized head in state storage
+        app.state_storage.set_finalized_header(genesis_block.header)
+
+        click.echo(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
+
+        logging.debug("Initializating app..")
+        await app.initialize(genesis_block.header)
 
     # Initialize certificate
     await init_certificate(db_path, seed)
 
-    logging.debug("Initializating app..")
-    await app.initialize(genesis_block.header)
+
 
     click.echo(f"✅ Initialization complete.")
     click.echo(f'🌲 State trie root: {format_hash(app.working_state.state_root)}')
@@ -910,6 +961,41 @@ def write_storage_key_diff(storage_key: bytes, mine: Optional[bytes], theirs: Op
         if theirs is not None:
             theirs_file = trace_file.parent / f'{trace_file.name}-{storage_key[0:4].hex()}-theirs.txt'
             theirs_file.write_text(theirs.hex())
+
+
+class TimeslotSelector:
+    def __init__(self, folder_path):
+        folder = Path(folder_path)
+
+        self.timeslots = []
+        self.file_map = {}
+
+        for file in folder.glob("*.bin"):
+            try:
+                ts = int(file.stem)
+                self.timeslots.append(ts)
+                self.file_map[ts] = file
+            except ValueError:
+                continue
+
+        self.timeslots.sort()
+
+    def find_next(self, target_timeslot) -> Optional[Block]:
+        if not self.timeslots:
+            return None
+
+        idx = bisect.bisect_right(self.timeslots, target_timeslot)
+
+        if idx >= len(self.timeslots):
+            idx = 0
+
+        ts = self.timeslots.pop(idx)
+        file_path = self.file_map.pop(ts)
+
+        with open(file_path, "rb") as f:
+            data = f.read()
+            trace = Trace.from_jam_bytes(JamBytes(data))
+            return trace.block
 
 if __name__ == '__main__':
     main(_anyio_backend="asyncio")

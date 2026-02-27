@@ -12,7 +12,8 @@ from pyjamaz.models.common import WorkExecResult, DeferredTransfer
 from pyjamaz.models.state import AccumulationStateComponents
 
 from pyjamaz.pvm.invocation import InvocationContext
-from pyjamaz.pvm.types import PVMCode, PVMMemory
+from pyjamaz.pvm.types import PVMCode
+from pyjamaz.pvm import PVMMemory
 
 
 @dataclass

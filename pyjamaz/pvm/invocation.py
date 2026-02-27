@@ -7,8 +7,8 @@ import numpy as np
 import numpy.typing as npt
 
 from pyjamaz import settings
-from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.types import PVMProgram, PVMMemory
+from pyjamaz.pvm import PVMInterpreter, PVMMemory
+from pyjamaz.pvm.types import PVMProgram
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
 from pyjamaz.settings import DEBUG
 
@@ -139,7 +139,6 @@ class PVMInvocation:
         """
 
         while True:
-
             # invoke general PVM function (Ψ)
             self.pvm.invoke(
                 instruction_counter,
@@ -161,7 +160,6 @@ class PVMInvocation:
                 )
 
             if exit_condition.reason == ExitReason.host_halt:
-
                 host_call_output = self.invocation_mutator.execute(
                     host_call_instr_nr=exit_condition.value,
                     gas_limit=int(self.pvm.gas),

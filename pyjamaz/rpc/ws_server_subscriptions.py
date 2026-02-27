@@ -140,7 +140,8 @@ class SubscriptionPreimage(WSubscription):
         return {
             "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": base64_encode(data[self.DATA_PREIMAGE_BLOB])
+            # "value": base64_encode(data[self.DATA_PREIMAGE_BLOB])
+            "value": base64_encode(data[self.PARAM_PREIMAGE_HASH])
         }
 
 

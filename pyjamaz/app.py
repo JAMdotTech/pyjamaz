@@ -5,8 +5,9 @@ import os
 import time
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TypeVar, Optional, List, Callable, Dict
+from typing import TypeVar, Optional, List, Callable, Dict, Tuple
 
+import anyio
 from bandersnatch_vrfs import ietf_vrf_sign, RingContext
 
 from jamcodec.base import JamBytes
@@ -15,21 +16,24 @@ from jamcodec.types import Vec, BitArray
 from pyjamaz import settings
 
 from pyjamaz.constants import MESSAGE_TYPES
+from pyjamaz.d3l import DataAvailabilityStore
 from pyjamaz.exceptions import PyjamazAppError, ProcessWorkpackageError, StateTransitionError, \
     BlockValidationErrorCode, BlockValidationError
 from pyjamaz.extrinsic import BlockExtrinsicAccumulator, WorkpackageExtrinsicAccumulator
 from pyjamaz.graypaper_constants import CORE_COUNT, EPOCH_TIMESLOTS, \
-    SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR
+    SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR, MAXIMUM_SIZE_ENCODED_WORK_REPORT, EC_SEGMENT_SIZE
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.app import StateDump, Trace
+from pyjamaz.hostcalls.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
+from pyjamaz.merkle import ConstantDepthMerkleTree
+from pyjamaz.models.app import StateDump, Trace, D3LEntry
 from pyjamaz.models.common import WorkPackage, WorkReport, WorkPackageBundle, WorkPackageQueueItem, WorkPackageStatus, \
-    WorkPackageReportableStatus, WorkPackageReadyStatus, BlockDesc, WorkPackageReportedStatus
-from pyjamaz.refine import work_result_computation
-from pyjamaz.settings import SOLO_MODE, DEBUG
+    WorkPackageReportableStatus, WorkPackageReadyStatus, BlockDesc, WorkPackageReportedStatus, WorkExecResult, \
+    WorkDigest, WorkPackageSpec
+from pyjamaz.settings import SOLO_MODE, DEBUG, SKIP_VALIDATE_GUARANTEES
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
-from pyjamaz.storage import StorageEngine
+from pyjamaz.storage import StorageEngine, FileStorageEngine
 
 from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchive, ValidatorPool, ValidatorQueue, \
     RecentHistory, Disputes, Assurances, Statistics, PrivilegedServices, AuthorizerQueues, AuthorizerPools, Services, \
@@ -39,7 +43,7 @@ from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Gu
 from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState, PendingChanges
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
-from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time
+from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time, flatten_list
 from pyjamaz.validation import BlockValidation
 
 T = TypeVar('T')
@@ -64,7 +68,9 @@ class AppConfig:
     storage_engine: StorageEngine
     common_era: int
     keys: Optional[Keys] = field(default=None)
-    create_traces: bool = field(default=False)
+    create_traces: str = field(default=None)
+    d3l_path: str = field(default=None)
+    replay_blocks: object = field(default=None)
 
 
 class PyjamazApp:
@@ -73,7 +79,12 @@ class PyjamazApp:
 
         self.state_db: StorageEngine = config.storage_engine.namespace(b"state")
         self.block_db: StorageEngine = config.storage_engine.namespace(b"block")
-        self.app_db: StorageEngine = config.storage_engine.namespace(b"app")
+
+        if config.d3l_path:
+            self.d3l_store = DataAvailabilityStore(storage_engine=FileStorageEngine(config.d3l_path))
+        else:
+            self.d3l_store = None
+
         self.network_bootstrap: bool = False
         self.import_queue: List[Block] = []
         self.pubsub:PubSub = None
@@ -510,20 +521,22 @@ class PyjamazApp:
         )
 
         # Validate quality of guarantees extrinsic data
-        self.components.assurances.validate_guarantees(
-            extrinsic_guarantees=block.extrinsic.guarantees,
-            pre_services_state=pre_state_services,
-            intermediate_state_recent_history=recent_history_intermediate_output.intermediate_state,
-            pre_authorizer_pools=pre_state_authorizer_pools,
-            intermediate_state_assurances_after_assurances=assurances_after_assurances_output.intermediate_state_after_assurances,
-            post_state_validator_pool=validator_pool_output.post_state,
-            header=block.header,
-            pre_accumulation_history=pre_state_accumulation_history,
-            post_entropy=entropy_output.post_state,
-            post_state_timeslot=timeslot_output.post_state,
-            post_state_validator_archive=validator_archive_output.post_state,
-            post_state_disputes=disputes_output.post_state
-        )
+
+        if not SKIP_VALIDATE_GUARANTEES:
+            self.components.assurances.validate_guarantees(
+                extrinsic_guarantees=block.extrinsic.guarantees,
+                pre_services_state=pre_state_services,
+                intermediate_state_recent_history=recent_history_intermediate_output.intermediate_state,
+                pre_authorizer_pools=pre_state_authorizer_pools,
+                intermediate_state_assurances_after_assurances=assurances_after_assurances_output.intermediate_state_after_assurances,
+                post_state_validator_pool=validator_pool_output.post_state,
+                header=block.header,
+                pre_accumulation_history=pre_state_accumulation_history,
+                post_entropy=entropy_output.post_state,
+                post_state_timeslot=timeslot_output.post_state,
+                post_state_validator_archive=validator_archive_output.post_state,
+                post_state_disputes=disputes_output.post_state
+            )
 
         # Assurances After Guarantees STF Block Data | GP-0.7.2-eq:4.14
         assurances_output = self.components.assurances.state_transition_after_guarantees(
@@ -979,7 +992,7 @@ class PyjamazApp:
     async def create_state_dump(self) -> StateDump:
         return StateDump(
             state_root=self.working_state.state_root,
-            keyvals=[(k, v) for k, v in self.state_db.as_list()]
+            keyvals=[(k, v) for k, v in self.state_storage.as_list()]
         )
 
     async def store_trace(self, pre_state: StateDump, block: Block, traces_dir: str):
@@ -1037,10 +1050,6 @@ class PyjamazApp:
 
         logging.info(f"📥 Added work package to queue: {format_hash(work_package.hash())}")
 
-    def add_work_package_bundle(self, work_package_bundle: WorkPackageBundle):
-
-        self.add_work_package(work_package_bundle.work_package, work_package_bundle.extrinsic_data)
-
 
     async def process_work_package(self, work_package: WorkPackage) -> WorkReport:
         if self.get_core_assigment() is None:
@@ -1054,12 +1063,15 @@ class PyjamazApp:
 
         # Set code
         work_package.set_authorization_code(self.working_state.services)
-        work_report = work_result_computation(
-            work_package=work_package,
-            core_index=self.get_core_assigment(),
-            services_state=self.working_state.services,
-            extrinsics=extrinsics
+
+        work_report = await anyio.to_thread.run_sync(
+            self.work_result_computation,
+            work_package,
+            self.get_core_assigment(),
+            self.working_state.services,
+            extrinsics,
         )
+
         # Clean up work package extrinsics
         self.work_package_extrinsics.clear(work_package)
         DEBUG and logging.debug(f"Processed work package: {format_hash(work_package.hash())}")
@@ -1214,6 +1226,110 @@ class PyjamazApp:
             logging.error(f"Error processing work package {format_hash(wp_queue_item.work_package.hash())}: {e}")
             return None
 
+    def work_result_computation(
+        self,
+        work_package: WorkPackage,
+        core_index: int,
+        services_state: ServicesState,
+        extrinsics: List[List[bytes]]
+) -> WorkReport:
+        """
+        GP-0.7.2-eq:14.12 (function Ξ) | the work result computation function.
+
+        TODO finish
+        """
+
+        segment_root_lookup_keys = {h for w in work_package.items for (h, n) in w.import_segments}
+
+        # Collect import segments
+        import_segments = [self.d3l_store.retrieve_segments(r).segments for r in segment_root_lookup_keys]
+
+        auth_output = pvm_invoke_is_authorized(work_package, core_index)
+
+        if type(auth_output.work_exec_result.ok) is not bytes:
+            raise ProcessWorkpackageError("Unauthorized")
+
+        if len(auth_output.work_exec_result.ok) > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
+            raise ProcessWorkpackageError("Oversized auth result")
+
+        refine_outputs: List[Tuple[WorkDigest, List[bytes]]] = []
+
+        total_digest_size = len(auth_output.work_exec_result.ok)
+
+        for j in range(len(work_package.items)):
+
+            work_item = work_package.items[j]
+
+            export_segment_offset = sum([w.export_count for k, w in enumerate(work_package.items) if k < j])
+
+            refine_output = pvm_invoke_refine(
+                core_index=core_index,
+                work_item_index=j,
+                work_package=work_package,
+                authorizer_output=auth_output.work_exec_result.ok,
+                work_items_import_segments=import_segments,
+                export_segment_offset=export_segment_offset,
+                services_state=services_state,
+                extrinsics=extrinsics
+            )
+
+            if total_digest_size + len(refine_output.work_exec_result.ok or b'') > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
+                work_exec_result = WorkExecResult(digest_oversize=True)
+                export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+
+            elif len(refine_output.export_segments) != work_item.export_count:
+                work_exec_result = WorkExecResult(bad_exports=True)
+                export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+
+            elif refine_output.work_exec_result.ok is None:
+                work_exec_result = refine_output.work_exec_result
+                export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+
+            else:
+                work_exec_result = refine_output.work_exec_result
+                export_segments = refine_output.export_segments
+                total_digest_size += len(refine_output.work_exec_result.ok)
+
+            work_result = WorkDigest.from_work_item(
+                work_item=work_package.items[j],
+                result=work_exec_result,
+                gas_used=refine_output.gas_used
+            )
+
+            refine_outputs.append((work_result, export_segments))
+
+        # TODO inefficient: refactor refine_outputs to work_results and all_export_segments ?
+        all_export_segments: list[bytes] = flatten_list([o[1] for o in refine_outputs])
+
+        exports_root = ConstantDepthMerkleTree(all_export_segments).root()
+
+        # store segments
+        # self.d3l_store[exports_root] = all_export_segments
+        # Also store under work-package hash (H^+) TODO check?
+        # self.d3l_store[work_package.hash()] = all_export_segments
+
+        if self.d3l_store and len(all_export_segments) > 0:
+            d3l_item = D3LEntry(
+                segments=all_export_segments,
+                segment_root=exports_root
+            )
+            self.d3l_store.store_segments(d3l_item)
+
+
+        package_spec = WorkPackageSpec.create_from_work_package(
+            work_package, [], [], [], all_export_segments, exports_root
+        )
+
+        return WorkReport(
+            package_spec=package_spec,
+            context=work_package.context,
+            core_index=core_index,
+            authorizer_hash=work_package.authorizer_hash(),
+            auth_output=auth_output.work_exec_result.ok,
+            segment_root_lookup={}, # TODO
+            results=[o[0] for o in refine_outputs],
+            auth_gas_used=auth_output.gas_used
+        )
 
     async def process_assurances(self):
         """

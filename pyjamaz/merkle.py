@@ -1,3 +1,4 @@
+import math
 from math import ceil
 from typing import List, Tuple, Optional
 from pyjamaz.hashing import blake2b_256_hash, keccak_256_hash
@@ -149,7 +150,7 @@ class MerkleMountainRange:
 
 
 class BinaryMerkleTree:
-    def __init__(self, data: List[bytes], hash_function=keccak_256_hash):
+    def __init__(self, data: List[bytes], hash_function=blake2b_256_hash):
         self.data: List[bytes] = data
         self.hash_function = hash_function
 
@@ -175,7 +176,7 @@ class BinaryMerkleTree:
 
 
 class WellBalancedMerkleTree(BinaryMerkleTree):
-    def root(self):
+    def root(self) -> bytes:
         """
         GP-0.7.2-eq:E.3 | well-balanced merkle tree root hash
 
@@ -187,3 +188,24 @@ class WellBalancedMerkleTree(BinaryMerkleTree):
             return self.hash_function(self.data[0])
         else:
             return self.node(self.data)
+
+
+class ConstantDepthMerkleTree(BinaryMerkleTree):
+    def root(self) -> bytes:
+        """
+        GP-0.7.2-eq:E.4 | constant-depth merkle tree root hash
+
+        Returns
+        -------
+        bytes
+        """
+        data = self.constancy_preprocessor(self.data)
+        return self.node(data)
+
+    def constancy_preprocessor(self, data: List[bytes]) -> list[bytes]:
+        """
+        GP-0.7.2-eq:E.7 (function_C) | constancy preprocessor function
+        """
+        new_size = 2 ** ceil(math.log(max(1, len(data)), 2))
+
+        return [self.hash_function(b'leaf' + v) for v in data] + [b'\0' * 32] * (new_size - len(data))

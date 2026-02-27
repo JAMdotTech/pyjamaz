@@ -4,15 +4,12 @@ import unittest
 
 from os import path
 
-import numpy as np
-
 from jamcodec.base import JamBytes
 from parameterized import parameterized
 
 from pyjamaz import settings
 from pyjamaz.pvm.types import PVMCode, PVMProgram
-from pyjamaz.pvm.memory import PVMMemory
-from pyjamaz.pvm import MemorySection, PVMInterpreter
+from pyjamaz.pvm import PVMInterpreter, PVMMemory
 from pyjamaz.pvm.constants import ExitReason, MEM_W, MEM_R
 
 
@@ -33,6 +30,43 @@ def load_test_vectors(directory):
     return test_vectors
 
 
+def _build_segments(initial_page_map, initial_memory):
+    segments = []
+    for page_map in initial_page_map or []:
+        segments.append({
+            "address": page_map["address"],
+            "length": page_map["length"],
+            "acl": MEM_W if page_map["is-writable"] else MEM_R,
+            "contents": bytearray(page_map["length"]),
+        })
+
+    for mem_block in initial_memory or []:
+        addr = mem_block["address"]
+        data = bytes(mem_block["contents"])
+        if not data:
+            continue
+
+        remaining = len(data)
+        cursor = 0
+        while remaining > 0:
+            segment = next(
+                (seg for seg in segments if seg["address"] <= addr < seg["address"] + seg["length"]),
+                None
+            )
+            if segment is None:
+                raise ValueError(f"Initial memory block not covered by page map at address {addr}")
+            seg_off = addr - segment["address"]
+            chunk = min(segment["length"] - seg_off, remaining)
+            if chunk <= 0:
+                raise ValueError(f"Invalid page map for memory block at address {addr}")
+            segment["contents"][seg_off:seg_off + chunk] = data[cursor:cursor + chunk]
+            addr += chunk
+            cursor += chunk
+            remaining -= chunk
+
+    return segments
+
+
 class TestPolkaVMInstructions(unittest.TestCase):
 
     @parameterized.expand(load_test_vectors('fixtures/pvm/programs/'))
@@ -44,47 +78,24 @@ class TestPolkaVMInstructions(unittest.TestCase):
         )
         pvm_regs = test_vector["initial-regs"]
 
-        mem_rom = None
-        mem_heap = None
-        mem_pages = []
-        if test_vector["initial-page-map"]:
-            for page_map in test_vector["initial-page-map"]:
-                page = MemorySection(
-                    address=page_map["address"],
-                    #size=1_000_000_000,
-                    size=page_map["length"],
-                    acl=MEM_W if page_map["is-writable"] else MEM_R,
-                    contents=[0] * page_map["length"]
-                )
-                if page_map["address"] < 2*65536:
-                    mem_rom = page
-                else:
-                    mem_heap = page
+        segments = _build_segments(
+            test_vector.get("initial-page-map", []),
+            test_vector.get("initial-memory", []),
+        )
+        pvm_memory = PVMMemory()
+        for segment in segments:
+            pvm_memory.add_segment(
+                segment["address"],
+                segment["length"],
+                segment["acl"],
+                bytes(segment["contents"]),
+            )
 
-                """
-                 ROM:       2**16 65536  
-                 HEAP:      2*65536+len(rom) 196608
-                 STACK: 
-                 ARGUMENTS: 
-                """
-
-                mem_pages.append(page)
-
-        if len(mem_pages) > 3:
-            raise Exception("TODO: implement heap & stack for testvectors?")
-
-        pvm_memory = PVMMemory(mem_rom, mem_heap, None, None)
-
-        if test_vector["initial-memory"]:
-            for mem_block in test_vector["initial-memory"]:
-                page = pvm_memory.find_section(mem_block["address"])
-                mem = page.contents
-
-                if len(mem_block["contents"]) > len(mem):
-                    raise ValueError(f"TOO BIG TO FIT IN HERE :D")
-                offset = mem_block["address"] - page.address
-                for idx, byt in enumerate(mem_block["contents"]):
-                    mem[offset + idx] = np.uint8(byt)
+        heap_segments = [seg for seg in segments if seg["address"] >= 2 * 65536]
+        if heap_segments:
+            heap_seg = min(heap_segments, key=lambda seg: seg["address"])
+            pvm_memory.heap_base = heap_seg["address"]
+            pvm_memory.heap_ptr = heap_seg["address"] + heap_seg["length"]
 
         pvm_program = PVMProgram(pvm_code, pvm_regs, pvm_memory)
         pvm = PVMInterpreter(pvm_program, logger=settings.PVM_DEBUGGER)
@@ -108,10 +119,8 @@ class TestPolkaVMInstructions(unittest.TestCase):
         # self.assertEqual(test_vector["expected-gas"], pvm.gas, f"{name}:\n Expected gas: {test_vector['expected-gas']}, but got: {pvm.gas}")
         if test_vector["expected-memory"]:
             for expected_mem in test_vector["expected-memory"]:
-                page = pvm_memory.find_section(expected_mem["address"])
-                mem_offset = expected_mem["address"] - page.address
                 mem_len = len(expected_mem["contents"])
-                pvm_mem = list(page.contents[mem_offset:mem_offset + mem_len])
+                pvm_mem = list(pvm_memory.read_bytes(expected_mem["address"], mem_len))
                 self.assertEqual(
                     expected_mem["contents"],
                     pvm_mem,

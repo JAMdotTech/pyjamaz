@@ -1,19 +1,170 @@
 import logging
 
+from abc import ABC, abstractmethod
 from math import ceil
 from dataclasses import dataclass, field
-from typing import List, Union, Type, T, Optional
+from typing import List, Union, Type, T, Optional, Sequence
 
 from jamcodec.base import JamBytes, JamCodecType
 from jamcodec.exceptions import RemainingScaleBytesNotEmptyException
 from jamcodec.mixins import Serializable
 from jamcodec.types import VarInt64, Array, U8 as JU8, BitArray, UnsignedInteger, Bytes
 
-from pyjamaz.pvm import MemorySection
-from pyjamaz.pvm.memory import PVMMemory
-from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE, MEM_R, MEM_W
-from pyjamaz.pvm.memory_section_abstract import page_size
 from pyjamaz import settings
+
+from pyjamaz.pvm.constants import PVM_INIT_ZONE_SIZE, PVM_PAGE_SIZE, PVM_INPUT_DATA_SIZE
+from pyjamaz.pvm.exceptions import PVMMemoryError
+
+
+def page_size(bytes: int) -> int:
+    """
+    GP-0.6.2-eq:A.38 (P)
+    """
+    return PVM_PAGE_SIZE * ceil(bytes / PVM_PAGE_SIZE)
+
+
+# Shared page-based memory constants
+ADDR_MOD = 2**32
+PAGE_SIZE = PVM_PAGE_SIZE
+_PAGE_SHIFT = PAGE_SIZE.bit_length() - 1
+_PAGE_MASK = PAGE_SIZE - 1
+_ADDR_MASK = ADDR_MOD - 1
+_MAX_PAGE_IDX = (ADDR_MOD // PAGE_SIZE) - 1
+_PAGE_CACHE_LIMIT = 16
+_ZERO_PAGE = bytes(PAGE_SIZE)
+
+
+@dataclass
+class AbstractMemorySection(ABC):
+    address: int
+    size: int
+    paged_tail: int
+    contents: bytearray
+    acl: int
+
+    def __init__(self, address, size, contents, acl=None):
+        if not contents:
+            contents = []
+
+        if size > settings.PVM_MAX_HEAP_SIZE:
+            raise PVMMemoryError(f"Memory size too large: {size} > {settings.PVM_MAX_HEAP_SIZE}")
+
+        self.acl: int = acl
+        self.address: int = address
+        self.size: int = page_size(size)
+
+        self.alloc_contents(contents)
+
+        paged_size = page_size(len(contents))
+        self.paged_tail = address + paged_size
+
+        self.alloc_acl(acl, paged_size)
+
+    def read_int(self, section_addr: int, length: int) -> int:
+        if section_addr + length > self.size:
+            msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
+            logging.error(msg)
+            raise PVMMemoryError(msg)
+
+        return self.read_uint(self.contents, section_addr, length)
+
+    def write_int(self, section_addr: int, value: int, length: int):
+        if section_addr + length > self.size:
+            msg = f"MemorySection {self.address + section_addr} overflow: {length} (tail: {self.paged_tail} - size: {self.size})"
+            logging.error(msg)
+            raise PVMMemoryError(msg)
+
+        return self.write_uint(self.contents, section_addr, length, value)
+
+    @abstractmethod
+    def alloc_contents(self, _bytes): ...
+
+    @abstractmethod
+    def alloc_acl(self, acl_mode: int, page_size: int): ...
+
+    @abstractmethod
+    def set_content(self, content: bytes, start: int, end: int) -> int: ...
+
+    @abstractmethod
+    def read_uint(self, section: bytearray, addr: int, length: int) -> int: ...
+
+    @abstractmethod
+    def write_uint(section: bytearray, section_offset: int, bytes_to_write: int, value: int): ...
+
+    @abstractmethod
+    def acl_check(self, start_page: int, nr_pages: int, required_acl: int) -> bool: ...
+
+    @abstractmethod
+    def acl_set_pages(self, start_page: int, nr_pages: int, required_acl: int): ...
+
+    @abstractmethod
+    def acl_check_pages(self, section_addr: int, length: int, required_acl: int) -> int:
+        """
+        Checks if pages pass the ACL check, if not, return first failing page.
+
+        Returns:
+            Page number of the first failing page, or -1 if all pages pass.
+        """
+        ...
+
+
+class AbstractMemory(ABC):
+    SIZE: int = 2**32
+    _mem_addr: int
+    heap_base: Optional[int]
+    stack_base: Optional[int]
+    heap_ptr: int
+
+    @abstractmethod
+    def __init__(
+        self,
+        rom: Optional[AbstractMemorySection] = None,
+        heap: Optional[AbstractMemorySection] = None,
+        stack: Optional[AbstractMemorySection] = None,
+        arguments: Optional[AbstractMemorySection] = None,
+        logger=None,
+    ):
+        ...
+
+    @staticmethod
+    def zone_size(items: int) -> int:
+        """
+        GP-0.6.2-eq:A.38 (Z)
+        """
+        return PVM_INIT_ZONE_SIZE * ceil(items / PVM_INIT_ZONE_SIZE)
+
+    @abstractmethod
+    def add_segment(self, address: int, size: int, acl: int, contents: bytes = b"") -> None: ...
+
+    @abstractmethod
+    def load_section(self, section: AbstractMemorySection) -> None: ...
+
+    @abstractmethod
+    def read_bytes(self, address: int, length: int, padding: int = None) -> bytes: ...
+
+    @abstractmethod
+    def write_bytes(self, address: int, content: Union[bytes, Sequence[int]]) -> None: ...
+
+    @abstractmethod
+    def read_int(self, addr: int, length: int) -> int: ...
+
+    @abstractmethod
+    def write_int(self, addr: int, value: int, length: int): ...
+
+    @abstractmethod
+    def is_accessible(self, address: int, length: int, mode: int) -> bool: ...
+
+    @abstractmethod
+    def zero(self, page_idx: int, nr_pages: int, acl: int): ...
+
+    @abstractmethod
+    def void(self, page_idx: int, nr_pages: int, acl: int): ...
+
+    @abstractmethod
+    def change_acl(self, page_idx: int, nr_pages: int, acl: int): ...
+
+    @abstractmethod
+    def is_null(self, page_idx: int, nr_pages: int) -> bool: ...
 
 
 @dataclass
@@ -77,7 +228,7 @@ class PVMProgram(Serializable):
     # ω
     registers: List[int]
     # µ
-    memory: PVMMemory
+    memory: AbstractMemory
 
     name: str = ''
 
@@ -92,39 +243,36 @@ class PVMProgram(Serializable):
             argument_contents: bytes,
             heap_mem_pages: int,
             stack_mem_size: int
-    ) -> PVMMemory:
+    ) -> "AbstractMemory":
+        # Note: Import lazily to avoid module initialization cycles.
+        from pyjamaz.pvm import PVMInterpreter, PVMMemory
 
-        _rom = MemorySection(
-            address=PVM_INIT_ZONE_SIZE,
-            size=page_size(len(rom_contents)),
-            contents=rom_contents,
-            acl=MEM_R
-        )
+        rom_start = PVM_INIT_ZONE_SIZE
+        rom_size = page_size(len(rom_contents))
 
         # If PVM_MIN_HEAP_SIZE is set, we preallocate at least that size to (hopefully) prevent lots of memory allocations...
         heap_mem_size = max(page_size(settings.PVM_MIN_HEAP_SIZE), page_size(len(heap_contents)) + heap_mem_pages * PVM_PAGE_SIZE)
-        _heap = MemorySection(
-            address=(2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents)),
-            size=heap_mem_size,
-            contents=heap_contents,
-            acl=MEM_W
-        )
+        heap_start = (2 * PVM_INIT_ZONE_SIZE) + PVMMemory.zone_size(len(rom_contents))
 
-        _stack = MemorySection(
-            address=2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - page_size(stack_mem_size),
-            size=page_size(stack_mem_size),
-            contents=bytes(page_size(stack_mem_size)),    #TODO: hoeft niet dubbel hier
-            acl=MEM_W
-        )
+        stack_size = page_size(stack_mem_size)
+        stack_start = 2 ** 32 - (2 * PVM_INIT_ZONE_SIZE) - PVM_INPUT_DATA_SIZE - stack_size
 
-        _arguments = MemorySection(
-            address=2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE,
-            size=page_size(len(argument_contents)),
-            contents=argument_contents,
-            acl=MEM_R
-        )
+        args_start = 2 ** 32 - PVM_INIT_ZONE_SIZE - PVM_INPUT_DATA_SIZE
+        args_size = page_size(len(argument_contents))
 
-        return PVMMemory(rom=_rom, heap=_heap, stack=_stack, arguments=_arguments)
+        return PVMInterpreter.alloc_memory(
+            rom_start=rom_start,
+            rom_size=rom_size,
+            rom_contents=rom_contents,
+            heap_start=heap_start,
+            heap_size=heap_mem_size,
+            heap_contents=heap_contents,
+            stack_start=stack_start,
+            stack_size=stack_size,
+            argument_start=args_start,
+            argument_size=args_size,
+            argument_contents=argument_contents,
+        )
 
     @staticmethod
     def init_registers(arguments: bytes) -> List[int]:
@@ -144,6 +292,7 @@ class PVMProgram(Serializable):
         """
         GP-0.7.2-eq:A.37 (function_Y)
         """
+        from pyjamaz.pvm import PVMMemory
 
         # GP-0.7.2-eq:A.41
         if len(argument_contents) > PVM_INPUT_DATA_SIZE:

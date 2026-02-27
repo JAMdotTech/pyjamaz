@@ -2,7 +2,7 @@ import json
 import unittest
 from os import path
 
-from pyjamaz.merkle import PatriciaMerkleTrie
+from pyjamaz.merkle import PatriciaMerkleTrie, ConstantDepthMerkleTree
 
 
 class TestMerkleTrie(unittest.TestCase):
@@ -18,6 +18,12 @@ class TestMerkleTrie(unittest.TestCase):
         #     output = PatriciaMerkleTrie(data_tree).root()
         #     self.assertEqual(item['output'], output.hex())
 
+
+    def test_constant_depth_tree(self):
+        data = [b'a', b'b', b'c',b'd', b'e']
+        tree = ConstantDepthMerkleTree(data)
+
+        self.assertEqual(tree.root().hex(), 'f0d68d620e98df5a75169db88d70c155aba4a9f5b9585933cbbb9e259aeaa642')
 
 if __name__ == '__main__':
     unittest.main()

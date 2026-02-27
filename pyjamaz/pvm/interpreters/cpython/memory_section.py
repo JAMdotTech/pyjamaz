@@ -4,7 +4,7 @@ import numpy as np
 import numpy.typing as npt
 
 from pyjamaz.pvm.exceptions import PVMMemoryError
-from pyjamaz.pvm.memory_section_abstract import AbstractMemorySection
+from pyjamaz.pvm.types import AbstractMemorySection
 
 from pyjamaz.pvm.constants import PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W, MEM_RW
 
@@ -155,3 +155,25 @@ class MemorySection(AbstractMemorySection):
 
     def acl_set_pages(self, start_page: int, nr_pages: int, acl_level: int):
         set_range_acl(self.acl_bitmap, start_page, nr_pages, acl_level)
+
+
+    def acl_check_pages(self, section_addr: int, length: int, required_acl: int) -> int:
+        # checks if pages pass the ACL check
+        if length <= 0:
+            return -1
+
+        last_offset = section_addr + length - 1
+        start_page = section_addr // PVM_PAGE_SIZE
+        end_page = last_offset // PVM_PAGE_SIZE
+
+        required_bits = acl_bits(required_acl)
+
+        for page in range(start_page, end_page + 1):
+            bitmap_idx = acl_bitmap_idx(page)
+            bitmap = int(self.acl_bitmap[bitmap_idx]) if bitmap_idx < len(self.acl_bitmap) else 0
+            shift = acl_page_idx(page)
+            bits = (bitmap >> shift) & 0b11
+            if (bits & required_bits) != required_bits:
+                return page
+
+        return -1
