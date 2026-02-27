@@ -340,7 +340,8 @@ def hc_pages(
             logger and logger.hc_log("PAGES PANIC", "huhhhhh???")
             invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
 
-gas_hack = True
+# TODO remove when gas_limit issue is resolved
+gas_hack = False
 
 @hostcall(10)
 def hc_invoke(
@@ -369,7 +370,7 @@ def hc_invoke(
         jam_bytes = JamBytes(memory.read_bytes(o, 112))
         gas = U64.decode(jam_bytes)
 
-        # TODO removeme
+        # TODO remove when gas_limit issue is resolved
         global gas_hack
         if gas_hack:
             gas -= 3
