@@ -580,6 +580,7 @@ class PVMInterpreter:
 
 
     def next_instruction(self):
+        # GP-0.7.2-eq:A.35 (hostcall mutator returns continue/resume)
         inst_index = self.inst_pos[self.pc]
         self.skip_len = self.mv_inst_arg_len[inst_index] + 1
         self.pc = u32(self.pc + self.skip_len)

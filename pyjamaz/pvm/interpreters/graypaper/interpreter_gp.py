@@ -287,6 +287,7 @@ class PVMInterpreter:
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
     def next_instruction(self):
+        # GP-0.7.2-eq:A.35 (hostcall mutator returns continue/resume)
         inst_index = self.inst_pos[int(self.pc)]
         self.skip_len = self.inst_arg_len[inst_index] + 1
         self.pc = int(u32(int(self.pc) + int(self.skip_len)))
