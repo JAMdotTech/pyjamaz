@@ -4,7 +4,6 @@ from typing import List, Dict
 import math
 import numpy as np
 import numpy.typing as npt
-from numpy import copy
 
 from pyjamaz.pvm.exceptions import InvalidOpcode, PVMMemoryError, PanicError
 from pyjamaz.pvm.types import page_size
@@ -289,8 +288,9 @@ class PVMInterpreter:
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
     def next_instruction(self):
-        inst_index = self.inst_pos[self.pc]
+        inst_index = self.inst_pos[int(self.pc)]
         self.skip_len = self.inst_arg_len[inst_index] + 1
+        self.pc = int(u32(int(self.pc) + int(self.skip_len)))
 
     def invoke(
         self,
@@ -298,8 +298,9 @@ class PVMInterpreter:
         gas: int,
         log=False,
     ):
-        self.pc = np.uint32(pc)
+        self.pc = int(pc)
         self.gas = np.int64(gas)
+        self.status = ExitReason.resume.value
 
         if self.log:
             self.log.pvm_counters()
@@ -307,31 +308,34 @@ class PVMInterpreter:
 
         # GP-0.7.2-eq:A.6 | Single-Step State Transition
         while self.status == ExitReason.resume.value:
-
-            if self.gas <= 0:
-                self.status = ExitReason.out_of_gas.value
-                self.exit_value = None
-                break
-
             self.prev_reg[:] = self.reg
+            pc_int = int(self.pc)
 
             # if log:
             #     with open("pvm_log.txt", "a") as f:
             #         f.write(f'{self.pc} {self.gas} {[int(r) for r in self.reg]}\n')
 
-            self.gas -= 1
-            self.pc = int(self.pc) + self.skip_len
-            self.inst_nr += 1
-
-            if self.pc >= self.code_size:
+            if pc_int >= int(self.code_size):
                 self.status = ExitReason.panic.value
                 self.exit_value = None
                 break
 
-            inst_index = self.inst_pos[self.pc]
-            self.opcode = opcode = self.code[self.pc]
+            try:
+                inst_index = self.inst_pos[pc_int]
+            except KeyError:
+                self.status = ExitReason.panic.value
+                self.exit_value = None
+                break
+
+            self.opcode = opcode = self.code[pc_int]
             inst_type = OpcodeScheme[opcode]
             self.skip_len = self.inst_arg_len[inst_index] + 1
+            self.gas -= 1
+            if self.gas < 0:
+                self.status = ExitReason.out_of_gas.value
+                self.exit_value = None
+                break
+            self.inst_nr += 1
 
             try:
                 match inst_type:
@@ -1136,14 +1140,19 @@ class PVMInterpreter:
 
             except PVMMemoryError:
                 #self.log and self.log.exc(traceback.format_exc())
-                self.status = ExitReason.page_fault.value
-                # Note: Align the fault address to page boundary: (address / pageSize) * pageSize
-                #self.exit_value = (self.mem._mem_addr // PVM_PAGE_SIZE) * PVM_PAGE_SIZE
                 fault_addr = self.mem._mem_addr
                 if fault_addr is not None and fault_addr >= 0:
-                    fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
-                self.exit_value = fault_addr
-                self.skip_len = 0  # Note: we shouldnt skip on resume and reexecute the faulting instruction
+                    # Note: normally handled by PVMMemory, safety check:
+                    # GP-0.7.2:A.8 memory accesses to < 2^16 should panic immediately
+                    if 0 <= fault_addr < 2**16:
+                        self.status = ExitReason.panic.value
+                        self.exit_value = None
+                    else:
+                        self.status = ExitReason.page_fault.value
+                        self.exit_value = fault_addr - (fault_addr % PVM_PAGE_SIZE)
+                else:
+                    self.status = ExitReason.page_fault.value
+                    self.exit_value = fault_addr
                 break
 
             except PanicError as panic_error:
@@ -1151,6 +1160,11 @@ class PVMInterpreter:
                 self.status = ExitReason.panic.value
                 break
 
-            except:
+            except Exception:
                 self.log and self.log.exc(traceback.format_exc())
-                raise
+                self.status = ExitReason.panic.value
+                self.exit_value = None
+                break
+
+            if self.status == ExitReason.resume.value:
+                self.pc = int(u32(int(self.pc) + int(self.skip_len)))
