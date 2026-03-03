@@ -2,7 +2,7 @@
 GP-0.7.2-section:A.3 - Basic Blocks and Termination Instructions
 """
 import bisect
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 
 from pyjamaz.pvm.constants import TERMINATION_OPCODES, Opcode as op
 
@@ -78,7 +78,6 @@ def detect_basic_blocks(
     A basic block starts at:
     - PC 0 (always)
     - Fallthrough position after any termination instruction
-    - Target of any branch/jump instruction
     """
     # GP-0.7.2-section:A.5 - ϖ (beginning of basic-blocks)
     basic_block_starts = {0}
@@ -99,37 +98,6 @@ def detect_basic_blocks(
                 # Include synthetic trap only for 'fallthrough' opcode
                 if fallthrough < code_length or opcode == op.fallthrough.value:
                     basic_block_starts.add(fallthrough)
-
-            # Add branch/jump targets
-            if opcode == op.jump.value:
-                target = calculate_jump_target(code, inst_arg_len, pc, inst_index)
-                if target in inst_pos:
-                    basic_block_starts.add(target)
-
-            elif opcode in {
-                op.branch_eq.value, op.branch_ne.value,
-                op.branch_lt_u.value, op.branch_lt_s.value,
-                op.branch_ge_u.value, op.branch_ge_s.value,
-            }:
-                target = calculate_branch_reg_target(code, inst_arg_len, pc, inst_index)
-                if target in inst_pos:
-                    basic_block_starts.add(target)
-
-            elif opcode == op.load_imm_jump.value:
-                target = calculate_branch_imm_target(code, inst_arg_len, pc, inst_index)
-                if target in inst_pos:
-                    basic_block_starts.add(target)
-
-            elif opcode in {
-                op.branch_eq_imm.value, op.branch_ne_imm.value,
-                op.branch_lt_u_imm.value, op.branch_ge_u_imm.value,
-                op.branch_le_u_imm.value, op.branch_gt_u_imm.value,
-                op.branch_lt_s_imm.value, op.branch_ge_s_imm.value,
-                op.branch_le_s_imm.value, op.branch_gt_s_imm.value,
-            }:
-                target = calculate_branch_imm_target(code, inst_arg_len, pc, inst_index)
-                if target in inst_pos:
-                    basic_block_starts.add(target)
 
     # Make sure to be within code bounds (including synthetic trap position)
     basic_block_starts = {pc for pc in basic_block_starts if 0 <= pc <= code_length}

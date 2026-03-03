@@ -49,7 +49,7 @@ class PVMInterpreter:
         'mem_inaccesible', 'mem_readable', 'mem_writable', 'mv_code',
         'mv_sections', 'log', 'opcodes', 'program',
 
-        'gas_model', 'basic_block_gas', 'basic_block_starts_sorted', 'current_block_start',
+        'gas_model', 'basic_block_gas', 'basic_block_starts_set', 'basic_block_starts_sorted', 'current_block_start',
     )
 
     @staticmethod
@@ -97,6 +97,7 @@ class PVMInterpreter:
 
         # Gas model attributes
         self.basic_block_gas = {}
+        self.basic_block_starts_set = set()
         self.basic_block_starts_sorted = []
         self.current_block_start = None
         self.gas_model = None
@@ -206,10 +207,10 @@ class PVMInterpreter:
         #GP-0.7.2-eq:A.17
         """
         if C:
-            inst_pos = self.pc + b
-            if inst_pos not in self.inst_pos:
+            target_pc = self.pc + b
+            if target_pc not in self.basic_block_starts_set:
                 #self.status = ExitCondition.panic.value
-                raise PanicError(f"Invalid branch instruction: C={C} b={b} inst_pos={inst_pos}")
+                raise PanicError(f"Invalid branch instruction: C={C} b={b} target_pc={target_pc}")
             else:
                 self.skip_len = b
 
@@ -243,6 +244,7 @@ class PVMInterpreter:
         self.create_instruction_lookup()
 
         # GP-0.7.2:A.4 - Update inst_pos for synthetic trap position
+        self.mv_inst_arg_len = None
         # Note: must append before recreating memoryview
         self.inst_pos[self.code_length] = len(self.inst_arg_len)
         self.inst_arg_len.append(0)
@@ -277,6 +279,7 @@ class PVMInterpreter:
             inst_arg_len=self.inst_arg_len,
         )
 
+        self.basic_block_starts_set = set(basic_block_starts)
         # Store sorted block starts for O(log n) lookup via binary search
         self.basic_block_starts_sorted = sorted(basic_block_starts)
 
@@ -542,13 +545,18 @@ class PVMInterpreter:
         if a == 2 ** 32 - 2 ** 16:
             self.status = ExitReason.halt.value
             return 0
-        elif (a == 0 or
-              a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
-              a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0 or
-              self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] not in self.inst_pos):
+        if a == 0 or a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0:
             raise PanicError(f"Invalid djump operation: a={a}")
-        else:
-            return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
+
+        jump_table_index = a // PVM_DYNAMIC_ALIGNMENT_FACTOR - 1
+        if jump_table_index < 0 or jump_table_index >= len(self.jump_table):
+            raise PanicError(f"Invalid djump operation: a={a}")
+
+        destination = self.jump_table[jump_table_index]
+        if destination not in self.basic_block_starts_set:
+            raise PanicError(f"Invalid djump operation: a={a} destination={destination}")
+
+        return destination - self.pc
 
 
     def get_exit_condition(self) -> ExitCondition:
