@@ -2086,13 +2086,11 @@ class PVMInterpreter:
         heap_grew_out = np.array([0], dtype=np.int64)
 
         # Call the Numba compiled invoke function
-        prev_skip = 0
-
         error_code = invoke_native(
             np.uint32(self.pc),
             np.int64(self.gas),
             np.uint32(self.inst_nr),
-            np.uint32(prev_skip),
+            np.uint32(0),
 
             self.code,
             np.uint32(self.code_size),
@@ -2152,6 +2150,7 @@ class PVMInterpreter:
             else:
                 self.status = ExitReason.page_fault.value
                 if fault_addr is not None and fault_addr >= 0:
+                    # GP-0.7.2-eq:A.7 (lowest inaccessible page address to be read)
                     fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
                 self.exit_value = fault_addr
         elif error_code != ERROR_NONE:

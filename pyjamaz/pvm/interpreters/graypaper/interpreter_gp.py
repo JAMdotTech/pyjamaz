@@ -308,25 +308,21 @@ class PVMInterpreter:
 
         # GP-0.7.2-eq:A.6 | Single-Step State Transition
         while self.status == ExitReason.resume.value:
-            pc_int = int(self.pc)
+            pc_local = int(self.pc)
 
-            # if log:
-            #     with open("pvm_log.txt", "a") as f:
-            #         f.write(f'{self.pc} {self.gas} {[int(r) for r in self.reg]}\n')
-
-            if pc_int >= int(self.code_size):
+            if pc_local >= int(self.code_size):
                 self.status = ExitReason.panic.value
                 self.exit_value = None
                 break
 
             try:
-                inst_index = self.inst_pos[pc_int]
+                inst_index = self.inst_pos[pc_local]
             except KeyError:
                 self.status = ExitReason.panic.value
                 self.exit_value = None
                 break
 
-            self.opcode = opcode = self.code[pc_int]
+            self.opcode = opcode = self.code[pc_local]
             inst_type = OpcodeScheme[opcode]
             self.skip_len = self.inst_arg_len[inst_index] + 1
             self.gas -= 1

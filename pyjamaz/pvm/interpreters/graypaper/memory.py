@@ -149,6 +149,7 @@ class PVMMemory(AbstractMemory):
 
 
     def _page_fault(self, page_idx: int, addr: int, access: str) -> None:
+        # GP-0.7.2-eq:A.7 (lowest inaccessible page address to be read)
         self._mem_addr = page_idx * PAGE_SIZE
         raise PVMMemoryError(f"Memory address {addr} ACL {access} check failed")
 
