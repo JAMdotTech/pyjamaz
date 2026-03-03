@@ -458,30 +458,26 @@ def invoke_native(
         #         t0 = _pytime.perf_counter()
         #     start_time = t0
 
-        if gas <= 0:
-            return sync_state_and_return(reg, registers_out, state_out, OUT_OF_GAS, pc, gas, inst_nr, 0, skip_len, ERROR_NONE)
-
-        gas -= 1
-        next_pc = U32(pc + skip_len)
-        pc = next_pc
-        inst_nr += 1
-
-        if next_pc >= code_size:
+        if pc >= code_size:
             return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, 0, skip_len, ERROR_PANIC_TRAP)
 
         inst_index = -1
-        npi = int(next_pc)
+        npi = int(pc)
         if npi >= 0 and npi < len(pc_to_inst_index):
             inst_index = pc_to_inst_index[npi]
 
         if inst_index < 0:
             return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
-
         # Fetch opcode and decode
         opcode = code[pc]
         inst_type = opcode_scheme[opcode]
         skip_len = inst_arg_len[inst_index] + 1
+        gas -= 1
+        if gas < 0:
+            return sync_state_and_return(reg, registers_out, state_out, OUT_OF_GAS, pc, gas, inst_nr, 0, skip_len, ERROR_NONE)
+        inst_nr += 1
+
         if logging:
             local_state[0] = inst_nr
             local_state[1] = opcode
@@ -1540,6 +1536,8 @@ def invoke_native(
             else:
                 return sync_state_and_return(reg, registers_out, state_out, EXIT_PANIC, pc, gas, inst_nr, exit_value, skip_len, ERROR_PANIC_TRAP)
 
+        pc = U32(pc + skip_len)
+
     # Finally, copy local state to state output
     return sync_state_and_return(reg, registers_out, state_out, status, pc, gas, inst_nr, exit_value, skip_len, ERROR_NONE)
 
@@ -2059,8 +2057,9 @@ class PVMInterpreter:
 
 
     def next_instruction(self):
-        inst_index = self.inst_pos[self.pc]
-        return self.inst_arg_len[inst_index] + 1
+        inst_index = self.inst_pos[int(self.pc)]
+        self.skip_len = self.inst_arg_len[inst_index] + 1
+        self.pc = np.uint32((int(self.pc) + int(self.skip_len)) & U32_MASK)
 
 
     def get_registers(self):
@@ -2074,6 +2073,7 @@ class PVMInterpreter:
         """
         self.pc = pc
         self.gas = gas
+        self.status = ExitReason.resume.value
 
         # Note: re-link memory to pick up any sections added via map_section() after init
         self._link_memory(self.mem)
@@ -2093,7 +2093,8 @@ class PVMInterpreter:
         heap_grew_out = np.array([0], dtype=np.int64)
 
         # Call the Numba compiled invoke function
-        prev_skip = int(self.skip_len) & U32_MASK
+        # invoke_native decodes current instruction at pc first; no pre-step skip carry needed.
+        prev_skip = 0
 
         error_code = invoke_native(
             np.uint32(self.pc),
@@ -2137,17 +2138,7 @@ class PVMInterpreter:
         skip_len = int(state_out[STATE_SKIP_LEN])
         self.gas = int(state_out[STATE_GAS])
         self.inst_nr = np.uint32(state_out[STATE_INST_NR])
-        # Advance PC only when there were no errors
-        if error_code == ERROR_NONE:
-            # Note: do not advance PC in case of a host-halt
-            if self.status == ExitReason.host_halt.value:
-                self.pc = pc_out_val
-            else:
-                pc_int = int(pc_out_val)
-                new_pc = (pc_int + skip_len) & U32_MASK
-                self.pc = np.uint32(new_pc)
-        else:
-            self.pc = pc_out_val
+        self.pc = pc_out_val
         self.skip_len = skip_len
 
         # Handle errors
@@ -2163,11 +2154,15 @@ class PVMInterpreter:
             # No fallback - treat as panic
             self.status = ExitReason.panic.value
         elif error_code == ERROR_MEMORY_FAULT:
-            self.status = ExitReason.page_fault.value
             fault_addr = self.exit_value
-            if fault_addr is not None and fault_addr >= 0:
-                fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
-            self.exit_value = fault_addr
+            if fault_addr is not None and 0 <= fault_addr < 2 ** 16:
+                self.status = ExitReason.panic.value
+                self.exit_value = None
+            else:
+                self.status = ExitReason.page_fault.value
+                if fault_addr is not None and fault_addr >= 0:
+                    fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
+                self.exit_value = fault_addr
         elif error_code != ERROR_NONE:
             # Other errors cause panic
             self.status = ExitReason.panic.value
