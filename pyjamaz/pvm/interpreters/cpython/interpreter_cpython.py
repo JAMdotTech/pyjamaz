@@ -39,7 +39,7 @@ from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 class PVMInterpreter:
     __slots__ = (
-        'name', 'reg', 'prev_reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
+        'name', 'reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
         'code', 'code_size',  'code_length', 'jump_table', 'inst_bitmask', 'inst_pos',
         'inst_arg_len', 'mv_inst_arg_len', 'mem', 'status', 'exit_value',
         'mem_ops_bytes', 'mem_sections', 'mem_section_access', 'mem_section_acl',
@@ -84,7 +84,6 @@ class PVMInterpreter:
         self.name = program.name
         self.program = program
         self.reg = [u64(0)] * 13
-        self.prev_reg = [u64(0)] * 13
         self.inst_nr = u32(0)
         self.pc = u32(0)
         self.opcode:int = 0
@@ -620,8 +619,6 @@ class PVMInterpreter:
             log_exc = log.exc
 
         while status == exit_resume:
-            self.prev_reg[:] = self.reg
-
             if pc_local >= code_size:
                 status = exit_panic
                 self.exit_value = None

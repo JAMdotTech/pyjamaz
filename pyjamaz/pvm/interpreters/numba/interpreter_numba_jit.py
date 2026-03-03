@@ -389,7 +389,6 @@ def log(opcode_names, local_state, regs, mem, mem_starts, mem_ends):
     boolean,         # logging_enabled
     types.ListType(types.unicode_type),  # opcode_names list
 
-    uint64[::1],     # prev_registers_out
     uint64[::1],     # registers_out
     int64[::1],      # state_out
     int64[::1],      # heap_grew_out
@@ -420,7 +419,6 @@ def invoke_native(
         logging,
         opcode_names,
 
-        prev_registers_out,
         registers_out,
         state_out,
         heap_grew_out
@@ -440,7 +438,6 @@ def invoke_native(
 
     # Copy registers
     reg = registers_in.copy()
-    prev_registers_out[:] = reg
 
     timing_enabled = False
     start_time = 0.0    # Note: only used when timing_enabled == True to measure time per opcode
@@ -450,8 +447,6 @@ def invoke_native(
         local_state = np.empty(5, dtype=np.int64)
 
     while status == EXIT_RESUME:
-        prev_registers_out[:] = reg
-
         # Note: enable when we want to run perf checks
         # if logging and timing_enabled:
         #     with objmode(t0='float64'):
@@ -1573,7 +1568,6 @@ class PVMInterpreter:
 
         self.name = program.name
         self.reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
-        self.prev_reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
         self.inst_nr:U32 = U32(0)
         self.pc:U32 = U32(0)
         self.opcode:int = 0
@@ -1624,7 +1618,6 @@ class PVMInterpreter:
 
         for idx, val in enumerate(program.registers):
             self.reg[idx] = U64(val)
-        self.prev_reg[:] = self.reg
 
         self.status = ExitReason.resume.value
 
@@ -2087,7 +2080,6 @@ class PVMInterpreter:
         mem_section_starts, mem_section_ends, section_arrays, section_access, acl_bitmaps = self._prepare_memory_for_jit()
 
         registers_out = np.zeros(13, dtype=np.uint64)
-        prev_registers_out = np.zeros(13, dtype=np.uint64)
         # state_out holds: [status, pc, gas, inst_nr, exit_value, skip_len, error_code]
         state_out = np.array([0, 0, 0, 0, 0, 0, 0], dtype=np.int64)
         heap_grew_out = np.array([0], dtype=np.int64)
@@ -2122,14 +2114,12 @@ class PVMInterpreter:
             self.opcode_names,
 
             # Outputs
-            prev_registers_out,
             registers_out,
             state_out,
             heap_grew_out
         )
 
         # Update state from outputs
-        self.prev_reg[:] = prev_registers_out
         self.reg[:] = registers_out
         self.status = int(state_out[STATE_STATUS])
         pc_out_val = np.uint32(state_out[STATE_PC])

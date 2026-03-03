@@ -72,7 +72,6 @@ class PVMInterpreter:
     def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
-        self.prev_reg: npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
@@ -308,7 +307,6 @@ class PVMInterpreter:
 
         # GP-0.7.2-eq:A.6 | Single-Step State Transition
         while self.status == ExitReason.resume.value:
-            self.prev_reg[:] = self.reg
             pc_int = int(self.pc)
 
             # if log:
