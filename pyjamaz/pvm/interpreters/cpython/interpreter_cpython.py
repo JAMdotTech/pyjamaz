@@ -195,7 +195,7 @@ class PVMInterpreter:
             # GP-0.7.2-eq:A.20 (l)
             self.inst_arg_len.append(inst_args)
             inst_nr += 1
-            # Only add to inst_pos if this position has an opcode in the bitmask
+            # Note: we double check and only add to inst_pos if this position has an opcode in the bitmask
             if inst_bitmask_idx - 1 < len(inst_bitmask) and inst_bitmask[inst_bitmask_idx - 1]:
                 self.inst_pos[inst_bitmask_idx - 1] = inst_nr
 
