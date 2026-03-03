@@ -583,6 +583,7 @@ class PVMInterpreter:
     def next_instruction(self):
         inst_index = self.inst_pos[self.pc]
         self.skip_len = self.mv_inst_arg_len[inst_index] + 1
+        self.pc = u32(self.pc + self.skip_len)
 
 
     def invoke(
@@ -590,16 +591,10 @@ class PVMInterpreter:
         pc: int,
         gas: int
     ):
-        self.pc = pc
-        self.gas = gas
+        self.pc = u32(pc)
+        self.gas = i64(gas)
 
-        # # Note:
-        # # Reset per-run execution state so invoking multiple times continues execution
-        # # from the provided pc/gas rather than a prior exit status.
-        # if self.status == ExitReason.page_fault.value:
-        #     # Re-execute the faulting instruction after the caller adjusted memory.
-        #     self.skip_len = 0
-        # self.status = ExitReason.resume.value
+        self.status = ExitReason.resume.value
 
         # Note: we cache attribute lookups and globals to locals for the pvm hot loop
         log = self.log
@@ -613,11 +608,11 @@ class PVMInterpreter:
         exit_panic = ExitReason.panic.value
         exit_page_fault = ExitReason.page_fault.value
         log_exc = None
-        pc_local = pc
-        gas_local = gas
+        pc_local = int(self.pc)
+        gas_local = int(self.gas)
         status = self.status
         skip_len = self.skip_len
-        inst_nr = self.inst_nr
+        inst_nr = int(self.inst_nr)
 
         if log:
             log.pvm_counters()
@@ -625,21 +620,7 @@ class PVMInterpreter:
             log_exc = log.exc
 
         while status == exit_resume:
-
-            prev_gas = gas_local
-            prev_pc = pc_local
             self.prev_reg[:] = self.reg
-            prev_skip_len = skip_len
-            prev_inst_nr = inst_nr
-
-            if gas_local <= 0:
-                status = exit_oom
-                self.exit_value = None
-                break
-
-            gas_local -= 1
-            pc_local += skip_len
-            inst_nr += 1
 
             if pc_local >= code_size:
                 status = exit_panic
@@ -655,6 +636,12 @@ class PVMInterpreter:
 
             opcode = code[pc_local]
             skip_len = mv_inst_arg_len[inst_index] + 1
+            gas_local -= 1
+            if gas_local < 0:
+                status = exit_oom
+                self.exit_value = None
+                break
+            inst_nr += 1
 
             self.opcode = opcode
             self.skip_len = skip_len
@@ -667,39 +654,42 @@ class PVMInterpreter:
                 op_funcs[opcode](self)
             except PVMMemoryError:
                 #log_exc and log_exc(traceback.format_exc())
-                status = exit_page_fault
                 fault_addr = self._mem_addr
                 if fault_addr is not None and fault_addr >= 0:
-                    fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
-                self.exit_value = fault_addr
-                prev_skip_len = 0  # Note: we shouldnt skip on resume and reexecute the faulting instruction
+                    # Note: extra safety check, should normally be handled by PVMMmemory
+                    # GP-0.7.2:A.8 - memory accesses to < 2^16 panic immediately.
+                    if 0 <= fault_addr < 2 ** 16:
+                        status = exit_panic
+                        self.exit_value = None
+                    else:
+                        status = exit_page_fault
+                        self.exit_value = fault_addr - (fault_addr % PVM_PAGE_SIZE)
+                else:
+                    status = exit_page_fault
+                    self.exit_value = fault_addr
 
                 gas_local = self.gas
                 pc_local = self.pc
-                skip_len = self.skip_len
                 inst_nr = self.inst_nr
-
-                # gas_local = prev_gas
-                # pc_local = prev_pc
-                # skip_len = prev_skip_len
-                # inst_nr = prev_inst_nr
-                # self.reg = self.prev_reg
+                skip_len = self.skip_len
                 break
 
             except PanicError:
                 log_exc and log_exc(traceback.format_exc())
                 status = exit_panic
-
                 gas_local = self.gas
                 pc_local = self.pc
                 skip_len = self.skip_len
                 inst_nr = self.inst_nr
-
-                # gas_local = prev_gas
-                # pc_local = prev_pc
-                # skip_len = prev_skip_len
-                # inst_nr = prev_inst_nr
-                # self.reg = self.prev_reg
+                break
+            except Exception:
+                log_exc and log_exc(traceback.format_exc())
+                status = exit_panic
+                self.exit_value = None
+                gas_local = self.gas
+                pc_local = self.pc
+                skip_len = self.skip_len
+                inst_nr = self.inst_nr
                 break
 
             gas_local = self.gas
@@ -707,6 +697,9 @@ class PVMInterpreter:
             skip_len = self.skip_len
             inst_nr = self.inst_nr
             status = self.status
+            if status == exit_resume:
+                # Note: we only advance PC on a resume state
+                pc_local = u32(pc_local + skip_len)
 
         self.pc = pc_local
         self.gas = gas_local
