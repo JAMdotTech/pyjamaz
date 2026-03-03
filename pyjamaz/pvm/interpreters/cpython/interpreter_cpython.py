@@ -656,7 +656,7 @@ class PVMInterpreter:
                 #log_exc and log_exc(traceback.format_exc())
                 fault_addr = self._mem_addr
                 if fault_addr is not None and fault_addr >= 0:
-                    # Note: extra safety check, should normally be handled by PVMMmemory
+                    # Note: extra safety check, should normally be handled by PVMMmemory, better safe than sorry ;)
                     # GP-0.7.2:A.8 - memory accesses to < 2^16 panic immediately.
                     if 0 <= fault_addr < 2 ** 16:
                         status = exit_panic

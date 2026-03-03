@@ -2093,7 +2093,6 @@ class PVMInterpreter:
         heap_grew_out = np.array([0], dtype=np.int64)
 
         # Call the Numba compiled invoke function
-        # invoke_native decodes current instruction at pc first; no pre-step skip carry needed.
         prev_skip = 0
 
         error_code = invoke_native(
@@ -2155,6 +2154,7 @@ class PVMInterpreter:
             self.status = ExitReason.panic.value
         elif error_code == ERROR_MEMORY_FAULT:
             fault_addr = self.exit_value
+            # Note: extra safety check, should normally be handled by PVMMmemory, better safe than sorry ;)
             if fault_addr is not None and 0 <= fault_addr < 2 ** 16:
                 self.status = ExitReason.panic.value
                 self.exit_value = None
