@@ -325,11 +325,11 @@ class PVMInterpreter:
             self.opcode = opcode = self.code[pc_local]
             inst_type = OpcodeScheme[opcode]
             self.skip_len = self.inst_arg_len[inst_index] + 1
-            self.gas -= 1
-            if self.gas < 0:
+            if self.gas <= 0:
                 self.status = ExitReason.out_of_gas.value
                 self.exit_value = None
                 break
+            self.gas -= 1
             self.inst_nr += 1
 
             try:

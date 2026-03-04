@@ -634,11 +634,11 @@ class PVMInterpreter:
 
             opcode = code[pc_local]
             skip_len = mv_inst_arg_len[inst_index] + 1
-            gas_local -= 1
-            if gas_local < 0:
+            if gas_local <= 0:
                 status = exit_oom
                 self.exit_value = None
                 break
+            gas_local -= 1
             inst_nr += 1
 
             self.opcode = opcode

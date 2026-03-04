@@ -468,9 +468,9 @@ def invoke_native(
         opcode = code[pc]
         inst_type = opcode_scheme[opcode]
         skip_len = inst_arg_len[inst_index] + 1
-        gas -= 1
-        if gas < 0:
+        if gas <= 0:
             return sync_state_and_return(reg, registers_out, state_out, OUT_OF_GAS, pc, gas, inst_nr, 0, skip_len, ERROR_NONE)
+        gas -= 1
         inst_nr += 1
 
         if logging:
