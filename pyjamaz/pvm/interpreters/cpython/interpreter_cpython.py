@@ -607,6 +607,8 @@ class PVMInterpreter:
         exit_oom = ExitReason.out_of_gas.value
         exit_panic = ExitReason.panic.value
         exit_page_fault = ExitReason.page_fault.value
+        basic_block_gas = self.basic_block_gas
+        basic_block_starts_set = self.basic_block_starts_set
         log_exc = None
         pc_local = int(self.pc)
         gas_local = int(self.gas)
@@ -620,6 +622,15 @@ class PVMInterpreter:
             log_exc = log.exc
 
         while status == exit_resume:
+            # Hack: if we enter a new basic block:
+            #       check if we can execute this basic block given our current available gas, else return OOG
+            if pc_local in basic_block_starts_set:
+                block_gas = basic_block_gas.get(pc_local)
+                if block_gas is not None and gas_local < block_gas:
+                    status = exit_oom
+                    self.exit_value = None
+                    break
+
             if pc_local >= code_size:
                 status = exit_panic
                 self.exit_value = None
