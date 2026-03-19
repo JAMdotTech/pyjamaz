@@ -341,6 +341,7 @@ class Safrole(StateComponent):
             raise StateTransitionError(SafroleErrorCode.bad_slot)
 
         self.post_state_safrole = deepcopy(pre_state_safrole)
+        epoch_change = self.is_epoch_change(pre_state_timeslot.number, header.timeslot)
 
         # GP-0.7.2-eq:6.30
         if self.slot_phase_index(header.timeslot) < gp_const.TICKET_SUBMISSION_END_SLOT:
@@ -360,7 +361,17 @@ class Safrole(StateComponent):
             if list_has_duplicates(extrinsic_tickets):
                 raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
 
-            ring_public_keys = [v.bandersnatch for v in self.post_state_safrole.validators]
+            if epoch_change:
+                # TODO: GP ref
+                # tickets in the first block of a new epoch should be signed against the next validator ring
+                ticket_validators = self.check_offenders(
+                    validators=deepcopy(pre_state_validator_queue.validators),
+                    offenders=post_state_disputes.offenders
+                )
+            else:
+                ticket_validators = self.post_state_safrole.validators
+
+            ring_public_keys = [v.bandersnatch for v in ticket_validators]
 
             ring_context = RingContext(self.ring_data, ring_public_keys)
 
@@ -411,7 +422,7 @@ class Safrole(StateComponent):
         epoch_mark = None
         tickets_mark = None
 
-        if (not self.is_epoch_change(pre_state_timeslot.number, header.timeslot) and
+        if (not epoch_change and
                 self.slot_phase_index(pre_state_timeslot.number) < gp_const.TICKET_SUBMISSION_END_SLOT <=
                 self.slot_phase_index(header.timeslot)):
             # Ticket mark only when accumulator is saturated # GP-0.7.2-eq:6.28
@@ -421,7 +432,7 @@ class Safrole(StateComponent):
                 DEBUG and logging.debug(f"Tickets Mark generated")
 
         # TODO check conditions when epoch should be mark as changed
-        if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
+        if epoch_change:
             # Epoch change
 
             # Update Validator keys for the following epoch. # GP-0.7.2-eq:6.13
@@ -482,7 +493,7 @@ class Safrole(StateComponent):
             self.post_state_safrole.ring_commitment = ring_context.commitment
 
         # Add tickets to ticket accumulator, sort and limit: GP-0.7.2-eq:6.34,6.35
-        if self.is_epoch_change(pre_state_timeslot.number, header.timeslot):
+        if epoch_change:
             # Not checked by W3F test vectors
             self.post_state_safrole.ticket_accumulator = input_tickets
         else:
