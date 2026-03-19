@@ -7,6 +7,7 @@ from functools import wraps
 from math import floor
 from typing import List, Optional
 
+from jamcodec.types import VarInt64
 from pyjamaz.graypaper_constants import CORE_COUNT, VALIDATOR_COUNT, EPOCH_TIMESLOTS, ROTATION_PERIOD_CORE
 
 from pyjamaz.hashing import blake2b_256_hash
@@ -149,7 +150,7 @@ def substitute_if_nothing(*args) -> Optional[any]:
 
 
 def vrf_input_ticket_seal(entropy: bytes, ticket_attempt: int) -> bytes:
-    return b"jam_ticket_seal" + entropy + int.to_bytes(ticket_attempt, byteorder='little', length=1)
+    return b"jam_ticket_seal" + entropy + VarInt64.encode(ticket_attempt).to_bytes()
 
 
 def vrf_input_fallback_seal(entropy: bytes) -> bytes:
