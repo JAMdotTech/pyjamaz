@@ -343,81 +343,6 @@ class Safrole(StateComponent):
         self.post_state_safrole = deepcopy(pre_state_safrole)
         epoch_change = self.is_epoch_change(pre_state_timeslot.number, header.timeslot)
 
-        # GP-0.7.2-eq:6.30
-        if self.slot_phase_index(header.timeslot) < gp_const.TICKET_SUBMISSION_END_SLOT:
-            # Min 0, max 16 tickets
-            if len(extrinsic_tickets) > gp_const.MAXIMUM_EXTRINSIC_TICKETS:  # constant_K=16
-                raise StateTransitionError(SafroleErrorCode.too_many_tickets)
-        else:
-            if len(extrinsic_tickets) > 0:
-                # Don't accept tickets after TICKET_SUBMISSION_END_SLOT:
-                raise StateTransitionError(SafroleErrorCode.unexpected_ticket)
-
-        input_tickets = [None] * len(extrinsic_tickets)
-
-        if len(extrinsic_tickets) > 0:
-
-            # Check for duplicate ticket_data; GP-0.7.2-eq:6.32
-            if list_has_duplicates(extrinsic_tickets):
-                raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
-
-            if epoch_change:
-                # TODO: GP ref
-                # tickets in the first block of a new epoch should be signed against the next validator ring
-                ticket_validators = self.check_offenders(
-                    validators=deepcopy(pre_state_validator_queue.validators),
-                    offenders=post_state_disputes.offenders
-                )
-            else:
-                ticket_validators = self.post_state_safrole.validators
-
-            ring_public_keys = [v.bandersnatch for v in ticket_validators]
-
-            ring_context = RingContext(self.ring_data, ring_public_keys)
-
-            if USE_THREAD_POOL_SAFROLE:
-
-                DEBUG and logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
-
-                with ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS) as tp:
-                    futs = {
-                        tp.submit(
-                            self.create_ticket_body,
-                            ticket_data,
-                            ring_context,
-                            post_state_entropy.entropy[2]
-                        ): idx
-                        for idx, ticket_data in enumerate(extrinsic_tickets)
-                    }
-
-                    for fut in as_completed(futs):
-                        ticket = fut.result()
-                        idx = futs[fut]
-
-                        # Check if ticket already exists
-                        if ticket in self.post_state_safrole.ticket_accumulator:
-                            # GP-0.7.2-eq:6.33
-                            raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
-                        else:
-                            input_tickets[idx] = ticket
-            else:
-                # Validate extrinsic
-                for idx, ticket_data in enumerate(extrinsic_tickets):
-
-                    ticket = self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
-
-                    # Check if ticket already exists
-                    if ticket in self.post_state_safrole.ticket_accumulator:
-                        # GP-0.7.2-eq:6.33
-                        raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
-                    else:
-                        input_tickets[idx] = ticket
-
-            # Check if tickets are in order: GP-0.7.2-eq:6.32
-            if not self.tickets_in_order(input_tickets):
-                raise StateTransitionError(SafroleErrorCode.bad_ticket_order)
-
-
         # Create output markers if conditions are met
         epoch_mark = None
         tickets_mark = None
@@ -491,6 +416,80 @@ class Safrole(StateComponent):
             # Update ring commitment using O(); GP-0.7.2-eq:6.13
             ring_context = RingContext(self.ring_data, [v.bandersnatch for v in self.post_state_safrole.validators])
             self.post_state_safrole.ring_commitment = ring_context.commitment
+
+        # GP-0.7.2-eq:6.30
+        if self.slot_phase_index(header.timeslot) < gp_const.TICKET_SUBMISSION_END_SLOT:
+            # Min 0, max 16 tickets
+            if len(extrinsic_tickets) > gp_const.MAXIMUM_EXTRINSIC_TICKETS:  # constant_K=16
+                raise StateTransitionError(SafroleErrorCode.too_many_tickets)
+        else:
+            if len(extrinsic_tickets) > 0:
+                # Don't accept tickets after TICKET_SUBMISSION_END_SLOT:
+                raise StateTransitionError(SafroleErrorCode.unexpected_ticket)
+
+        input_tickets = [None] * len(extrinsic_tickets)
+
+        if len(extrinsic_tickets) > 0:
+
+            # Check for duplicate ticket_data; GP-0.7.2-eq:6.32
+            if list_has_duplicates(extrinsic_tickets):
+                raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
+
+            if epoch_change:
+                # TODO: GP ref
+                # tickets in the first block of a new epoch should be signed against the next validator ring
+                ticket_validators = self.check_offenders(
+                    validators=deepcopy(pre_state_validator_queue.validators),
+                    offenders=post_state_disputes.offenders
+                )
+            else:
+                ticket_validators = self.post_state_safrole.validators
+
+            ring_public_keys = [v.bandersnatch for v in ticket_validators]
+
+            ring_context = RingContext(self.ring_data, ring_public_keys)
+
+            if USE_THREAD_POOL_SAFROLE:
+
+                DEBUG and logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
+
+                with ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS) as tp:
+                    futs = {
+                        tp.submit(
+                            self.create_ticket_body,
+                            ticket_data,
+                            ring_context,
+                            post_state_entropy.entropy[2]
+                        ): idx
+                        for idx, ticket_data in enumerate(extrinsic_tickets)
+                    }
+
+                    for fut in as_completed(futs):
+                        ticket = fut.result()
+                        idx = futs[fut]
+
+                        # Check if ticket already exists
+                        if ticket in self.post_state_safrole.ticket_accumulator:
+                            # GP-0.7.2-eq:6.33
+                            raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
+                        else:
+                            input_tickets[idx] = ticket
+            else:
+                # Validate extrinsic
+                for idx, ticket_data in enumerate(extrinsic_tickets):
+
+                    ticket = self.create_ticket_body(ticket_data, ring_context, post_state_entropy.entropy[2])
+
+                    # Check if ticket already exists
+                    if ticket in self.post_state_safrole.ticket_accumulator:
+                        # GP-0.7.2-eq:6.33
+                        raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
+                    else:
+                        input_tickets[idx] = ticket
+
+            # Check if tickets are in order: GP-0.7.2-eq:6.32
+            if not self.tickets_in_order(input_tickets):
+                raise StateTransitionError(SafroleErrorCode.bad_ticket_order)
 
         # Add tickets to ticket accumulator, sort and limit: GP-0.7.2-eq:6.34,6.35
         if epoch_change:
