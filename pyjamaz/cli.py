@@ -28,6 +28,7 @@ from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
+from pyjamaz.runtime.node_runtime import NodeRuntime
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
 from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 from pyjamaz.models.block import Block, Header, Extrinsic
@@ -352,7 +353,11 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
                     tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
             await anyio.sleep(ts - time.time())
-            tg.start_soon(timeslot_ticker, app)
+
+            # Create and start runtime
+            app.runtime = NodeRuntime(app)
+            app.runtime.start(tg)
+
     except (KeyboardInterrupt, CancelledError):
         logging.info("Stopping node...")
         # stop_event.set()
@@ -360,104 +365,106 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
         logging.info(f'Node stopped.')
 
 
-async def timeslot_ticker(app: PyjamazApp):
-
-    while True:
-        timeslot = app.current_timeslot()
-        # TODO centralize
-        app.block_context.reset()
-
-        epoch = timeslot // EPOCH_TIMESLOTS
-        phase = timeslot % EPOCH_TIMESLOTS
-
-        DEBUG and logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
-
-        if app.working_state.timeslot.number >= timeslot:
-            DEBUG and logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
-            await anyio.sleep(0.1)
-            continue
-
-        if app.is_epoch_change(timeslot):
-            logging.info("🗓️ Process Epoch change")
-
-            # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
-            #  triggering state changes in STFs caused be epoch change.
-
-            header = Header.default()
-            header.timeslot = timeslot
-
-            entropy_output = app.components.entropy.state_transition(
-                header=header,
-                pre_state_timeslot=app.working_state.timeslot,
-                pre_state_entropy=app.working_state.entropy
-            )
-
-            safrole_output = app.components.safrole.state_transition(
-                header=header,
-                pre_state_timeslot=app.working_state.timeslot,
-                pre_state_safrole=app.working_state.safrole,
-                pre_state_validator_queue=app.working_state.validator_queue,
-                post_state_entropy=entropy_output.post_state,
-                post_state_disputes=app.working_state.disputes,
-                post_state_validator_pool=app.working_state.validator_pool,
-                extrinsic_tickets=[]
-            )
-
-            # Process tickets
-            app.block_extrinsic.process_epoch_change()
-            DEBUG and logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
-
-            safrole_state = safrole_output.post_state
-            entropy_state = entropy_output.post_state
-        else:
-            safrole_state = app.working_state.safrole
-            entropy_state = app.working_state.entropy
-
-        if app.should_produce_block(timeslot, safrole_state):
-
-            try:
-                await app.process_assurances()
-
-                parent_header_hash = app.retrieve_block_hash(app.working_state.timeslot.number)
-
-                if parent_header_hash is None:
-                    raise ValueError(f'No parent block found for timeslot #{app.working_state.timeslot.number}')
-
-                # Finalize parent
-                await app.finalize(parent_header_hash)
-
-                if app.config.replay_blocks:
-                    block = app.config.replay_blocks.find_next(timeslot)
-                    if block:
-                        await app.import_block(block)
-                else:
-                    block = await app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
-
-                    if app.pubsub:
-                        await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
-
-                    logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
-            except Exception as e:
-                logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
-                DEBUG and logging.debug(traceback.format_exc())
-                # Rollback state from DB
-                app.working_state = app.retrieve_jam_state()
-                # TODO Make transactional
-                app.block_extrinsic.clear_tickets()
-
-        else:
-            logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
-
-        if app.get_core_assigment() is not None:
-
-            # TODO TBD when does refine etc start
-            work_report = await app.process_refine(timeslot)
-
-            if work_report:
-                logging.info(f'👨‍💻 Refine complete | slot={timeslot} | core={app.get_core_assigment()} | work_report={format_hash(work_report.package_spec.hash)}')
-
-
-        await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
+# async def timeslot_ticker(app: PyjamazApp):
+#
+#     while True:
+#         timeslot = app.current_timeslot()
+#         # TODO centralize
+#         app.block_context.reset()
+#
+#         epoch = timeslot // EPOCH_TIMESLOTS
+#         phase = timeslot % EPOCH_TIMESLOTS
+#
+#         DEBUG and logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
+#
+#         if app.working_state.timeslot.number >= timeslot:
+#             DEBUG and logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
+#             await anyio.sleep(0.1)
+#             continue
+#
+#         if app.is_epoch_change(timeslot):
+#             logging.info("🗓️ Process Epoch change")
+#
+#             # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
+#             #  triggering state changes in STFs caused be epoch change.
+#
+#             header = Header.default()
+#             header.timeslot = timeslot
+#
+#             entropy_output = app.components.entropy.state_transition(
+#                 header=header,
+#                 pre_state_timeslot=app.working_state.timeslot,
+#                 pre_state_entropy=app.working_state.entropy
+#             )
+#
+#             safrole_output = app.components.safrole.state_transition(
+#                 header=header,
+#                 pre_state_timeslot=app.working_state.timeslot,
+#                 pre_state_safrole=app.working_state.safrole,
+#                 pre_state_validator_queue=app.working_state.validator_queue,
+#                 post_state_entropy=entropy_output.post_state,
+#                 post_state_disputes=app.working_state.disputes,
+#                 post_state_validator_pool=app.working_state.validator_pool,
+#                 extrinsic_tickets=[]
+#             )
+#
+#             # Process tickets
+#             app.block_extrinsic.process_epoch_change()
+#             DEBUG and logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
+#
+#             safrole_state = safrole_output.post_state
+#             entropy_state = entropy_output.post_state
+#         else:
+#             safrole_state = app.working_state.safrole
+#             entropy_state = app.working_state.entropy
+#
+#         if app.should_produce_block(timeslot, safrole_state):
+#
+#             try:
+#                 await app.process_assurances()
+#
+#                 parent_header_hash = app.retrieve_block_hash(app.working_state.timeslot.number)
+#
+#                 if parent_header_hash is None:
+#                     raise ValueError(f'No parent block found for timeslot #{app.working_state.timeslot.number}')
+#
+#                 # Finalize parent
+#                 await app.finalize(parent_header_hash)
+#
+#                 if app.config.replay_blocks:
+#                     block = app.config.replay_blocks.find_next(timeslot)
+#                     if block:
+#                         await app.import_block(block)
+#                 else:
+#                     block = await app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
+#
+#                     if app.pubsub:
+#                         await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+#
+#                     logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
+#             except Exception as e:
+#                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
+#                 DEBUG and logging.debug(traceback.format_exc())
+#                 # Rollback state from DB
+#                 app.working_state = app.retrieve_jam_state()
+#                 # TODO Make transactional
+#                 app.block_extrinsic.clear_tickets()
+#
+#         else:
+#             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
+#
+#         # await app.runtime.notify_timeslot(timeslot)
+#
+#         # if app.get_core_assigment() is not None:
+#         #
+#         #     # TODO TBD when does refine etc start
+#         #     work_report = await app.process_refine(timeslot)
+#         #
+#         #     if work_report:
+#         #         logging.info(f'👨‍💻 Refine complete | slot={timeslot} | core={app.get_core_assigment()} | work_report={format_hash(work_report.package_spec.hash)}')
+#
+#
+#         await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
 
 
 @main.group()
