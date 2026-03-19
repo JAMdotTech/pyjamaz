@@ -7,7 +7,7 @@ from typing import List, Optional, TYPE_CHECKING
 
 from pyjamaz.exceptions import BlockValidationError
 
-from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, BitArray, Tuple
+from jamcodec.types import H256, U32, Option, Vec, Array, U8, U16, Bool, H512, Bytes, BitArray, Tuple, VarInt64
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT, EPOCH_TIMESLOTS, CORE_COUNT
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkReport, TicketBody, ValidatorData
@@ -44,19 +44,15 @@ class TicketEnvelope(Serializable):
 
     Attributes
     ----------
-    attempt: U8
+    attempt: VarInt64
         GP-0.7.2-eq:6.29 (e) | An entry index
     signature: Array(U8,784)
         GP-0.7.2-eq:6.29 (p) | Proof of a ticket's validity
     """
-    attempt: int = field(metadata={'codec': U8})
+    attempt: int = field(metadata={'codec': VarInt64})
     signature: bytes = field(metadata={'codec': Array(U8, 784)})
 
     def __post_init__(self):
-        # Validate that attempt is a valid U8 integer
-        if not isinstance(self.attempt, int) or not (0 <= self.attempt <= 255):
-            raise BlockValidationError("Attempt must be an integer between 0 and 255")
-
         # Validate that signature is a valid ByteArray784
         if not isinstance(self.signature, (bytes, bytearray)) or len(self.signature) != 784:
             raise BlockValidationError("Signature must be a bytes object of length 784")
