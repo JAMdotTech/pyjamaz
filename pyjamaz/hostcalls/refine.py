@@ -340,8 +340,6 @@ def hc_pages(
             logger and logger.hc_log("PAGES PANIC", "huhhhhh???")
             invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
 
-# # TODO remove when gas_limit issue is resolved
-# gas_hack = False
 
 @hostcall(10)
 def hc_invoke(
@@ -370,12 +368,6 @@ def hc_invoke(
         jam_bytes = JamBytes(memory.read_bytes(o, 112))
         gas = U64.decode(jam_bytes)
 
-        # # TODO remove when gas_limit issue is resolved
-        # global gas_hack
-        # if gas_hack:
-        #     gas -= 3
-        #     gas_hack = False
-
         for _ in range(13):
             reg.append(U64.decode(jam_bytes))
 
@@ -403,7 +395,7 @@ def hc_invoke(
         for idx in range(13):
             invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='little'))
 
-        m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden!
+        m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden?
         m_e.inner_pvm_lookup[n].program_counter = int(pc)
 
     def next_pc_after_host() -> int:
