@@ -340,8 +340,6 @@ def hc_pages(
             logger and logger.hc_log("PAGES PANIC", "huhhhhh???")
             invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
 
-# TODO remove when gas_limit issue is resolved
-gas_hack = False
 
 @hostcall(10)
 def hc_invoke(
@@ -370,12 +368,6 @@ def hc_invoke(
         jam_bytes = JamBytes(memory.read_bytes(o, 112))
         gas = U64.decode(jam_bytes)
 
-        # TODO remove when gas_limit issue is resolved
-        global gas_hack
-        if gas_hack:
-            gas -= 3
-            gas_hack = False
-
         for _ in range(13):
             reg.append(U64.decode(jam_bytes))
 
@@ -401,9 +393,9 @@ def hc_invoke(
     def update_inner_pvm(pc: int):
         invocation_output.memory.write_bytes(o, int(pvm.gas).to_bytes(8, byteorder='little'))
         for idx in range(13):
-            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.prev_reg[idx]).to_bytes(8, byteorder='little'))
+            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='little'))
 
-        m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden!
+        m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden?
         m_e.inner_pvm_lookup[n].program_counter = int(pc)
 
     def next_pc_after_host() -> int:
@@ -431,15 +423,12 @@ def hc_invoke(
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.FAULT.value
         invocation_output.registers[8] = pvm_exit_condition.value
-        pvm.gas += 1
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.out_of_gas:
-        logger and logger.hc_log("INVOKE OOG", f"gas={pvm.gas} reg={[int(r) for r in pvm.prev_reg]} pc={pvm.pc}")
+        logger and logger.hc_log("INVOKE OOG", f"gas={pvm.gas} reg={[int(r) for r in pvm.reg]} pc={pvm.pc}")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.OOG.value
-        # TODO @matthijs check this, why invoke always forward one pc before exec? the regs seem to match the next pc?
-        # update_inner_pvm(next_pc_after_host())
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.panic:
@@ -452,8 +441,7 @@ def hc_invoke(
         logger and logger.hc_log("INVOKE HALT", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.HALT.value
-        # TODO @matthijs check this, why invoke always forward one pc before exec?
-        update_inner_pvm(next_pc_after_host())
+        update_inner_pvm(pvm.pc)
 
 
 @hostcall(10)

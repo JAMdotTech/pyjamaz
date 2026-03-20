@@ -23,19 +23,24 @@ from pyjamaz.pvm.constants import (
     ExitReason,
     MemOps,
     OpcodeNames,
+    OpcodeScheme,
+    Opcode,
+    TERMINATION_OPCODES,
     ExitCondition,
     PVM_PAGE_SIZE, MEM_I, MEM_R, MEM_W,
 )
 from pyjamaz.pvm.types import PVMProgram
 from .memory import PVMMemory
+#from pyjamaz.pvm.gas_model import GasModel
+from pyjamaz.pvm.basic_block import detect_basic_blocks, get_block_start
 from pyjamaz.graypaper_constants import PVM_DYNAMIC_ALIGNMENT_FACTOR
 
 
 
 class PVMInterpreter:
     __slots__ = (
-        'name', 'reg', 'prev_reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
-        'code', 'code_size', 'jump_table', 'inst_bitmask', 'inst_pos',
+        'name', 'reg', 'inst_nr', 'pc', 'opcode', 'skip_len', 'gas',
+        'code', 'code_size',  'code_length', 'jump_table', 'inst_bitmask', 'inst_pos',
         'inst_arg_len', 'mv_inst_arg_len', 'mem', 'status', 'exit_value',
         'mem_ops_bytes', 'mem_sections', 'mem_section_access', 'mem_section_acl',
         'mem_section_starts', 'mem_section_ends', 'mem_section_size',
@@ -43,6 +48,8 @@ class PVMInterpreter:
         'STACK_ADDR', 'STACK_END', 'ARG_ADDR', 'ARG_END',
         'mem_inaccesible', 'mem_readable', 'mem_writable', 'mv_code',
         'mv_sections', 'log', 'opcodes', 'program',
+
+        'gas_model', 'basic_block_gas', 'basic_block_starts_set', 'basic_block_starts_sorted', 'current_block_start',
     )
 
     @staticmethod
@@ -77,7 +84,6 @@ class PVMInterpreter:
         self.name = program.name
         self.program = program
         self.reg = [u64(0)] * 13
-        self.prev_reg = [u64(0)] * 13
         self.inst_nr = u32(0)
         self.pc = u32(0)
         self.opcode:int = 0
@@ -85,7 +91,15 @@ class PVMInterpreter:
         self.gas = i64(0)
         self.code = None
         self.code_size = u64(0)
+        self.code_length = 0
         self.jump_table = []
+
+        # Gas model attributes
+        self.basic_block_gas = {}
+        self.basic_block_starts_set = set()
+        self.basic_block_starts_sorted = []
+        self.current_block_start = None
+        self.gas_model = None
 
         self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -180,7 +194,9 @@ class PVMInterpreter:
             # GP-0.7.2-eq:A.20 (l)
             self.inst_arg_len.append(inst_args)
             inst_nr += 1
-            self.inst_pos[inst_bitmask_idx - 1] = inst_nr
+            # Note: we double check and only add to inst_pos if this position has an opcode in the bitmask
+            if inst_bitmask_idx - 1 < len(inst_bitmask) and inst_bitmask[inst_bitmask_idx - 1]:
+                self.inst_pos[inst_bitmask_idx - 1] = inst_nr
 
         self.mv_inst_arg_len = memoryview(self.inst_arg_len)
 
@@ -190,10 +206,10 @@ class PVMInterpreter:
         #GP-0.7.2-eq:A.17
         """
         if C:
-            inst_pos = self.pc + b
-            if inst_pos not in self.inst_pos:
+            target_pc = self.pc + b
+            if target_pc not in self.basic_block_starts_set:
                 #self.status = ExitCondition.panic.value
-                raise PanicError(f"Invalid branch instruction: C={C} b={b} inst_pos={inst_pos}")
+                raise PanicError(f"Invalid branch instruction: C={C} b={b} target_pc={target_pc}")
             else:
                 self.skip_len = b
 
@@ -203,7 +219,10 @@ class PVMInterpreter:
         self.gas = i64(0)
 
         self.name = program.name
-        self.code = program.code.code
+        # GP-0.7.2:A.4 - Store original code and add synthetic trap
+        self.code = bytearray(program.code.code)
+        self.code_length = len(self.code)  # Original length BEFORE synthetic trap
+        self.code.append(Opcode.trap.value)  # Synthetic trap at end
         self.code_size = u64(len(self.code))
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
@@ -223,6 +242,71 @@ class PVMInterpreter:
 
         self.create_instruction_lookup()
 
+        # GP-0.7.2:A.4 - Update inst_pos for synthetic trap position
+        self.mv_inst_arg_len = None
+        # Note: must append before recreating memoryview
+        self.inst_pos[self.code_length] = len(self.inst_arg_len)
+        self.inst_arg_len.append(0)
+        self.mv_inst_arg_len = memoryview(self.inst_arg_len)
+
+        # Initialize gas model
+        # self.gas_model = GasModel(
+        #     code=self.code,
+        #     inst_pos=self.inst_pos,
+        #     inst_arg_len=self.inst_arg_len,
+        #     opcode_scheme=OpcodeScheme,
+        #     opcode_enum=Opcode,
+        #     mem_model="L2HIT",
+        #     jump_table=self.jump_table,
+        # )
+        self._calculate_basic_block_gas()
+
+
+    def _calculate_basic_block_gas(self):
+        """
+        GP-0.7.2-section:A.3 - Calculate gas costs for all basic blocks.
+        Uses the shared detect_basic_blocks function from basic_block module.
+        """
+        # if not self.gas_model:
+        #     return
+
+        # Detect all basic block starts using the shared function
+        basic_block_starts = detect_basic_blocks(
+            code=self.code,
+            code_length=self.code_length,
+            inst_pos=self.inst_pos,
+            inst_arg_len=self.inst_arg_len,
+        )
+
+        self.basic_block_starts_set = set(basic_block_starts)
+        # Store sorted block starts for O(log n) lookup via binary search
+        self.basic_block_starts_sorted = sorted(basic_block_starts)
+
+        # Calculate the gas per block
+        self.basic_block_gas = {}
+        block_starts = self.basic_block_starts_sorted
+        code_size = int(self.code_size)
+
+        for idx, start in enumerate(block_starts):
+            block_end = block_starts[idx + 1] if idx + 1 < len(block_starts) else code_size
+
+            instruction_count = 0
+            pc = start
+            while pc < block_end:
+                inst_index = self.inst_pos.get(pc)
+                if inst_index is None:
+                    raise Exception("huh")
+                instruction_count += 1
+                if self.code[pc] in TERMINATION_OPCODES:
+                    #print(f"BASIC BLOCK: {pc}={instruction_count}")
+                    break
+                pc += self.inst_arg_len[inst_index] + 1
+
+            self.basic_block_gas[start] = instruction_count
+
+    def get_block_start(self, pc: int) -> int:
+        """Find the basic block that contains the given PC using binary search."""
+        return get_block_start(self.basic_block_starts_sorted, pc)
 
     #TODO: registers_as_int
     def get_registers(self):
@@ -460,13 +544,18 @@ class PVMInterpreter:
         if a == 2 ** 32 - 2 ** 16:
             self.status = ExitReason.halt.value
             return 0
-        elif (a == 0 or
-              a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
-              a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0 or
-              self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] not in self.inst_pos):
+        if a == 0 or a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0:
             raise PanicError(f"Invalid djump operation: a={a}")
-        else:
-            return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
+
+        jump_table_index = a // PVM_DYNAMIC_ALIGNMENT_FACTOR - 1
+        if jump_table_index < 0 or jump_table_index >= len(self.jump_table):
+            raise PanicError(f"Invalid djump operation: a={a}")
+
+        destination = self.jump_table[jump_table_index]
+        if destination not in self.basic_block_starts_set:
+            raise PanicError(f"Invalid djump operation: a={a} destination={destination}")
+
+        return destination - self.pc
 
 
     def get_exit_condition(self) -> ExitCondition:
@@ -491,8 +580,10 @@ class PVMInterpreter:
 
 
     def next_instruction(self):
+        # GP-0.7.2-eq:A.35 (hostcall mutator returns continue/resume)
         inst_index = self.inst_pos[self.pc]
         self.skip_len = self.mv_inst_arg_len[inst_index] + 1
+        self.pc = u32(self.pc + self.skip_len)
 
 
     def invoke(
@@ -500,8 +591,10 @@ class PVMInterpreter:
         pc: int,
         gas: int
     ):
-        self.pc = pc
-        self.gas = gas
+        self.pc = u32(pc)
+        self.gas = i64(gas)
+
+        self.status = ExitReason.resume.value
 
         # Note: we cache attribute lookups and globals to locals for the pvm hot loop
         log = self.log
@@ -515,11 +608,11 @@ class PVMInterpreter:
         exit_panic = ExitReason.panic.value
         exit_page_fault = ExitReason.page_fault.value
         log_exc = None
-        pc_local = pc
-        gas_local = gas
+        pc_local = int(self.pc)
+        gas_local = int(self.gas)
         status = self.status
         skip_len = self.skip_len
-        inst_nr = self.inst_nr
+        inst_nr = int(self.inst_nr)
 
         if log:
             log.pvm_counters()
@@ -527,22 +620,6 @@ class PVMInterpreter:
             log_exc = log.exc
 
         while status == exit_resume:
-
-            prev_gas = gas_local
-            prev_pc = pc_local
-            self.prev_reg[:] = self.reg
-            prev_skip_len = skip_len
-            prev_inst_nr = inst_nr
-
-            if gas_local <= 0:
-                status = exit_oom
-                self.exit_value = None
-                break
-
-            gas_local -= 1
-            pc_local += skip_len
-            inst_nr += 1
-
             if pc_local >= code_size:
                 status = exit_panic
                 self.exit_value = None
@@ -557,6 +634,12 @@ class PVMInterpreter:
 
             opcode = code[pc_local]
             skip_len = mv_inst_arg_len[inst_index] + 1
+            if gas_local <= 0:
+                status = exit_oom
+                self.exit_value = None
+                break
+            gas_local -= 1
+            inst_nr += 1
 
             self.opcode = opcode
             self.skip_len = skip_len
@@ -569,39 +652,42 @@ class PVMInterpreter:
                 op_funcs[opcode](self)
             except PVMMemoryError:
                 #log_exc and log_exc(traceback.format_exc())
-                status = exit_page_fault
                 fault_addr = self._mem_addr
                 if fault_addr is not None and fault_addr >= 0:
-                    fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
-                self.exit_value = fault_addr
-                prev_skip_len = 0  # Note: we shouldnt skip on resume and reexecute the faulting instruction
+                    # Note: extra safety check, should normally be handled by PVMMmemory, better safe than sorry ;)
+                    # GP-0.7.2:A.8 - memory accesses to < 2^16 panic immediately.
+                    if 0 <= fault_addr < 2 ** 16:
+                        status = exit_panic
+                        self.exit_value = None
+                    else:
+                        status = exit_page_fault
+                        self.exit_value = fault_addr - (fault_addr % PVM_PAGE_SIZE)
+                else:
+                    status = exit_page_fault
+                    self.exit_value = fault_addr
 
                 gas_local = self.gas
                 pc_local = self.pc
-                skip_len = self.skip_len
                 inst_nr = self.inst_nr
-
-                # gas_local = prev_gas
-                # pc_local = prev_pc
-                # skip_len = prev_skip_len
-                # inst_nr = prev_inst_nr
-                # self.reg = self.prev_reg
+                skip_len = self.skip_len
                 break
 
             except PanicError:
                 log_exc and log_exc(traceback.format_exc())
                 status = exit_panic
-
                 gas_local = self.gas
                 pc_local = self.pc
                 skip_len = self.skip_len
                 inst_nr = self.inst_nr
-
-                # gas_local = prev_gas
-                # pc_local = prev_pc
-                # skip_len = prev_skip_len
-                # inst_nr = prev_inst_nr
-                # self.reg = self.prev_reg
+                break
+            except Exception:
+                log_exc and log_exc(traceback.format_exc())
+                status = exit_panic
+                self.exit_value = None
+                gas_local = self.gas
+                pc_local = self.pc
+                skip_len = self.skip_len
+                inst_nr = self.inst_nr
                 break
 
             gas_local = self.gas
@@ -609,6 +695,9 @@ class PVMInterpreter:
             skip_len = self.skip_len
             inst_nr = self.inst_nr
             status = self.status
+            if status == exit_resume:
+                # Note: we only advance PC on a resume state
+                pc_local = u32(pc_local + skip_len)
 
         self.pc = pc_local
         self.gas = gas_local

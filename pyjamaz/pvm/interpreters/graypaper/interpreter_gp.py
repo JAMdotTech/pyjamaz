@@ -4,7 +4,6 @@ from typing import List, Dict
 import math
 import numpy as np
 import numpy.typing as npt
-from numpy import copy
 
 from pyjamaz.pvm.exceptions import InvalidOpcode, PVMMemoryError, PanicError
 from pyjamaz.pvm.types import page_size
@@ -41,6 +40,7 @@ from .defs import (
 
 from pyjamaz.pvm.types import PVMProgram
 from .memory import PVMMemory
+from pyjamaz.pvm.basic_block import detect_basic_blocks
 
 
 class PVMInterpreter:
@@ -72,7 +72,6 @@ class PVMInterpreter:
     def __init__(self, program: PVMProgram, logger=None):
         self.name = program.name
         self.reg:npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
-        self.prev_reg: npt.NDArray[np.uint64] = np.zeros(13, dtype=np.uint64)
         self.inst_nr:np.uint32 = np.uint32(0)
         self.pc:np.uint32 = np.uint32(0)
         self.opcode:int = 0
@@ -80,7 +79,9 @@ class PVMInterpreter:
         self.gas:np.int64 = i64(0)
         self.code:bytearray = bytearray()
         self.code_size: np.uint64 = u64(0)
+        self.code_length: int = 0
         self.jump_table = []
+        self.basic_block_starts_set = set()
 
         self.inst_bitmask: List[bool] = []
         self.inst_pos: Dict[int,int] = {0: 0}
@@ -144,7 +145,9 @@ class PVMInterpreter:
             # GP-0.7.2-eq:A.20 (l)
             self.inst_arg_len.append(inst_args)
             inst_nr += 1
-            self.inst_pos[inst_bitmask_idx - 1] = inst_nr
+            # Note: only add to inst_pos if this position has an opcode in the bitmask
+            if inst_bitmask_idx - 1 < len(inst_bitmask) and inst_bitmask[inst_bitmask_idx - 1]:
+                self.inst_pos[inst_bitmask_idx - 1] = inst_nr
 
 
     def branch(self, b:int, C:bool):
@@ -152,10 +155,10 @@ class PVMInterpreter:
         #GP-0.7.2-eq:A.17
         """
         if C:
-            inst_pos = self.pc + b
-            if inst_pos not in self.inst_pos:
+            target_pc = self.pc + b
+            if target_pc not in self.basic_block_starts_set:
                 #self.status = ExitCondition.panic.value
-                raise PanicError(f"Invalid branch instruction: C={C} b={b} inst_pos={inst_pos}")
+                raise PanicError(f"Invalid branch instruction: C={C} b={b} target_pc={target_pc}")
             else:
                 self.skip_len = b
 
@@ -165,7 +168,10 @@ class PVMInterpreter:
         self.gas = i64(0)
 
         self.name = program.name
-        self.code:bytearray = program.code.code
+        # GP-0.7.2:A.4
+        self.code = bytearray(program.code.code)
+        self.code_length = len(self.code)  # Original length BEFORE synthetic trap
+        self.code.append(op.trap.value)  # Synthetic trap at end
         self.code_size: np.uint64 = u64(len(self.code))
         self.mem = program.memory
         self.jump_table = [x.value for x in program.code.jump_table]
@@ -179,6 +185,18 @@ class PVMInterpreter:
         self.inst_pos: Dict[int,int] = {0: 0}
         self.inst_arg_len: List[int] = []
         self.create_instruction_lookup()
+
+        # GP-0.7.2:A.4
+        self.inst_pos[self.code_length] = len(self.inst_arg_len)
+        self.inst_arg_len.append(0)
+
+        # GP-0.7.2:A.5
+        self.basic_block_starts_set = detect_basic_blocks(
+            code=self.code,
+            code_length=self.code_length,
+            inst_pos=self.inst_pos,
+            inst_arg_len=self.inst_arg_len,
+        )
 
     #TODO: registers_as_int
     def get_registers(self):
@@ -211,13 +229,18 @@ class PVMInterpreter:
         if a == 2 ** 32 - 2 ** 16:
             self.status = ExitReason.halt.value
             return 0
-        elif (a == 0 or
-              a > len(self.jump_table) * PVM_DYNAMIC_ALIGNMENT_FACTOR or
-              a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0 or
-              self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] not in self.inst_pos):
+        if a == 0 or a % PVM_DYNAMIC_ALIGNMENT_FACTOR != 0:
             raise PanicError(f"Invalid djump operation: a={a}")
-        else:
-            return self.jump_table[a//PVM_DYNAMIC_ALIGNMENT_FACTOR-1] - self.pc
+
+        jump_table_index = a // PVM_DYNAMIC_ALIGNMENT_FACTOR - 1
+        if jump_table_index < 0 or jump_table_index >= len(self.jump_table):
+            raise PanicError(f"Invalid djump operation: a={a}")
+
+        destination = self.jump_table[jump_table_index]
+        if destination not in self.basic_block_starts_set:
+            raise PanicError(f"Invalid djump operation: a={a} destination={destination}")
+
+        return destination - self.pc
 
 
     def _sbrk(self, size):
@@ -264,8 +287,10 @@ class PVMInterpreter:
         return ExitCondition(reason=ExitReason(exit_reason), value=exit_value)
 
     def next_instruction(self):
-        inst_index = self.inst_pos[self.pc]
+        # GP-0.7.2-eq:A.35 (hostcall mutator returns continue/resume)
+        inst_index = self.inst_pos[int(self.pc)]
         self.skip_len = self.inst_arg_len[inst_index] + 1
+        self.pc = int(u32(int(self.pc) + int(self.skip_len)))
 
     def invoke(
         self,
@@ -273,8 +298,9 @@ class PVMInterpreter:
         gas: int,
         log=False,
     ):
-        self.pc = np.uint32(pc)
+        self.pc = int(pc)
         self.gas = np.int64(gas)
+        self.status = ExitReason.resume.value
 
         if self.log:
             self.log.pvm_counters()
@@ -282,31 +308,29 @@ class PVMInterpreter:
 
         # GP-0.7.2-eq:A.6 | Single-Step State Transition
         while self.status == ExitReason.resume.value:
+            pc_local = int(self.pc)
 
-            if self.gas <= 0:
-                self.status = ExitReason.out_of_gas.value
-                self.exit_value = None
-                break
-
-            self.prev_reg[:] = self.reg
-
-            # if log:
-            #     with open("pvm_log.txt", "a") as f:
-            #         f.write(f'{self.pc} {self.gas} {[int(r) for r in self.reg]}\n')
-
-            self.gas -= 1
-            self.pc = int(self.pc) + self.skip_len
-            self.inst_nr += 1
-
-            if self.pc >= self.code_size:
+            if pc_local >= int(self.code_size):
                 self.status = ExitReason.panic.value
                 self.exit_value = None
                 break
 
-            inst_index = self.inst_pos[self.pc]
-            self.opcode = opcode = self.code[self.pc]
+            try:
+                inst_index = self.inst_pos[pc_local]
+            except KeyError:
+                self.status = ExitReason.panic.value
+                self.exit_value = None
+                break
+
+            self.opcode = opcode = self.code[pc_local]
             inst_type = OpcodeScheme[opcode]
             self.skip_len = self.inst_arg_len[inst_index] + 1
+            if self.gas <= 0:
+                self.status = ExitReason.out_of_gas.value
+                self.exit_value = None
+                break
+            self.gas -= 1
+            self.inst_nr += 1
 
             try:
                 match inst_type:
@@ -388,8 +412,8 @@ class PVMInterpreter:
 
                         match opcode:
                             case op.jump.value:
-                                self.skip_len = v_x
-                                self.log and self.log(off1=v_x)
+                                self.branch(v_x, True)
+                                self.log and self.log(off1=v_x, context={"skip_len": self.skip_len})
 
                             case _:
                                 raise InvalidOpcode(f"Invalid offset opcode: {opcode} for instruction type {inst_type}")
@@ -509,9 +533,9 @@ class PVMInterpreter:
 
                         match opcode:
                             case op.load_imm_jump.value:
-                                self.skip_len = v_y
                                 self.reg[r_a] = v_x
-                                self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y)
+                                self.branch(v_y, True)
+                                self.log and self.log(reg1=r_a, imm1=v_x, off1=v_y, context={"skip_len": self.skip_len})
 
                             case op.branch_eq_imm.value:
                                 self.branch(v_y, w_a == v_x)
@@ -1111,14 +1135,19 @@ class PVMInterpreter:
 
             except PVMMemoryError:
                 #self.log and self.log.exc(traceback.format_exc())
-                self.status = ExitReason.page_fault.value
-                # Note: Align the fault address to page boundary: (address / pageSize) * pageSize
-                #self.exit_value = (self.mem._mem_addr // PVM_PAGE_SIZE) * PVM_PAGE_SIZE
                 fault_addr = self.mem._mem_addr
                 if fault_addr is not None and fault_addr >= 0:
-                    fault_addr = fault_addr - (fault_addr % PVM_PAGE_SIZE)
-                self.exit_value = fault_addr
-                self.skip_len = 0  # Note: we shouldnt skip on resume and reexecute the faulting instruction
+                    # Note: extra safety check, should normally be handled by PVMMmemory, better safe than sorry ;)
+                    # GP-0.7.2:A.8 memory accesses to < 2^16 should panic immediately
+                    if 0 <= fault_addr < 2**16:
+                        self.status = ExitReason.panic.value
+                        self.exit_value = None
+                    else:
+                        self.status = ExitReason.page_fault.value
+                        self.exit_value = fault_addr - (fault_addr % PVM_PAGE_SIZE)
+                else:
+                    self.status = ExitReason.page_fault.value
+                    self.exit_value = fault_addr
                 break
 
             except PanicError as panic_error:
@@ -1126,6 +1155,11 @@ class PVMInterpreter:
                 self.status = ExitReason.panic.value
                 break
 
-            except:
+            except Exception:
                 self.log and self.log.exc(traceback.format_exc())
-                raise
+                self.status = ExitReason.panic.value
+                self.exit_value = None
+                break
+
+            if self.status == ExitReason.resume.value:
+                self.pc = int(u32(int(self.pc) + int(self.skip_len)))

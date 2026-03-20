@@ -10,5 +10,5 @@ def _fetch_offset(vm):
 
 def _op_jump(vm):
     v_x = _fetch_offset(vm)
-    vm.skip_len = v_x
-    vm.log and vm.log(off1=v_x, context={"skip_len": v_x})
+    vm.branch(v_x, True)
+    vm.log and vm.log(off1=v_x, context={"skip_len": vm.skip_len})
