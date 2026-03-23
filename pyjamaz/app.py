@@ -732,7 +732,7 @@ class PyjamazApp:
             b'block_number:' + header.hash, header.timeslot.to_bytes(length=4, byteorder='little')
         )
         self.block_db.put(
-            b'block_child:' + block.header.parent, block.header.hash
+            b'block_child:' + header.parent, header.hash
         )
 
     def retrieve_block(self, timeslot: int) -> Optional[Block]:

@@ -115,7 +115,7 @@ class BlockExtrinsicAccumulator:
     def own_ticket_count(self) -> int:
         return len(self.own_tickets_next)
 
-    def clear_own_tickets(self):
+    async def clear_own_tickets(self):
         async with self._ticket_queue_lock:
             for ticket_id in self.own_tickets_next:
                 del self.tickets_queue[ticket_id]
@@ -126,7 +126,7 @@ class BlockExtrinsicAccumulator:
             self.tickets_queue = {}
         self.own_tickets_next = []
 
-    def process_epoch_change(self):
+    async def process_epoch_change(self):
         self.own_tickets_current = self.own_tickets_next
         self.own_tickets_next = []
         async with self._ticket_queue_lock:

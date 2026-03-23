@@ -8,7 +8,7 @@ from jamcodec.types import U32, H256, U8, VarInt64, Vec, Option, Array, Map, H51
 
 from pyjamaz.graypaper_constants import VALIDATOR_COUNT
 from pyjamaz.models.block import Header, Guarantee, Block
-from pyjamaz.models.common import WorkPackage, Authorizer, RefinementContext, WorkItem
+from pyjamaz.models.common import WorkPackage, RefinementContext, WorkItem
 
 
 class ImplicitVec(Vec):

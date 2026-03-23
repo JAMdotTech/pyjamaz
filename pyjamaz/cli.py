@@ -27,7 +27,7 @@ from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
-from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
+from pyjamaz.transport.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
 from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 from pyjamaz.models.block import Block, Header, Extrinsic
@@ -411,7 +411,7 @@ async def timeslot_ticker(app: PyjamazApp):
             )
 
             # Process tickets
-            app.block_extrinsic.process_epoch_change()
+            await app.block_extrinsic.process_epoch_change()
             DEBUG and logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
 
             safrole_state = safrole_output.post_state

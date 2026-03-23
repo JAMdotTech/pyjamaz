@@ -4,7 +4,7 @@ import math
 import ssl
 import time
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from typing import Optional, cast
 
 from aioquic.asyncio import serve
@@ -163,7 +163,7 @@ class JAMNPS(ProtocolType):
     def add_grid_connections(
             self,
             validator_idx: int,
-            validator_queue: List[int, ValidatorData],
+            validator_queue: List[Tuple[int, ValidatorData]],
             same_epoch: bool,
             initiate_conns:List[ValidatorData],
             expect_conns:List[ValidatorData]
