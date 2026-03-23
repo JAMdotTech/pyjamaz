@@ -32,7 +32,7 @@ class JAMConnection(QuicConnectionProtocol):
 
         self.stream_up = None
         self.streams = {}
-        #self._keepalive_task = asyncio.create_task(self._keepalive())
+        self._keepalive_task = asyncio.create_task(self._keepalive())
 
 
     def open_jam_stream(self, StreamCls: Stream, direction:StreamDirection, stream_id: int=None):

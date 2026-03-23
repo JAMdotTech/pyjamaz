@@ -1,5 +1,6 @@
 import bisect
 import logging
+import re
 import traceback
 from asyncio import CancelledError
 from datetime import datetime, timezone
@@ -331,12 +332,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
                 )
 
                 logging.debug(f'Connecting to bootnode {conn["key"]} at {conn["addr"]}:{conn["port"]}')
-                # tg.start_soon(nps_protocol.connect, conn["addr"], conn["port"])
                 try:
-                    # await nps_protocol.connect(conn["addr"], conn["port"])
-                    # await nps_protocol.connect("54.39.18.64", 40000)
-                    await nps_protocol.connect("localhost", conn["port"])
-                    # await nps_protocol.connect("127.0.0.1", 40001) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    await nps_protocol.connect(conn["addr"], int(conn["port"]), None)
                 except Exception as exc:
                     traceback.print_exc()
             # else:
@@ -450,7 +447,7 @@ async def timeslot_ticker(app: PyjamazApp):
                 # Rollback state from DB
                 app.working_state = app.retrieve_jam_state()
                 # TODO Make transactional
-                app.block_extrinsic.clear_tickets()
+                await app.block_extrinsic.clear_tickets()
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')

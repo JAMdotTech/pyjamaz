@@ -94,7 +94,7 @@ class JAMNPS(ProtocolType):
         self.validator_port = None
         self.validator_address = None
 
-        for validator in app.state.safrole.validators:
+        for validator in app.working_state.safrole.validators:
             if validator.ed25519 == self.app.config.keys.ed25519.public_key:
                 self.validator = validator
                 self.validator_dns = validator.get_connection_dns()
@@ -146,7 +146,7 @@ class JAMNPS(ProtocolType):
             self.host,
             self.port,
             configuration=server_conf,
-            create_protocol=create_jam_connection(self, JAMConnection, JAMConnectionDirection.acceptor, self.host, self.port),
+            create_protocol=create_jam_connection(self, JAMConnection, JAMConnectionDirection.acceptor, self.host, self.port, None),
             #session_ticket_fetcher=self.session_ticket_store.pop,
             #session_ticket_handler=self.session_ticket_store.add,
             retry=True,
@@ -202,9 +202,9 @@ class JAMNPS(ProtocolType):
         if not self.validator:
             raise Exception("This node is not a validator")
 
-        prev_validators:List[int, ValidatorData] = [(i,v) for i,v in enumerate(self.app.state.validator_archive.validators)]
-        next_validators:List[int, ValidatorData] = [(i,v) for i,v in enumerate(self.app.state.validator_queue.validators)]
-        active_validators:List[int, ValidatorData] = [(i,v) for i,v in enumerate(self.app.state.safrole.validators)]
+        prev_validators:List[int, ValidatorData] = [(i,v) for i,v in enumerate(self.app.working_state.validator_archive.validators)]
+        next_validators:List[int, ValidatorData] = [(i,v) for i,v in enumerate(self.app.working_state.validator_queue.validators)]
+        active_validators:List[int, ValidatorData] = [(i,v) for i,v in enumerate(self.app.working_state.safrole.validators)]
 
         # Determine our index in the active validator queue
         validator_idx = None
@@ -311,7 +311,7 @@ class JAMNPS(ProtocolType):
             logger.warning(f"💩 Cannot connect to {host}:{port} {exc}")
 
 
-    def disconnect(self, connection: JAMConnection, validator_key: Optional[bytes]):
+    def disconnect(self, connection: JAMConnection, validator_key: Optional[bytes] = None):
         if connection.direction == JAMConnectionDirection.initiator:
             if connection.jam_connection_ulid in self.conn_initiated:
                 self.conn_initiated.remove(connection.jam_connection_ulid)
@@ -325,13 +325,14 @@ class JAMNPS(ProtocolType):
         if connection.addr and connection.addr in self.conn_addr:
             self.conn_addr.remove(connection.addr)
 
+        validator_key = validator_key or getattr(connection, 'validator_key', None)
         if validator_key in self.validator_connections:
             self.validator_connections[validator_key].connection = None
 
 
     def up0_send_handshake(self, conn: JAMConnection):
         # Create a presistent UP0 stream for this connection
-        slot = self.app.state.timeslot.number
+        slot = self.app.working_state.timeslot.number
         header_hash = self.app.retrieve_block_hash(slot)
         leafs = [] #TODO: For now, we only work with finalized blocks
         handshake = MsgUP0Handshake(
@@ -360,7 +361,7 @@ class JAMNPS(ProtocolType):
         if not block:
             logger.info(f"Received newer block from handshake: {msg.header_hash} -> initiate CE128RequestBlocks")
             self.state_requesting_blocks = True
-            curr_hash = self.app.retrieve_block_hash(self.app.state.timeslot.number)
+            curr_hash = self.app.retrieve_block_hash(self.app.working_state.timeslot.number)
             # TODO: max_blocks could be derived using current block timeslot and received blockhash timeslot?
             self.ce128_initiate_block_request(
                 conn,
@@ -391,7 +392,7 @@ class JAMNPS(ProtocolType):
         if not block:
             logger.info(f"Received new block announcement from up0: {msg.header.hash}")
             self.state_requesting_blocks = True
-            curr_hash = self.app.retrieve_block_hash(self.app.state.timeslot.number)
+            curr_hash = self.app.retrieve_block_hash(self.app.working_state.timeslot.number)
             # TODO: max_blocks could be derived using current block timeslot and received blockhash timeslot?
             self.ce128_initiate_block_request(
                 conn,
@@ -431,7 +432,7 @@ class JAMNPS(ProtocolType):
         block:Block = None
         blocks:List[Block] = []
         first_block_hash = bytes(32)
-        last_block_hash = self.app.retrieve_block_hash(self.app.state.timeslot.number)
+        last_block_hash = self.app.retrieve_block_hash(self.app.working_state.timeslot.number)
         #TODO: check <=0 -> bad request
         block_header:Header = self.app.retrieve_block_header(block_req.header_hash)
         next_hash = block_req.header_hash
@@ -475,7 +476,7 @@ class JAMNPS(ProtocolType):
 
 
     def ce128_abort_block_request(self):
-        logger.info(f"Finished, start parsing import queue {len(self.app._import_queue)}")
+        logger.info(f"Finished, start parsing import queue {len(self.app.import_queue)}")
         # Note: could happen during a block_request "session"
         #TODO: or do we want to clear the queue?
         asyncio.create_task(
@@ -494,7 +495,7 @@ class JAMNPS(ProtocolType):
     def ce131_received_ticket(self, stream: StreamSafroleTicketDistributionStep1, msg: MsgCE131SafroleTicketDistribution):
         logger.info(f"Received ticket for epoch {msg.epoch_index}")
         
-        current_epoch = self.app.state.timeslot.number // EPOCH_TIMESLOTS
+        current_epoch = self.app.working_state.timeslot.number // EPOCH_TIMESLOTS
         if msg.epoch_index < current_epoch:
             logger.warning(f"Invalid epoch index {msg.epoch_index}, current epoch is {current_epoch}")
             stream.send_reset(1)
@@ -502,9 +503,9 @@ class JAMNPS(ProtocolType):
             
         try:
             # Get ring public keys from current validators
-            ring_public_keys = [v.bandersnatch for v in self.app.state.safrole.validators]
+            ring_public_keys = [v.bandersnatch for v in self.app.working_state.safrole.validators]
             # Get entropy for the epoch
-            entropy = self.app.state.entropy.entropy[2]
+            entropy = self.app.working_state.entropy.entropy[2]
             # Validate the ticket using the block extrinsic accumulator
             #TODO: duplicate with Safrole.create_ticket_body???
             ticket_envelope = TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof)
@@ -515,7 +516,7 @@ class JAMNPS(ProtocolType):
             )
 
             # Check if we already have this ticket
-            if ticket_body in self.app.state.safrole.ticket_accumulator:
+            if ticket_body in self.app.working_state.safrole.ticket_accumulator:
                 logger.info(f"Ticket already in accumulator")
                 stream.send_reset(2)
                 return
@@ -569,7 +570,7 @@ class JAMNPS(ProtocolType):
         logger.info(f"Received ticket for epoch {msg.epoch_index}")
         
         # Verify epoch index
-        current_epoch = self.app.state.timeslot.number // EPOCH_TIMESLOTS
+        current_epoch = self.app.working_state.timeslot.number // EPOCH_TIMESLOTS
         if msg.epoch_index < current_epoch:
             logger.warning(f"Invalid epoch index {msg.epoch_index}, current epoch is {current_epoch}")
             stream.send_reset(1)
@@ -577,9 +578,9 @@ class JAMNPS(ProtocolType):
             
         try:
             # Get ring public keys from current validators
-            ring_public_keys = [v.bandersnatch for v in self.app.state.safrole.validators]
+            ring_public_keys = [v.bandersnatch for v in self.app.working_state.safrole.validators]
             # Get entropy for the epoch
-            entropy = self.app.state.entropy.entropy[2]
+            entropy = self.app.working_state.entropy.entropy[2]
             # TODO: duplicate with Safrole.create_ticket_body???
             ticket_envelope = TicketEnvelope(attempt=msg.ticket.attempt, signature=msg.ticket.proof)
             ticket_body = self.app.block_extrinsic.create_ticket_body(
@@ -589,7 +590,7 @@ class JAMNPS(ProtocolType):
             )
 
             # Check if we already have this ticket
-            if ticket_body in self.app.state.safrole.ticket_accumulator:
+            if ticket_body in self.app.working_state.safrole.ticket_accumulator:
                 logger.info(f"Ticket already in accumulator (via CE132), ignoring")
                 stream.conn.send(stream.stream_id, b'', end_stream=True)
                 return
@@ -967,6 +968,7 @@ def create_jam_connection(
         conn.direction = direction
 
         conn.jam_connection_ulid = ULID()
+        conn.validator_key = validator_key
         protocol.connections[conn.jam_connection_ulid] = conn
 
         # Note: for accepting connections addr & port are known after the QUIC handshake, see JAMConnection::HandshakeComplete

@@ -947,24 +947,24 @@ class PyjamazApp:
                 ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
                 ring_context = RingContext(self.config.ring_data, ring_public_keys)
 
-                self.block_extrinsic.add_own_ticket(
+                await self.block_extrinsic.add_own_ticket(
                     ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index(), pubsub=self.pubsub
                 )
 
-                self.block_extrinsic.add_own_ticket(
+                await self.block_extrinsic.add_own_ticket(
                     ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index(), pubsub=self.pubsub
                 )
 
-                self.block_extrinsic.add_own_ticket(
+                await self.block_extrinsic.add_own_ticket(
                     ring_context, entropy, self.config.keys.bandersnatch, self.get_author_index(), pubsub=self.pubsub
                 )
 
         extrinsic = Extrinsic(
-            tickets=self.block_extrinsic.collect_tickets(),
+            tickets=await self.block_extrinsic.collect_tickets(),
             disputes=ExtrinsicDisputes(verdicts=[], culprits=[], faults=[]),
             preimages=self.block_extrinsic.collect_preimages(self.working_state.services),
             assurances=self.block_extrinsic.collect_assurances(),
-            guarantees=self.block_extrinsic.collect_guarantees(),
+            guarantees=await self.block_extrinsic.collect_guarantees(),
         )
 
         header = Header(
