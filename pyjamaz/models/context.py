@@ -1,67 +1,62 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, List, Dict
 
 from pyjamaz.accumulation import edit_queue, work_report_dependencies, work_report_mapping, priority_queue
 from pyjamaz.graypaper_constants import ROTATION_PERIOD_CORE, EPOCH_TIMESLOTS
-from pyjamaz.models.block import GuarantorAssignment, Header, AccumulationStatistic, DeferredTransferStatistic
+from pyjamaz.models.block import GuarantorAssignment, Header, AccumulationStatistic
 from pyjamaz.models.common import WorkReport
 from pyjamaz.models.state import AccumulationQueueWorkPackage, BeefyCommitmentMap, EntropyState, TimeslotState, \
     ValidatorPoolState, ValidatorArchiveState, AccumulationHistoryState, AccumulationQueueState
+from pyjamaz.settings import DEBUG
+from pyjamaz.state.storage import StateStorage
 
-from pyjamaz.storage import Transaction
 from pyjamaz.transport.pubsub import PubSub
 from pyjamaz.utils import guarantor_permute, flatten_list
 
 
 @dataclass
 class AppContext:
-    transaction: Optional[Transaction] = None
     pubsub: Optional[PubSub] = None
-
+    state_storage: Optional[StateStorage] = None
 
 @dataclass
 class BlockContext:
     """
-    GP-0.6.4-section:I.4.1 | Block context terms.
+    GP-0.7.2-section:I.4.1 | Block context terms.
     TODO parameter docstring
     """
-    # G
+    # M
     guarantor_assignments: Optional[List[GuarantorAssignment]] = None
-    # G*
+    # M*
     prev_guarantor_assignments: Optional[List[GuarantorAssignment]] = None
-    # H_a
+    # H_A
     author_bandersnatch_key: Optional[bytes] = None
     # TODO GP ref?
     seal_vrf_output: bytes = bytes(32)
-    # GP-0.6.4-eq:5.3 (bold_A)
-    ancestor_headers: List[Header] = field(default_factory=list)
 
-    # W
+    # R
     available_work_reports: Optional[List[WorkReport]] = None
-    # W!
+    # R!
     ready_work_reports: Optional[List[WorkReport]] = None
-    # W_Q
+    # R^Q
     queued_work_reports: Optional[List[AccumulationQueueWorkPackage]] = None
-    # W*
+    # R*
     accumulatable_work_reports: Optional[List[WorkReport]] = None
-    # R (Reporters set, containing Ed25519 key of validator)
+    # G (Reporters set, containing Ed25519 key of validator)
     reporters: Optional[List[bytes]] = None
 
     # M_o
     state_root: Optional[bytes] = None
 
-    # C
+    # C TODO: C no longer as used block context variable in 0.7.1, part of Beta state component, right?
     beefy_commitment_map: Optional[BeefyCommitmentMap] = None
 
-    # S
+    # S TODO: S has different meaning in 0.7.1? Is this still used?
     accumulated_services: Optional[List[int]] = None
 
-    # I
+    # S
     accumulation_statistics: Optional[Dict[int, AccumulationStatistic]] = None
-
-    # X
-    deferred_transfer_statistics: Optional[Dict[int, DeferredTransferStatistic]] = None
 
     def reset(self):
         self.guarantor_assignments = None
@@ -76,29 +71,6 @@ class BlockContext:
         self.beefy_commitment_map = None
         self.accumulated_services = None
         self.accumulation_statistics = None
-        self.deferred_transfer_statistics = None
-
-
-    def get_parent(self, header: Header) -> Optional[Header]:
-        """
-        GP-0.5.4-eq:5.3 (P)
-
-        Parameters
-        ----------
-        header
-
-        Returns
-        -------
-        Optional[Header]
-        """
-        if header.parent == bytes(32):
-            # H_0
-            return Header.default()
-
-        for ancestor in self.ancestor_headers:
-            if header.parent == ancestor.hash:
-                return ancestor
-        return None
 
     def set_guarantor_assignments(self,
                        post_entropy: EntropyState,
@@ -106,7 +78,7 @@ class BlockContext:
                        post_validator_pool: ValidatorPoolState
                        ):
         """
-        GP-0.5.3-eq:11.21 (G) | Sets guarantor assignments for current rotation
+        GP-0.7.2-eq:11.21 (M) | Sets guarantor assignments for current rotation
 
         Parameters
         ----------
@@ -120,7 +92,7 @@ class BlockContext:
         """
         assignments = guarantor_permute(post_entropy.entropy[2], post_timeslot.number)
 
-        logging.debug(f"Guarantor assignments for {post_timeslot.number}: {assignments}")
+        DEBUG and logging.debug(f"Guarantor assignments for {post_timeslot.number}: {assignments}")
 
         self.guarantor_assignments = [
             GuarantorAssignment(
@@ -137,7 +109,7 @@ class BlockContext:
             post_validator_archive: ValidatorArchiveState
     ):
         """
-        GP-0.5.3-eq:11.22 (G*) | Sets guarantor assignments for previous rotation
+        GP-0.7.2-eq:11.22 (M*) | Sets guarantor assignments for previous rotation
 
         Parameters
         ----------
@@ -168,7 +140,7 @@ class BlockContext:
 
     def set_ready_work_reports(self):
         """
-        GP-0.5.4-eq:12.4 (W_!) | Calculates and sets ready work reports
+        GP-0.7.2-eq:12.4 (R^!) | Calculates and sets ready work reports
 
         Returns
         -------
@@ -184,7 +156,7 @@ class BlockContext:
 
     def set_queued_work_reports(self, accumulation_history: AccumulationHistoryState):
         """
-        GP-0.5.4-eq:12.5 (W_Q) | Calculates and sets queued work reports
+        GP-0.7.2-eq:12.5 (R^Q) | Calculates and sets queued work reports
 
         Returns
         -------
@@ -200,7 +172,7 @@ class BlockContext:
 
     def set_accumulatable_work_reports(self, header: Header, accumulation_queue: AccumulationQueueState):
         """
-        GP-0.5.4-eq:12.10-12.12 (W_*) | Sets accumulatable work reports
+        GP-0.7.2-eq:12.10-12.12 (R^*) | Sets accumulatable work reports
 
         Parameters
         ----------
@@ -218,33 +190,41 @@ class BlockContext:
         if self.queued_work_reports is None:
             raise ValueError("No queued reports set")
 
-        # GP-0.5.4-eq:12.10
+        # GP-0.7.2-eq:12.10
         m = header.timeslot % EPOCH_TIMESLOTS
 
-        # GP-0.5.4-eq:12.12
+        # GP-0.7.2-eq:12.12
         q = edit_queue(
             work_report_queue=flatten_list(accumulation_queue.accumulation_queue[m:]) +
                               flatten_list(accumulation_queue.accumulation_queue[:m]) +
                               self.queued_work_reports,
             accumulated_packages=work_report_mapping(self.ready_work_reports)
         )
-        # GP-0.5.4-eq:12.11
+        # GP-0.7.2-eq:12.11
         self.accumulatable_work_reports = self.ready_work_reports + priority_queue(q)
 
     def set_accumulation_statistics(self, accumulation_gas_utilized: Dict[int, int], nr_work_results_accumulated: int):
         """
-        GP-0.6.4-eq:12.24,12.25 | Compose accumulation statistics (I)
+        GP-0.7.2-eq:12.26,12.27 | Compose accumulation statistics (S)
         """
         if self.accumulatable_work_reports is None:
             raise ValueError("No accumulatable reports set")
         self.accumulation_statistics = {}
+
+        # GP-0.7.2-eq:12.29 (function_N)
+        digests_per_service = {}
         for w in self.accumulatable_work_reports[:nr_work_results_accumulated]:
-            for r in w.results:
-                if r.service_id not in self.accumulation_statistics:
-                    self.accumulation_statistics[r.service_id] = AccumulationStatistic()
-                self.accumulation_statistics[r.service_id].nr_work_reports_accumulated += 1
+            for d in w.results:
+                if d.service_id not in digests_per_service:
+                    digests_per_service[d.service_id] = 1
+                else:
+                    digests_per_service[d.service_id] += 1
+
 
         for s, u in accumulation_gas_utilized.items():
-            if s not in self.accumulation_statistics:
-                self.accumulation_statistics[s] = AccumulationStatistic()
-            self.accumulation_statistics[s].total_gas_utilized = u
+            if digests_per_service.get(s, 0) + u > 0:
+                if s not in self.accumulation_statistics:
+                    self.accumulation_statistics[s] = AccumulationStatistic()
+                self.accumulation_statistics[s].total_gas_utilized = u
+                self.accumulation_statistics[s].nr_work_reports_accumulated = digests_per_service.get(s,0)
+

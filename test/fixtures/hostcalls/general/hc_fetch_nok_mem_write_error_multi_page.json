@@ -1,0 +1,50 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching with memory write error spanning multiple pages, should panic when writing across page boundary",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    200672,
+    0,
+    134,
+    0,
+    0,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 196608,
+      "length": 4096,
+      "is-writable": true
+    },
+    {
+      "address": 200704,
+      "length": 4096,
+      "is-writable": false
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    200672,
+    0,
+    134,
+    0,
+    0,
+    0
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+}

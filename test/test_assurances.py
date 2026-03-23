@@ -10,7 +10,7 @@ from parameterized import parameterized
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.components import Assurances
-from pyjamaz.storage import InMemoryStorage
+from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Assurance
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, TimeslotState
 
@@ -30,7 +30,7 @@ class TestAssurances(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.storage_engine = InMemoryStorage()
+        cls.storage_engine = InMemoryStorageEngine()
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -63,7 +63,7 @@ class TestAssurances(unittest.TestCase):
         block_context.reset()
         app_context = AppContext()
 
-        assurances = Assurances(self.storage_engine, block_context, app_context)
+        assurances = Assurances(block_context, app_context)
         try:
 
             assurances.validate_after_disputes(
@@ -74,7 +74,8 @@ class TestAssurances(unittest.TestCase):
 
             intermediate_output = assurances.state_transition_after_assurances(
                 extrinsic_assurances=extrinsic_assurances,
-                intermediate_state_assurances_after_disputes=pre_state_assurances
+                intermediate_state_assurances_after_disputes=pre_state_assurances,
+                header=header
             )
 
             output = assurances.state_transition_after_guarantees(

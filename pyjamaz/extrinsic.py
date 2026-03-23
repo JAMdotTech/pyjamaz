@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Dict, List, Optional
 
-from bandersnatch_vrfs import ring_vrf_sign, ietf_vrf_verify, ring_vrf_verify, vrf_output
+from bandersnatch_vrfs import RingContext, vrf_output
 
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
@@ -30,8 +30,7 @@ class BlockExtrinsicAccumulator:
 
         self._ticket_queue_lock = asyncio.Lock()
 
-
-    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes) -> TicketBody:
+    def create_ticket_body(self, ticket_data: TicketEnvelope, ring_context: RingContext, entropy: bytes) -> TicketBody:
         if ticket_data.attempt >= TICKET_ENTRIES:
             raise ValueError(SafroleErrorCode.bad_ticket_attempt)
 
@@ -40,49 +39,38 @@ class BlockExtrinsicAccumulator:
         aux_data = b''
 
         try:
-            logging.debug(f'Validating ticket with entropy {entropy.hex()}')
-            ring_vrf_output = ring_vrf_verify(
-                self.ring_data, ring_public_keys, vrf_input_data, aux_data, bytes(ticket_data.signature)
-            )
+            logging.DEBUG and logging.debug(f'Validating ticket with entropy {entropy.hex()}')
+            ring_vrf_output = ring_context.ring_vrf_verify(vrf_input_data, aux_data, bytes(ticket_data.signature))
+
         except ValueError as e:
             raise ValueError(SafroleErrorCode.bad_ticket_proof)
 
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
-
     async def add_ticket(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes):
-        ticket_body = self.create_ticket_body(ticket_data, ring_public_keys, entropy)
+        ring_context = RingContext(self.ring_data, ring_public_keys)
+        ticket_body = self.create_ticket_body(ticket_data, ring_context, entropy)
         async with self._ticket_queue_lock:
             self.tickets_queue[ticket_body.id] = ticket_data
-
-
-    async def add_ticket_body(self, ticket_data: TicketEnvelope, ticket_body: TicketBody):
-        async with self._ticket_queue_lock:
-            self.tickets_queue[ticket_body.id] = ticket_data
-
 
     def can_add_own_ticket(self, timeslot: int) -> bool:
         return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT
 
-
     async def add_own_ticket(
-            self, ring_public_keys: List[bytes], entropy: bytes, keypair: BandersnatchKeypair, author_index: int,
+            self, ring_context: RingContext, entropy: bytes, keypair: BandersnatchKeypair, author_index: int,
             epoch_index: int = None, pubsub: PubSub = None
     ):
 
-        attempt = len(self.own_tickets_next)
-
-        if attempt >= TICKET_ENTRIES:
+        if len(self.tickets_queue) > TICKET_ENTRIES:
             raise ValueError("Too many tickets")
 
-        # GP-0.3.8-eq:75
+        attempt = len(self.own_tickets_next)
+
+        # GP-0.7.2-eq:6.31
         vrf_input_data = vrf_input_ticket_seal(entropy, attempt)
         aux_data = b''
 
-        signature = ring_vrf_sign(
-            self.ring_data, ring_public_keys, keypair.private_key, author_index,
-            vrf_input_data, aux_data
-        )
+        signature = ring_context.ring_vrf_sign(author_index, keypair.private_key, vrf_input_data, aux_data)
 
         ticket = TicketEnvelope(
             attempt=attempt,
@@ -92,12 +80,12 @@ class BlockExtrinsicAccumulator:
         ticket_id = vrf_output(keypair.private_key, vrf_input_data)
 
         logging.info(f'🎫 Generated ticket: {format_hash(ticket_id)}')
-        logging.debug(f'Generated ticket: id = {format_hash(ticket_id)} with entropy {format_hash(entropy)}')
+        logging.DEBUG and logging.debug(f'Generated ticket: id = {format_hash(ticket_id)} with entropy {format_hash(entropy)}')
 
         async with self._ticket_queue_lock:
             self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)
-        
+
         # Notify new ticket is added
         if pubsub and epoch_index is not None:
             await pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.TICKET_ADD, data=[epoch_index, attempt, signature]))
@@ -121,57 +109,56 @@ class BlockExtrinsicAccumulator:
 
         return [ticket for _, ticket in collected_tickets]
 
-
     def is_own_ticket(self, ticket_id: bytes) -> bool:
         pass
-
 
     def own_ticket_count(self) -> int:
         return len(self.own_tickets_next)
 
+    def clear_own_tickets(self):
+        async with self._ticket_queue_lock:
+            for ticket_id in self.own_tickets_next:
+                del self.tickets_queue[ticket_id]
+        self.own_tickets_next = []
 
     async def clear_tickets(self):
         async with self._ticket_queue_lock:
             self.tickets_queue = {}
         self.own_tickets_next = []
 
-
-    async def process_epoch_change(self):
+    def process_epoch_change(self):
         self.own_tickets_current = self.own_tickets_next
         self.own_tickets_next = []
         async with self._ticket_queue_lock:
             self.tickets_queue = {}
 
-
     def add_guarantee(self, guarantee: Guarantee):
         self.guarentees_queue.append(guarantee)
-
 
     async def collect_guarantees(self) -> List[Guarantee]:
         guarentees = self.guarentees_queue
         self.guarentees_queue = []
         return guarentees
 
-
     def add_assurance(self, assurance: Assurance):
         self.assurances_queue.append(assurance)
-
 
     def collect_assurances(self) -> List[Assurance]:
         assurances = self.assurances_queue
         self.assurances_queue = []
         return assurances
 
-
     def add_preimage(self, preimage: Preimage):
         self.preimage_queue.append(preimage)
         logging.info(f"🖼️ Added preimage: {format_hash(blake2b_256_hash(preimage.blob))} for service: {preimage.requester}")
-
 
     def collect_preimages(self, service_state: ServicesState) -> List[Preimage]:
         # Check which of present preimages are actually requested
         preimages = []
         new_queue = []
+
+        # Sort preimages as requited per GP
+        self.preimage_queue = sorted(self.preimage_queue, key=lambda p: p.sort_key())
 
         for preimage in self.preimage_queue:
             if service_state.is_preimage_needed(preimage):
@@ -226,4 +213,4 @@ class WorkpackageExtrinsicAccumulator:
             return None
 
     def clear(self, work_package: WorkPackage):
-        del self.extrinsic_data[work_package.hash()]
+        self.extrinsic_data.pop(work_package.hash(), None)

@@ -10,8 +10,9 @@ from parameterized import parameterized
 from pyjamaz.models.common import WorkReport
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import AuthorizerPools
-from pyjamaz.storage import InMemoryStorage
+from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Guarantee
 from pyjamaz.models.state import AuthorizerPoolsState, AuthorizerQueuesState
 
@@ -31,9 +32,10 @@ class TestAuthorizations(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.storage_engine = InMemoryStorage()
+        storage_engine = InMemoryStorageEngine()
         cls.block_context = BlockContext()
-        cls.app_context = AppContext()
+
+        cls.app_context = AppContext(state_storage=StateStorage(storage_engine))
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -81,7 +83,7 @@ class TestAuthorizations(unittest.TestCase):
         self.block_context.reset()
 
         # Execute STF
-        authorizer_pools = AuthorizerPools(self.storage_engine, self.block_context, self.app_context)
+        authorizer_pools = AuthorizerPools(self.block_context, self.app_context)
         try:
 
             output = authorizer_pools.state_transition(

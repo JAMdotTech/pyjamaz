@@ -1,0 +1,64 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching specific accumulation input (w10=15), uses w11 as index",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    20,
+    15,
+    1,
+    0
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "accumulation_inputs": [
+    {
+      "encoded": "11223344556677889900aabbccddeeff11223344"
+    },
+    {
+      "encoded": "fedcba9876543210fedcba9876543210fedcba98"
+    },
+    {
+      "encoded": "deadbeefcafebabe1234567890abcdefdeadbeef"
+    }
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    20,
+    0,
+    20,
+    15,
+    1,
+    0
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        254, 220, 186, 152, 118, 84, 50, 16, 254, 220, 186, 152, 118, 84, 50, 16,
+        254, 220, 186, 152
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

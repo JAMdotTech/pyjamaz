@@ -2,14 +2,18 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional, Union
 
-import numpy as np
-
-from pyjamaz.pvm.exceptions import PVMMemoryError
 
 # TODO configurable during bootstrap
 PVM_PAGE_SIZE = 2**12 #ZP
 PVM_INIT_ZONE_SIZE = 2**16 #ZZ
 PVM_INPUT_DATA_SIZE = 2**24 #ZI
+
+
+MEM_I = 0  # inaccessible memory
+MEM_R = 1  # readable memory
+MEM_W = 2  # writable memory
+MEM_RW = 3  # explicit read/write memory (since we have that bit available anyway :)
+
 
 class ExitReason(Enum):
     resume:int          = 0 #GP:     ▸: continue PVM
@@ -30,19 +34,19 @@ class InstructionType(Enum):
     """
     This enum serves as classification for how instructions should be decoded
     """
-    none: np.uint8                                      = np.uint8(0)   #GP_A.5.1
-    imm: np.uint8                                       = np.uint8(1)   #GP_A.5.2
-    reg_ext_imm: np.uint8                               = np.uint8(2)   #GP_A.5.3
-    imm_imm: np.uint8                                   = np.uint8(3)   #GP_A.5.4
-    offset: np.uint8                                    = np.uint8(4)   #GP_A.5.5
-    reg_imm: np.uint8                                   = np.uint8(5)   #GP_A.5.6
-    reg_imm_imm: np.uint8                               = np.uint8(6)   #GP_A.5.7
-    reg_imm_offset: np.uint8                            = np.uint8(7)   #GP_A.5.8
-    reg_reg: np.uint8                                   = np.uint8(8)   #GP_A.5.9
-    reg_reg_imm: np.uint8                               = np.uint8(9)   #GP_A.5.10
-    reg_reg_offset: np.uint8                            = np.uint8(10)  #GP_A.5.11
-    reg_reg_imm_imm: np.uint8                           = np.uint8(11)  #GP_A.5.12
-    reg_reg_reg: np.uint8                               = np.uint8(12)  #GP_A.5.13
+    none: int                                      = 0   #GP_A.5.1
+    imm: int                                       = 1   #GP_A.5.2
+    reg_ext_imm: int                               = 2   #GP_A.5.3
+    imm_imm: int                                   = 3   #GP_A.5.4
+    offset: int                                    = 4   #GP_A.5.5
+    reg_imm: int                                   = 5   #GP_A.5.6
+    reg_imm_imm: int                               = 6   #GP_A.5.7
+    reg_imm_offset: int                            = 7   #GP_A.5.8
+    reg_reg: int                                   = 8   #GP_A.5.9
+    reg_reg_imm: int                               = 9   #GP_A.5.10
+    reg_reg_offset: int                            = 10  #GP_A.5.11
+    reg_reg_imm_imm: int                           = 11  #GP_A.5.12
+    reg_reg_reg: int                               = 12  #GP_A.5.13
 
 
 class Opcode(Enum):
@@ -51,182 +55,182 @@ class Opcode(Enum):
     """
     # GP_A.5.1
     # Instructions without Arguments (none)
-    trap: np.uint8                                      = np.uint8(0)
-    fallthrough: np.uint8                               = np.uint8(1)
+    trap: int                                      = 0
+    fallthrough: int                               = 1
 
     # GP_A.5.2
     # Instructions with Arguments of One Immediate (imm)
-    ecalli: np.uint8                                    = np.uint8(10)
+    ecalli: int                                    = 10
 
     # GP_A.5.3
     # Instructions with Arguments of One Register and One Extended Width Immediate (reg_ext_imm)
-    load_imm_64: np.uint8                              = np.uint8(20)
+    load_imm_64: int                              = 20
 
     # GP_A.5.4
     # Instructions with Arguments of two Immediates (imm_imm)
-    store_imm_u8: np.uint8                              = np.uint8(30)
-    store_imm_u16: np.uint8                             = np.uint8(31)
-    store_imm_u32: np.uint8                             = np.uint8(32)
-    store_imm_u64: np.uint8                             = np.uint8(33)
+    store_imm_u8: int                              = 30
+    store_imm_u16: int                             = 31
+    store_imm_u32: int                             = 32
+    store_imm_u64: int                             = 33
 
     # GP_A.5.5
     # Instructions with Arguments of One Offset (offset)
-    jump: np.uint8                                      = np.uint8(40)
+    jump: int                                      = 40
 
     # GP_A.5.6
     # Instructions with Arguments Of One Register & One Immediate (reg_imm)
-    jump_ind: np.uint8                                  = np.uint8(50)
-    load_imm: np.uint8                                  = np.uint8(51)
-    load_u8: np.uint8                                   = np.uint8(52)
-    load_i8: np.uint8                                   = np.uint8(53)
-    load_u16: np.uint8                                  = np.uint8(54)
-    load_i16: np.uint8                                  = np.uint8(55)
-    load_u32: np.uint8                                  = np.uint8(56)
-    load_i32: np.uint8                                  = np.uint8(57)
-    load_u64: np.uint8                                  = np.uint8(58)
-    store_u8: np.uint8                                  = np.uint8(59)
-    store_u16: np.uint8                                 = np.uint8(60)
-    store_u32: np.uint8                                 = np.uint8(61)
-    store_u64: np.uint8                                 = np.uint8(62)
+    jump_ind: int                                  = 50
+    load_imm: int                                  = 51
+    load_u8: int                                   = 52
+    load_i8: int                                   = 53
+    load_u16: int                                  = 54
+    load_i16: int                                  = 55
+    load_u32: int                                  = 56
+    load_i32: int                                  = 57
+    load_u64: int                                  = 58
+    store_u8: int                                  = 59
+    store_u16: int                                 = 60
+    store_u32: int                                 = 61
+    store_u64: int                                 = 62
 
     # GP_A.5.7
     # Instructions with Arguments Of One Register & Two Immediates (reg_imm_imm)
-    store_imm_ind_u8: np.uint8                          = np.uint8(70)
-    store_imm_ind_u16: np.uint8                         = np.uint8(71)
-    store_imm_ind_u32: np.uint8                         = np.uint8(72)
-    store_imm_ind_u64: np.uint8                         = np.uint8(73)
+    store_imm_ind_u8: int                          = 70
+    store_imm_ind_u16: int                         = 71
+    store_imm_ind_u32: int                         = 72
+    store_imm_ind_u64: int                         = 73
 
     # GP_A.5.8
     # Instructions with Arguments Of One Register, One Immediate and One Offset (reg_imm_offset)
-    load_imm_jump: np.uint8                             = np.uint8(80)
-    branch_eq_imm: np.uint8                             = np.uint8(81)
-    branch_ne_imm: np.uint8                             = np.uint8(82)
-    branch_lt_u_imm: np.uint8                           = np.uint8(83)
-    branch_le_u_imm: np.uint8                           = np.uint8(84)
-    branch_ge_u_imm: np.uint8                           = np.uint8(85)
-    branch_gt_u_imm: np.uint8                           = np.uint8(86)
-    branch_lt_s_imm: np.uint8                           = np.uint8(87)
-    branch_le_s_imm: np.uint8                           = np.uint8(88)
-    branch_ge_s_imm: np.uint8                           = np.uint8(89)
-    branch_gt_s_imm: np.uint8                           = np.uint8(90)
+    load_imm_jump: int                             = 80
+    branch_eq_imm: int                             = 81
+    branch_ne_imm: int                             = 82
+    branch_lt_u_imm: int                           = 83
+    branch_le_u_imm: int                           = 84
+    branch_ge_u_imm: int                           = 85
+    branch_gt_u_imm: int                           = 86
+    branch_lt_s_imm: int                           = 87
+    branch_le_s_imm: int                           = 88
+    branch_ge_s_imm: int                           = 89
+    branch_gt_s_imm: int                           = 90
 
     # GP_A.5.9
     # Instructions with Arguments Of Two Registers (reg_reg)
-    move_reg: np.uint8                                  = np.uint8(100)
-    sbrk: np.uint8                                      = np.uint8(101)
-    count_set_bits_64: np.uint8                         = np.uint8(102)
-    count_set_bits_32: np.uint8                         = np.uint8(103)
-    leading_zero_bits_64: np.uint8                      = np.uint8(104)
-    leading_zero_bits_32: np.uint8                      = np.uint8(105)
-    trailing_zero_bits_64: np.uint8                     = np.uint8(106)
-    trailing_zero_bits_32: np.uint8                     = np.uint8(107)
-    sign_extend_8: np.uint8                             = np.uint8(108)
-    sign_extend_16: np.uint8                            = np.uint8(109)
-    zero_extend_16: np.uint8                            = np.uint8(110)
-    reverse_bytes: np.uint8                             = np.uint8(111)
+    move_reg: int                                  = 100
+    sbrk: int                                      = 101
+    count_set_bits_64: int                         = 102
+    count_set_bits_32: int                         = 103
+    leading_zero_bits_64: int                      = 104
+    leading_zero_bits_32: int                      = 105
+    trailing_zero_bits_64: int                     = 106
+    trailing_zero_bits_32: int                     = 107
+    sign_extend_8: int                             = 108
+    sign_extend_16: int                            = 109
+    zero_extend_16: int                            = 110
+    reverse_bytes: int                             = 111
 
     # GP_A.5.10
     # Instructions with Arguments Of Two Registers & One Immediate (reg_reg_imm)
-    store_ind_u8: np.uint8                              = np.uint8(120)
-    store_ind_u16: np.uint8                             = np.uint8(121)
-    store_ind_u32: np.uint8                             = np.uint8(122)
-    store_ind_u64: np.uint8                             = np.uint8(123)
-    load_ind_u8: np.uint8                               = np.uint8(124)
-    load_ind_i8: np.uint8                               = np.uint8(125)
-    load_ind_u16: np.uint8                              = np.uint8(126)
-    load_ind_i16: np.uint8                              = np.uint8(127)
-    load_ind_u32: np.uint8                              = np.uint8(128)
-    load_ind_i32: np.uint8                              = np.uint8(129)
-    load_ind_u64: np.uint8                              = np.uint8(130)
-    add_imm_32: np.uint8                                = np.uint8(131)
-    and_imm: np.uint8                                   = np.uint8(132)
-    xor_imm: np.uint8                                   = np.uint8(133)
-    or_imm: np.uint8                                    = np.uint8(134)
-    mul_imm_32: np.uint8                                = np.uint8(135)
-    set_lt_u_imm: np.uint8                              = np.uint8(136)
-    set_lt_s_imm: np.uint8                              = np.uint8(137)
-    shlo_l_imm_32: np.uint8                             = np.uint8(138)
-    shlo_r_imm_32: np.uint8                             = np.uint8(139)
-    shar_r_imm_32: np.uint8                             = np.uint8(140)
-    neg_add_imm_32: np.uint8                            = np.uint8(141)
-    set_gt_u_imm: np.uint8                              = np.uint8(142)
-    set_gt_s_imm: np.uint8                              = np.uint8(143)
-    shlo_l_imm_alt_32: np.uint8                         = np.uint8(144)
-    shlo_r_imm_alt_32: np.uint8                         = np.uint8(145)
-    shar_r_imm_alt_32: np.uint8                         = np.uint8(146)
-    cmov_iz_imm: np.uint8                               = np.uint8(147)
-    cmov_nz_imm: np.uint8                               = np.uint8(148)
-    add_imm_64: np.uint8                                = np.uint8(149)
-    mul_imm_64: np.uint8                                = np.uint8(150)
-    shlo_l_imm_64: np.uint8                             = np.uint8(151)
-    shlo_r_imm_64: np.uint8                             = np.uint8(152)
-    shar_r_imm_64: np.uint8                             = np.uint8(153)
-    neg_add_imm_64: np.uint8                            = np.uint8(154)
-    shlo_l_imm_alt_64: np.uint8                         = np.uint8(155)
-    shlo_r_imm_alt_64: np.uint8                         = np.uint8(156)
-    shar_r_imm_alt_64: np.uint8                         = np.uint8(157)
-    rot_r_64_imm: np.uint8                              = np.uint8(158)
-    rot_r_64_imm_alt: np.uint8                          = np.uint8(159)
-    rot_r_32_imm: np.uint8                              = np.uint8(160)
-    rot_r_32_imm_alt: np.uint8                          = np.uint8(161)
+    store_ind_u8: int                              = 120
+    store_ind_u16: int                             = 121
+    store_ind_u32: int                             = 122
+    store_ind_u64: int                             = 123
+    load_ind_u8: int                               = 124
+    load_ind_i8: int                               = 125
+    load_ind_u16: int                              = 126
+    load_ind_i16: int                              = 127
+    load_ind_u32: int                              = 128
+    load_ind_i32: int                              = 129
+    load_ind_u64: int                              = 130
+    add_imm_32: int                                = 131
+    and_imm: int                                   = 132
+    xor_imm: int                                   = 133
+    or_imm: int                                    = 134
+    mul_imm_32: int                                = 135
+    set_lt_u_imm: int                              = 136
+    set_lt_s_imm: int                              = 137
+    shlo_l_imm_32: int                             = 138
+    shlo_r_imm_32: int                             = 139
+    shar_r_imm_32: int                             = 140
+    neg_add_imm_32: int                            = 141
+    set_gt_u_imm: int                              = 142
+    set_gt_s_imm: int                              = 143
+    shlo_l_imm_alt_32: int                         = 144
+    shlo_r_imm_alt_32: int                         = 145
+    shar_r_imm_alt_32: int                         = 146
+    cmov_iz_imm: int                               = 147
+    cmov_nz_imm: int                               = 148
+    add_imm_64: int                                = 149
+    mul_imm_64: int                                = 150
+    shlo_l_imm_64: int                             = 151
+    shlo_r_imm_64: int                             = 152
+    shar_r_imm_64: int                             = 153
+    neg_add_imm_64: int                            = 154
+    shlo_l_imm_alt_64: int                         = 155
+    shlo_r_imm_alt_64: int                         = 156
+    shar_r_imm_alt_64: int                         = 157
+    rot_r_64_imm: int                              = 158
+    rot_r_64_imm_alt: int                          = 159
+    rot_r_32_imm: int                              = 160
+    rot_r_32_imm_alt: int                          = 161
 
 
     # GP_A.5.11
     # Instructions with Arguments of Two Registers & One Offset (reg_reg_offset)
-    branch_eq: np.uint8                                 = np.uint8(170)
-    branch_ne: np.uint8                                 = np.uint8(171)
-    branch_lt_u: np.uint8                               = np.uint8(172)
-    branch_lt_s: np.uint8                               = np.uint8(173)
-    branch_ge_u: np.uint8                               = np.uint8(174)
-    branch_ge_s: np.uint8                               = np.uint8(175)
+    branch_eq: int                                 = 170
+    branch_ne: int                                 = 171
+    branch_lt_u: int                               = 172
+    branch_lt_s: int                               = 173
+    branch_ge_u: int                               = 174
+    branch_ge_s: int                               = 175
 
     # GP_A.5.12
     # Instructions with Arguments Of Two Registers And Two Immediates (reg_reg_imm_imm)
-    load_imm_jump_ind: np.uint8                         = np.uint8(180)
+    load_imm_jump_ind: int                         = 180
 
     # GP_A.5.13
     # Instructions with Arguments Of Three Registers (reg_reg_reg)
-    add_32: np.uint8                                    = np.uint8(190)
-    sub_32: np.uint8                                    = np.uint8(191)
-    mul_32: np.uint8                                    = np.uint8(192)
-    div_u_32: np.uint8                                  = np.uint8(193)
-    div_s_32: np.uint8                                  = np.uint8(194)
-    rem_u_32: np.uint8                                  = np.uint8(195)
-    rem_s_32: np.uint8                                  = np.uint8(196)
-    shlo_l_32: np.uint8                                 = np.uint8(197)
-    shlo_r_32: np.uint8                                 = np.uint8(198)
-    shar_r_32: np.uint8                                 = np.uint8(199)
-    add_64: np.uint8                                    = np.uint8(200)
-    sub_64: np.uint8                                    = np.uint8(201)
-    mul_64: np.uint8                                    = np.uint8(202)
-    div_u_64: np.uint8                                  = np.uint8(203)
-    div_s_64: np.uint8                                  = np.uint8(204)
-    rem_u_64: np.uint8                                  = np.uint8(205)
-    rem_s_64: np.uint8                                  = np.uint8(206)
-    shlo_l_64: np.uint8                                 = np.uint8(207)
-    shlo_r_64: np.uint8                                 = np.uint8(208)
-    shar_r_64: np.uint8                                 = np.uint8(209)
-    _and: np.uint8                                      = np.uint8(210)
-    xor: np.uint8                                       = np.uint8(211)
-    _or: np.uint8                                       = np.uint8(212)
-    mul_upper_s_s: np.uint8                             = np.uint8(213)
-    mul_upper_u_u: np.uint8                             = np.uint8(214)
-    mul_upper_s_u: np.uint8                             = np.uint8(215)
-    set_lt_u: np.uint8                                  = np.uint8(216)
-    set_lt_s: np.uint8                                  = np.uint8(217)
-    cmov_iz: np.uint8                                   = np.uint8(218)
-    cmov_nz: np.uint8                                   = np.uint8(219)
-    rot_l_64: np.uint8                                  = np.uint8(220)
-    rot_l_32: np.uint8                                  = np.uint8(221)
-    rot_r_64: np.uint8                                  = np.uint8(222)
-    rot_r_32: np.uint8                                  = np.uint8(223)
-    and_inv: np.uint8                                   = np.uint8(224)
-    or_inv: np.uint8                                    = np.uint8(225)
-    xnor: np.uint8                                      = np.uint8(226)
-    _max: np.uint8                                      = np.uint8(227)
-    max_u: np.uint8                                     = np.uint8(228)
-    _min: np.uint8                                      = np.uint8(229)
-    min_u: np.uint8                                     = np.uint8(230)
+    add_32: int                                    = 190
+    sub_32: int                                    = 191
+    mul_32: int                                    = 192
+    div_u_32: int                                  = 193
+    div_s_32: int                                  = 194
+    rem_u_32: int                                  = 195
+    rem_s_32: int                                  = 196
+    shlo_l_32: int                                 = 197
+    shlo_r_32: int                                 = 198
+    shar_r_32: int                                 = 199
+    add_64: int                                    = 200
+    sub_64: int                                    = 201
+    mul_64: int                                    = 202
+    div_u_64: int                                  = 203
+    div_s_64: int                                  = 204
+    rem_u_64: int                                  = 205
+    rem_s_64: int                                  = 206
+    shlo_l_64: int                                 = 207
+    shlo_r_64: int                                 = 208
+    shar_r_64: int                                 = 209
+    _and: int                                      = 210
+    xor: int                                       = 211
+    _or: int                                       = 212
+    mul_upper_s_s: int                             = 213
+    mul_upper_u_u: int                             = 214
+    mul_upper_s_u: int                             = 215
+    set_lt_u: int                                  = 216
+    set_lt_s: int                                  = 217
+    cmov_iz: int                                   = 218
+    cmov_nz: int                                   = 219
+    rot_l_64: int                                  = 220
+    rot_l_32: int                                  = 221
+    rot_r_64: int                                  = 222
+    rot_r_32: int                                  = 223
+    and_inv: int                                   = 224
+    or_inv: int                                    = 225
+    xnor: int                                      = 226
+    _max: int                                      = 227
+    max_u: int                                     = 228
+    _min: int                                      = 229
+    min_u: int                                     = 230
 
 
 """
@@ -631,4 +635,189 @@ OpcodeNames = {
     op.max_u.value: "max_u",
     op._min.value: "_min",
     op.min_u.value: "min_u"
+}
+
+
+inst_none = InstructionType.none.value
+inst_imm = InstructionType.imm.value
+inst_reg_ext_imm = InstructionType.reg_ext_imm.value
+inst_imm_imm = InstructionType.imm_imm.value
+inst_offset = InstructionType.offset.value
+inst_reg_imm = InstructionType.reg_imm.value
+inst_reg_imm_imm = InstructionType.reg_imm_imm.value
+inst_reg_imm_offset = InstructionType.reg_imm_offset.value
+inst_reg_reg = InstructionType.reg_reg.value
+inst_reg_reg_imm = InstructionType.reg_reg_imm.value
+inst_reg_reg_offset = InstructionType.reg_reg_offset.value
+inst_reg_reg_imm_imm = InstructionType.reg_reg_imm_imm.value
+inst_reg_reg_reg = InstructionType.reg_reg_reg.value
+
+
+op_trap = Opcode.trap.value
+op_fallthrough = Opcode.fallthrough.value
+op_ecalli = Opcode.ecalli.value
+op_load_imm_64 = Opcode.load_imm_64.value
+op_store_imm_u8 = Opcode.store_imm_u8.value
+op_store_imm_u16 = Opcode.store_imm_u16.value
+op_store_imm_u32 = Opcode.store_imm_u32.value
+op_store_imm_u64 = Opcode.store_imm_u64.value
+op_jump = Opcode.jump.value
+op_jump_ind = Opcode.jump_ind.value
+op_load_imm = Opcode.load_imm.value
+op_load_u8 = Opcode.load_u8.value
+op_load_i8 = Opcode.load_i8.value
+op_load_u16 = Opcode.load_u16.value
+op_load_i16 = Opcode.load_i16.value
+op_load_u32 = Opcode.load_u32.value
+op_load_i32 = Opcode.load_i32.value
+op_load_u64 = Opcode.load_u64.value
+op_store_u8 = Opcode.store_u8.value
+op_store_u16 = Opcode.store_u16.value
+op_store_u32 = Opcode.store_u32.value
+op_store_u64 = Opcode.store_u64.value
+op_store_imm_ind_u8 = Opcode.store_imm_ind_u8.value
+op_store_imm_ind_u16 = Opcode.store_imm_ind_u16.value
+op_store_imm_ind_u32 = Opcode.store_imm_ind_u32.value
+op_store_imm_ind_u64 = Opcode.store_imm_ind_u64.value
+op_load_imm_jump = Opcode.load_imm_jump.value
+op_branch_eq_imm = Opcode.branch_eq_imm.value
+op_branch_ne_imm = Opcode.branch_ne_imm.value
+op_branch_lt_u_imm = Opcode.branch_lt_u_imm.value
+op_branch_le_u_imm = Opcode.branch_le_u_imm.value
+op_branch_ge_u_imm = Opcode.branch_ge_u_imm.value
+op_branch_gt_u_imm = Opcode.branch_gt_u_imm.value
+op_branch_lt_s_imm = Opcode.branch_lt_s_imm.value
+op_branch_le_s_imm = Opcode.branch_le_s_imm.value
+op_branch_ge_s_imm = Opcode.branch_ge_s_imm.value
+op_branch_gt_s_imm = Opcode.branch_gt_s_imm.value
+op_move_reg = Opcode.move_reg.value
+op_sbrk = Opcode.sbrk.value
+op_count_set_bits_64 = Opcode.count_set_bits_64.value
+op_count_set_bits_32 = Opcode.count_set_bits_32.value
+op_leading_zero_bits_64 = Opcode.leading_zero_bits_64.value
+op_leading_zero_bits_32 = Opcode.leading_zero_bits_32.value
+op_trailing_zero_bits_64 = Opcode.trailing_zero_bits_64.value
+op_trailing_zero_bits_32 = Opcode.trailing_zero_bits_32.value
+op_sign_extend_8 = Opcode.sign_extend_8.value
+op_sign_extend_16 = Opcode.sign_extend_16.value
+op_zero_extend_16 = Opcode.zero_extend_16.value
+op_reverse_bytes = Opcode.reverse_bytes.value
+op_store_ind_u8 = Opcode.store_ind_u8.value
+op_store_ind_u16 = Opcode.store_ind_u16.value
+op_store_ind_u32 = Opcode.store_ind_u32.value
+op_store_ind_u64 = Opcode.store_ind_u64.value
+op_load_ind_u8 = Opcode.load_ind_u8.value
+op_load_ind_i8 = Opcode.load_ind_i8.value
+op_load_ind_u16 = Opcode.load_ind_u16.value
+op_load_ind_i16 = Opcode.load_ind_i16.value
+op_load_ind_u32 = Opcode.load_ind_u32.value
+op_load_ind_i32 = Opcode.load_ind_i32.value
+op_load_ind_u64 = Opcode.load_ind_u64.value
+op_add_imm_32 = Opcode.add_imm_32.value
+op_and_imm = Opcode.and_imm.value
+op_xor_imm = Opcode.xor_imm.value
+op_or_imm = Opcode.or_imm.value
+op_mul_imm_32 = Opcode.mul_imm_32.value
+op_set_lt_u_imm = Opcode.set_lt_u_imm.value
+op_set_lt_s_imm = Opcode.set_lt_s_imm.value
+op_shlo_l_imm_32 = Opcode.shlo_l_imm_32.value
+op_shlo_r_imm_32 = Opcode.shlo_r_imm_32.value
+op_shar_r_imm_32 = Opcode.shar_r_imm_32.value
+op_neg_add_imm_32 = Opcode.neg_add_imm_32.value
+op_set_gt_u_imm = Opcode.set_gt_u_imm.value
+op_set_gt_s_imm = Opcode.set_gt_s_imm.value
+op_shlo_l_imm_alt_32 = Opcode.shlo_l_imm_alt_32.value
+op_shlo_r_imm_alt_32 = Opcode.shlo_r_imm_alt_32.value
+op_shar_r_imm_alt_32 = Opcode.shar_r_imm_alt_32.value
+op_cmov_iz_imm = Opcode.cmov_iz_imm.value
+op_cmov_nz_imm = Opcode.cmov_nz_imm.value
+op_add_imm_64 = Opcode.add_imm_64.value
+op_mul_imm_64 = Opcode.mul_imm_64.value
+op_shlo_l_imm_64 = Opcode.shlo_l_imm_64.value
+op_shlo_r_imm_64 = Opcode.shlo_r_imm_64.value
+op_shar_r_imm_64 = Opcode.shar_r_imm_64.value
+op_neg_add_imm_64 = Opcode.neg_add_imm_64.value
+op_shlo_l_imm_alt_64 = Opcode.shlo_l_imm_alt_64.value
+op_shlo_r_imm_alt_64 = Opcode.shlo_r_imm_alt_64.value
+op_shar_r_imm_alt_64 = Opcode.shar_r_imm_alt_64.value
+op_rot_r_64_imm = Opcode.rot_r_64_imm.value
+op_rot_r_64_imm_alt = Opcode.rot_r_64_imm_alt.value
+op_rot_r_32_imm = Opcode.rot_r_32_imm.value
+op_rot_r_32_imm_alt = Opcode.rot_r_32_imm_alt.value
+op_branch_eq = Opcode.branch_eq.value
+op_branch_ne = Opcode.branch_ne.value
+op_branch_lt_u = Opcode.branch_lt_u.value
+op_branch_lt_s = Opcode.branch_lt_s.value
+op_branch_ge_u = Opcode.branch_ge_u.value
+op_branch_ge_s = Opcode.branch_ge_s.value
+op_load_imm_jump_ind = Opcode.load_imm_jump_ind.value
+op_add_32 = Opcode.add_32.value
+op_sub_32 = Opcode.sub_32.value
+op_mul_32 = Opcode.mul_32.value
+op_div_u_32 = Opcode.div_u_32.value
+op_div_s_32 = Opcode.div_s_32.value
+op_rem_u_32 = Opcode.rem_u_32.value
+op_rem_s_32 = Opcode.rem_s_32.value
+op_shlo_l_32 = Opcode.shlo_l_32.value
+op_shlo_r_32 = Opcode.shlo_r_32.value
+op_shar_r_32 = Opcode.shar_r_32.value
+op_add_64 = Opcode.add_64.value
+op_sub_64 = Opcode.sub_64.value
+op_mul_64 = Opcode.mul_64.value
+op_div_u_64 = Opcode.div_u_64.value
+op_div_s_64 = Opcode.div_s_64.value
+op_rem_u_64 = Opcode.rem_u_64.value
+op_rem_s_64 = Opcode.rem_s_64.value
+op_shlo_l_64 = Opcode.shlo_l_64.value
+op_shlo_r_64 = Opcode.shlo_r_64.value
+op_shar_r_64 = Opcode.shar_r_64.value
+op_and = Opcode._and.value
+op_xor = Opcode.xor.value
+op_or = Opcode._or.value
+op_mul_upper_s_s = Opcode.mul_upper_s_s.value
+op_mul_upper_u_u = Opcode.mul_upper_u_u.value
+op_mul_upper_s_u = Opcode.mul_upper_s_u.value
+op_set_lt_u = Opcode.set_lt_u.value
+op_set_lt_s = Opcode.set_lt_s.value
+op_cmov_iz = Opcode.cmov_iz.value
+op_cmov_nz = Opcode.cmov_nz.value
+op_rot_l_64 = Opcode.rot_l_64.value
+op_rot_l_32 = Opcode.rot_l_32.value
+op_rot_r_64 = Opcode.rot_r_64.value
+op_rot_r_32 = Opcode.rot_r_32.value
+op_and_inv = Opcode.and_inv.value
+op_or_inv = Opcode.or_inv.value
+op_xnor = Opcode.xnor.value
+op_max = Opcode._max.value
+op_max_u = Opcode.max_u.value
+op_min = Opcode._min.value
+op_min_u = Opcode.min_u.value
+
+
+TERMINATION_OPCODES = {
+    op.trap.value,
+    op.fallthrough.value,
+
+    op.jump.value,
+    op.jump_ind.value,
+
+    op.load_imm_jump.value,
+    op.load_imm_jump_ind.value,
+
+    op.branch_eq_imm.value,
+    op.branch_ne_imm.value,
+    op.branch_lt_u_imm.value,
+    op.branch_ge_u_imm.value,
+    op.branch_le_u_imm.value,
+    op.branch_gt_u_imm.value,
+    op.branch_lt_s_imm.value,
+    op.branch_ge_s_imm.value,
+    op.branch_le_s_imm.value,
+    op.branch_gt_s_imm.value,
+    op.branch_eq.value,
+    op.branch_ne.value,
+    op.branch_lt_u.value,
+    op.branch_lt_s.value,
+    op.branch_ge_u.value,
+    op.branch_ge_s.value
 }

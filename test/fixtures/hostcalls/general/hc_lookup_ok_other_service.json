@@ -1,0 +1,73 @@
+{
+  "hostcall": "hc_lookup",
+  "description": "Tests successful preimage lookup for another service (w7=100), retrieves preimage from different service to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    100,
+    131072,
+    131104,
+    0,
+    32
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255, 0,
+        17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255, 0
+      ]
+    }
+  ],
+  "service_id": 42,
+  "other_services": {
+    "100": {
+      "code_hash": "1122334455667788990011223344556677889900112233445566778899001122",
+      "balance": 2000000,
+      "threshold_balance": 200
+    }
+  },
+  "preimages": [
+    {
+      "service_id": 100,
+      "hash": "112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00",
+      "value": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+    }
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    32,
+    131072,
+    131104,
+    0,
+    32
+  ],
+  "expected-memory": [
+    {
+      "address": 131104,
+      "contents": [
+        254, 220, 186, 152, 118, 84, 50, 16, 254, 220, 186, 152, 118, 84, 50, 16,
+        254, 220, 186, 152, 118, 84, 50, 16, 254, 220, 186, 152, 118, 84, 50, 16
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

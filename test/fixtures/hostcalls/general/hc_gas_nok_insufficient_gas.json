@@ -1,0 +1,12 @@
+{
+  "description": "Test hc_gas with insufficient gas (less than 10), returns negative gas",
+  "hostcall": "hc_gas",
+  "gas": 5,
+  "initial-registers": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "initial-page-map": [],
+  "initial-memory": [],
+  "expected-regs": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "expected-memory": [],
+  "expected-exit-reason": "out_of_gas",
+  "expected-gas": -5
+}

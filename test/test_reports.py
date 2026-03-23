@@ -9,11 +9,13 @@ from parameterized import parameterized
 from pyjamaz.exceptions import StateTransitionError
 from pyjamaz.models.block import Header, Guarantee, Extrinsic, ExtrinsicDisputes
 from pyjamaz.models.state import AssurancesState, ValidatorPoolState, ValidatorArchiveState, TimeslotState, \
-    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState
+    ServicesState, RecentHistoryState, AuthorizerPoolsState, AccumulationHistoryState, EntropyState, DisputesState, \
+    ServiceAccount, PendingChanges
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
+from pyjamaz.state.storage import StateStorage
 from pyjamaz.state.components import Assurances
-from pyjamaz.storage import InMemoryStorage
+from pyjamaz.storage import InMemoryStorageEngine
 
 
 def get_test_vector_files(file_filter: Optional[str] = None):
@@ -37,9 +39,10 @@ class TestReports(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.storage_engine = InMemoryStorage()
+        storage_engine = InMemoryStorageEngine()
         cls.block_context = BlockContext()
-        cls.app_context = AppContext()
+
+        cls.app_context = AppContext(state_storage=StateStorage(storage_engine))
 
     @staticmethod
     def load_test_vector_data(test_vector_file):
@@ -87,8 +90,12 @@ class TestReports(unittest.TestCase):
             {"validators": test_vector["pre_state"]["prev_validators"]}
         )
 
-        pre_services = ServicesState.from_json(
-            {"services": {s["id"]: {
+        pre_services = ServicesState()
+        pre_services.set_state_storage(self.app_context.state_storage)
+        pre_services.pending_changes = PendingChanges()
+
+        for s in test_vector["pre_state"]["accounts"]:
+            pre_services.store_service_account(s["id"], ServiceAccount.from_json({
                 "code_hash": bytes.fromhex(s["data"]["service"]["code_hash"][2:]),
                 "balance": s["data"]["service"]["balance"],
                 "gas_limit_accumulate": s["data"]["service"]["min_item_gas"],
@@ -98,15 +105,21 @@ class TestReports(unittest.TestCase):
                 "threshold_balance": 0,
                 "storage_items": {},
                 "preimages": {},
-                "preimage_availability": {}
+                "preimage_availability": {},
+                "deposit_offset": s["data"]["service"]["deposit_offset"],
+                "creation_slot": s["data"]["service"]["creation_slot"],
+                "last_accumulation_slot": s["data"]["service"]["last_accumulation_slot"],
+                "parent_service": s["data"]["service"]["parent_service"]
 
-            } for s in test_vector["pre_state"]["accounts"]}}
-        )
+            }))
 
-        pre_services.set_storage_engine(self.storage_engine)
+
 
         intermediate_state_recent_history = RecentHistoryState.from_json(
-            {"recent_history": test_vector["pre_state"]["recent_blocks"]}
+            {
+                'recent_blocks': test_vector["pre_state"]["recent_blocks"]['history'],
+                'accumulation_output_log': test_vector["pre_state"]["recent_blocks"]['mmr']['peaks']
+            }
         )
 
         pre_authorizer_pools = AuthorizerPoolsState.from_json(
@@ -116,6 +129,13 @@ class TestReports(unittest.TestCase):
         pre_accumulation_history = AccumulationHistoryState(accumulation_history=[])
 
         post_entropy = EntropyState.from_json({"entropy": test_vector["pre_state"]["entropy"]})
+
+        post_disputes = DisputesState.from_json({
+            "good_set": [],
+            "bad_set": [],
+            "wonky_set": [],
+            "offenders": test_vector["pre_state"]["offenders"]
+        })
 
         # Prepare block context
         self.block_context.reset()
@@ -132,7 +152,7 @@ class TestReports(unittest.TestCase):
         )
 
 
-        assurances = Assurances(self.storage_engine, self.block_context, self.app_context)
+        assurances = Assurances(self.block_context, self.app_context)
         try:
             assurances.validate_guarantees(
                 extrinsic_guarantees=extrinsic_guarantees,
@@ -145,7 +165,8 @@ class TestReports(unittest.TestCase):
                 pre_accumulation_history=pre_accumulation_history,
                 post_entropy=post_entropy,
                 post_state_timeslot=post_state_timeslot,
-                post_state_validator_archive=post_state_validator_archive
+                post_state_validator_archive=post_state_validator_archive,
+                post_state_disputes=post_disputes,
             )
 
             output = assurances.state_transition_after_guarantees(

@@ -7,7 +7,7 @@ from pyjamaz.constants import WELL_KNOWN_STORAGE_KEYS
 from pyjamaz.exceptions import StateComponentNotFound, StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
 
-from pyjamaz.storage import StorageEngine, Transaction
+from pyjamaz.storage import StorageEngine
 
 if typing.TYPE_CHECKING:
     from pyjamaz.models.state import State
@@ -16,9 +16,9 @@ if typing.TYPE_CHECKING:
 T = TypeVar('T')
 
 
-def state_key_constructor_service_account(service_account_id) -> bytes:
+def state_key_constructor_service_account(service_account_id: int) -> bytes:
     """
-    GP-0.6.6-eq:D.1 | State key constructor for a service account
+    GP-0.7.2-eq:D.1 | State key constructor for a service account
 
     Parameters
     ----------
@@ -41,7 +41,7 @@ def state_key_constructor_service_account(service_account_id) -> bytes:
 
 def state_key_constructor_service_account_value(service_account_id: int, value: bytes) -> bytes:
     """
-    GP-0.6.6-eq:D.1 | State key constructor for a service account value
+    GP-0.7.2-eq:D.1 | State key constructor for a service account value
 
     Parameters
     ----------
@@ -54,6 +54,7 @@ def state_key_constructor_service_account_value(service_account_id: int, value: 
     """
     service_account_key = int(service_account_id).to_bytes(4, byteorder="little")
     state_key = bytearray(7)
+    value = blake2b_256_hash(value)
 
     state_key[0] = service_account_key[0]
     state_key[1] = value[0]
@@ -65,14 +66,14 @@ def state_key_constructor_service_account_value(service_account_id: int, value: 
 
     return bytes(state_key) + value[3:27]
 
-def state_key_constructor_storage_item(service_account_id: int, storage_item_hash: bytes) -> bytes:
+def state_key_constructor_storage_item(service_account_id: int, storage_item_key: bytes) -> bytes:
     """
-    GP-0.6.6-eq:D.2 | State key constructor for a storage item hash
+    GP-0.7.2-eq:D.2 | State key constructor for a storage item hash
 
     Parameters
     ----------
     service_account_id: int
-    storage_item_hash: bytes
+    storage_item_key: bytes
 
     Returns
     -------
@@ -80,12 +81,12 @@ def state_key_constructor_storage_item(service_account_id: int, storage_item_has
     """
     return state_key_constructor_service_account_value(
         service_account_id=service_account_id,
-        value=int(2**32-1).to_bytes(4, byteorder='little') + storage_item_hash[0:27]
+        value=int(2**32-1).to_bytes(4, byteorder='little') + storage_item_key
     )
 
 def state_key_constructor_preimage(service_account_id: int, preimage_hash: bytes) -> bytes:
     """
-    GP-0.6.6-eq:D.2 | State key constructor for a preimage hash
+    GP-0.7.2-eq:D.2 | State key constructor for a preimage hash
 
     Parameters
     ----------
@@ -98,7 +99,7 @@ def state_key_constructor_preimage(service_account_id: int, preimage_hash: bytes
     """
     state_key = state_key_constructor_service_account_value(
         service_account_id=service_account_id,
-        value=int(2**32-2).to_bytes(4, byteorder='little') + preimage_hash[1:28]
+        value=int(2**32-2).to_bytes(4, byteorder='little') + preimage_hash
     )
 
     return state_key
@@ -108,20 +109,20 @@ def state_key_constructor_preimage_availability(
         service_account_id: int, preimage_hash: bytes, preimage_length: int
 ) -> bytes:
     """
-    GP-0.6.6-eq:D.2 | State key constructor for a preimage availability
+    GP-0.7.2-eq:D.2 | State key constructor for a preimage availability
 
     Parameters
     ----------
     service_account_id: int
     preimage_hash: bytes
-    preimage_length: bytes
+    preimage_length: int
     Returns
     -------
     bytes
     """
     return state_key_constructor_service_account_value(
         service_account_id=service_account_id,
-        value=int(preimage_length).to_bytes(4, byteorder="little") + blake2b_256_hash(preimage_hash)[2:29]
+        value=int(preimage_length).to_bytes(4, byteorder="little") + preimage_hash
     )
 
 
@@ -129,9 +130,8 @@ class StateComponent:
 
     component_id: int
 
-    def __init__(self, storage_engine: StorageEngine, block_context: 'BlockContext', app_context: 'AppContext', **kwargs):
+    def __init__(self, block_context: 'BlockContext', app_context: 'AppContext', **kwargs):
 
-        self.storage_engine = storage_engine
         self.block_context = block_context
         self.app_context = app_context
 
@@ -140,7 +140,7 @@ class StateComponent:
 
     def _state_key_constructor_component(self) -> bytes:
         """
-        GP-0.3.8-eq:290,291 Only wellknown storage keys
+        GP-0.7.2-eq:D.1,D.2 Only wellknown storage keys
         """
         try:
             return WELL_KNOWN_STORAGE_KEYS[self.component_id]
@@ -148,20 +148,17 @@ class StateComponent:
             raise StateComponentNotFound(f"State component ID {self.component_id} not found")
 
     def retrieve(self):
-        result = self.storage_engine.get(self._state_key_constructor_component())
+        result = self.app_context.state_storage.get(self._state_key_constructor_component())
         if result is None:
             raise StateKeyNoResult(f"No result for state component {self.component_id}")
         return result
 
-    def store(self, data: bytes, transaction: Transaction = None):
-        if transaction is not None:
-            transaction.put(self._state_key_constructor_component(), data)
-        else:
-            self.storage_engine.put(self._state_key_constructor_component(), data)
+    def store(self, data: bytes):
+        self.app_context.state_storage.put(self._state_key_constructor_component(), data)
 
-    async def store_state(self, state: 'State', transaction: Optional[Transaction] = None):
+    async def store_state(self, state: 'State'):
         data = state.to_jam_bytes().to_bytes()
-        self.store(data, transaction)
+        self.store(data)
 
     def retrieve_state(self):
         raise NotImplementedError
@@ -169,7 +166,7 @@ class StateComponent:
     @staticmethod
     def is_epoch_change(pre_slotnumber: int, post_slotnumber: int) -> bool:
         """
-        GP-0.3.8-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
+        GP-0.7.2-general: `e!=e' ? T, F` | Helper function that determines if the epoch has changed.
 
         Returns
         -------
@@ -181,7 +178,7 @@ class StateComponent:
     @staticmethod
     def slot_phase_index(slot_number: int) -> int:
         """
-        GP-0.3.8-eq:46 (m) | Function that returns the phase index into the epoch of the timeslot
+        GP-0.7.2-eq:6.2 (m) | Function that returns the phase index into the epoch of the timeslot
 
         Returns
         -------
@@ -194,7 +191,7 @@ class StateComponent:
     @staticmethod
     def epoch_number(slot_number: int) -> int:
         """
-        GP-0.3.8-eq:46 (e) | Function that returns the epoch index
+        GP-0.7.2-eq:6.2 (e) | Function that returns the epoch index
 
         Returns
         -------
@@ -243,5 +240,3 @@ class StorageMap(Mapping):
 
     def __len__(self):
         return len(self.cache)
-
-

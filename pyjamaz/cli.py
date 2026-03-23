@@ -1,13 +1,13 @@
-import asyncio
+import bisect
 import logging
-import re
 import traceback
 from asyncio import CancelledError
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import shutil
-from typing import List, Tuple
+from pathlib import Path, PosixPath
+from typing import List, Tuple, Optional
 
 import anyio
 import ipaddress
@@ -18,24 +18,29 @@ import asyncclick as click
 from asyncclick import BadParameter, MissingParameter
 
 from jamcodec.base import JamBytes
-from pyjamaz import settings
 
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
-from pyjamaz.exceptions import StateKeyNoResult
-from pyjamaz.fuzzer import TargetServer, FuzzerSession, FuzzerMessage, SetStateMessage
+from pyjamaz.exceptions import StateKeyNoResult, StateTransitionError, BlockValidationError
+
 from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
-from pyjamaz.models.app import Trace, StateDump, ChainspecDump
-from pyjamaz.transport.rpc.ws_server import start_rpc_server, WebSocketServer
-from pyjamaz.settings import GP_VERSION, SOLO_MODE, APP_VERSION
-from pyjamaz.storage import LevelDBStorage, InMemoryStorage, TransactionRolledBack
+from pyjamaz.models.app import Trace, TraceGenesis
+from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
+from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
+from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
+from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 from pyjamaz.models.block import Block, Header, Extrinsic
+from pyjamaz.fuzzer import FuzzerMessage, InitializeMessage, FuzzerTarget, FuzzerSession, AncestryItem
 from pyjamaz.transport.cert import generate_cert, write_cert
 from pyjamaz.transport.jamnp_s.protocol import JAMNPS
 
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import format_hash, quic_peer_id
+
+
+from pyjamaz.pvm import *
+
 
 data_dir = path.join(path.dirname(path.abspath(__file__)), 'data')
 default_db_path = path.join(data_dir, 'db')
@@ -66,13 +71,16 @@ def ipv6_to_byte_array(ip_str:str) -> bytearray:
         raise ValueError(f"Invalid IP: {ip_str}")
 
 
-def wrap_cli_import_block(traces_dir):
+def import_block_cli(traces_dir):
     async def cli_import_block(self, block: Block, dry_run=False):
 
         if traces_dir:
             pre_state = await self.create_state_dump()
 
         try:
+            # Finalize parent
+            await self.finalize(block.header.parent)
+
             await self._import_block(block, dry_run=dry_run)
 
             if traces_dir:
@@ -81,14 +89,35 @@ def wrap_cli_import_block(traces_dir):
             current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
             current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
 
-            logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{current_epoch} | phase #{current_phase}')
-            logging.info(f'🗳️ Tickets in accumulator: {len(self.state.safrole.ticket_accumulator)}')
+            logging.info(f'📦 Imported block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{current_epoch} | phase #{current_phase}')
+            logging.info(f'🗳️ Tickets in accumulator: {len(self.working_state.safrole.ticket_accumulator)}')
 
         except Exception as e:
             # Rollback state
-            logging.error(f'Import failed for #{block.header.timeslot}; Rollback state')
-            logging.debug(traceback.format_exc())
-            self.state = self.retrieve_jam_state()
+            logging.error(f'Import failed for #{block.header.timeslot} -> {e}; Rollback state')
+            DEBUG and logging.debug(traceback.format_exc())
+            self.state_storage.rollback()
+            self.working_state = self.retrieve_jam_state()
+
+    return cli_import_block
+
+
+def import_block_fuzzer(traces_dir):
+    async def cli_import_block(self, block: Block, dry_run=False):
+
+        if traces_dir:
+            pre_state = await self.create_state_dump()
+
+        await self._import_block(block, dry_run=dry_run)
+
+        if traces_dir:
+            await self.store_trace(pre_state, block, traces_dir)
+
+        current_epoch =  block.header.timeslot // EPOCH_TIMESLOTS
+        current_phase =  block.header.timeslot % EPOCH_TIMESLOTS
+
+        logging.info(f'📦 Imported block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{current_epoch} | phase #{current_phase}')
+        logging.info(f'🗳️ Tickets in accumulator: {len(self.working_state.safrole.ticket_accumulator)}')
 
     return cli_import_block
 
@@ -100,22 +129,16 @@ def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
     return produced_block_jamnp
 
 
-# def wrap_produced_block_fs(app: PyjamazApp, traces_dir, fs_protocol: FSProtocol):
-#     async def produced_block_fs(block: Block):
-#         await app.import_block(block)
-#         await fs_protocol.broadcast_block(block)
-#
-#     return produced_block_fs
-
-
 async def initialize_app(
         read_state=True,
-        memory_storage=False,
+        storage_engine='memory',
         keys=None,
         common_era=None,
         custom_db_path=None,
         record_traces=None,
-        fuzzer_socket_path=None
+        pubsub=True,
+        block_importer=None,
+        d3l_path=None
 ) -> PyjamazApp:
 
     # Load SRS
@@ -124,10 +147,15 @@ async def initialize_app(
 
     # Initiate storage engine
     try:
-        if memory_storage:
-            storage_engine = InMemoryStorage()
+        DEBUG and logging.debug(f'Selected storage engine: {storage_engine}')
+
+        if storage_engine == 'memory':
+            storage_engine = InMemoryStorageEngine()
+
+        elif storage_engine == 'rocksdb':
+            storage_engine = RocksDBStorageEngine.create_from_file(custom_db_path or default_db_path)
         else:
-            storage_engine = LevelDBStorage.create_from_file(custom_db_path or default_db_path)
+            raise ValueError(f'Unsupported storage engine: {storage_engine}')
 
     except IOError as e:
         logging.error(f'Could not initialize storage engine: {str(e)}')
@@ -143,14 +171,24 @@ async def initialize_app(
         storage_engine=storage_engine,
         keys=keys,
         common_era=common_era,
-        create_traces=record_traces
+        create_traces=record_traces,
+        d3l_path=d3l_path
     )
 
-    app = PyjamazApp(config=config, import_block_callback=wrap_cli_import_block(record_traces))
-    app.pubsub = PubSub()
-    app.app_context.pubsub = app.pubsub
+    if block_importer:
+        app = PyjamazApp(config=config, import_block_callback=block_importer(record_traces))
+    else:
+        app = PyjamazApp(config=config)
+
+    if pubsub:
+        app.pubsub = PubSub()
+        app.app_context.pubsub = app.pubsub
 
     if read_state:
+        # Retrieve finalized header
+        finalized_head_hash = app.retrieve_finalized_head()
+        finalized_header = app.retrieve_block_header(finalized_head_hash)
+        app.state_storage.set_finalized_header(finalized_header)
         await app.initialize()
 
     return app
@@ -162,11 +200,10 @@ async def initialize_app(
 async def main():
     pass
 
-# @click.group(invoke_without_command=True)
-# @click.pass_context
 
 @main.command(name='run', help='Run a Pyjamaz JAM node')
-@click.option('--seed', type=str, help='Seed to generate validator keys')
+@click.option('--seed', type=str,
+              help='Seed to generate validator keys')
 @click.option('--port', type=int, default=9000, show_default=True, help='UDP port on which the validator should run')
 @click.option('--ts', type=int, help='Unix timestamp for when the validator starts.')
 @click.option('--culprit', is_flag=True, help="Culprit mode: node will intentionally act malicious")
@@ -180,18 +217,20 @@ async def main():
 @click.option('--rpc-port', 'rpc_port', type=int, default=19800, show_default=True, help='Port for RPC server to listen on')
 @click.option('--fuzzer', 'fuzzer', is_flag=True, help="Validate trace with fuzzer target")
 @click.option('--fuzzer-socket-path', 'fuzzer_socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
-async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path):
+@click.option('--d3l-path', 'd3l_path', type=click.Path())
+@click.option('--replay-blocks', 'replay_blocks', type=click.Path())
+async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path, verbose, host, bootnode, rpc_listen_ip, rpc_port, fuzzer, fuzzer_socket_path, d3l_path, replay_blocks):
     """PyJAMaz: Python JAM Client"""
 
     # Setup logging
-    log_level = logging.DEBUG if verbose else logging.INFO
+    log_level = logging.DEBUG if verbose or DEBUG else logging.INFO
     # Note: Add packages that need a different logging level here
-    #log_level = logging.ERROR
-    log_level = logging.INFO
-    #log_level = logging.DEBUG
     log_package_overrides = {
-        "pyjamaz.transport.jamnp_s": logging.DEBUG,
+        "pyjamaz.transport": log_level,
+        #"pyjamaz.transport.jamnp_s": logging.DEBUG,
         "quic": logging.WARNING,
+        "numba": logging.WARNING,
+        "numba.core": logging.WARNING
     }
     setup_logging(log_level, log_package_overrides)
 
@@ -217,20 +256,35 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             keys=Keys.from_seed(bytes.fromhex(seed[2:])),
             custom_db_path=custom_db_path,
             record_traces=record_traces,
-            fuzzer_socket_path=fuzzer_socket_path if fuzzer else None,
+            storage_engine=STORAGE_ENGINE,
+            block_importer=import_block_cli,
+            d3l_path=d3l_path
         )
     except StateKeyNoResult:
         raise BadParameter(f'DB is not yet initialized; run init first')
 
+    DEBUG and logging.debug("Retrieving ancestor headers from DB..")
+
+    for header in app.retrieve_ancestor_headers(app.state_storage.finalized_block_hash):
+        app.state_storage.add_ancestor(header)
+
+    common_era_time = datetime.fromtimestamp(app.config.common_era, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    if replay_blocks:
+        app.config.replay_blocks = TimeslotSelector(replay_blocks)
+
     logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
     logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
     logging.info(f'💾 Storage path: {db_path}')
+    if d3l_path:
+        logging.info(f"💿 D3L path set to {d3l_path}")
     logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
     logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
     logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
-    logging.info(f'🗓️ Common Era: {app.config.common_era} ({datetime.fromtimestamp(app.config.common_era).strftime("%Y-%m-%d %H:%M:%S")})')
-    logging.info(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
-    logging.info(f'⏱️ Latest timeslot: #{app.state.timeslot.number}')
+    logging.info(f'🗓️ Common Era: {app.config.common_era} ({common_era_time})')
+    logging.info(f'🌲 State trie root: {format_hash(app.working_state.state_root)}')
+    logging.info(f'📦 Finalized block: {format_hash(app.state_storage.finalized_block_hash)}')
+    logging.info(f'⏱️ Finalized timeslot: #{app.working_state.timeslot.number}')
 
     logging.info(f'💤 Waiting to start at {datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")}')
 
@@ -263,10 +317,10 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             tg.start_soon(nps_protocol.listen)
 
             if bootnode:
-                #logging.debug(f'Connecting to node {validator_address}:{validator_port}')
-                #tg.start_soon(nps_protocol.connect, validator_address, validator_port)
+                # logging.debug(f'Connecting to node {validator_address}:{validator_port}')
+                # tg.start_soon(nps_protocol.connect, validator_address, validator_port)
 
-                #ecjn4brac2kgu25kiykefww6p6ai7noueo6p5af5tnwjgra4eisya@172.16.238.11:40001
+                # ecjn4brac2kgu25kiykefww6p6ai7noueo6p5af5tnwjgra4eisya@172.16.238.11:40001
                 conn = re.match(
                     r"^(?P<key>[A-Za-z0-9]+)"
                     r"@"
@@ -277,12 +331,12 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
                 )
 
                 logging.debug(f'Connecting to bootnode {conn["key"]} at {conn["addr"]}:{conn["port"]}')
-                #tg.start_soon(nps_protocol.connect, conn["addr"], conn["port"])
+                # tg.start_soon(nps_protocol.connect, conn["addr"], conn["port"])
                 try:
-                    #await nps_protocol.connect(conn["addr"], conn["port"])
-                    #await nps_protocol.connect("54.39.18.64", 40000)
+                    # await nps_protocol.connect(conn["addr"], conn["port"])
+                    # await nps_protocol.connect("54.39.18.64", 40000)
                     await nps_protocol.connect("localhost", conn["port"])
-                    #await nps_protocol.connect("127.0.0.1", 40001) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    # await nps_protocol.connect("127.0.0.1", 40001) #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 except Exception as exc:
                     traceback.print_exc()
             # else:
@@ -315,8 +369,6 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
 
 async def timeslot_ticker(app: PyjamazApp):
 
-    prev_timeslot = app.state.timeslot.number
-
     while True:
         timeslot = app.current_timeslot()
         # TODO centralize
@@ -325,71 +377,80 @@ async def timeslot_ticker(app: PyjamazApp):
         epoch = timeslot // EPOCH_TIMESLOTS
         phase = timeslot % EPOCH_TIMESLOTS
 
-        logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
+        DEBUG and logging.debug(f"⏳️ Timeslot ticker: {timeslot}")
 
-        if timeslot <= prev_timeslot:
-            logging.debug(f'⚠️ Timeslot did not advance; yield for 0.1 seconds {app.state.timeslot.number} >= {timeslot}')
-            await anyio.sleep(0.01)
+        if app.working_state.timeslot.number >= timeslot:
+            DEBUG and logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
+            await anyio.sleep(0.1)
             continue
 
-        if prev_timeslot // EPOCH_TIMESLOTS != timeslot // EPOCH_TIMESLOTS:
+        if app.is_epoch_change(timeslot):
             logging.info("🗓️ Process Epoch change")
 
-            if timeslot != app.state.timeslot.number:
+            # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
+            #  triggering state changes in STFs caused be epoch change.
 
-                # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
-                #  triggering state changes in STFs caused be epoch change.
+            header = Header.default()
+            header.timeslot = timeslot
 
-                header = Header.default()
-                header.timeslot = timeslot
+            entropy_output = app.components.entropy.state_transition(
+                header=header,
+                pre_state_timeslot=app.working_state.timeslot,
+                pre_state_entropy=app.working_state.entropy
+            )
 
-                entropy_output = app.components.entropy.state_transition(
-                    header=header,
-                    pre_state_timeslot=app.state.timeslot,
-                    pre_state_entropy=app.state.entropy
-                )
-
-                safrole_output = app.components.safrole.state_transition(
-                    header=header,
-                    pre_state_timeslot=app.state.timeslot,
-                    pre_state_safrole=app.state.safrole,
-                    pre_state_validator_queue=app.state.validator_queue,
-                    post_state_entropy=entropy_output.post_state,
-                    post_state_disputes=app.state.disputes,
-                    post_state_validator_pool=app.state.validator_pool,
-                    extrinsic_tickets=[]
-                )
-
-                safrole_state = safrole_output.post_state
-                entropy_state = entropy_output.post_state
-            else:
-                safrole_state = app.state.safrole
-                entropy_state = app.state.entropy
+            safrole_output = app.components.safrole.state_transition(
+                header=header,
+                pre_state_timeslot=app.working_state.timeslot,
+                pre_state_safrole=app.working_state.safrole,
+                pre_state_validator_queue=app.working_state.validator_queue,
+                post_state_entropy=entropy_output.post_state,
+                post_state_disputes=app.working_state.disputes,
+                post_state_validator_pool=app.working_state.validator_pool,
+                extrinsic_tickets=[]
+            )
 
             # Process tickets
-            await app.block_extrinsic.process_epoch_change()
-            logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
+            app.block_extrinsic.process_epoch_change()
+            DEBUG and logging.debug(f"Current tickets {[i.hex() for i in app.block_extrinsic.own_tickets_current]}")
+
+            safrole_state = safrole_output.post_state
+            entropy_state = entropy_output.post_state
         else:
-            safrole_state = app.state.safrole
-            entropy_state = app.state.entropy
+            safrole_state = app.working_state.safrole
+            entropy_state = app.working_state.entropy
 
         if app.should_produce_block(timeslot, safrole_state):
 
             try:
                 await app.process_assurances()
 
-                block = await app.produce_block(timeslot, safrole_state, entropy_state)
+                parent_header_hash = app.retrieve_block_hash(app.working_state.timeslot.number)
 
-                await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+                if parent_header_hash is None:
+                    raise ValueError(f'No parent block found for timeslot #{app.working_state.timeslot.number}')
 
-                logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash: {format_hash(block.header.hash)} | epoch #{epoch} | phase #{phase}')
+                # Finalize parent
+                await app.finalize(parent_header_hash)
+
+                if app.config.replay_blocks:
+                    block = app.config.replay_blocks.find_next(timeslot)
+                    if block:
+                        await app.import_block(block)
+                else:
+                    block = await app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
+
+                    if app.pubsub:
+                        await app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+
+                    logging.info(f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}')
             except Exception as e:
                 logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
-                logging.debug(traceback.format_exc())
+                DEBUG and logging.debug(traceback.format_exc())
                 # Rollback state from DB
-                app.state = app.retrieve_jam_state()
+                app.working_state = app.retrieve_jam_state()
                 # TODO Make transactional
-                #await app.block_extrinsic.clear_tickets()
+                app.block_extrinsic.clear_tickets()
 
         else:
             logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
@@ -402,7 +463,7 @@ async def timeslot_ticker(app: PyjamazApp):
             if work_report:
                 logging.info(f'👨‍💻 Refine complete | slot={timeslot} | core={app.get_core_assigment()} | work_report={format_hash(work_report.package_spec.hash)}')
 
-        prev_timeslot = timeslot
+
         await anyio.sleep(app.get_next_slot_timestamp() - time.time() + 0.01) #TODO: create constant to give meaning to this number
 
 
@@ -461,18 +522,25 @@ async def init_certificate(db_path, seed):
 @click.option('--seed', 'seed', type=str, help="Seed to use for validator keys")
 @click.option('--chainspec', 'chainspec', type=click.Choice(['dev', 'docker']), help="Chainspec to use as genesis", default='dev', show_default=True)
 @click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
+@click.option('--import-trace', 'import_trace', type=click.Path())
 @click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
 async def init(
         custom_db_path,
         force_overwrite,
         seed,
-        chainspec
+        chainspec,
+        verbose,
+        import_trace
 ):
     """
     Clears all existing data and initializes the JAM client.
 
     Defaults to DEV initial state if none is provided.
     """
+
+    log_level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(log_level)
 
     if seed is None:
         raise MissingParameter("--seed parameter is required")
@@ -487,185 +555,290 @@ async def init(
         shutil.rmtree(db_path)  # Delete the directory if it exists
         click.echo(f"The database at '{db_path}' was deleted successfully.")
 
-    app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
-
-    # Load chainspec
-    with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
-        chainspec_data = json.load(fp)
-
-    # Store state data
-    for k, v in chainspec_data["genesis_state"].items():
-        app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
-
-    # Create genesis block
-    genesis_block = Block(
-        header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
-        extrinsic=Extrinsic.default()
+    app = await initialize_app(
+        read_state=False,
+        custom_db_path=custom_db_path,
+        storage_engine=STORAGE_ENGINE,
+        block_importer=import_block_cli
     )
 
-    # Store genesis block
-    await app.store_block(genesis_block)
+    if import_trace:
 
-    click.echo(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
+        trace = Trace.from_jam_bytes(JamBytes(Path(import_trace).read_bytes()))
+
+        # Update state from trace post-state
+        for k, v in trace.post_state.keyvals:
+            app.state_db.put(bytes(k), bytes(v))
+
+        # Add stub parent as ancestor
+        stub_parent = Header.default()
+        stub_parent.hash = trace.block.header.parent
+        stub_parent.timeslot = max(0, trace.block.header.timeslot - 1)
+        await app.store_block_header(stub_parent)
+        await app.add_ancestor_header(stub_parent)
+
+        # Store block
+        await app.store_block(trace.block)
+        await app.add_ancestor_header(trace.block.header)
+        # Store finalized head
+        await app.store_finalized_head(trace.block.header.hash)
+        # Set finalized head in state storage
+        app.state_storage.set_finalized_header(trace.block.header)
+
+        click.echo(f'📦 State successfully import from trace file {import_trace}')
+
+        logging.debug("Initializating app..")
+        await app.initialize(trace.block.header)
+
+    else:
+        # Load chainspec
+        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-spec.json'), 'r') as fp:
+            chainspec_data = json.load(fp)
+
+        # Store state data
+        for k, v in chainspec_data["genesis_state"].items():
+            app.state_db.put(bytes.fromhex(k), bytes.fromhex(v))
+
+        # Create genesis block
+        genesis_block = Block(
+            header=Header.from_jam_bytes(JamBytes(bytes.fromhex(chainspec_data["genesis_header"]))),
+            extrinsic=Extrinsic.default()
+        )
+
+        # Store genesis block
+        await app.store_block(genesis_block)
+        # Store finalized head
+        await app.store_finalized_head(genesis_block.header.hash)
+        # Set finalized head in state storage
+        app.state_storage.set_finalized_header(genesis_block.header)
+
+        click.echo(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
+
+        logging.debug("Initializating app..")
+        await app.initialize(genesis_block.header)
 
     # Initialize certificate
     await init_certificate(db_path, seed)
 
-    logging.debug("Updating state trie..")
-    await app.update_state_trie()
+
 
     click.echo(f"✅ Initialization complete.")
-    click.echo(f'🌲 State trie root: {format_hash(app.state_trie_root)}')
+    click.echo(f'🌲 State trie root: {format_hash(app.working_state.state_root)}')
 
-@main.group('fuzzer', help="Start a fuzzer target for provided mode [local, traces]")
+@main.group('fuzzer', help="Start a fuzzer target or run traces on a fuzzer target")
 async def fuzzer():
     pass
 
-@fuzzer.command('traces', help='Run trace files in given folder')
+@main.command('traces', help='Run trace files in specified folder')
 @click.argument('traces_dir', type=click.Path(exists=True))
-@click.option('--db-path', 'custom_db_path', type=click.Path())
-@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
-@click.option('--skip-block-validation', is_flag=True, help="Skip block validation before import")
-@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys", default='0x0000000000000000000000000000000000000000000000000000000000000000', show_default=True)
-@click.option('--chainspec', 'chainspec', type=str, help="Chainspec to use as genesis (e.g. testnet-tiny")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
+@click.option('--prompt', is_flag=True, help="Prompt on state diff ")
 async def replay_traces(
-        traces_dir, custom_db_path, force_overwrite, skip_block_validation, seed, chainspec, verbose
+        traces_dir, verbose, prompt,
 ):
 
-    log_level = logging.DEBUG if verbose else logging.INFO
+    log_level = logging.DEBUG if verbose or settings.DEBUG else logging.INFO
     setup_logging(log_level)
 
     # Safety checks
     if settings.SOLO_MODE:
         raise BadParameter("settings.SOLO_MODE should be False when running traces")
 
-    db_path = custom_db_path or default_db_path
+    # Set GP relaxation flags
+    settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
 
-    if seed is None:
-        raise MissingParameter("--seed parameter is required")
-    elif not seed.startswith("0x") or len(seed) != 66:
-        raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
-
-    # Flush database and import genesis state
-    if os.path.isdir(db_path):
-        if not force_overwrite:
-            click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
-        shutil.rmtree(db_path)  # Delete the directory if it exists
-        logging.info(f"The database at '{db_path}' was deleted successfully.")
-
-    os.makedirs(db_path, exist_ok=True)
-    if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
-        await init_certificate(db_path, seed)
-
-    app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
-
-    if chainspec:
-        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-db.bin'), 'rb') as fp:
-            genesis_state = StateDump.from_jam_bytes(JamBytes(fp.read()))
-            for k, v, name, metadata in genesis_state.keyvals:
-                app.state_db.put(bytes(k), bytes(v))
-
-            app.state = app.retrieve_jam_state()
-            await app.update_state_trie()
-
-            assert app.state_trie_root == genesis_state.state_root
-            logging.info(f'🎬 Genesis successfully saved (state root: {format_hash(app.state_trie_root)})')
-
-        with open(os.path.join(data_dir, 'chainspecs', f'{chainspec}-block.bin'), 'rb') as fp:
-            genesis_block = Block.from_jam_bytes(JamBytes(fp.read()))
-
-            app.block_context.ancestor_headers.append(genesis_block.header)
-
-            logging.info(f'📦 Genesis block successfully saved (hash: {format_hash(genesis_block.header.hash)})')
-
-    traces_files = await anyio.to_thread.run_sync(
-        lambda: sorted({f for f in os.listdir(traces_dir) if f.endswith('.bin') and f !='genesis.bin'}),
+    app = await initialize_app(
+        read_state=False,
+        custom_db_path=None,
+        storage_engine='memory',
+        pubsub=False,
     )
 
+    traces_folder = Path(traces_dir)
+
+    traces_files = await anyio.to_thread.run_sync(
+        lambda: sorted({f for f in list(traces_folder.rglob("*.bin")) if f.name not in ['genesis.bin', 'report.bin']}),
+    )
+
+    last_parent = None
+
+    start_time = time.time()
+
+    # Process files in traces folder
     for nr, block_file in enumerate(traces_files, start=1):
         logging.info(f'📂 Processing trace file {block_file}')
 
-        with open(os.path.join(traces_dir, block_file), 'rb') as fp:
-            trace = Trace.from_jam_bytes(JamBytes(fp.read()))
+        trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
 
         if trace.pre_state.state_root == bytes(32):
             # Skip genesis creation
             continue
 
-        # Update state from trace pre-state
-        for k, v in trace.pre_state.keyvals:
-            app.state_db.put(bytes(k), bytes(v))
+        # Flush DB
+        for key, _ in app.state_db.as_list():
+            app.state_db.delete(key)
 
-        app.state = app.retrieve_jam_state()
-        await app.update_state_trie()
-
-        if app.state_trie_root == trace.pre_state.state_root:
-            logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.state_trie_root)})')
-        else:
-            logging.error("State root of pre-state doesn't match")
+        # Clear pending changesets
+        app.state_storage.clear()
 
         # Add stub parent as ancestor
         stub_parent = Header.default()
         stub_parent.hash = trace.block.header.parent
-        stub_parent.timeslot = trace.block.header.timeslot - 1
-        app.block_context.ancestor_headers.append(stub_parent)
+        stub_parent.timeslot = max(0, trace.block.header.timeslot - 1)
 
-        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash: {format_hash(trace.block.header.hash)})')
+        # Set finalized head
+        app.state_storage.set_finalized_block_hash(stub_parent.hash)
 
-        await app.import_block(trace.block, dry_run=skip_block_validation)
-        # Update Patricia Trie
-        await app.update_state_trie()
+        # Update state from trace pre-state
+        for k, v in trace.pre_state.keyvals:
+            app.state_db.put(bytes(k), bytes(v))
 
-        logging.info(f'✅ Block {trace.block.header.timeslot} successfully imported.')
+        # Add stub
+        await app.store_block_header(stub_parent)
+        await app.add_ancestor_header(stub_parent)
 
-        if app.state_trie_root == trace.post_state.state_root:
+        # Store block
+        await app.store_block(trace.block)
+        await app.add_ancestor_header(trace.block.header)
+
+        await app.initialize(header=trace.block.header)
+
+        if app.working_state.state_root == trace.pre_state.state_root:
+            logging.info(f'🎬 Pre-state successfully saved (state root: {format_hash(app.working_state.state_root)})')
+        else:
+            logging.error("State root of pre-state doesn't match")
+
+        last_parent = block_file.parent
+
+        logging.info(f'⚙️ Processing block {trace.block.header.timeslot} (hash={format_hash(trace.block.header.hash)} parent={format_hash(trace.block.header.parent)} parent_state_root={format_hash(trace.block.header.parent_state_root)})')
+
+        # Finalize parent
+        app.state_storage.finalize(trace.block.header.parent)
+
+        try:
+            # Import block
+            await app.import_block(trace.block)
+
+            logging.info(f'✅ Block {format_hash(trace.block.header.hash)} successfully imported.')
+
+        except (StateTransitionError, BlockValidationError) as e:
+            logging.info(f"🛑 Block {format_hash(trace.block.header.hash)} raised error -> {e}")
+            app.state_storage.rollback()
+
+        # Validate new state root
+        if app.working_state.state_root == trace.post_state.state_root:
             logging.info(f'✅ State trie root matches ({format_hash(trace.post_state.state_root)})')
         else:
-            logging.error(f'State root of trace {format_hash(trace.post_state.state_root)} does not match with current state {format_hash(app.state_trie_root)}')
+            logging.error(f'State root mismatch in trace "{block_file.parent.name}/{block_file.name}": their={format_hash(trace.post_state.state_root)}  ours={format_hash(app.working_state.state_root)}')
 
             # Diffing DBs
-            process_state_diff(list(app.state_db), trace.post_state.keyvals)
+            process_state_diff(app.state_storage.as_list(), trace.post_state.keyvals, block_file)
 
-            state_dump_file = f'state_{block_file.replace(".bin", "")}.json'
-
-            with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
-                json.dump(app.state.to_json(), file, indent=2)
-            logging.info(f"Current state written to disk: {state_dump_file}")
-
-            # Update state from trace post-state
-            for k, v in trace.post_state.keyvals:
-                app.state_db.put(bytes(k), bytes(v))
-
-            app.state = app.retrieve_jam_state()
-            await app.update_state_trie()
-
-            state_dump_file = f'trace_post_{block_file.replace(".bin", "")}.json'
-
-            with open(os.path.join(traces_dir, state_dump_file), 'w') as file:
-                json.dump(app.state.to_json(), file, indent=2)
-            logging.info(f"Trace post-state written to disk: {state_dump_file}")
-
-            if nr < len(traces_files):
-                response = click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+            if nr < len(traces_files) and prompt:
+                response = await click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
                 if response.lower() == 'q':
                     logging.info('✋ User aborted.')
                     break
 
-        # Flush DB
-        for key, _ in app.state_db:
-            app.state_db.delete(key)
+    logging.info(f'Traces finished in {time.time() - start_time} seconds')
 
-
-@fuzzer.command('local', help='Start Fuzzer target over UNIX socket.')
-@click.option('--seed', 'seed', type=str, help="Seed to use for validator keys", default='0x0000000000000000000000000000000000000000000000000000000000000000', show_default=True)
+@fuzzer.command('traces', help='Start Fuzzer target over UNIX socket.')
+@click.argument('traces_dir', type=click.Path(exists=True))
 @click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
-@click.option('--db-path', 'custom_db_path', type=click.Path(), default=default_db_path, show_default=True)
-@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database")
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
-async def fuzzer_target(
-        custom_db_path, force_overwrite, seed, socket_path, verbose
-):
+@click.option('--prompt-on-diff', is_flag=True, help="Prompt on state diff ")
+async def fuzzer_traces(traces_dir: str, socket_path: str, verbose: bool, prompt_on_diff: bool):
+    log_level = logging.DEBUG if verbose else logging.INFO
+    setup_logging(log_level)
+
+    fuzzer_session = FuzzerSession(socket_path, app=None)
+    await fuzzer_session.connect()
+
+    logging.info(f'Fuzzer session started.')
+
+    traces_folder = Path(traces_dir)
+
+    traces_files = await anyio.to_thread.run_sync(
+        lambda: sorted({f for f in list(traces_folder.rglob("*.bin")) if f.name not in ['genesis.bin', 'report.bin']}),
+    )
+
+    start_time = time.time()
+
+    last_parent = None
+
+    for nr, block_file in enumerate(traces_files, start=1):
+        logging.info(f'📂 Processing trace file {block_file}')
+
+
+        trace = Trace.from_jam_bytes(JamBytes(block_file.read_bytes()))
+
+        if block_file.parent != last_parent:
+            # Initialize
+            ancestry = []
+
+            # Check for genesis.bin
+            genesis_file = block_file.parent / "genesis.bin"
+
+            if genesis_file.exists():
+                genesis = TraceGenesis.from_jam_bytes(JamBytes(genesis_file.read_bytes()))
+                state = genesis.state
+                init_header = genesis.header
+
+            else:
+                # Unknown genesis; add stub parent as ancestor
+                init_header = Header.default()
+                state = trace.pre_state
+                if trace.block.header.timeslot > 0:
+                    ancestry = [
+                        AncestryItem(slot=trace.block.header.timeslot - 1, header_hash=trace.block.header.parent)
+                    ]
+
+            request = FuzzerMessage(
+                initialize=InitializeMessage(
+                    state=state.keyvals,
+                    header=init_header,
+                    ancestry=ancestry
+                ),
+            )
+            response = await fuzzer_session.send_request(request)
+
+            logging.info(f'💾 Fuzzer: Set state: {format_hash(response.state_root)}')
+
+            if response.state_root != state.state_root:
+                logging.error(f'Fuzzer state root mismatch: exp={format_hash(state.state_root)} got={format_hash(response.state_root)}')
+                exit(2)
+
+            last_parent = block_file.parent
+        verbose and logging.debug(f'Import block: h={format_hash(trace.block.header.hash)} p={format_hash(trace.block.header.parent)} ts={trace.block.header.timeslot}')
+        request = FuzzerMessage(
+            import_block=trace.block,
+        )
+        response = await fuzzer_session.send_request(request)
+
+        if response.error:
+            logging.info(f'🛑 Target reported error for {format_hash(trace.block.header.hash)}:  {response.error}')
+            response.state_root = trace.pre_state.state_root
+
+        if response.state_root == trace.post_state.state_root:
+            logging.info(f'✅ Imported block {format_hash(trace.block.header.hash)} successfully: State root matches ({format_hash(response.state_root)})')
+        else:
+            logging.error(f'🚽Imported block: Fuzzer state root mismatch: exp={format_hash(trace.post_state.state_root)} got={format_hash(response.state_root)}')
+            if prompt_on_diff:
+                response = await click.prompt("Press Enter to continue or type 'q' to quit", default='', show_default=False)
+                if response.lower() == 'q':
+                    logging.info('✋ User aborted.')
+                    break
+
+    logging.info(f'Fuzzer session finished in {time.time() - start_time} seconds')
+
+
+@fuzzer.command('target', help='Start Fuzzer target over UNIX socket.')
+@click.option('--socket-path', 'socket_path', type=str, default="/tmp/jam_target.sock", show_default=True)
+@click.option('--db-path', 'db_path', type=click.Path(), default=None, show_default=True, help="[deprecated]")
+@click.option('--force-overwrite', is_flag=True, help="Skip confirmation to overwrite existing database [deprecated]")
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+async def fuzzer_target(db_path, force_overwrite, socket_path, verbose):
+
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
@@ -673,30 +846,17 @@ async def fuzzer_target(
     if settings.SOLO_MODE:
         logging.warning('settings.SOLO_MODE is enabled')
 
-    db_path = custom_db_path or default_db_path
+    # Set GP relaxation flags
+    settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
 
-    if seed is None:
-        raise MissingParameter("--seed parameter is required")
-    elif not seed.startswith("0x") or len(seed) != 66:
-        raise BadParameter("Seed should start with '0x' and have a length of 66 chars")
-
-    # Flush database and import genesis state
-    if os.path.isdir(db_path):
-        if not force_overwrite:
-            click.confirm(f"Database already exists at '{db_path}', delete?", abort=True)
-        shutil.rmtree(db_path)  # Delete the directory if it exists
-        logging.info(f"The database at '{db_path}' was deleted successfully.")
-
-    os.makedirs(db_path, exist_ok=True)
-    if not os.path.isfile(os.path.join(db_path, "cert.key")) or force_overwrite:
-        await init_certificate(db_path, seed)
-
-    app = await initialize_app(read_state=False, custom_db_path=custom_db_path)
-
-    logging.info(f'App initialized with DB: {db_path}')
+    app = await initialize_app(
+        read_state=False,
+        storage_engine='memory',
+        pubsub=False
+    )
 
     try:
-        srv = TargetServer(socket_path, app)
+        srv = FuzzerTarget(socket_path, app)
         await srv.start()
     except (KeyboardInterrupt, CancelledError):
         logging.info("Stopping fuzzer...")
@@ -712,16 +872,16 @@ async def setup_fuzzer_session(app: PyjamazApp, fuzzer_socket_path: str):
 
     logging.info(f'Fuzzer session started.')
 
-    initial_block = app.retrieve_block(app.state.timeslot.number)
+    initial_block = app.retrieve_block(app.working_state.timeslot.number)
 
     request = FuzzerMessage(
-        set_state=SetStateMessage(state=list(app.state_db), header=initial_block.header),
+        set_state=InitializeMessage(state=list(app.state_db.as_list()), header=initial_block.header),
     )
     response = await fuzzer_session.send_request(request)
 
     logging.info(f'Fuzzer: Set state: {format_hash(response.state_root)}')
 
-    if response.state_root != app.state_trie_root:
+    if response.state_root != app.working_state.state_root:
         logging.error('Fuzzer state root mismatch')
         exit(2)
 
@@ -732,8 +892,8 @@ async def setup_fuzzer_session(app: PyjamazApp, fuzzer_socket_path: str):
                 import_block=block
             )
         )
-        if response.state_root == app.state_trie_root:
-            logging.info(f'[Fuzzer] Block successfully imported: state_root={format_hash(app.state_trie_root)}')
+        if response.state_root == app.working_state.state_root:
+            logging.info(f'[Fuzzer] Block successfully imported: state_root={format_hash(app.working_state.state_root)}')
         else:
             logging.error(f'[Fuzzer] Post state-root does not match: {format_hash(response.state_root)}')
             # Retrieve state from target
@@ -742,26 +902,106 @@ async def setup_fuzzer_session(app: PyjamazApp, fuzzer_socket_path: str):
                     get_state=block.header.hash
                 )
             )
-            process_state_diff(list(app.state_db), response.state)
+            process_state_diff(app.state_storage.as_list(), response.state)
 
     # Subscribe to BEST_BLOCK to import them in fuzzer target
     app.pubsub.subscribe(MESSAGE_TYPES.BEST_BLOCK, process_block)
 
-def process_state_diff(my_state: List[Tuple[bytes, bytes]], other_state: List[Tuple[bytes, bytes]]):
-    my_state = {k.hex(): v.hex() for k, v in my_state}
-    other_state = [(k.hex(), v.hex()) for k, v in other_state]
+
+def process_state_diff(my_state: List[Tuple[bytes, bytes]], other_state: List[Tuple[bytes, bytes]], trace_file: PosixPath):
+    my_state = {bytes(k): bytes(v) for k, v in my_state}
+    other_state = [(bytes(k), bytes(v)) for k, v in other_state]
 
     for k, v in other_state:
         if k not in my_state:
-            logging.warning(f'key {k} is missing')
+            logging.warning(f'key {k.hex()} is missing')
+            write_storage_key_diff(k, None, v, trace_file)
+
         elif v != my_state[k]:
-            logging.warning(f'key {k} is different: {my_state[k]} != {v}')
+            logging.warning(f'key {k.hex()} is different: {my_state[k].hex()} != {v.hex()}')
+            write_storage_key_diff(k, my_state[k], v, trace_file)
 
     tracedb_keys = {k for k, v in other_state}
 
     for k, v in my_state.items():
         if k not in tracedb_keys:
-            logging.warning(f'key {k} is not present in trace: {v}')
+            logging.warning(f'key {k.hex()} is not present in trace: {v.hex()}')
+            write_storage_key_diff(k, v, None, trace_file)
+
+
+def write_storage_key_diff(storage_key: bytes, mine: Optional[bytes], theirs: Optional[bytes], trace_file: PosixPath):
+    # Save (decoded) diffs
+    if storage_key[0] == 255 and storage_key[-8:] == bytes(8):
+        # ServiceAccount
+        service_id = int.from_bytes(storage_key[1:2] + storage_key[3:4] + storage_key[5:6] + storage_key[7:8], byteorder='little')
+
+        if mine is not None:
+            mine_file = trace_file.parent / f'{trace_file.name}-service-{service_id}-mine.json'
+            my_value = ServiceAccount.from_serialized_bytes(mine)
+            mine_file.write_text(json.dumps(my_value.to_json(), indent=2))
+
+        if theirs is not None:
+            theirs_file = trace_file.parent / f'{trace_file.name}-service-{service_id}-theirs.json'
+            theirs_value = ServiceAccount.from_serialized_bytes(theirs)
+            theirs_file.write_text(json.dumps(theirs_value.to_json(), indent=2))
+
+    elif STORAGE_KEY_MAPPING.get(storage_key):
+        state_cls = STORAGE_KEY_MAPPING.get(storage_key)
+
+        # StateComponent
+        if mine is not None:
+            mine_file = trace_file.parent / f'{trace_file.name}-{state_cls.__name__}-mine.json'
+            my_value = state_cls.from_jam_bytes(JamBytes(mine))
+            mine_file.write_text(json.dumps(my_value.to_json(), indent=2))
+
+        if theirs is not None:
+            theirs_file = trace_file.parent / f'{trace_file.name}-{state_cls.__name__}-theirs.json'
+            theirs_value = state_cls.from_jam_bytes(JamBytes(theirs))
+            theirs_file.write_text(json.dumps(theirs_value.to_json(), indent=2))
+
+    else:
+        # Other
+        if mine is not None:
+            mine_file = trace_file.parent / f'{trace_file.name}-{storage_key[0:4].hex()}-mine.txt'
+            mine_file.write_text(mine.hex())
+        if theirs is not None:
+            theirs_file = trace_file.parent / f'{trace_file.name}-{storage_key[0:4].hex()}-theirs.txt'
+            theirs_file.write_text(theirs.hex())
+
+
+class TimeslotSelector:
+    def __init__(self, folder_path):
+        folder = Path(folder_path)
+
+        self.timeslots = []
+        self.file_map = {}
+
+        for file in folder.glob("*.bin"):
+            try:
+                ts = int(file.stem)
+                self.timeslots.append(ts)
+                self.file_map[ts] = file
+            except ValueError:
+                continue
+
+        self.timeslots.sort()
+
+    def find_next(self, target_timeslot) -> Optional[Block]:
+        if not self.timeslots:
+            return None
+
+        idx = bisect.bisect_right(self.timeslots, target_timeslot)
+
+        if idx >= len(self.timeslots):
+            idx = 0
+
+        ts = self.timeslots.pop(idx)
+        file_path = self.file_map.pop(ts)
+
+        with open(file_path, "rb") as f:
+            data = f.read()
+            trace = Trace.from_jam_bytes(JamBytes(data))
+            return trace.block
 
 if __name__ == '__main__':
     main(_anyio_backend="asyncio")

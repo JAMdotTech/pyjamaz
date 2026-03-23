@@ -1,21 +1,64 @@
 import logging
+from abc import abstractmethod, ABC
 from dataclasses import dataclass
-from typing import List, Optional, Type
+from typing import List, Optional
 
 import numpy as np
 import numpy.typing as npt
 
-from pyjamaz.models.common import Preimage
-from pyjamaz.pvm import PVMInterpreter
+from pyjamaz import settings
+from pyjamaz.pvm import PVMInterpreter, PVMMemory
+from pyjamaz.pvm.types import PVMProgram
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
-from pyjamaz.pvm.debug_logger import PVMDebugLog
-from pyjamaz.pvm.duna_logger import PVMDunaLog
-from pyjamaz.pvm.types import PVMProgram, PVMMemory
+from pyjamaz.settings import DEBUG
+
+
+class PVMLogger(ABC):
+
+    @abstractmethod
+    def hc_regs(self, msg, phase):
+        pass
+
+    @abstractmethod
+    def hc_log(self, msg, data):
+        pass
+
+    @abstractmethod
+    def pvm_regs(self, msg) -> None:
+        pass
+
+    @abstractmethod
+    def sbrk(self, cur_size, new_size, growth, alloc_mem):
+        pass
+
+    @abstractmethod
+    def acl(self, cur_size, new_size, growth):
+        pass
+
+    @abstractmethod
+    def exc(self, exc_str):
+        pass
+
+    @abstractmethod
+    def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
+        pass
+
+    @abstractmethod
+    def pvm_hash(self):
+        pass
+
+    @abstractmethod
+    def pvm_counters(self):
+        pass
+
+    @abstractmethod
+    def pvm_header(self):
+        pass
 
 
 class InvocationContext:
     """
-    GP-0.6.4-eq:A.35 (X)
+    GP-0.7.2-eq:A.35 (X)
     """
     pass
 
@@ -23,18 +66,17 @@ class InvocationContext:
 @dataclass
 class InvocationMutationOutput:
     """
-    GP-0.6.4-eq:A.35
+    GP-0.7.2-eq:A.35
     """
     exit_condition: ExitCondition
     gas_limit: int
     registers: npt.NDArray[np.uint64]
     memory: PVMMemory
-    context: Optional[InvocationContext]
 
 
 class InvocationMutator:
     """
-    GP-0.6.4-eq:A.35 (Ω⟨X⟩) Abstract class for mutator functions
+    GP-0.7.2-eq:A.36 (Ω⟨X⟩) Abstract class for mutator functions
     """
     def execute(
             self,
@@ -93,11 +135,10 @@ class PVMInvocation:
             gas_limit: int,                        # ρ
     ) -> PvMHostCallOutput:
         """
-        A.33 Ψ_H
+        GP-0.7.2-eq:A.35 (Ψ_H) | Hostcall definition
         """
 
         while True:
-
             # invoke general PVM function (Ψ)
             self.pvm.invoke(
                 instruction_counter,
@@ -119,7 +160,6 @@ class PVMInvocation:
                 )
 
             if exit_condition.reason == ExitReason.host_halt:
-
                 host_call_output = self.invocation_mutator.execute(
                     host_call_instr_nr=exit_condition.value,
                     gas_limit=int(self.pvm.gas),
@@ -129,7 +169,7 @@ class PVMInvocation:
                     _pvm=self.pvm
                 )
 
-                # Update gas usage TODO!!!!!!!!!!!!!!!!!!!!!!!
+                # Update gas usage
                 gas_limit = host_call_output.gas_limit
 
                 if host_call_output.exit_condition.reason == ExitReason.page_fault:
@@ -145,7 +185,7 @@ class PVMInvocation:
                     self.pvm.status = ExitReason.resume.value
                     self.pvm.next_instruction()
                     instruction_counter = self.pvm.pc
-                    logging.debug(f'PVM continue @ {instruction_counter}')
+                    DEBUG and logging.debug(f'PVM continue @ {instruction_counter}')
 
                 elif host_call_output.exit_condition.reason in [
                     ExitReason.halt, ExitReason.panic, ExitReason.out_of_gas
@@ -156,7 +196,7 @@ class PVMInvocation:
                         gas_limit=host_call_output.gas_limit,
                         registers=host_call_output.registers,
                         memory=host_call_output.memory,
-                        invocation_context=host_call_output.context
+                        invocation_context=self.invocation_context
                     )
                 else:
                     raise Exception("OEPSIE!")
@@ -171,11 +211,8 @@ class PVMInvocation:
             program_name: Optional[str],
     ) -> PvmMarshallingOutput:
         """
-        GP-0.6.2-eq:A.42 (Ψ_M) | Marshalling invocation function
+        GP-0.7.2-eq:A.44 (Ψ_M) | Marshalling invocation function
         """
-
-        if len(argument_data) > PVM_INPUT_DATA_SIZE:
-            raise ValueError(f'argument_data too long (> {PVM_INPUT_DATA_SIZE} bytes)')
 
         self.pvm_program = PVMProgram.from_serialized_bytes(
             serialized_program=serialized_program,
@@ -190,15 +227,14 @@ class PVMInvocation:
                 context=self.invocation_context
             )
 
-        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDunaLog)
-        #self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger_cls=PVMDebugLog)
+        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger=settings.PVM_DEBUGGER)
 
         output = self.pvm_invoke_host_call(
             instruction_counter=start_offset,
             gas_limit=gas_limit
         )
 
-        # GP-0.6.2-eq:A.43
+        # GP-0.7.2-eq:A.44
         if output.exit_condition.reason not in (ExitReason.halt, ExitReason.out_of_gas):
             output.exit_condition = ExitCondition(reason=ExitReason.panic)
 

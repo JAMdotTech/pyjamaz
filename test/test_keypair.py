@@ -1,4 +1,6 @@
+import json
 import unittest
+from os import path
 
 from pyjamaz.signing import Ed25519Keypair
 
@@ -24,6 +26,19 @@ class TestEd25519Keypair(unittest.TestCase):
 
         signature = bytes.fromhex("4c291bfb0bb9c1274e86d4b666d13b2ac99a0bacc04a4846fb8ea50bda114677f83c1f164af58fc184451e5140cc8160c4de626163b11451d3bbb208a1889f8a")
         self.assertFalse(keypair.verify(data, signature))
+
+    def test_ed25519_vectors(self):
+
+        with open(path.join(path.dirname(path.abspath(__file__)), 'fixtures', 'ed25519_vectors.json')) as f:
+            test_vectors = json.load(f)
+
+            for vector in test_vectors:
+                sig_bytes = bytes.fromhex(vector['r']) + bytes.fromhex(vector['s'])
+                pk_bytes = bytes.fromhex(vector['pk'])
+                message = bytes.fromhex(vector['msg'])
+
+                keypair = Ed25519Keypair.from_public_key(pk_bytes)
+                self.assertTrue(keypair.verify(message, sig_bytes), vector['desc'])
 
 
 if __name__ == '__main__':

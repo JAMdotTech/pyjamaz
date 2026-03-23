@@ -1,0 +1,52 @@
+{
+  "hostcall": "hc_lookup",
+  "description": "Tests lookup when preimage doesn't exist, returns NONE.",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    131104,
+    0,
+    32
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+        17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32
+      ]
+    }
+  ],
+  "service_id": 42,
+  "preimages": [],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    131072,
+    131104,
+    0,
+    32
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "resume"
+}

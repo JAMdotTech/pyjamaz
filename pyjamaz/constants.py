@@ -31,6 +31,8 @@ WELL_KNOWN_STORAGE_KEYS = {
     14: bytes.fromhex('0e000000000000000000000000000000000000000000000000000000000000'),
     # Accumulation history
     15: bytes.fromhex('0f000000000000000000000000000000000000000000000000000000000000'),
+    # Beefy commitment history
+    16: bytes.fromhex('10000000000000000000000000000000000000000000000000000000000000'),
 }
 
 
@@ -44,6 +46,8 @@ class MESSAGE_TYPES(Enum):
     PREIMAGE_AVAILABILITY = "preimage_availability"
     BEST_BLOCK = "best_block"
     FINALIZED_BLOCK = "finalized_block"
+    WORK_PACKAGE_STATUS = "work_package_status"
+
     TICKET_ADD = "ticket_add"
 
     CE128_SUCCESS = "CE128_SUCCESS"

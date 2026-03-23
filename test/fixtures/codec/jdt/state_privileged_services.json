@@ -1,8 +1,9 @@
 {
-  "empower_service": 1,
-  "assign_service": 2,
-  "designate_service": 3,
-  "auto_accumulate_services": [
+  "manager": 1,
+  "assigners": [2, 3],
+  "delegator": 4,
+  "registrar": 5,
+  "always_accumulators": [
     [1, 999888777],
     [2, 999888777],
     [3, 999888777]

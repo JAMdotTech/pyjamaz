@@ -1,14 +1,17 @@
 import json
 import logging
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Dict
 
 import websockets
 import asyncio
 
-from pyjamaz.models.common import Authorizer, RefinementContext, WorkPackage, WorkItem
+from jamcodec.base import JamBytes
+
+from pyjamaz.models.common import WorkPackage, WorkPackageStatus
 from pyjamaz.models.state import ServiceAccount
 from pyjamaz.transport.rpc.interface import RPCMethods
 from pyjamaz.transport.rpc.rpc import generate_req_id, jsonapi_parse, RPCCallException, jsonapi_request
+from pyjamaz.utils import base64_encode, base64_decode
 
 
 class WebsocketClient(RPCMethods):
@@ -20,7 +23,7 @@ class WebsocketClient(RPCMethods):
         self.subs = {}
 
     async def __aenter__(self):
-        self.ws = await websockets.connect(self.url)
+        self.ws = await websockets.connect(self.url, max_size=20 * 1024 * 1024)
         self.listener_task = asyncio.create_task(self._listener())
         return self
 
@@ -125,74 +128,86 @@ class WebsocketClient(RPCMethods):
         res = await self._send_and_wait("bestBlock", None)
         if not res:
             return None
-        res["header_hash"] = bytes(res["header_hash"])
+        res["header_hash"] = base64_decode(res["header_hash"])
         return res
 
-    async def finalizedBlock(self) -> Optional[dict]:
-        res = await self._send_and_wait("finalizedBlock", None)
-        if not res:
-            return None
-        res["header_hash"] = bytes(res["header_hash"])
-        return res
-
-    async def listServices(self) -> List[int]:
-        return await self._send_and_wait("listServices", None)
+    async def listServices(self, block_hash: bytes) -> List[int]:
+        block_hash = base64_encode(block_hash)
+        return await self._send_and_wait("listServices", [block_hash])
 
 
     async def stateRoot(self, block_hash) -> bytes:
-        block_hash = list(block_hash)
+        block_hash = base64_encode(block_hash)
         res = await self._send_and_wait("stateRoot", [block_hash])
-        return bytes(res)
+        return base64_decode(res)
 
     async def beefyRoot(self, block_hash) -> bytes:
-        block_hash = list(block_hash)
+        block_hash = base64_encode(block_hash)
         res = await self._send_and_wait("beefyRoot", [block_hash])
-        return bytes(res)
+        return base64_decode(res)
 
     async def servicePreimage(self, block_hash: bytes, service_id: int, preimage_hash: bytes) -> Optional[bytes]:
         blob = await self._send_and_wait("servicePreimage", [block_hash, service_id, preimage_hash])
         if not blob:
             return None
-        return bytes(blob)
+        return base64_decode(blob)
 
+    async def fetchSegments(self, segment_root: bytes, indices: list[int]) -> List[bytes]:
+        segment_root = base64_encode(segment_root)
+        segments = await self._send_and_wait("fetchSegments", [segment_root, indices])
+        return [base64_decode(s) for s in segments]
 
     async def submitWorkPackage(self, core_idx: int, workpackage: WorkPackage, extrinsics: List[bytes]) -> None:
-        workpackage_blob = list(workpackage.to_jam_bytes().to_bytes())
-        extrinsics_blob = [list(extrinsics_item) for extrinsics_item in extrinsics]
+        workpackage_blob = base64_encode(workpackage.to_jam_bytes().to_bytes())
+        extrinsics_blob = [base64_encode(extrinsics_item) for extrinsics_item in extrinsics]
         return await self._send_and_wait("submitWorkPackage", [core_idx, workpackage_blob, extrinsics_blob])
 
+    async def submitWorkPackageBundle(self, core_idx: int, workpackage: WorkPackage, imports: List[bytes], extrinsics: List[bytes]) -> None:
+        workpackage_blob = base64_encode(workpackage.to_jam_bytes().to_bytes())
+        extrinsics_blob = [base64_encode(extrinsics_item) for extrinsics_item in extrinsics]
+        return await self._send_and_wait("submitWorkPackageBundle", [core_idx, workpackage_blob])
 
     async def submitPreimage(self, service_id: int , preimage_blob: bytes) -> None:
-        preimage_blob = list(preimage_blob)
+        preimage_blob = base64_encode(preimage_blob)
         return await self._send_and_wait("submitPreimage", [service_id, preimage_blob])
 
     async def serviceValue(self, block_hash: bytes , service_id: int, storage_key: bytes) -> Optional[bytes]:
-        result = await self._send_and_wait("serviceValue", [list(block_hash), service_id, list(storage_key)])
+        result = await self._send_and_wait(
+            "serviceValue", [base64_encode(block_hash), service_id, base64_encode(storage_key)]
+        )
         if result is not None:
-            result = bytes(result)
+            result = base64_decode(result)
         return result
 
     async def serviceData(self, block_hash: bytes, service_id:int) -> Optional[ServiceAccount]:
-        blob = await self._send_and_wait("serviceData", [list(block_hash), service_id])
+        blob = await self._send_and_wait("serviceData", [base64_encode(block_hash), service_id])
         if not blob:
             return None
-        return ServiceAccount.from_serialized_bytes(bytes(blob))
+        return ServiceAccount.from_serialized_bytes(base64_decode(blob))
 
 
     async def serviceRequest(self, block_hash: bytes, service_id:int, preimage_hash: bytes, preimage_length: int) -> Optional[ServiceAccount]:
-        return await self._send_and_wait("serviceRequest", [list(block_hash), service_id, list(preimage_hash), preimage_length])
+        return await self._send_and_wait("serviceRequest", [base64_encode(block_hash), service_id, base64_encode(preimage_hash), preimage_length])
 
+
+    async def workPackageStatus(self, block_hash: bytes, workpackage_hash: bytes, anchor: bytes) -> Optional[WorkPackageStatus]:
+        status = await self._send_and_wait("workPackageStatus", [
+            base64_encode(block_hash), base64_encode(workpackage_hash), base64_encode(anchor)
+        ])
+        if status is None:
+            return None
+        return WorkPackageStatus.from_json(status)
 
     async def subscribeServiceData(self, service_id):
-        return await self.subscribe("subscribeServiceData", [service_id], lambda x: ServiceAccount.from_serialized_bytes(bytes(x)))
+        return await self.subscribe("subscribeServiceData", [service_id], lambda x: ServiceAccount.from_serialized_bytes(base64_decode(x)))
 
 
     async def subscribeServiceValue(self, service_id, storage_item_key):
         def result_parser(result):
             if result.get('value') is not None:
-                return bytes(result.get('value'))
+                return base64_decode(result.get('value'))
             return None
-        return await self.subscribe("subscribeServiceValue", [service_id, list(storage_item_key), False], result_parser)
+        return await self.subscribe("subscribeServiceValue", [service_id, base64_encode(storage_item_key), False], result_parser)
 
 
     async def subscribeServiceRequest(self, service_id:int, preimage_hash: bytes, preimage_length: int):
@@ -200,5 +215,21 @@ class WebsocketClient(RPCMethods):
             if result.get('value') is not None:
                 return result.get('value')
             return None
-        return await self.subscribe("subscribeServiceRequest", [service_id, list(preimage_hash), preimage_length], result_parser)
+        return await self.subscribe("subscribeServiceRequest", [service_id, base64_encode(preimage_hash), preimage_length], result_parser)
 
+    async def subscribeBestBlock(self):
+        def result_parser(result):
+            result["header_hash"] = base64_decode(result["header_hash"])
+            return result
+        return await self.subscribe("subscribeBestBlock", [], result_parser)
+
+    async def subscribeWorkPackageStatus(self, work_package_hash: bytes, anchor: bytes):
+
+        def result_parser(result):
+            if result['value'] is None:
+                return None
+            return WorkPackageStatus.from_json(result['value'])
+
+        return await self.subscribe("subscribeWorkPackageStatus", [
+            base64_encode(work_package_hash), base64_encode(anchor), False
+        ], result_parser)

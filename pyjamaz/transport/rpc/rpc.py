@@ -1,20 +1,18 @@
 import json
 import logging
 import uuid
-from dataclasses import dataclass, field
-from typing import List, Tuple
 
 from jamcodec.base import JamBytes
-from jamcodec.mixins import Serializable
-from jamcodec.types import H256, U32, Vec, Bytes, Tuple as JamTuple
 
 import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.app import PyjamazApp
 from pyjamaz.exceptions import StateKeyNoResult
+from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Preimage
 from pyjamaz.models.builder import ServiceRegistry
-from pyjamaz.models.common import WorkPackage
-
+from pyjamaz.models.common import WorkPackage, WorkPackageStatus
+from pyjamaz.settings import DEBUG
+from pyjamaz.utils import format_hash, base64_encode, base64_decode
 
 #TODO: enum
 RPC_TYPE_REQUEST = 1
@@ -27,6 +25,10 @@ RPC_ERROR = {
     "UNKNOWN_MESSAGE_TYPE": {"code": -32601, "msg": "Method not found"},
     "INVALID_PARAMS": {"code": -32602, "msg": "Invalid params"},
     "PARSE_ERROR": {"code": -32700, "msg": "Parse error"},
+    "UNKNOWN_SEGMENT": {
+        "code": 4000,
+        "msg": "Data recovery error: Data can not be recovered"
+    },
 }
 
 
@@ -151,47 +153,39 @@ def rpcParameters(app, params):
             "availability_timeout": gp_const.UNAVAILABLE_WORK_REPLACEMENT_PERIOD,
             "val_count": gp_const.VALIDATOR_COUNT,
             "max_input": gp_const.MAXIMUM_SIZE_WORK_PACKAGE,
-            "max_refine_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
             "max_service_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
             "basic_piece_len": gp_const.SIZE_ERASURE_CODED_PIECES,
             "max_imports": gp_const.MAXIMUM_NUMBER_IMPORTS_WORK_PACKAGE,
-            "max_authorizer_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
-            "max_is_authorized_code_size": gp_const.MAXIMUM_SIZE_SERVICE_CODE,
+            "max_authorizer_code_size": gp_const.MAXIMUM_SIZE_IS_AUTH_CODE,
             # TODO not yet defined in JIP2
             "max_exports": gp_const.MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE,
-            "max_refine_memory": 2**16,
-            "max_is_authorized_memory": 2**16,
+            # "max_refine_memory": 2**16,
+            # "max_is_authorized_memory": 2**16,
             "slot_period_sec": gp_const.SLOT_PERIOD,
             "epoch_tail_start": gp_const.TICKET_SUBMISSION_END_SLOT,
             "core_count": gp_const.CORE_COUNT,
-            "segment_piece_count": gp_const.SIZE_ERASURE_CODED_PIECES,
-            "max_report_elective_data": 0, # TODO
+            "segment_piece_count": gp_const.MAXIMUM_SIZE_ENCODED_WORK_PACKAGE,
+            "max_report_elective_data": 49152, # TODO
             "transfer_memo_size": gp_const.TRANSFER_MEMO_SIZE,
         }
     }
 
 
 def rpcBestBlock(app, params):
-    return {
-        "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
-        "slot": app.state.timeslot.number
-    }
+    return {"header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)), "slot": app.working_state.timeslot.number}
 
 
 def rpcFinalizedBlock(app, params):
-    return {
-        "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
-        "slot": app.state.timeslot.number
-    }
+    return [base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)), app.working_state.timeslot.number]
 
 
 def rpcParent(app, params):
     try:
-        block = app.retrieve_block_by_hash(bytes(params))
+        block = app.retrieve_block_by_hash(base64_decode(params[0]))
         if not block:
             raise RPCCallException(RPC_ERROR["UNKNOWN_HEADER_HASH"])
         return [
-            list(block.header.parent),
+            base64_encode(block.header.parent),
             block.header.timeslot
         ]
     except StateKeyNoResult:
@@ -202,8 +196,8 @@ def rpcParent(app, params):
 
 def rpcServiceData(app, params):
     try:
-        service = app.state.services.retrieve_service_account(params[1])
-        return list(service.to_serialized_bytes())
+        service = app.working_state.services.retrieve_service_account(params[1])
+        return base64_encode(service.to_serialized_bytes())
     except StateKeyNoResult:
         return None
 
@@ -212,7 +206,7 @@ def rpcListServices(app: PyjamazApp, params):
     services = [0]
     try:
         # Check bootstrap service for service registry
-        services_registry = app.state.services.retrieve_storage_local_key(0, b'\x10service_registry')
+        services_registry = app.working_state.services.retrieve_storage_item(0, b'\x10service_registry')
         services_registry = ServiceRegistry.from_jam_bytes(JamBytes(services_registry))
         services += [info.id for meta, info in services_registry.services]
     except StateKeyNoResult:
@@ -222,63 +216,92 @@ def rpcListServices(app: PyjamazApp, params):
 
 def rpcServicePreimage(app, params):
     try:
-        return list(app.state.services.retrieve_preimage(params[1], bytes(params[2])))
+        return base64_encode(app.working_state.services.retrieve_preimage(params[1], base64_decode(params[2])))
     except StateKeyNoResult:
         return None
 
 
 def rpcStateRoot(app: PyjamazApp, params):
 
-    header_hash = bytes(params[0])
-    for n, block in enumerate(reversed(app.state.recent_history.recent_history)):
+    header_hash = base64_decode(params[0])
+    for n, block in enumerate(reversed(app.working_state.recent_history.recent_blocks)):
         if block.header_hash == header_hash:
             if n == 0:
-                return list(app.state_trie_root)
+                return base64_encode(app.working_state.state_root)
             else:
-                return list(block.state_root)
+                return base64_encode(block.state_root)
 
     return None
 
 
 def rpcStatistics(app, params):
     #TODO: params should contain the header hash indicating the block whose posterior state should be used for the query
-    return list(app.state.statistics.to_jam_bytes().to_bytes())
+    return base64_encode(app.working_state.statistics.to_jam_bytes().to_bytes())
 
 
 def rpcBeefyRoot(app: PyjamazApp, params):
-    header_hash = bytes(params[0])
-    return list(app.get_beefy_root(header_hash))
+    header_hash = base64_decode(params[0])
+    return base64_encode(app.get_beefy_root(header_hash))
 
 
 def rpcSubmitWorkPackage(app: PyjamazApp, params):
     #TODO: should assign to a specific core
-    ex = [bytes(x) for x in params[2]]
-    wp = WorkPackage.from_jam_bytes(JamBytes(bytes(params[1])))
+    ex = [base64_decode(x) for x in params[2]]
+    wp = WorkPackage.from_jam_bytes(JamBytes(base64_decode(params[1])))
+    DEBUG and logging.debug(f'Received workpackage {format_hash(wp.hash())}')
     app.add_work_package(wp, ex)
 
 
+def rpcSubmitWorkPackageBundle(app: PyjamazApp, params):
+    #TODO: should assign to a specific core
+    data = JamBytes(base64_decode(params[1]))
+    extrinsics = []
+
+    wp = WorkPackage.from_jam_bytes(data)
+
+    for item in wp.items:
+        for extrinsic_item in item.extrinsic:
+            extrinsic_data = bytes(data.get_next_bytes(extrinsic_item.len))
+            # Check data
+            if blake2b_256_hash(extrinsic_data) != extrinsic_item.hash:
+                raise RPCCallException("Invalid extrinsic data")
+            extrinsics.append(extrinsic_data)
+
+    if data.get_remaining_length() > 0:
+        logging.warning(f'DATA LEFT IN WORKPACKAGE BUNDLE: {data.get_remaining_length()}')
+
+    # DEBUG and logging.debug(f'Received workpackage bundle {format_hash(wp.hash())}')
+    app.add_work_package(wp, extrinsics)
+
+
 def rpcSubmitPreimage(app: PyjamazApp, params):
-    preimage_blob = bytes(params[1])
+    preimage_blob = base64_decode(params[1])
     pr = Preimage(requester=params[0], blob=preimage_blob)
     app.block_extrinsic.add_preimage(pr)
 
 
 def rpcServiceRequest(app: PyjamazApp, params):
     try:
-        return app.state.services.retrieve_preimage_availability(params[1], bytes(params[2]), params[3])
+        return app.working_state.services.retrieve_preimage_availability(params[1], base64_decode(params[2]), params[3])
     except StateKeyNoResult:
         return None
 
 
 def rpcFetchSegments(app: PyjamazApp, params):
     """
-    TODO:
-    "error": {
-        "code": 4000,
-        "message": "Data recovery error: Data can not be recovered"
-    }
     """
-    return []
+    segment_root = base64_decode(params[0])
+    d3l_entry = app.d3l_store.retrieve_segments(segment_root)
+    if d3l_entry is None:
+        raise RPCCallException("UNKNOWN_SEGMENT")
+
+    requested_segments = []
+    DEBUG and logging.debug(f'Requested segments: {format_hash(segment_root)} {params[1]}')
+
+    for requested_index in params[1]:
+        requested_segments.append(base64_encode(d3l_entry.segments[requested_index]))
+
+    return requested_segments
 
 
 def rpcSyncState(app: PyjamazApp, params):
@@ -298,8 +321,8 @@ def rpcSubscribeServiceData(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
-            "slot": app.state.timeslot.number,
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "slot": app.working_state.timeslot.number,
             "value": rpcServiceData(app, params)
         }
     except StateKeyNoResult:
@@ -310,8 +333,8 @@ def rpcSubscribeStatistics(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
-            "slot": app.state.timeslot.number,
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "slot": app.working_state.timeslot.number,
             "value": rpcStatistics(app, params)
         }
     except StateKeyNoResult:
@@ -322,8 +345,8 @@ def rpcSubscribeServiceRequest(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
-            "slot": app.state.timeslot.number,
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "slot": app.working_state.timeslot.number,
             "value": rpcServiceRequest(app, [None, params[0], params[1], params[2]])
         }
     except StateKeyNoResult:
@@ -331,7 +354,9 @@ def rpcSubscribeServiceRequest(app: PyjamazApp, params):
 
 def rpcServiceValue(app: PyjamazApp, params):
     try:
-        return list(app.state.services.retrieve_storage_local_key(service_account_id=params[1], key=bytes(params[2])))
+        return base64_encode(app.working_state.services.retrieve_storage_item(
+            service_account_id=params[1], storage_item_hash=base64_decode(params[2]))
+        )
     except StateKeyNoResult:
         return None
 
@@ -339,8 +364,8 @@ def rpcSubscribeServiceValue(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
-            "slot": app.state.timeslot.number,
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "slot": app.working_state.timeslot.number,
             "value": rpcServiceValue(app, [None] + params)
         }
     except StateKeyNoResult:
@@ -351,8 +376,8 @@ def rpcSubscribeServicePreimage(app: PyjamazApp, params):
     # Note: initial response after subscription
     try:
         return {
-            "header_hash": list(app.retrieve_block_hash(app.state.timeslot.number)),
-            "slot": app.state.timeslot.number,
+            "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
+            "slot": app.working_state.timeslot.number,
             "value": rpcServicePreimage(app, params)
         }
     except StateKeyNoResult:
@@ -365,6 +390,23 @@ def rpcSubscribeSyncStatus(app: PyjamazApp, params):
         return "Completed" #"InProgress"
     except StateKeyNoResult:
         return None
+
+
+def rpcSubscribeWorkPackageStatus(app: PyjamazApp, params):
+    # Note: initial response after subscription
+
+    work_package_hash = base64_decode(params[0])
+    anchor = base64_decode(params[1])
+    if work_package_hash in app.work_package_queue:
+        value = app.work_package_queue[work_package_hash].status.to_json()
+    else:
+        value = WorkPackageStatus(Failed='Not found').to_json()
+
+    return {
+        "header_hash": base64_encode(app.retrieve_block_hash(app.working_state.timeslot.number)),
+        "slot": app.working_state.timeslot.number,
+        "value": value #rpcServiceRequest(app, [None, params[0], params[1], params[2]])
+    }
 
 
 # Note: The actual (realtime) (un)subscription handlers are mapped in ws_server_subscriptions.py::SubscriptionManager
@@ -404,6 +446,7 @@ RPC_REQUESTS = {
 
     "beefyRoot": rpcBeefyRoot,
     "submitWorkPackage": rpcSubmitWorkPackage,
+    "submitWorkPackageBundle": rpcSubmitWorkPackageBundle,
     "submitPreimage": rpcSubmitPreimage,
     "listServices": rpcListServices,
     "fetchSegments": rpcFetchSegments,
@@ -411,6 +454,9 @@ RPC_REQUESTS = {
     "syncState": rpcSyncState,
     "subscribeSyncStatus": rpcSubscribeSyncStatus,
     "unsubscribeSyncStatus": None,
+
+    "subscribeWorkPackageStatus": rpcSubscribeWorkPackageStatus,
+    "unsubscribeWorkPackageStatus": None,
 }
 
 

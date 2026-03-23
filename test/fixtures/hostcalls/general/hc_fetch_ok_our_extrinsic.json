@@ -1,0 +1,64 @@
+{
+  "hostcall": "hc_fetch",
+  "description": "Tests fetching our work item's extrinsic (w10=4), writes to mem",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    131072,
+    0,
+    32,
+    4,
+    1,
+    1
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 4096,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "work_item_index": 1,
+  "extrinsics": [
+    [
+      "deadbeef",
+      "cafebabe"
+    ],
+    [
+      "1234567890abcdef1234567890abcdef",
+      "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
+    ]
+  ],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    32,
+    0,
+    32,
+    4,
+    1,
+    1
+  ],
+  "expected-memory": [
+    {
+      "address": 131072,
+      "contents": [
+        254, 220, 186, 9, 135, 101, 67, 33, 254, 220, 186, 9, 135, 101, 67, 33,
+        254, 220, 186, 9, 135, 101, 67, 33, 254, 220, 186, 9, 135, 101, 67, 33
+      ]
+    }
+  ],
+  "expected-exit-reason": "resume"
+}

@@ -1,0 +1,51 @@
+{
+  "hostcall": "hc_read",
+  "description": "Tests panic for storage_item_mem_error, because accessing beyond allocated memory",
+  "initial-registers": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    262144,
+    32,
+    131072,
+    0,
+    100
+  ],
+  "initial-page-map": [
+    {
+      "address": 131072,
+      "length": 65536,
+      "is-writable": true
+    }
+  ],
+  "initial-memory": [],
+  "service_id": 42,
+  "service_account": {
+    "code_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "balance": 1000000,
+    "threshold_balance": 100
+  },
+  "storage_items": [],
+  "expected-regs": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18446744073709551615,
+    262144,
+    32,
+    131072,
+    0,
+    100
+  ],
+  "expected-memory": [],
+  "expected-exit-reason": "panic"
+} 
