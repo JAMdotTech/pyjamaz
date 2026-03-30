@@ -123,13 +123,6 @@ def import_block_fuzzer(traces_dir):
     return cli_import_block
 
 
-def wrap_produced_block_jamnp(app: PyjamazApp, traces_dir, np_protocol: JAMNPS):
-    async def produced_block_jamnp(block: Block):
-        await np_protocol.pubsub_up0_broadcast_block(block)
-
-    return produced_block_jamnp
-
-
 async def initialize_app(
         read_state=True,
         storage_engine='memory',
@@ -313,8 +306,6 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             #initial_block_hash = app.retrieve_block_hash(0).hex()
             nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
             app.protocol = nps_protocol
-            app.pubsub.subscribe(MESSAGE_TYPES.PRODUCED_BLOCK, wrap_produced_block_jamnp(app, record_traces, nps_protocol)) #TODO: is this function wrapping still necesary?
-            app.pubsub.subscribe(MESSAGE_TYPES.TICKET_ADD, nps_protocol.pubsub_ce131_initiate_distribute_own_ticket)
             tg.start_soon(nps_protocol.listen)
 
             if bootnode:
