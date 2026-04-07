@@ -4,14 +4,14 @@ import logging
 
 from jamcodec.base import JamBytes
 
-from pyjamaz.transport.jamnp_s.streams.base import ContextualStreamHandler
-from pyjamaz.transport.jamnp_s.message_types import MsgCE145JudgmentPublication
+from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
+from pyjamaz.transport.jamnp_s.protocol.messages.ce145 import MsgCE145JudgmentPublication
 from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
-class CE145Handler(ContextualStreamHandler):
+class CE145Handler(StreamHandler):
     kind = StreamKind.CE145_JudgmentPublication
 
     def initiate_publication(self, conn, msg: MsgCE145JudgmentPublication) -> ManagedStream:

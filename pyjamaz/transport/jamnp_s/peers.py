@@ -9,7 +9,7 @@ logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 if TYPE_CHECKING:
     from pyjamaz.transport.jamnp_s.connection import JAMConnection
-    from pyjamaz.transport.jamnp_s.protocol import JAMNPS
+    from pyjamaz.transport.jamnp_s.network import JAMNPS
 
 
 class PeerRegistry:

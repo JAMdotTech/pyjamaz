@@ -8,8 +8,11 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.common import WorkPackage
-from pyjamaz.transport.jamnp_s.streams.base import ContextualStreamHandler
-from pyjamaz.transport.jamnp_s.message_types import MsgCE133Extrinsic, MsgCE133WorkPackageSubmission
+from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
+from pyjamaz.transport.jamnp_s.protocol.messages.ce133 import (
+    MsgCE133Extrinsic,
+    MsgCE133WorkPackageSubmission,
+)
 from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
@@ -20,7 +23,7 @@ class CE133StreamState:
     work_package: Optional[WorkPackage] = None
 
 
-class CE133Handler(ContextualStreamHandler):
+class CE133Handler(StreamHandler):
     kind = StreamKind.CE133_WorkPackageSubmission
 
     def __init__(self, context) -> None:

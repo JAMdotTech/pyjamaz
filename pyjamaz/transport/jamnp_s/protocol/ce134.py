@@ -7,8 +7,8 @@ from typing import Optional
 from jamcodec.base import JamBytes
 
 from pyjamaz.models.common import WorkPackage
-from pyjamaz.transport.jamnp_s.streams.base import ContextualStreamHandler
-from pyjamaz.transport.jamnp_s.message_types import (
+from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
+from pyjamaz.transport.jamnp_s.protocol.messages.ce134 import (
     MsgCE134RefineResponse,
     MsgCE134WorkPackageBundle,
     MsgCE134WorkPackageSharing,
@@ -24,7 +24,7 @@ class CE134StreamState:
     sharing_msg: Optional[MsgCE134WorkPackageSharing] = None
 
 
-class CE134Handler(ContextualStreamHandler):
+class CE134Handler(StreamHandler):
     kind = StreamKind.CE134_WorkPackageSharing
 
     def __init__(self, context) -> None:

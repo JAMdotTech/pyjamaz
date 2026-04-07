@@ -9,8 +9,8 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.models.block import Block, Header
-from pyjamaz.transport.jamnp_s.streams.base import ContextualStreamHandler
-from pyjamaz.transport.jamnp_s.message_types import (
+from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
+from pyjamaz.transport.jamnp_s.protocol.messages.ce128 import (
     MsgCE128BlockRequest,
     MsgCE128BlockRequestDirection,
     MsgCE128BlockRequestResponse,
@@ -25,7 +25,7 @@ class CE128StreamState:
     active: bool = True
 
 
-class CE128Handler(ContextualStreamHandler):
+class CE128Handler(StreamHandler):
     kind = StreamKind.CE128_BlockRequest
 
     def __init__(self, context) -> None:

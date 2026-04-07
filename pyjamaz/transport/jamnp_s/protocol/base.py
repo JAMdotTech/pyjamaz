@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamDirection
+from pyjamaz.transport.jamnp_s.types import IStreamHandler, ManagedStream, StreamDirection
 
 if TYPE_CHECKING:
     from pyjamaz.transport.jamnp_s.connection import JAMConnection
-    from pyjamaz.transport.jamnp_s.streams.context import ProtocolContext
+    from pyjamaz.transport.jamnp_s.protocol.context import ProtocolContext
     from pyjamaz.transport.jamnp_s.types import StreamKind
 
 
-class ContextualStreamHandler:
+class StreamHandler(IStreamHandler):
     kind: "StreamKind"
 
     def __init__(self, context: "ProtocolContext") -> None:

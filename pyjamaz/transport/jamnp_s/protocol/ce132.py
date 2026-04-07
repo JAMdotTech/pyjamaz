@@ -8,8 +8,8 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
 from pyjamaz.models.block import TicketEnvelope
-from pyjamaz.transport.jamnp_s.streams.base import ContextualStreamHandler
-from pyjamaz.transport.jamnp_s.message_types import MsgCE132SafroleTicketDistribution
+from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
+from pyjamaz.transport.jamnp_s.protocol.messages.ce132 import MsgCE132SafroleTicketDistribution
 from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
@@ -20,7 +20,7 @@ class CE132StreamState:
     active: bool = True
 
 
-class CE132Handler(ContextualStreamHandler):
+class CE132Handler(StreamHandler):
     kind = StreamKind.CE132_SafroleTicketDistributionStep2
 
     def __init__(self, context) -> None:

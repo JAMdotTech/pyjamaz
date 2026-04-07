@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, Tuple, TYPE_CHECKING
 
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamDirection, StreamHandler, StreamKind
+from pyjamaz.transport.jamnp_s.types import IStreamHandler, ManagedStream, StreamDirection, StreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -14,11 +14,11 @@ if TYPE_CHECKING:
 class StreamManager:
     def __init__(self, max_message_size: int) -> None:
         self.max_message_size = max_message_size
-        self.handlers: Dict[StreamKind, StreamHandler] = {}
+        self.handlers: Dict[StreamKind, IStreamHandler] = {}
         self._streams: Dict[Tuple[int, int], ManagedStream] = {}
         self._pending_kind_buffers: Dict[Tuple[int, int], bytearray] = {}
 
-    def register_handler(self, handler: StreamHandler) -> None:
+    def register_handler(self, handler: IStreamHandler) -> None:
         self.handlers[handler.kind] = handler
 
     def open_outgoing(self, connection: "JAMConnection", kind: StreamKind) -> ManagedStream:

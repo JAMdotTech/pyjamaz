@@ -4,14 +4,14 @@ import logging
 
 from jamcodec.base import JamBytes
 
-from pyjamaz.transport.jamnp_s.streams.base import ContextualStreamHandler
-from pyjamaz.transport.jamnp_s.message_types import MsgCE136HashRequest, MsgCE136WorkReport
+from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
+from pyjamaz.transport.jamnp_s.protocol.messages.ce136 import MsgCE136HashRequest, MsgCE136WorkReport
 from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
-class CE136Handler(ContextualStreamHandler):
+class CE136Handler(StreamHandler):
     kind = StreamKind.CE136_WorkReportRequest
 
     def initiate_request(self, conn, msg: MsgCE136HashRequest) -> ManagedStream:

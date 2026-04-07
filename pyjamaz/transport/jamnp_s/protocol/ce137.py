@@ -4,8 +4,8 @@ import logging
 
 from jamcodec.base import JamBytes
 
-from pyjamaz.transport.jamnp_s.streams.base import ContextualStreamHandler
-from pyjamaz.transport.jamnp_s.message_types import (
+from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
+from pyjamaz.transport.jamnp_s.protocol.messages.ce137 import (
     MsgCE137BundleShard,
     MsgCE137Justification,
     MsgCE137SegmentShard,
@@ -16,7 +16,7 @@ from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
-class CE137Handler(ContextualStreamHandler):
+class CE137Handler(StreamHandler):
     kind = StreamKind.CE137_ShardDistribution
 
     def initiate_request(self, conn, req: MsgCE137ShardRequest) -> ManagedStream:

@@ -37,7 +37,7 @@ class StreamDirection(Enum):
     acceptor = 1
 
 
-class StreamHandler(Protocol):
+class IStreamHandler(Protocol):
     kind: StreamKind
 
     def init_stream(self, stream: "ManagedStream") -> None:
@@ -62,7 +62,7 @@ class ManagedStream:
     stream_kind: StreamKind
     conn: "JAMConnection"
     direction: StreamDirection
-    handler: Optional[StreamHandler] = field(default=None, repr=False)
+    handler: Optional[IStreamHandler] = field(default=None, repr=False)
     closed: bool = False
     recv_buffer: bytearray = field(default_factory=bytearray, repr=False)
     expected_len: Optional[int] = field(default=None, repr=False)

@@ -34,7 +34,7 @@ from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.fuzzer import FuzzerMessage, InitializeMessage, FuzzerTarget, FuzzerSession, AncestryItem
 from pyjamaz.transport.cert import generate_cert, write_cert
-from pyjamaz.transport.jamnp_s.protocol import JAMNPS
+from pyjamaz.transport.jamnp_s.network import JAMNPS
 
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import format_hash, quic_peer_id

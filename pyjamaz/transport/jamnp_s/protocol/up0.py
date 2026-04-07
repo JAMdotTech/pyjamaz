@@ -7,10 +7,12 @@ from dataclasses import dataclass
 from jamcodec.base import JamBytes
 
 from pyjamaz.transport.jamnp_s.connection import JAMConnectionDirection
-from pyjamaz.transport.jamnp_s.streams.base import ContextualStreamHandler
-from pyjamaz.transport.jamnp_s.message_types import (
+from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
+from pyjamaz.transport.jamnp_s.protocol.messages.ce128 import (
     MsgCE128BlockRequest,
     MsgCE128BlockRequestDirection,
+)
+from pyjamaz.transport.jamnp_s.protocol.messages.up0 import (
     MsgUP0Announcement,
     MsgUP0Handshake,
 )
@@ -29,7 +31,7 @@ class UP0StreamState:
     phase: UPState = UPState.IN_PROGRESS
 
 
-class UP0Handler(ContextualStreamHandler):
+class UP0Handler(StreamHandler):
     kind = StreamKind.UP0_BlockAnnouncement
 
     def __init__(self, context) -> None:

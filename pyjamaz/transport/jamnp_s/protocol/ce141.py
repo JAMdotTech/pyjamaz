@@ -4,14 +4,14 @@ import logging
 
 from jamcodec.base import JamBytes
 
-from pyjamaz.transport.jamnp_s.streams.base import ContextualStreamHandler
-from pyjamaz.transport.jamnp_s.message_types import MsgCE141Assurance
+from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
+from pyjamaz.transport.jamnp_s.protocol.messages.ce141 import MsgCE141Assurance
 from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
-class CE141Handler(ContextualStreamHandler):
+class CE141Handler(StreamHandler):
     kind = StreamKind.CE141_AssuranceDistribution
 
     def initiate_distribution(self, conn, msg: MsgCE141Assurance) -> ManagedStream:

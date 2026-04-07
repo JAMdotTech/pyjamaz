@@ -2,8 +2,36 @@ import asyncio
 import logging
 from enum import Enum
 
-from aioquic.asyncio import QuicConnectionProtocol
-from aioquic.quic.events import QuicEvent, HandshakeCompleted, StreamReset, StreamDataReceived, ConnectionTerminated
+try:
+    from aioquic.asyncio import QuicConnectionProtocol
+    from aioquic.quic.events import (
+        ConnectionTerminated,
+        HandshakeCompleted,
+        QuicEvent,
+        StreamDataReceived,
+        StreamReset,
+    )
+except ModuleNotFoundError as exc:
+    _AIOQUIC_IMPORT_ERROR = exc
+
+    class QuicConnectionProtocol:  # type: ignore[override]
+        def __init__(self, *args, **kwargs):
+            raise ModuleNotFoundError("aioquic is required to instantiate JAMConnection") from _AIOQUIC_IMPORT_ERROR
+
+    class QuicEvent:
+        pass
+
+    class HandshakeCompleted(QuicEvent):
+        pass
+
+    class StreamReset(QuicEvent):
+        pass
+
+    class StreamDataReceived(QuicEvent):
+        pass
+
+    class ConnectionTerminated(QuicEvent):
+        pass
 
 from pyjamaz.transport.jamnp_s.types import StreamKind
 
@@ -30,7 +58,7 @@ class JAMConnection(QuicConnectionProtocol):
         self.addr = None
 
         self.stream_up = None
-        self.streams = {}
+        self.streams = {}   #TODO: typings
         self._keepalive_task = asyncio.create_task(self._keepalive())
 
 
