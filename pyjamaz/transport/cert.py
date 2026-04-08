@@ -132,3 +132,18 @@ def write_cert(pk_pem, pk_file, cert_pem, cert_file):
 
     with open(cert_file, 'wb') as f:
         f.write(cert_pem)
+
+
+def read_cert_public_key(cert_file: str) -> bytes:
+    with open(cert_file, "rb") as f:
+        cert_pem = f.read()
+
+    cert = x509.load_pem_x509_certificate(cert_pem)
+    public_key = cert.public_key()
+    try:
+        return public_key.public_bytes_raw()
+    except AttributeError:
+        return public_key.public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )

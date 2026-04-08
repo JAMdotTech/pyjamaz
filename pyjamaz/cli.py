@@ -33,7 +33,7 @@ from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
 from pyjamaz.storage import InMemoryStorageEngine, RocksDBStorageEngine
 from pyjamaz.models.block import Block, Header, Extrinsic
 from pyjamaz.fuzzer import FuzzerMessage, InitializeMessage, FuzzerTarget, FuzzerSession, AncestryItem
-from pyjamaz.transport.cert import generate_cert, write_cert
+from pyjamaz.transport.cert import generate_cert, read_cert_public_key, write_cert
 from pyjamaz.transport.jamnp_s.network import JAMNPS
 
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
@@ -275,6 +275,14 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     logging.info(f'🌐 Peer ID: {quic_peer_id(app.config.keys.ed25519.public_key)}')
     logging.info(f'🔑 Bandersnatch public: {format_hash(app.config.keys.bandersnatch.public_key)}')
     logging.info(f'🔑 Ed25519 public: {format_hash(app.config.keys.ed25519.public_key)}')
+    #TODO: for now we assume we are either in the validator pool or are a listening node
+    validator_index = app.get_validator_index()
+    if validator_index is None:
+        logging.warning(
+            "⚠️ Local key not in validator pool; acting as non participating node"
+        )
+    else:
+        logging.info(f"🧩 Validator pool index: #{validator_index}")
     logging.info(f'🗓️ Common Era: {app.config.common_era} ({common_era_time})')
     logging.info(f'🌲 State trie root: {format_hash(app.working_state.state_root)}')
     logging.info(f'📦 Finalized block: {format_hash(app.state_storage.finalized_block_hash)}')
@@ -301,12 +309,11 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
 
             certificate_file = os.path.join(db_path, "cert.pem")
             pk_file = os.path.join(db_path, "cert.key")
-            #nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
-            #                   (host, port, certificate, private_key, app, initial_slot_nr, initial_block_hash):
-            #initial_block_hash = app.retrieve_block_hash(0).hex()
+            await ensure_certificate_matches_seed(db_path, seed)
             nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
             app.protocol = nps_protocol
             tg.start_soon(nps_protocol.listen)
+            tg.start_soon(nps_protocol.maintain_validator_connections)
 
             if bootnode:
                 # logging.debug(f'Connecting to node {validator_address}:{validator_port}')
@@ -504,6 +511,27 @@ async def init_certificate(db_path, seed):
     pk_file = os.path.join(db_path, "cert.key")
     pem_file = os.path.join(db_path, "cert.pem")
     write_cert(pk_pem, pk_file, cert_pem, pem_file)
+
+
+async def ensure_certificate_matches_seed(db_path, seed):
+    cert_file = os.path.join(db_path, "cert.pem")
+    pk_file = os.path.join(db_path, "cert.key")
+    expected_public_key = Keys.from_seed(bytes.fromhex(seed[2:])).ed25519.public_key
+
+    if not os.path.exists(cert_file) or not os.path.exists(pk_file):
+        logging.info("🔐 JAMNP-S certificate missing; generating a new certificate")
+        await init_certificate(db_path, seed)
+        return
+
+    actual_public_key = read_cert_public_key(cert_file)
+    if actual_public_key == expected_public_key:
+        return
+
+    logging.warning(
+        "🔐 JAMNP-S certificate key does not match the provided seed; regenerating certificate "
+        f"(cert={format_hash(actual_public_key)}, expected={format_hash(expected_public_key)})"
+    )
+    await init_certificate(db_path, seed)
 
 
 @main.command()

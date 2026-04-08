@@ -35,6 +35,7 @@ PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
 PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "NUMBA_AOT")
 
 RPC_SERVER_MAX_SIZE = 30 * 1024 * 1024
+VALIDATOR_ENDPOINT_OVERRIDES = {}
 
 try:
     from pyjamaz.local_settings import *

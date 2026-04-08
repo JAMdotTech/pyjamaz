@@ -2,6 +2,8 @@ import asyncio
 import logging
 from enum import Enum
 
+from cryptography.hazmat.primitives import serialization
+
 try:
     from aioquic.asyncio import QuicConnectionProtocol
     from aioquic.quic.events import (
@@ -56,10 +58,25 @@ class JAMConnection(QuicConnectionProtocol):
         self.host = None
         self.port = None
         self.addr = None
+        self.validator_key = None
 
         self.stream_up = None
         self.streams = {}   #TODO: typings
         self._keepalive_task = asyncio.create_task(self._keepalive())
+
+    def _peer_validator_key(self) -> bytes | None:
+        peer_certificate = getattr(self._quic.tls, "_peer_certificate", None)
+        if peer_certificate is None:
+            return None
+
+        public_key = peer_certificate.public_key()
+        try:
+            return public_key.public_bytes_raw()
+        except AttributeError:
+            return public_key.public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
 
 
     def close_stream(self, stream_id: int, clean_close: bool = True, reason: int = 0):
@@ -144,6 +161,21 @@ class JAMConnection(QuicConnectionProtocol):
             #TODO: enforce:
             #   Both nodes are validators, and are neighbours in the grid structure.
             #   At least one of the nodes is not a validator.
+
+            peer_validator_key = self._peer_validator_key()
+            if peer_validator_key is not None:
+                if self.validator_key is not None and peer_validator_key != self.validator_key:
+                    logger.warning(
+                        "Connection %s peer certificate key mismatch: expected %s got %s",
+                        self.jam_connection_ulid,
+                        self.validator_key.hex(),
+                        peer_validator_key.hex(),
+                    )
+                    self.close(error_code=2, reason_phrase="validator key mismatch")
+                    return
+
+                if self.protocol.validator_manager.has_tracked_validator(peer_validator_key):
+                    self.protocol.validator_manager.bind_connection(peer_validator_key, self)
 
             if self.direction == JAMConnectionDirection.initiator:
                 addr = f"{self.host}:{self.port}"

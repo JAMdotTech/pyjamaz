@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import ssl
 import uuid
@@ -9,10 +10,12 @@ try:
     from aioquic.asyncio import serve
     from aioquic.asyncio.client import connect
     from aioquic.quic.configuration import QuicConfiguration
+    from aioquic.quic.connection import QuicConnection
 except ModuleNotFoundError as exc:
     _AIOQUIC_IMPORT_ERROR = exc
     serve = None
     connect = None
+    QuicConnection = None
 
     class QuicConfiguration:  # type: ignore[override]
         def __init__(self, *args, **kwargs):
@@ -34,6 +37,16 @@ from pyjamaz.transport.jamnp_s.validator_manager import ValidatorConnectionManag
 from pyjamaz.transport.types import ProtocolType
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
+
+if QuicConnection is not None and not getattr(QuicConnection, "_pyjamaz_requests_client_cert", False):
+    _original_initialize = QuicConnection._initialize
+
+    def _initialize_with_client_certificate(self, peer_cid: bytes) -> None:
+        _original_initialize(self, peer_cid)
+        self.tls._request_client_certificate = True
+
+    QuicConnection._initialize = _initialize_with_client_certificate
+    QuicConnection._pyjamaz_requests_client_cert = True
 
 
 def _build_client_configuration(protocol_name: str, certificate: str, private_key: str) -> QuicConfiguration:
@@ -86,6 +99,7 @@ def _create_connection_factory(
 class JAMNPS(ProtocolType):
     MAX_MESSAGE_SIZE = 10000000
     PROTOCOL_NAME = "jamnp-s/0/{}"
+    VALIDATOR_MAINTENANCE_INTERVAL = 3.0
 
     def __init__(self, host, port, certificate, private_key, app):
         self.host = host
@@ -103,6 +117,7 @@ class JAMNPS(ProtocolType):
         self.protocol_name = JAMNPS.PROTOCOL_NAME.format(bl_hash)
         self.configuration = _build_client_configuration(self.protocol_name, certificate, private_key)
         self.conn_out = None
+        self._dial_tasks: dict[str, asyncio.Task[None]] = {}
 
         self.peer_registry = PeerRegistry(self)
         self.stream_manager = StreamManager(self.MAX_MESSAGE_SIZE)
@@ -110,6 +125,7 @@ class JAMNPS(ProtocolType):
             app=self.app,
             connect_callback=self.connect,
             disconnect_callback=self.disconnect,
+            local_port_override=self.port,
         )
         self.context = ProtocolContext(
             app=self.app,
@@ -173,12 +189,29 @@ class JAMNPS(ProtocolType):
         await self.validator_manager.update_connections()
 
     async def connect(self, host: str, port: int, validator_key: Optional[bytes]):
-        configuration = _build_client_configuration(self.protocol_name, self.cert, self.pk)
-
         addr = f"{host}:{port}"
         if addr in self.peer_registry.conn_addr:
             logger.warning(f"Ignoring duplicate connection to {addr}")
             return
+
+        if addr in self._dial_tasks:
+            logger.debug(f"Connection attempt already in progress for {addr}")
+            return
+
+        task = asyncio.create_task(self._run_connection(host, port, validator_key))
+        self._dial_tasks[addr] = task
+
+        def _cleanup(finished: asyncio.Task[None]) -> None:
+            self._dial_tasks.pop(addr, None)
+            try:
+                finished.result()
+            except Exception as exc:
+                logger.warning(f"💩 Connection task for {addr} failed: {exc}")
+
+        task.add_done_callback(_cleanup)
+
+    async def _run_connection(self, host: str, port: int, validator_key: Optional[bytes]) -> None:
+        configuration = _build_client_configuration(self.protocol_name, self.cert, self.pk)
 
         logger.info(f"Connecting to {host}:{port}")
         try:
@@ -199,6 +232,14 @@ class JAMNPS(ProtocolType):
                 self.disconnect(client)
         except ConnectionError as exc:
             logger.warning(f"💩 Cannot connect to {host}:{port} {exc}")
+
+    async def maintain_validator_connections(self) -> None:
+        while True:
+            try:
+                await self.update_validator_connections()
+            except Exception as exc:
+                logger.warning(f"Validator connectivity maintenance failed: {exc}")
+            await asyncio.sleep(self.VALIDATOR_MAINTENANCE_INTERVAL)
 
     def disconnect(self, connection: JAMConnection, validator_key: Optional[bytes] = None):
         self.stream_manager.cleanup_connection(connection)

@@ -3,17 +3,28 @@ from __future__ import annotations
 import logging
 import math
 import time
+from base64 import b32encode
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Dict, Optional, TYPE_CHECKING
+from enum import IntEnum
+from typing import Awaitable, Callable, Dict, Iterable, Optional, TYPE_CHECKING
 
-from aioquic.quic.connection import QuicConnectionState
+try:
+    from aioquic.quic.connection import QuicConnectionState
+except ModuleNotFoundError:
+    class QuicConnectionState(IntEnum):
+        FIRSTFLIGHT = 0
+        CONNECTED = 1
+        CLOSING = 2
+        DRAINING = 3
+        TERMINATED = 4
 
-from pyjamaz.models.common import ValidatorData
+from pyjamaz import settings
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 if TYPE_CHECKING:
     from pyjamaz.app import PyjamazApp
+    from pyjamaz.models.common import ValidatorData
     from pyjamaz.transport.jamnp_s.connection import JAMConnection
 
 ConnectCallback = Callable[[str, int, Optional[bytes]], Awaitable[None]]
@@ -27,20 +38,26 @@ class ValidatorConnection:
     port: int
     connection: Optional["JAMConnection"] = None
     last_try: Optional[float] = None
+    desired_since: Optional[float] = None
     initiator: bool = False
     in_grid: bool = False
 
 
 class ValidatorConnectionManager:
+    FALLBACK_INITIATOR_TIMEOUT = 5.0
+    RETRY_INTERVAL = 3.0
+
     def __init__(
         self,
         app: "PyjamazApp",
         connect_callback: ConnectCallback,
         disconnect_callback: DisconnectCallback,
+        local_port_override: Optional[int] = None,
     ) -> None:
         self.app = app
         self.connect_callback = connect_callback
         self.disconnect_callback = disconnect_callback
+        self.local_port_override = local_port_override
         self.connections: Dict[bytes, ValidatorConnection] = {}
 
         self.validator = None
@@ -58,13 +75,18 @@ class ValidatorConnectionManager:
         if self.app.config.keys is None:
             return
 
-        for validator in self.app.working_state.safrole.validators:
+        for validator in self._validator_sets():
             if validator.ed25519 == self.app.config.keys.ed25519.public_key:
                 self.validator = validator
-                self.validator_dns = validator.get_connection_dns()
-                self.validator_port = validator.get_metadata_port()
-                self.validator_address = validator.get_metadata_ipaddress()
+                self.validator_address, self.validator_port = self.resolve_validator_endpoint(validator)
+                peer_id = b32encode(validator.ed25519).decode("ascii").lower().rstrip("=")
+                self.validator_dns = f"e{peer_id}@{self.validator_address}:{self.validator_port}"
                 return
+
+    def _validator_sets(self) -> Iterable[ValidatorData]:
+        yield from self.app.working_state.safrole.validators
+        yield from self.app.working_state.validator_queue.validators
+        yield from self.app.working_state.validator_archive.validators
 
     @staticmethod
     def should_initiate_connection(validator_a: bytes, validator_b: bytes) -> bool:
@@ -73,99 +95,131 @@ class ValidatorConnectionManager:
         a_less = 1 if validator_a < validator_b else 0
         return (connect_a ^ connect_b ^ a_less) == 1
 
-    def _add_grid_connections(
+    @staticmethod
+    def _override_key(validator: "ValidatorData") -> str:
+        return f"0x{validator.ed25519.hex()}"
+
+    @staticmethod
+    def _parse_endpoint_override(value) -> Optional[tuple[str, int]]:
+        if isinstance(value, str):
+            host, sep, port_str = value.rpartition(":")
+            if not sep:
+                raise ValueError(f"Invalid validator endpoint override: {value!r}")
+            return host, int(port_str)
+
+        if isinstance(value, (tuple, list)) and len(value) == 2:
+            host, port = value
+            return str(host), int(port)
+
+        if value is None:
+            return None
+
+        raise ValueError(f"Unsupported validator endpoint override: {value!r}")
+
+    def _endpoint_override_for(self, validator: "ValidatorData") -> Optional[tuple[str, int]]:
+        overrides = getattr(settings, "VALIDATOR_ENDPOINT_OVERRIDES", {}) or {}
+        value = overrides.get(self._override_key(validator))
+        if value is None:
+            value = overrides.get(validator.ed25519.hex())
+        return self._parse_endpoint_override(value)
+
+    def resolve_validator_endpoint(self, validator: ValidatorData) -> tuple[str, int]:
+        override = self._endpoint_override_for(validator)
+        if override is not None:
+            return override
+
+        ip = validator.get_metadata_ipaddress()
+        port = validator.get_metadata_port()
+        if self.local_port_override is not None and self.validator is not None:
+            port_delta = self.local_port_override - self.validator.get_metadata_port()
+            port += port_delta
+        return ip, port
+
+    def _build_neighbors(
         self,
-        validator_idx: int,
-        validator_queue,
-        same_epoch: bool,
-        initiate_conns: Dict[bytes, ValidatorData],
-        expect_conns: Dict[bytes, ValidatorData],
-    ) -> None:
-        width = max(1, math.floor(math.sqrt(len(validator_queue))))
+        validator_set: list[ValidatorData],
+        local_key: bytes,
+        other_sets: Iterable[list[ValidatorData]],
+    ) -> Dict[bytes, ValidatorData]:
+        local_index = next(
+            (index for index, validator in enumerate(validator_set) if validator.ed25519 == local_key),
+            None,
+        )
+        if local_index is None:
+            return {}
 
-        for v_idx, validator in validator_queue:
-            if self.validator.ed25519 == validator.ed25519:
-                continue
+        neighbors: Dict[bytes, ValidatorData] = {}
+        width = max(1, math.floor(math.sqrt(len(validator_set))))
+        local_row = local_index // width
+        local_column = local_index % width
 
-            should_connect = False
-            if same_epoch:
-                same_row = (v_idx // width) == (validator_idx // width)
-                same_column = (validator_idx % width) == (v_idx % width)
-                should_connect = same_row or same_column
-            else:
-                should_connect = v_idx == validator_idx
+        for index, validator in enumerate(validator_set):
+            if (index // width) == local_row or (index % width) == local_column:
+                neighbors[validator.ed25519] = validator
 
-            if not should_connect:
-                continue
+        for other_set in other_sets:
+            if local_index < len(other_set):
+                validator = other_set[local_index]
+                neighbors[validator.ed25519] = validator
 
-            if self.should_initiate_connection(self.validator.ed25519, validator.ed25519):
-                initiate_conns[validator.ed25519] = validator
-            else:
-                expect_conns[validator.ed25519] = validator
+        neighbors.pop(local_key, None)
+        return neighbors
+
+    def _collect_grid_neighbors(self) -> Dict[bytes, ValidatorData]:
+        if self.validator is None:
+            return {}
+
+        previous = self.app.working_state.validator_archive.validators
+        current = self.app.working_state.safrole.validators
+        next_ = self.app.working_state.validator_queue.validators
+
+        neighbors: Dict[bytes, ValidatorData] = {}
+        local_key = self.validator.ed25519
+
+        for validator in self._build_neighbors(previous, local_key, [current, next_]).values():
+            neighbors[validator.ed25519] = validator
+        for validator in self._build_neighbors(current, local_key, []).values():
+            neighbors[validator.ed25519] = validator
+        for validator in self._build_neighbors(next_, local_key, []).values():
+            neighbors[validator.ed25519] = validator
+
+        return neighbors
+
+    @staticmethod
+    def _connection_is_active(connection: Optional["JAMConnection"]) -> bool:
+        if connection is None:
+            return False
+
+        quic = getattr(connection, "_quic", None)
+        if quic is None:
+            return False
+
+        if getattr(quic, "_close_pending", False):
+            return False
+
+        state = getattr(quic, "_state", None)
+        if state is None:
+            return False
+
+        terminal_states = {
+            QuicConnectionState.CLOSING,
+            QuicConnectionState.DRAINING,
+            QuicConnectionState.TERMINATED,
+        }
+        return state not in terminal_states
+
+    def has_tracked_validator(self, validator_key: bytes) -> bool:
+        return validator_key in self.connections
 
     async def update_connections(self) -> None:
         self.refresh_local_validator()
 
         if not self.validator:
-            raise Exception("This node is not a validator")
-
-        prev_validators = list(enumerate(self.app.working_state.validator_archive.validators))
-        next_validators = list(enumerate(self.app.working_state.validator_queue.validators))
-        active_validators = list(enumerate(self.app.working_state.safrole.validators))
-
-        validator_idx = None
-        for v_idx, validator in active_validators:
-            if validator.ed25519 == self.validator.ed25519:
-                validator_idx = v_idx
-                break
-
-        if validator_idx is None:
-            logger.debug(
-                f"Current validator {self.validator.ed25519.hex()} is not present in the validator queue"
-            )
             return
 
-        initiate_grid_connections: Dict[bytes, ValidatorData] = {}
-        expected_grid_connections: Dict[bytes, ValidatorData] = {}
-        self._add_grid_connections(
-            validator_idx,
-            prev_validators,
-            same_epoch=False,
-            initiate_conns=initiate_grid_connections,
-            expect_conns=expected_grid_connections,
-        )
-        self._add_grid_connections(
-            validator_idx,
-            active_validators,
-            same_epoch=True,
-            initiate_conns=initiate_grid_connections,
-            expect_conns=expected_grid_connections,
-        )
-        self._add_grid_connections(
-            validator_idx,
-            next_validators,
-            same_epoch=False,
-            initiate_conns=initiate_grid_connections,
-            expect_conns=expected_grid_connections,
-        )
-
-        initiate_connections: Dict[bytes, ValidatorData] = {}
-        expected_connections: Dict[bytes, ValidatorData] = {}
-        for _, validator in active_validators:
-            if validator.ed25519 == self.validator.ed25519:
-                continue
-
-            if self.should_initiate_connection(self.validator.ed25519, validator.ed25519):
-                initiate_connections[validator.ed25519] = validator
-            else:
-                expected_connections[validator.ed25519] = validator
-
-        new_keys = (
-            set(initiate_connections)
-            | set(expected_connections)
-            | set(initiate_grid_connections)
-            | set(expected_grid_connections)
-        )
+        now = time.time()
+        new_neighbors = self._collect_grid_neighbors()
+        new_keys = set(new_neighbors)
         current_keys = set(self.connections)
 
         for ed25519 in current_keys - new_keys:
@@ -174,42 +228,55 @@ class ValidatorConnectionManager:
                 self.disconnect_callback(state.connection, ed25519)
 
         for ed25519 in new_keys:
-            validator = (
-                initiate_connections.get(ed25519)
-                or expected_connections.get(ed25519)
-                or initiate_grid_connections.get(ed25519)
-                or expected_grid_connections.get(ed25519)
-            )
-            if validator is None:
-                continue
-
-            is_initiator = ed25519 in initiate_connections or ed25519 in initiate_grid_connections
-            in_grid = ed25519 in initiate_grid_connections or ed25519 in expected_grid_connections
+            validator = new_neighbors[ed25519]
+            is_initiator = self.should_initiate_connection(self.validator.ed25519, validator.ed25519)
+            in_grid = True
+            ip, port = self.resolve_validator_endpoint(validator)
 
             state = self.connections.get(ed25519)
             if state is None:
                 state = ValidatorConnection(
                     validator=validator,
-                    ip=validator.get_metadata_ipaddress(),
-                    port=validator.get_metadata_port(),
+                    ip=ip,
+                    port=port,
                     initiator=is_initiator,
                     in_grid=in_grid,
+                    desired_since=now,
                 )
                 self.connections[ed25519] = state
             else:
                 state.validator = validator
-                state.ip = validator.get_metadata_ipaddress()
-                state.port = validator.get_metadata_port()
+                state.ip = ip
+                state.port = port
                 state.initiator = is_initiator
                 state.in_grid = in_grid
+                if state.desired_since is None:
+                    state.desired_since = now
 
-            if not (state.in_grid and state.initiator):
+            if self._connection_is_active(state.connection):
                 continue
 
-            if state.connection is None or state.connection._quic._state > QuicConnectionState.CONNECTED:
-                await self.connect_callback(state.ip, state.port, ed25519)
+            state.connection = None
+
+            if state.last_try is not None and (now - state.last_try) < self.RETRY_INTERVAL:
+                continue
+
+            should_attempt = state.initiator
+            if (
+                not should_attempt
+                and state.desired_since is not None
+                and (now - state.desired_since) >= self.FALLBACK_INITIATOR_TIMEOUT
+            ):
+                should_attempt = True
+
+            if not should_attempt:
+                continue
+
+            state.last_try = now
+            await self.connect_callback(state.ip, state.port, ed25519)
 
     def bind_connection(self, validator_key: bytes, connection: "JAMConnection") -> None:
+        connection.validator_key = validator_key
         state = self.connections.get(validator_key)
         if state is None:
             return
