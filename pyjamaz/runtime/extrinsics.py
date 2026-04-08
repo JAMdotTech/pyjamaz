@@ -20,7 +20,7 @@ class BlockExtrinsicCollector:
         self.tickets_queue: Dict[bytes, TicketEnvelope] = {}
         self.own_tickets_next: List[bytes] = []
         self.own_tickets_current: List[bytes] = []
-        self.guarentees_queue: List[Guarantee] = []
+        self.guarentees_queue: Dict[bytes, Guarantee] = {}
         self.assurances_queue: List[Assurance] = []
         self.preimage_queue: List[Preimage] = []
         self.ring_data = ring_data
@@ -116,11 +116,11 @@ class BlockExtrinsicCollector:
         self.tickets_queue = {}
 
     def add_guarantee(self, guarantee: Guarantee):
-        self.guarentees_queue.append(guarantee)
+        self.guarentees_queue[guarantee.report.hash()] = guarantee
 
     def collect_guarantees(self) -> List[Guarantee]:
-        guarentees = self.guarentees_queue
-        self.guarentees_queue = []
+        guarentees = list(self.guarentees_queue.values())
+        self.guarentees_queue = {}
         return guarentees
 
     def add_assurance(self, assurance: Assurance):

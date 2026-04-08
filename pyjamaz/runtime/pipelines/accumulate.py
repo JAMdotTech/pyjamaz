@@ -8,7 +8,7 @@ import anyio
 from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
-from pyjamaz.models.block import Header
+from pyjamaz.models.block import Header, Block
 from pyjamaz.runtime.extrinsics import BlockExtrinsicCollector
 from pyjamaz.settings import DEBUG
 from pyjamaz.transport.pubsub import PubSubSignal
@@ -21,6 +21,7 @@ class AccumulatePipeline:
         self.app = app
         self._started = False
         self._timeslot_queue: asyncio.Queue[int] = asyncio.Queue(maxsize=queue_size)
+        self._import_queue: asyncio.Queue[Block] = asyncio.Queue(maxsize=queue_size)
         self.extrinsics = BlockExtrinsicCollector(self.app.config.ring_data)
 
     def start(self, task_group: TaskGroup):
@@ -28,9 +29,16 @@ class AccumulatePipeline:
             return
         self._started = True
         task_group.start_soon(self._timeslot_worker)
+        task_group.start_soon(self._import_queue)
 
     async def notify_timeslot(self, timeslot: int) -> None:
         await self._timeslot_queue.put(timeslot)
+
+    async def _import_worker(self) -> None:
+        while True:
+            block = await self._import_queue.get()
+            await self.app.import_block(block)
+
 
     async def _timeslot_worker(self) -> None:
         while True:

@@ -67,17 +67,17 @@ class RefinePipeline:
             try:
                 logging.info(f'👨‍💻 Processing Refine | slot={timeslot} | core={self.app.get_core_assigment()}')
 
-                wp_queue_item = None
-                cleanup_queue = []
-
-                # Clean up expired work-packages
-                for h, w in self._pending_work_packages.items():
-                    if not self.app.working_state.recent_history.get_recent_block(w.work_package.context.lookup_anchor):
-                        cleanup_queue.append(h)
-
-                for h in cleanup_queue:
-                    del self._pending_work_packages[h]
-                    logging.info(f"🗑️ Discarded outdated work package {format_hash(h)}")
+                # wp_queue_item = None
+                # cleanup_queue = []
+                #
+                # # Clean up expired work-packages
+                # for h, w in self._pending_work_packages.items():
+                #     if not self.app.working_state.recent_history.get_recent_block(w.work_package.context.lookup_anchor):
+                #         cleanup_queue.append(h)
+                #
+                # for h in cleanup_queue:
+                #     del self._pending_work_packages[h]
+                #     logging.info(f"🗑️ Discarded outdated work package {format_hash(h)}")
 
                 if self.app.get_core_assigment() is None:
                     continue

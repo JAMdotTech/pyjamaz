@@ -6,8 +6,8 @@ import anyio
 
 from pyjamaz.app import PyjamazApp
 from pyjamaz.models.block import TicketEnvelope, Assurance, Guarantee, Preimage
-from pyjamaz.runtime.refine import RefinePipeline
-from pyjamaz.runtime.accumulate import AccumulatePipeline
+from pyjamaz.runtime.pipelines.refine import RefinePipeline
+from pyjamaz.runtime.pipelines.accumulate import AccumulatePipeline
 from pyjamaz.settings import DEBUG
 
 
