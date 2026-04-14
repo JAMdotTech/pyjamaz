@@ -92,7 +92,7 @@ class ValidatorConnectionManager:
         return (connect_a ^ connect_b ^ a_less) == 1
 
 
-    def _validator_override(self, validator: "ValidatorData") -> Optional[tuple[str, int]]:
+    def _debug_validator_override(self, validator: "ValidatorData") -> Optional[tuple[str, int]]:
         overrides = getattr(settings, "VALIDATOR_ENDPOINT_OVERRIDES", {}) or {}
         value = overrides.get(f"0x{validator.ed25519.hex()}")
         if value is None:
@@ -113,8 +113,9 @@ class ValidatorConnectionManager:
 
         raise ValueError(f"Unsupported validator endpoint override: {value!r}")
 
+
     def get_validator_endpoint(self, validator: ValidatorData) -> tuple[str, int]:
-        override = self._validator_override(validator)
+        override = self._debug_validator_override(validator)
         if override is not None:
             return override
 
@@ -125,7 +126,8 @@ class ValidatorConnectionManager:
             port += port_delta
         return ip, port
 
-    def _grid_neighbors(
+
+    def get_neighbors(
         self,
         validator_set: list[ValidatorData],
         local_key: bytes,
@@ -155,7 +157,8 @@ class ValidatorConnectionManager:
         neighbors.pop(local_key, None)
         return neighbors
 
-    def get_grid_neighbors(self) -> Dict[bytes, ValidatorData]:
+
+    def build_grid_neighbors(self) -> Dict[bytes, ValidatorData]:
         if self.validator is None:
             return {}
 
@@ -166,14 +169,15 @@ class ValidatorConnectionManager:
         neighbors: Dict[bytes, ValidatorData] = {}
         local_key = self.validator.ed25519
 
-        for validator in self._grid_neighbors(prev_validators, local_key, [current_validators, next_validators]).values():
+        for validator in self.get_neighbors(prev_validators, local_key, [current_validators, next_validators]).values():
             neighbors[validator.ed25519] = validator
-        for validator in self._grid_neighbors(current_validators, local_key, []).values():
+        for validator in self.get_neighbors(current_validators, local_key, []).values():
             neighbors[validator.ed25519] = validator
-        for validator in self._grid_neighbors(next_validators, local_key, []).values():
+        for validator in self.get_neighbors(next_validators, local_key, []).values():
             neighbors[validator.ed25519] = validator
 
         return neighbors
+
 
     @staticmethod
     def is_connection_active(connection: Optional["JAMConnection"]) -> bool:
@@ -198,8 +202,10 @@ class ValidatorConnectionManager:
         }
         return state not in terminal_states
 
+
     def has_tracked_validator(self, validator_key: bytes) -> bool:
         return validator_key in self.connections
+
 
     async def update_validator_connections(self) -> None:
         self.refresh_local_validator()
@@ -208,7 +214,7 @@ class ValidatorConnectionManager:
             return
 
         now = time.time()
-        new_neighbors = self.get_grid_neighbors()
+        new_neighbors = self.build_grid_neighbors()
         new_keys = set(new_neighbors)
         current_keys = set(self.connections)
 
@@ -265,6 +271,7 @@ class ValidatorConnectionManager:
             state.last_try = now
             await self.connect_callback(state.ip, state.port, ed25519)
 
+
     def bind_connection(self, validator_key: bytes, connection: "JAMConnection") -> None:
         connection.validator_key = validator_key
         state = self.connections.get(validator_key)
@@ -276,6 +283,7 @@ class ValidatorConnectionManager:
 
         state.connection = connection
         state.last_try = time.time()
+
 
     def on_disconnect(self, connection: "JAMConnection", validator_key: Optional[bytes] = None) -> None:
         validator_key = validator_key or getattr(connection, "validator_key", None)
