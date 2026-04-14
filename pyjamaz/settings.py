@@ -40,6 +40,8 @@ RPC_SERVER_MAX_SIZE = 30 * 1024 * 1024
 # Values can be either "host:port" or ("host", port), or None to ignore connections (for debugging purposes)
 VALIDATOR_ENDPOINT_OVERRIDES = {}
 
+GUARANTEE_SIGNATURE_WAIT_PERIOD = 2
+
 try:
     from pyjamaz.local_settings import *
 except ImportError:

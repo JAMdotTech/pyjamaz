@@ -7,12 +7,12 @@ import ipaddress
 
 from jamcodec.base import JamBytes
 from jamcodec.mixins import Serializable
-from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String
+from jamcodec.types import H256, Array, U8, U32, Bytes, Null, U64, Vec, U16, Map, VarInt64, String, Bool
 
 from pyjamaz.exceptions import BlockValidationError
 from pyjamaz.graypaper_constants import MAXIMUM_NUMBER_EXTRINSICS_WORK_PACKAGE, SIZE_TRANSFER_MEMO
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.merkle import ConstantDepthMerkleTree
+# from pyjamaz.models.block import Credential, Guarantee
 from pyjamaz.pvm.constants import ExitCondition, ExitReason
 from pyjamaz.utils import base64_encode
 
@@ -294,8 +294,10 @@ class WorkPackage(Serializable):
 class WorkPackageBundle(Serializable):
     work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
     extrinsic_data: List[bytes] = field(metadata={'codec': Vec(Bytes)})
-    # imported_segments: List[bytes] = field(metadata={'codec': Vec(Bytes)})
-    # justification_data: List[bytes] = field(metadata={'codec': Vec(Bytes)})
+    imported_segments: List[bytes] = field(metadata={'codec': Vec(Bytes)})
+    justification_data: List[bytes] = field(metadata={'codec': Vec(Bytes)})
+
+    # TODO custom from/to JAM bytes
 
 
 @dataclass
@@ -352,6 +354,7 @@ class WorkPackageStatus(Serializable):
     Reported: WorkPackageReportedStatus = field(default=None, metadata={'codec': WorkPackageReportedStatus.to_codec_def()})
     Ready: WorkPackageReadyStatus = field(default=None, metadata={'codec': WorkPackageReadyStatus.to_codec_def()})
     Failed: str = field(default=None, metadata={'codec': String})
+    Reporting: bool = field(default=None, metadata={'codec': Bool})
 
     _codec_enum = True
 
@@ -361,11 +364,6 @@ class WorkPackageStatus(Serializable):
             value = value.serialize()
         return {self.enum_value()[0]: value}
 
-
-@dataclass
-class WorkPackageQueueItem(Serializable):
-    work_package: WorkPackage = field(metadata={'codec': WorkPackage.to_codec_def()})
-    status: WorkPackageStatus = field(metadata={'codec': WorkPackageStatus.to_codec_def()})
 
 
 
