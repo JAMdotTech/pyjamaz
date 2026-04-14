@@ -225,6 +225,13 @@ class ValidatorConnectionManager:
 
         for ed25519 in new_keys:
             validator = new_neighbors[ed25519]
+            overrides = getattr(settings, "VALIDATOR_ENDPOINT_OVERRIDES", {}) or {}
+            override_key = f"0x{validator.ed25519.hex()}"
+            if (
+                (override_key in overrides and overrides[override_key] is None)
+                or (validator.ed25519.hex() in overrides and overrides[validator.ed25519.hex()] is None)
+            ):
+                continue
             is_initiator = self.should_initiate_connection(self.validator.ed25519, validator.ed25519)
             in_grid = True
             ip, port = self.get_validator_endpoint(validator)
