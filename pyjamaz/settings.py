@@ -35,6 +35,9 @@ PVM_MAX_HEAP_SIZE = 1_000_000*1000    #TODO: find out what it should be...
 PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "NUMBA_AOT")
 
 RPC_SERVER_MAX_SIZE = 30 * 1024 * 1024
+# validator overrides for JAMNP-S
+# Keys are validator Ed25519 public key hex strings ( with or without 0x)
+# Values can be either "host:port" or ("host", port), or None to ignore connections (for debugging purposes)
 VALIDATOR_ENDPOINT_OVERRIDES = {}
 
 try:
