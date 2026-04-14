@@ -285,6 +285,9 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     if replay_blocks:
         app.config.replay_blocks = TimeslotSelector(replay_blocks)
 
+    if block_dir:
+        app.config.import_block_path = block_dir
+
     logging.info(f'🥋 PyJAMaz JAM client v{APP_VERSION}')
     logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
     logging.info(f'💾 Storage path: {db_path}')
@@ -317,7 +320,8 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             # Start WebSocket server
             tg.start_soon(start_rpc_server, rpc_server)
 
-            if block_dir:
+            if False and block_dir:
+                # TODO remove
                 logging.info(f"👀 Watching directory: {block_dir} for new blocks...")
                 fs_protocol = FSProtocol(block_dir, app)
                 app.protocol = fs_protocol

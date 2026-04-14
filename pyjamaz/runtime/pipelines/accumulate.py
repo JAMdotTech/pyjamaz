@@ -1,13 +1,17 @@
 import asyncio
 import logging
+import os
 import traceback
 from asyncio import TaskGroup
+from typing import Dict
 
 import anyio
 
+from jamcodec.base import JamBytes
 from pyjamaz.app import PyjamazApp
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
+from pyjamaz.models.app import Trace
 from pyjamaz.models.block import Header, Block
 from pyjamaz.runtime.extrinsics import BlockExtrinsicCollector
 from pyjamaz.settings import DEBUG
@@ -21,23 +25,57 @@ class AccumulatePipeline:
         self.app = app
         self._started = False
         self._timeslot_queue: asyncio.Queue[int] = asyncio.Queue(maxsize=queue_size)
+        self._block_collect_queue: asyncio.Queue[Block] = asyncio.Queue(maxsize=queue_size)
         self._import_queue: asyncio.Queue[Block] = asyncio.Queue(maxsize=queue_size)
         self.extrinsics = BlockExtrinsicCollector(self.app.config.ring_data)
+        self.collected_blocks: Dict[bytes, Block] = {}
+        self.block_dir_lock = anyio.Lock()
 
     def start(self, task_group: TaskGroup):
         if self._started:
             return
         self._started = True
         task_group.start_soon(self._timeslot_worker)
-        task_group.start_soon(self._import_queue)
+        task_group.start_soon(self._import_worker)
+        task_group.start_soon(self._block_collect_worker)
+        task_group.start_soon(self._block_dir_listener)
+
+    async def add_block(self, block: Block):
+        await self._block_collect_queue.put(block)
+
+    async def import_block(self, block: Block):
+        await self._import_queue.put(block)
 
     async def notify_timeslot(self, timeslot: int) -> None:
         await self._timeslot_queue.put(timeslot)
 
+    async def _block_collect_worker(self) -> None:
+        while True:
+            block = await self._block_collect_queue.get()
+
+            # Check if parent exists in state storage
+            if self.app.state_storage.get_parent(block.header) is not None:
+                await self.import_block(block)
+
+                # Try to process collected blocks
+                while block.header.hash in self.collected_blocks:
+
+                    block = self.collected_blocks.pop(block.header.hash)
+                    await self.import_block(block)
+
+            else:
+                logging.info(f'🚏 Collected and queued block {format_hash(block.header.hash)} (#{block.header.timeslot})')
+                self.collected_blocks[block.header.parent] = block
+
     async def _import_worker(self) -> None:
         while True:
             block = await self._import_queue.get()
-            await self.app.import_block(block)
+            try:
+                await self.app.import_block(block)
+            except Exception:
+                logging.exception(f"Import pipeline failed for block {format_hash(block.header.hash)}")
+            finally:
+                self._import_queue.task_done()
 
 
     async def _timeslot_worker(self) -> None:
@@ -106,11 +144,8 @@ class AccumulatePipeline:
 
                         if self.app.config.replay_blocks:
                             block = self.app.config.replay_blocks.find_next(timeslot)
-                            if block:
-                                await self.app.import_block(block)
+                            await self._import_queue.put(block)
                         else:
-                            extrinsics = self.extrinsics
-
 
                             block = await self.app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
 
@@ -134,3 +169,39 @@ class AccumulatePipeline:
                 logging.exception("Work pipeline failed for timeslot %s", timeslot)
             finally:
                 self._timeslot_queue.task_done()
+
+    async def _block_dir_listener(self):
+        """
+        TODO TEMP block dir listener
+
+        Returns
+        -------
+
+        """
+
+        seen_files = set()
+
+        while True:
+            # Run the directory check in a separate thread (non-blocking)
+            new_files = await anyio.to_thread.run_sync(
+                lambda: {f for f in os.listdir(self.app.config.import_block_path) if f.endswith('.bin')} - seen_files
+            )
+
+            if new_files:
+                for filename in sorted(new_files):
+                    filepath = os.path.join(self.app.config.import_block_path, filename)
+
+                    try:
+                        async with self.block_dir_lock:
+
+                            with open(filepath, 'rb') as file:
+                                trace = Trace.from_jam_bytes(JamBytes(file.read()))
+                                await self.add_block(trace.block)
+
+                    except Exception as e:
+                        logging.error(f"Failed to process {filepath}: {e}")
+
+                # Update the seen_files set to include the newly processed files
+                seen_files.update(new_files)
+
+            await anyio.sleep(.5)
