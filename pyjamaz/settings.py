@@ -36,6 +36,8 @@ PVM_INTERPRETER = os.getenv("PVM_INTERPRETER", "NUMBA_AOT")
 
 RPC_SERVER_MAX_SIZE = 30 * 1024 * 1024
 
+GUARANTEE_SIGNATURE_WAIT_PERIOD = 2
+
 try:
     from pyjamaz.local_settings import *
 except ImportError:

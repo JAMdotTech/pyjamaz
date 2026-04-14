@@ -397,8 +397,8 @@ def rpcSubscribeWorkPackageStatus(app: PyjamazApp, params):
 
     work_package_hash = base64_decode(params[0])
     anchor = base64_decode(params[1])
-    if work_package_hash in app.work_package_queue:
-        value = app.work_package_queue[work_package_hash].status.to_json()
+    if work_package_hash in app.runtime.refine_pipeline._pending_work_packages:
+        value = app.runtime.refine_pipeline._pending_work_packages[work_package_hash].status.to_json()
     else:
         value = WorkPackageStatus(Failed='Not found').to_json()
 
