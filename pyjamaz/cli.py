@@ -304,6 +304,10 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
     try:
         async with anyio.create_task_group() as tg:
 
+            # Create and start runtime
+            app.runtime = NodeRuntime(app)
+            app.runtime.start(tg)
+
             # TODO: we need to start this manually in all event loops, make an AppFactory that handles this in a generic way
             # Create a subscriber to process incoming messages (fx from a protocol)
             tg.start_soon(app.pubsub.process_messages)
@@ -358,10 +362,6 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             #     #tg.start_soon(nps_protocol.connect, "127.0.0.1", 40001)
 
             await anyio.sleep(ts - time.time())
-
-            # Create and start runtime
-            app.runtime = NodeRuntime(app)
-            app.runtime.start(tg)
 
     except (KeyboardInterrupt, CancelledError):
         logging.info("Stopping node...")

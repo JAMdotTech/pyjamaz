@@ -1,16 +1,19 @@
+import asyncio
 import logging
 from typing import Dict, List, Optional
 
 from bandersnatch_vrfs import RingContext, vrf_output
 
-from pyjamaz.graypaper_constants import TICKET_ENTRIES, EPOCH_TIMESLOTS, TICKET_SUBMISSION_END_SLOT, \
-    MAXIMUM_EXTRINSIC_TICKETS
+from pyjamaz.constants import MESSAGE_TYPES
+from pyjamaz.graypaper_constants import TICKET_ENTRIES, MAXIMUM_EXTRINSIC_TICKETS, TICKET_SUBMISSION_END_SLOT, \
+    EPOCH_TIMESLOTS
 from pyjamaz.hashing import blake2b_256_hash
-from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage
+from pyjamaz.models.block import TicketEnvelope, Guarantee, Assurance, Preimage, Block
 from pyjamaz.models.common import TicketBody, WorkPackage
 from pyjamaz.models.state import ServicesState
 from pyjamaz.models.stf_output import SafroleErrorCode
 from pyjamaz.signing import BandersnatchKeypair
+from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import vrf_input_ticket_seal, format_hash
 
 
@@ -24,6 +27,8 @@ class BlockExtrinsicCollector:
         self.assurances_queue: List[Assurance] = []
         self.preimage_queue: List[Preimage] = []
         self.ring_data = ring_data
+
+        self._ticket_queue_lock = asyncio.Lock()
 
     def create_ticket_body(self, ticket_data: TicketEnvelope, ring_context: RingContext, entropy: bytes) -> TicketBody:
         if ticket_data.attempt >= TICKET_ENTRIES:
@@ -42,16 +47,18 @@ class BlockExtrinsicCollector:
 
         return TicketBody(id=ring_vrf_output, attempt=ticket_data.attempt)
 
-    def add_ticket(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes):
+    async def add_ticket(self, ticket_data: TicketEnvelope, ring_public_keys: List[bytes], entropy: bytes):
         ring_context = RingContext(self.ring_data, ring_public_keys)
         ticket_body = self.create_ticket_body(ticket_data, ring_context, entropy)
-        self.tickets_queue[ticket_body.id] = ticket_data
+        async with self._ticket_queue_lock:
+            self.tickets_queue[ticket_body.id] = ticket_data
 
     def can_add_own_ticket(self, timeslot: int) -> bool:
         return len(self.own_tickets_next) < TICKET_ENTRIES and timeslot % EPOCH_TIMESLOTS < TICKET_SUBMISSION_END_SLOT
 
-    def add_own_ticket(
-            self, ring_context: RingContext, entropy: bytes, keypair: BandersnatchKeypair, author_index: int
+    async def add_own_ticket(
+            self, ring_context: RingContext, entropy: bytes, keypair: BandersnatchKeypair, author_index: int,
+            epoch_index: int = None, pubsub: PubSub = None
     ):
 
         if len(self.tickets_queue) > TICKET_ENTRIES:
@@ -75,10 +82,16 @@ class BlockExtrinsicCollector:
         logging.info(f'🎫 Generated ticket: {format_hash(ticket_id)}')
         logging.DEBUG and logging.debug(f'Generated ticket: id = {format_hash(ticket_id)} with entropy {format_hash(entropy)}')
 
-        self.tickets_queue[ticket_id] = ticket
+        async with self._ticket_queue_lock:
+            self.tickets_queue[ticket_id] = ticket
         self.own_tickets_next.append(ticket_id)
 
-    def collect_tickets(self) -> List[TicketEnvelope]:
+        # Notify new ticket is added
+        if pubsub and epoch_index is not None:
+            await pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.TICKET_ADD, data=[epoch_index, attempt, signature]))
+
+
+    async def collect_tickets(self) -> List[TicketEnvelope]:
         """
         Collect tickets to include in a block
 
@@ -87,11 +100,12 @@ class BlockExtrinsicCollector:
         List[TicketEnvelope]
         """
 
-        collected_tickets = sorted(self.tickets_queue.items())[:MAXIMUM_EXTRINSIC_TICKETS]
+        async with self._ticket_queue_lock:
+            collected_tickets = sorted(self.tickets_queue.items())[:MAXIMUM_EXTRINSIC_TICKETS]
 
-        # Remove from queue
-        for key in [key for key, _ in collected_tickets]:
-            self.tickets_queue.pop(key)
+            # Remove from queue
+            for key in [key for key, _ in collected_tickets]:
+                self.tickets_queue.pop(key)
 
         return [ticket for _, ticket in collected_tickets]
 
@@ -101,24 +115,27 @@ class BlockExtrinsicCollector:
     def own_ticket_count(self) -> int:
         return len(self.own_tickets_next)
 
-    def clear_own_tickets(self):
-        for ticket_id in self.own_tickets_next:
-            del self.tickets_queue[ticket_id]
+    async def clear_own_tickets(self):
+        async with self._ticket_queue_lock:
+            for ticket_id in self.own_tickets_next:
+                del self.tickets_queue[ticket_id]
         self.own_tickets_next = []
 
-    def clear_tickets(self):
-        self.tickets_queue = {}
+    async def clear_tickets(self):
+        async with self._ticket_queue_lock:
+            self.tickets_queue = {}
         self.own_tickets_next = []
 
-    def process_epoch_change(self):
+    async def process_epoch_change(self):
         self.own_tickets_current = self.own_tickets_next
         self.own_tickets_next = []
-        self.tickets_queue = {}
+        async with self._ticket_queue_lock:
+            self.tickets_queue = {}
 
     def add_guarantee(self, guarantee: Guarantee):
         self.guarentees_queue[guarantee.report.hash()] = guarantee
 
-    def collect_guarantees(self) -> List[Guarantee]:
+    async def collect_guarantees(self) -> List[Guarantee]:
         guarentees = list(self.guarentees_queue.values())
         self.guarentees_queue = {}
         return guarentees

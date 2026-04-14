@@ -58,13 +58,18 @@ class CE128Handler(StreamHandler):
         req = MsgCE128BlockRequestResponse.from_jam_bytes(JamBytes(data))
         blocks = req.blocks
         logger.info(f"Parsed {len(blocks)} blocks")
-        asyncio.create_task(
-            self.context.app.import_queue_add_blocks(
-                blocks,
-                on_success=MESSAGE_TYPES.CE128_SUCCESS,
-                on_failure=MESSAGE_TYPES.CE128_FAILURE,
+        # asyncio.create_task(
+        #     self.context.app.import_queue_add_blocks(
+        #         blocks,
+        #         on_success=MESSAGE_TYPES.CE128_SUCCESS,
+        #         on_failure=MESSAGE_TYPES.CE128_FAILURE,
+        #     )
+        # )
+        for block in blocks:
+            asyncio.create_task(
+                self.context.app.runtime.accumulate_pipeline.add_block(block)
             )
-        )
+
 
     def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug(f"CE128 acceptor stream {stream.stream_id} received block request")
