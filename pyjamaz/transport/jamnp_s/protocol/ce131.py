@@ -13,7 +13,7 @@ from pyjamaz.transport.jamnp_s.protocol.messages.ce131 import (
     MsgCE131SafroleTicket,
     MsgCE131SafroleTicketDistribution,
 )
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -24,13 +24,13 @@ class CE131StreamState:
 
 
 class CE131Handler(StreamHandler):
-    kind = StreamKind.CE131_SafroleTicketDistributionStep1
+    kind = JAMStreamKind.CE131_SafroleTicketDistributionStep1
 
     def __init__(self, context) -> None:
         super().__init__(context)
         self._streams = {}
 
-    def init_stream(self, stream: ManagedStream) -> None:
+    def init_stream(self, stream: JAMStream) -> None:
         self._streams[stream.stream_key] = CE131StreamState()
 
     async def broadcast_own_ticket(self, data) -> int:
@@ -60,27 +60,27 @@ class CE131Handler(StreamHandler):
         logger.info(f"Distributed ticket to {distributed_count} peers")
         return distributed_count
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         logger.warning(f"Unexpected data in CE131 initiator: {len(data)} bytes")
         raise ValueError("Unexpected data in CE131 initiator")
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug(f"CE131 acceptor stream {stream.stream_id} received ticket")
         self._handle_received_ticket(
             stream,
             MsgCE131SafroleTicketDistribution.from_jam_bytes(JamBytes(data)),
         )
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         logger.info("Finished with FIN")
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         logger.info("Finished with FIN")
 
-    def on_close(self, stream: ManagedStream) -> None:
+    def on_close(self, stream: JAMStream) -> None:
         self._streams.pop(stream.stream_key, None)
 
-    def _handle_received_ticket(self, stream: ManagedStream, msg: MsgCE131SafroleTicketDistribution) -> None:
+    def _handle_received_ticket(self, stream: JAMStream, msg: MsgCE131SafroleTicketDistribution) -> None:
         logger.info(f"Received ticket for epoch {msg.epoch_index}")
 
         current_epoch = self.context.app.working_state.timeslot.number // EPOCH_TIMESLOTS

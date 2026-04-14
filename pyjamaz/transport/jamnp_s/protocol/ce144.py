@@ -10,7 +10,7 @@ from pyjamaz.transport.jamnp_s.protocol.messages.ce144 import (
     MsgCE144Announcement,
     MsgCE144Evidence,
 )
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -21,13 +21,13 @@ class CE144StreamState:
 
 
 class CE144Handler(StreamHandler):
-    kind = StreamKind.CE144_AuditAnnouncement
+    kind = JAMStreamKind.CE144_AuditAnnouncement
 
     def __init__(self, context) -> None:
         super().__init__(context)
         self._streams = {}
 
-    def init_stream(self, stream: ManagedStream) -> None:
+    def init_stream(self, stream: JAMStream) -> None:
         self._streams[stream.stream_key] = CE144StreamState()
 
     def initiate_announcement(
@@ -35,7 +35,7 @@ class CE144Handler(StreamHandler):
         conn,
         ann: MsgCE144Announcement,
         evidence: MsgCE144Evidence,
-    ) -> ManagedStream:
+    ) -> JAMStream:
         stream = self.open_outgoing(conn)
         conn.send(
             stream.stream_id,
@@ -49,11 +49,11 @@ class CE144Handler(StreamHandler):
         )
         return stream
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         logger.warning(f"Unexpected data in CE144 initiator: {len(data)} bytes")
         raise ValueError("Unexpected data in CE144 initiator")
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         state = self._streams[stream.stream_key]
 
         if not state.received_announcement:
@@ -66,11 +66,11 @@ class CE144Handler(StreamHandler):
         MsgCE144Evidence.from_jam_bytes(JamBytes(data))
         stream.conn.send(stream.stream_id, b"", end_stream=True)
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         logger.info("CE144 success with FIN")
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         logger.info("CE144 success with FIN")
 
-    def on_close(self, stream: ManagedStream) -> None:
+    def on_close(self, stream: JAMStream) -> None:
         self._streams.pop(stream.stream_key, None)

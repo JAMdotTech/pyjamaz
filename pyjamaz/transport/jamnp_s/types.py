@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from pyjamaz.transport.jamnp_s.connection import JAMConnection
 
 
-class StreamKind(IntEnum):
+class JAMStreamKind(IntEnum):
     UP0_BlockAnnouncement = 0
     CE128_BlockRequest = 128
     CE129_StateRequest = 129
@@ -38,28 +38,28 @@ class StreamDirection(Enum):
 
 
 class IStreamHandler(Protocol):
-    kind: StreamKind
+    kind: JAMStreamKind
 
-    def init_stream(self, stream: "ManagedStream") -> None:
+    def init_stream(self, stream: "JAMStream") -> None:
         ...
 
-    def on_message(self, stream: "ManagedStream", data: bytes) -> None:
+    def on_message(self, stream: "JAMStream", data: bytes) -> None:
         ...
 
-    def on_fin(self, stream: "ManagedStream") -> None:
+    def on_fin(self, stream: "JAMStream") -> None:
         ...
 
-    def on_reset(self, stream: "ManagedStream", reset_code: int) -> None:
+    def on_reset(self, stream: "JAMStream", reset_code: int) -> None:
         ...
 
-    def on_close(self, stream: "ManagedStream") -> None:
+    def on_close(self, stream: "JAMStream") -> None:
         ...
 
 
 @dataclass
-class ManagedStream:
+class JAMStream:
     stream_id: int
-    stream_kind: StreamKind
+    stream_kind: JAMStreamKind
     conn: "JAMConnection"
     direction: StreamDirection
     handler: Optional[IStreamHandler] = field(default=None, repr=False)

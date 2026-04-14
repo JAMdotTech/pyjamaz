@@ -6,15 +6,15 @@ from jamcodec.base import JamBytes
 
 from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
 from pyjamaz.transport.jamnp_s.protocol.messages.ce143 import MsgCE143HashRequest, MsgCE143Preimage
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
 class CE143Handler(StreamHandler):
-    kind = StreamKind.CE143_PreimageRequest
+    kind = JAMStreamKind.CE143_PreimageRequest
 
-    def initiate_request(self, conn, msg: MsgCE143HashRequest) -> ManagedStream:
+    def initiate_request(self, conn, msg: MsgCE143HashRequest) -> JAMStream:
         stream = self.open_outgoing(conn)
         logger.info(f"CE143 initiating request on stream id: {stream.stream_id}")
         conn.send(
@@ -24,13 +24,13 @@ class CE143Handler(StreamHandler):
         )
         return stream
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug("CE143 initiator received preimage")
         msg = MsgCE143Preimage.from_jam_bytes(JamBytes(data))
         logger.info(f"CE143 received preimage of length {len(msg.bytes_)}")
         stream.conn.send(stream.stream_id, b"", end_stream=True)
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug("CE143 acceptor received preimage request")
         msg = MsgCE143HashRequest.from_jam_bytes(JamBytes(data))
         logger.info(f"CE143 received request for hash {msg.hash.hex()}")
@@ -41,16 +41,16 @@ class CE143Handler(StreamHandler):
             end_stream=True,
         )
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         self._request_success(0)
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         self._request_success(0)
 
-    def initiator_reset(self, stream: ManagedStream, reset_code: int) -> None:
+    def initiator_reset(self, stream: JAMStream, reset_code: int) -> None:
         self._request_failure(reset_code)
 
-    def acceptor_reset(self, stream: ManagedStream, reset_code: int) -> None:
+    def acceptor_reset(self, stream: JAMStream, reset_code: int) -> None:
         self._request_failure(reset_code)
 
     @staticmethod

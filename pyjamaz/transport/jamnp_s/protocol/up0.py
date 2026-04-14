@@ -16,7 +16,7 @@ from pyjamaz.transport.jamnp_s.protocol.messages.up0 import (
     MsgUP0Announcement,
     MsgUP0Handshake,
 )
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamDirection, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, StreamDirection, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -32,13 +32,13 @@ class UP0StreamState:
 
 
 class UP0Handler(StreamHandler):
-    kind = StreamKind.UP0_BlockAnnouncement
+    kind = JAMStreamKind.UP0_BlockAnnouncement
 
     def __init__(self, context) -> None:
         super().__init__(context)
         self._streams = {}
 
-    def init_stream(self, stream: ManagedStream) -> None:
+    def init_stream(self, stream: JAMStream) -> None:
         self._streams[stream.stream_key] = UP0StreamState()
 
     def send_handshake(self, conn) -> None:
@@ -84,22 +84,22 @@ class UP0Handler(StreamHandler):
                 end_stream=False,
             )
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         self._receive_message(stream, data)
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         self._receive_message(stream, data)
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         logger.warning(f"Unexpected FIN on persistent UP0 stream {stream.stream_id}")
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         logger.warning(f"Unexpected FIN on persistent UP0 stream {stream.stream_id}")
 
-    def on_close(self, stream: ManagedStream) -> None:
+    def on_close(self, stream: JAMStream) -> None:
         self._streams.pop(stream.stream_key, None)
 
-    def _receive_message(self, stream: ManagedStream, data: bytes) -> None:
+    def _receive_message(self, stream: JAMStream, data: bytes) -> None:
         state = self._streams[stream.stream_key]
 
         if state.phase == UPState.IN_PROGRESS:
@@ -115,7 +115,7 @@ class UP0Handler(StreamHandler):
 
         raise RuntimeError(f"Unexpected state {state.phase}")
 
-    def _handle_handshake(self, stream: ManagedStream, msg: MsgUP0Handshake) -> None:
+    def _handle_handshake(self, stream: JAMStream, msg: MsgUP0Handshake) -> None:
         if stream.direction == StreamDirection.acceptor:
             self.send_handshake(stream.conn)
 
@@ -145,7 +145,7 @@ class UP0Handler(StreamHandler):
     def _initiate_block_sync(self, conn, announced_hash: bytes) -> None:
         self.context.state_requesting_blocks = True
         curr_hash = self.context.app.retrieve_block_hash(self.context.app.working_state.timeslot.number)
-        ce128_handler = self.context.get_handler(StreamKind.CE128_BlockRequest)
+        ce128_handler = self.context.get_handler(JAMStreamKind.CE128_BlockRequest)
         ce128_handler.initiate_block_request(
             conn,
             MsgCE128BlockRequest(

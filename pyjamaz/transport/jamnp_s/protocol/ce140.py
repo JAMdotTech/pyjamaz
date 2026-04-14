@@ -10,15 +10,15 @@ from pyjamaz.transport.jamnp_s.protocol.messages.ce140 import (
     MsgCE140SegmentRequest,
     MsgCE140SegmentShard,
 )
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
 class CE140Handler(StreamHandler):
-    kind = StreamKind.CE140_SegmentShardRequestJustification
+    kind = JAMStreamKind.CE140_SegmentShardRequestJustification
 
-    def initiate_request(self, conn, req: MsgCE140SegmentRequest) -> ManagedStream:
+    def initiate_request(self, conn, req: MsgCE140SegmentRequest) -> JAMStream:
         stream = self.open_outgoing(conn)
         conn.send(
             stream.stream_id,
@@ -27,11 +27,11 @@ class CE140Handler(StreamHandler):
         )
         return stream
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug("CE140 initiator received shards and justifications")
         stream.conn.send(stream.stream_id, b"", end_stream=True)
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug("CE140 acceptor received request")
         msg = MsgCE140SegmentRequest.from_jam_bytes(JamBytes(data))
         for idx in msg.segment_indices:
@@ -48,8 +48,8 @@ class CE140Handler(StreamHandler):
                 end_stream=(idx == msg.segment_indices[-1]),
             )
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         logger.info("CE140 success with FIN")
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         logger.info("CE140 success with FIN")

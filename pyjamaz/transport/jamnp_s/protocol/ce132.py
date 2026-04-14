@@ -10,7 +10,7 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS
 from pyjamaz.models.block import TicketEnvelope
 from pyjamaz.transport.jamnp_s.protocol.base import StreamHandler
 from pyjamaz.transport.jamnp_s.protocol.messages.ce132 import MsgCE132SafroleTicketDistribution
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -21,16 +21,16 @@ class CE132StreamState:
 
 
 class CE132Handler(StreamHandler):
-    kind = StreamKind.CE132_SafroleTicketDistributionStep2
+    kind = JAMStreamKind.CE132_SafroleTicketDistributionStep2
 
     def __init__(self, context) -> None:
         super().__init__(context)
         self._streams = {}
 
-    def init_stream(self, stream: ManagedStream) -> None:
+    def init_stream(self, stream: JAMStream) -> None:
         self._streams[stream.stream_key] = CE132StreamState()
 
-    def initiate_ticket_distribution(self, conn, msg: MsgCE132SafroleTicketDistribution) -> ManagedStream:
+    def initiate_ticket_distribution(self, conn, msg: MsgCE132SafroleTicketDistribution) -> JAMStream:
         stream = self.open_outgoing(conn)
         logger.info(f"Distribute ticket on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
         conn.send(
@@ -40,33 +40,33 @@ class CE132Handler(StreamHandler):
         )
         return stream
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         logger.warning(f"Unexpected data in CE132 initiator: {len(data)} bytes")
         raise ValueError("Unexpected data in CE132 initiator")
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug(f"CE132 acceptor stream {stream.stream_id} received ticket")
         self._handle_received_ticket(
             stream,
             MsgCE132SafroleTicketDistribution.from_jam_bytes(JamBytes(data)),
         )
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         logger.debug("Success with code 0")
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         logger.debug("Success with code 0")
 
-    def initiator_reset(self, stream: ManagedStream, reset_code: int) -> None:
+    def initiator_reset(self, stream: JAMStream, reset_code: int) -> None:
         logger.error(f"Failed with code {reset_code}")
 
-    def acceptor_reset(self, stream: ManagedStream, reset_code: int) -> None:
+    def acceptor_reset(self, stream: JAMStream, reset_code: int) -> None:
         logger.error(f"Failed with code {reset_code}")
 
-    def on_close(self, stream: ManagedStream) -> None:
+    def on_close(self, stream: JAMStream) -> None:
         self._streams.pop(stream.stream_key, None)
 
-    def _handle_received_ticket(self, stream: ManagedStream, msg: MsgCE132SafroleTicketDistribution) -> None:
+    def _handle_received_ticket(self, stream: JAMStream, msg: MsgCE132SafroleTicketDistribution) -> None:
         logger.info(f"Received ticket for epoch {msg.epoch_index}")
 
         current_epoch = self.context.app.working_state.timeslot.number // EPOCH_TIMESLOTS

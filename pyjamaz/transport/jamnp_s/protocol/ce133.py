@@ -13,7 +13,7 @@ from pyjamaz.transport.jamnp_s.protocol.messages.ce133 import (
     MsgCE133Extrinsic,
     MsgCE133WorkPackageSubmission,
 )
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -24,13 +24,13 @@ class CE133StreamState:
 
 
 class CE133Handler(StreamHandler):
-    kind = StreamKind.CE133_WorkPackageSubmission
+    kind = JAMStreamKind.CE133_WorkPackageSubmission
 
     def __init__(self, context) -> None:
         super().__init__(context)
         self._streams = {}
 
-    def init_stream(self, stream: ManagedStream) -> None:
+    def init_stream(self, stream: JAMStream) -> None:
         self._streams[stream.stream_key] = CE133StreamState()
 
     def initiate_workpackage_submission(
@@ -38,7 +38,7 @@ class CE133Handler(StreamHandler):
         conn,
         wp: MsgCE133WorkPackageSubmission,
         extrinsic: MsgCE133Extrinsic,
-    ) -> ManagedStream:
+    ) -> JAMStream:
         stream = self.open_outgoing(conn)
         logger.info(f"Initiating workpackage submission on stream id: {stream.stream_id}")
         conn.send(
@@ -53,11 +53,11 @@ class CE133Handler(StreamHandler):
         )
         return stream
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         logger.warning(f"Unexpected data in CE133 initiator: {len(data)} bytes")
         raise ValueError("Unexpected data in CE133 initiator")
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         state = self._streams[stream.stream_key]
 
         if state.work_package is None:
@@ -80,17 +80,17 @@ class CE133Handler(StreamHandler):
         stream.conn.send(stream.stream_id, b"", end_stream=True)
         self.context.app.add_work_package(state.work_package, extrinsics_list)
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         logger.debug("CE133 submission successful with FIN")
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         logger.debug("CE133 submission successful with FIN")
 
-    def initiator_reset(self, stream: ManagedStream, reset_code: int) -> None:
+    def initiator_reset(self, stream: JAMStream, reset_code: int) -> None:
         logger.debug(f"CE133 received reset code: {reset_code}")
 
-    def acceptor_reset(self, stream: ManagedStream, reset_code: int) -> None:
+    def acceptor_reset(self, stream: JAMStream, reset_code: int) -> None:
         logger.debug(f"CE133 received reset code: {reset_code}")
 
-    def on_close(self, stream: ManagedStream) -> None:
+    def on_close(self, stream: JAMStream) -> None:
         self._streams.pop(stream.stream_key, None)

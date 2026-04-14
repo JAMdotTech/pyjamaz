@@ -20,6 +20,7 @@ class PeerRegistry:
         self.conn_initiated = set()
         self.conn_addr = set()
 
+
     def register(self, connection: "JAMConnection") -> None:
         self.connections[connection.jam_connection_ulid] = connection
         if connection.direction == JAMConnectionDirection.initiator:
@@ -27,10 +28,11 @@ class PeerRegistry:
         else:
             self.conn_accepted.add(connection.jam_connection_ulid)
 
+
     def activate(self, connection: "JAMConnection", addr: str) -> bool:
         if addr in self.conn_addr and connection.addr != addr:
             logger.warning(
-                f"Connection {connection.jam_connection_ulid} direction: {connection.direction} is a duplicate {addr}"
+                f"Duplicate connection from  {connection.jam_connection_ulid} direction: {connection.direction} : {addr}"
             )
             connection.close(error_code=2, reason_phrase="duplicate")
             self.unregister(connection)
@@ -49,6 +51,7 @@ class PeerRegistry:
             f"Connection {connection.jam_connection_ulid} direction: {connection.direction} added {connection.addr}"
         )
         return True
+
 
     def unregister(self, connection: "JAMConnection") -> None:
         self.conn_initiated.discard(connection.jam_connection_ulid)

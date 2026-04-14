@@ -11,15 +11,15 @@ from pyjamaz.transport.jamnp_s.protocol.messages.ce137 import (
     MsgCE137SegmentShard,
     MsgCE137ShardRequest,
 )
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
 
 class CE137Handler(StreamHandler):
-    kind = StreamKind.CE137_ShardDistribution
+    kind = JAMStreamKind.CE137_ShardDistribution
 
-    def initiate_request(self, conn, req: MsgCE137ShardRequest) -> ManagedStream:
+    def initiate_request(self, conn, req: MsgCE137ShardRequest) -> JAMStream:
         stream = self.open_outgoing(conn)
         conn.send(
             stream.stream_id,
@@ -33,7 +33,7 @@ class CE137Handler(StreamHandler):
         for idx in range(0, len(data), chunk_size):
             yield data[idx : idx + chunk_size]
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug("CE137 initiator received response")
         bundle = MsgCE137BundleShard.from_jam_bytes(JamBytes(data[: len(data) // 3]))
         segments = [
@@ -43,7 +43,7 @@ class CE137Handler(StreamHandler):
         just = MsgCE137Justification.from_jam_bytes(JamBytes(data[-len(data) // 3 :]))
         stream.conn.send(stream.stream_id, b"", end_stream=True)
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug("CE137 acceptor received request")
         MsgCE137ShardRequest.from_jam_bytes(JamBytes(data))
         bundle = MsgCE137BundleShard(bytes_=b"")
@@ -66,8 +66,8 @@ class CE137Handler(StreamHandler):
             end_stream=True,
         )
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         logger.info("CE137 success with FIN")
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         logger.info("CE137 success with FIN")

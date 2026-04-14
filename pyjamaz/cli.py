@@ -313,7 +313,7 @@ async def run(seed, port, ts, culprit, block_dir, record_traces, custom_db_path,
             nps_protocol = JAMNPS(host, port, certificate_file, pk_file, app)
             app.protocol = nps_protocol
             tg.start_soon(nps_protocol.listen)
-            tg.start_soon(nps_protocol.maintain_validator_connections)
+            tg.start_soon(nps_protocol.check_connections)
 
             if bootnode:
                 # logging.debug(f'Connecting to node {validator_address}:{validator_port}')

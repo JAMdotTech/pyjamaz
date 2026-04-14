@@ -13,7 +13,7 @@ from pyjamaz.transport.jamnp_s.protocol.messages.ce134 import (
     MsgCE134WorkPackageBundle,
     MsgCE134WorkPackageSharing,
 )
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -25,13 +25,13 @@ class CE134StreamState:
 
 
 class CE134Handler(StreamHandler):
-    kind = StreamKind.CE134_WorkPackageSharing
+    kind = JAMStreamKind.CE134_WorkPackageSharing
 
     def __init__(self, context) -> None:
         super().__init__(context)
         self._streams = {}
 
-    def init_stream(self, stream: ManagedStream) -> None:
+    def init_stream(self, stream: JAMStream) -> None:
         self._streams[stream.stream_key] = CE134StreamState()
 
     def initiate_workpackage_sharing(
@@ -39,7 +39,7 @@ class CE134Handler(StreamHandler):
         conn,
         sharing: MsgCE134WorkPackageSharing,
         bundle: MsgCE134WorkPackageBundle,
-    ) -> ManagedStream:
+    ) -> JAMStream:
         stream = self.open_outgoing(conn)
         logger.info(f"Initiate sharing workpage on stream id: {stream.stream_id} to {conn.host}:{conn.port}")
         conn.send(
@@ -54,7 +54,7 @@ class CE134Handler(StreamHandler):
         )
         return stream
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         state = self._streams[stream.stream_key]
         if state.received_mappings:
             logger.warning(f"Unexpected data in CE134 initiator after mappings: {len(data)} bytes")
@@ -65,7 +65,7 @@ class CE134Handler(StreamHandler):
         state.received_mappings = True
         self._handle_refine_response(stream, msg)
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         state = self._streams[stream.stream_key]
         if not state.received_mappings:
             logger.debug("CE134 acceptor received mappings")
@@ -79,16 +79,16 @@ class CE134Handler(StreamHandler):
         msg = MsgCE134WorkPackageBundle.from_jam_bytes(JamBytes(data))
         self._handle_bundle(stream, msg)
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         logger.info("Success with FIN")
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         logger.info("Success with FIN")
 
-    def on_close(self, stream: ManagedStream) -> None:
+    def on_close(self, stream: JAMStream) -> None:
         self._streams.pop(stream.stream_key, None)
 
-    def _handle_bundle(self, stream: ManagedStream, msg: MsgCE134WorkPackageBundle) -> None:
+    def _handle_bundle(self, stream: JAMStream, msg: MsgCE134WorkPackageBundle) -> None:
         logger.info("ce134_received_bundle")
         work_report = self.context.app.process_work_package(msg.work_package)
 
@@ -101,7 +101,7 @@ class CE134Handler(StreamHandler):
             end_stream=True,
         )
 
-    def _handle_refine_response(self, stream: ManagedStream, msg: MsgCE134RefineResponse) -> None:
+    def _handle_refine_response(self, stream: JAMStream, msg: MsgCE134RefineResponse) -> None:
         logger.info("ce134_received_refine_response")
         work_report = None
         if work_report is not None:

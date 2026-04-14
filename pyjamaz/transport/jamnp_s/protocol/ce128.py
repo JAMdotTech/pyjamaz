@@ -15,7 +15,7 @@ from pyjamaz.transport.jamnp_s.protocol.messages.ce128 import (
     MsgCE128BlockRequestDirection,
     MsgCE128BlockRequestResponse,
 )
-from pyjamaz.transport.jamnp_s.types import ManagedStream, StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStream, JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -26,16 +26,16 @@ class CE128StreamState:
 
 
 class CE128Handler(StreamHandler):
-    kind = StreamKind.CE128_BlockRequest
+    kind = JAMStreamKind.CE128_BlockRequest
 
     def __init__(self, context) -> None:
         super().__init__(context)
         self._streams = {}
 
-    def init_stream(self, stream: ManagedStream) -> None:
+    def init_stream(self, stream: JAMStream) -> None:
         self._streams[stream.stream_key] = CE128StreamState()
 
-    def initiate_block_request(self, conn, req: MsgCE128BlockRequest) -> ManagedStream:
+    def initiate_block_request(self, conn, req: MsgCE128BlockRequest) -> JAMStream:
         stream = self.open_outgoing(conn)
         logger.info(
             f"Initiate block request on stream id: {stream.stream_id} direction: {req.direction}, "
@@ -51,7 +51,7 @@ class CE128Handler(StreamHandler):
     async def finish_block_request(self, *args, **kwargs) -> None:
         self.context.state_requesting_blocks = False
 
-    def initiator_message(self, stream: ManagedStream, data: bytes) -> None:
+    def initiator_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug(
             f"CE128 initiated stream {stream.stream_id} received block request response: {len(data)} bytes"
         )
@@ -66,29 +66,29 @@ class CE128Handler(StreamHandler):
             )
         )
 
-    def acceptor_message(self, stream: ManagedStream, data: bytes) -> None:
+    def acceptor_message(self, stream: JAMStream, data: bytes) -> None:
         logger.debug(f"CE128 acceptor stream {stream.stream_id} received block request")
         self._send_block_request_response(
             stream,
             MsgCE128BlockRequest.from_jam_bytes(JamBytes(data)),
         )
 
-    def initiator_fin(self, stream: ManagedStream) -> None:
+    def initiator_fin(self, stream: JAMStream) -> None:
         self._abort_block_request()
 
-    def acceptor_fin(self, stream: ManagedStream) -> None:
+    def acceptor_fin(self, stream: JAMStream) -> None:
         self._abort_block_request()
 
-    def initiator_reset(self, stream: ManagedStream, reset_code: int) -> None:
+    def initiator_reset(self, stream: JAMStream, reset_code: int) -> None:
         asyncio.create_task(self.finish_block_request(reset_code))
 
-    def acceptor_reset(self, stream: ManagedStream, reset_code: int) -> None:
+    def acceptor_reset(self, stream: JAMStream, reset_code: int) -> None:
         asyncio.create_task(self.finish_block_request(reset_code))
 
-    def on_close(self, stream: ManagedStream) -> None:
+    def on_close(self, stream: JAMStream) -> None:
         self._streams.pop(stream.stream_key, None)
 
-    def _send_block_request_response(self, stream: ManagedStream, block_req: MsgCE128BlockRequest) -> None:
+    def _send_block_request_response(self, stream: JAMStream, block_req: MsgCE128BlockRequest) -> None:
         block: Block = None
         blocks: List[Block] = []
         last_block_hash = self.context.app.retrieve_block_hash(self.context.app.working_state.timeslot.number)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict
 
-from pyjamaz.transport.jamnp_s.types import StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStreamKind
 
 if TYPE_CHECKING:
     from pyjamaz.app import PyjamazApp
@@ -25,7 +25,7 @@ class ProtocolContext:
     validator_manager: "ValidatorConnectionManager"
     stream_manager: "StreamManager"
     state: ProtocolSharedState
-    handlers: Dict[StreamKind, object] = field(default_factory=dict)
+    handlers: Dict[JAMStreamKind, object] = field(default_factory=dict)
 
     @property
     def connections(self):
@@ -50,5 +50,5 @@ class ProtocolContext:
     def register_handler(self, handler) -> None:
         self.handlers[handler.kind] = handler
 
-    def get_handler(self, kind: StreamKind):
+    def get_handler(self, kind: JAMStreamKind):
         return self.handlers[kind]

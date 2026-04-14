@@ -4,38 +4,16 @@ from enum import Enum
 
 from cryptography.hazmat.primitives import serialization
 
-try:
-    from aioquic.asyncio import QuicConnectionProtocol
-    from aioquic.quic.events import (
-        ConnectionTerminated,
-        HandshakeCompleted,
-        QuicEvent,
-        StreamDataReceived,
-        StreamReset,
-    )
-except ModuleNotFoundError as exc:
-    _AIOQUIC_IMPORT_ERROR = exc
+from aioquic.asyncio import QuicConnectionProtocol
+from aioquic.quic.events import (
+    ConnectionTerminated,
+    HandshakeCompleted,
+    QuicEvent,
+    StreamDataReceived,
+    StreamReset,
+)
 
-    class QuicConnectionProtocol:  # type: ignore[override]
-        def __init__(self, *args, **kwargs):
-            raise ModuleNotFoundError("aioquic is required to instantiate JAMConnection") from _AIOQUIC_IMPORT_ERROR
-
-    class QuicEvent:
-        pass
-
-    class HandshakeCompleted(QuicEvent):
-        pass
-
-    class StreamReset(QuicEvent):
-        pass
-
-    class StreamDataReceived(QuicEvent):
-        pass
-
-    class ConnectionTerminated(QuicEvent):
-        pass
-
-from pyjamaz.transport.jamnp_s.types import StreamKind
+from pyjamaz.transport.jamnp_s.types import JAMStreamKind
 
 logger = logging.getLogger("pyjamaz.transport.jamnp_s")
 
@@ -50,7 +28,7 @@ class JAMConnection(QuicConnectionProtocol):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Note: should be set in wrap_protocol
+        # Note: is set in wrap_protocol call
         self.direction:JAMConnectionDirection = None
         self.protocol = None
         self.stream_manager = None
@@ -62,21 +40,7 @@ class JAMConnection(QuicConnectionProtocol):
 
         self.stream_up = None
         self.streams = {}   #TODO: typings
-        self._keepalive_task = asyncio.create_task(self._keepalive())
-
-    def _peer_validator_key(self) -> bytes | None:
-        peer_certificate = getattr(self._quic.tls, "_peer_certificate", None)
-        if peer_certificate is None:
-            return None
-
-        public_key = peer_certificate.public_key()
-        try:
-            return public_key.public_bytes_raw()
-        except AttributeError:
-            return public_key.public_bytes(
-                encoding=serialization.Encoding.Raw,
-                format=serialization.PublicFormat.Raw,
-            )
+        self._keepalive_task = asyncio.create_task(self.keepalive())
 
 
     def close_stream(self, stream_id: int, clean_close: bool = True, reason: int = 0):
@@ -139,7 +103,7 @@ class JAMConnection(QuicConnectionProtocol):
         super().connection_lost(exc)
 
 
-    async def _keepalive(self):
+    async def keepalive(self):
         try:
             while True:
                 #TODO: what is a sane amount of time? Usefull for detecting disconnect (early)?
@@ -148,6 +112,21 @@ class JAMConnection(QuicConnectionProtocol):
                 self.transmit()
         except asyncio.CancelledError:
             pass
+
+
+    def get_peer_validator_key(self) -> bytes | None:
+        peer_certificate = getattr(self._quic.tls, "_peer_certificate", None)
+        if peer_certificate is None:
+            return None
+
+        public_key = peer_certificate.public_key()
+        try:
+            return public_key.public_bytes_raw()
+        except AttributeError:
+            return public_key.public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
 
 
     def quic_event_received(self, event: QuicEvent) -> None:
@@ -160,9 +139,9 @@ class JAMConnection(QuicConnectionProtocol):
         if isinstance(event, HandshakeCompleted):
             #TODO: enforce:
             #   Both nodes are validators, and are neighbours in the grid structure.
-            #   At least one of the nodes is not a validator.
+            #   Or at least one of the nodes is not a validator.
 
-            peer_validator_key = self._peer_validator_key()
+            peer_validator_key = self.get_peer_validator_key()
             if peer_validator_key is not None:
                 if self.validator_key is not None and peer_validator_key != self.validator_key:
                     logger.warning(
@@ -183,11 +162,11 @@ class JAMConnection(QuicConnectionProtocol):
                     return
 
                 # Initiating side will send a JAM handshake message and set the stream id
-                stream_up = self.stream_manager.open_outgoing(self, StreamKind.UP0_BlockAnnouncement)
+                stream_up = self.stream_manager.open_outgoing(self, JAMStreamKind.UP0_BlockAnnouncement)
                 self.stream_up = stream_up
-                self.protocol.handler(StreamKind.UP0_BlockAnnouncement).send_handshake(self)
+                self.protocol.handler(JAMStreamKind.UP0_BlockAnnouncement).send_handshake(self)
             else:
-                # Note: it seems only now we have this info available from the accepting side
+                # Note: it seems only now we have this info available from the accepting side (aioquick quirk)
                 self.host, self.port = self._quic._network_paths[0].addr[0:2]
                 addr = f"{self.host}:{self.port}"
                 if not self.protocol.peer_registry.activate(self, addr):
