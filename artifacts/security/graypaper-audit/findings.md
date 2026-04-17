@@ -103,3 +103,23 @@ Severity rubric:
   - Avoid using real secrets in shared worktrees and rotate if any environment was reused beyond local testing.
 - Required regression coverage:
   - Secret scan output from `gitleaks` must remain part of the audit artifact set.
+
+## F-006: Dispute-stage assurance state did not clear non-positive verdict targets
+
+- Severity: `High`
+- Status: `Remediated in this branch`
+- Affected files: `pyjamaz/app.py`, `pyjamaz/state/components.py`
+- Broken security property: Gray Paper report pipeline safety before availability processing.
+- Evidence:
+  - `PyjamazApp.state_transition` routes disputes through `Assurances.state_transition_after_disputes` before applying assurances.
+  - The prior implementation returned `pre_state_assurances` unchanged, so reports with bad or wonky verdicts remained pending for the later assurance pass.
+  - Gray Paper `0.8.0` still requires non-positive verdicts to clear pending reports from their cores before assurances are processed.
+- Repro steps:
+  1. Seed an `AssurancesState` core with a pending report.
+  2. Submit a disputes extrinsic containing a bad or wonky verdict for that report hash.
+  3. Observe that the pre-fix intermediate assurances state retained the report instead of clearing it.
+- Remediation:
+  - Apply the dispute-stage transition by removing any pending assurance entry whose report hash appears in a bad or wonky verdict.
+  - Keep the transition non-mutating with respect to the pre-state object.
+- Regression coverage:
+  - `test/test_assurances.py`

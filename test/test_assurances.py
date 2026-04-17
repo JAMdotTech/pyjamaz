@@ -2,13 +2,17 @@ import json
 import os
 import unittest
 from os import path
+from math import floor
 from typing import Optional
 
+import pyjamaz.graypaper_constants as gp_const
 from pyjamaz.exceptions import StateTransitionError
 from parameterized import parameterized
 
 from pyjamaz.settings import TEST_SUITE
 from pyjamaz.models.context import AppContext, BlockContext
+from pyjamaz.models.common import WorkReport, WorkPackageSpec, RefinementContext, Assurance as AssuranceStateItem
+from pyjamaz.models.block import ExtrinsicDisputes, Verdict, Judgement
 from pyjamaz.state.components import Assurances
 from pyjamaz.storage import InMemoryStorageEngine
 from pyjamaz.models.block import Header, Assurance
@@ -39,6 +43,41 @@ class TestAssurances(unittest.TestCase):
         )
         with open(test_vector_file) as f:
             return json.load(f)
+
+    @staticmethod
+    def create_work_report(core_index: int) -> WorkReport:
+        return WorkReport(
+            package_spec=WorkPackageSpec(
+                hash=bytes([core_index + 1]) * 32,
+                length=0,
+                erasure_root=bytes([core_index + 2]) * 32,
+                exports_root=bytes([core_index + 3]) * 32,
+                exports_count=0,
+            ),
+            context=RefinementContext(
+                anchor=bytes(32),
+                state_root=bytes(32),
+                beefy_root=bytes(32),
+                lookup_anchor=bytes(32),
+                lookup_anchor_slot=0,
+                prerequisites=[],
+            ),
+            core_index=core_index,
+            authorizer_hash=bytes([core_index + 4]) * 32,
+            auth_gas_used=0,
+            auth_output=b'',
+            segment_root_lookup={},
+            results=[],
+        )
+
+    @staticmethod
+    def create_verdict(target: bytes, positive_votes: int) -> Verdict:
+        total_votes = 1 + floor(gp_const.VALIDATOR_COUNT / 3) * 2
+        votes = [
+            Judgement(vote=index < positive_votes, index=index, signature=bytes(64))
+            for index in range(total_votes)
+        ]
+        return Verdict(target=target, age=0, votes=votes)
 
     @parameterized.expand(get_test_vector_files(file_filter=''))
     def test_vector(self, name, test_file):
@@ -99,6 +138,56 @@ class TestAssurances(unittest.TestCase):
         self.assertListEqual(
             test_vector['post_state']['avail_assignments'], post_state['assurances'], f'{name} fails'
         )
+
+    def test_state_transition_after_disputes_clears_bad_verdict_targets(self):
+        disputed_report = self.create_work_report(core_index=0)
+        untouched_report = self.create_work_report(core_index=1)
+        pre_state_assurances = AssurancesState(
+            assurances=[
+                AssuranceStateItem(report=disputed_report, timeout=3),
+                AssuranceStateItem(report=untouched_report, timeout=4),
+            ]
+        )
+        disputes = ExtrinsicDisputes(
+            verdicts=[self.create_verdict(disputed_report.hash(), positive_votes=0)],
+            culprits=[],
+            faults=[],
+        )
+
+        output = Assurances(BlockContext(), AppContext()).state_transition_after_disputes(
+            extrinsic_disputes=disputes,
+            pre_state_assurances=pre_state_assurances,
+        )
+
+        self.assertIsNone(output.intermediate_state_after_disputes.assurances[0])
+        self.assertIsNotNone(output.intermediate_state_after_disputes.assurances[1])
+        self.assertIsNotNone(pre_state_assurances.assurances[0])
+
+    def test_state_transition_after_disputes_keeps_positive_verdict_targets(self):
+        preserved_report = self.create_work_report(core_index=0)
+        pre_state_assurances = AssurancesState(
+            assurances=[
+                AssuranceStateItem(report=preserved_report, timeout=3),
+                None,
+            ]
+        )
+        disputes = ExtrinsicDisputes(
+            verdicts=[
+                self.create_verdict(
+                    preserved_report.hash(),
+                    positive_votes=floor(gp_const.VALIDATOR_COUNT * 2 / 3) + 1,
+                )
+            ],
+            culprits=[],
+            faults=[],
+        )
+
+        output = Assurances(BlockContext(), AppContext()).state_transition_after_disputes(
+            extrinsic_disputes=disputes,
+            pre_state_assurances=pre_state_assurances,
+        )
+
+        self.assertIsNotNone(output.intermediate_state_after_disputes.assurances[0])
 
 
 if __name__ == '__main__':

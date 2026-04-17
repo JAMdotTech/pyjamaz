@@ -755,8 +755,17 @@ class Assurances(StateComponent):
         AssurancesAfterDisputesOutput
             Output Containing: Intermediate state after processing disputes of AssurancesState (ρ†)
         """
-        # Todo: properly set intermediate_state_after_disputes by implementing STF
-        intermediate_state_assurances_after_disputes = pre_state_assurances
+        intermediate_state_assurances_after_disputes = deepcopy(pre_state_assurances)
+        non_positive_verdict_targets = {
+            verdict.target for verdict in extrinsic_disputes.verdicts
+            if verdict.is_bad() or verdict.is_wonky()
+        }
+
+        if non_positive_verdict_targets:
+            for core_index, assurance in enumerate(intermediate_state_assurances_after_disputes.assurances):
+                if assurance and assurance.report.hash() in non_positive_verdict_targets:
+                    intermediate_state_assurances_after_disputes.assurances[core_index] = None
+
         return AssurancesAfterDisputesOutput(
             intermediate_state_after_disputes=intermediate_state_assurances_after_disputes
         )

@@ -16,8 +16,10 @@
 - Non-blocking but tracked:
   - `F-004` unencrypted key-at-rest handling for generated certificates.
   - `F-005` local workspace key hygiene.
+  - Remaining `0.8.0` spec-drift review for accumulation and adjacent `PyjamazApp.state_transition` sections.
 - Remediated in this branch:
   - `F-003` JAMNPS frame parser desynchronization on fragmented or concatenated frames.
+  - `F-006` dispute-stage assurance pruning for non-positive verdicts.
 
 ## Evidence Bundle
 
