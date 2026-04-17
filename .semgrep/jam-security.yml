@@ -1,0 +1,44 @@
+rules:
+  - id: pyjamaz.insecure-quic-cert-none
+    message: Production JAM transport must not disable peer certificate verification.
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern: verify_mode=ssl.CERT_NONE
+    paths:
+      include:
+        - pyjamaz/**/*.py
+
+  - id: pyjamaz.unencrypted-private-key-output
+    message: Generated node keys are written as unencrypted PKCS#8 material. Audit key handling and filesystem protections.
+    languages: [python]
+    severity: WARNING
+    patterns:
+      - pattern: serialization.NoEncryption()
+    paths:
+      include:
+        - pyjamaz/**/*.py
+
+  - id: pyjamaz.unauthenticated-websocket-rpc
+    message: Review this WebSocket RPC surface for authentication and network-isolation controls before exposing mutating methods.
+    languages: [python]
+    severity: WARNING
+    patterns:
+      - pattern: websockets.serve(...)
+    paths:
+      include:
+        - pyjamaz/rpc/**/*.py
+
+  - id: pyjamaz.network-input-jam-decode
+    message: Decoding JAM payloads from network input requires explicit length validation and adversarial tests.
+    languages: [python]
+    severity: INFO
+    pattern-either:
+      - pattern: Block.from_jam_bytes(JamBytes($DATA))
+      - pattern: WorkPackage.from_jam_bytes(JamBytes($DATA))
+      - pattern: PVMCode.from_jam_bytes(JamBytes($DATA))
+    paths:
+      include:
+        - pyjamaz/transport/**/*.py
+        - pyjamaz/rpc/**/*.py
+        - pyjamaz/hostcalls/**/*.py

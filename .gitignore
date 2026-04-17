@@ -145,6 +145,10 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# Security audit outputs
+artifacts/security/graypaper-audit/output/*
+!artifacts/security/graypaper-audit/output/.gitkeep
+
 # Pyre type checker
 .pyre/
 
