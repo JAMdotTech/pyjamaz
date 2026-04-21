@@ -424,12 +424,15 @@ class Header(Serializable):
         )
 
     def verify_fallback_seal(self, sealer_key: bytes, entropy: bytes) -> bytes:
-        return ietf_vrf_verify(
-            bytes(sealer_key),
-            vrf_input_fallback_seal(entropy),
-            self.get_unsigned_payload(),
-            bytes(self.seal)
-        )
+        try:
+            return ietf_vrf_verify(
+                bytes(sealer_key),
+                vrf_input_fallback_seal(entropy),
+                self.get_unsigned_payload(),
+                bytes(self.seal)
+            )
+        except:
+            raise ValueError("InvalidData")
 
     def generate_ticket_seal(self, bandersnatch_priv_key: bytes, entropy: bytes, ticket_attempt: int) -> bytes:
         """
