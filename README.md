@@ -9,8 +9,17 @@ pip install .
 
 ## Run fuzzer target
 ```bash
-pyjamaz fuzzer target
+pyjamaz fuzzer target --socket-path=/tmp/jam_target.sock
 ```
+
+## Running fuzzer target using Docker
+docker run -v /tmp:/tmp \
+           -e JAM_FUZZ=1 \
+           -e JAM_FUZZ_SPEC=tiny \
+           -e JAM_FUZZ_DATA_PATH=/tmp/pyjamaz_data/ \
+           -e JAM_FUZZ_SOCK_PATH=/tmp/jam_target.sock \
+           -e JAM_FUZZ_LOG_LEVEL=info \
+           jamdottech/pyjamaz:latest
 
 ## Build and publish multi-arch Docker image
 ```bash
