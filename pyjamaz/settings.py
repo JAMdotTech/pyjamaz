@@ -4,6 +4,21 @@ TEST_SUITE = 'tiny' # tiny or full
 GP_VERSION = '0.7.2'
 APP_VERSION = '0.1.49'
 
+
+def _apply_jam_fuzz_spec_override():
+    global TEST_SUITE
+
+    if os.getenv("JAM_FUZZ") is None:
+        return
+
+    jam_fuzz_spec = os.getenv("JAM_FUZZ_SPEC")
+    if jam_fuzz_spec not in ("tiny", "full"):
+        raise RuntimeError("JAM_FUZZ_SPEC must be set to 'tiny' or 'full' when JAM_FUZZ is set")
+    TEST_SUITE = jam_fuzz_spec
+
+
+_apply_jam_fuzz_spec_override()
+
 FUZZER_VERSION = 1
 FUZZER_FEATURE_FORK = True
 FUZZER_FEATURE_ANCESTRY = False
@@ -42,3 +57,5 @@ try:
     from pyjamaz.local_settings import *
 except ImportError:
     pass
+
+_apply_jam_fuzz_spec_override()

@@ -7,7 +7,8 @@ from typing import Optional
 
 from pyjamaz.exceptions import BlockValidationError, StateTransitionError
 from pyjamaz.models.block import Header
-from pyjamaz.settings import APP_VERSION, GP_VERSION, FUZZER_VERSION, FUZZER_FEATURE_FORK, FUZZER_FEATURE_ANCESTRY
+from pyjamaz.settings import APP_VERSION, GP_VERSION, FUZZER_VERSION, FUZZER_FEATURE_FORK, FUZZER_FEATURE_ANCESTRY, \
+    TEST_SUITE
 from pyjamaz.fuzzer.v1.types import FuzzerMessage, PeerInfoMessage, Version, Features
 from pyjamaz.utils import format_hash
 
@@ -108,6 +109,7 @@ class FuzzerTarget:
         logging.info(f'🥋 PyJAMaz JAM v{APP_VERSION} [Fuzzer target v{FUZZER_VERSION}]')
         logging.info(f"🌐 Listening on {addr}")
         logging.info(f'🧾 Graypaper version: {GP_VERSION} ')
+        logging.info(f'🔣 Fuzzer spec: {TEST_SUITE} ')
 
         async with self.server:
             await self.server.serve_forever()
