@@ -45,7 +45,8 @@ RUN python -m compileall -b -d /app ./pyjamaz && \
    ! -path "./pyjamaz/pvm/interpreters/numba/*" \
    -delete && \
  rm -rf ./pyjamaz/pvm/interpreters/numba/__pycache__ && \
+ chmod +x ./scripts/docker-entrypoint.sh && \
  chmod -R 777 /app/numba-cache && \
  chmod -R 777 /app/pyjamaz/pvm/interpreters/numba
 
-ENTRYPOINT ["python", "pyjamaz/cli.pyc"]
+ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
