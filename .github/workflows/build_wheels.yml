@@ -2,7 +2,7 @@ name: Build wheels
 
 on:
   push:
-    branches: [main]
+    branches: [main, audit-m1]
   release:
     types: [published]
 
