@@ -143,7 +143,7 @@ class FuzzerTarget:
                 try:
                     rsp = await self._dispatch(req)
                 except Exception as e:
-                    logging.error(f"[fuzzer] Handler error for {req}: {e}")
+                    logging.exception(f"[fuzzer] Handler error for {req}: {e}")
                     break  # blunt termination on malformed/unexpected messages
 
                 writer.write(rsp.fuzzer_encode())

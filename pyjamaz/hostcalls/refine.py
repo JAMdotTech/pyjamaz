@@ -9,7 +9,7 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
 from pyjamaz.models.state import ServicesState
 from pyjamaz.pvm import PVMInterpreter
-from pyjamaz.pvm.types import PVMProgram, PVMCode
+from pyjamaz.pvm.types import PVMProgram, _pvm_code_from_bytes_cached
 from pyjamaz.pvm import PVMMemory
 from pyjamaz.pvm.constants import ExitReason, ExitCondition, MEM_W, MEM_R, MEM_I
 from pyjamaz.pvm.exceptions import PVMMemoryError
@@ -155,7 +155,7 @@ def hc_machine(
 
     pvm_code = None
     try:
-        pvm_code = PVMCode.from_jam_bytes(JamBytes(program_blob))
+        pvm_code = _pvm_code_from_bytes_cached(program_blob)
     except Exception as e:
         pass
 

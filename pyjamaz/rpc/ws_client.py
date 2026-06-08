@@ -163,8 +163,7 @@ class WebsocketClient(RPCMethods):
         return await self._send_and_wait("submitWorkPackage", [core_idx, workpackage_blob, extrinsics_blob])
 
     async def submitWorkPackageBundle(self, core_idx: int, workpackage: WorkPackage, imports: List[bytes], extrinsics: List[bytes]) -> None:
-        workpackage_blob = base64_encode(workpackage.to_jam_bytes().to_bytes())
-        extrinsics_blob = [base64_encode(extrinsics_item) for extrinsics_item in extrinsics]
+        workpackage_blob = base64_encode(workpackage.to_jam_bytes().to_bytes() + b''.join(extrinsics))
         return await self._send_and_wait("submitWorkPackageBundle", [core_idx, workpackage_blob])
 
     async def submitPreimage(self, service_id: int , preimage_blob: bytes) -> None:

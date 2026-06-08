@@ -160,10 +160,12 @@ class WorkpackageExtrinsicCollector:
         self.extrinsic_data: Dict[bytes, Dict[bytes, bytes]] = {}
 
     def add(self, work_package: WorkPackage, extrinsics: List[bytes]):
-        self.extrinsic_data[work_package.hash()] = {blake2b_256_hash(e): e for e in extrinsics}
+        work_package_hash = work_package.hash()
+        self.extrinsic_data[work_package_hash] = {blake2b_256_hash(e): e for e in extrinsics}
 
     def get(self, work_package: WorkPackage, extrinsic_hash: bytes, extrinsic_length: int) -> Optional[bytes]:
-        extrinsic = self.extrinsic_data.get(work_package.hash(), {}).get(extrinsic_hash, None)
+        work_package_hash = work_package.hash()
+        extrinsic = self.extrinsic_data.get(work_package_hash, {}).get(extrinsic_hash, None)
 
         if extrinsic is not None and extrinsic_length == len(extrinsic):
             return extrinsic
@@ -171,4 +173,5 @@ class WorkpackageExtrinsicCollector:
             return None
 
     def clear(self, work_package: WorkPackage):
-        self.extrinsic_data.pop(work_package.hash(), None)
+        work_package_hash = work_package.hash()
+        self.extrinsic_data.pop(work_package_hash, None)

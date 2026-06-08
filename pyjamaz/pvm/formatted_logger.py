@@ -14,6 +14,8 @@ class PVMFormattedLog(PVMDebugLog):
         pass
 
     def hc_regs(self, msg, phase):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         # TODO: set phase from pvm invoke, hardcoded accumulate for now
         msg = f"{self._pvm_id}_{phase}: {msg}"
         regs = self._pvm.get_registers()
@@ -26,6 +28,8 @@ class PVMFormattedLog(PVMDebugLog):
         )
 
     def hc_log(self, msg, data):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
 
         msg = f"{self._pvm_id}: {msg}"
         spacing = " " * (51 - len(str(msg)))
@@ -36,6 +40,8 @@ class PVMFormattedLog(PVMDebugLog):
         )
 
     def pvm_regs(self, msg):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         regs = self._pvm.get_registers()
         reg_msg = f"reg={str(regs)}"
         spacing = " " * (51 - len(str(msg)))
@@ -46,15 +52,21 @@ class PVMFormattedLog(PVMDebugLog):
         )
 
     def sbrk(self, cur_size, new_size, growth, alloc_mem):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         logging.debug(f"SBRK GROWN FROM {cur_size} TO {new_size} (growth {growth}, alloc mem: {alloc_mem})")
 
     def acl(self, cur_size, new_size, growth):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         logging.debug(f"ACL GROWN FROM {cur_size} TO {new_size} (growth: {growth})")
 
     def exc(self, exc_str):
         logging.warning(f"PVM EXCEPTION:\n{exc_str}")
 
     def hc_debug(self, log_lvl, log_lvl_name, core_idx, service_idx, target, message):
+        if not logging.getLogger().isEnabledFor(log_lvl):
+            return
         target_str = ""
         if target:
             target_str = f"@{target} "
@@ -65,7 +77,7 @@ class PVMFormattedLog(PVMDebugLog):
             prefix_str = f"{log_lvl_name}{target_str}"
 
         spacing = " " * (31 - (len(prefix_str)))
-        logging.info(f'{prefix_str}{spacing}{message}')
+        logging.log(log_lvl, f'{prefix_str}{spacing}{message}')
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):
         if settings.PVM_DEBUG:

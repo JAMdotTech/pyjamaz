@@ -3,6 +3,7 @@ import logging
 from concurrent.futures import as_completed
 from concurrent.futures.thread import ThreadPoolExecutor
 from copy import deepcopy, copy
+from operator import index
 from typing import List, Union, Optional, Set, Dict
 
 from bandersnatch_vrfs import RingContext, ietf_vrf_verify
@@ -2123,8 +2124,9 @@ class Services(StateComponent):
         # s (sorted!)
         service_ids = sorted(
             set(
-                [r.service_id for w in work_reports for r in w.results] + list(auto_accumulate_services.keys()) +
-                [t.receiver for t in deferred_transfers]
+                [index(r.service_id) for w in work_reports for r in w.results] +
+                [index(service_id) for service_id in auto_accumulate_services.keys()] +
+                [index(t.receiver) for t in deferred_transfers]
             )
         )
 
@@ -2365,22 +2367,24 @@ class Services(StateComponent):
         PvmAccumulateOutput
         """
         # g = substitute_if_nothing(auto_accumulate_services.get(service_id), 0)
-        g: int = auto_accumulate_services.get(service_id, 0)
+        service_id = index(service_id)
+        g: int = index(auto_accumulate_services.get(service_id, 0))
 
         i: List[AccumulationInput] = []
 
         # Add deferred transfers (i^T)
         for t in deferred_transfers:
-            if t.receiver == service_id:
-                g += t.gas_limit
+            if index(t.receiver) == service_id:
+                g += index(t.gas_limit)
 
                 i.append(AccumulationInput(deferred_transfer=t))
 
         # Add accumulation operands (i^U)
         for w in work_reports:
             for r in w.results:
-                if r.service_id == service_id:
-                    g += r.accumulate_gas
+                if index(r.service_id) == service_id:
+                    accumulate_gas = index(r.accumulate_gas)
+                    g += accumulate_gas
 
                     i.append(
                         AccumulationInput(
@@ -2390,7 +2394,7 @@ class Services(StateComponent):
                                 work_report_authorizer_hash=w.authorizer_hash,
                                 work_report_auth_output=w.auth_output,
                                 work_result_payload_hash=r.payload_hash,
-                                work_result_gas_limit=r.accumulate_gas,
+                                work_result_gas_limit=accumulate_gas,
                                 work_exec_result=r.result,
                             )
                         )

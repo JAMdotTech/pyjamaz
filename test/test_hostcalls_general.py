@@ -360,6 +360,7 @@ class TestHCGeneral(unittest.TestCase):
                 work_item_segs,
                 extrinsics,
                 accumulation_inputs,
+                None,
                 invocation_output,
                 logger)
 

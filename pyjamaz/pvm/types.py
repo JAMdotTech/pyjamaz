@@ -32,6 +32,22 @@ _ADDR_MASK = ADDR_MOD - 1
 _MAX_PAGE_IDX = (ADDR_MOD // PAGE_SIZE) - 1
 _PAGE_CACHE_LIMIT = 16
 _ZERO_PAGE = bytes(PAGE_SIZE)
+_PVM_CODE_CACHE_LIMIT = 64
+_PVM_CODE_CACHE: dict[bytes, "PVMCode"] = {}
+
+
+def _pvm_code_from_bytes_cached(data: bytes) -> "PVMCode":
+    if not isinstance(data, bytes):
+        data = bytes(data)
+    cached = _PVM_CODE_CACHE.get(data)
+    if cached is not None:
+        return cached
+
+    decoded = PVMCode.from_jam_bytes(JamBytes(data))
+    if len(_PVM_CODE_CACHE) >= _PVM_CODE_CACHE_LIMIT:
+        _PVM_CODE_CACHE.pop(next(iter(_PVM_CODE_CACHE)))
+    _PVM_CODE_CACHE[data] = decoded
+    return decoded
 
 
 @dataclass
@@ -338,7 +354,7 @@ class PVMProgram(Serializable):
             ) <= 2**32:
 
                 instance = cls(
-                    code=PVMCode.from_jam_bytes(JamBytes(pvm_code)),
+                    code=_pvm_code_from_bytes_cached(pvm_code),
                     registers=cls.init_registers(argument_contents),
                     memory=cls.init_memory(pvm_rom_contents, pvm_heap_contents, argument_contents, heap_mem_pages, stack_mem_size),
                     name=name

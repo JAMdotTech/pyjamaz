@@ -1,4 +1,6 @@
 import logging
+import os
+import time
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from typing import List, Optional
@@ -10,6 +12,8 @@ from pyjamaz import settings
 from pyjamaz.pvm import PVMInterpreter, PVMMemory
 from pyjamaz.pvm.types import PVMProgram
 from pyjamaz.pvm.constants import PVM_INPUT_DATA_SIZE, ExitCondition, ExitReason
+from pyjamaz.refine_profile import ENABLED as REFINE_PROFILE_ENABLED
+from pyjamaz.refine_profile import hostcall as refine_profile_hostcall, timer as refine_profile_timer
 from pyjamaz.settings import DEBUG
 
 
@@ -129,6 +133,14 @@ class PVMInvocation:
         self.invocation_mutator = invocation_mutator
         self.invocation_context = invocation_context
 
+    @staticmethod
+    def _should_create_logger() -> bool:
+        if settings.PVM_DEBUGGER is None:
+            return False
+        if os.getenv("PYJAMAZ_ENABLE_PVM_LOGGER", "").lower() in ("1", "true", "yes", "on"):
+            return True
+        return bool(settings.DEBUG or settings.PVM_DEBUG or settings.PVM_DEBUG_OPCODES or settings.PVM_DEBUG_MEMORY)
+
     def pvm_invoke_host_call(
             self,
             instruction_counter: int,              # ı
@@ -160,14 +172,17 @@ class PVMInvocation:
                 )
 
             if exit_condition.reason == ExitReason.host_halt:
+                host_call_started_at = time.perf_counter() if REFINE_PROFILE_ENABLED else 0.0
                 host_call_output = self.invocation_mutator.execute(
                     host_call_instr_nr=exit_condition.value,
                     gas_limit=int(self.pvm.gas),
-                    registers=self.pvm.get_registers(),
+                    registers=self.pvm.reg,
                     memory=self.pvm.mem,
                     invocation_context=self.invocation_context,
                     _pvm=self.pvm
                 )
+                if REFINE_PROFILE_ENABLED:
+                    refine_profile_hostcall(exit_condition.value, time.perf_counter() - host_call_started_at)
 
                 # Update gas usage
                 gas_limit = host_call_output.gas_limit
@@ -214,25 +229,28 @@ class PVMInvocation:
         GP-0.7.2-eq:A.44 (Ψ_M) | Marshalling invocation function
         """
 
-        self.pvm_program = PVMProgram.from_serialized_bytes(
-            serialized_program=serialized_program,
-            argument_contents=argument_data,
-            name=program_name
-        )
-
-        if self.pvm_program is None:
-            return PvmMarshallingOutput(
-                gas_used=0,
-                exit_condition=ExitCondition(reason=ExitReason.panic),
-                context=self.invocation_context
+        with refine_profile_timer("pvm_setup"):
+            self.pvm_program = PVMProgram.from_serialized_bytes(
+                serialized_program=serialized_program,
+                argument_contents=argument_data,
+                name=program_name
             )
 
-        self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger=settings.PVM_DEBUGGER)
+            if self.pvm_program is None:
+                return PvmMarshallingOutput(
+                    gas_used=0,
+                    exit_condition=ExitCondition(reason=ExitReason.panic),
+                    context=self.invocation_context
+                )
 
-        output = self.pvm_invoke_host_call(
-            instruction_counter=start_offset,
-            gas_limit=gas_limit
-        )
+            logger_cls = settings.PVM_DEBUGGER if self._should_create_logger() else None
+            self.pvm: PVMInterpreter = PVMInterpreter(self.pvm_program, logger=logger_cls)
+
+        with refine_profile_timer("pvm_execution"):
+            output = self.pvm_invoke_host_call(
+                instruction_counter=start_offset,
+                gas_limit=gas_limit
+            )
 
         # GP-0.7.2-eq:A.44
         if output.exit_condition.reason not in (ExitReason.halt, ExitReason.out_of_gas):

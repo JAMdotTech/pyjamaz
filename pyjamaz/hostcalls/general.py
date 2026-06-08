@@ -405,6 +405,7 @@ def hc_fetch(
         work_item_segs: Optional[List[List[bytes]]], #GP: i_flat
         extrinsics: Optional[List[List[bytes]]], # GP: x_flat
         accumulation_inputs: Optional[List[AccumulationInput]], #GP: bold_o
+        fetch_cache: Optional[dict],
         invocation_output: InvocationMutationOutput,
         logger: PVMLogger):
     """
@@ -442,6 +443,7 @@ def hc_fetch(
     w10 = registers[10]            # kind (UInt64)
     w11 = registers[11]            # index1 (UInt64)
     w12 = registers[12]            # index2 (UInt64)
+    cache_key = (id(work_package), work_item_index, w10, w11, w12)
 
     logger and logger.hc_log(
         "FETCH input",
@@ -477,7 +479,10 @@ def hc_fetch(
 
     bold_v = None
 
-    if w10 == 0:
+    if fetch_cache is not None and cache_key in fetch_cache:
+        bold_v = fetch_cache[cache_key]
+
+    elif w10 == 0:
         # GP Constants
         const_bytes = (
                 U64.encode(gp_const.MINIMUM_BALANCE_ITEM) +
@@ -576,6 +581,9 @@ def hc_fetch(
             logger and logger.hc_log("FETCH DEBUG", f"kind=14 NONE: accumulation_inputs is {'None' if accumulation_inputs is None else f'len={len(accumulation_inputs)}'}")
         elif w10 == 15:
             logger and logger.hc_log("FETCH DEBUG", f"kind=15 NONE: accumulation_inputs is {'None' if accumulation_inputs is None else f'len={len(accumulation_inputs)}'} index={w11}")
+
+    if fetch_cache is not None and w10 in (0, 7, 10, 11, 12) and cache_key not in fetch_cache:
+        fetch_cache[cache_key] = bold_v
 
     o = w7
     bold_v_len = len(bold_v) if bold_v is not None else 0

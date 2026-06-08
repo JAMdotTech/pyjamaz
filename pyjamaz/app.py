@@ -43,6 +43,8 @@ from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchiv
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Guarantee, Credential, \
     Assurance
 from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState, PendingChanges
+from pyjamaz.refine_profile import start as start_refine_profile, timer as refine_profile_timer
+from pyjamaz.runtime.refine_cache import RefineExecutionCache
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
 from pyjamaz.utils import vrf_input_fallback_seal, vrf_input_ticket_seal, format_hash, log_execution_time, flatten_list
@@ -1239,98 +1241,127 @@ class PyjamazApp:
 
         TODO finish
         """
-
-        segment_root_lookup_keys = {h for w in work_package.items for (h, n) in w.import_segments}
-
-        # Collect import segments
-        import_segments = [self.d3l_store.retrieve_segments(r).segments for r in segment_root_lookup_keys]
-
-        auth_output = pvm_invoke_is_authorized(work_package, core_index)
-
-        if type(auth_output.work_exec_result.ok) is not bytes:
-            raise ProcessWorkpackageError("Unauthorized")
-
-        if len(auth_output.work_exec_result.ok) > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
-            raise ProcessWorkpackageError("Oversized auth result")
-
-        refine_outputs: List[Tuple[WorkDigest, List[bytes]]] = []
-
-        total_digest_size = len(auth_output.work_exec_result.ok)
-
-        for j in range(len(work_package.items)):
-
-            work_item = work_package.items[j]
-
-            export_segment_offset = sum([w.export_count for k, w in enumerate(work_package.items) if k < j])
-
-            refine_output = pvm_invoke_refine(
-                core_index=core_index,
-                work_item_index=j,
-                work_package=work_package,
-                authorizer_output=auth_output.work_exec_result.ok,
-                work_items_import_segments=import_segments,
-                export_segment_offset=export_segment_offset,
-                services_state=services_state,
-                extrinsics=extrinsics
-            )
-
-            if total_digest_size + len(refine_output.work_exec_result.ok or b'') > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
-                work_exec_result = WorkExecResult(digest_oversize=True)
-                export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
-
-            elif len(refine_output.export_segments) != work_item.export_count:
-                work_exec_result = WorkExecResult(bad_exports=True)
-                export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
-
-            elif refine_output.work_exec_result.ok is None:
-                work_exec_result = refine_output.work_exec_result
-                export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
-
-            else:
-                work_exec_result = refine_output.work_exec_result
-                export_segments = refine_output.export_segments
-                total_digest_size += len(refine_output.work_exec_result.ok)
-
-            work_result = WorkDigest.from_work_item(
-                work_item=work_package.items[j],
-                result=work_exec_result,
-                gas_used=refine_output.gas_used
-            )
-
-            refine_outputs.append((work_result, export_segments))
-
-        # TODO inefficient: refactor refine_outputs to work_results and all_export_segments ?
-        all_export_segments: list[bytes] = flatten_list([o[1] for o in refine_outputs])
-
-        exports_root = ConstantDepthMerkleTree(all_export_segments).root()
-
-        # store segments
-        # self.d3l_store[exports_root] = all_export_segments
-        # Also store under work-package hash (H^+) TODO check?
-        # self.d3l_store[work_package.hash()] = all_export_segments
-
-        if self.d3l_store and len(all_export_segments) > 0:
-            d3l_item = D3LEntry(
-                segments=all_export_segments,
-                segment_root=exports_root
-            )
-            self.d3l_store.store_segments(d3l_item)
-
-
-        package_spec = WorkPackageSpec.create_from_work_package(
-            work_package, [], [], [], all_export_segments, exports_root
-        )
-
-        return WorkReport(
-            package_spec=package_spec,
-            context=work_package.context,
+        refine_cache = RefineExecutionCache.create(work_package)
+        profile = start_refine_profile(
+            work_package_hash=refine_cache.work_package_hash,
             core_index=core_index,
-            authorizer_hash=work_package.authorizer_hash(),
-            auth_output=auth_output.work_exec_result.ok,
-            segment_root_lookup={}, # TODO
-            results=[o[0] for o in refine_outputs],
-            auth_gas_used=auth_output.gas_used
+            items=len(work_package.items),
         )
+
+        with refine_profile_timer("work_result_computation"):
+            segment_root_lookup_keys = {h for w in work_package.items for (h, n) in w.import_segments}
+
+            # Collect import segments
+            with refine_profile_timer("d3l_import_segments"):
+                import_segments = [self.d3l_store.retrieve_segments(r).segments for r in segment_root_lookup_keys]
+
+            auth_output = pvm_invoke_is_authorized(
+                work_package,
+                core_index,
+                work_package_hash=refine_cache.work_package_hash,
+                fetch_cache=refine_cache.fetch_blobs,
+            )
+
+            if type(auth_output.work_exec_result.ok) is not bytes:
+                raise ProcessWorkpackageError("Unauthorized")
+
+            if len(auth_output.work_exec_result.ok) > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
+                raise ProcessWorkpackageError("Oversized auth result")
+
+            refine_outputs: List[Tuple[WorkDigest, List[bytes]]] = []
+
+            total_digest_size = len(auth_output.work_exec_result.ok)
+
+            for j in range(len(work_package.items)):
+
+                work_item = work_package.items[j]
+
+                export_segment_offset = refine_cache.export_offsets[j]
+
+                refine_output = pvm_invoke_refine(
+                    core_index=core_index,
+                    work_item_index=j,
+                    work_package=work_package,
+                    authorizer_output=auth_output.work_exec_result.ok,
+                    work_items_import_segments=import_segments,
+                    export_segment_offset=export_segment_offset,
+                    services_state=services_state,
+                    extrinsics=extrinsics,
+                    work_package_hash=refine_cache.work_package_hash,
+                    preimage_cache=refine_cache.preimages,
+                    fetch_cache=refine_cache.fetch_blobs,
+                )
+
+                if total_digest_size + len(refine_output.work_exec_result.ok or b'') > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
+                    work_exec_result = WorkExecResult(digest_oversize=True)
+                    export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+
+                elif len(refine_output.export_segments) != work_item.export_count:
+                    work_exec_result = WorkExecResult(bad_exports=True)
+                    export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+
+                elif refine_output.work_exec_result.ok is None:
+                    work_exec_result = refine_output.work_exec_result
+                    export_segments = [bytes(EC_SEGMENT_SIZE)] * len(refine_output.export_segments)
+
+                else:
+                    work_exec_result = refine_output.work_exec_result
+                    export_segments = refine_output.export_segments
+                    total_digest_size += len(refine_output.work_exec_result.ok)
+
+                work_result = WorkDigest.from_work_item(
+                    work_item=work_package.items[j],
+                    result=work_exec_result,
+                    gas_used=refine_output.gas_used,
+                    payload_hash=refine_cache.payload_hashes[j],
+                )
+
+                refine_outputs.append((work_result, export_segments))
+
+            # TODO inefficient: refactor refine_outputs to work_results and all_export_segments ?
+            all_export_segments: list[bytes] = flatten_list([o[1] for o in refine_outputs])
+
+            with refine_profile_timer("exports_merkle_root"):
+                exports_root = ConstantDepthMerkleTree(all_export_segments).root()
+
+            # store segments
+            # self.d3l_store[exports_root] = all_export_segments
+            # Also store under work-package hash (H^+) TODO check?
+            # self.d3l_store[work_package.hash()] = all_export_segments
+
+            if self.d3l_store and len(all_export_segments) > 0:
+                d3l_item = D3LEntry(
+                    segments=all_export_segments,
+                    segment_root=exports_root
+                )
+                with refine_profile_timer("d3l_store_segments"):
+                    self.d3l_store.store_segments(d3l_item)
+
+
+            package_spec = WorkPackageSpec.create_from_work_package(
+                work_package,
+                [],
+                [],
+                [],
+                all_export_segments,
+                exports_root,
+                work_package_hash=refine_cache.work_package_hash,
+                work_package_length=work_package.to_jam_bytes().length,
+            )
+
+            work_report = WorkReport(
+                package_spec=package_spec,
+                context=work_package.context,
+                core_index=core_index,
+                authorizer_hash=refine_cache.authorizer_hash,
+                auth_output=auth_output.work_exec_result.ok,
+                segment_root_lookup={}, # TODO
+                results=[o[0] for o in refine_outputs],
+                auth_gas_used=auth_output.gas_used
+            )
+            if profile is not None:
+                profile.finish(report_hash=work_report.hash(), exports_root=exports_root)
+            return work_report
 
     async def process_assurances(self):
         """

@@ -2,6 +2,7 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
 from math import ceil
+from operator import index
 from typing import List, Optional, Dict, Tuple, Union, Set
 
 from jamcodec.base import JamBytes
@@ -17,6 +18,7 @@ from pyjamaz.graypaper_constants import EPOCH_TIMESLOTS, VALIDATOR_COUNT, CORE_C
 from pyjamaz.merkle import WellBalancedMerkleTree, MerkleMountainRange
 from pyjamaz.models.common import ValidatorData, Assurance, WorkReport, TicketBody, WorkPackage, DeferredTransfer
 from pyjamaz.pvm.invocation import InvocationContext
+from pyjamaz.refine_profile import count as refine_profile_count
 from pyjamaz.settings import DEBUG
 
 from pyjamaz.state.base import StorageMap, state_key_constructor_service_account, state_key_constructor_preimage, \
@@ -575,6 +577,7 @@ class ServicesState(State, Serializable):
             service_account_id: int,
             check_pending_changes: bool = True,
     ) -> ServiceAccount:
+        refine_profile_count("retrieve_service_account")
 
         # Sanity checks
         if service_account_id >= 2**32:
@@ -685,6 +688,8 @@ class ServicesState(State, Serializable):
         bytes
         """
 
+        refine_profile_count("retrieve_preimage")
+
         if (service_account_id, preimage_hash) in self.pending_changes.preimages:
             preimage = self.pending_changes.preimages[(service_account_id, preimage_hash)]
         else:
@@ -721,6 +726,7 @@ class ServicesState(State, Serializable):
         bytes
         """
 
+        refine_profile_count("historical_preimage_lookup")
         try:
             preimage = self.retrieve_preimage(service_account_id, preimage_hash)
             preimage_availability = self.retrieve_preimage_availability(service_account_id, preimage_hash, len(preimage))
@@ -814,6 +820,7 @@ class ServicesState(State, Serializable):
     def retrieve_preimage_availability(
             self, service_account_id: int, preimage_hash: bytes, preimage_length: int
     ) -> List[int]:
+        refine_profile_count("retrieve_preimage_availability")
 
         preimage_availability = None
 
@@ -924,6 +931,8 @@ class ServicesState(State, Serializable):
         -------
         bytes
         """
+
+        refine_profile_count("retrieve_storage_item")
 
         if (service_account_id, storage_item_hash) in self.pending_changes.storage_items:
             data = self.pending_changes.storage_items[(service_account_id,storage_item_hash)]
@@ -1067,6 +1076,16 @@ class PrivilegedServicesState(State, Serializable):
     delegator: int = field(metadata={'codec': U32})
     registrar: int = field(metadata={'codec': U32})
     always_accumulators: Dict[int, int] = field(metadata={'codec': Map(U32, U64)})
+
+    def __post_init__(self):
+        self.manager = index(self.manager)
+        self.assigners = [index(assigner) for assigner in self.assigners]
+        self.delegator = index(self.delegator)
+        self.registrar = index(self.registrar)
+        self.always_accumulators = {
+            index(service_id): index(gas_limit)
+            for service_id, gas_limit in self.always_accumulators.items()
+        }
 
 
 @dataclass

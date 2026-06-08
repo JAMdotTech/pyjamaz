@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
-from typing import List, Dict
+from operator import index
+from typing import List, Dict, Optional
 
 from pyjamaz.constants import PVM_MARSHALLING_OFFSET_ACCUMULATE, PVM_MARSHALLING_OFFSET_TRANSFER, \
     PVM_MARSHALLING_OFFSET_AUTH, PVM_MARSHALLING_OFFSET_REFINE
@@ -22,8 +23,16 @@ from pyjamaz.hostcalls.debug import hc_log
 from pyjamaz.hostcalls.general import hc_gas, hc_lookup, hc_read, hc_write, hc_info, hc_fetch, hc_not_found
 from pyjamaz.hostcalls.refine import hc_historical_lookup, hc_export, hc_machine, hc_peek, \
     hc_poke, hc_invoke, hc_expunge, hc_pages
+from pyjamaz.refine_profile import timer as refine_profile_timer
 from pyjamaz.settings import DEBUG
 from pyjamaz.utils import format_hash
+
+
+def _pvm_argument_int(name: str, value) -> int:
+    try:
+        return index(value)
+    except TypeError as exc:
+        raise TypeError(f"PVM argument {name} must be integer-like, got {type(value).__name__}: {value!r}") from exc
 
 
 # GP-0.7.2-section:B.4 | Accumulate Invocations
@@ -99,6 +108,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                     work_item_segs=None,
                     extrinsics=None,
                     accumulation_inputs=self.accumulation_inputs,
+                    fetch_cache=None,
                     invocation_output=invocation_output,
                     logger=_pvm.log
                 )
@@ -212,8 +222,8 @@ def pvm_invoke_accumulate(
         )
 
     argument_data = AccumulatePvmArguments(
-        timeslot=timeslot,
-        service_id=service_id,
+        timeslot=_pvm_argument_int("timeslot", timeslot),
+        service_id=_pvm_argument_int("service_id", service_id),
         operands_length=len(accumulation_inputs),
     ).to_jam_bytes().to_bytes()
 
@@ -276,8 +286,9 @@ def pvm_invoke_accumulate(
 # GP-0.7.2-section:B.2 | Is-Authorized Invocations
 class IsAuthorizedInvocationMutator(InvocationMutator):
 
-    def __init__(self, work_package: WorkPackage):
+    def __init__(self, work_package: WorkPackage, fetch_cache: Optional[dict] = None):
         self.work_package = work_package
+        self.fetch_cache = fetch_cache
 
     def execute(
             self,
@@ -319,6 +330,7 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
                     work_item_segs=None,
                     extrinsics=None,
                     accumulation_inputs=None,
+                    fetch_cache=self.fetch_cache,
                     invocation_output=ctx_out,
                     logger=_pvm.log
                 )
@@ -331,7 +343,9 @@ class IsAuthorizedInvocationMutator(InvocationMutator):
 
 def pvm_invoke_is_authorized(
         work_package: 'WorkPackage',
-        core_index: int
+        core_index: int,
+        work_package_hash: bytes = None,
+        fetch_cache: Optional[dict] = None,
 ) -> PvmIsAuthorizedOutput:
     """
     GP-0.7.2-eq:B.1 (Ψ_I) | the is-authorized invocation function
@@ -361,20 +375,21 @@ def pvm_invoke_is_authorized(
 
     pvm_invocation = PVMInvocation(
         invocation_context=None,
-        invocation_mutator=IsAuthorizedInvocationMutator(work_package=work_package)
+        invocation_mutator=IsAuthorizedInvocationMutator(work_package=work_package, fetch_cache=fetch_cache)
     )
 
-    work_package_hash = work_package.hash()
+    work_package_hash = work_package_hash if work_package_hash is not None else work_package.hash()
 
     DEBUG and logging.debug(f'PVM is-auth: wp={format_hash(work_package_hash)} c={core_index} a={argument_data.hex()}')
 
-    marshalling_output = pvm_invocation.pvm_invoke_marshalling(
-        serialized_program=work_package.authorization_code,
-        start_offset=PVM_MARSHALLING_OFFSET_AUTH,
-        gas_limit=GAS_INVOKE,
-        argument_data=argument_data,
-        program_name=work_package.authorization_metadata
-    )
+    with refine_profile_timer("pvm_is_authorized"):
+        marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+            serialized_program=work_package.authorization_code,
+            start_offset=PVM_MARSHALLING_OFFSET_AUTH,
+            gas_limit=GAS_INVOKE,
+            argument_data=argument_data,
+            program_name=work_package.authorization_metadata
+        )
 
     DEBUG and logging.debug(f'PVM is-auth result: exit={marshalling_output.exit_condition.reason} v={marshalling_output.exit_condition.value}')
 
@@ -397,7 +412,8 @@ class RefineInvocationMutator(InvocationMutator):
         timeslot: int,
         work_item_index: int,
         work_package: WorkPackage,
-        extrinsics: List[List[bytes]]
+        extrinsics: List[List[bytes]],
+        fetch_cache: Optional[dict] = None
     ):
         self.authorizer_output = authorizer_output
         self.work_items_import_segments = work_items_import_segments
@@ -408,6 +424,7 @@ class RefineInvocationMutator(InvocationMutator):
         self.work_item_index = work_item_index
         self.work_package = work_package
         self.extrinsics = extrinsics
+        self.fetch_cache = fetch_cache
 
     def execute(
             self,
@@ -462,6 +479,7 @@ class RefineInvocationMutator(InvocationMutator):
                     work_item_segs=self.work_items_import_segments,
                     extrinsics=self.extrinsics,
                     accumulation_inputs=None,
+                    fetch_cache=self.fetch_cache,
                     invocation_output=ctx_out,
                     logger=_pvm.log
                 )
@@ -545,7 +563,10 @@ def pvm_invoke_refine(
     work_items_import_segments: List[List[bytes]],
     export_segment_offset: int,
     services_state: ServicesState,
-    extrinsics: List[List[bytes]]
+    extrinsics: List[List[bytes]],
+    work_package_hash: bytes = None,
+    preimage_cache: Optional[dict] = None,
+    fetch_cache: Optional[dict] = None,
 ) -> PvmRefineOutput:
     """
     GP-0.7.2-eq:B.5 (Ψ_R) | the refine service-account invocation function
@@ -577,28 +598,39 @@ def pvm_invoke_refine(
     service_account_id = work_item.service
 
     # GP-0.7.2-eq:B.5 (extract preimage data)
-    preimage_data = services_state.historical_preimage_lookup(
-        service_account_id,
-        work_package.context.lookup_anchor_slot,
-        work_item.code_hash
-    )
+    cache_key = (service_account_id, work_package.context.lookup_anchor_slot, work_item.code_hash)
+    if preimage_cache is not None and cache_key in preimage_cache:
+        preimage = preimage_cache[cache_key]
+        preimage_data = b""
+    else:
+        with refine_profile_timer("historical_preimage_lookup"):
+            preimage_data = services_state.historical_preimage_lookup(
+                service_account_id,
+                work_package.context.lookup_anchor_slot,
+                work_item.code_hash
+            )
+        preimage = None
 
-    if preimage_data is None:
+    if preimage_data is None and preimage is None:
         return PvmRefineOutput(
             work_exec_result=WorkExecResult(bad_code=True),
             export_segments=[],
             gas_used=0
         )
-    elif len(preimage_data) > MAXIMUM_SIZE_SERVICE_CODE:
+    elif preimage is None and len(preimage_data) > MAXIMUM_SIZE_SERVICE_CODE:
         return PvmRefineOutput(
             work_exec_result=WorkExecResult(code_oversize=True),
             export_segments=[],
             gas_used=0
         )
 
-    preimage = Preimage.extract(preimage_data)
+    if preimage is None:
+        with refine_profile_timer("preimage_extract"):
+            preimage = Preimage.extract(preimage_data)
+        if preimage_cache is not None:
+            preimage_cache[cache_key] = preimage
 
-    work_package_hash = work_package.hash()
+    work_package_hash = work_package_hash if work_package_hash is not None else work_package.hash()
 
     argument_data = RefinePvmArguments(
         core_index=core_index,
@@ -624,17 +656,19 @@ def pvm_invoke_refine(
             timeslot=work_package.context.lookup_anchor_slot,
             work_package=work_package,
             work_item_index=work_item_index,
-            extrinsics=extrinsics
+            extrinsics=extrinsics,
+            fetch_cache=fetch_cache,
         )
     )
 
-    marshalling_output = pvm_invocation.pvm_invoke_marshalling(
-        serialized_program=preimage.serialized_program,
-        start_offset=PVM_MARSHALLING_OFFSET_REFINE,
-        gas_limit=work_item.refine_gas_limit,
-        argument_data=argument_data,
-        program_name=preimage.program_name
-    )
+    with refine_profile_timer("pvm_refine"):
+        marshalling_output = pvm_invocation.pvm_invoke_marshalling(
+            serialized_program=preimage.serialized_program,
+            start_offset=PVM_MARSHALLING_OFFSET_REFINE,
+            gas_limit=work_item.refine_gas_limit,
+            argument_data=argument_data,
+            program_name=preimage.program_name
+        )
 
     work_exec_result = WorkExecResult.from_exit_condition(marshalling_output.exit_condition)
 

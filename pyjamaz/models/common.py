@@ -1,6 +1,7 @@
 import typing
 from base64 import b32encode
 from dataclasses import dataclass, field
+from operator import index
 import socket
 from typing import List, Dict
 import ipaddress
@@ -18,6 +19,10 @@ from pyjamaz.utils import base64_encode
 
 if typing.TYPE_CHECKING:
     from pyjamaz.models.state import ServicesState
+
+
+def _integer_like(value) -> int:
+    return index(value)
 
 
 @dataclass
@@ -360,7 +365,7 @@ class WorkPackageStatus(Serializable):
 
     def to_json(self) -> dict:
         value = self.enum_value()[1]
-        if type(value) is not str:
+        if not isinstance(value, (str, bool)):
             value = value.serialize()
         return {self.enum_value()[0]: value}
 
@@ -475,7 +480,13 @@ class WorkDigest(Serializable):
     refine_load: RefineLoad = field(metadata={'codec': RefineLoad.to_codec_def()})
 
     @classmethod
-    def from_work_item(cls, work_item: WorkItem, result: WorkExecResult, gas_used: int) -> "WorkDigest":
+    def from_work_item(
+            cls,
+            work_item: WorkItem,
+            result: WorkExecResult,
+            gas_used: int,
+            payload_hash: bytes = None
+    ) -> "WorkDigest":
         """
         GP-0.7.2-eq:14.9 (function_C) | the item-to-result function
         """
@@ -483,7 +494,7 @@ class WorkDigest(Serializable):
         return cls(
             service_id=work_item.service,
             code_hash=work_item.code_hash,
-            payload_hash=blake2b_256_hash(work_item.payload),
+            payload_hash=payload_hash if payload_hash is not None else blake2b_256_hash(work_item.payload),
             accumulate_gas=work_item.accumulate_gas_limit,
             result=result,
             refine_load=RefineLoad(
@@ -524,7 +535,8 @@ class WorkPackageSpec(Serializable):
     @classmethod
     def create_from_work_package(cls,
                                  work_package: WorkPackage, extrinsic_data: List[bytes], imported_segments: List[bytes],
-                                 justification_data: List[bytes], exported_segments: List[bytes], exports_root: bytes
+                                 justification_data: List[bytes], exported_segments: List[bytes], exports_root: bytes,
+                                 work_package_hash: bytes = None, work_package_length: int = None
                                  ) -> "WorkPackageSpec":
         """
         GP-0.7.2-eq:14.17 function_A | creates an availability specifier from a workpackage
@@ -533,8 +545,8 @@ class WorkPackageSpec(Serializable):
         # serialized_auditable_work_package = work_package.serialize_to_auditable()
 
         return WorkPackageSpec(
-            hash=work_package.hash(),
-            length=work_package.to_jam_bytes().length,
+            hash=work_package_hash if work_package_hash is not None else work_package.hash(),
+            length=work_package_length if work_package_length is not None else work_package.to_jam_bytes().length,
             erasure_root=bytes(32),
             exports_root=exports_root,
             exports_count=len(exported_segments),
@@ -643,6 +655,9 @@ class AccumulationOperand(Serializable):
     work_exec_result: WorkExecResult = field(metadata={'codec': WorkExecResult.to_codec_def()})
     work_report_auth_output: bytes = field(metadata={'codec': Bytes})
 
+    def __post_init__(self):
+        self.work_result_gas_limit = _integer_like(self.work_result_gas_limit)
+
 
 @dataclass
 class DeferredTransfer(Serializable):
@@ -667,6 +682,12 @@ class DeferredTransfer(Serializable):
     amount: int = field(metadata={'codec': U64})
     memo: bytes = field(metadata={'codec': Array(U8, SIZE_TRANSFER_MEMO)})
     gas_limit: int = field(metadata={'codec': U64})
+
+    def __post_init__(self):
+        self.sender = _integer_like(self.sender)
+        self.receiver = _integer_like(self.receiver)
+        self.amount = _integer_like(self.amount)
+        self.gas_limit = _integer_like(self.gas_limit)
 
 
 @dataclass

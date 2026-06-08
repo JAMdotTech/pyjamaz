@@ -127,6 +127,8 @@ class PVMDebugLog(PVMLogger):
 
 
     def hc_regs(self, msg: str, phase: str) -> None:
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         #TODO: set phase from pvm invoke, hardcoded accumulate for now
         msg = f"{self._pvm_id}_{phase}: {msg}"
         regs = self._pvm.get_registers()
@@ -136,8 +138,10 @@ class PVMDebugLog(PVMLogger):
         )
 
     def hc_debug(self, log_lvl: int, log_lvl_name: str, core_idx: int, service_id: int, target_msg: str, message: str) -> None:
+        if not logging.getLogger().isEnabledFor(log_lvl):
+            return
         #logging.log(log_lvl, f"👀 {target_msg}@{service_id}\t\t{message}")
-        logging.info(f"👀 {target_msg}@{service_id}\t\t{message}")
+        logging.log(log_lvl, f"👀 {target_msg}@{service_id}\t\t{message}")
 
     def pvm_hash(self):
         bytez = bytes()
@@ -164,23 +168,33 @@ class PVMDebugLog(PVMLogger):
         return blake2b_256_hash(bytez)
 
     def pvm_counters(self):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         logging.debug(f"GAS: {self._pvm.gas} PC: {self._pvm.pc}")
 
     def pvm_header(self):
         pass
 
     def pvm_regs(self, msg):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         regs = self._pvm.get_registers()
         reg_msg = f"reg={str(regs)}"
         logging.debug(f"{msg} {reg_msg}")
 
     def sbrk(self, cur_size, new_size, growth, alloc_mem):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         logging.debug(f"SBRK GROWN FROM {cur_size} TO {new_size} (growth {growth}, alloc mem: {alloc_mem})")
 
     def acl(self, cur_size, new_size, growth):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         logging.debug(f"ACL GROWN FROM {cur_size} TO {new_size} (growth: {growth})")
 
     def exc(self, exc_str):
+        if not logging.getLogger().isEnabledFor(logging.DEBUG):
+            return
         logging.debug(f"PVM EXCEPTION:\n{exc_str}")
 
     def __call__(self, reg1=None, reg2=None, reg3=None, imm1=None, imm2=None, off1=None, off2=None, context=None):

@@ -231,7 +231,11 @@ class SubscriptionManager:
             sub_cls = self.SUBSCRIPTION_MAP.get(topic, None)
             if not sub_cls:
                 raise RPCCallException(RPC_ERROR["UNKNOWN_MESSAGE_TYPE"], req_id, topic, params)
-            sub = sub_cls(self.server.app, topic, params, ws)
+            changes_only = False
+            if params and isinstance(params[-1], bool):
+                changes_only = params[-1]
+                params = params[:-1]
+            sub = sub_cls(self.server.app, topic, params, ws, changes_only=changes_only)
             subs.add(sub)
             self._subscriptions[sub.id] = sub
             logging.debug(f'{sub.id} subscribed to {topic}')

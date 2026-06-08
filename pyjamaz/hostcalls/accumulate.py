@@ -1,4 +1,5 @@
 from copy import deepcopy
+from operator import index
 from typing import List
 
 from jamcodec.base import JamBytes
@@ -21,6 +22,10 @@ from pyjamaz.utils import format_hash
 
 U32_MAX = 2 ** 32
 U64_MAX = 2 ** 64
+
+
+def _integer_like(value) -> int:
+    return index(value)
 
 
 @hostcall(10)
@@ -59,12 +64,12 @@ def hc_bless(
     logger and logger.hc_regs(f"BLESS", "accumulate")
 
     # Privileged services:
-    m = registers[7]  # m: index of manager service (manager of chi(X))
+    m = _integer_like(registers[7])  # m: index of manager service (manager of chi(X))
     a = registers[8] % U32_MAX  # a: address to read values of the assign services (UInt32 for memory)
-    v = registers[9]  # v: index of designate service (validator queue)
-    r = registers[10] # r: index of registrar service
+    v = _integer_like(registers[9])  # v: index of designate service (validator queue)
+    r = _integer_like(registers[10]) # r: index of registrar service
     o = registers[11] % U32_MAX  # offset to read service indices (UInt32 for memory)
-    n = registers[12] # number of entries in the auto_accumulate_services dictionary to read
+    n = _integer_like(registers[12]) # number of entries in the auto_accumulate_services dictionary to read
 
     assigners = None # GP: bold_a
     if memory.is_accessible(a, 4 * CORE_COUNT, MEM_R):
@@ -72,7 +77,7 @@ def hc_bless(
             assigners = []
             for idx in range(CORE_COUNT):
                 offset = a + idx * 4
-                assigners.append(U32.decode(JamBytes(memory.read_bytes(offset, 4))))
+                assigners.append(_integer_like(U32.decode(JamBytes(memory.read_bytes(offset, 4)))))
         except PVMMemoryError:
             assigners = None   # bold_a = ∇
 
@@ -82,8 +87,8 @@ def hc_bless(
             auto_accumulate_services = {}
             for idx in range(n):
                 offset = o + idx * 12
-                service_idx = U32.decode(JamBytes(memory.read_bytes(offset, 4)))
-                gas = U64.decode(JamBytes(memory.read_bytes(offset + 4, 8)))
+                service_idx = _integer_like(U32.decode(JamBytes(memory.read_bytes(offset, 4))))
+                gas = _integer_like(U64.decode(JamBytes(memory.read_bytes(offset + 4, 8))))
                 auto_accumulate_services[service_idx] = gas
         except PVMMemoryError:
             auto_accumulate_services = None   # bold_g = ∇
@@ -145,9 +150,9 @@ def hc_assign(
     None
     """
     logger and logger.hc_regs(f"ASSIGN", "accumulate")
-    core_index = registers[7] % U32_MAX  # Core index to update (0..341)
+    core_index = _integer_like(registers[7]) % U32_MAX  # Core index to update (0..341)
     o = registers[8] % U32_MAX  # memory offset (UInt32)
-    a = registers[9]  # new assigner service (UInt64)
+    a = _integer_like(registers[9])  # new assigner service (UInt64)
 
     if memory.is_accessible(o, 32 * MAXIMUM_AUTHORIZATION_QUEUE_ITEMS, MEM_R):
         authorization_queue = [] #GP: bold_c
