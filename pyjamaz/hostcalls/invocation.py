@@ -41,6 +41,7 @@ class AccumulateInvocationMutator(InvocationMutator):
     def __init__(self, post_entropy: EntropyState, accumulation_inputs: List[AccumulationInput]):
         self.post_entropy = post_entropy
         self.accumulation_inputs = accumulation_inputs
+        self.fetch_cache = {}
 
     def execute(
             self,
@@ -108,7 +109,7 @@ class AccumulateInvocationMutator(InvocationMutator):
                     work_item_segs=None,
                     extrinsics=None,
                     accumulation_inputs=self.accumulation_inputs,
-                    fetch_cache=None,
+                    fetch_cache=self.fetch_cache,
                     invocation_output=invocation_output,
                     logger=_pvm.log
                 )

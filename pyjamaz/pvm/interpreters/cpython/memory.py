@@ -38,6 +38,7 @@ class PVMMemory(AbstractMemory):
         self.stack_base: Optional[int] = None
         self.heap_ptr: int = 0
         self.logger = logger
+        self._layout_version: int = 0
 
         self._rom: Optional[MemorySection] = rom
         self._heap: Optional[MemorySection] = heap
@@ -53,6 +54,9 @@ class PVMMemory(AbstractMemory):
             self.heap_ptr = heap.address + heap.size
         if stack:
             self.stack_base = stack.address
+
+    def _bump_layout_version(self) -> None:
+        self._layout_version = getattr(self, "_layout_version", 0) + 1
 
     def view(self, address: int, length: int) -> memoryview:
         address = int(address) & _ADDR_MASK
@@ -101,6 +105,8 @@ class PVMMemory(AbstractMemory):
         page_count = size // PAGE_SIZE
         for pg in range(start_page, start_page + page_count):
             self.set_acl(pg, acl)
+        if page_count > 0:
+            self._bump_layout_version()
 
         data_len = min(len(contents), size)
         if data_len <= 0:
@@ -116,6 +122,8 @@ class PVMMemory(AbstractMemory):
             default_acl = MEM_RW if section.acl is None else section.acl
             for local_page in range(nr_pages):
                 self.merge_acl(base_page + local_page, default_acl)
+            if nr_pages > 0:
+                self._bump_layout_version()
 
         data_len = max(0, min(len(section.contents), section.paged_tail - section.address))
         if data_len > 0:
@@ -257,6 +265,7 @@ class PVMMemory(AbstractMemory):
         self._mv[start:end] = b"\0" * (nr_pages * PAGE_SIZE)
         for pg in range(page_idx, page_idx + nr_pages):
             self.set_acl(pg, acl)
+        self._bump_layout_version()
 
     def void(self, page_idx: int, nr_pages: int, acl: int):
         if nr_pages <= 0:
@@ -268,6 +277,7 @@ class PVMMemory(AbstractMemory):
             return
         for pg in range(page_idx, page_idx + nr_pages):
             self.set_acl(pg, acl)
+        self._bump_layout_version()
 
     def is_null(self, page_idx: int, nr_pages: int) -> bool:
         for pg in range(page_idx, page_idx + nr_pages):
@@ -312,6 +322,7 @@ class PVMMemory(AbstractMemory):
 
         cloned.pages_r = set(self.pages_r)
         cloned.pages_w = set(self.pages_w)
+        cloned._layout_version = getattr(self, "_layout_version", 0)
         for page_idx in (cloned.pages_r | cloned.pages_w):
             start = int(page_idx) * PAGE_SIZE
             end = start + PAGE_SIZE

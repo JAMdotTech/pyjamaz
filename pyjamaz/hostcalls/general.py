@@ -582,7 +582,7 @@ def hc_fetch(
         elif w10 == 15:
             logger and logger.hc_log("FETCH DEBUG", f"kind=15 NONE: accumulation_inputs is {'None' if accumulation_inputs is None else f'len={len(accumulation_inputs)}'} index={w11}")
 
-    if fetch_cache is not None and w10 in (0, 7, 10, 11, 12) and cache_key not in fetch_cache:
+    if fetch_cache is not None and w10 in (0, 7, 10, 11, 12, 14, 15) and cache_key not in fetch_cache:
         fetch_cache[cache_key] = bold_v
 
     o = w7

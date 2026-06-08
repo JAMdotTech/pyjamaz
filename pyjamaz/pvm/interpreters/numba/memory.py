@@ -46,6 +46,7 @@ class PVMMemory(CPythonPVMMemory):
 
         self.sections = [s for s in self.sections if int(s.address) != address]
         self.sections.append(section)
+        self._bump_layout_version()
 
     def clone(self) -> "PVMMemory":
         base_clone = super().clone()

@@ -461,8 +461,10 @@ def invoke_native(
     skip_len = I64(initial_skip_len)
     inst_nr = U32(inst_start)
 
-    # Copy registers
-    reg = registers_in.copy()
+    # Copy registers into the reusable output buffer and use it as the local register file.
+    reg = registers_out
+    for i in range(len(registers_in)):
+        reg[i] = registers_in[i]
 
     timing_enabled = False
     start_time = 0.0    # Note: only used when timing_enabled == True to measure time per opcode
@@ -1623,6 +1625,7 @@ class PVMInterpreter:
         self.mem_section_starts = np.array([], dtype=U32)
         self.mem_section_ends = np.array([], dtype=U32)
         self.mem_section_size = np.array([], dtype=U32)
+        self._linked_memory_signature = None
 
         self._mem_addr: int = -1
 
@@ -1766,6 +1769,9 @@ class PVMInterpreter:
         self._jit_section_arrays_cache = None
         self._jit_section_access_cache = None
         self._jit_acl_bitmaps_cache = None
+        self._registers_out = np.zeros(13, dtype=np.uint64)
+        self._state_out = np.zeros(7, dtype=np.int64)
+        self._heap_grew_out = np.zeros(1, dtype=np.int64)
 
         # Prepare heap info (for sbrk)
         current_heap_end = self.mem_section_ends[1] if len(self.mem_section_ends) > 1 else 0
@@ -1824,8 +1830,40 @@ class PVMInterpreter:
             arr = np.ascontiguousarray(arr, dtype=np.uint8)
         return arr
 
+    def _memory_layout_signature(self, memory):
+        def section_signature(section):
+            if section is None:
+                return None
+            acl = getattr(section, "acl", None)
+            return (
+                int(section.address),
+                int(section.size),
+                int(section.paged_tail),
+                -1 if acl is None else int(acl),
+            )
 
-    def _link_memory(self, memory):
+        sections = getattr(memory, "sections", None)
+        dynamic_sections = tuple(section_signature(section) for section in sections) if sections else ()
+        layout_version = getattr(memory, "_layout_version", None)
+        if layout_version is None:
+            layout_version = (
+                len(getattr(memory, "pages_r", ())),
+                len(getattr(memory, "pages_w", ())),
+            )
+
+        return (
+            id(memory),
+            layout_version,
+            int(getattr(memory, "heap_ptr", 0)),
+            section_signature(memory._rom),
+            section_signature(memory._heap),
+            section_signature(memory._stack),
+            section_signature(memory._args),
+            dynamic_sections,
+        )
+
+
+    def _link_memory(self, memory, layout_signature=None):
         # Store memory sections as numpy arrays with their boundaries
         mem_section_starts = []
         mem_section_ends = []  # This will use paged_tail, not size
@@ -1887,27 +1925,32 @@ class PVMInterpreter:
         pages_r = getattr(memory, "pages_r", None)
         if pages_r:
             pages_w = getattr(memory, "pages_w", set())
-
-            def addr_is_covered(addr: int) -> bool:
-                for start, end in zip(mem_section_starts, mem_section_ends):
-                    s = int(start)
-                    e = int(end)
-                    if e <= s:
-                        continue
-                    if s <= addr < e:
-                        return True
-                return False
+            covered_page_intervals = sorted(
+                (
+                    (int(start) + PVM_PAGE_SIZE - 1) // PVM_PAGE_SIZE,
+                    (int(end) - 1) // PVM_PAGE_SIZE
+                )
+                for start, end in zip(mem_section_starts, mem_section_ends)
+                if int(end) > int(start)
+            )
 
             readable_pages = sorted(int(pg) for pg in pages_r)
             idx = 0
+            covered_idx = 0
             while idx < len(readable_pages):
                 page = readable_pages[idx]
-                addr = page * PVM_PAGE_SIZE
 
                 # Already represented by an explicit section.
-                if addr_is_covered(addr):
-                    idx += 1
-                    continue
+                while covered_idx < len(covered_page_intervals) and page > covered_page_intervals[covered_idx][1]:
+                    covered_idx += 1
+                next_covered_start = None
+                if covered_idx < len(covered_page_intervals):
+                    covered_start, covered_end = covered_page_intervals[covered_idx]
+                    if page >= covered_start:
+                        while idx < len(readable_pages) and readable_pages[idx] <= covered_end:
+                            idx += 1
+                        continue
+                    next_covered_start = covered_start
 
                 acl = MEM_W if page in pages_w else MEM_R
                 run_start = page
@@ -1917,10 +1960,9 @@ class PVMInterpreter:
                 # Extend run while pages are contiguous, uncovered, and have same ACL class.
                 while idx < len(readable_pages):
                     nxt = readable_pages[idx]
-                    nxt_addr = nxt * PVM_PAGE_SIZE
                     if nxt != run_end + 1:
                         break
-                    if addr_is_covered(nxt_addr):
+                    if next_covered_start is not None and nxt >= next_covered_start:
                         break
                     nxt_acl = MEM_W if nxt in pages_w else MEM_R
                     if nxt_acl != acl:
@@ -1953,6 +1995,11 @@ class PVMInterpreter:
         self._jit_section_arrays_cache = None
         self._jit_section_access_cache = None
         self._jit_acl_bitmaps_cache = None
+        self._linked_memory_signature = (
+            self._memory_layout_signature(memory)
+            if layout_signature is None
+            else layout_signature
+        )
 
 
     def create_instruction_lookup(self):
@@ -2171,8 +2218,10 @@ class PVMInterpreter:
         self.gas = gas
         self.status = ExitReason.resume.value
 
-        # Note: re-link memory to pick up any sections added via map_section() after init
-        self._link_memory(self.mem)
+        # Note: re-link memory only when hostcalls changed sections or page ACLs.
+        layout_signature = self._memory_layout_signature(self.mem)
+        if layout_signature != self._linked_memory_signature:
+            self._link_memory(self.mem, layout_signature)
 
         if len(self.mem_section_ends) > 1:
             self.heap_info[0] = np.uint64(self.mem_section_ends[1])
@@ -2182,10 +2231,11 @@ class PVMInterpreter:
         # Prepare memory arrays for JIT
         mem_section_starts, mem_section_ends, section_arrays, section_access, acl_bitmaps = self._prepare_memory_for_jit()
 
-        registers_out = np.zeros(13, dtype=np.uint64)
+        registers_out = self._registers_out
         # state_out holds: [status, pc, gas, inst_nr, exit_value, skip_len, error_code]
-        state_out = np.array([0, 0, 0, 0, 0, 0, 0], dtype=np.int64)
-        heap_grew_out = np.array([0], dtype=np.int64)
+        state_out = self._state_out
+        heap_grew_out = self._heap_grew_out
+        heap_grew_out[0] = 0
 
         # Call the Numba compiled invoke function
         error_code = invoke_native(
@@ -2266,10 +2316,8 @@ class PVMInterpreter:
         # Always sync the heap buffer reference from the JIT to avoid losing writes.
         if section_arrays is not None and len(section_arrays) > 1:
             self.mem_sections[1] = section_arrays[1]
-            self._jit_mem_cache_dirty = True
         if acl_bitmaps is not None and len(acl_bitmaps) > 1:
             self.mem_section_acl[1] = acl_bitmaps[1]
-            self._jit_mem_cache_dirty = True
 
         growth_bytes = int(heap_grew_out[0])
         if growth_bytes > 0 and hasattr(self.mem, "change_acl"):
