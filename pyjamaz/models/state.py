@@ -381,12 +381,26 @@ class ServiceAccount(Serializable):
     last_accumulation_slot: int = field(metadata={'codec': U32})
     parent_service: int = field(metadata={'codec': U32})
 
+    def __post_init__(self):
+        self._coerce_integer_fields()
+
+    def _coerce_integer_fields(self) -> None:
+        self.balance = int(self.balance)
+        self.gas_limit_accumulate = int(self.gas_limit_accumulate)
+        self.gas_limit_on_transfer = int(self.gas_limit_on_transfer)
+        self.footprint_storage_bytes = int(self.footprint_storage_bytes)
+        self.deposit_offset = int(self.deposit_offset)
+        self.footprint_storage_items = int(self.footprint_storage_items)
+        self.creation_slot = int(self.creation_slot)
+        self.last_accumulation_slot = int(self.last_accumulation_slot)
+        self.parent_service = int(self.parent_service)
+
     @property
     def threshold_balance(self):
         # GP-0.7.2-eq:9.8 (a_t)
         return max(0,
-            MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * self.footprint_storage_items +
-            MINIMUM_BALANCE_OCTET * self.footprint_storage_bytes - self.deposit_offset
+            MINIMUM_BALANCE_SERVICE + MINIMUM_BALANCE_ITEM * int(self.footprint_storage_items) +
+            MINIMUM_BALANCE_OCTET * int(self.footprint_storage_bytes) - int(self.deposit_offset)
         )
 
     @classmethod
@@ -431,6 +445,8 @@ class ServiceAccount(Serializable):
         -------
         bytes
         """
+        self._coerce_integer_fields()
+
         serialized_bytes = b'\x00'  # Version
         serialized_bytes += self.code_hash
         serialized_bytes += U64.encode(self.balance).to_bytes()
@@ -446,50 +462,50 @@ class ServiceAccount(Serializable):
         return serialized_bytes
 
     def update_from(self, service_account: "ServiceAccount"):
-        self.footprint_storage_bytes = service_account.footprint_storage_bytes
-        self.footprint_storage_items = service_account.footprint_storage_items
-        self.balance = service_account.balance
+        self.footprint_storage_bytes = int(service_account.footprint_storage_bytes)
+        self.footprint_storage_items = int(service_account.footprint_storage_items)
+        self.balance = int(service_account.balance)
         self.code_hash = service_account.code_hash
-        self.gas_limit_accumulate = service_account.gas_limit_accumulate
-        self.gas_limit_on_transfer = service_account.gas_limit_on_transfer
-        self.deposit_offset = service_account.deposit_offset
-        self.creation_slot = service_account.creation_slot
-        self.last_accumulation_slot = service_account.last_accumulation_slot
-        self.parent_service = service_account.parent_service
+        self.gas_limit_accumulate = int(service_account.gas_limit_accumulate)
+        self.gas_limit_on_transfer = int(service_account.gas_limit_on_transfer)
+        self.deposit_offset = int(service_account.deposit_offset)
+        self.creation_slot = int(service_account.creation_slot)
+        self.last_accumulation_slot = int(service_account.last_accumulation_slot)
+        self.parent_service = int(service_account.parent_service)
 
     def update_footprint_add_storage_item(self, key_len: int, value_len: int) -> None:
         """
         GP-0.7.2-eq:9.8
         """
-        self.footprint_storage_items += 1
-        self.footprint_storage_bytes += 34 + key_len + value_len
+        self.footprint_storage_items = int(self.footprint_storage_items) + 1
+        self.footprint_storage_bytes = int(self.footprint_storage_bytes) + 34 + int(key_len) + int(value_len)
 
     def update_footprint_remove_storage_item(self, key_len: int, value_len: int) -> None:
         """
         GP-0.7.2-eq:9.8
         """
-        self.footprint_storage_items -= 1
-        self.footprint_storage_bytes -= 34 + key_len + value_len
+        self.footprint_storage_items = int(self.footprint_storage_items) - 1
+        self.footprint_storage_bytes = int(self.footprint_storage_bytes) - 34 - int(key_len) - int(value_len)
 
     def update_footprint_update_storage_item(self, old_value_len: int, new_value_len: int) -> None:
         """
         GP-0.7.2-eq:9.8
         """
-        self.footprint_storage_bytes += new_value_len - old_value_len
+        self.footprint_storage_bytes = int(self.footprint_storage_bytes) + int(new_value_len) - int(old_value_len)
 
     def update_footprint_add_preimage(self, size: int) -> None:
         """
         GP-0.7.2-eq:9.8
         """
-        self.footprint_storage_items += 2
-        self.footprint_storage_bytes += 81 + size
+        self.footprint_storage_items = int(self.footprint_storage_items) + 2
+        self.footprint_storage_bytes = int(self.footprint_storage_bytes) + 81 + int(size)
 
     def update_footprint_remove_preimage(self, size: int) -> None:
         """
         GP-0.7.2-eq:9.8
         """
-        self.footprint_storage_items -= 2
-        self.footprint_storage_bytes -= 81 + size
+        self.footprint_storage_items = int(self.footprint_storage_items) - 2
+        self.footprint_storage_bytes = int(self.footprint_storage_bytes) - 81 - int(size)
 
 
 class ServiceAccountMap(StorageMap):
