@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from asyncio import TaskGroup
+from copy import deepcopy
 from typing import Dict, List
 
 import anyio
@@ -65,7 +66,11 @@ class RefinePipeline:
         while True:
             timeslot = await self._timeslot_queue.get()
             try:
-                logging.info(f'👨‍💻 Processing Refine | slot={timeslot} | core={self.app.get_core_assigment()}')
+                async with self.app.runtime_state_lock:
+                    core_assignment = self.app.get_core_assigment()
+                    authorizer_pools = deepcopy(self.app.working_state.authorizer_pools)
+
+                logging.info(f'👨‍💻 Processing Refine | slot={timeslot} | core={core_assignment}')
 
                 # wp_queue_item = None
                 # cleanup_queue = []
@@ -79,14 +84,14 @@ class RefinePipeline:
                 #     del self._pending_work_packages[h]
                 #     logging.info(f"🗑️ Discarded outdated work package {format_hash(h)}")
 
-                if self.app.get_core_assigment() is None:
+                if core_assignment is None:
                     continue
 
                 # Find first authorized work package
                 for h, w in self._pending_work_packages.items():
                     if w.status.enum_value()[0] == 'Reportable':
-                        if self.app.working_state.authorizer_pools.is_authorized(
-                                w.work_package, self.app.get_core_assigment()
+                        if authorizer_pools.is_authorized(
+                                w.work_package, core_assignment
                         ):
                             self._pending_work_packages[h].status = WorkPackageStatus(Reporting=True)
                             await self._refine_queue.put(self._pending_work_packages[h])
@@ -114,15 +119,21 @@ class RefinePipeline:
                 for w in work_package.items
             ]
 
-            # Set code
-            work_package.set_authorization_code(self.app.working_state.services)
+            async with self.app.runtime_state_lock:
+                core_assignment = self.app.get_core_assigment()
+                services_snapshot = deepcopy(self.app.working_state.services)
+                reported_slot = self.app.working_state.timeslot.number
+                reported_header_hash = self.app.retrieve_block_hash(reported_slot)
+
+                # Set code from a stable service snapshot.
+                work_package.set_authorization_code(services_snapshot)
 
             # Todo move work_result_computation to here
             work_report = await anyio.to_thread.run_sync(
                 self.app.work_result_computation,
                 work_package,
-                self.app.get_core_assigment(),
-                self.app.working_state.services,
+                core_assignment,
+                services_snapshot,
                 extrinsics,
             )
 
@@ -134,10 +145,10 @@ class RefinePipeline:
             wp_item.status = WorkPackageStatus(
                 Reported=WorkPackageReportedStatus(
                     reported_in=BlockDesc(
-                        slot=self.app.working_state.timeslot.number,
-                        header_hash=self.app.retrieve_block_hash(self.app.working_state.timeslot.number)
+                        slot=reported_slot,
+                        header_hash=reported_header_hash
                     ),
-                    core=self.app.get_core_assigment(),
+                    core=core_assignment,
                     report_hash=work_report.hash()
                 )
             )
@@ -155,18 +166,21 @@ class RefinePipeline:
             self._work_package_extrinsics.clear(work_package)
 
             # Guarantee signature
-            credential = await self.app.create_guarantee_signature(work_report)
+            async with self.app.runtime_state_lock:
+                credential = await self.app.create_guarantee_signature(work_report)
+                other_credentials = []
+                for v_idx, assignment in enumerate(self.app.block_context.guarantor_assignments):
+                    if assignment.validator_ed25519 != self.app.config.keys.ed25519.public_key and assignment.core_index == core_assignment:
+                        other_credentials.append(await self.app.create_guarantee_signature_for_validator(work_report, v_idx))
 
             await self.add_signature(work_package.hash(), credential)
 
 
             #TODO
             # TODO exchange signature with other core members
-            for v_idx, assignment in enumerate(self.app.block_context.guarantor_assignments):
-                if assignment.validator_ed25519 != self.app.config.keys.ed25519.public_key and assignment.core_index == self.app.get_core_assigment():
-                    signature = await self.app.create_guarantee_signature_for_validator(work_report, v_idx)
-                    # await asyncio.sleep(3)
-                    await self.add_signature(work_package.hash(), signature)
+            for signature in other_credentials:
+                # await asyncio.sleep(3)
+                await self.add_signature(work_package.hash(), signature)
 
             # await self.app.guarantee_work_report(work_report, self.app.current_timeslot())
 
@@ -197,7 +211,12 @@ class RefinePipeline:
 
                 DEBUG and logging.debug(f'Ingested guarantee extrinsic with {len(wp_item.signatures)} signatures')
                 # TODO move to accumulate pipeline?
-                self.app.block_extrinsic.add_guarantee(guarantee)
+                async with self.app.block_extrinsic_lock:
+                    self.app.block_extrinsic.add_guarantee(guarantee)
+                logging.info(
+                    f'🧾 Added guarantee for work-report {format_hash(wp_item.work_report.hash())} '
+                    f'with {len(wp_item.signatures)} signatures'
+                )
 
     async def _assurances_worker(self) -> None:
         while True:

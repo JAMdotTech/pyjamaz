@@ -98,3 +98,97 @@
 #
 # if __name__ == '__main__':
 #     unittest.main()
+
+from pyjamaz.app import AppConfig, PyjamazApp
+from pyjamaz.hostcalls.models import PvmIsAuthorizedOutput, PvmRefineOutput
+from pyjamaz.models.common import WorkExecResult, WorkPackage
+from pyjamaz.models.state import ServicesState
+from pyjamaz.storage import InMemoryStorageEngine
+
+
+def _parallel_refine_test_work_package() -> WorkPackage:
+    return WorkPackage.from_json({
+        "authorization": "0x",
+        "auth_code_host": 0,
+        "auth_code_hash": "0x" + "11" * 32,
+        "authorizer_config": "0x",
+        "context": {
+            "anchor": "0x" + "22" * 32,
+            "state_root": "0x" + "33" * 32,
+            "beefy_root": "0x" + "44" * 32,
+            "lookup_anchor": "0x" + "55" * 32,
+            "lookup_anchor_slot": 22,
+            "prerequisites": []
+        },
+        "items": [
+            {
+                "service": 1,
+                "code_hash": "0x" + "66" * 32,
+                "payload": "0x01",
+                "refine_gas_limit": 100,
+                "accumulate_gas_limit": 200,
+                "import_segments": [],
+                "extrinsic": [],
+                "export_count": 0
+            },
+            {
+                "service": 2,
+                "code_hash": "0x" + "77" * 32,
+                "payload": "0x02",
+                "refine_gas_limit": 101,
+                "accumulate_gas_limit": 201,
+                "import_segments": [],
+                "extrinsic": [],
+                "export_count": 0
+            }
+        ]
+    })
+
+
+def test_work_result_computation_parallel_refine_is_deterministic(monkeypatch):
+    def fake_is_authorized(*_args, **_kwargs):
+        return PvmIsAuthorizedOutput(
+            work_exec_result=WorkExecResult(ok=b"auth"),
+            gas_used=7,
+        )
+
+    def fake_refine(*_args, work_item_index, **_kwargs):
+        return PvmRefineOutput(
+            work_exec_result=WorkExecResult(ok=f"item-{work_item_index}".encode()),
+            export_segments=[],
+            gas_used=10 + work_item_index,
+        )
+
+    monkeypatch.setattr("pyjamaz.app.pvm_invoke_is_authorized", fake_is_authorized)
+    monkeypatch.setattr("pyjamaz.app.pvm_invoke_refine", fake_refine)
+
+    app = PyjamazApp(
+        AppConfig(
+            ring_data=b"",
+            storage_engine=InMemoryStorageEngine(),
+            common_era=0,
+        )
+    )
+    services_state = ServicesState()
+    services_state.historical_preimage_lookup = lambda *_args, **_kwargs: None
+    extrinsics = [[], []]
+
+    monkeypatch.setattr("pyjamaz.settings.REFINE_WORKERS", 1)
+    sequential = app.work_result_computation(
+        work_package=_parallel_refine_test_work_package(),
+        core_index=0,
+        services_state=services_state,
+        extrinsics=extrinsics,
+    )
+
+    monkeypatch.setattr("pyjamaz.settings.REFINE_WORKERS", 2)
+    parallel = app.work_result_computation(
+        work_package=_parallel_refine_test_work_package(),
+        core_index=0,
+        services_state=services_state,
+        extrinsics=extrinsics,
+    )
+
+    assert parallel.hash() == sequential.hash()
+    assert parallel.package_spec.exports_root == sequential.package_spec.exports_root
+    assert [r.result.ok for r in parallel.results] == [b"item-0", b"item-1"]

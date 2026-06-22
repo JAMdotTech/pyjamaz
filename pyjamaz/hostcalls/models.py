@@ -1,7 +1,7 @@
 import typing
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from typing import Any, List, Optional, Dict
 
 from jamcodec.mixins import Serializable
 from jamcodec.types import U32, Vec, VarInt64, Bytes, H256, U16
@@ -141,6 +141,8 @@ class IntegratedPVM:
     code: PVMCode              # GP-0.7.2-eq:B.4 bold_p
     memory: PVMMemory            # GP-0.7.2-eq:B.4 bold_u
     program_counter: int     # GP-0.7.2-eq:B.4 italic_i
+    program: Any = None
+    interpreter: Any = None
 
 
 @dataclass

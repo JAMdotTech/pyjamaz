@@ -20,7 +20,7 @@ from pyjamaz.hostcalls.invocation import pvm_invoke_accumulate
 from pyjamaz.hostcalls.models import PvmAccumulateOutput
 from pyjamaz.merkle import MerkleMountainRange
 from pyjamaz.settings import SOLO_MODE, THREAD_POOL_MAX_WORKERS, USE_THREAD_POOL_SAFROLE, DEBUG, \
-    USE_THREAD_POOL_ACCUMULATE
+    USE_THREAD_POOL_ACCUMULATE, ACCUMULATE_WORKERS
 from pyjamaz.signing import Ed25519Keypair
 from pyjamaz.storage import Transaction
 from pyjamaz.models.common import ValidatorData, WorkReport, TicketBody, DeferredTransfer, AccumulationInput, \
@@ -2150,9 +2150,9 @@ class Services(StateComponent):
 
         if USE_THREAD_POOL_ACCUMULATE:
 
-            DEBUG and logging.debug(f'Using ThreadPool max_workers={THREAD_POOL_MAX_WORKERS}')
+            DEBUG and logging.debug(f'Using ThreadPool max_workers={ACCUMULATE_WORKERS}')
 
-            with ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS) as tp:
+            with ThreadPoolExecutor(max_workers=ACCUMULATE_WORKERS) as tp:
                 futs = {
                     tp.submit(
                         self.single_step_accumulation,

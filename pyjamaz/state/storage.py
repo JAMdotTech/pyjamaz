@@ -237,7 +237,7 @@ class StateStorage:
 
     def rollback(self):
         if self.block_hash is not None:
-            self.change_sets.pop(self.block_hash)
+            self.change_sets.pop(self.block_hash, None)
             DEBUG and logging.debug(f"StateStorage: Rollback transaction for {format_hash(self.block_hash)}")
 
         # Clear transaction

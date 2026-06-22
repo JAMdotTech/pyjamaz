@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import signal
+import shutil
 import socket
 import statistics
 import subprocess
@@ -20,6 +21,10 @@ DEFAULT_SERVICE = "c36351c2"
 LOG_TS_RE = re.compile(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})")
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 REPORT_RE = re.compile(r"Created work-report 0x([0-9a-fA-F.]+)")
+GUARANTEE_RE = re.compile(r"Added guarantee for work-report 0x([0-9a-fA-F.]+)")
+PRODUCED_BLOCK_RE = re.compile(r"Produced block for #(\d+)")
+ACCUMULATABLE_RE = re.compile(r"Accumulatable work-reports: (\d+)")
+ACCUMULATED_RE = re.compile(r"Accumulated work-reports: (\d+) root=0x([0-9a-fA-F.]+)")
 
 
 def percentile(values: list[float], pct: float) -> float | None:
@@ -93,6 +98,83 @@ def parse_node_log_refines(node_log_path: Path) -> list[dict[str, Any]]:
             )
             started_at = None
     return rows
+
+
+def parse_node_log_acceptance(node_log_path: Path) -> dict[str, Any]:
+    events: list[dict[str, Any]] = []
+    if node_log_path.exists():
+        for raw_line in node_log_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = ANSI_RE.sub("", raw_line)
+            ts_match = LOG_TS_RE.search(line)
+            if ts_match is None:
+                continue
+            timestamp = datetime.strptime(ts_match.group(1), "%Y-%m-%d %H:%M:%S.%f")
+
+            report_match = REPORT_RE.search(line)
+            if report_match:
+                events.append({"kind": "report", "timestamp": timestamp, "report_hash": report_match.group(1)})
+
+            guarantee_match = GUARANTEE_RE.search(line)
+            if guarantee_match:
+                events.append({"kind": "guarantee", "timestamp": timestamp, "report_hash": guarantee_match.group(1)})
+
+            produced_match = PRODUCED_BLOCK_RE.search(line)
+            if produced_match:
+                events.append({"kind": "produced_block", "timestamp": timestamp, "slot": int(produced_match.group(1))})
+
+            accumulatable_match = ACCUMULATABLE_RE.search(line)
+            if accumulatable_match:
+                events.append({"kind": "accumulatable", "timestamp": timestamp, "count": int(accumulatable_match.group(1))})
+
+            accumulated_match = ACCUMULATED_RE.search(line)
+            if accumulated_match:
+                events.append(
+                    {
+                        "kind": "accumulated",
+                        "timestamp": timestamp,
+                        "count": int(accumulated_match.group(1)),
+                        "root": accumulated_match.group(2),
+                    }
+                )
+
+    def first_block_after(kind: str) -> int | None:
+        marks = [event["timestamp"] for event in events if event["kind"] == kind]
+        if not marks:
+            return None
+        mark = marks[0]
+        for event in events:
+            if event["kind"] == "produced_block" and event["timestamp"] >= mark:
+                return event["slot"]
+        return None
+
+    accumulated = [event for event in events if event["kind"] == "accumulated" and event.get("count", 0) > 0]
+    reports = [event for event in events if event["kind"] == "report"]
+    guarantees = [event for event in events if event["kind"] == "guarantee"]
+    accumulatable = [event for event in events if event["kind"] == "accumulatable" and event.get("count", 0) > 0]
+
+    return {
+        "report_hash": reports[-1]["report_hash"] if reports else None,
+        "guaranteed": bool(guarantees),
+        "guarantee_inclusion_block": first_block_after("guarantee"),
+        "assurance_block": None,
+        "accumulatable_block": first_block_after("accumulatable"),
+        "accumulation_block": first_block_after("accumulated"),
+        "accumulated": bool(accumulated),
+        "accumulated_count": accumulated[-1]["count"] if accumulated else 0,
+        "accumulate_root": accumulated[-1]["root"] if accumulated else None,
+        "accumulatable_events": len(accumulatable),
+    }
+
+
+def wait_for_accumulation(node_log_path: Path, timeout: float) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout
+    acceptance = parse_node_log_acceptance(node_log_path)
+    while time.monotonic() < deadline:
+        acceptance = parse_node_log_acceptance(node_log_path)
+        if acceptance.get("accumulated"):
+            return acceptance
+        time.sleep(0.5)
+    return acceptance
 
 
 def count_profile_rows(profile_path: Path) -> int:
@@ -191,6 +273,7 @@ def summarize_profile(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     return {
         "refines": len(rows),
+        "walls": wall,
         "median_wall": statistics.median(wall) if wall else None,
         "p95_wall": percentile(wall, 0.95),
         "pvm_setup": sum(pvm_setup) if has_profile_metrics else None,
@@ -238,6 +321,8 @@ def append_ledger(path: Path, stage: str, change: str, summary: dict[str, Any], 
 
 def run_one(args: argparse.Namespace, repo: Path, out_dir: Path, run_index: int, measured: bool) -> dict[str, Any]:
     run_dir = out_dir / f"{'run' if measured else 'warmup'}-{run_index:02d}"
+    if run_dir.exists():
+        shutil.rmtree(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     db_path = run_dir / "db"
     profile_path = run_dir / "refine-profile.jsonl"
@@ -303,6 +388,12 @@ def run_one(args: argparse.Namespace, repo: Path, out_dir: Path, run_index: int,
             timeout=args.builder_timeout,
             max_refines=args.max_refines_per_run,
         )
+        acceptance = parse_node_log_acceptance(node_log_path)
+        if args.require_accumulated:
+            acceptance = wait_for_accumulation(
+                node_log_path,
+                timeout=max(0.0, args.wait_accumulation_slots * 6.5),
+            )
     finally:
         terminate(node)
 
@@ -319,6 +410,7 @@ def run_one(args: argparse.Namespace, repo: Path, out_dir: Path, run_index: int,
             "builder_capped": builder_capped,
             "profile_path": str(profile_path),
             "db_path": str(db_path),
+            "acceptance": acceptance,
         }
     )
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
@@ -350,11 +442,17 @@ def main() -> None:
     parser.add_argument("--init-timeout", type=float, default=120.0)
     parser.add_argument("--builder-timeout", type=float, default=900.0)
     parser.add_argument("--max-refines-per-run", type=int, default=None)
+    parser.add_argument("--require-accumulated", action="store_true")
+    parser.add_argument("--max-refine-wall", type=float, default=None)
+    parser.add_argument("--max-refine-p95", type=float, default=None)
+    parser.add_argument("--wait-accumulation-slots", type=int, default=16)
     args = parser.parse_args()
 
     repo = args.repo.resolve()
     args.trace = args.trace.resolve()
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    stage_dir = args.out_dir / args.stage
+    stage_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = {
         "python": args.python,
@@ -366,32 +464,62 @@ def main() -> None:
         "change": args.change,
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
-    (args.out_dir / f"{args.stage}-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
+    (stage_dir / f"{args.stage}-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
 
     for idx in range(args.warmups):
-        run_one(args, repo, args.out_dir, idx + 1, measured=False)
+        run_one(args, repo, stage_dir, idx + 1, measured=False)
 
-    summaries = [run_one(args, repo, args.out_dir, idx + 1, measured=True) for idx in range(args.runs)]
+    summaries = [run_one(args, repo, stage_dir, idx + 1, measured=True) for idx in range(args.runs)]
     measured_wall = [s["median_wall"] for s in summaries if s.get("median_wall") is not None]
+    all_refine_walls = [wall for s in summaries for wall in s.get("walls", [])]
     stage_summary = {
         "runs": summaries,
+        "all_refine_walls": all_refine_walls,
         "median_wall": statistics.median(measured_wall) if measured_wall else None,
-        "p95_wall": percentile(measured_wall, 0.95),
+        "p95_wall": percentile(all_refine_walls, 0.95),
         "pvm_setup": sum(float(s.get("pvm_setup") or 0.0) for s in summaries),
         "hostcall_total": sum(float(s.get("hostcall_total") or 0.0) for s in summaries),
         "storage_reads": sum(int(s.get("storage_reads") or 0) for s in summaries),
         "report_hashes": sorted({h for s in summaries for h in s.get("report_hashes", [])}),
         "export_roots": sorted({h for s in summaries for h in s.get("export_roots", [])}),
+        "acceptance": {
+            "require_accumulated": args.require_accumulated,
+            "accumulated_runs": sum(1 for s in summaries if s.get("acceptance", {}).get("accumulated")),
+            "guaranteed_runs": sum(1 for s in summaries if s.get("acceptance", {}).get("guaranteed")),
+            "accumulate_roots": sorted(
+                {
+                    s.get("acceptance", {}).get("accumulate_root")
+                    for s in summaries
+                    if s.get("acceptance", {}).get("accumulate_root")
+                }
+            ),
+        },
     }
     speedup = None
     if args.baseline_median and stage_summary["median_wall"]:
         speedup = args.baseline_median / stage_summary["median_wall"]
 
-    (args.out_dir / f"{args.stage}-summary.json").write_text(
+    (stage_dir / f"{args.stage}-summary.json").write_text(
         json.dumps(stage_summary, indent=2, sort_keys=True),
         encoding="utf-8",
     )
     append_ledger(args.out_dir / "results.md", args.stage, args.change, stage_summary, speedup)
+    if args.require_accumulated:
+        missing = [s["run_index"] for s in summaries if not s.get("acceptance", {}).get("accumulated")]
+        if missing:
+            raise SystemExit(f"Required accumulation was not observed for measured runs: {missing}")
+    if args.max_refine_wall is not None:
+        too_slow = [wall for wall in all_refine_walls if wall > args.max_refine_wall]
+        if too_slow:
+            raise SystemExit(
+                f"Refine wall limit failed: {len(too_slow)} refine(s) exceeded {args.max_refine_wall:.3f}s; "
+                f"max={max(too_slow):.6f}s"
+            )
+    if args.max_refine_p95 is not None and stage_summary["p95_wall"] is not None:
+        if stage_summary["p95_wall"] > args.max_refine_p95:
+            raise SystemExit(
+                f"Refine p95 limit failed: p95={stage_summary['p95_wall']:.6f}s > {args.max_refine_p95:.3f}s"
+            )
     print(json.dumps(stage_summary, indent=2, sort_keys=True))
 
 

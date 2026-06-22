@@ -54,7 +54,10 @@ class AccumulatePipeline:
             block = await self._block_collect_queue.get()
 
             # Check if parent exists in state storage
-            if self.app.state_storage.get_parent(block.header) is not None:
+            async with self.app.runtime_state_lock:
+                parent_exists = self.app.state_storage.get_parent(block.header) is not None
+
+            if parent_exists:
                 await self.import_block(block)
 
                 # Try to process collected blocks
@@ -71,7 +74,8 @@ class AccumulatePipeline:
         while True:
             block = await self._import_queue.get()
             try:
-                await self.app.import_block(block)
+                async with self.app.runtime_state_lock:
+                    await self.app.import_block(block)
             except Exception:
                 logging.exception(f"Import pipeline failed for block {format_hash(block.header.hash)}")
             finally:
@@ -85,86 +89,90 @@ class AccumulatePipeline:
             phase = timeslot % EPOCH_TIMESLOTS
 
             try:
-                if self.app.working_state.timeslot.number >= timeslot:
-                    DEBUG and logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
-                    await anyio.sleep(0.1)
-                    continue
+                async with self.app.runtime_state_lock:
+                    if self.app.working_state.timeslot.number >= timeslot:
+                        DEBUG and logging.debug('⚠️ Timeslot did not advance; yield for 0.1 seconds')
+                        await anyio.sleep(0.1)
+                        continue
 
-                if self.app.is_epoch_change(timeslot):
-                    logging.info("🗓️ Process Epoch change")
+                    if self.app.is_epoch_change(timeslot):
+                        logging.info("🗓️ Process Epoch change")
 
-                    # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
-                    #  triggering state changes in STFs caused be epoch change.
+                        # TODO !! temporary to determine if first block in new epoch should be produced. Cannot be determined without
+                        #  triggering state changes in STFs caused be epoch change.
 
-                    header = Header.default()
-                    header.timeslot = timeslot
+                        header = Header.default()
+                        header.timeslot = timeslot
 
-                    entropy_output = self.app.components.entropy.state_transition(
-                        header=header,
-                        pre_state_timeslot=self.app.working_state.timeslot,
-                        pre_state_entropy=self.app.working_state.entropy
-                    )
-
-                    safrole_output = self.app.components.safrole.state_transition(
-                        header=header,
-                        pre_state_timeslot=self.app.working_state.timeslot,
-                        pre_state_safrole=self.app.working_state.safrole,
-                        pre_state_validator_queue=self.app.working_state.validator_queue,
-                        post_state_entropy=entropy_output.post_state,
-                        post_state_disputes=self.app.working_state.disputes,
-                        post_state_validator_pool=self.app.working_state.validator_pool,
-                        extrinsic_tickets=[]
-                    )
-
-                    # Process tickets
-                    self.app.block_extrinsic.process_epoch_change()
-                    DEBUG and logging.debug(
-                        f"Current tickets {[i.hex() for i in self.app.block_extrinsic.own_tickets_current]}"
+                        entropy_output = self.app.components.entropy.state_transition(
+                            header=header,
+                            pre_state_timeslot=self.app.working_state.timeslot,
+                            pre_state_entropy=self.app.working_state.entropy
                         )
 
-                    safrole_state = safrole_output.post_state
-                    entropy_state = entropy_output.post_state
-                else:
-                    safrole_state = self.app.working_state.safrole
-                    entropy_state = self.app.working_state.entropy
+                        safrole_output = self.app.components.safrole.state_transition(
+                            header=header,
+                            pre_state_timeslot=self.app.working_state.timeslot,
+                            pre_state_safrole=self.app.working_state.safrole,
+                            pre_state_validator_queue=self.app.working_state.validator_queue,
+                            post_state_entropy=entropy_output.post_state,
+                            post_state_disputes=self.app.working_state.disputes,
+                            post_state_validator_pool=self.app.working_state.validator_pool,
+                            extrinsic_tickets=[]
+                        )
 
-                if self.app.should_produce_block(timeslot, safrole_state):
-
-                    try:
-                        # TODO refactor to own pipeline
-                        await self.app.process_assurances()
-
-                        parent_header_hash = self.app.retrieve_block_hash(self.app.working_state.timeslot.number)
-
-                        if parent_header_hash is None:
-                            raise ValueError(f'No parent block found for timeslot #{self.app.working_state.timeslot.number}')
-
-                        # Finalize parent
-                        await self.app.finalize(parent_header_hash)
-
-                        if self.app.config.replay_blocks:
-                            block = self.app.config.replay_blocks.find_next(timeslot)
-                            await self._import_queue.put(block)
-                        else:
-
-                            block = await self.app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
-
-                            if self.app.pubsub:
-                                await self.app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
-
-                            logging.info(
-                                f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}'
+                        # Process tickets
+                        async with self.app.block_extrinsic_lock:
+                            self.app.block_extrinsic.process_epoch_change()
+                            DEBUG and logging.debug(
+                                f"Current tickets {[i.hex() for i in self.app.block_extrinsic.own_tickets_current]}"
                                 )
-                    except Exception as e:
-                        logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
-                        DEBUG and logging.debug(traceback.format_exc())
-                        # Rollback state from DB
-                        self.app.working_state = self.app.retrieve_jam_state()
-                        # TODO Make transactional
-                        self.app.block_extrinsic.clear_tickets()
 
-                else:
-                    logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
+                        safrole_state = safrole_output.post_state
+                        entropy_state = entropy_output.post_state
+                    else:
+                        safrole_state = self.app.working_state.safrole
+                        entropy_state = self.app.working_state.entropy
+
+                    if self.app.should_produce_block(timeslot, safrole_state):
+
+                        try:
+                            async with self.app.block_extrinsic_lock:
+                                # TODO refactor to own pipeline
+                                await self.app.process_assurances()
+
+                                parent_header_hash = self.app.retrieve_block_hash(self.app.working_state.timeslot.number)
+
+                                if parent_header_hash is None:
+                                    raise ValueError(f'No parent block found for timeslot #{self.app.working_state.timeslot.number}')
+
+                                # Finalize parent
+                                await self.app.finalize(parent_header_hash)
+
+                                if self.app.config.replay_blocks:
+                                    block = self.app.config.replay_blocks.find_next(timeslot)
+                                    await self._import_queue.put(block)
+                                else:
+
+                                    block = await self.app.produce_block(timeslot, parent_header_hash, safrole_state, entropy_state)
+
+                                    if self.app.pubsub:
+                                        await self.app.pubsub.publish(PubSubSignal(topic=MESSAGE_TYPES.PRODUCED_BLOCK, data=block))
+
+                                    logging.info(
+                                        f'🎁 Produced block for #{block.header.timeslot} | hash {format_hash(block.header.hash)} | parent {format_hash(block.header.parent)} | epoch #{epoch} | phase #{phase}'
+                                        )
+                        except Exception as e:
+                            logging.info(f'🗑️ Discarded produced block for #{timeslot}: {e}')
+                            DEBUG and logging.debug(traceback.format_exc())
+                            # Rollback state from DB
+                            self.app.working_state = self.app.retrieve_jam_state()
+                            # TODO Make transactional
+                            async with self.app.block_extrinsic_lock:
+                                self.app.block_extrinsic.clear_tickets()
+
+                    else:
+                        logging.info(f'💤 Waiting for block #{timeslot} | epoch #{epoch} | phase #{phase}')
             except Exception:
                 logging.exception("Work pipeline failed for timeslot %s", timeslot)
             finally:

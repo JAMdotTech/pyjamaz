@@ -36,7 +36,35 @@ DEBUG_PROGRAM_OVERRIDE = {}
 
 USE_THREAD_POOL_SAFROLE = True
 USE_THREAD_POOL_ACCUMULATE = False
+
+
+def _env_int(name: str, default: int, minimum: int = 1) -> int:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return default
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer") from exc
+    return max(minimum, parsed)
+
+
 THREAD_POOL_MAX_WORKERS = os.cpu_count()
+try:
+    from pyjamaz.graypaper_constants import CORE_COUNT as _CORE_COUNT
+except ImportError:
+    _CORE_COUNT = os.cpu_count() or 1
+REFINE_WORKERS = _env_int(
+    "PYJAMAZ_REFINE_WORKERS",
+    min(_CORE_COUNT, os.cpu_count() or 1, 4),
+)
+ACCUMULATE_WORKERS = _env_int(
+    "PYJAMAZ_ACCUMULATE_WORKERS",
+    os.cpu_count() or 1,
+)
+INNER_PVM_MEMORY = os.getenv("PYJAMAZ_INNER_PVM_MEMORY", "sparse").lower()
+if INNER_PVM_MEMORY not in ("sparse", "mmap"):
+    raise RuntimeError("PYJAMAZ_INNER_PVM_MEMORY must be 'sparse' or 'mmap'")
 
 PVM_DEBUGGER = None         # Class handling all PVM (& hostcall) related logging
 PVM_DEBUG = False

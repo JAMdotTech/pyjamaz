@@ -2,6 +2,7 @@ import atexit
 import contextvars
 import json
 import os
+import threading
 import time
 from collections import defaultdict
 from contextlib import contextmanager
@@ -36,6 +37,7 @@ class RefineProfile:
         self.timers: dict[str, float] = defaultdict(float)
         self.counts: dict[str, int] = defaultdict(int)
         self.hostcalls: dict[str, dict[str, float | int]] = defaultdict(lambda: {"count": 0, "seconds": 0.0})
+        self._lock = threading.Lock()
 
     @contextmanager
     def timer(self, name: str):
@@ -43,16 +45,20 @@ class RefineProfile:
         try:
             yield
         finally:
-            self.timers[name] += time.perf_counter() - start
+            elapsed = time.perf_counter() - start
+            with self._lock:
+                self.timers[name] += elapsed
 
     def count(self, name: str, value: int = 1) -> None:
-        self.counts[name] += value
+        with self._lock:
+            self.counts[name] += value
 
     def hostcall(self, host_call_id: int, elapsed: float) -> None:
         key = str(host_call_id)
-        data = self.hostcalls[key]
-        data["count"] = int(data["count"]) + 1
-        data["seconds"] = float(data["seconds"]) + elapsed
+        with self._lock:
+            data = self.hostcalls[key]
+            data["count"] = int(data["count"]) + 1
+            data["seconds"] = float(data["seconds"]) + elapsed
 
     def finish(self, report_hash: bytes | None = None, exports_root: bytes | None = None) -> None:
         if report_hash is not None:
@@ -60,18 +66,19 @@ class RefineProfile:
         if exports_root is not None:
             self.exports_root = exports_root.hex()
 
-        row: dict[str, Any] = {
-            "kind": "refine",
-            "wall_seconds": time.perf_counter() - self.started_at,
-            "work_package_hash": self.work_package_hash,
-            "core_index": self.core_index,
-            "items": self.items,
-            "report_hash": self.report_hash,
-            "exports_root": self.exports_root,
-            "timers": dict(self.timers),
-            "counts": dict(self.counts),
-            "hostcalls": {k: dict(v) for k, v in self.hostcalls.items()},
-        }
+        with self._lock:
+            row: dict[str, Any] = {
+                "kind": "refine",
+                "wall_seconds": time.perf_counter() - self.started_at,
+                "work_package_hash": self.work_package_hash,
+                "core_index": self.core_index,
+                "items": self.items,
+                "report_hash": self.report_hash,
+                "exports_root": self.exports_root,
+                "timers": dict(self.timers),
+                "counts": dict(self.counts),
+                "hostcalls": {k: dict(v) for k, v in self.hostcalls.items()},
+            }
         path = _output_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as fp:

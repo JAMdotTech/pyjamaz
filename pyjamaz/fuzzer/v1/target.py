@@ -100,6 +100,8 @@ class FuzzerTarget:
 
         except (StateTransitionError, BlockValidationError) as e:
             logging.info(f"🛑 Block {format_hash(req.import_block.header.hash)} raised error -> {e}")
+            self.app.state_storage.rollback()
+            await self.app.initialize(header=req.import_block.header)
             return FuzzerMessage(error=str(e))
 
 

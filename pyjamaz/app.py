@@ -1,9 +1,11 @@
 import asyncio
+import contextvars
 import json
 import logging
 import os
 import time
 import typing
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import partial
 from typing import TypeVar, Optional, List, Callable, Dict, Tuple
@@ -22,16 +24,17 @@ from pyjamaz.exceptions import PyjamazAppError, ProcessWorkpackageError, StateTr
     BlockValidationErrorCode, BlockValidationError
 from pyjamaz.runtime.extrinsics import BlockExtrinsicCollector, WorkpackageExtrinsicCollector
 from pyjamaz.graypaper_constants import CORE_COUNT, EPOCH_TIMESLOTS, \
-    SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR, MAXIMUM_SIZE_ENCODED_WORK_REPORT, EC_SEGMENT_SIZE
+    SLOT_PERIOD, MAXIMUM_AGE_LOOKUP_ANCHOR, MAXIMUM_SIZE_ENCODED_WORK_REPORT, EC_SEGMENT_SIZE, \
+    MAXIMUM_SIZE_SERVICE_CODE
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.hostcalls.invocation import pvm_invoke_is_authorized, pvm_invoke_refine
 from pyjamaz.merkle import ConstantDepthMerkleTree
 from pyjamaz.models.app import StateDump, Trace, D3LEntry
 from pyjamaz.models.common import WorkPackage, WorkReport, WorkPackageBundle, WorkPackageStatus, \
     WorkPackageReportableStatus, WorkPackageReadyStatus, BlockDesc, WorkPackageReportedStatus, WorkExecResult, \
-    WorkDigest, WorkPackageSpec
+    WorkDigest, WorkPackageSpec, Preimage
 from pyjamaz.runtime.types import WorkPackageQueueItem
-from pyjamaz.settings import SOLO_MODE, DEBUG, SKIP_VALIDATE_GUARANTEES
+from pyjamaz.settings import DEBUG
 from pyjamaz.signing import Ed25519Keypair, BandersnatchKeypair
 from pyjamaz.models.context import AppContext, BlockContext
 from pyjamaz.state.storage import StateStorage
@@ -43,7 +46,7 @@ from pyjamaz.state.components import Timeslot, Entropy, Safrole, ValidatorArchiv
 from pyjamaz.models.block import Block, Header, Extrinsic, ExtrinsicDisputes, Guarantee, Credential, \
     Assurance
 from pyjamaz.models.state import JamState, ServicesState, SafroleState, EntropyState, PendingChanges
-from pyjamaz.refine_profile import start as start_refine_profile, timer as refine_profile_timer
+from pyjamaz.refine_profile import count as refine_profile_count, start as start_refine_profile, timer as refine_profile_timer
 from pyjamaz.runtime.refine_cache import RefineExecutionCache
 from pyjamaz.models.stf_output import STFOutput
 from pyjamaz.transport.pubsub import PubSub, PubSubSignal
@@ -104,6 +107,8 @@ class PyjamazApp:
         self.app_context = AppContext(state_storage=self.state_storage)
 
         self.import_lock = asyncio.Lock()
+        self.runtime_state_lock = asyncio.Lock()
+        self.block_extrinsic_lock = asyncio.Lock()
 
         self.components = StateComponents(
             config=self.config,
@@ -527,7 +532,7 @@ class PyjamazApp:
 
         # Validate quality of guarantees extrinsic data
 
-        if not SKIP_VALIDATE_GUARANTEES:
+        if not settings.SKIP_VALIDATE_GUARANTEES:
             self.components.assurances.validate_guarantees(
                 extrinsic_guarantees=block.extrinsic.guarantees,
                 pre_services_state=pre_state_services,
@@ -584,6 +589,12 @@ class PyjamazApp:
             post_state_timeslot=timeslot_output.post_state,
             post_state_entropy=entropy_output.post_state
         )
+        if services_after_accumulation_output.nr_work_results_accumulated > 0:
+            logging.info(
+                "✅ Accumulated work-reports: "
+                f"{services_after_accumulation_output.nr_work_results_accumulated} "
+                f"root={format_hash(services_after_accumulation_output.beefy_commitment_map.get_accumulate_root())}"
+            )
 
         # Services After Preimages STF Block Data | GP-0.7.2-eq:4.18
         services_after_preimages_output = await self.components.services.state_transition_after_preimages(
@@ -923,7 +934,7 @@ class PyjamazApp:
         if timeslot % EPOCH_TIMESLOTS > 0:
             entropy = entropy_state.entropy[2]
 
-            if not SOLO_MODE and self.block_extrinsic.can_add_own_ticket(timeslot):
+            if not settings.SOLO_MODE and self.block_extrinsic.can_add_own_ticket(timeslot):
 
                 ring_public_keys = [v.bandersnatch for v in safrole_state.validators]
                 ring_context = RingContext(self.config.ring_data, ring_public_keys)
@@ -1272,25 +1283,63 @@ class PyjamazApp:
 
             total_digest_size = len(auth_output.work_exec_result.ok)
 
-            for j in range(len(work_package.items)):
+            def prefetch_refine_preimages() -> None:
+                for work_item in work_package.items:
+                    cache_key = (
+                        work_item.service,
+                        work_package.context.lookup_anchor_slot,
+                        work_item.code_hash,
+                    )
+                    if cache_key in refine_cache.preimages:
+                        continue
+                    with refine_profile_timer("historical_preimage_lookup"):
+                        preimage_data = services_state.historical_preimage_lookup(
+                            work_item.service,
+                            work_package.context.lookup_anchor_slot,
+                            work_item.code_hash,
+                        )
+                    if preimage_data is None or len(preimage_data) > MAXIMUM_SIZE_SERVICE_CODE:
+                        continue
+                    with refine_profile_timer("preimage_extract"):
+                        refine_cache.preimages[cache_key] = Preimage.extract(preimage_data)
 
+            def invoke_refine_item(j: int):
                 work_item = work_package.items[j]
-
-                export_segment_offset = refine_cache.export_offsets[j]
-
-                refine_output = pvm_invoke_refine(
+                local_fetch_cache = dict(refine_cache.fetch_blobs)
+                return pvm_invoke_refine(
                     core_index=core_index,
                     work_item_index=j,
                     work_package=work_package,
                     authorizer_output=auth_output.work_exec_result.ok,
                     work_items_import_segments=import_segments,
-                    export_segment_offset=export_segment_offset,
+                    export_segment_offset=refine_cache.export_offsets[j],
                     services_state=services_state,
                     extrinsics=extrinsics,
                     work_package_hash=refine_cache.work_package_hash,
                     preimage_cache=refine_cache.preimages,
-                    fetch_cache=refine_cache.fetch_blobs,
+                    fetch_cache=local_fetch_cache,
                 )
+
+            with refine_profile_timer("refine_preimage_prefetch"):
+                prefetch_refine_preimages()
+
+            worker_count = min(settings.REFINE_WORKERS, max(1, len(work_package.items)))
+            refine_profile_count("refine_workers", worker_count)
+            if worker_count > 1:
+                with refine_profile_timer("refine_items_parallel"):
+                    with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="pyjamaz-refine") as executor:
+                        futures = []
+                        for j in range(len(work_package.items)):
+                            context = contextvars.copy_context()
+                            futures.append(executor.submit(context.run, invoke_refine_item, j))
+                        item_refine_outputs = [future.result() for future in futures]
+            else:
+                with refine_profile_timer("refine_items_sequential"):
+                    item_refine_outputs = [invoke_refine_item(j) for j in range(len(work_package.items))]
+
+            for j, refine_output in enumerate(item_refine_outputs):
+
+                work_item = work_package.items[j]
 
                 if total_digest_size + len(refine_output.work_exec_result.ok or b'') > MAXIMUM_SIZE_ENCODED_WORK_REPORT:
                     work_exec_result = WorkExecResult(digest_oversize=True)
@@ -1375,7 +1424,7 @@ class PyjamazApp:
                 self.block_extrinsic.add_assurance(assurance)
 
                 # TODO temp SOLO mode
-                if SOLO_MODE:
+                if settings.SOLO_MODE:
                     for val_idx in [i for i in range(6) if i != self.get_validator_index()]:
                         assurance = self.create_assurance_for_validator_index([core_index], val_idx)
                         self.block_extrinsic.add_assurance(assurance)

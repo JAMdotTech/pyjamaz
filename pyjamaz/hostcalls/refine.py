@@ -1,9 +1,7 @@
+import struct
 from typing import List
 
 from pyjamaz import settings
-
-from jamcodec.base import JamBytes
-from jamcodec.types import U64
 
 from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.graypaper_constants import EC_SEGMENT_SIZE, MAXIMUM_NUMBER_EXPORTS_WORK_PACKAGE, PVM_PAGE_SIZE
@@ -17,10 +15,40 @@ from pyjamaz.pvm.invocation import InvocationMutationOutput, PVMLogger
 from pyjamaz.hostcalls.constants import HostCallResult, InnerPVMResult
 from pyjamaz.hostcalls.models import RefineInvocationContext, IntegratedPVM
 from pyjamaz.hostcalls import hostcall
+from pyjamaz.refine_profile import count as refine_profile_count, timer as refine_profile_timer
 from pyjamaz.settings import PVM_DEBUGGER
 
 U32_MAX = 2 ** 32
 U64_MAX = 2 ** 64
+_INNER_INVOKE_REG_BLOCK = struct.Struct("<14Q")
+
+
+def _create_inner_pvm_memory(outer_memory: PVMMemory) -> PVMMemory:
+    if settings.INNER_PVM_MEMORY == "sparse" and settings.PVM_INTERPRETER.startswith("NUMBA"):
+        from pyjamaz.pvm.interpreters.numba.sparse_memory import SparsePVMMemory
+
+        refine_profile_count("inner_memory_sparse")
+        return SparsePVMMemory()
+
+    refine_profile_count("inner_memory_mmap")
+    return type(outer_memory)()
+
+
+def _create_inner_pvm_runtime(pvm_code, memory: PVMMemory, program_counter: int) -> IntegratedPVM:
+    with refine_profile_timer("inner_pvm_setup"):
+        program = PVMProgram(
+            code=pvm_code,
+            registers=[0] * 13,
+            memory=memory,
+        )
+        interpreter = PVMInterpreter(program, logger=PVM_DEBUGGER)
+    return IntegratedPVM(
+        code=pvm_code,
+        memory=memory,
+        program_counter=program_counter,
+        program=program,
+        interpreter=interpreter,
+    )
 
 
 @hostcall(10)
@@ -183,11 +211,8 @@ def hc_machine(
     else:
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = n
-        m_e.inner_pvm_lookup[n] = IntegratedPVM(
-            code=pvm_code,
-            memory=type(memory)(),
-            program_counter=i
-        )
+        inner_memory = _create_inner_pvm_memory(memory)
+        m_e.inner_pvm_lookup[n] = _create_inner_pvm_runtime(pvm_code, inner_memory, i)
         logger and logger.hc_log("MACHINE OK", f"idx={n} pc={i}")
 
 
@@ -213,6 +238,7 @@ def hc_peek(
     o = registers[8] % U32_MAX  # outer dst address (UInt32 for memory access)
     s = registers[9] % U32_MAX  # inner src address (UInt32 for inner memory)
     z = registers[10]  # length (UInt64)
+    refine_profile_count("hc_peek_bytes", int(z))
 
     logger and logger.hc_log("PEEK start", f'n={n} o={o} s={s} z={z}')
 
@@ -258,6 +284,7 @@ def hc_poke(
     s = registers[8] % U32_MAX  # outer src address (UInt32 for memory access)
     o = registers[9] % U32_MAX  # inner dst address (UInt32 for inner memory)
     z = registers[10]  # length (UInt64)
+    refine_profile_count("hc_poke_bytes", int(z))
 
     if not memory.is_accessible(s, z, MEM_R):
         logger and logger.hc_log("POKE PANIC", "")
@@ -304,6 +331,7 @@ def hc_pages(
     p = registers[8]  # page index (UInt64)
     c = registers[9]  # count (UInt64)
     r = registers[10] # variant (UInt64)
+    refine_profile_count("hc_pages_pages", int(c))
 
     mem: PVMMemory = None
     if n in m_e.inner_pvm_lookup:
@@ -359,44 +387,62 @@ def hc_invoke(
 
     n = registers[7]  # pvm handle (UInt64)
     o = registers[8] % U32_MAX  # memory address (UInt32)
+    refine_profile_count("hc_invoke_calls")
 
     invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
 
     gas = None
-    reg = []
-    if memory.is_accessible(o, 112, MEM_R) and memory.is_accessible(o, 112, MEM_W):
-        jam_bytes = JamBytes(memory.read_bytes(o, 112))
-        gas = U64.decode(jam_bytes)
+    reg = ()
+    if memory.is_accessible(o, _INNER_INVOKE_REG_BLOCK.size, MEM_R) and memory.is_accessible(o, _INNER_INVOKE_REG_BLOCK.size, MEM_W):
+        with refine_profile_timer("hc_invoke_decode_registers"):
+            values = _INNER_INVOKE_REG_BLOCK.unpack(memory.read_bytes(o, _INNER_INVOKE_REG_BLOCK.size))
+            gas = values[0]
+            reg = values[1:]
 
-        for _ in range(13):
-            reg.append(U64.decode(jam_bytes))
-
-    pvm_program = None
-    if n in m_e.inner_pvm_lookup:
-        pvm_program = PVMProgram(
-            code=m_e.inner_pvm_lookup[n].code,
-            registers=reg,
-            memory=m_e.inner_pvm_lookup[n].memory
-        )
+    integrated_pvm = m_e.inner_pvm_lookup.get(n)
+    pvm = None
+    pvm_exit_condition = None
+    if integrated_pvm is not None and gas is not None:
         """
         Invokes general PVM function (Ψ) on an inner PVM
         """
-        logger and logger.hc_log("INVOKE START", f"gas={gas} reg={reg} pc={m_e.inner_pvm_lookup[n].program_counter}")
+        logger and logger.hc_log("INVOKE START", f"gas={gas} reg={reg} pc={integrated_pvm.program_counter}")
 
-        pvm: PVMInterpreter = PVMInterpreter(pvm_program, logger=PVM_DEBUGGER)
-        pvm.invoke(
-            m_e.inner_pvm_lookup[n].program_counter,
-            gas
-        )
-        pvm_exit_condition = pvm.get_exit_condition()
+        pvm = integrated_pvm.interpreter
+        if pvm is None:
+            integrated_pvm.program = PVMProgram(
+                code=integrated_pvm.code,
+                registers=[0] * 13,
+                memory=integrated_pvm.memory,
+            )
+            integrated_pvm.interpreter = PVMInterpreter(integrated_pvm.program, logger=PVM_DEBUGGER)
+            pvm = integrated_pvm.interpreter
+
+        with refine_profile_timer("hc_invoke_register_setup"):
+            pvm.mem = integrated_pvm.memory
+            for idx, value in enumerate(reg):
+                pvm.reg[idx] = value
+
+        with refine_profile_timer("inner_pvm_execution"):
+            pvm.invoke(
+                integrated_pvm.program_counter,
+                gas
+            )
+            pvm_exit_condition = pvm.get_exit_condition()
 
     def update_inner_pvm(pc: int):
-        invocation_output.memory.write_bytes(o, int(pvm.gas).to_bytes(8, byteorder='little'))
-        for idx in range(13):
-            invocation_output.memory.write_bytes(o+8+idx*8, int(pvm.reg[idx]).to_bytes(8, byteorder='little'))
+        with refine_profile_timer("hc_invoke_writeback"):
+            register_block = bytearray(_INNER_INVOKE_REG_BLOCK.size)
+            _INNER_INVOKE_REG_BLOCK.pack_into(
+                register_block,
+                0,
+                int(pvm.gas),
+                *(int(pvm.reg[idx]) for idx in range(13)),
+            )
+            invocation_output.memory.write_bytes(o, register_block)
 
-        m_e.inner_pvm_lookup[n].memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden?
-        m_e.inner_pvm_lookup[n].program_counter = int(pc)
+        integrated_pvm.memory = pvm.mem #TODO: is nu een reference, moet een deepclone worden?
+        integrated_pvm.program_counter = int(pc)
 
     def next_pc_after_host() -> int:
         return int(pvm.pc) + int(pvm.skip_len)
@@ -406,7 +452,7 @@ def hc_invoke(
         logger and logger.hc_log("INVOKE PANIC GAS", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.panic)
 
-    elif pvm_program is None:
+    elif integrated_pvm is None:
         logger and logger.hc_log("INVOKE WHO", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = HostCallResult.WHO.value

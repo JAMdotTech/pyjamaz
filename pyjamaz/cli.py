@@ -19,6 +19,7 @@ from asyncclick import BadParameter, MissingParameter
 
 from jamcodec.base import JamBytes
 
+from pyjamaz import settings
 from pyjamaz.app import PyjamazApp, AppConfig, Keys
 from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.exceptions import StateKeyNoResult, StateTransitionError, BlockValidationError
@@ -27,6 +28,7 @@ from pyjamaz.graypaper_constants import COMMON_ERA, EPOCH_TIMESLOTS
 from pyjamaz.logger import setup_logging
 from pyjamaz.models.app import Trace, TraceGenesis
 from pyjamaz.models.state import STORAGE_KEY_MAPPING, ServiceAccount
+import pyjamaz.state.components as state_components
 from pyjamaz.rpc.ws_server import start_rpc_server, WebSocketServer
 from pyjamaz.runtime.node_runtime import NodeRuntime
 from pyjamaz.settings import GP_VERSION, APP_VERSION, STORAGE_ENGINE, DEBUG
@@ -745,9 +747,17 @@ async def fuzzer_target(db_path, force_overwrite, socket_path, verbose):
     log_level = logging.DEBUG if verbose else logging.INFO
     setup_logging(log_level)
 
-    # Safety checks
+    # Fuzzer corpora are generated against the normal validator-selection rules.
+    # A local solo-mode override would force fallback author selection to validator 0
+    # and reject otherwise valid epoch-transition traces.
     if settings.SOLO_MODE:
-        logging.warning('settings.SOLO_MODE is enabled')
+        logging.warning('settings.SOLO_MODE is enabled; disabling it for fuzzer target conformance')
+        settings.SOLO_MODE = False
+        state_components.SOLO_MODE = False
+
+    if settings.SKIP_VALIDATE_GUARANTEES:
+        logging.warning('settings.SKIP_VALIDATE_GUARANTEES is enabled; disabling it for fuzzer target conformance')
+        settings.SKIP_VALIDATE_GUARANTEES = False
 
     # Set GP relaxation flags
     settings.SKIP_TIMESLOT_WALL_CLOCK_CHECK = True
