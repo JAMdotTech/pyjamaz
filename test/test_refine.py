@@ -99,11 +99,23 @@
 # if __name__ == '__main__':
 #     unittest.main()
 
+import asyncio
+from types import SimpleNamespace
+
+import anyio
+
 from pyjamaz.app import AppConfig, PyjamazApp
+from pyjamaz.constants import MESSAGE_TYPES
 from pyjamaz.hostcalls.models import PvmIsAuthorizedOutput, PvmRefineOutput
-from pyjamaz.models.common import WorkExecResult, WorkPackage
+from pyjamaz.models.common import WorkExecResult, WorkPackage, WorkPackageStatus
+from pyjamaz.rpc.rpc import rpcSubscribeWorkPackageStatus
+from pyjamaz.rpc.ws_server_subscriptions import SubscribeWorkPackageStatus
+from pyjamaz.runtime.types import WorkPackageQueueItem
+from pyjamaz.runtime.pipelines.refine import RefinePipeline
 from pyjamaz.models.state import ServicesState
 from pyjamaz.storage import InMemoryStorageEngine
+from pyjamaz.transport.pubsub import PubSub, PubSubSignal
+from pyjamaz.utils import base64_encode
 
 
 def _parallel_refine_test_work_package() -> WorkPackage:
@@ -192,3 +204,112 @@ def test_work_result_computation_parallel_refine_is_deterministic(monkeypatch):
     assert parallel.hash() == sequential.hash()
     assert parallel.package_spec.exports_root == sequential.package_spec.exports_root
     assert [r.result.ok for r in parallel.results] == [b"item-0", b"item-1"]
+
+
+def test_pubsub_publish_and_wait_acknowledges_subscribers():
+    async def scenario():
+        pubsub = PubSub()
+        seen = []
+
+        async def subscriber(data):
+            await anyio.sleep(0)
+            seen.append(data)
+
+        pubsub.subscribe(MESSAGE_TYPES.WORK_PACKAGE_STATUS, subscriber)
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(pubsub.process_messages)
+            await pubsub.publish_and_wait(
+                PubSubSignal(
+                    topic=MESSAGE_TYPES.WORK_PACKAGE_STATUS,
+                    data={"status": {"Reported": True}},
+                )
+            )
+            assert seen == [{"status": {"Reported": True}}]
+            tg.cancel_scope.cancel()
+
+    anyio.run(scenario)
+
+
+def test_work_package_status_subscription_filters_by_hash_and_anchor():
+    work_package_hash = b"\x11" * 32
+    anchor = b"\x22" * 32
+    other_hash = b"\x33" * 32
+    status = {"Reported": {"report_hash": base64_encode(b"\x44" * 32)}}
+
+    app = SimpleNamespace(
+        get_best_header_hash=lambda: b"\x55" * 32,
+        working_state=SimpleNamespace(timeslot=SimpleNamespace(number=7)),
+    )
+    sub = SubscribeWorkPackageStatus(
+        app,
+        "subscribeWorkPackageStatus",
+        [base64_encode(work_package_hash), base64_encode(anchor)],
+        ws=SimpleNamespace(),
+    )
+
+    matching = {"work_package_hash": work_package_hash, "anchor": anchor, "status": status}
+    mismatched = {"work_package_hash": other_hash, "anchor": anchor, "status": status}
+
+    assert sub.check_params(matching)
+    assert not sub.check_params(mismatched)
+    assert sub.create_data(matching)["value"] == status
+
+
+def test_work_package_status_initial_response_does_not_expose_internal_reporting():
+    work_package = _parallel_refine_test_work_package()
+    pending = {
+        work_package.hash(): WorkPackageQueueItem(
+            work_package=work_package,
+            status=WorkPackageStatus(Reporting=True),
+        )
+    }
+    app = SimpleNamespace(
+        runtime=SimpleNamespace(refine_pipeline=SimpleNamespace(_pending_work_packages=pending)),
+        retrieve_block_hash=lambda _slot: b"\x55" * 32,
+        working_state=SimpleNamespace(timeslot=SimpleNamespace(number=7)),
+    )
+
+    response = rpcSubscribeWorkPackageStatus(
+        app,
+        [base64_encode(work_package.hash()), base64_encode(work_package.context.anchor)],
+    )
+
+    assert "Reportable" in response["value"]
+    assert "Reporting" not in response["value"]
+
+
+def test_refine_scheduler_releases_core_without_waiting_for_timeslot():
+    class AlwaysAuthorizedPools:
+        def is_authorized(self, *_args, **_kwargs):
+            return True
+
+    class FakeApp:
+        def __init__(self):
+            self.runtime_state_lock = asyncio.Lock()
+            self.working_state = SimpleNamespace(authorizer_pools=AlwaysAuthorizedPools())
+
+        def get_core_assigment(self):
+            return 0
+
+    async def scenario():
+        pipeline = RefinePipeline(FakeApp())
+        first = _parallel_refine_test_work_package()
+        second = _parallel_refine_test_work_package()
+        second.items[0].payload = b"\x99"
+
+        pipeline.add_work_package(first, [])
+        pipeline.add_work_package(second, [])
+
+        await pipeline._schedule_once()
+        assert pipeline._refine_queue.qsize() == 1
+        assert pipeline._pending_work_packages[first.hash()].status.enum_value()[0] == "Reporting"
+
+        await pipeline._schedule_once()
+        assert pipeline._refine_queue.qsize() == 1
+
+        await pipeline._release_core(0)
+        await pipeline._schedule_once()
+        assert pipeline._refine_queue.qsize() == 2
+        assert pipeline._pending_work_packages[second.hash()].status.enum_value()[0] == "Reporting"
+
+    anyio.run(scenario)

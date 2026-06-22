@@ -10,7 +10,7 @@ from pyjamaz.exceptions import StateKeyNoResult
 from pyjamaz.hashing import blake2b_256_hash
 from pyjamaz.models.block import Preimage
 from pyjamaz.models.builder import ServiceRegistry
-from pyjamaz.models.common import WorkPackage, WorkPackageStatus
+from pyjamaz.models.common import WorkPackage, WorkPackageStatus, WorkPackageReportableStatus
 from pyjamaz.settings import DEBUG
 from pyjamaz.utils import format_hash, base64_encode, base64_decode
 
@@ -398,7 +398,10 @@ def rpcSubscribeWorkPackageStatus(app: PyjamazApp, params):
     work_package_hash = base64_decode(params[0])
     anchor = base64_decode(params[1])
     if work_package_hash in app.runtime.refine_pipeline._pending_work_packages:
-        value = app.runtime.refine_pipeline._pending_work_packages[work_package_hash].status.to_json()
+        status = app.runtime.refine_pipeline._pending_work_packages[work_package_hash].status
+        if status.enum_value()[0] == "Reporting":
+            status = WorkPackageStatus(Reportable=WorkPackageReportableStatus(remaining_blocks=4))
+        value = status.to_json()
     else:
         value = WorkPackageStatus(Failed='Not found').to_json()
 
@@ -458,6 +461,5 @@ RPC_REQUESTS = {
     "subscribeWorkPackageStatus": rpcSubscribeWorkPackageStatus,
     "unsubscribeWorkPackageStatus": None,
 }
-
 
 

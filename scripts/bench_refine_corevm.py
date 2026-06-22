@@ -25,6 +25,11 @@ GUARANTEE_RE = re.compile(r"Added guarantee for work-report 0x([0-9a-fA-F.]+)")
 PRODUCED_BLOCK_RE = re.compile(r"Produced block for #(\d+)")
 ACCUMULATABLE_RE = re.compile(r"Accumulatable work-reports: (\d+)")
 ACCUMULATED_RE = re.compile(r"Accumulated work-reports: (\d+) root=0x([0-9a-fA-F.]+)")
+CYCLE_EVENT_RE = re.compile(
+    r"cycle_event=(?P<kind>[a-z_]+)"
+    r"(?: work_package=(?P<work_package>[0-9a-fA-F]+))?"
+    r"(?: report=(?P<report>[0-9a-fA-F]+))?"
+)
 
 
 def percentile(values: list[float], pct: float) -> float | None:
@@ -163,6 +168,76 @@ def parse_node_log_acceptance(node_log_path: Path) -> dict[str, Any]:
         "accumulated_count": accumulated[-1]["count"] if accumulated else 0,
         "accumulate_root": accumulated[-1]["root"] if accumulated else None,
         "accumulatable_events": len(accumulatable),
+    }
+
+
+def parse_node_log_cycle_events(node_log_path: Path) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    if not node_log_path.exists():
+        return events
+
+    for raw_line in node_log_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = ANSI_RE.sub("", raw_line)
+        ts_match = LOG_TS_RE.search(line)
+        event_match = CYCLE_EVENT_RE.search(line)
+        if ts_match is None or event_match is None:
+            continue
+        events.append(
+            {
+                "kind": event_match.group("kind"),
+                "timestamp": datetime.strptime(ts_match.group(1), "%Y-%m-%d %H:%M:%S.%f"),
+                "work_package": event_match.group("work_package"),
+                "report": event_match.group("report"),
+            }
+        )
+    return events
+
+
+def summarize_cycle_events(events: list[dict[str, Any]]) -> dict[str, Any]:
+    created_to_sent: list[float] = []
+    submit_to_refine: list[float] = []
+    reported_to_next_submit: list[float] = []
+
+    by_package: dict[str, list[dict[str, Any]]] = {}
+    for event in events:
+        work_package = event.get("work_package")
+        if work_package:
+            by_package.setdefault(work_package, []).append(event)
+
+    for package_events in by_package.values():
+        created = next((e for e in package_events if e["kind"] == "work_report_created"), None)
+        sent = next((e for e in package_events if e["kind"] == "reported_status_sent"), None)
+        received = next((e for e in package_events if e["kind"] == "work_package_received"), None)
+        started = next((e for e in package_events if e["kind"] == "refine_started"), None)
+
+        if created and sent:
+            created_to_sent.append((sent["timestamp"] - created["timestamp"]).total_seconds())
+        if received and started:
+            submit_to_refine.append((started["timestamp"] - received["timestamp"]).total_seconds())
+
+    ordered = sorted(events, key=lambda e: e["timestamp"])
+    for idx, event in enumerate(ordered):
+        if event["kind"] != "reported_status_sent":
+            continue
+        next_received = next((e for e in ordered[idx + 1:] if e["kind"] == "work_package_received"), None)
+        if next_received:
+            reported_to_next_submit.append((next_received["timestamp"] - event["timestamp"]).total_seconds())
+
+    return {
+        "events": [
+            {
+                **event,
+                "timestamp": event["timestamp"].isoformat(),
+            }
+            for event in events
+        ],
+        "reported_status_sent_count": sum(1 for e in events if e["kind"] == "reported_status_sent"),
+        "work_package_received_count": sum(1 for e in events if e["kind"] == "work_package_received"),
+        "refine_started_count": sum(1 for e in events if e["kind"] == "refine_started"),
+        "work_report_created_to_reported_sent": created_to_sent,
+        "reported_sent_to_next_submit_received": reported_to_next_submit,
+        "next_submit_received_to_next_refine_started": submit_to_refine[1:] if len(submit_to_refine) > 1 else [],
+        "submit_received_to_refine_started": submit_to_refine,
     }
 
 
@@ -401,6 +476,7 @@ def run_one(args: argparse.Namespace, repo: Path, out_dir: Path, run_index: int,
     if not profile_rows:
         profile_rows = parse_node_log_refines(node_log_path)
     summary = summarize_profile(profile_rows)
+    cycle = summarize_cycle_events(parse_node_log_cycle_events(node_log_path))
     summary.update(
         {
             "run_index": run_index,
@@ -411,6 +487,7 @@ def run_one(args: argparse.Namespace, repo: Path, out_dir: Path, run_index: int,
             "profile_path": str(profile_path),
             "db_path": str(db_path),
             "acceptance": acceptance,
+            "cycle": cycle,
         }
     )
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
@@ -445,8 +522,13 @@ def main() -> None:
     parser.add_argument("--require-accumulated", action="store_true")
     parser.add_argument("--max-refine-wall", type=float, default=None)
     parser.add_argument("--max-refine-p95", type=float, default=None)
+    parser.add_argument("--cycle-runs", type=int, default=None)
+    parser.add_argument("--max-reported-to-next-refine-start", type=float, default=None)
+    parser.add_argument("--require-reported-status-sent", action="store_true")
     parser.add_argument("--wait-accumulation-slots", type=int, default=16)
     args = parser.parse_args()
+    if args.cycle_runs is not None and args.max_refines_per_run is None:
+        args.max_refines_per_run = args.cycle_runs
 
     repo = args.repo.resolve()
     args.trace = args.trace.resolve()
@@ -494,6 +576,37 @@ def main() -> None:
                 }
             ),
         },
+        "cycle": {
+            "reported_status_sent_count": sum(
+                s.get("cycle", {}).get("reported_status_sent_count", 0) for s in summaries
+            ),
+            "work_package_received_count": sum(
+                s.get("cycle", {}).get("work_package_received_count", 0) for s in summaries
+            ),
+            "refine_started_count": sum(
+                s.get("cycle", {}).get("refine_started_count", 0) for s in summaries
+            ),
+            "work_report_created_to_reported_sent": [
+                value
+                for s in summaries
+                for value in s.get("cycle", {}).get("work_report_created_to_reported_sent", [])
+            ],
+            "reported_sent_to_next_submit_received": [
+                value
+                for s in summaries
+                for value in s.get("cycle", {}).get("reported_sent_to_next_submit_received", [])
+            ],
+            "next_submit_received_to_next_refine_started": [
+                value
+                for s in summaries
+                for value in s.get("cycle", {}).get("next_submit_received_to_next_refine_started", [])
+            ],
+            "submit_received_to_refine_started": [
+                value
+                for s in summaries
+                for value in s.get("cycle", {}).get("submit_received_to_refine_started", [])
+            ],
+        },
     }
     speedup = None
     if args.baseline_median and stage_summary["median_wall"]:
@@ -519,6 +632,17 @@ def main() -> None:
         if stage_summary["p95_wall"] > args.max_refine_p95:
             raise SystemExit(
                 f"Refine p95 limit failed: p95={stage_summary['p95_wall']:.6f}s > {args.max_refine_p95:.3f}s"
+            )
+    if args.require_reported_status_sent and stage_summary["cycle"]["reported_status_sent_count"] == 0:
+        raise SystemExit("Required reported_status_sent cycle event was not observed")
+    if args.max_reported_to_next_refine_start is not None:
+        submit_to_start = stage_summary["cycle"]["next_submit_received_to_next_refine_started"]
+        too_slow = [value for value in submit_to_start if value > args.max_reported_to_next_refine_start]
+        if too_slow:
+            raise SystemExit(
+                "Reported-to-next-refine-start limit failed: "
+                f"{len(too_slow)} cycle(s) exceeded {args.max_reported_to_next_refine_start:.3f}s; "
+                f"max={max(too_slow):.6f}s"
             )
     print(json.dumps(stage_summary, indent=2, sort_keys=True))
 

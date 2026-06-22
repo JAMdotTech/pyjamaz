@@ -183,15 +183,18 @@ class SubscriptionSyncStatus(WSubscription):
 class SubscribeWorkPackageStatus(WSubscription):
 
     def check_params(self, data: Any):
-        # TODO
-        return True
+        if not data:
+            return True
+        return (
+            base64_decode(self.params[0]) == data.get("work_package_hash") and
+            base64_decode(self.params[1]) == data.get("anchor")
+        )
 
-    def create_data(self, data: typing.Tuple[WorkPackageStatus]):
-        # TODO TMP
+    def create_data(self, data: Any):
         return {
             "header_hash": base64_encode(self.app.get_best_header_hash()),
             "slot": self.app.working_state.timeslot.number,
-            "value": data[0]
+            "value": data["status"]
         }
 
 
@@ -295,7 +298,7 @@ class SubscriptionManager:
             message = jsonapi_ws_response(sub.id, sub.topic, msg_data)
             try:
                 # print("SENDING SUBDATA:", sub.id, sub.topic, msg_data)
-                await sub.ws.send(message)
+                await sub.send(message)
             except Exception as e:
                 # print(f"ERROR {e}")
                 await self.unsubscribe(sub.id)
