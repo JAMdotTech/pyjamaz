@@ -33,7 +33,7 @@ ACL_READ_BIT = np.uint64(0b01)
 ACL_WRITE_BIT = np.uint64(0b10)
 
 
-@njit(types.UniTuple(uint64, 2)(uint64, uint64), cache=NUMBA_CACHE)
+@njit(types.UniTuple(uint64, 2)(uint64, uint64), cache=NUMBA_CACHE, inline="always")
 def umul64wide_jit(a: U64, b: U64) -> (U64, U64):
     """Unsigned 64x64 -> (hi, lo) as uint64s."""
     mask32 = U64(0xFFFFFFFF)
@@ -53,7 +53,7 @@ def umul64wide_jit(a: U64, b: U64) -> (U64, U64):
     return U64(hi), U64(lo)
 
 
-@njit(types.UniTuple(uint64, 2)(int64, int64), cache=NUMBA_CACHE)
+@njit(types.UniTuple(uint64, 2)(int64, int64), cache=NUMBA_CACHE, inline="always")
 def imul64wide_jit(a: I64, b: I64) -> (U64, U64):
     """Signed 64x64 -> (hi, lo) representing 128-bit two's-complement product."""
     ua = U64(a)  # reinterpret
@@ -67,7 +67,7 @@ def imul64wide_jit(a: I64, b: I64) -> (U64, U64):
     return U64(hi), U64(lo)
 
 
-@njit(types.UniTuple(uint64, 2)(int64, uint64), cache=NUMBA_CACHE)
+@njit(types.UniTuple(uint64, 2)(int64, uint64), cache=NUMBA_CACHE, inline="always")
 def smul_u64wide_jit(a: I64, b: U64) -> (U64, U64):
     """Signed * Unsigned -> (hi, lo), two's-complement."""
     ua = U64(a)
@@ -77,31 +77,31 @@ def smul_u64wide_jit(a: I64, b: U64) -> (U64, U64):
     return U64(hi), U64(lo)
 
 
-@njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint64), cache=NUMBA_CACHE, inline="always")
 def rori64_jit(x: U64, shift_amount: U64) -> U64:
     """Rotate right for 64-bit integers."""
     return U64(((x >> shift_amount) | (x << (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-@njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint64), cache=NUMBA_CACHE, inline="always")
 def roli64_jit(x: U64, shift_amount: U64) -> U64:
     """Rotate left for 64-bit integers."""
     return U64(((x << shift_amount) | (x >> (64 - shift_amount))) & 0xFFFFFFFFFFFFFFFF)
 
 
-@njit(uint32(uint32, uint32), cache=NUMBA_CACHE)
+@njit(uint32(uint32, uint32), cache=NUMBA_CACHE, inline="always")
 def rori32_jit(x: U32, shift_amount: U32) -> U32:
     """Rotate right for 32-bit integers."""
     return U32(((x >> shift_amount) | (x << (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-@njit(uint32(uint32, uint32), cache=NUMBA_CACHE)
+@njit(uint32(uint32, uint32), cache=NUMBA_CACHE, inline="always")
 def roli32_jit(x: U32, shift_amount: U32) -> U32:
     """Rotate left for 32-bit integers."""
     return U32(((x << shift_amount) | (x >> (32 - shift_amount))) & 0xFFFFFFFF)
 
 
-@njit(int64(int64, int64), cache=NUMBA_CACHE)
+@njit(int64(int64, int64), cache=NUMBA_CACHE, inline="always")
 def pvm_smod_jit(a: I64, b: I64) -> I64:
     """
     Signed modulo operation (truncated modulo).
@@ -129,7 +129,7 @@ def pvm_smod_jit(a: I64, b: I64) -> I64:
     return r
 
 
-@njit(int64(int64, int64), cache=NUMBA_CACHE)
+@njit(int64(int64, int64), cache=NUMBA_CACHE, inline="always")
 def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
     """
     Truncated division (rounds toward zero).
@@ -158,7 +158,7 @@ def pvm_rtz_div_jit(a: I64, b: I64) -> I64:
             return a // b
 
 
-@njit(uint64(uint64, uint64), cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint64), cache=NUMBA_CACHE, inline="always")
 def pvm_X_jit(x: U64, n: U64) -> U64:
     # TODO: remove cast
     x = U64(x)
@@ -205,7 +205,7 @@ def pvm_X_jit(x: U64, n: U64) -> U64:
         return U64(x)
 
 
-@njit(int64(uint64, uint64), cache=NUMBA_CACHE)
+@njit(int64(uint64, uint64), cache=NUMBA_CACHE, inline="always")
 def pvm_Z_jit(a: U64, n: U64) -> I64:
     """
     Unsigned->signed conversion for n bytes (1..8).
@@ -235,7 +235,7 @@ def pvm_Z_jit(a: U64, n: U64) -> I64:
         return I64(val)
 
 
-@njit(uint64(uint64, uint8), cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint8), cache=NUMBA_CACHE, inline="always")
 def count_leading_zeroes_jit(value: U64, max_bits:U8) -> U64:
     """
     Count-leading-zeroes with explicit 64-bit masking and shifts.
@@ -264,7 +264,7 @@ def count_leading_zeroes_jit(value: U64, max_bits:U8) -> U64:
     return count
 
 
-@njit(uint64(uint64, uint8), cache=NUMBA_CACHE)
+@njit(uint64(uint64, uint8), cache=NUMBA_CACHE, inline="always")
 def count_trailing_zeroes_jit(value: U64, max_bits: U8) -> U64:
     #TODO: optimize?
     if value == 0:
@@ -278,7 +278,7 @@ def count_trailing_zeroes_jit(value: U64, max_bits: U8) -> U64:
     return count
 
 
-@njit(uint64(uint64), cache=NUMBA_CACHE)
+@njit(uint64(uint64), cache=NUMBA_CACHE, inline="always")
 def reverse_bytes_jit(x: U64) -> U64:
     #TODO: optimize?
     result = U64(0)
@@ -288,14 +288,14 @@ def reverse_bytes_jit(x: U64) -> U64:
     return result
 
 
-@njit(int64(int64, int64), cache=NUMBA_CACHE)
+@njit(int64(int64, int64), cache=NUMBA_CACHE, inline="always")
 def riscv_div_jit(a: I64, b: I64) -> I64:
     if b == 0:
         return I64(-1)
     return a // b
 
 
-@njit(uint64(int64, uint8), cache=NUMBA_CACHE)
+@njit(uint64(int64, uint8), cache=NUMBA_CACHE, inline="always")
 def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
     """
     Signed to unsigned.
@@ -322,7 +322,7 @@ def pvm_Z_inv_jit(a: I64, n: U8) -> U64:
         return U64((a + (1 << shift)) & mask)
 
 
-@njit(uint64(uint8[::1], uint32, uint8), cache=NUMBA_CACHE)
+@njit(uint64(uint8[::1], uint32, uint8), cache=NUMBA_CACHE, inline="always")
 def read_uint_jit(code: npt.NDArray[U8], addr: U32, length: U8) -> U64:
     addr32 = U32(addr)  # wrap to 32-bit address space
     len8 = U8(length)

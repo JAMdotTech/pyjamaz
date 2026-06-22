@@ -458,6 +458,7 @@ def hc_invoke(
         invocation_output.registers[7] = HostCallResult.WHO.value
 
     elif pvm_exit_condition.reason == ExitReason.host_halt:
+        refine_profile_count("hc_invoke_host_halt")
         logger and logger.hc_log("INVOKE RESUME HOST",pvm_exit_condition.value)
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.HOST.value
@@ -465,6 +466,7 @@ def hc_invoke(
         update_inner_pvm(next_pc_after_host())
 
     elif pvm_exit_condition.reason == ExitReason.page_fault:
+        refine_profile_count("hc_invoke_page_fault")
         logger and logger.hc_log("INVOKE RESUME FAULT", pvm_exit_condition.value)
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.FAULT.value
@@ -472,18 +474,21 @@ def hc_invoke(
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.out_of_gas:
+        refine_profile_count("hc_invoke_out_of_gas")
         logger and logger.hc_log("INVOKE OOG", f"gas={pvm.gas} reg={[int(r) for r in pvm.reg]} pc={pvm.pc}")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.OOG.value
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.panic:
+        refine_profile_count("hc_invoke_panic")
         logger and logger.hc_log("INVOKE PANIC", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.PANIC.value
         update_inner_pvm(pvm.pc)
 
     elif pvm_exit_condition.reason == ExitReason.halt:
+        refine_profile_count("hc_invoke_halt")
         logger and logger.hc_log("INVOKE HALT", "")
         invocation_output.exit_condition = ExitCondition(reason=ExitReason.resume)
         invocation_output.registers[7] = InnerPVMResult.HALT.value
