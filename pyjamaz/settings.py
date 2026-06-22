@@ -58,10 +58,6 @@ REFINE_WORKERS = _env_int(
     "PYJAMAZ_REFINE_WORKERS",
     min(_CORE_COUNT, os.cpu_count() or 1, 4),
 )
-WORKPACKAGE_REFINE_WORKERS = _env_int(
-    "PYJAMAZ_WORKPACKAGE_REFINE_WORKERS",
-    1,
-)
 ACCUMULATE_WORKERS = _env_int(
     "PYJAMAZ_ACCUMULATE_WORKERS",
     os.cpu_count() or 1,
