@@ -65,6 +65,31 @@ from pyjamaz.pvm.interpreters.numba.memory_section import MemorySection
 from pyjamaz.pvm.interpreters.numba.memory import PVMMemory
 from pyjamaz.pvm.basic_block import detect_basic_blocks
 
+_CODE_METADATA_CACHE: dict[int, dict] = {}
+_CODE_METADATA_CACHE_LIMIT = 64
+
+_UNKNOWN_OPCODE_NAMES = None
+_OPCODE_SCHEME_ARRAY = None
+
+
+def _unknown_opcode_names():
+    global _UNKNOWN_OPCODE_NAMES
+    if _UNKNOWN_OPCODE_NAMES is None:
+        names = List()
+        for _ in range(231):
+            names.append("UNKNOWN")
+        _UNKNOWN_OPCODE_NAMES = names
+    return _UNKNOWN_OPCODE_NAMES
+
+
+def _opcode_scheme_array():
+    global _OPCODE_SCHEME_ARRAY
+    if _OPCODE_SCHEME_ARRAY is None:
+        arr = np.full(256, 255, dtype=np.int32)
+        for opcode, scheme in OpcodeScheme.items():
+            arr[opcode] = scheme.value
+        _OPCODE_SCHEME_ARRAY = arr
+    return _OPCODE_SCHEME_ARRAY
 
 @njit(uint32(
     uint64[::1],  # reg
@@ -436,8 +461,10 @@ def invoke_native(
     skip_len = I64(initial_skip_len)
     inst_nr = U32(inst_start)
 
-    # Copy registers
-    reg = registers_in.copy()
+    # Copy registers into the reusable output buffer and use it as the local register file.
+    reg = registers_out
+    for i in range(len(registers_in)):
+        reg[i] = registers_in[i]
 
     timing_enabled = False
     start_time = 0.0    # Note: only used when timing_enabled == True to measure time per opcode
@@ -1567,26 +1594,26 @@ class PVMInterpreter:
     def __init__(self, program: PVMProgram, logger=None):
 
         self.name = program.name
-        self.reg:npt.NDArray[U64] = np.zeros(13, dtype=U64)
-        self.inst_nr:U32 = U32(0)
-        self.pc:U32 = U32(0)
-        self.opcode:int = 0
+        self.reg: npt.NDArray[U64] = np.zeros(13, dtype=U64)
+        self.inst_nr: U32 = U32(0)
+        self.pc: U32 = U32(0)
+        self.opcode: int = 0
         self.skip_len: int = 0
-        self.gas:I64 = I64(0)
-        self.code:npt.NDArray[U8] = np.array(1, dtype=U8)
+        self.gas: I64 = I64(0)
+        self.code: npt.NDArray[U8] = np.array(1, dtype=U8)
         self.code_size: U64 = U64(0)
         self.code_length: int = 0
         self.jump_table = []
         self.basic_block_starts_set = set()
 
         self.inst_bitmask: List[bool] = []
-        self.inst_pos: Dict[int,int] = {0: 0}
+        self.inst_pos: Dict[int, int] = {0: 0}
         self.inst_arg_len: List[int] = []
         self.basic_block_start_mask = np.array([], dtype=np.uint8)
 
-        self.mem:PVMMemory = None
-        self.status:int = ExitReason.resume.value
-        self.exit_value:int = None
+        self.mem: PVMMemory = None
+        self.status: int = ExitReason.resume.value
+        self.exit_value: int = None
 
         # Initialize memory operation lookups
         self._init_mem_ops_lookup()
@@ -1598,20 +1625,115 @@ class PVMInterpreter:
         self.mem_section_starts = np.array([], dtype=U32)
         self.mem_section_ends = np.array([], dtype=U32)
         self.mem_section_size = np.array([], dtype=U32)
+        self._linked_memory_signature = None
 
         self._mem_addr: int = -1
 
         self.pc = U32(0)
         self.gas = I64(0)
         self.name = program.name
-        original_code = np.array(program.code.code, dtype=U8)
-        self.code_length = len(original_code)
-        self.code = np.empty(self.code_length + 1, dtype=U8)
-        self.code[:self.code_length] = original_code
-        self.code[self.code_length] = U8(op_trap)
-        self.code_size: U64 = U64(len(self.code))
         self.mem = program.memory
-        self.jump_table = [x.value for x in program.code.jump_table]
+        code_cache_key = id(program.code)
+        cached_code = _CODE_METADATA_CACHE.get(code_cache_key)
+
+        if cached_code is None:
+            original_code = np.array(program.code.code, dtype=U8)
+            code_length = len(original_code)
+            code = np.empty(code_length + 1, dtype=U8)
+            code[:code_length] = original_code
+            code[code_length] = U8(op_trap)
+            jump_table = [x.value for x in program.code.jump_table]
+            inst_bitmask = program.code.opcode_bitmask
+            inst_pos = {0: 0}
+            inst_arg_len = []
+
+            inst_nr = 0
+            inst_bitmask_idx = 1
+            if len(inst_bitmask) == 1:
+                inst_arg_len.append(0)
+            else:
+                while inst_bitmask_idx < len(inst_bitmask):
+                    inst_args = 0
+                    is_opcode = False
+                    while not is_opcode:
+                        is_opcode = inst_bitmask[inst_bitmask_idx]
+                        if not is_opcode:
+                            inst_args += 1
+                        inst_bitmask_idx += 1
+                        if inst_bitmask_idx > len(inst_bitmask) - 1:
+                            is_opcode = True
+
+                    inst_arg_len.append(inst_args)
+                    inst_nr += 1
+                    if inst_bitmask_idx - 1 < len(inst_bitmask) and inst_bitmask[inst_bitmask_idx - 1]:
+                        inst_pos[inst_bitmask_idx - 1] = inst_nr
+
+            inst_pos[code_length] = len(inst_arg_len)
+            inst_arg_len.append(0)
+            basic_block_starts_set = detect_basic_blocks(
+                code=bytes(code),
+                code_length=code_length,
+                inst_pos=inst_pos,
+                inst_arg_len=inst_arg_len,
+            )
+
+            inst_pos_keys = np.array(list(inst_pos.keys()), dtype=np.int32)
+            inst_pos_vals = np.array(list(inst_pos.values()), dtype=np.int32)
+            inst_arg_len_array = np.array(inst_arg_len, dtype=np.int32)
+            opcode_scheme_array = _opcode_scheme_array()
+            if inst_pos_keys.size > 0:
+                max_pc = int(max(inst_pos_keys))
+                size = max_pc + 1
+            else:
+                size = int(len(code))
+            pc_to_inst_index = np.full(size, -1, dtype=np.int32)
+            for k, v in zip(inst_pos_keys, inst_pos_vals):
+                idx = int(k)
+                if 0 <= idx < size:
+                    pc_to_inst_index[idx] = int(v)
+            basic_block_start_mask = np.zeros(size, dtype=np.uint8)
+            for start in basic_block_starts_set:
+                idx = int(start)
+                if 0 <= idx < size:
+                    basic_block_start_mask[idx] = np.uint8(1)
+
+            cached_code = {
+                "code_object": program.code,
+                "code": code,
+                "code_length": code_length,
+                "code_size": U64(len(code)),
+                "jump_table": jump_table,
+                "jump_table_array": np.array(jump_table, dtype=np.int32),
+                "inst_bitmask": inst_bitmask,
+                "inst_pos": inst_pos,
+                "inst_arg_len": inst_arg_len,
+                "basic_block_starts_set": basic_block_starts_set,
+                "inst_pos_keys": inst_pos_keys,
+                "inst_pos_vals": inst_pos_vals,
+                "inst_arg_len_array": inst_arg_len_array,
+                "opcode_scheme_array": opcode_scheme_array,
+                "pc_to_inst_index": pc_to_inst_index,
+                "basic_block_start_mask": basic_block_start_mask,
+            }
+            if len(_CODE_METADATA_CACHE) >= _CODE_METADATA_CACHE_LIMIT:
+                _CODE_METADATA_CACHE.pop(next(iter(_CODE_METADATA_CACHE)))
+            _CODE_METADATA_CACHE[code_cache_key] = cached_code
+
+        self.code = cached_code["code"]
+        self.code_length = cached_code["code_length"]
+        self.code_size = cached_code["code_size"]
+        self.jump_table = cached_code["jump_table"]
+        self.inst_bitmask = cached_code["inst_bitmask"]
+        self.inst_pos = cached_code["inst_pos"]
+        self.inst_arg_len = cached_code["inst_arg_len"]
+        self.basic_block_starts_set = cached_code["basic_block_starts_set"]
+        self.inst_pos_keys = cached_code["inst_pos_keys"]
+        self.inst_pos_vals = cached_code["inst_pos_vals"]
+        self.inst_arg_len_array = cached_code["inst_arg_len_array"]
+        self.opcode_scheme_array = cached_code["opcode_scheme_array"]
+        self.pc_to_inst_index = cached_code["pc_to_inst_index"]
+        self.basic_block_start_mask = cached_code["basic_block_start_mask"]
+        self.jump_table_array = cached_code["jump_table_array"]
 
         # Initialize memory sections from the PVMMemory object (just reference where possible)
         self._link_memory(program.memory)
@@ -1621,27 +1743,14 @@ class PVMInterpreter:
 
         self.status = ExitReason.resume.value
 
-        self.inst_bitmask: List[bool] = program.code.opcode_bitmask
-        self.inst_pos: Dict[int,int] = {0: 0}
-        self.inst_arg_len: List[int] = []
-        self.create_instruction_lookup()
-        self.inst_pos[self.code_length] = len(self.inst_arg_len)
-        self.inst_arg_len.append(0)
-        self.basic_block_starts_set = detect_basic_blocks(
-            code=bytes(self.code),
-            code_length=self.code_length,
-            inst_pos=self.inst_pos,
-            inst_arg_len=self.inst_arg_len,
-        )
-
-        # Create typed List of opcode names (max opcode value is 230)
-        # Initialize with "UNKNOWN" for all opcodes
-        self.opcode_names = List()
-        for i in range(231):
-            self.opcode_names.append("UNKNOWN")
+        self.opcode_names = _unknown_opcode_names()
 
         self.log = None
         if logger:
+            # Create a mutable per-instance typed list only for explicit PVM logging.
+            self.opcode_names = List()
+            for _ in range(231):
+                self.opcode_names.append("UNKNOWN")
             self.program = program
             from pyjamaz.pvm.debug_logger import PVMDebugLog
             logger_cls = PVMDebugLog
@@ -1655,23 +1764,25 @@ class PVMInterpreter:
                     self.opcode_names[opcode_val] = str(opcode_name)
 
         # Note: native (jit) caches, which we sync this back to the python side
-        self._prepare_jit_data()
         self._jit_mem_cache_dirty = True
         self._jit_section_starts_cache = None
         self._jit_section_ends_cache = None
         self._jit_section_arrays_cache = None
         self._jit_section_access_cache = None
         self._jit_acl_bitmaps_cache = None
-
-        self.jump_table_array = np.array(self.jump_table, dtype=np.int32)
+        self._registers_out = np.zeros(13, dtype=np.uint64)
+        self._state_out = np.zeros(7, dtype=np.int64)
+        self._heap_grew_out = np.zeros(1, dtype=np.int64)
 
         # Prepare heap info (for sbrk)
         current_heap_end = self.mem_section_ends[1] if len(self.mem_section_ends) > 1 else 0
-        self.heap_info = np.array([
-            current_heap_end,  # current heap end
-            self.next_heap_section_start(),
-            MEM_WRITABLE  # writable permission value
-        ], dtype=np.uint64)
+        self.heap_info = np.array(
+            [
+                current_heap_end,  # current heap end
+                self.next_heap_section_start(),
+                MEM_WRITABLE  # writable permission value
+            ], dtype=np.uint64
+        )
 
 
     def get_heap_capacity(self, memory: PVMMemory, heap_section: MemorySection) -> int:
