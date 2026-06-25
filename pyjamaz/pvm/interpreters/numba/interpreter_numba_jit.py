@@ -68,28 +68,6 @@ from pyjamaz.pvm.basic_block import detect_basic_blocks
 _CODE_METADATA_CACHE: dict[int, dict] = {}
 _CODE_METADATA_CACHE_LIMIT = 64
 
-_UNKNOWN_OPCODE_NAMES = None
-_OPCODE_SCHEME_ARRAY = None
-
-
-def _unknown_opcode_names():
-    global _UNKNOWN_OPCODE_NAMES
-    if _UNKNOWN_OPCODE_NAMES is None:
-        names = List()
-        for _ in range(231):
-            names.append("UNKNOWN")
-        _UNKNOWN_OPCODE_NAMES = names
-    return _UNKNOWN_OPCODE_NAMES
-
-
-def _opcode_scheme_array():
-    global _OPCODE_SCHEME_ARRAY
-    if _OPCODE_SCHEME_ARRAY is None:
-        arr = np.full(256, 255, dtype=np.int32)
-        for opcode, scheme in OpcodeScheme.items():
-            arr[opcode] = scheme.value
-        _OPCODE_SCHEME_ARRAY = arr
-    return _OPCODE_SCHEME_ARRAY
 
 @njit(uint32(
     uint64[::1],  # reg
@@ -1644,6 +1622,8 @@ class PVMInterpreter:
             code[code_length] = U8(op_trap)
             jump_table = [x.value for x in program.code.jump_table]
             inst_bitmask = program.code.opcode_bitmask
+
+            #Create lookups for byte_pos -> instruction_nr and instruction_nr->instruction_length
             inst_pos = {0: 0}
             inst_arg_len = []
 
@@ -1652,6 +1632,7 @@ class PVMInterpreter:
             if len(inst_bitmask) == 1:
                 inst_arg_len.append(0)
             else:
+                # Parse instruction bitmask and create a opcode offset and instruction length lookup
                 while inst_bitmask_idx < len(inst_bitmask):
                     inst_args = 0
                     is_opcode = False
@@ -1663,8 +1644,10 @@ class PVMInterpreter:
                         if inst_bitmask_idx > len(inst_bitmask) - 1:
                             is_opcode = True
 
+                    # GP-0.7.2-eq:A.20 (l)
                     inst_arg_len.append(inst_args)
                     inst_nr += 1
+                    # Note: only add to inst_pos if this position has an opcode in the bitmask
                     if inst_bitmask_idx - 1 < len(inst_bitmask) and inst_bitmask[inst_bitmask_idx - 1]:
                         inst_pos[inst_bitmask_idx - 1] = inst_nr
 
@@ -1680,7 +1663,11 @@ class PVMInterpreter:
             inst_pos_keys = np.array(list(inst_pos.keys()), dtype=np.int32)
             inst_pos_vals = np.array(list(inst_pos.values()), dtype=np.int32)
             inst_arg_len_array = np.array(inst_arg_len, dtype=np.int32)
-            opcode_scheme_array = _opcode_scheme_array()
+            #opcode_scheme_array = _opcode_scheme_array()
+            self.opcode_scheme_array = np.full(256, 255, dtype=np.int32)
+            for opcode, scheme in OpcodeScheme.items():
+                self.opcode_scheme_array[opcode] = scheme.value
+
             if inst_pos_keys.size > 0:
                 max_pc = int(max(inst_pos_keys))
                 size = max_pc + 1
@@ -1711,7 +1698,7 @@ class PVMInterpreter:
                 "inst_pos_keys": inst_pos_keys,
                 "inst_pos_vals": inst_pos_vals,
                 "inst_arg_len_array": inst_arg_len_array,
-                "opcode_scheme_array": opcode_scheme_array,
+                "opcode_scheme_array": self.opcode_scheme_array,
                 "pc_to_inst_index": pc_to_inst_index,
                 "basic_block_start_mask": basic_block_start_mask,
             }
@@ -1743,14 +1730,14 @@ class PVMInterpreter:
 
         self.status = ExitReason.resume.value
 
-        self.opcode_names = _unknown_opcode_names()
+        # Create typed List of opcode names (max opcode value is 230)
+        # Initialize with "UNKNOWN" for all opcodes
+        self.opcode_names = List()
+        for i in range(231):
+            self.opcode_names.append("UNKNOWN")
 
         self.log = None
         if logger:
-            # Create a mutable per-instance typed list only for explicit PVM logging.
-            self.opcode_names = List()
-            for _ in range(231):
-                self.opcode_names.append("UNKNOWN")
             self.program = program
             from pyjamaz.pvm.debug_logger import PVMDebugLog
             logger_cls = PVMDebugLog
@@ -1962,47 +1949,6 @@ class PVMInterpreter:
         self._jit_section_arrays_cache = None
         self._jit_section_access_cache = None
         self._jit_acl_bitmaps_cache = None
-
-
-    def create_instruction_lookup(self):
-        """
-        Create lookups for byte_pos -> instruction_nr and instruction_nr->instruction_length
-        """
-        self.inst_pos = {0: 0}
-        self.inst_arg_len = []
-
-        inst_nr = 0
-        inst_bitmask = self.inst_bitmask
-        inst_bitmask_idx = 1
-
-        # Note: In the exceptional case we only have 1 instruction (trap or fallthrough), we add it manually and be done
-        if len(inst_bitmask) == 1:
-            self.inst_arg_len.append(0)
-            return
-
-        # Parse instruction bitmask and create a opcode offset and instruction length lookup
-        while inst_bitmask_idx < len(inst_bitmask):
-            inst_args = 0
-
-            is_opcode = False
-
-            while not is_opcode:
-
-                is_opcode = inst_bitmask[inst_bitmask_idx]
-                if not is_opcode:
-                    inst_args += 1
-
-                inst_bitmask_idx += 1
-
-                if inst_bitmask_idx > len(inst_bitmask) - 1:
-                    is_opcode = True
-
-            # GP-0.7.2-eq:A.20 (l)
-            self.inst_arg_len.append(inst_args)
-            inst_nr += 1
-            # Note: only add to inst_pos if this position has an opcode in the bitmask
-            if inst_bitmask_idx - 1 < len(inst_bitmask) and inst_bitmask[inst_bitmask_idx - 1]:
-                self.inst_pos[inst_bitmask_idx - 1] = inst_nr
 
 
     def _prepare_jit_data(self):
