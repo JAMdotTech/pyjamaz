@@ -1,6 +1,7 @@
 import logging
 
 from abc import ABC, abstractmethod
+from functools import lru_cache
 from math import ceil
 from dataclasses import dataclass, field
 from typing import List, Union, Type, T, Optional, Sequence
@@ -32,6 +33,7 @@ _ADDR_MASK = ADDR_MOD - 1
 _MAX_PAGE_IDX = (ADDR_MOD // PAGE_SIZE) - 1
 _PAGE_CACHE_LIMIT = 16
 _ZERO_PAGE = bytes(PAGE_SIZE)
+_PVM_CODE_CACHE_LIMIT = 64
 
 
 @dataclass
@@ -196,6 +198,12 @@ class PVMCode(Serializable):
             opcode_bitmask=opcode_bitmask,
         )
 
+    @classmethod
+    def from_bytes_cached(cls, data) -> "PVMCode":
+        if not isinstance(data, bytes):
+            data = bytes(data)
+        return _pvm_code_from_bytes_cached(data)
+
     def to_codec_type(self) -> JamCodecType:
         codec_def = self.to_codec_def()
         # Change definition according to data
@@ -216,6 +224,11 @@ class PVMCode(Serializable):
 
     def serialize(self) -> List[int]:
         return [b for b in self.to_jam_bytes().to_bytes()]
+
+
+@lru_cache(maxsize=_PVM_CODE_CACHE_LIMIT)
+def _pvm_code_from_bytes_cached(data: bytes) -> PVMCode:
+    return PVMCode.from_jam_bytes(JamBytes(data))
 
 
 @dataclass
@@ -338,7 +351,7 @@ class PVMProgram(Serializable):
             ) <= 2**32:
 
                 instance = cls(
-                    code=PVMCode.from_jam_bytes(JamBytes(pvm_code)),
+                    code=PVMCode.from_bytes_cached(pvm_code),
                     registers=cls.init_registers(argument_contents),
                     memory=cls.init_memory(pvm_rom_contents, pvm_heap_contents, argument_contents, heap_mem_pages, stack_mem_size),
                     name=name
