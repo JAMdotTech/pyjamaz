@@ -435,17 +435,7 @@ class Safrole(StateComponent):
             if list_has_duplicates(extrinsic_tickets):
                 raise StateTransitionError(SafroleErrorCode.duplicate_ticket)
 
-            if epoch_change:
-                # TODO: GP ref
-                # tickets in the first block of a new epoch should be signed against the next validator ring
-                ticket_validators = self.check_offenders(
-                    validators=deepcopy(pre_state_validator_queue.validators),
-                    offenders=post_state_disputes.offenders
-                )
-            else:
-                ticket_validators = self.post_state_safrole.validators
-
-            ring_public_keys = [v.bandersnatch for v in ticket_validators]
+            ring_public_keys = [v.bandersnatch for v in self.post_state_safrole.validators]
 
             ring_context = RingContext(self.ring_data, ring_public_keys)
 
